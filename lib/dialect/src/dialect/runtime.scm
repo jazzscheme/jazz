@@ -108,14 +108,14 @@
 
 (define (jazz:register-declaration dialect-name binding)
   (let ((dialect (jazz:get-dialect dialect-name))
-        (binding-name (%%get-lexical-binding-name binding)))
-    (%%table-set! (%%get-dialect-declarations dialect) binding-name binding)))
+        (binding-name (jazz:get-lexical-binding-name binding)))
+    (%%table-set! (jazz:get-dialect-declarations dialect) binding-name binding)))
 
 
 (define (jazz:register-binding dialect-name binding)
   (let ((dialect (jazz:get-dialect dialect-name))
-        (binding-name (%%get-lexical-binding-name binding)))
-    (%%table-set! (%%get-dialect-bindings dialect) binding-name binding)))
+        (binding-name (jazz:get-lexical-binding-name binding)))
+    (%%table-set! (jazz:get-dialect-bindings dialect) binding-name binding)))
 
 
 (jazz:define-macro (jazz:define-walker-declaration name dialect-name declaration-method binding-method)
@@ -243,7 +243,7 @@
 
 (jazz:define-method (jazz:walk-binding-validate-assignment (jazz:Walk-Binding binding) walker resume source-declaration symbol-src)
   (%%when (%%not (jazz:walk-binding-assignable? binding))
-    (jazz:walk-error walker resume source-declaration symbol-src "Illegal assignment to: {s}" (%%get-lexical-binding-name binding))))
+    (jazz:walk-error walker resume source-declaration symbol-src "Illegal assignment to: {s}" (jazz:get-lexical-binding-name binding))))
 
 
 (jazz:define-method (jazz:walk-binding-assignable? (jazz:Walk-Binding binding))
@@ -275,7 +275,7 @@
 
 
 (jazz:define-method (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments source-declaration environment backend)
-  (let ((type (%%get-lexical-binding-type binding))
+  (let ((type (jazz:get-lexical-binding-type binding))
         (operator (jazz:emit-binding-reference binding source-declaration environment backend)))
     (jazz:new-code
       (jazz:emit 'walk-binding-binding-call backend binding binding-src operator arguments)
@@ -293,7 +293,7 @@
 
 (define (jazz:call-return-type operator-type)
   (if (%%is? operator-type jazz:Function-Type)
-      (%%get-function-type-result operator-type)
+      (jazz:get-function-type-result operator-type)
     jazz:Any))
 
 
@@ -315,24 +315,20 @@
 (jazz:define-method (jazz:print-object (jazz:Lexical-Binding binding) output detail)
   (jazz:format output "#<{a} {a} #{a}>"
                (%%get-category-identifier (%%get-object-class binding))
-               (%%get-lexical-binding-name binding)
+               (jazz:get-lexical-binding-name binding)
                (jazz:object->serial binding)))
 
 
 (jazz:define-method (jazz:walk-binding-lookup (jazz:Lexical-Binding binding) symbol source-declaration)
-  (if (%%eq? (%%get-lexical-binding-name binding) symbol)
+  (if (%%eq? (jazz:get-lexical-binding-name binding) symbol)
       binding
     #f))
 
 
-(define (jazz:get-lexical-binding-name binding)
-  (%%get-lexical-binding-name binding))
-
-
 (define (jazz:get-lexical-binding-hits binding)
-  (or (%%get-lexical-binding-hits binding)
+  (or (jazz:get-lexical-binding-hits binding)
       (let ((table (%%make-table test: eq?)))
-        (%%set-lexical-binding-hits binding table)
+        (jazz:set-lexical-binding-hits binding table)
         table)))
 
 
@@ -349,16 +345,16 @@
 
 
 (define (jazz:setup-declaration new-declaration)
-  (let ((parent (%%get-declaration-parent new-declaration))
-        (name (%%get-lexical-binding-name new-declaration)))
-    (%%set-declaration-locator new-declaration (if (%%not parent) name (jazz:compose-declaration-locator new-declaration)))
-    (%%set-declaration-toplevel new-declaration (if (%%not parent) new-declaration (%%get-declaration-toplevel parent)))))
+  (let ((parent (jazz:get-declaration-parent new-declaration))
+        (name (jazz:get-lexical-binding-name new-declaration)))
+    (jazz:set-declaration-locator new-declaration (if (%%not parent) name (jazz:compose-declaration-locator new-declaration)))
+    (jazz:set-declaration-toplevel new-declaration (if (%%not parent) new-declaration (jazz:get-declaration-toplevel parent)))))
 
 
 (define (jazz:get-declaration-path declaration)
   (define (iter declaration)
-    (let ((name (%%get-lexical-binding-name declaration))
-          (parent (%%get-declaration-parent declaration)))
+    (let ((name (jazz:get-lexical-binding-name declaration))
+          (parent (jazz:get-declaration-parent declaration)))
       (if (%%not parent)
           (%%list name)
         (%%cons name (iter parent)))))
@@ -366,16 +362,12 @@
   (jazz:reverse! (iter declaration)))
 
 
-(define (jazz:get-declaration-toplevel declaration)
-  (%%get-declaration-toplevel declaration))
-
-
 (jazz:define-method (jazz:walk-binding-lookup (jazz:Declaration binding) symbol source-declaration)
   (jazz:lookup-declaration binding symbol jazz:private-access source-declaration))
 
 
 (jazz:define-method (jazz:walk-binding-validate-call (jazz:Declaration declaration) walker resume source-declaration operator arguments form-src)
-  (jazz:walk-error walker resume source-declaration form-src "{a} is not callable" (%%get-lexical-binding-name declaration)))
+  (jazz:walk-error walker resume source-declaration form-src "{a} is not callable" (jazz:get-lexical-binding-name declaration)))
 
 
 (jazz:define-virtual (jazz:compose-declaration-locator (jazz:Declaration declaration)))
@@ -387,9 +379,9 @@
 
 
 (jazz:define-method (jazz:compose-declaration-locator (jazz:Declaration declaration))
-  (let ((parent (%%get-declaration-parent declaration))
-        (name (%%get-lexical-binding-name declaration)))
-    (%%compose-reference (%%get-declaration-locator parent) name)))
+  (let ((parent (jazz:get-declaration-parent declaration))
+        (name (jazz:get-lexical-binding-name declaration)))
+    (%%compose-reference (jazz:get-declaration-locator parent) name)))
 
 
 (jazz:define-method (jazz:lookup-declaration (jazz:Declaration declaration) symbol access source-declaration)
@@ -445,19 +437,19 @@
           (let ((frame (%%car declaration-environment))) ;; unique frame for now
             (let ((binding (jazz:walk-binding-lookup frame first #f)))
               (if binding
-                  (let ((walk (%%get-declaration-form-walk binding)))
+                  (let ((walk (jazz:get-declaration-form-walk binding)))
                     (walk walker resume declaration environment form-src))))))))
   
   (walk forms))
 
 
 (define (jazz:add-declaration-child walker resume namespace-declaration child)
-  (let ((name (%%get-lexical-binding-name child)))
+  (let ((name (jazz:get-lexical-binding-name child)))
     ;; not 100% sure about this change
     ;; tests to try and implement redefine error
     #;
     (let ((decl (jazz:find-declaration-child namespace-declaration name)))
-      (%%when (eq? (%%get-declaration-locator child) 'jazz.test.advise.abc)
+      (%%when (eq? (jazz:get-declaration-locator child) 'jazz.test.advise.abc)
         (continuation-capture
           (lambda (cont)
             (jazz:debug jazz:Load-Stack)
@@ -467,13 +459,13 @@
     #;
     (let ((decl (jazz:find-declaration-child namespace-declaration name)))
       (%%when decl
-        (jazz:debug (%%get-declaration-locator decl))))
+        (jazz:debug (jazz:get-declaration-locator decl))))
     (%%when (%%not (jazz:find-declaration-child namespace-declaration name))
-      (jazz:enqueue (%%get-namespace-declaration-children namespace-declaration) child))
-    (%%table-set! (%%get-access-lookup namespace-declaration jazz:private-access) name child)
+      (jazz:enqueue (jazz:get-namespace-declaration-children namespace-declaration) child))
+    (%%table-set! (jazz:get-access-lookup namespace-declaration jazz:private-access) name child)
     ;; for now everything not private is considered public
-    (%%when (%%neq? (%%get-declaration-access child) 'private)
-      (%%table-set! (%%get-access-lookup namespace-declaration jazz:public-access) name child))
+    (%%when (%%neq? (jazz:get-declaration-access child) 'private)
+      (%%table-set! (jazz:get-access-lookup namespace-declaration jazz:public-access) name child))
     child))
 
 
@@ -484,17 +476,17 @@
 
 
 (define (jazz:find-declaration namespace-declaration name)
-  (%%table-ref (%%get-access-lookup namespace-declaration jazz:private-access) name #f))
+  (%%table-ref (jazz:get-access-lookup namespace-declaration jazz:private-access) name #f))
 
 
 (define (jazz:find-public-declaration namespace-declaration name)
-  (%%table-ref (%%get-access-lookup namespace-declaration jazz:public-access) name #f))
+  (%%table-ref (jazz:get-access-lookup namespace-declaration jazz:public-access) name #f))
 
 
 (define (jazz:find-declaration-child namespace-declaration name)
   (jazz:find-if (lambda (decl)
-                  (%%eq? (%%get-lexical-binding-name decl) name))
-                (jazz:queue-list (%%get-namespace-declaration-children namespace-declaration))))
+                  (%%eq? (jazz:get-lexical-binding-name decl) name))
+                (jazz:queue-list (jazz:get-namespace-declaration-children namespace-declaration))))
 
 
 (define (jazz:remove-declaration-child namespace-declaration name)
@@ -529,10 +521,10 @@
 
 
 (jazz:define-method (jazz:resolve-reference (jazz:Declaration-Reference declaration-reference) module-declaration)
-  (or (%%get-declaration-reference-declaration declaration-reference)
-      (receive (name symbol) (jazz:parse-exported-symbol module-declaration (%%get-declaration-reference-name declaration-reference))
+  (or (jazz:get-declaration-reference-declaration declaration-reference)
+      (receive (name symbol) (jazz:parse-exported-symbol module-declaration (jazz:get-declaration-reference-name declaration-reference))
         (let ((declaration (jazz:new-export-declaration name #f 'public 'uptodate '() #f symbol)))
-          (%%set-declaration-reference-declaration declaration-reference declaration)
+          (jazz:set-declaration-reference-declaration declaration-reference declaration)
           declaration))))
 
 
@@ -549,9 +541,9 @@
 
 
 (jazz:define-method (jazz:resolve-reference (jazz:Module-Reference declaration-reference) module-declaration)
-  (or (%%get-declaration-reference-declaration declaration-reference)
-      (let ((declaration (jazz:outline-module (%%get-declaration-reference-name declaration-reference))))
-        (%%set-declaration-reference-declaration declaration-reference declaration)
+  (or (jazz:get-declaration-reference-declaration declaration-reference)
+      (let ((declaration (jazz:outline-module (jazz:get-declaration-reference-name declaration-reference))))
+        (jazz:set-declaration-reference-declaration declaration-reference declaration)
         declaration)))
 
 
@@ -568,11 +560,11 @@
 
 
 (jazz:define-method (jazz:resolve-reference (jazz:Export-Reference declaration-reference) module-declaration)
-  (or (%%get-declaration-reference-declaration declaration-reference)
-      (receive (name symbol) (jazz:parse-exported-symbol module-declaration (%%get-declaration-reference-name declaration-reference))
-        (let ((locator (jazz:compose-reference (%%get-lexical-binding-name module-declaration) name)))
+  (or (jazz:get-declaration-reference-declaration declaration-reference)
+      (receive (name symbol) (jazz:parse-exported-symbol module-declaration (jazz:get-declaration-reference-name declaration-reference))
+        (let ((locator (jazz:compose-reference (jazz:get-lexical-binding-name module-declaration) name)))
           (let ((declaration (jazz:new-export-declaration name #f 'public 'uptodate '() module-declaration locator)))
-            (%%set-declaration-reference-declaration declaration-reference declaration)
+            (jazz:set-declaration-reference-declaration declaration-reference declaration)
             declaration)))))
 
 
@@ -598,12 +590,12 @@
 
 
 (define (jazz:resolve-autoload-reference declaration-reference module-declaration exported-module-reference)
-  (or (%%get-declaration-reference-declaration declaration-reference)
-      (let* ((name (%%get-declaration-reference-name declaration-reference))
+  (or (jazz:get-declaration-reference-declaration declaration-reference)
+      (let* ((name (jazz:get-declaration-reference-name declaration-reference))
              (type jazz:Any)
              (declaration (jazz:new-autoload-declaration name type #f module-declaration exported-module-reference)))
         (%%assert declaration
-          (%%set-declaration-reference-declaration declaration-reference declaration)
+          (jazz:set-declaration-reference-declaration declaration-reference declaration)
           declaration))))
 
 
@@ -657,11 +649,11 @@
   (define (add-to-hits declaration)
     (%%when (and declaration source-declaration (jazz:analysis-mode?))
       (let ((hits-table (jazz:get-lexical-binding-hits declaration)))
-        (%%table-set! hits-table (%%get-declaration-locator source-declaration) source-declaration))
+        (%%table-set! hits-table (jazz:get-declaration-locator source-declaration) source-declaration))
       (%%when (%%is? declaration jazz:Autoload-Declaration)
-        (%%set-analysis-data-autoload-reference (jazz:get-analysis-data (%%get-declaration-locator declaration)) declaration))))
+        (jazz:set-analysis-data-autoload-reference (jazz:get-analysis-data (jazz:get-declaration-locator declaration)) declaration))))
   
-  (let ((found (%%table-ref (%%get-access-lookup namespace-declaration access) symbol #f)))
+  (let ((found (%%table-ref (jazz:get-access-lookup namespace-declaration access) symbol #f)))
     (jazz:add-to-module-references namespace-declaration found)
     (add-to-hits found)
     found))
@@ -671,18 +663,18 @@
   (up expression
       seed
       (jazz:tree-fold-list
-        (%%get-namespace-declaration-body expression) down up here (down expression seed environment) environment)
+        (jazz:get-namespace-declaration-body expression) down up here (down expression seed environment) environment)
       environment))
 
 
 (define (jazz:get-private-lookup namespace-declaration)
-  (%%get-access-lookup namespace-declaration jazz:private-access))
+  (jazz:get-access-lookup namespace-declaration jazz:private-access))
 
 (define (jazz:get-public-lookup namespace-declaration)
-  (%%get-access-lookup namespace-declaration jazz:public-access))
+  (jazz:get-access-lookup namespace-declaration jazz:public-access))
 
 (define (jazz:get-protected-lookup namespace-declaration)
-  (%%get-access-lookup namespace-declaration jazz:protected-access))
+  (jazz:get-access-lookup namespace-declaration jazz:protected-access))
 
 
 ;;;
@@ -704,7 +696,7 @@
     (lambda (unit-name feature-requirement phase)
       (%%when (%%eq? phase 'syntax)
         (jazz:load-unit unit-name))))
-  (%%set-module-declaration-requires module-declaration (%%append (%%get-module-declaration-requires module-declaration) (%%list require))))
+  (jazz:set-module-declaration-requires module-declaration (%%append (jazz:get-module-declaration-requires module-declaration) (%%list require))))
 
 
 (define (jazz:add-module-import module-declaration module-invoice register?)
@@ -712,67 +704,67 @@
     ;; todo
     #f)
   
-  (%%when (%%eq? (%%get-module-invoice-phase module-invoice) 'syntax)
-    (let ((module-declaration (%%get-module-invoice-module module-invoice)))
-      (jazz:load-unit (%%get-lexical-binding-name module-declaration))))
+  (%%when (%%eq? (jazz:get-module-invoice-phase module-invoice) 'syntax)
+    (let ((module-declaration (jazz:get-module-invoice-module module-invoice)))
+      (jazz:load-unit (jazz:get-lexical-binding-name module-declaration))))
   (if register?
-      (let ((imports (%%get-module-declaration-imports module-declaration)))
+      (let ((imports (jazz:get-module-declaration-imports module-declaration)))
         (let ((actual (jazz:find-module-invoice imports module-invoice)))
           (if actual
               (merge-invoice actual module-invoice)
-            (%%set-module-declaration-imports module-declaration (%%append imports (%%list module-invoice)))))))
-  (let ((private (%%get-access-lookup module-declaration jazz:private-access))
-        (only (%%get-module-invoice-only module-invoice)))
+            (jazz:set-module-declaration-imports module-declaration (%%append imports (%%list module-invoice)))))))
+  (let ((private (jazz:get-access-lookup module-declaration jazz:private-access))
+        (only (jazz:get-module-invoice-only module-invoice)))
     (if only
         ;; todo
         #f
-      (let ((imported-module-declaration (%%get-module-invoice-module module-invoice)))
-        (let ((imported (%%get-access-lookup imported-module-declaration jazz:public-access)))
+      (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice)))
+        (let ((imported (jazz:get-access-lookup imported-module-declaration jazz:public-access)))
           (jazz:table-merge-reporting-conflicts! module-declaration "imports" private imported))))))
 
 
 (define (jazz:add-module-export module-declaration module-invoice)
   (define (merge-invoice actual new)
-    (let ((actual-autoload (%%get-export-invoice-autoload actual))
-          (new-autoload (%%get-export-invoice-autoload new)))
+    (let ((actual-autoload (jazz:get-export-invoice-autoload actual))
+          (new-autoload (jazz:get-export-invoice-autoload new)))
       (%%when new-autoload
-        (%%set-export-invoice-autoload actual (if actual-autoload (%%append actual-autoload new-autoload) new-autoload)))))
+        (jazz:set-export-invoice-autoload actual (if actual-autoload (%%append actual-autoload new-autoload) new-autoload)))))
   
   (define (add-to-module-references declaration)
     (%%when (and declaration
-                 (%%neq? module-declaration (%%get-declaration-toplevel declaration)))
-      (let ((references-table (%%get-module-declaration-walker-references module-declaration)))
-        (%%table-set! references-table (%%get-declaration-locator declaration) declaration))))
+                 (%%neq? module-declaration (jazz:get-declaration-toplevel declaration)))
+      (let ((references-table (jazz:get-module-declaration-walker-references module-declaration)))
+        (%%table-set! references-table (jazz:get-declaration-locator declaration) declaration))))
   
-  (%%when (%%eq? (%%get-module-invoice-phase module-invoice) 'syntax)
-    (let ((module-declaration (jazz:resolve-reference (%%get-module-invoice-module module-invoice) module-declaration)))
-      (jazz:load-unit (%%get-lexical-binding-name module-declaration))))
-  (let ((exports (%%get-module-declaration-exports module-declaration)))
+  (%%when (%%eq? (jazz:get-module-invoice-phase module-invoice) 'syntax)
+    (let ((module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration)))
+      (jazz:load-unit (jazz:get-lexical-binding-name module-declaration))))
+  (let ((exports (jazz:get-module-declaration-exports module-declaration)))
     (let ((actual (jazz:find-module-invoice exports module-invoice)))
       (if actual
           (merge-invoice actual module-invoice)
-        (%%set-module-declaration-exports module-declaration (%%append exports (%%list module-invoice))))))
-  (let ((public (%%get-access-lookup module-declaration jazz:public-access))
-        (only (%%get-module-invoice-only module-invoice))
-        (autoload (%%get-export-invoice-autoload module-invoice)))
+        (jazz:set-module-declaration-exports module-declaration (%%append exports (%%list module-invoice))))))
+  (let ((public (jazz:get-access-lookup module-declaration jazz:public-access))
+        (only (jazz:get-module-invoice-only module-invoice))
+        (autoload (jazz:get-export-invoice-autoload module-invoice)))
     (cond (only
            (for-each (lambda (declaration-reference)
-                       (let ((name (jazz:reference-name (%%get-declaration-reference-name declaration-reference)))
+                       (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
                              (declaration (jazz:resolve-reference declaration-reference module-declaration)))
                          (%%table-set! public name declaration)
                          (add-to-module-references declaration)))
                      only))
           (autoload
-           (let ((exported-module-reference (%%get-module-invoice-module module-invoice)))
+           (let ((exported-module-reference (jazz:get-module-invoice-module module-invoice)))
              (for-each (lambda (declaration-reference)
-                         (let ((name (jazz:reference-name (%%get-declaration-reference-name declaration-reference)))
+                         (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
                                (declaration (jazz:resolve-autoload-reference declaration-reference module-declaration exported-module-reference)))
                            (%%table-set! public name declaration)
                            (add-to-module-references declaration)))
                        autoload)))
           (else
-           (let* ((exported-module-declaration (jazz:resolve-reference (%%get-module-invoice-module module-invoice) module-declaration))
-                  (exported-table (%%get-access-lookup exported-module-declaration jazz:public-access)))
+           (let* ((exported-module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration))
+                  (exported-table (jazz:get-access-lookup exported-module-declaration jazz:public-access)))
              (jazz:table-merge-reporting-conflicts! module-declaration "exports" public exported-table)
              (table-for-each (lambda (key declaration)
                                (add-to-module-references declaration))
@@ -782,11 +774,11 @@
 (define (jazz:table-merge-reporting-conflicts! module-declaration suffix table add)
   (define (effective-declaration-locator decl)
     (cond ((%%is? decl jazz:Export-Declaration)
-           (%%get-export-declaration-symbol decl))
+           (jazz:get-export-declaration-symbol decl))
           ((%%is? decl jazz:Autoload-Declaration)
            (jazz:autoload-declaration-locator-heuristic decl))
           (else
-           (%%get-declaration-locator decl))))
+           (jazz:get-declaration-locator decl))))
   
   (define (find-actual-conflicts)
     (let ((lst '()))
@@ -808,7 +800,7 @@
         ;; different modules. Maybe we should also do an error in that case...
         (%%when (%%not (%%null? conflicts))
           (jazz:error "Import conflicts detected in {a} {a}: {s}"
-                      (%%get-lexical-binding-name module-declaration)
+                      (jazz:get-lexical-binding-name module-declaration)
                       suffix
                       conflicts))))))
 
@@ -845,20 +837,20 @@
                (composite-identifier '()))
          (if (%%eq? root-declaration declaration)
              composite-identifier
-           (iter (%%get-declaration-parent declaration) (%%cons (%%get-lexical-binding-name declaration) composite-identifier)))))
+           (iter (jazz:get-declaration-parent declaration) (%%cons (jazz:get-lexical-binding-name declaration) composite-identifier)))))
   
   (let ((partition (%%make-table test: eq?)))
-    (jazz:iterate-table (%%get-module-declaration-walker-references module-declaration)
+    (jazz:iterate-table (jazz:get-module-declaration-walker-references module-declaration)
       (lambda (locator declaration)
         (let ((resolved-declaration (jazz:resolve-binding declaration)))
-          (let ((module (%%get-declaration-toplevel resolved-declaration)))
+          (let ((module (jazz:get-declaration-toplevel resolved-declaration)))
             (%%table-set! partition module
               (merge-sorted (compose-name module resolved-declaration) (%%table-ref partition module '())))))))
     (let iter ((in (%%table->list partition))
                (out '()))
          (if (%%null? in)
              out
-           (let ((module-locator (%%get-declaration-locator (%%caar in)))
+           (let ((module-locator (jazz:get-declaration-locator (%%caar in)))
                  (declarations (map (lambda (declaration)
                                       (if (and (%%pair? declaration) (%%null? (cdr declaration)))
                                           (car declaration)
@@ -871,11 +863,11 @@
   ;; code to detect unreferenced imports
   (%%when (jazz:analysis-mode?)
     (for-each (lambda (module-invoice)
-                (let ((imported-module-declaration (%%get-module-invoice-module module-invoice)))
-                  (let ((imported (%%get-access-lookup imported-module-declaration jazz:public-access)))
+                (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice)))
+                  (let ((imported (jazz:get-access-lookup imported-module-declaration jazz:public-access)))
                     (%%when (%%table-ref imported symbol #f)
-                      (%%set-import-invoice-hit? module-invoice #t)))))
-              (%%get-module-declaration-imports declaration)))
+                      (jazz:set-import-invoice-hit? module-invoice #t)))))
+              (jazz:get-module-declaration-imports declaration)))
   (nextmethod declaration symbol access source-declaration))
 
 
@@ -884,11 +876,11 @@
 
 
 (define (jazz:get-module-proclaim module-declaration proclaim-name default)
-  (%%table-ref (%%get-module-declaration-proclaims module-declaration) proclaim-name default))
+  (%%table-ref (jazz:get-module-declaration-proclaims module-declaration) proclaim-name default))
 
 
 (define (jazz:set-module-proclaim module-declaration proclaim-name value)
-  (%%table-set! (%%get-module-declaration-proclaims module-declaration) proclaim-name value))
+  (%%table-set! (jazz:get-module-declaration-proclaims module-declaration) proclaim-name value))
 
 
 (define jazz:all-warnings
@@ -1013,7 +1005,7 @@
     (%%when dialect-invoice
       (jazz:add-module-import declaration dialect-invoice #f))
     ;; reset the walker if it was cached
-    (%%set-module-declaration-walker declaration walker)
+    (jazz:set-module-declaration-walker declaration walker)
     (jazz:walk-declarations walker #f declaration (%%cons declaration (jazz:walker-environment walker)) body)
     (jazz:validate-walk-problems walker)
     declaration))
@@ -1045,8 +1037,8 @@
     (lambda (x seed child-seed env) seed)
     (lambda (x seed env)
       (cond ((%%is? x jazz:Binding-Reference)
-             (let* ((var (%%get-reference-binding x))
-                    (sym (jazz:unwrap-syntactic-closure (%%get-lexical-binding-name var))))
+             (let* ((var (jazz:get-reference-binding x))
+                    (sym (jazz:unwrap-syntactic-closure (jazz:get-lexical-binding-name var))))
                (let lp1 ((e env))
                     (cond ((pair? e)
                            (let lp2 ((ls (%%car e)) (found? #f))
@@ -1056,14 +1048,14 @@
                                          (cond ((and binding
                                                      (%%not same?)
                                                      (%%is? binding jazz:Variable)
-                                                     (%%not (%%get-symbol-binding-gensym binding))
+                                                     (%%not (jazz:get-symbol-binding-gensym binding))
                                                      (%%eq? sym
                                                             (jazz:unwrap-syntactic-closure
-                                                              (%%get-lexical-binding-name binding))))
+                                                              (jazz:get-lexical-binding-name binding))))
                                                 ;; if we shadow an existing declaration, gensym a unique symbol for it
                                                 (if (jazz:testing?)
                                                     (jazz:debug shadow: binding 'by var))
-                                                (%%set-symbol-binding-gensym binding (jazz:generate-symbol (symbol->string sym)))))
+                                                (jazz:set-symbol-binding-gensym binding (jazz:generate-symbol (symbol->string sym)))))
                                          (lp2 (%%cdr ls) (or found? same?))))
                                       ((%%not found?)
                                        (lp1 (%%cdr e)))))))))))
@@ -1092,7 +1084,7 @@
                (body (jazz:walk-namespace walker resume declaration environment body)))
           (jazz:validate-walk-problems walker)
           (jazz:rename-identifier-conflicts body environment)
-          (%%set-namespace-declaration-body declaration body)
+          (jazz:set-namespace-declaration-body declaration body)
           (if backend
               (jazz:emit-declaration declaration '() backend)
             declaration))))))
@@ -1112,7 +1104,7 @@
                (body (jazz:walk-namespace walker resume declaration environment body)))
           (jazz:validate-walk-problems walker)
           (jazz:rename-identifier-conflicts body environment)
-          (%%set-namespace-declaration-body declaration body)
+          (jazz:set-namespace-declaration-body declaration body)
           (if backend
               (jazz:emit-declaration declaration '() backend)
             declaration))))))
@@ -1168,7 +1160,7 @@
   (define (find-name name lst)
     (if (%%null? lst)
         #f
-      (if (%%eq? (%%get-lexical-binding-name (%%car lst)) name)
+      (if (%%eq? (jazz:get-lexical-binding-name (%%car lst)) name)
           #t
         (find-name name (%%cdr lst)))))
   
@@ -1179,10 +1171,10 @@
       ;; replacing another one where there are references to the old one. Should we then just
       ;; replace or destructively modify the old one and what if the type of the one replacing
       ;; is incompatible...
-      (%%when (%%not (find-name (%%get-lexical-binding-name declaration) (jazz:queue-list queue)))
+      (%%when (%%not (find-name (jazz:get-lexical-binding-name declaration) (jazz:queue-list queue)))
         (jazz:enqueue queue declaration)))
     
-    (for-each collect-declarations (%%get-module-declaration-inclusions module-declaration))
+    (for-each collect-declarations (jazz:get-module-declaration-inclusions module-declaration))
     (map (lambda (declaration)
            (jazz:expand-referenced-declaration declaration))
          (jazz:queue-list queue))))
@@ -1193,7 +1185,7 @@
          (let ((name (%%car info))
                (value (%%cdr info)))
            `(define ,name ,(jazz:sourcified-form (jazz:emit-expression value module-declaration '() backend)))))
-       (%%get-module-declaration-walker-literals module-declaration)))
+       (jazz:get-module-declaration-walker-literals module-declaration)))
 
 
 (define (jazz:emit-module-variables module-declaration backend)
@@ -1201,7 +1193,7 @@
          (let ((symbol (%%car variable))
                (value (%%cdr variable)))
            `(jazz:define-variable ,symbol ,value)))
-       (jazz:queue-list (%%get-module-declaration-walker-variables module-declaration))))
+       (jazz:queue-list (jazz:get-module-declaration-walker-variables module-declaration))))
 
 
 (define (jazz:emit-module-autoloads module-declaration environment backend)
@@ -1218,29 +1210,29 @@
                              (lambda ()
                                (if (%%not loaded?)
                                    (begin
-                                     (jazz:load-unit ',(%%get-declaration-locator (%%get-declaration-toplevel referenced-declaration)))
+                                     (jazz:load-unit ',(jazz:get-declaration-locator (jazz:get-declaration-toplevel referenced-declaration)))
                                      (set! loaded? #t)))
                                ,(jazz:sourcified-form (jazz:emit-binding-reference referenced-declaration module-declaration environment backend))))))))))
-              (%%get-module-declaration-walker-autoloads module-declaration))
+              (jazz:get-module-declaration-walker-autoloads module-declaration))
     (jazz:sort (jazz:queue-list queue) (lambda (x y) (%%string<? (%%symbol->string (%%cadr x)) (%%symbol->string (%%cadr y)))))))
 
 
 (define (jazz:emit-module-registration declaration environment backend)
-  `((jazz:register-module ',(%%get-lexical-binding-name declaration) ',(%%get-declaration-access declaration)
+  `((jazz:register-module ',(jazz:get-lexical-binding-name declaration) ',(jazz:get-declaration-access declaration)
       ',(let ((queue (jazz:new-queue)))
           (for-each (lambda (module-invoice)
-                      (%%when (%%neq? (%%get-module-invoice-phase module-invoice) 'syntax)
-                        (let ((only (%%get-module-invoice-only module-invoice))
-                              (autoload (%%get-export-invoice-autoload module-invoice)))
+                      (%%when (%%neq? (jazz:get-module-invoice-phase module-invoice) 'syntax)
+                        (let ((only (jazz:get-module-invoice-only module-invoice))
+                              (autoload (jazz:get-export-invoice-autoload module-invoice)))
                           (%%when (and (%%not only) (%%not autoload))
-                            (jazz:enqueue queue (%%get-module-invoice-name module-invoice))))))
-                    (%%get-module-declaration-exports declaration))
+                            (jazz:enqueue queue (jazz:get-module-invoice-name module-invoice))))))
+                    (jazz:get-module-declaration-exports declaration))
           (jazz:sort (jazz:queue-list queue) (lambda (x y) (%%string<? (%%symbol->string x) (%%symbol->string y)))))
-      ',(let ((walker (%%get-module-declaration-walker declaration))
+      ',(let ((walker (jazz:get-module-declaration-walker declaration))
               (queue (jazz:new-queue)))
-          (jazz:iterate-table-safe (%%get-access-lookup declaration jazz:public-access)
+          (jazz:iterate-table-safe (jazz:get-access-lookup declaration jazz:public-access)
             (lambda (name decl)
-              (%%when (or (%%eq? (%%get-declaration-toplevel decl) declaration)
+              (%%when (or (%%eq? (jazz:get-declaration-toplevel decl) declaration)
                           ;; quick hack
                           (%%is? decl jazz:Autoload-Declaration))
                 (let ((export (jazz:runtime-export walker decl)))
@@ -1251,11 +1243,11 @@
 
 (jazz:define-method (jazz:runtime-export (jazz:Walker walker) declaration)
   (cond ((%%is? declaration jazz:Export-Declaration)
-         (%%get-declaration-locator declaration))
+         (jazz:get-declaration-locator declaration))
         ((%%is? declaration jazz:Autoload-Declaration)
          (let ((referenced-declaration (jazz:resolve-binding declaration)))
-           (%%cons (%%get-declaration-locator (%%get-declaration-toplevel referenced-declaration))
-                   (%%get-declaration-locator referenced-declaration))))
+           (%%cons (jazz:get-declaration-locator (jazz:get-declaration-toplevel referenced-declaration))
+                   (jazz:get-declaration-locator referenced-declaration))))
         (else
          #f)))
 
@@ -1269,11 +1261,11 @@
 
 
 (define (jazz:find-module-invoice invoices target)
-  (let ((target-name (%%get-module-invoice-name target))
-        (target-phase (%%get-module-invoice-phase target)))
+  (let ((target-name (jazz:get-module-invoice-name target))
+        (target-phase (jazz:get-module-invoice-phase target)))
     (jazz:find-if (lambda (invoice)
-                    (and (%%eq? (%%get-module-invoice-name invoice) target-name)
-                         (%%eq? (%%get-module-invoice-phase invoice) target-phase)))
+                    (and (%%eq? (jazz:get-module-invoice-name invoice) target-name)
+                         (%%eq? (jazz:get-module-invoice-phase invoice) target-phase)))
                   invoices)))
 
 
@@ -1320,11 +1312,11 @@
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Export-Declaration declaration) environment backend)
-  (let ((name (%%get-lexical-binding-name declaration))
-        (symbol (%%get-export-declaration-symbol declaration))
-        (parent (%%get-declaration-parent declaration)))
+  (let ((name (jazz:get-lexical-binding-name declaration))
+        (symbol (jazz:get-export-declaration-symbol declaration))
+        (parent (jazz:get-declaration-parent declaration)))
     (%%assert (%%is? parent jazz:Module-Declaration))
-    `(jazz:register-native ',(%%get-lexical-binding-name parent) ',name ',symbol)))
+    `(jazz:register-native ',(jazz:get-lexical-binding-name parent) ',name ',symbol)))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Export-Declaration declaration) source-declaration environment backend)
@@ -1349,7 +1341,7 @@
                     '())))))
   
   (let ((form (%%desourcify form-src)))
-    (let ((module-declaration (%%get-declaration-toplevel declaration)))
+    (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
       (let ((export-invoices (walk-exports (jazz:filter-features (%%cdr form)))))
         (for-each (lambda (export-invoice)
                     (jazz:add-module-export module-declaration export-invoice))
@@ -1414,12 +1406,12 @@
 
 
 (jazz:define-method (jazz:resolve-binding (jazz:Autoload-Declaration declaration))
-  (or (%%get-autoload-declaration-declaration declaration)
-      (let* ((exported-module (jazz:resolve-reference (%%get-autoload-declaration-exported-module declaration) (%%get-autoload-declaration-module declaration)))
-             (name (%%get-lexical-binding-name declaration))
+  (or (jazz:get-autoload-declaration-declaration declaration)
+      (let* ((exported-module (jazz:resolve-reference (jazz:get-autoload-declaration-exported-module declaration) (jazz:get-autoload-declaration-module declaration)))
+             (name (jazz:get-lexical-binding-name declaration))
              (decl (jazz:lookup-declaration exported-module name jazz:public-access declaration)))
-        (%%assertion decl (jazz:error "Unable to find autoload {s} in unit {s}" name (%%get-declaration-locator exported-module))
-          (%%set-autoload-declaration-declaration declaration decl)
+        (%%assertion decl (jazz:error "Unable to find autoload {s} in unit {s}" name (jazz:get-declaration-locator exported-module))
+          (jazz:set-autoload-declaration-declaration declaration decl)
           decl))))
 
 
@@ -1438,11 +1430,11 @@
 ;; this heuristic used because we cannot call jazz:resolve-binding at various points
 ;; is not 100% correct if the autoload was obtained through a reexported module...
 (define (jazz:autoload-declaration-locator-heuristic declaration)
-  (jazz:compose-reference (%%get-declaration-reference-name (%%get-autoload-declaration-exported-module declaration)) (%%get-lexical-binding-name declaration)))
+  (jazz:compose-reference (jazz:get-declaration-reference-name (jazz:get-autoload-declaration-exported-module declaration)) (jazz:get-lexical-binding-name declaration)))
 
 
 (define (jazz:autoload-locator referenced-declaration)
-  (%%string->symbol (%%string-append (%%symbol->string (%%get-declaration-locator referenced-declaration))
+  (%%string->symbol (%%string-append (%%symbol->string (jazz:get-declaration-locator referenced-declaration))
                                      ":autoload")))
 
 
@@ -1459,14 +1451,14 @@
 
 
 (define (jazz:walk-literal/constant walker resume declaration environment literal/constant)
-  (let ((module-declaration (%%get-declaration-toplevel declaration))
+  (let ((module-declaration (jazz:get-declaration-toplevel declaration))
         (literal? (%%is? literal/constant jazz:Literal)))
     (define (walk-literal/constant walker resume declaration literal/constant)
       (let ((environment (%%cons module-declaration (jazz:walker-environment walker))))
         (jazz:walk walker resume module-declaration environment
           (cond (literal?
-                 (let ((name (%%get-literal-name literal/constant))
-                       (arguments (%%get-literal-arguments literal/constant)))
+                 (let ((name (jazz:get-literal-name literal/constant))
+                       (arguments (jazz:get-literal-arguments literal/constant)))
                    (let ((constructor-reference (%%car (jazz:require-literal-constructor (%%desourcify name)))))
                      `(,constructor-reference ,@(map (lambda (arg)
                                                        `(quote ,arg))
@@ -1481,11 +1473,11 @@
     (let ((locator (jazz:generate-global-symbol "lit")))
       ;; it is important to register before any subliterals to ensure they come before us
       (let ((info (%%cons locator #f)))
-        (%%set-module-declaration-walker-literals module-declaration (%%cons info (%%get-module-declaration-walker-literals module-declaration)))
+        (jazz:set-module-declaration-walker-literals module-declaration (%%cons info (jazz:get-module-declaration-walker-literals module-declaration)))
         (%%set-cdr! info (walk-literal/constant walker resume declaration literal/constant)))
       ;; this way of getting a reference to the literal's class is a quick solution
       (let ((literal-type (if literal?
-                              (%%desourcify (%%get-literal-name literal/constant))
+                              (%%desourcify (jazz:get-literal-name literal/constant))
                             (let ((name (%%get-category-identifier (jazz:class-of literal/constant))))
                               (if (jazz:composite-reference? name)
                                   (jazz:reference-name name)
@@ -1585,7 +1577,7 @@
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Opt-Type type))
-  (let ((type-specifier (jazz:emit-specifier (%%get-opt-type-type type))))
+  (let ((type-specifier (jazz:emit-specifier (jazz:get-opt-type-type type))))
     (%%string->symbol (%%string-append "opt<" (%%symbol->string type-specifier) ">"))))
 
 
@@ -1602,8 +1594,8 @@
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Key-Type type))
-  (let ((key (%%get-key-type-key type))
-        (type-specifier (jazz:emit-specifier (%%get-key-type-type type))))
+  (let ((key (jazz:get-key-type-key type))
+        (type-specifier (jazz:emit-specifier (jazz:get-key-type-type type))))
     (%%string->symbol (%%string-append "key<" (%%keyword->string key) ":" (%%symbol->string type-specifier) ">"))))
 
 
@@ -1620,7 +1612,7 @@
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Rest-Type type))
-  (let ((type-specifier (jazz:emit-specifier (%%get-rest-type-type type))))
+  (let ((type-specifier (jazz:emit-specifier (jazz:get-rest-type-type type))))
     (%%string->symbol (%%string-append (%%symbol->string type-specifier) "*"))))
 
 
@@ -1653,14 +1645,14 @@
                       (set! first? #f)
                     (write-char #\^ output))
                   (display (jazz:emit-specifier type) output))
-                (%%get-function-type-positional type))
-      (let ((rest (%%get-function-type-rest type)))
+                (jazz:get-function-type-positional type))
+      (let ((rest (jazz:get-function-type-rest type)))
         (%%when rest
           (%%when (%%not first?)
             (write-char #\^ output))
           (display (jazz:emit-specifier type) output))))
     (write-char #\: output)
-    (display (jazz:emit-specifier (%%get-function-type-result type)) output)
+    (display (jazz:emit-specifier (jazz:get-function-type-result type)) output)
     (%%string->symbol (get-output-string output))))
 
 
@@ -1697,7 +1689,7 @@
   (let ((output (open-output-string)))
     (display "category" output)
     (write-char #\< output)
-    (display (jazz:emit-specifier (%%get-category-type-declaration type)) output)
+    (display (jazz:emit-specifier (jazz:get-category-type-declaration type)) output)
     (write-char #\> output)
     (%%string->symbol (get-output-string output))))
 
@@ -1724,7 +1716,7 @@
                       (set! first? #f)
                     (write-char #\/ output))
                   (display (jazz:emit-specifier type) output))
-                (%%get-values-type-types type)))
+                (jazz:get-values-type-types type)))
     (write-char #\> output)
     (%%string->symbol (get-output-string output))))
 
@@ -1782,7 +1774,7 @@
 
 (jazz:define-method (jazz:emit-specifier (jazz:Template-Type type))
   (let ((output (open-output-string)))
-    (display (jazz:emit-specifier (%%get-template-type-class type)) output)
+    (display (jazz:emit-specifier (jazz:get-template-type-class type)) output)
     (write-char #\< output)
     (let ((first? #t))
       (for-each (lambda (type)
@@ -1790,7 +1782,7 @@
                       (set! first? #f)
                     (write-char #\/ output))
                   (display (jazz:emit-specifier type) output))
-                (%%get-template-type-types type)))
+                (jazz:get-template-type-types type)))
     (write-char #\> output)
     (%%string->symbol (get-output-string output))))
 
@@ -1809,11 +1801,11 @@
 
 (jazz:define-method (jazz:of-subtype? (jazz:Nillable-Type type) subtype)
   (or (jazz:of-subtype? jazz:Boolean subtype)
-      (jazz:of-subtype? (%%get-nillable-type-type type) subtype)))
+      (jazz:of-subtype? (jazz:get-nillable-type-type type) subtype)))
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Nillable-Type type))
-  (let ((type-specifier (jazz:emit-specifier (%%get-nillable-type-type type))))
+  (let ((type-specifier (jazz:emit-specifier (jazz:get-nillable-type-type type))))
     (%%string->symbol (%%string-append (%%symbol->string type-specifier) "+"))))
 
 
@@ -1869,7 +1861,7 @@
 (cond-expand
   (release
     (define (jazz:emit-type-cast code type source-declaration environment backend)
-      (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
+      (if (or (%%not type) (%%subtype? (jazz:get-code-type code) type))
          (jazz:sourcified-form code)
        (let ((value (jazz:generate-symbol "val")))
          ;; coded the flonum case here for now has it is the only castable type
@@ -1883,7 +1875,7 @@
    (define (jazz:emit-type-cast code type source-declaration environment backend)
      (if (or (%%not type) 
              (%%eq? type jazz:Void)
-             (%%subtype? (%%get-code-type code) type))
+             (%%subtype? (jazz:get-code-type code) type))
          (jazz:sourcified-form code)
        (let ((value (jazz:generate-symbol "val")))
          ;; coded the flonum case here for now has it is the only castable type
@@ -2231,26 +2223,26 @@
 
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Macro-Declaration binding) walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
-    (let ((locator (%%get-declaration-locator binding)))
-      (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
+    (let ((locator (jazz:get-declaration-locator binding)))
+      (if (%%eq? (jazz:get-declaration-toplevel binding) (jazz:get-declaration-toplevel declaration))
           (jazz:walk-error walker resume declaration form-src "Macros cannot be used from within the same file: {s}" locator)
-        (let ((parent-declaration (%%get-declaration-parent binding)))
-          (jazz:load-unit (%%get-declaration-locator (%%get-declaration-toplevel parent-declaration)))
+        (let ((parent-declaration (jazz:get-declaration-parent binding)))
+          (jazz:load-unit (jazz:get-declaration-locator (jazz:get-declaration-toplevel parent-declaration)))
           (let ((expander (jazz:need-macro locator)))
             (%%apply expander (%%cdr form))))))))
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Macro-Declaration declaration) environment backend)
-  (let ((locator (%%get-declaration-locator declaration))
-        (signature (%%get-macro-declaration-signature declaration))
-        (body (%%get-macro-declaration-body declaration)))
+  (let ((locator (jazz:get-declaration-locator declaration))
+        (signature (jazz:get-macro-declaration-signature declaration))
+        (body (jazz:get-macro-declaration-body declaration)))
     (jazz:with-annotated-frame (jazz:annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (%%cons frame environment)))
           (jazz:sourcify-if
             `(jazz:define-macro ,(%%cons locator (jazz:emit-signature signature declaration augmented-environment backend))
                ,@(jazz:sourcified-form (jazz:emit-expression body declaration augmented-environment backend)))
-            (%%get-declaration-source declaration)))))))
+            (jazz:get-declaration-source declaration)))))))
 
 
 (define jazz:macro-modifiers
@@ -2273,7 +2265,7 @@
     (let ((signature (jazz:walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                  (jazz:new-macro-declaration name type access compatibility '() declaration signature))))
-        (%%set-declaration-source new-declaration form-src)
+        (jazz:set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 
@@ -2282,10 +2274,10 @@
   (receive (name type access compatibility parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let ((new-declaration (jazz:require-declaration declaration name)))
       (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #f #t)
-        (%%set-macro-declaration-signature new-declaration signature)
-        (%%set-macro-declaration-body new-declaration
+        (jazz:set-macro-declaration-signature new-declaration signature)
+        (jazz:set-macro-declaration-body new-declaration
           (jazz:walk-body walker resume new-declaration augmented-environment body))
-        (%%set-declaration-source new-declaration form-src)
+        (jazz:set-declaration-source new-declaration form-src)
         new-declaration))))
 
 
@@ -2308,13 +2300,13 @@
                      (%%class-is? procedure-expr jazz:Declaration))
                  procedure-expr)
                 ((%%class-is? procedure-expr jazz:Binding-Reference)
-                 (let ((ref (%%get-reference-binding procedure-expr)))
+                 (let ((ref (jazz:get-reference-binding procedure-expr)))
                    (and (or (%%class-is? ref jazz:Special-Form)
                             (%%class-is? ref jazz:Declaration))
                         ref)))
                 (else #f))))
     (if (%%is? binding jazz:Export-Declaration)
-        (jazz:require-declaration (%%get-declaration-toplevel binding) (%%get-lexical-binding-name binding))
+        (jazz:require-declaration (jazz:get-declaration-toplevel binding) (jazz:get-lexical-binding-name binding))
       binding)))
 
 
@@ -2333,7 +2325,7 @@
 
 
 (define (jazz:need-local-macro module-declaration name)
-  (or (%%table-ref (%%get-module-declaration-local-macros module-declaration) name #f)
+  (or (%%table-ref (jazz:get-module-declaration-local-macros module-declaration) name #f)
       (jazz:error "Unable to find macro: {s}" name)))
 
 
@@ -2343,8 +2335,8 @@
 
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Local-Macro-Declaration binding) walker resume declaration environment form-src)
   (let ((form    (%%desourcify form-src))
-        (locator (%%get-declaration-locator binding))
-        (parent  (%%get-declaration-parent binding)))
+        (locator (jazz:get-declaration-locator binding))
+        (parent  (jazz:get-declaration-parent binding)))
     (let ((expander (jazz:need-local-macro parent locator)))
       (%%apply expander (%%cdr form)))))
 
@@ -2354,7 +2346,7 @@
 
 
 (define (jazz:register-local-macro module-declaration name macro)
-  (%%table-set! (%%get-module-declaration-local-macros module-declaration) name macro))
+  (%%table-set! (jazz:get-module-declaration-local-macros module-declaration) name macro))
 
 
 (define (jazz:walk-local-macro-declaration walker resume declaration environment form-src)
@@ -2363,10 +2355,10 @@
       (let* ((new-declaration (or (jazz:find-declaration-child declaration name)
                                   (jazz:new-local-macro-declaration name type access compatibility '() declaration signature)))
              (walked-body (jazz:walk-body walker resume new-declaration augmented-environment body)))
-        (%%set-local-macro-declaration-signature new-declaration signature)
-        (%%set-local-macro-declaration-body new-declaration walked-body)
-        (%%set-declaration-source new-declaration form-src)
-        (jazz:register-local-macro declaration (%%get-declaration-locator new-declaration)
+        (jazz:set-local-macro-declaration-signature new-declaration signature)
+        (jazz:set-local-macro-declaration-body new-declaration walked-body)
+        (jazz:set-declaration-source new-declaration form-src)
+        (jazz:register-local-macro declaration (jazz:get-declaration-locator new-declaration)
           (jazz:with-annotated-frame (jazz:annotate-signature signature)
             (lambda (frame)
               (let ((augmented-environment (%%cons frame environment))
@@ -2408,27 +2400,27 @@
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Syntax-Declaration declaration) environment backend)
-  (let ((locator (%%get-declaration-locator declaration))
-        (signature (%%get-syntax-declaration-signature declaration))
-        (body (%%get-syntax-declaration-body declaration)))
+  (let ((locator (jazz:get-declaration-locator declaration))
+        (signature (jazz:get-syntax-declaration-signature declaration))
+        (body (jazz:get-syntax-declaration-body declaration)))
     (jazz:with-annotated-frame (jazz:annotate-signature signature)
      (lambda (frame)
        (let ((augmented-environment (%%cons frame environment))
              (current-unit-name
-               (%%get-declaration-locator
-                 (%%get-declaration-toplevel declaration))))
+               (jazz:get-declaration-locator
+                 (jazz:get-declaration-toplevel declaration))))
          (jazz:sourcify-if
            `(define ,locator
               (let* ((env
                        (%%list
                          (jazz:new-walk-frame
-                           (%%get-dialect-bindings (jazz:get-dialect 'scheme)))
+                           (jazz:get-dialect-bindings (jazz:get-dialect 'scheme)))
                          (jazz:new-walk-frame
-                           (%%get-dialect-bindings (jazz:get-dialect 'foundation)))))
+                           (jazz:get-dialect-bindings (jazz:get-dialect 'foundation)))))
                      (env
                        (cond ((jazz:get-dialect 'jazz)
                               => (lambda (x)
-                                   (cons (jazz:new-walk-frame (%%get-dialect-bindings x)) env)))
+                                   (cons (jazz:new-walk-frame (jazz:get-dialect-bindings x)) env)))
                              (else env)))
                      (env
                        (cond ((jazz:outline-module ',current-unit-name)
@@ -2441,7 +2433,7 @@
                          env)))
                 (jazz:register-macro ',locator tmp)
                 tmp))
-           (%%get-declaration-source declaration)))))))
+           (jazz:get-declaration-source declaration)))))))
 
 
 (jazz:define-method (jazz:walk-binding-expandable? (jazz:Syntax-Declaration declaration))
@@ -2459,14 +2451,14 @@
 
 
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Syntax-Declaration binding) walker resume declaration environment form-src)
-  (let ((locator (%%get-declaration-locator binding)))
-    (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
+  (let ((locator (jazz:get-declaration-locator binding)))
+    (if (%%eq? (jazz:get-declaration-toplevel binding) (jazz:get-declaration-toplevel declaration))
         (jazz:walk-warning walker declaration form-src "Syntax shouldn't be used from within the same file: {s}" locator))
-    (let ((parent-declaration (%%get-declaration-parent binding)))
-      (jazz:load-unit (%%get-declaration-locator (%%get-declaration-toplevel parent-declaration)))
+    (let ((parent-declaration (jazz:get-declaration-parent binding)))
+      (jazz:load-unit (jazz:get-declaration-locator (jazz:get-declaration-toplevel parent-declaration)))
       (let* ((define-syntax-form (jazz:need-macro locator))
-             (expander (%%get-syntax-form-expander define-syntax-form))
-             (macro-environment (%%get-define-syntax-form-environment define-syntax-form)))
+             (expander (jazz:get-syntax-form-expander define-syntax-form))
+             (macro-environment (jazz:get-define-syntax-form-environment define-syntax-form)))
         (parameterize ((jazz:current-walker walker)
                        (jazz:current-resume resume)
                        (jazz:current-declaration declaration)
@@ -2485,7 +2477,7 @@
     (let ((name (jazz:source-code (%%car rest))))
       (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                  (jazz:new-syntax-declaration name jazz:Any access compatibility '() declaration '() #f))))
-        (%%set-declaration-source new-declaration form-src)
+        (jazz:set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 
@@ -2496,10 +2488,10 @@
            (body (%%cdr rest))
            (new-declaration (jazz:require-declaration declaration name)))
       (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment '() #f #t)
-        (%%set-syntax-declaration-signature new-declaration signature)
-        (%%set-syntax-declaration-body new-declaration
+        (jazz:set-syntax-declaration-signature new-declaration signature)
+        (jazz:set-syntax-declaration-body new-declaration
           (jazz:walk-body walker resume new-declaration augmented-environment body))
-        (%%set-declaration-source new-declaration form-src)
+        (jazz:set-declaration-source new-declaration form-src)
         new-declaration))))
 
 
@@ -2518,27 +2510,27 @@
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Syntax-Declaration declaration) environment backend)
-  (let ((locator (%%get-declaration-locator declaration))
-        (signature (%%get-syntax-declaration-signature declaration))
-        (body (%%get-syntax-declaration-body declaration)))
+  (let ((locator (jazz:get-declaration-locator declaration))
+        (signature (jazz:get-syntax-declaration-signature declaration))
+        (body (jazz:get-syntax-declaration-body declaration)))
     (jazz:with-annotated-frame (jazz:annotate-signature signature)
      (lambda (frame)
        (let ((augmented-environment (%%cons frame environment))
              (current-unit-name
-               (%%get-declaration-locator
-                 (%%get-declaration-toplevel declaration))))
+               (jazz:get-declaration-locator
+                 (jazz:get-declaration-toplevel declaration))))
          (jazz:sourcify-if
            `(define ,locator
               (let* ((env
                        (%%list
                          (jazz:new-walk-frame
-                           (%%get-dialect-bindings (jazz:get-dialect 'scheme)))
+                           (jazz:get-dialect-bindings (jazz:get-dialect 'scheme)))
                          (jazz:new-walk-frame
-                           (%%get-dialect-bindings (jazz:get-dialect 'foundation)))))
+                           (jazz:get-dialect-bindings (jazz:get-dialect 'foundation)))))
                      (env
                        (cond ((jazz:get-dialect 'jazz)
                               => (lambda (x)
-                                   (cons (jazz:new-walk-frame (%%get-dialect-bindings x)) env)))
+                                   (cons (jazz:new-walk-frame (jazz:get-dialect-bindings x)) env)))
                              (else env)))
                      (env
                        (cond ((jazz:outline-module ',current-unit-name)
@@ -2551,18 +2543,18 @@
                          env)))
                 (jazz:register-macro ',locator tmp)
                 tmp))
-           (%%get-declaration-source declaration)))))))
+           (jazz:get-declaration-source declaration)))))))
 
 
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Define-Syntax-Declaration binding) walker resume declaration environment form-src)
-  (let ((locator (%%get-declaration-locator binding)))
-    (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
+  (let ((locator (jazz:get-declaration-locator binding)))
+    (if (%%eq? (jazz:get-declaration-toplevel binding) (jazz:get-declaration-toplevel declaration))
         (jazz:walk-warning walker declaration form-src "Syntax shouldn't be used from within the same file: {s}" locator))
-    (let ((parent-declaration (%%get-declaration-parent binding)))
-      (jazz:load-unit (%%get-declaration-locator (%%get-declaration-toplevel parent-declaration)))
+    (let ((parent-declaration (jazz:get-declaration-parent binding)))
+      (jazz:load-unit (jazz:get-declaration-locator (jazz:get-declaration-toplevel parent-declaration)))
       (let* ((define-syntax-form (jazz:need-macro locator))
-             (expander (%%get-syntax-form-expander define-syntax-form))
-             (macro-environment (%%get-define-syntax-form-environment define-syntax-form)))
+             (expander (jazz:get-syntax-form-expander define-syntax-form))
+             (macro-environment (jazz:get-define-syntax-form-environment define-syntax-form)))
         (parameterize ((jazz:current-walker walker)
                        (jazz:current-resume resume)
                        (jazz:current-declaration declaration))
@@ -2574,7 +2566,7 @@
     (let ((name (jazz:source-code (%%car rest))))
       (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                  (jazz:new-define-syntax-declaration name jazz:Any access compatibility '() declaration '() #f))))
-        (%%set-declaration-source new-declaration form-src)
+        (jazz:set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
 
@@ -2585,10 +2577,10 @@
            (body (%%cdr rest))
            (new-declaration (jazz:require-declaration declaration name)))
       (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment '() #f #t)
-        (%%set-syntax-declaration-signature new-declaration signature)
-        (%%set-syntax-declaration-body new-declaration
+        (jazz:set-syntax-declaration-signature new-declaration signature)
+        (jazz:set-syntax-declaration-body new-declaration
           (jazz:walk-body walker resume new-declaration augmented-environment body))
-        (%%set-declaration-source new-declaration form-src)
+        (jazz:set-declaration-source new-declaration form-src)
         new-declaration))))
 
 
@@ -2611,10 +2603,10 @@
 
 
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Define-Local-Syntax-Declaration binding) walker resume declaration environment form-src)
-  (let* ((locator (%%get-declaration-locator binding))
-         (define-local-syntax-form (jazz:need-local-macro (%%get-declaration-parent binding) locator)))
-    (let ((expander (%%get-syntax-form-expander define-local-syntax-form))
-          (macro-environment (%%get-define-local-syntax-form-environment define-local-syntax-form)))
+  (let* ((locator (jazz:get-declaration-locator binding))
+         (define-local-syntax-form (jazz:need-local-macro (jazz:get-declaration-parent binding) locator)))
+    (let ((expander (jazz:get-syntax-form-expander define-local-syntax-form))
+          (macro-environment (jazz:get-define-local-syntax-form-environment define-local-syntax-form)))
       (parameterize ((jazz:current-walker walker)
                      (jazz:current-resume resume)
                      (jazz:current-declaration declaration))
@@ -2633,28 +2625,28 @@
         (let* ((new-declaration (or (jazz:find-declaration-child declaration name)
                                     (jazz:new-define-local-syntax-declaration name jazz:Any access compatibility '() declaration signature #f)))
                (walked-body (jazz:walk-body walker resume new-declaration augmented-environment body)))
-          (%%set-syntax-declaration-body new-declaration walked-body)
-          (%%set-declaration-source new-declaration form-src)
-          (jazz:register-local-macro declaration (%%get-declaration-locator new-declaration)
+          (jazz:set-syntax-declaration-body new-declaration walked-body)
+          (jazz:set-declaration-source new-declaration form-src)
+          (jazz:register-local-macro declaration (jazz:get-declaration-locator new-declaration)
             (jazz:with-annotated-frame (jazz:annotate-signature signature)
               (lambda (frame)
                 (let ((augmented-environment (%%cons frame environment))
                       (current-unit-name
-                        (%%get-declaration-locator
-                          (%%get-declaration-toplevel declaration))))
+                        (jazz:get-declaration-locator
+                          (jazz:get-declaration-toplevel declaration))))
                   (let* ((env
                            (%%list
                              (jazz:new-walk-frame
-                               (%%get-dialect-bindings (jazz:get-dialect 'scheme)))
+                               (jazz:get-dialect-bindings (jazz:get-dialect 'scheme)))
                              (jazz:new-walk-frame
-                               (%%get-dialect-bindings (jazz:get-dialect 'foundation)))))
+                               (jazz:get-dialect-bindings (jazz:get-dialect 'foundation)))))
                          (env
                            (cond ((jazz:get-dialect 'jazz)
                                   => (lambda (x)
-                                       (cons (jazz:new-walk-frame (%%get-dialect-bindings x)) env)))
+                                       (cons (jazz:new-walk-frame (jazz:get-dialect-bindings x)) env)))
                                  (else env))))
                     (jazz:new-define-local-syntax-form
-                      (%%get-declaration-locator new-declaration)
+                      (jazz:get-declaration-locator new-declaration)
                       (eval (car (jazz:sourcified-form (jazz:emit-expression walked-body declaration augmented-environment (jazz:require-backend 'scheme)))))
                       env))))))
           (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -2695,21 +2687,21 @@
   (let ((context (jazz:get-walk-context)))
     (if (%%not context)
         #f
-      (%%get-walk-context-policy context))))
+      (jazz:get-walk-context-policy context))))
 
 
 (define (jazz:get-walk-locator)
   (let ((context (jazz:get-walk-context)))
     (if (%%not context)
         #f
-      (%%get-walk-context-locator context))))
+      (jazz:get-walk-context-locator context))))
 
 
 (define (jazz:get-walk-pathname)
   (let ((context (jazz:get-walk-context)))
     (if (%%not context)
         #f
-      (%%get-walk-context-pathname context))))
+      (jazz:get-walk-context-pathname context))))
 
 
 ;;;
@@ -2727,7 +2719,7 @@
 (define (jazz:walk-location walker declaration locat)
   (jazz:new-walk-location
     (jazz:get-walk-locator)
-    (%%get-declaration-locator declaration)
+    (jazz:get-declaration-locator declaration)
     locat
     (if locat (%%container->path (%%locat-container locat)) #f)))
 
@@ -2755,12 +2747,12 @@
 (jazz:define-method (jazz:get-detail (jazz:Walk-Problems problems))
   (define (add-details problems queue)
     (for-each (lambda (problem)
-                (jazz:enqueue queue (jazz:new-exception-detail "Green" (jazz:present-exception problem) (%%get-walk-problem-location problem) '())))
+                (jazz:enqueue queue (jazz:new-exception-detail "Green" (jazz:present-exception problem) (jazz:get-walk-problem-location problem) '())))
               problems))
   
   (jazz:new-exception-detail "ErrorStop" "Walk problems encountered" #f
-    (let ((all (%%append (%%get-walk-problems-warnings problems)
-                         (%%get-walk-problems-errors problems))))
+    (let ((all (%%append (jazz:get-walk-problems-warnings problems)
+                         (jazz:get-walk-problems-errors problems))))
       (map (lambda (partition)
              (jazz:bind (unit-locator . problems) partition
                (let ((prefix (if (%%not unit-locator) -1 (%%string-length (%%symbol->string unit-locator)))))
@@ -2818,7 +2810,7 @@
 
 (jazz:define-method (jazz:present-exception (jazz:Unresolved-Error error))
   (jazz:format "Unresolved symbol: {s}"
-               (%%get-unresolved-error-symbol error)))
+               (jazz:get-unresolved-error-symbol error)))
 
 
 ;;;
@@ -2834,7 +2826,7 @@
 
 
 (jazz:define-method (jazz:walk-binding-lookup (jazz:Walk-Frame binding) symbol source-declaration)
-  (let iter ((scan (%%get-walk-frame-bindings binding)))
+  (let iter ((scan (jazz:get-walk-frame-bindings binding)))
        (if (%%null? scan)
            #f
          (let ((table (%%car scan)))
@@ -2856,9 +2848,9 @@
 
 
 (define (jazz:only-positional? signature)
-  (and (%%null? (%%get-signature-optional signature))
-       (%%null? (%%get-signature-named signature))
-       (%%not (%%get-signature-rest signature))))
+  (and (%%null? (jazz:get-signature-optional signature))
+       (%%null? (jazz:get-signature-named signature))
+       (%%not (jazz:get-signature-rest signature))))
 
 
 ;;;
@@ -2893,12 +2885,12 @@
   
   (variable-name-valid-symbol?
     (if (jazz:syntactic-closure? name)
-        (%%get-syntactic-closure-form name)
+        (jazz:get-syntactic-closure-form name)
       name)))
 
 
 (jazz:define-method (jazz:walk-binding-referenced (jazz:Variable binding))
-  (%%set-variable-reference-count binding (%%fx+ (%%get-variable-reference-count binding) 1)))
+  (jazz:set-variable-reference-count binding (%%fx+ (jazz:get-variable-reference-count binding) 1)))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Variable binding) source-declaration environment backend)
@@ -2916,7 +2908,7 @@
   (let ((value-code (jazz:emit-expression value source-declaration environment backend)))
     (receive (annotated-frame annotated-variable annotated-type) (jazz:find-annotated binding environment)
       (%%when (%%class-is? annotated-variable jazz:Annotated-Variable)
-        (jazz:extend-annotated-type annotated-frame annotated-variable (%%get-code-type value-code))))
+        (jazz:extend-annotated-type annotated-frame annotated-variable (jazz:get-code-type value-code))))
     (let ((binding-code (jazz:emit-binding-symbol binding source-declaration environment backend)))
       (jazz:new-code
         (jazz:emit 'variable-assignment backend binding source-declaration environment binding-code value-code)
@@ -2925,10 +2917,10 @@
 
 
 (define (jazz:register-variable declaration suffix value)
-  (let ((module-declaration (%%get-declaration-toplevel declaration)))
+  (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
     (let ((symbol (jazz:generate-global-symbol suffix)))
       (let ((variable (%%cons symbol value)))
-        (jazz:enqueue (%%get-module-declaration-walker-variables module-declaration) variable)
+        (jazz:enqueue (jazz:get-module-declaration-walker-variables module-declaration) variable)
         variable))))
 
 
@@ -2965,7 +2957,7 @@
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Dynamic-Parameter parameter) declaration environment backend)
-  (let ((class (%%get-dynamic-parameter-class parameter)))
+  (let ((class (jazz:get-dynamic-parameter-class parameter)))
     (%%list (jazz:sourcified-form (jazz:emit-expression class declaration environment backend)) (jazz:emit-binding-symbol parameter declaration environment backend))))
 
 
@@ -2982,7 +2974,7 @@
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Optional-Parameter parameter) declaration environment backend)
-  (let ((default (%%get-optional-parameter-default parameter)))
+  (let ((default (jazz:get-optional-parameter-default parameter)))
     (%%list (jazz:emit-binding-symbol parameter declaration environment backend) (jazz:sourcified-form (jazz:emit-expression default declaration environment backend)))))
 
 
@@ -2999,8 +2991,8 @@
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Named-Parameter parameter) declaration environment backend)
-  (let ((default (%%get-named-parameter-default parameter)))
-    (%%list (%%get-lexical-binding-name parameter) (jazz:sourcified-form (jazz:emit-expression default declaration environment backend)))))
+  (let ((default (jazz:get-named-parameter-default parameter)))
+    (%%list (jazz:get-lexical-binding-name parameter) (jazz:sourcified-form (jazz:emit-expression default declaration environment backend)))))
 
 
 (jazz:define-method (jazz:emit-binding-symbol (jazz:Named-Parameter parameter) declaration environment backend)
@@ -3056,7 +3048,7 @@
 
 #; ;; convert to walk / emit
 (jazz:define-method (jazz:emit-binding-reference (jazz:Macro-Symbol binding) source-declaration environment backend)
-  (let ((getter (%%get-macro-symbol-getter binding)))
+  (let ((getter (jazz:get-macro-symbol-getter binding)))
     (jazz:walk walker resume source-declaration environment (getter))))
 
 
@@ -3067,7 +3059,7 @@
 
 #; ;; convert to walk / emit
 (jazz:define-method (jazz:emit-binding-assignment (jazz:Macro-Symbol binding) value source-declaration environment backend)
-  (let ((setter (%%get-macro-symbol-setter binding)))
+  (let ((setter (jazz:get-macro-symbol-setter binding)))
     (jazz:walk walker resume source-declaration environment (setter value))))
 
 
@@ -3127,7 +3119,7 @@
 
 
 (jazz:define-method (jazz:walk-binding-walk-form (jazz:Special-Form binding) walker resume declaration environment form-src)
-  (let ((walk-proc/symbol (%%get-special-form-walk binding)))
+  (let ((walk-proc/symbol (jazz:get-special-form-walk binding)))
     (let ((walk (if (%%symbol? walk-proc/symbol)
                     ;; we should cache it
                     (jazz:find-special-form walk-proc/symbol)
@@ -3153,7 +3145,7 @@
 
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Macro-Form binding) walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
-    (let ((expander (%%get-macro-form-expander binding)))
+    (let ((expander (jazz:get-macro-form-expander binding)))
       (apply expander walker resume declaration environment (%%cdr form)))))
 
 
@@ -3174,7 +3166,7 @@
 
 
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Syntax-Form binding) walker resume declaration environment form-src)
-  (let ((expander (%%get-syntax-form-expander binding)))
+  (let ((expander (jazz:get-syntax-form-expander binding)))
     (expander walker resume declaration environment form-src)))
 
 
@@ -3191,8 +3183,8 @@
 
 
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Define-Syntax-Form binding) walker resume declaration environment form-src)
-  (let ((expander (%%get-syntax-form-expander binding))
-        (macro-environment (%%get-define-syntax-form-environment binding)))
+  (let ((expander (jazz:get-syntax-form-expander binding))
+        (macro-environment (jazz:get-define-syntax-form-environment binding)))
     (parameterize ((jazz:current-walker walker)
                    (jazz:current-resume resume)
                    (jazz:current-declaration declaration))
@@ -3212,8 +3204,8 @@
 
 
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Define-Local-Syntax-Form binding) walker resume declaration environment form-src)
-  (let ((expander (%%get-syntax-form-expander binding))
-        (macro-environment (%%get-define-local-syntax-form-environment binding)))
+  (let ((expander (jazz:get-syntax-form-expander binding))
+        (macro-environment (jazz:get-define-local-syntax-form-environment binding)))
     (parameterize ((jazz:current-walker walker)
                    (jazz:current-resume resume)
                    (jazz:current-declaration declaration))
@@ -3243,12 +3235,12 @@
 
 
 (define (jazz:syntactic-closure-form sc)
-  (%%get-syntactic-closure-form sc))
+  (jazz:get-syntactic-closure-form sc))
 
 
 (define (jazz:unwrap-syntactic-closure x)
   (cond ((jazz:syntactic-closure? x)
-         (jazz:unwrap-syntactic-closure (%%get-syntactic-closure-form x)))
+         (jazz:unwrap-syntactic-closure (jazz:get-syntactic-closure-form x)))
         ((%%source? x)
          (jazz:unwrap-syntactic-closure (%%source-code x)))
         (else
@@ -3257,7 +3249,7 @@
 
 (define (jazz:strip-syntactic-closures x)
   (cond ((jazz:syntactic-closure? x)
-         (jazz:strip-syntactic-closures (%%get-syntactic-closure-form x)))
+         (jazz:strip-syntactic-closures (jazz:get-syntactic-closure-form x)))
         ((%%source? x)
          (jazz:strip-syntactic-closures (%%source-code x)))
         ((%%pair? x)
@@ -3297,7 +3289,7 @@
   
   (define (binding-name x)
     (if (%%class-is? x jazz:Lexical-Binding)
-        (%%get-lexical-binding-name x)
+        (jazz:get-lexical-binding-name x)
       x))
   
   (or (%%eq? x y)
@@ -3380,16 +3372,16 @@
   (let ((serial (jazz:object->serial-symbol variable)))
     (if (%%class-is? variable jazz:Restricted-Binding)
         `(:restricted
-          ,(%%get-lexical-binding-name (%%get-restricted-binding-binding variable))
-          ,(%%get-restricted-binding-type variable) serial)
+          ,(jazz:get-lexical-binding-name (jazz:get-restricted-binding-binding variable))
+          ,(jazz:get-restricted-binding-type variable) serial)
       `(:variable
-        ,(%%get-lexical-binding-name (%%get-annotated-variable-variable variable))
-        ,(%%get-annotated-variable-type variable) serial))))
+        ,(jazz:get-lexical-binding-name (jazz:get-annotated-variable-variable variable))
+        ,(jazz:get-annotated-variable-type variable) serial))))
 
 
 (define (jazz:inspect-annotated-frame frame)
   `(:frame
-    ,@(map jazz:inspect-annotated-variable (%%get-annotated-frame-variables frame))))
+    ,@(map jazz:inspect-annotated-variable (jazz:get-annotated-frame-variables frame))))
 
 
 (define (jazz:inspect-annotated-environment environment)
@@ -3417,7 +3409,7 @@
 
 (define (jazz:codes-types codes)
   (map (lambda (code)
-         (%%get-code-type code))
+         (jazz:get-code-type code))
        codes))
 
 
@@ -3425,21 +3417,21 @@
 (define (jazz:sourcify-code code src)
   (if (or (%%not src) (%%not (%%source? src)))
       code
-    (jazz:new-code (%%get-code-form code)
-                   (%%get-code-type code)
+    (jazz:new-code (jazz:get-code-form code)
+                   (jazz:get-code-type code)
                    src)))
 
 
 ;; temp try
 (define (jazz:sourcified-form code)
-  (let ((form (%%get-code-form code))
-        (src (%%get-code-source code)))
+  (let ((form (jazz:get-code-form code))
+        (src (jazz:get-code-source code)))
     (jazz:sourcify-if form src)))
 
 
 ;; temp try... 2
 (define (jazz:sourcified-form2 code src)
-  (let ((form (%%get-code-form code)))
+  (let ((form (jazz:get-code-form code)))
     (jazz:sourcify-if form src)))
 
 
@@ -3449,13 +3441,13 @@
 
 
 (define (jazz:annotate-signature signature)
-  (let ((positional (%%get-signature-positional signature))
-        (optional (%%get-signature-optional signature))
-        (named (%%get-signature-named signature))
-        (rest (%%get-signature-rest signature))
+  (let ((positional (jazz:get-signature-positional signature))
+        (optional (jazz:get-signature-optional signature))
+        (named (jazz:get-signature-named signature))
+        (rest (jazz:get-signature-rest signature))
         (queue (jazz:new-queue)))
     (define (annotate parameter)
-      (let ((declared-type (%%get-lexical-binding-type parameter)))
+      (let ((declared-type (jazz:get-lexical-binding-type parameter)))
         (let ((type (or declared-type jazz:Any)))
           (jazz:enqueue queue (jazz:new-annotated-variable parameter declared-type type)))))
     (for-each annotate positional)
@@ -3468,11 +3460,11 @@
 
 ;; not 100% sure about this special case of using the argument type when the parameter is typeless
 (define (jazz:annotate-inlined-signature signature arguments)
-  (let ((positional (%%get-signature-positional signature))
+  (let ((positional (jazz:get-signature-positional signature))
         (queue (jazz:new-queue)))
     (for-each (lambda (parameter argument)
-                (let ((declared-type (%%get-lexical-binding-type parameter)))
-                  (let ((type (or declared-type (%%get-code-type argument))))
+                (let ((declared-type (jazz:get-lexical-binding-type parameter)))
+                  (let ((type (or declared-type (jazz:get-code-type argument))))
                     (jazz:enqueue queue (jazz:new-annotated-variable parameter declared-type type)))))
               positional
               arguments)
@@ -3483,7 +3475,7 @@
   (map (lambda (binding)
          (let ((variable (%%car binding))
                (value (%%cdr binding)))
-           (let ((declared-type (%%get-lexical-binding-type variable)))
+           (let ((declared-type (jazz:get-lexical-binding-type variable)))
              (let ((type (or declared-type jazz:Void)))
                (jazz:new-annotated-variable variable declared-type type)))))
        bindings))
@@ -3491,7 +3483,7 @@
 
 (define (jazz:annotate-receive parameters)
   (map (lambda (parameter)
-         (let ((declared-type (%%get-lexical-binding-type parameter)))
+         (let ((declared-type (jazz:get-lexical-binding-type parameter)))
            (let ((type (or declared-type jazz:Any)))
              (jazz:new-annotated-variable parameter declared-type type))))
        parameters))
@@ -3499,8 +3491,8 @@
 
 (define (jazz:annotate-internal-defines internal-defines)
   (map (lambda (internal-define)
-         (let ((variable (%%get-internal-define-variable internal-define)))
-           (let ((declared-type (%%get-lexical-binding-type variable)))
+         (let ((variable (jazz:get-internal-define-variable internal-define)))
+           (let ((declared-type (jazz:get-lexical-binding-type variable)))
              (let ((type (or declared-type jazz:Any)))
                (jazz:new-annotated-variable variable declared-type type)))))
        internal-defines))
@@ -3522,7 +3514,7 @@
           (let ((annotated-frame (%%car frames)))
             (or (let iter-variables ((variables
                                       (cond ((%%class-is? annotated-frame jazz:Annotated-Frame)
-                                             (%%get-annotated-frame-variables annotated-frame))
+                                             (jazz:get-annotated-frame-variables annotated-frame))
                                             ((%%class-is? annotated-frame jazz:Variable)
                                              (list annotated-frame))
                                             (else
@@ -3531,17 +3523,17 @@
                       #f
                     (let ((annotated-variable (%%car variables)))
                       (if (%%class-is? annotated-variable jazz:Restricted-Binding)
-                          (let ((binding (%%get-restricted-binding-binding annotated-variable)))
+                          (let ((binding (jazz:get-restricted-binding-binding annotated-variable)))
                             ;; this is really for slots so i need to think about this
                             (if (and (%%class-is? binding jazz:Declaration) (%%eq? binding variable))
-                                (values #f annotated-variable (%%get-restricted-binding-type annotated-variable))
+                                (values #f annotated-variable (jazz:get-restricted-binding-type annotated-variable))
                               (begin
                                 ;; keep outermost type
                                 (if (and (%%not type) (%%eq? binding variable))
-                                    (set! type (%%get-restricted-binding-type annotated-variable)))
+                                    (set! type (jazz:get-restricted-binding-type annotated-variable)))
                                 (iter-variables (%%cdr variables)))))
-                        (if (%%eq? (%%get-annotated-variable-variable annotated-variable) variable)
-                            (values annotated-frame annotated-variable (or type (%%get-annotated-variable-type annotated-variable)))
+                        (if (%%eq? (jazz:get-annotated-variable-variable annotated-variable) variable)
+                            (values annotated-frame annotated-variable (or type (jazz:get-annotated-variable-type annotated-variable)))
                           (iter-variables (%%cdr variables)))))))
                 (iter-frames (%%cdr frames))))))))
 
@@ -3556,18 +3548,18 @@
       (if info
           (receive (frame variable type) info
             type)
-        (%%get-lexical-binding-type binding)))))
+        (jazz:get-lexical-binding-type binding)))))
 
 
 (define (jazz:extend-annotated-type frame variable new-type)
-  (let ((declared-type (%%get-annotated-variable-declared-type variable))
-        (actual-type (%%get-annotated-variable-type variable)))
+  (let ((declared-type (jazz:get-annotated-variable-declared-type variable))
+        (actual-type (jazz:get-annotated-variable-type variable)))
     (if declared-type
         ;; here should validate that new-type is castable to declared-type and generate a cast
         #f
       ;; this should not happen as variables are always created initialized
       (if (%%eq? actual-type jazz:Void)
-          (%%set-annotated-variable-type variable new-type)
+          (jazz:set-annotated-variable-type variable new-type)
         (%%when (%%not (%%subtype? new-type actual-type))
           ;; should probably just call jazz:extend-type but it currently
           ;; bugs recursively on unioning function types together...
@@ -3576,9 +3568,9 @@
                       new-type
                     ;; should find the most specific common supertype
                     jazz:Any)))
-            (%%set-annotated-variable-type variable jazz:Any)
-            ;;(jazz:debug 'reset (%%get-lexical-binding-name (%%get-annotated-variable-variable variable)) actual-type new-type extended-type)
-            (let ((reset (%%get-annotated-frame-reset frame)))
+            (jazz:set-annotated-variable-type variable jazz:Any)
+            ;;(jazz:debug 'reset (jazz:get-lexical-binding-name (jazz:get-annotated-variable-variable variable)) actual-type new-type extended-type)
+            (let ((reset (jazz:get-annotated-frame-reset frame)))
               (continuation-return reset #f))))))))
 
 
@@ -3640,22 +3632,22 @@
   (cond ((jazz:*raise-walk-problems?*)
          (raise warning))
         ((jazz:warnings?)
-         (%%set-walker-warnings walker (%%append (%%get-walker-warnings walker) (%%list warning))))))
+         (jazz:set-walker-warnings walker (%%append (jazz:get-walker-warnings walker) (%%list warning))))))
 
 
 (define (jazz:walker-error walker resume error)
   (cond ((jazz:*raise-walk-problems?*)
          (raise error))
         (else
-         (%%set-walker-errors walker (%%append (%%get-walker-errors walker) (%%list error)))
+         (jazz:set-walker-errors walker (%%append (jazz:get-walker-errors walker) (%%list error)))
          (if (and resume (jazz:delay-reporting?))
              (continuation-return resume (jazz:unspecified))
            (jazz:validate-walk-problems walker)))))
 
 
 (define (jazz:validate-walk-problems walker)
-  (let ((warnings (%%get-walker-warnings walker))
-        (errors (%%get-walker-errors walker)))
+  (let ((warnings (jazz:get-walker-warnings walker))
+        (errors (jazz:get-walker-errors walker)))
     (%%when (or (%%not-null? warnings) (%%not-null? errors))
       (let ((output (open-output-string))
             (all (%%append warnings errors)))
@@ -3684,14 +3676,14 @@
 (define (jazz:partition-walk-problems-unit problems)
   (jazz:partition problems
                   (lambda (problem)
-                    (%%get-walk-location-unit-locator (%%get-walk-problem-location problem)))
+                    (jazz:get-walk-location-unit-locator (jazz:get-walk-problem-location problem)))
                   assv))
 
 
 (define (jazz:partition-walk-problems-declaration problems)
   (jazz:partition problems
                   (lambda (problem)
-                    (%%symbol->string (%%get-walk-location-declaration-locator (%%get-walk-problem-location problem))))
+                    (%%symbol->string (jazz:get-walk-location-declaration-locator (jazz:get-walk-problem-location problem))))
                   assoc))
 
 
@@ -3735,24 +3727,24 @@
 
 
 (jazz:define-method (jazz:walker-declarations (jazz:Walker walker))
-  (%%list (%%get-dialect-declarations (jazz:get-dialect 'foundation))))
+  (%%list (jazz:get-dialect-declarations (jazz:get-dialect 'foundation))))
 
 
 (jazz:define-method (jazz:walker-bindings (jazz:Walker walker))
-  (%%list (%%get-dialect-bindings (jazz:get-dialect 'foundation))))
+  (%%list (jazz:get-dialect-bindings (jazz:get-dialect 'foundation))))
 
 
 (define (jazz:walker-declaration-environment walker)
-  (or (%%get-walker-declarations walker)
+  (or (jazz:get-walker-declarations walker)
       (let ((environment (%%list (jazz:new-walk-frame (jazz:walker-declarations walker)))))
-        (%%set-walker-declarations walker environment)
+        (jazz:set-walker-declarations walker environment)
         environment)))
 
 
 (define (jazz:walker-environment walker)
-  (or (%%get-walker-bindings walker)
+  (or (jazz:get-walker-bindings walker)
       (let ((environment (%%list (jazz:new-walk-frame (jazz:walker-bindings walker)))))
-        (%%set-walker-bindings walker environment)
+        (jazz:set-walker-bindings walker environment)
         environment)))
 
 
@@ -3762,9 +3754,9 @@
 
 
 (define (jazz:register-autoload-declaration module-declaration autoload-declaration)
-  (let ((declarations (%%get-module-declaration-walker-autoloads module-declaration)))
+  (let ((declarations (jazz:get-module-declaration-walker-autoloads module-declaration)))
     (%%when (%%not (%%memq autoload-declaration declarations))
-      (%%set-module-declaration-walker-autoloads module-declaration (%%cons autoload-declaration declarations)))))
+      (jazz:set-module-declaration-walker-autoloads module-declaration (%%cons autoload-declaration declarations)))))
 
 
 ;;;
@@ -3826,13 +3818,13 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Binding-Reference expression) declaration environment backend)
-  (jazz:sourcify-code (jazz:emit-binding-reference (%%get-reference-binding expression) declaration environment backend)
-                      (%%get-expression-source expression)))
+  (jazz:sourcify-code (jazz:emit-binding-reference (jazz:get-reference-binding expression) declaration environment backend)
+                      (jazz:get-expression-source expression)))
 
 
 (jazz:define-method (jazz:emit-call (jazz:Binding-Reference expression) arguments declaration environment backend)
-  (jazz:sourcify-code (jazz:emit-binding-call (%%get-reference-binding expression) (%%get-expression-source expression) arguments declaration environment backend)
-                      (%%get-expression-source expression)))
+  (jazz:sourcify-code (jazz:emit-binding-call (jazz:get-reference-binding expression) (jazz:get-expression-source expression) arguments declaration environment backend)
+                      (jazz:get-expression-source expression)))
 
 
 ;;;
@@ -3848,8 +3840,8 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Body expression) declaration environment backend)
-  (let ((internal-defines (%%get-body-internal-defines expression))
-        (expressions (%%get-body-expressions expression)))
+  (let ((internal-defines (jazz:get-body-internal-defines expression))
+        (expressions (jazz:get-body-expressions expression)))
     (jazz:with-annotated-frame (jazz:annotate-internal-defines internal-defines)
       (lambda (frame)
         (let ((augmented-environment (%%cons frame environment)))
@@ -3864,9 +3856,9 @@
   (up expression
       seed
       (jazz:tree-fold-list
-        (%%get-body-expressions expression) down up here
+        (jazz:get-body-expressions expression) down up here
         (jazz:tree-fold-list
-          (%%get-body-internal-defines expression) down up here
+          (jazz:get-body-internal-defines expression) down up here
           (down expression seed environment)
           environment)
         environment)
@@ -3886,8 +3878,8 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Internal-Define expression) declaration environment backend)
-  (let ((variable (%%get-internal-define-variable expression))
-        (value (%%get-internal-define-value expression)))
+  (let ((variable (jazz:get-internal-define-variable expression))
+        (value (jazz:get-internal-define-value expression)))
     (jazz:new-code
       `(define ,(jazz:emit-binding-symbol variable declaration environment backend)
          ,(jazz:sourcified-form (jazz:emit-expression value declaration environment backend)))
@@ -3899,7 +3891,7 @@
   (up expression
       seed
       (jazz:tree-fold
-        (%%get-internal-define-value expression) down up here
+        (jazz:get-internal-define-value expression) down up here
         (down expression seed environment)
         environment)
       environment))
@@ -3918,19 +3910,19 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Begin expression) declaration environment backend)
-  (let ((expressions (%%get-begin-expressions expression)))
+  (let ((expressions (jazz:get-begin-expressions expression)))
     (let ((code (jazz:emit-statements-code expressions declaration environment backend)))
       (jazz:new-code
         (jazz:emit 'begin backend expression declaration environment code)
-        (%%get-code-type code)
-        (%%get-expression-source expression)))))
+        (jazz:get-code-type code)
+        (jazz:get-expression-source expression)))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Begin expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold-list
-        (%%get-begin-expressions expression) down up here
+        (jazz:get-begin-expressions expression) down up here
         (down expression seed environment)
         environment)
       environment))
@@ -3956,19 +3948,19 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:Call expression) declaration environment backend)
   (or (jazz:emit 'call backend expression declaration environment)
-      (let ((operator (%%get-call-operator expression))
-            (arguments (%%get-call-arguments expression)))
+      (let ((operator (jazz:get-call-operator expression))
+            (arguments (jazz:get-call-arguments expression)))
         (let ((arguments-codes (jazz:emit-expressions arguments declaration environment backend)))
           (jazz:sourcify-code
             (jazz:emit-call operator arguments-codes declaration environment backend)
-            (%%get-expression-source expression))))))
+            (jazz:get-expression-source expression))))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Call expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold-list
-        (cons (%%get-call-operator expression) (%%get-call-arguments expression))
+        (cons (jazz:get-call-operator expression) (jazz:get-call-arguments expression))
         down up here
         (down expression seed environment)
         environment)
@@ -3988,14 +3980,14 @@
 
 
 (define (jazz:validate-arguments walker resume source-declaration declaration signature arguments form-src)
-  (let ((mandatory (%%get-signature-mandatory signature))
-        (rest (%%get-signature-rest signature))
+  (let ((mandatory (jazz:get-signature-mandatory signature))
+        (rest (jazz:get-signature-rest signature))
         (passed (%%length arguments))
-        (name (%%get-lexical-binding-name declaration))
+        (name (jazz:get-lexical-binding-name declaration))
         ;; todo improve handling of optional and named parameters
-        (rest? (or (%%get-signature-rest signature)
-                   (%%not-null? (%%get-signature-optional signature))
-                   (%%not-null? (%%get-signature-named signature)))))
+        (rest? (or (jazz:get-signature-rest signature)
+                   (%%not-null? (jazz:get-signature-optional signature))
+                   (%%not-null? (jazz:get-signature-named signature)))))
     (cond ((and (%%not rest?) (%%fx> passed mandatory))
            (jazz:walk-error walker resume source-declaration form-src "Too many arguments for: {a}" name))
           ((%%fx< passed mandatory)
@@ -4016,8 +4008,8 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:Constant expression) declaration environment backend)
   (jazz:new-code
-    (%%get-constant-expansion expression)
-    (%%get-expression-type expression)
+    (jazz:get-constant-expansion expression)
+    (jazz:get-expression-type expression)
     #f))
 
 
@@ -4123,13 +4115,13 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Assignment expression) declaration environment backend)
-  (jazz:emit-binding-assignment (%%get-assignment-binding expression) (%%get-assignment-value expression) declaration environment backend))
+  (jazz:emit-binding-assignment (jazz:get-assignment-binding expression) (jazz:get-assignment-value expression) declaration environment backend))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Assignment expression) down up here seed environment)
   (up expression
       seed
-      (jazz:tree-fold (%%get-assignment-value expression) down up here (down expression seed environment) environment)
+      (jazz:tree-fold (jazz:get-assignment-value expression) down up here (down expression seed environment) environment)
       environment))
 
 
@@ -4159,7 +4151,7 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Walk-Failed-Special expression) declaration environment backend)
-  (let ((answer (%%get-walk-failed-special-answer expression)))
+  (let ((answer (jazz:get-walk-failed-special-answer expression)))
     (jazz:new-code
       answer
       jazz:Boolean
@@ -4209,7 +4201,7 @@
                    (if (%%class-is? statement jazz:Declaration)
                        (jazz:emit-declaration statement environment backend)
                      (let ((code (jazz:emit-expression statement declaration environment backend)))
-                       (set! last-type (%%get-code-type code))
+                       (set! last-type (jazz:get-code-type code))
                        (jazz:sourcified-form code))))
                  statements)))
       (jazz:new-code emited last-type #f))))
@@ -4229,7 +4221,7 @@
           ((%%pair? form)
            (jazz:walk-form walker resume declaration environment form-src))
           ((jazz:syntactic-closure? form)
-           (jazz:walk walker resume declaration (append (%%get-syntactic-closure-environment form) environment) (%%get-syntactic-closure-form form)))
+           (jazz:walk walker resume declaration (append (jazz:get-syntactic-closure-environment form) environment) (jazz:get-syntactic-closure-form form)))
           (else
            (jazz:walk-constant walker resume declaration environment form-src)))))
 
@@ -4349,7 +4341,7 @@
                 (jazz:add-to-module-references declaration decl)
                 (if (%%is? decl jazz:Autoload-Declaration)
                     decl
-                  (jazz:new-autoload-declaration name #f #f (%%get-declaration-toplevel declaration) (jazz:new-module-reference module-name #f))))
+                  (jazz:new-autoload-declaration name #f #f (jazz:get-declaration-toplevel declaration) (jazz:new-module-reference module-name #f))))
             (jazz:walk-error walker resume declaration symbol-src "Unable to find {s} in unit {s}" name module-name))))))
   
   (define (lookup walker environment symbol)
@@ -4362,20 +4354,20 @@
                    (lp (%%cdr env))))))))
 
   (define (validate-compatibility walker declaration referenced-declaration)
-    (if (%%eq? (%%get-declaration-compatibility referenced-declaration) 'deprecated)
-        (let ((referenced-locator (%%get-declaration-locator referenced-declaration)))
+    (if (%%eq? (jazz:get-declaration-compatibility referenced-declaration) 'deprecated)
+        (let ((referenced-locator (jazz:get-declaration-locator referenced-declaration)))
           (jazz:walk-warning walker declaration symbol-src "Deprecated access to {s}" referenced-locator))))
   
   (let ((referenced-declaration
          (if (jazz:syntactic-closure? symbol-src)
              (or (lookup walker environment symbol-src)
-                 (lookup walker (%%get-syntactic-closure-environment symbol-src) (jazz:syntactic-closure-form symbol-src))
-                 (lookup walker (%%get-syntactic-closure-environment symbol-src) (jazz:source-code (jazz:syntactic-closure-form symbol-src))))
+                 (lookup walker (jazz:get-syntactic-closure-environment symbol-src) (jazz:syntactic-closure-form symbol-src))
+                 (lookup walker (jazz:get-syntactic-closure-environment symbol-src) (jazz:source-code (jazz:syntactic-closure-form symbol-src))))
            (lookup walker environment (jazz:source-code symbol-src)))))
     (if (and referenced-declaration (%%class-is? referenced-declaration jazz:Declaration))
         (validate-compatibility walker declaration referenced-declaration))
     (if (%%class-is? referenced-declaration jazz:Autoload-Declaration)
-        (let ((module (%%get-declaration-toplevel declaration)))
+        (let ((module (jazz:get-declaration-toplevel declaration)))
           (jazz:register-autoload-declaration module referenced-declaration)))
     (if (jazz:analysis-mode?)
         (jazz:lookup-analyse walker declaration symbol-src referenced-declaration))
@@ -4422,7 +4414,7 @@
 
 (define (jazz:walk-require-declaration walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
-    (let ((module-declaration (%%get-declaration-toplevel declaration)))
+    (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
       (let ((requires (jazz:filter-features (%%cdr form))))
         ;; so units with errors are not added to the module when evaluating code
         (%%when (%%eq? (jazz:walk-for) 'eval)
@@ -4464,13 +4456,13 @@
          imports))
   
   (let ((form (%%desourcify form-src)))
-    (let ((module-declaration (%%get-declaration-toplevel declaration)))
+    (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
       (let ((import-invoices (walk-imports (jazz:filter-features (%%cdr form)))))
         ;; so units with errors are not added to the module when evaluating code
         (%%when (%%eq? (jazz:walk-for) 'eval)
           (for-each (lambda (import-invoice)
-                      (let ((module-declaration (%%get-module-invoice-module import-invoice)))
-                        (jazz:load-unit (%%get-lexical-binding-name module-declaration))))
+                      (let ((module-declaration (jazz:get-module-invoice-module import-invoice)))
+                        (jazz:load-unit (jazz:get-lexical-binding-name module-declaration))))
                     import-invoices))
         (for-each (lambda (import-invoice)
                     (jazz:add-module-import module-declaration import-invoice #t))
@@ -4578,7 +4570,7 @@
                  (let* ((name (jazz:source-code (%%car (jazz:unwrap-syntactic-closure binding))))
                         (value (%%cadr (jazz:unwrap-syntactic-closure binding)))
                         (expander-src (jazz:emit-expression (jazz:walk walker resume declaration environment value) declaration environment #f))
-                        (expander (eval (%%get-code-form expander-src))))
+                        (expander (eval (jazz:get-code-form expander-src))))
                    (jazz:new-define-syntax-form name expander environment)))
                bindings)
               environment)))
@@ -4713,7 +4705,7 @@
 (define (jazz:emit-signature-casts signature source-declaration environment backend)
   (let ((queue #f))
     (define (process parameter)
-      (let ((type (%%get-lexical-binding-type parameter)))
+      (let ((type (jazz:get-lexical-binding-type parameter)))
         ;; simple optimization
         (if (and type (%%neq? type jazz:Any))
             (let ((cast (jazz:emit-parameter-cast (jazz:emit-binding-reference parameter source-declaration environment backend) type source-declaration environment backend)))
@@ -4724,19 +4716,19 @@
                         (set! queue (jazz:new-queue)))
                     (jazz:enqueue queue cast)))))))
     
-    (for-each process (%%get-signature-positional signature))
-    (for-each process (%%get-signature-optional signature))
-    (for-each process (%%get-signature-named signature))
+    (for-each process (jazz:get-signature-positional signature))
+    (for-each process (jazz:get-signature-optional signature))
+    (for-each process (jazz:get-signature-named signature))
     (if (%%not queue)
         #f
       (jazz:queue-list queue))))
 
 
 (define (jazz:emit-signature signature declaration environment backend)
-  (let ((positional (%%get-signature-positional signature))
-        (optional (%%get-signature-optional signature))
-        (named (%%get-signature-named signature))
-        (rest (%%get-signature-rest signature))
+  (let ((positional (jazz:get-signature-positional signature))
+        (optional (jazz:get-signature-optional signature))
+        (named (jazz:get-signature-named signature))
+        (rest (jazz:get-signature-rest signature))
         (queue (jazz:new-queue)))
     (define (emit parameter)
       (jazz:enqueue queue (jazz:emit-parameter parameter declaration environment backend)))

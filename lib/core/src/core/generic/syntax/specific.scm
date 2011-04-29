@@ -47,10 +47,10 @@
 
 
 (jazz:define-class-syntax jazz:Specific jazz:Object (constructor: jazz:allocate-specific)
-  ((dynamic-signature    %%get-specific-dynamic-signature    %%set-specific-dynamic-signature)
-   (implementation       %%get-specific-implementation       %%set-specific-implementation)
-   (ancestor-specifics   %%get-specific-ancestor-specifics   %%set-specific-ancestor-specifics)
-   (descendant-specifics %%get-specific-descendant-specifics %%set-specific-descendant-specifics)))
+  ((dynamic-signature    jazz:get-specific-dynamic-signature    jazz:set-specific-dynamic-signature)
+   (implementation       jazz:get-specific-implementation       jazz:set-specific-implementation)
+   (ancestor-specifics   jazz:get-specific-ancestor-specifics   jazz:set-specific-ancestor-specifics)
+   (descendant-specifics jazz:get-specific-descendant-specifics jazz:set-specific-descendant-specifics)))
 
 
 (jazz:define-class jazz:Specific)

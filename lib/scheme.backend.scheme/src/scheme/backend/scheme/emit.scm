@@ -45,16 +45,16 @@
 
 (jazz:define-emit (define (scheme backend) declaration environment expression)
   (jazz:sourcify-if
-    (let ((locator (%%get-declaration-locator declaration)))
+    (let ((locator (jazz:get-declaration-locator declaration)))
       `(begin
          (define ,locator
            ,expression)
-         ,(let ((name (%%get-lexical-binding-name declaration))
-                (parent (%%get-declaration-parent declaration)))
+         ,(let ((name (jazz:get-lexical-binding-name declaration))
+                (parent (jazz:get-declaration-parent declaration)))
             (if (%%is? parent jazz:Module-Declaration)
-                `(jazz:register-define ',(%%get-lexical-binding-name parent) ',name ',locator)
-              `(jazz:add-field ,(%%get-declaration-locator parent) (jazz:new-define ',name ',locator))))))
-    (%%get-declaration-source declaration)))
+                `(jazz:register-define ',(jazz:get-lexical-binding-name parent) ',name ',locator)
+              `(jazz:add-field ,(jazz:get-declaration-locator parent) (jazz:new-define ',name ',locator))))))
+    (jazz:get-declaration-source declaration)))
 
 
 ;;;
@@ -158,7 +158,7 @@
 
 
 (jazz:define-emit (cond (scheme backend) expression declaration environment)
-  (let ((clauses (%%get-cond-clauses expression)))
+  (let ((clauses (jazz:get-cond-clauses expression)))
     `(cond ,@(let recurse ((clauses clauses)
                            (environment environment))
                   (if (%%null? clauses) '()
@@ -224,7 +224,7 @@
           (%%cons (emit (%%car form)) (emit (%%cdr form))))
       form))
   
-  (%%list 'quasiquote (emit (%%get-quasiquote-form expression))))
+  (%%list 'quasiquote (emit (jazz:get-quasiquote-form expression))))
 
 
 ;;;
@@ -233,7 +233,7 @@
 
 
 (jazz:define-emit (parameterize (scheme backend) expression declaration environment body-code)
-  (let ((bindings (%%get-parameterize-bindings expression)))
+  (let ((bindings (jazz:get-parameterize-bindings expression)))
     `(parameterize ,(map (lambda (binding)
                            (let ((variable (%%car binding))
                                  (value (%%cdr binding)))

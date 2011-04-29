@@ -94,7 +94,7 @@
 
 
 (jazz:define-method (jazz:present-exception (jazz:System-Exception exception))
-  (jazz:exception-reason (%%get-system-exception-exception exception)))
+  (jazz:exception-reason (jazz:get-system-exception-exception exception)))
 
 
 ;;;

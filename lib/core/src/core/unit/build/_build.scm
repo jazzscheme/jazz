@@ -90,7 +90,7 @@
                                                               declaration)))
                                                 (jazz:find-public-declaration module-declaration symbol))))
                                    (and found
-                                        (%%eq? (%%get-lexical-binding-name (%%get-declaration-toplevel found)) module-locator))))
+                                        (%%eq? (jazz:get-lexical-binding-name (jazz:get-declaration-toplevel found)) module-locator))))
                                module-references))))))
   
   (let ((manifest (get-manifest)))
@@ -317,19 +317,19 @@
           (begin
             (set! subunits (%%cons unit-name subunits))
             (let ((declaration (jazz:outline-unit unit-name)))
-              (if (or toplevel? (%%eq? (%%get-declaration-access declaration) 'protected))
+              (if (or toplevel? (%%eq? (jazz:get-declaration-access declaration) 'protected))
                   (begin
                     (if (and (%%not toplevel?) (%%not (jazz:descendant-unit? parent-name unit-name)))
                         (jazz:error "Illegal access from {a} to protected unit {a}" parent-name unit-name))
                     (proc unit-name declaration phase)
                     (if (jazz:is? declaration jazz:Unit-Declaration)
-                        (for-each process-require (%%get-unit-declaration-requires declaration))
+                        (for-each process-require (jazz:get-unit-declaration-requires declaration))
                       (begin
-                        (for-each process-require (%%get-module-declaration-requires declaration))
+                        (for-each process-require (jazz:get-module-declaration-requires declaration))
                         (for-each (lambda (export)
-                                    (let ((reference (%%get-module-invoice-module export)))
+                                    (let ((reference (jazz:get-module-invoice-module export)))
                                       (if reference
-                                          (let ((name (%%get-declaration-reference-name reference))
-                                                (phase (%%get-module-invoice-phase export)))
+                                          (let ((name (jazz:get-declaration-reference-name reference))
+                                                (phase (jazz:get-module-invoice-phase export)))
                                             (iter name phase #f)))))
-                                  (%%get-module-declaration-exports declaration)))))))))))))
+                                  (jazz:get-module-declaration-exports declaration)))))))))))))

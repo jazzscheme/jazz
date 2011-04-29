@@ -44,7 +44,7 @@
 
 
 (jazz:define-emit (module (scheme backend) declaration environment)
-  (let ((body-expansion (jazz:emit-namespace-statements (%%get-namespace-declaration-body declaration) declaration environment backend))
+  (let ((body-expansion (jazz:emit-namespace-statements (jazz:get-namespace-declaration-body declaration) declaration environment backend))
         (inclusions-expansion (jazz:emit-module-inclusions declaration backend))
         (literals-expansion (jazz:emit-module-literals declaration backend))
         (variables-expansion (jazz:emit-module-variables declaration backend))
@@ -62,29 +62,29 @@
                (jazz:enqueue queue `(jazz:load-unit ',unit-name))))
            
            (enqueue-load-unit 'foundation)
-           (let ((dialect-name (%%get-module-declaration-dialect-name declaration)))
+           (let ((dialect-name (jazz:get-module-declaration-dialect-name declaration)))
              (%%when (%%neq? dialect-name 'foundation)
                (enqueue-load-unit dialect-name)))
            (for-each (lambda (spec)
                        (jazz:parse-require spec
                                            (lambda (unit-name feature-requirement phase)
                                              (enqueue-load-unit unit-name))))
-                     (%%get-module-declaration-requires declaration))
+                     (jazz:get-module-declaration-requires declaration))
            (for-each (lambda (module-invoice)
-                       (let ((only (%%get-module-invoice-only module-invoice))
-                             (autoload (%%get-export-invoice-autoload module-invoice)))
+                       (let ((only (jazz:get-module-invoice-only module-invoice))
+                             (autoload (jazz:get-export-invoice-autoload module-invoice)))
                          (%%when (and (%%not only) (%%not autoload))
-                           (let ((module-declaration (jazz:resolve-reference (%%get-module-invoice-module module-invoice) declaration))
-                                 (phase (%%get-module-invoice-phase module-invoice)))
+                           (let ((module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) declaration))
+                                 (phase (jazz:get-module-invoice-phase module-invoice)))
                              (%%when (and (%%neq? module-declaration declaration) (%%neq? phase 'syntax))
-                               (enqueue-load-unit (%%get-lexical-binding-name module-declaration)))))))
-                     (%%get-module-declaration-exports declaration))
+                               (enqueue-load-unit (jazz:get-lexical-binding-name module-declaration)))))))
+                     (jazz:get-module-declaration-exports declaration))
            (for-each (lambda (module-invoice)
-                       (let ((module-declaration (%%get-module-invoice-module module-invoice))
-                             (phase (%%get-module-invoice-phase module-invoice)))
+                       (let ((module-declaration (jazz:get-module-invoice-module module-invoice))
+                             (phase (jazz:get-module-invoice-phase module-invoice)))
                          (%%when (and module-declaration (%%neq? phase 'syntax))
-                           (enqueue-load-unit (%%get-lexical-binding-name module-declaration)))))
-                     (%%get-module-declaration-imports declaration))
+                           (enqueue-load-unit (jazz:get-lexical-binding-name module-declaration)))))
+                     (jazz:get-module-declaration-imports declaration))
            (jazz:queue-list queue))
        ,@registration-expansion
        ,@inclusions-expansion
@@ -100,7 +100,7 @@
 
 
 (jazz:define-emit (declare (scheme backend) expression declaration environment)
-  (let ((declarations (%%get-declare-declarations expression)))
+  (let ((declarations (jazz:get-declare-declarations expression)))
     `(declare ,@declarations)))
 
 
@@ -141,23 +141,23 @@
 
 
 (jazz:define-emit (define-reference (scheme backend) declaration)
-  (%%get-declaration-locator declaration))
+  (jazz:get-declaration-locator declaration))
 
 
 (jazz:define-emit (export-reference (scheme backend) declaration)
-  (%%get-export-declaration-symbol declaration))
+  (jazz:get-export-declaration-symbol declaration))
 
 
 (jazz:define-emit (export-syntax-reference (scheme backend) declaration)
-  (%%get-export-syntax-declaration-symbol declaration))
+  (jazz:get-export-syntax-declaration-symbol declaration))
 
 
 (jazz:define-emit (local-variable-reference (scheme backend) declaration)
-  (%%get-local-variable-binding-variable declaration))
+  (jazz:get-local-variable-binding-variable declaration))
 
 
 (jazz:define-emit (special-form-reference (scheme backend) binding)
-  (%%get-lexical-binding-name binding))
+  (jazz:get-lexical-binding-name binding))
 
 
 (jazz:define-emit (variable-reference (scheme backend) binding source-declaration environment)
@@ -165,16 +165,16 @@
 
 
 (jazz:define-emit (lexical-binding-reference (scheme backend) binding)
-  (%%get-lexical-binding-name binding))
+  (jazz:get-lexical-binding-name binding))
 
 
 (jazz:define-emit (named-parameter-reference (scheme backend) parameter)
-  (%%get-lexical-binding-name parameter))
+  (jazz:get-lexical-binding-name parameter))
 
 
 (jazz:define-emit (symbol-reference (scheme backend) binding)
-  (or (%%get-symbol-binding-gensym binding)
-      (jazz:unwrap-syntactic-closure (%%get-lexical-binding-name binding))))
+  (or (jazz:get-symbol-binding-gensym binding)
+      (jazz:unwrap-syntactic-closure (jazz:get-lexical-binding-name binding))))
 
 
 ;;;
@@ -206,7 +206,7 @@
 
 
 (jazz:define-emit (define-assignment (scheme backend) declaration source-declaration environment value-code)
-  (let ((locator (%%get-declaration-locator declaration)))
+  (let ((locator (jazz:get-declaration-locator declaration)))
     `(set! ,locator ,(jazz:sourcified-form value-code))))
 
 

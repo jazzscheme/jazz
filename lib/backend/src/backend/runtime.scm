@@ -51,15 +51,15 @@
 
 
 (define (jazz:get-backend-binding backend name)
-  (%%table-ref (%%get-backend-bindings backend) name #f))
+  (%%table-ref (jazz:get-backend-bindings backend) name #f))
 
 (define (jazz:require-backend-binding backend name)
   (or (jazz:get-backend-binding backend name)
-      (jazz:error "Unknown {a} backend binding: {s}" (%%get-backend-name backend) name)))
+      (jazz:error "Unknown {a} backend binding: {s}" (jazz:get-backend-name backend) name)))
 
 
 (define (jazz:add-backend-binding backend name binding)
-  (%%table-set! (%%get-backend-bindings backend) name binding))
+  (%%table-set! (jazz:get-backend-bindings backend) name binding))
 
 
 (define (jazz:emit binding backend . rest)
@@ -85,7 +85,7 @@
 
 
 (define (jazz:register-backend backend)
-  (let ((name (%%get-backend-name backend)))
+  (let ((name (jazz:get-backend-name backend)))
     (%%table-set! jazz:Backends name backend)))
 
 

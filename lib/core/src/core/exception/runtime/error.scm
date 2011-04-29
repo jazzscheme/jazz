@@ -46,11 +46,11 @@
 
 
 (jazz:define-method (jazz:exception-message (jazz:Error error))
-  (%%get-error-message error))
+  (jazz:get-error-message error))
 
 
 (jazz:define-method (jazz:present-exception (jazz:Error error))
-  (%%get-error-message error))
+  (jazz:get-error-message error))
 
 
 (define (jazz:raise-jazz-error fmt-string . rest)

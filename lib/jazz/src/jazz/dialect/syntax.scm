@@ -44,9 +44,9 @@
 
 
 (jazz:define-class-syntax jazz:Definition-Declaration jazz:Declaration (constructor: jazz:allocate-definition-declaration)
-  ((expansion %%get-definition-declaration-expansion ())
-   (signature %%get-definition-declaration-signature %%set-definition-declaration-signature)
-   (value     %%get-definition-declaration-value     %%set-definition-declaration-value)))
+  ((expansion jazz:get-definition-declaration-expansion ())
+   (signature jazz:get-definition-declaration-signature jazz:set-definition-declaration-signature)
+   (value     jazz:get-definition-declaration-value     jazz:set-definition-declaration-value)))
 
 
 ;;;
@@ -64,9 +64,9 @@
 
 
 (jazz:define-class-syntax jazz:Generic-Declaration jazz:Declaration (constructor: jazz:allocate-generic-declaration)
-  ((dispatch-types %%get-generic-declaration-dispatch-types ())
-   (signature      %%get-generic-declaration-signature      %%set-generic-declaration-signature)
-   (body           %%get-generic-declaration-body           %%set-generic-declaration-body)))
+  ((dispatch-types jazz:get-generic-declaration-dispatch-types ())
+   (signature      jazz:get-generic-declaration-signature      jazz:set-generic-declaration-signature)
+   (body           jazz:get-generic-declaration-body           jazz:set-generic-declaration-body)))
 
 
 ;;;
@@ -75,10 +75,10 @@
 
 
 (jazz:define-class-syntax jazz:Specific-Declaration jazz:Declaration (constructor: jazz:allocate-specific-declaration)
-  ((generic   %%get-specific-declaration-generic   ())
-   (signature %%get-specific-declaration-signature ())
-   (body      %%get-specific-declaration-body      %%set-specific-declaration-body)
-   (root?     %%get-specific-declaration-root?     ())))
+  ((generic   jazz:get-specific-declaration-generic   ())
+   (signature jazz:get-specific-declaration-signature ())
+   (body      jazz:get-specific-declaration-body      jazz:set-specific-declaration-body)
+   (root?     jazz:get-specific-declaration-root?     ())))
 
 
 ;;;
@@ -87,8 +87,8 @@
 
 
 (jazz:define-class-syntax jazz:Category-Declaration jazz:Namespace-Declaration ()
-  ((implementor %%get-category-declaration-implementor ())
-   (metaclass   %%get-category-declaration-metaclass   ())))
+  ((implementor jazz:get-category-declaration-implementor ())
+   (metaclass   jazz:get-category-declaration-metaclass   ())))
 
 
 ;;;
@@ -97,10 +97,10 @@
 
 
 (jazz:define-class-syntax jazz:Class-Declaration jazz:Category-Declaration (constructor: jazz:allocate-class-declaration)
-  ((ascendant          %%get-class-declaration-ascendant          ())
-   (ascendant-relation %%get-class-declaration-ascendant-relation ())
-   (ascendant-base     %%get-class-declaration-ascendant-base     ())
-   (interfaces         %%get-class-declaration-interfaces         ())))
+  ((ascendant          jazz:get-class-declaration-ascendant          ())
+   (ascendant-relation jazz:get-class-declaration-ascendant-relation ())
+   (ascendant-base     jazz:get-class-declaration-ascendant-base     ())
+   (interfaces         jazz:get-class-declaration-interfaces         ())))
 
 
 ;;;
@@ -109,7 +109,7 @@
 
 
 (jazz:define-class-syntax jazz:Interface-Declaration jazz:Category-Declaration (constructor: jazz:allocate-interface-declaration)
-  ((ascendants %%get-interface-declaration-ascendants ())))
+  ((ascendants jazz:get-interface-declaration-ascendants ())))
 
 
 ;;;
@@ -127,9 +127,9 @@
 
 
 (jazz:define-class-syntax jazz:Slot-Declaration jazz:Field-Declaration (constructor: jazz:allocate-slot-declaration)
-  ((initialize  %%get-slot-declaration-initialize  %%set-slot-declaration-initialize)
-   (getter-name %%get-slot-declaration-getter-name ())
-   (setter-name %%get-slot-declaration-setter-name ())))
+  ((initialize  jazz:get-slot-declaration-initialize  jazz:set-slot-declaration-initialize)
+   (getter-name jazz:get-slot-declaration-getter-name ())
+   (setter-name jazz:get-slot-declaration-setter-name ())))
 
 
 ;;;
@@ -138,8 +138,8 @@
 
 
 (jazz:define-class-syntax jazz:Property-Declaration jazz:Slot-Declaration (constructor: jazz:allocate-property-declaration)
-  ((getter %%get-property-declaration-getter %%set-property-declaration-getter)
-   (setter %%get-property-declaration-setter %%set-property-declaration-setter)))
+  ((getter jazz:get-property-declaration-getter jazz:set-property-declaration-getter)
+   (setter jazz:get-property-declaration-setter jazz:set-property-declaration-setter)))
 
 
 ;;;
@@ -148,14 +148,14 @@
 
 
 (jazz:define-class-syntax jazz:Method-Declaration jazz:Field-Declaration (constructor: jazz:allocate-method-declaration)
-  ((root         %%get-method-declaration-root         ())
-   (propagation  %%get-method-declaration-propagation  ())
-   (abstraction  %%get-method-declaration-abstraction  ())
-   (expansion    %%get-method-declaration-expansion    ())
-   (remote       %%get-method-declaration-remote       ())
-   (synchronized %%get-method-declaration-synchronized ())
-   (signature    %%get-method-declaration-signature    %%set-method-declaration-signature)
-   (body         %%get-method-declaration-body         %%set-method-declaration-body)))
+  ((root         jazz:get-method-declaration-root         ())
+   (propagation  jazz:get-method-declaration-propagation  ())
+   (abstraction  jazz:get-method-declaration-abstraction  ())
+   (expansion    jazz:get-method-declaration-expansion    ())
+   (remote       jazz:get-method-declaration-remote       ())
+   (synchronized jazz:get-method-declaration-synchronized ())
+   (signature    jazz:get-method-declaration-signature    jazz:set-method-declaration-signature)
+   (body         jazz:get-method-declaration-body         jazz:set-method-declaration-body)))
 
 
 ;;;
@@ -191,7 +191,7 @@
 
 
 (jazz:define-class-syntax jazz:Dynamic-Self-Binding jazz:Lexical-Binding (constructor: jazz:allocate-dynamic-self-binding)
-  ((code %%get-dynamic-self-binding-code ())))
+  ((code jazz:get-dynamic-self-binding-code ())))
 
 
 ;;;
@@ -200,7 +200,7 @@
 
 
 (jazz:define-class-syntax jazz:With-Self jazz:Expression (constructor: jazz:allocate-with-self)
-  ((body %%get-with-self-body ())))
+  ((body jazz:get-with-self-body ())))
 
 
 ;;;
@@ -209,8 +209,8 @@
 
 
 (jazz:define-class-syntax jazz:With-Dynamic-Self jazz:Expression (constructor: jazz:allocate-with-dynamic-self)
-  ((code %%get-with-dynamic-self-code ())
-   (body %%get-with-dynamic-self-body ())))
+  ((code jazz:get-with-dynamic-self-code ())
+   (body jazz:get-with-dynamic-self-body ())))
 
 
 ;;;
@@ -219,7 +219,7 @@
 
 
 (jazz:define-class-syntax jazz:Cast jazz:Expression (constructor: jazz:allocate-cast)
-  ((expression %%get-cast-expression ())))
+  ((expression jazz:get-cast-expression ())))
 
 
 ;;;
@@ -228,8 +228,8 @@
 
 
 (jazz:define-class-syntax jazz:Allocate jazz:Expression (constructor: jazz:allocate-allocate)
-  ((class  %%get-allocate-class  ())
-   (values %%get-allocate-values ())))
+  ((class  jazz:get-allocate-class  ())
+   (values jazz:get-allocate-values ())))
 
 
 ;;;
@@ -238,8 +238,8 @@
 
 
 (jazz:define-class-syntax jazz:Dispatch jazz:Expression (constructor: jazz:allocate-dispatch)
-  ((name      %%get-dispatch-name      ())
-   (arguments %%get-dispatch-arguments ())))
+  ((name      jazz:get-dispatch-name      ())
+   (arguments jazz:get-dispatch-arguments ())))
 
 
 ;;;

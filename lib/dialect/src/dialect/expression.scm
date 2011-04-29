@@ -51,8 +51,8 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Proclaim expression) declaration environment backend)
-  (let ((clauses (%%get-proclaim-clauses expression))
-        (module-declaration (%%get-declaration-toplevel declaration)))
+  (let ((clauses (jazz:get-proclaim-clauses expression))
+        (module-declaration (jazz:get-declaration-toplevel declaration)))
     (for-each (lambda (clause)
                 (jazz:proclaim module-declaration clause))
               clauses))
@@ -84,7 +84,7 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Delay expression) declaration environment backend)
-  (let ((expr (jazz:emit-expression (%%get-delay-expression expression) declaration environment backend)))
+  (let ((expr (jazz:emit-expression (jazz:get-delay-expression expression) declaration environment backend)))
     (jazz:new-code
       (jazz:emit 'delay backend expression declaration environment expr)
       jazz:Any
@@ -135,13 +135,13 @@
         #f
       (or (jazz:emit-specialized-locator locator arguments-codes environment backend)
           (if (%%class-is? operator jazz:Binding-Reference)
-              (let ((binding (%%get-reference-binding operator)))
+              (let ((binding (jazz:get-reference-binding operator)))
                 (let ((specializers (jazz:get-specializers binding)))
                   (let ((types (jazz:codes-types arguments-codes)))
                     (let iter ((scan specializers))
                          (if (%%null? scan)
                              (begin
-                               (%%when (and (jazz:warnings?) (%%not (%%null? specializers)) (jazz:get-module-warn? (%%get-declaration-toplevel declaration) 'optimizations)
+                               (%%when (and (jazz:warnings?) (%%not (%%null? specializers)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
                                          ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
                                          (%%not (%%memq locator '(scheme.language.runtime.kernel:=
                                                                    scheme.language.runtime.kernel:<
@@ -152,13 +152,13 @@
                                                                    scheme.language.runtime.kernel:-
                                                                    scheme.language.runtime.kernel:*
                                                                    scheme.language.runtime.kernel:/))))
-                                 (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (%%get-lexical-binding-name binding)))
+                                 (jazz:debug 'Warning: 'In (jazz:get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (jazz:get-lexical-binding-name binding)))
                                ;; for debugging
-                               (%%when (%%memq (%%get-lexical-binding-name binding) (jazz:debug-specializers))
-                                 (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (%%get-lexical-binding-name binding) 'on types))
+                               (%%when (%%memq (jazz:get-lexical-binding-name binding) (jazz:debug-specializers))
+                                 (jazz:debug 'Warning: 'In (jazz:get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (jazz:get-lexical-binding-name binding) 'on types))
                                #f)
                            (let ((specializer (%%car scan)))
-                             (let ((function-type (%%get-lexical-binding-type specializer)))
+                             (let ((function-type (jazz:get-lexical-binding-type specializer)))
                                (if (jazz:match-signature? arguments types function-type)
                                    (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration environment backend)
                                        (begin
@@ -208,7 +208,7 @@
 (jazz:define-variable-override jazz:emit-inlined-call
   (lambda (operator arguments call declaration environment backend)
     (if (%%class-is? operator jazz:Binding-Reference)
-        (let ((binding (%%get-reference-binding operator)))
+        (let ((binding (jazz:get-reference-binding operator)))
           (jazz:emit-inlined-binding-call binding arguments call declaration environment backend))
       #f)))
 
@@ -220,17 +220,17 @@
 
 (define (jazz:match-signature? arguments argument-types function-type)
   (let ((argcount (%%length argument-types))
-        (mandatory (%%get-function-type-mandatory function-type))
-        (positional (%%get-function-type-positional function-type))
-        (optional (%%get-function-type-optional function-type))
-        (named (%%get-function-type-named function-type))
-        (rest (%%get-function-type-rest function-type)))
+        (mandatory (jazz:get-function-type-mandatory function-type))
+        (positional (jazz:get-function-type-positional function-type))
+        (optional (jazz:get-function-type-optional function-type))
+        (named (jazz:get-function-type-named function-type))
+        (rest (jazz:get-function-type-rest function-type)))
     (define (match? arg type expect)
       (if (%%class-is? expect jazz:Category-Type)
           (or (and (%%class-is? arg jazz:Binding-Reference)
-                   (%%eq? (%%get-reference-binding arg) (%%get-category-type-declaration expect)))
+                   (%%eq? (jazz:get-reference-binding arg) (jazz:get-category-type-declaration expect)))
               (and (%%class-is? type jazz:Category-Type)
-                   (%%eq? (%%get-category-type-declaration type) (%%get-category-type-declaration expect))))
+                   (%%eq? (jazz:get-category-type-declaration type) (jazz:get-category-type-declaration expect))))
         (%%subtype? (or type jazz:Any) expect)))
     
     (define (match-positional?)
@@ -249,7 +249,7 @@
     
     (define (match-rest?)
       (or (%%not rest)
-          (let ((expect (%%get-rest-type-type rest)))
+          (let ((expect (jazz:get-rest-type-type rest)))
             (jazz:every? (lambda (type)
                            ;; should validate that type is not a category-type
                            (match? #f type expect))
@@ -338,13 +338,13 @@
 
 (define (jazz:restriction-of? type class)
   (and (%%class-is? type jazz:Restriction-Type)
-       (%%class-is? (%%get-restriction-type-type type) class)))
+       (%%class-is? (jazz:get-restriction-type-type type) class)))
 
 
 (define (jazz:complement-type base type)
   (if (and (jazz:restriction-of? type jazz:Complement-Type)
-           (%%eq? (%%get-restriction-type-base type) base))
-      (%%get-complement-type-type (%%get-restriction-type-type type))
+           (%%eq? (jazz:get-restriction-type-base type) base))
+      (jazz:get-complement-type-type (jazz:get-restriction-type-type type))
     (jazz:new-restriction-type base (jazz:new-complement-type type))))
 
 
@@ -374,7 +374,7 @@
           (let ((yes-type (cond ((jazz:type? type-expr)
                                  type-expr)
                                 ((%%class-is? type-expr jazz:Binding-Reference)
-                                 (let ((binding (%%get-reference-binding type-expr)))
+                                 (let ((binding (jazz:get-reference-binding type-expr)))
                                    (if (%%class-is? binding jazz:Declaration)
                                        (jazz:resolve-binding binding)
                                      #f)))
@@ -403,14 +403,14 @@
   
   (define (extract-binding expr env)
     (if (%%class-is? expr jazz:Binding-Reference)
-        (let ((binding (%%get-reference-binding expr)))
+        (let ((binding (jazz:get-reference-binding expr)))
           (cond ((%%class-is? binding jazz:Variable)
                  (receive (frame actual-variable actual-type) (jazz:find-annotated binding (%%car env))
-                   (let ((origin (%%get-annotated-variable-variable actual-variable)))
+                   (let ((origin (jazz:get-annotated-variable-variable actual-variable)))
                      (values origin actual-type))))
                 ;; this is really for slots so i need to think about this
                 ((%%class-is? binding jazz:Declaration)
-                 (values binding (%%get-lexical-binding-type binding)))
+                 (values binding (jazz:get-lexical-binding-type binding)))
                 (else
                  (values #f #f))))
       (values #f #f)))
@@ -422,14 +422,14 @@
     (cond ((%%class-is? expr jazz:And)
            (process-and (jazz:get-and-expressions expr) env))
           ((%%class-is? expr jazz:Or)
-           (process-or (%%get-or-expressions expr) env))
+           (process-or (jazz:get-or-expressions expr) env))
           ((%%class-is? expr jazz:Call)
-           (let ((operator (%%get-call-operator expr)))
+           (let ((operator (jazz:get-call-operator expr)))
              (if (%%class-is? operator jazz:Binding-Reference)
-                 (let ((operator-binding (%%get-reference-binding operator)))
+                 (let ((operator-binding (jazz:get-reference-binding operator)))
                    (if (%%class-is? operator-binding jazz:Declaration)
-                       (let ((operator-locator (%%get-declaration-locator operator-binding))
-                             (arguments (%%get-call-arguments expr)))
+                       (let ((operator-locator (jazz:get-declaration-locator operator-binding))
+                             (arguments (jazz:get-call-arguments expr)))
                          (let ((count (%%length arguments)))
                            (case operator-locator
                              ((scheme.language.runtime.kernel:not)
@@ -460,7 +460,7 @@
            (receive (origin actual-type) (extract-binding expr env)
              (if origin
                  (if (%%class-is? actual-type jazz:Nillable-Type)
-                     (let ((yes (%%cons (jazz:new-annotated-frame (%%list (jazz:new-restricted-binding origin (%%get-nillable-type-type actual-type))) #f) (%%car env)))
+                     (let ((yes (%%cons (jazz:new-annotated-frame (%%list (jazz:new-restricted-binding origin (jazz:get-nillable-type-type actual-type))) #f) (%%car env)))
                            (no (%%cdr env)))
                        (%%cons yes no))
                    env)
@@ -470,26 +470,26 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:If expression) declaration environment backend)
-  (let ((test (%%get-if-test expression)))
+  (let ((test (jazz:get-if-test expression)))
     (jazz:bind (yes-environment . no-environment) (jazz:branch-types test environment)
       (let ((test (jazz:emit-expression test declaration environment backend))
-            (yes (jazz:emit-expression (%%get-if-yes expression) declaration yes-environment backend))
-            (no (jazz:emit-expression (%%get-if-no expression) declaration no-environment backend)))
+            (yes (jazz:emit-expression (jazz:get-if-yes expression) declaration yes-environment backend))
+            (no (jazz:emit-expression (jazz:get-if-no expression) declaration no-environment backend)))
         (jazz:new-code
           (jazz:emit 'if backend expression declaration environment test yes no)
-          (jazz:extend-type (%%get-code-type yes) (%%get-code-type no))
-          (%%get-expression-source expression))))))
+          (jazz:extend-type (jazz:get-code-type yes) (jazz:get-code-type no))
+          (jazz:get-expression-source expression))))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:If expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold
-        (%%get-if-no expression) down up here
+        (jazz:get-if-no expression) down up here
         (jazz:tree-fold
-          (%%get-if-yes expression) down up here
+          (jazz:get-if-yes expression) down up here
           (jazz:tree-fold
-            (%%get-if-test expression) down up here (down expression seed environment) environment)
+            (jazz:get-if-test expression) down up here (down expression seed environment) environment)
           environment)
         environment)
       environment))
@@ -508,21 +508,21 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Cond expression) declaration environment backend)
-  (let ((clauses (%%get-cond-clauses expression)))
+  (let ((clauses (jazz:get-cond-clauses expression)))
     (jazz:new-code
       (jazz:emit 'cond backend expression declaration environment)
       (jazz:extend-types (map (lambda (clause)
-                                (%%get-code-type
+                                (jazz:get-code-type
                                   (let ((body (%%cddr clause)))
                                     (jazz:emit-expression body declaration environment backend))))
                               clauses))
-      (%%get-expression-source expression))))
+      (jazz:get-expression-source expression))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Cond expression) down up here seed environment)
   (up expression
       seed
-      (let fold ((ls (%%get-cond-clauses expression))
+      (let fold ((ls (jazz:get-cond-clauses expression))
                  (seed (down expression seed environment)))
            (if (null? ls)
                seed
@@ -550,8 +550,8 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Case expression) declaration environment backend)
-  (let ((target (%%get-case-target expression))
-        (clauses (%%get-case-clauses expression)))
+  (let ((target (jazz:get-case-target expression))
+        (clauses (jazz:get-case-clauses expression)))
     (let ((target-emit (jazz:emit-expression target declaration environment backend))
           (clauses-emit (map (lambda (clause)
                                (let ((body (%%cdr clause)))
@@ -560,17 +560,17 @@
       (jazz:new-code
         (jazz:emit 'case backend expression declaration environment target-emit clauses clauses-emit)
         (jazz:extend-types (map (lambda (emited-clause)
-                                  (%%get-code-type emited-clause))
+                                  (jazz:get-code-type emited-clause))
                                 clauses-emit))
-        (%%get-expression-source expression)))))
+        (jazz:get-expression-source expression)))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Case expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold-list
-        (map cdr (%%get-case-clauses expression)) down up here
-        (jazz:tree-fold (%%get-case-target expression) down up here (down expression seed environment) environment)
+        (map cdr (jazz:get-case-clauses expression)) down up here
+        (jazz:tree-fold (jazz:get-case-target expression) down up here (down expression seed environment) environment)
         environment)
       environment))
 
@@ -592,7 +592,7 @@
     (jazz:new-code
       (jazz:emit 'and backend expression declaration environment expressions)
       jazz:Any
-      (%%get-expression-source expression))))
+      (jazz:get-expression-source expression))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:And expression) down up here seed environment)
@@ -616,18 +616,18 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Or expression) declaration environment backend)
-  (let ((expressions (jazz:emit-expressions (%%get-or-expressions expression) declaration environment backend)))
+  (let ((expressions (jazz:emit-expressions (jazz:get-or-expressions expression) declaration environment backend)))
     (jazz:new-code
       (jazz:emit 'or backend expression declaration environment expressions)
       jazz:Any
-      (%%get-expression-source expression))))
+      (jazz:get-expression-source expression))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Or expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold-list
-        (%%get-or-expressions expression) down up here (down expression seed environment) environment)
+        (jazz:get-or-expressions expression) down up here (down expression seed environment) environment)
       environment))
 
 
@@ -663,19 +663,19 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Parameterize expression) declaration environment backend)
-  (let ((body (%%get-parameterize-body expression)))
+  (let ((body (jazz:get-parameterize-body expression)))
     (let ((body-code (jazz:emit-expression body declaration environment backend)))
       (jazz:new-code
         (jazz:emit 'parameterize backend expression declaration environment body-code)
-        (%%get-code-type body-code)
+        (jazz:get-code-type body-code)
         #f))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Parameterize expression) down up here seed environment)
-  (let ((seed2 (jazz:tree-fold-list (map cdr (%%get-parameterize-bindings expression)) down up here (down expression seed environment) environment)))
+  (let ((seed2 (jazz:tree-fold-list (map cdr (jazz:get-parameterize-bindings expression)) down up here (down expression seed environment) environment)))
     (up expression
         seed
-        (jazz:tree-fold (%%get-parameterize-body expression) down up here seed2 environment)
+        (jazz:tree-fold (jazz:get-parameterize-body expression) down up here seed2 environment)
         environment)))
 
 
@@ -692,7 +692,7 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Time-Special expression) declaration environment backend)
-  (let ((expressions (%%get-time-special-expressions expression)))
+  (let ((expressions (jazz:get-time-special-expressions expression)))
     (let ((expressions-emit (jazz:emit-expressions expressions declaration environment backend)))
       (jazz:new-code
         (jazz:emit 'time backend expression declaration environment expressions-emit)

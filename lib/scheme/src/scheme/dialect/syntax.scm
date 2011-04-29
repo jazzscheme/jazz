@@ -62,8 +62,8 @@
 
 
 (jazz:define-class-syntax jazz:Define-Declaration jazz:Declaration (constructor: jazz:allocate-define-declaration)
-  ((signature %%get-define-declaration-signature ())
-   (value     %%get-define-declaration-value     %%set-define-declaration-value)))
+  ((signature jazz:get-define-declaration-signature ())
+   (value     jazz:get-define-declaration-value     jazz:set-define-declaration-value)))
 
 
 ;;;
@@ -72,8 +72,8 @@
 
 
 (jazz:define-class-syntax jazz:Define-Special-Form-Declaration jazz:Declaration (constructor: jazz:allocate-define-special-form-declaration)
-  ((signature %%get-define-special-form-signature %%set-define-special-form-signature)
-   (body      %%get-define-special-form-body      %%set-define-special-form-body)))
+  ((signature jazz:get-define-special-form-signature jazz:set-define-special-form-signature)
+   (body      jazz:get-define-special-form-body      jazz:set-define-special-form-body)))
 
 
 ;;;
@@ -82,8 +82,8 @@
 
 
 (jazz:define-class-syntax jazz:Define-Macro-Declaration jazz:Declaration (constructor: jazz:allocate-define-macro-declaration)
-  ((signature %%get-define-macro-signature %%set-define-macro-signature)
-   (body      %%get-define-macro-body      %%set-define-macro-body)))
+  ((signature jazz:get-define-macro-signature jazz:set-define-macro-signature)
+   (body      jazz:get-define-macro-body      jazz:set-define-macro-body)))
 
 
 ;;;
@@ -92,8 +92,8 @@
 
 
 (jazz:define-class-syntax jazz:Lambda jazz:Expression (constructor: jazz:allocate-lambda)
-  ((signature %%get-lambda-signature ())
-   (body      %%get-lambda-body      ())))
+  ((signature jazz:get-lambda-signature ())
+   (body      jazz:get-lambda-body      ())))
 
 
 ;;;
@@ -102,8 +102,8 @@
 
 
 (jazz:define-class-syntax jazz:Let jazz:Expression (constructor: jazz:allocate-let)
-  ((bindings %%get-let-bindings ())
-   (body     %%get-let-body     ())))
+  ((bindings jazz:get-let-bindings ())
+   (body     jazz:get-let-body     ())))
 
 
 ;;;
@@ -112,7 +112,7 @@
 
 
 (jazz:define-class-syntax jazz:Named-Let jazz:Let (constructor: jazz:allocate-named-let)
-  ((variable %%get-named-let-variable ())))
+  ((variable jazz:get-named-let-variable ())))
 
 
 ;;;
@@ -121,8 +121,8 @@
 
 
 (jazz:define-class-syntax jazz:Letstar jazz:Expression (constructor: jazz:allocate-letstar)
-  ((bindings %%get-letstar-bindings ())
-   (body     %%get-letstar-body     ())))
+  ((bindings jazz:get-letstar-bindings ())
+   (body     jazz:get-letstar-body     ())))
 
 
 ;;;
@@ -131,8 +131,8 @@
 
 
 (jazz:define-class-syntax jazz:Letrec jazz:Expression (constructor: jazz:allocate-letrec)
-  ((bindings %%get-letrec-bindings ())
-   (body     %%get-letrec-body     ())))
+  ((bindings jazz:get-letrec-bindings ())
+   (body     jazz:get-letrec-body     ())))
 
 
 ;;;
@@ -141,9 +141,9 @@
 
 
 (jazz:define-class-syntax jazz:Receive jazz:Expression (constructor: jazz:allocate-receive)
-  ((variables  %%get-receive-variables  ())
-   (expression %%get-receive-expression ())
-   (body       %%get-receive-body       ())))
+  ((variables  jazz:get-receive-variables  ())
+   (expression jazz:get-receive-expression ())
+   (body       jazz:get-receive-body       ())))
 
 
 ;;;
@@ -152,10 +152,10 @@
 
 
 (jazz:define-class-syntax jazz:Do jazz:Expression (constructor: jazz:allocate-do)
-  ((bindings %%get-do-bindings ())
-   (test     %%get-do-test     ())
-   (result   %%get-do-result   ())
-   (body     %%get-do-body     ())))
+  ((bindings jazz:get-do-bindings ())
+   (test     jazz:get-do-test     ())
+   (result   jazz:get-do-result   ())
+   (body     jazz:get-do-body     ())))
 
 
 ;;;
@@ -164,5 +164,5 @@
 
 
 (jazz:define-class-syntax jazz:Reference-Reification jazz:Expression (constructor: jazz:allocate-reference-reification)
-  ((reference %%get-reference-reification-reference ())
-   (resolver  %%get-reference-reification-resolver  ()))))
+  ((reference jazz:get-reference-reification-reference ())
+   (resolver  jazz:get-reference-reification-resolver  ()))))

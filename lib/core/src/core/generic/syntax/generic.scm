@@ -46,10 +46,10 @@
 
 
 (jazz:define-class-syntax jazz:Generic jazz:Object (constructor: jazz:allocate-generic)
-  ((locator              %%get-generic-locator              ())
-   (name                 %%get-generic-name                 ())
-   (root-specific        %%get-generic-root-specific        %%set-generic-root-specific)
-   (pending-specifics    %%get-generic-pending-specifics    %%set-generic-pending-specifics)))
+  ((locator              jazz:get-generic-locator              ())
+   (name                 jazz:get-generic-name                 ())
+   (root-specific        jazz:get-generic-root-specific        jazz:set-generic-root-specific)
+   (pending-specifics    jazz:get-generic-pending-specifics    jazz:set-generic-pending-specifics)))
 
 
 (jazz:define-class jazz:Generic)
@@ -60,4 +60,4 @@
 
 
 (jazz:define-macro (%%specific-dispatch generic dynamic-classes)
-  `(%%get-specific-implementation (jazz:dispatch-from-root ,generic ,dynamic-classes))))
+  `(jazz:get-specific-implementation (jazz:dispatch-from-root ,generic ,dynamic-classes))))

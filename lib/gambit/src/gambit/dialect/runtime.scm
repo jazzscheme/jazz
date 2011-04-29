@@ -72,12 +72,12 @@
 
 
 (jazz:define-method (jazz:walker-declarations (jazz:Gambit-Walker walker))
-  (cons (%%get-dialect-declarations (jazz:get-dialect 'gambit))
+  (cons (jazz:get-dialect-declarations (jazz:get-dialect 'gambit))
         (nextmethod walker)))
 
 
 (jazz:define-method (jazz:walker-bindings (jazz:Gambit-Walker walker))
-  (cons (%%get-dialect-bindings (jazz:get-dialect 'gambit))
+  (cons (jazz:get-dialect-bindings (jazz:get-dialect 'gambit))
         (nextmethod walker)))
 
 

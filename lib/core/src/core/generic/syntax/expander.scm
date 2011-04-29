@@ -133,7 +133,7 @@
                (jazz:new-generic ',generic-method-locator (lambda () (%%list ,@dynamic-signature)) ,specific-implementation-locator)))
            (define ,generic-method-locator
              (lambda (,@mandatory-parameters . ,gensym-rest)
-               (%%when (%%not (%%null? (%%get-generic-pending-specifics ,generic-locator)))
+               (%%when (%%not (%%null? (jazz:get-generic-pending-specifics ,generic-locator)))
                  (jazz:process-pending-specifics ,generic-locator))
                (let ((,gensym-specific (%%specific-dispatch ,generic-locator (%%list ,@(map (lambda (parameter) `(jazz:class-of ,parameter))
                                                                                             (jazz:dynamic-parameter-names parameters))))))
@@ -161,13 +161,13 @@
          (generic-locator (jazz:generic-object-locator generic-method-locator))
          (gensym-specific (jazz:generate-symbol "specific"))
          (gensym-lambda (jazz:generate-symbol "lambda"))
-         (nextmethod-bindings (if root? (%%list) (%%list `(nextmethod (%%get-specific-implementation (%%car (%%get-specific-ancestor-specifics ,gensym-specific))))))))
+         (nextmethod-bindings (if root? (%%list) (%%list `(nextmethod (jazz:get-specific-implementation (%%car (jazz:get-specific-ancestor-specifics ,gensym-specific))))))))
     `(define ,specific-implementation-locator
        (let* ((,gensym-specific (jazz:new-specific (lambda () (%%list ,@dynamic-signature)) #f))
               (,gensym-lambda (lambda ,formal-signature
                                 (let (,@nextmethod-bindings)
                                   ,@body))))
-         (%%set-specific-implementation ,gensym-specific ,gensym-lambda)
+         (jazz:set-specific-implementation ,gensym-specific ,gensym-lambda)
          (jazz:register-specific ,generic-locator ,gensym-specific)
          ,gensym-lambda))))
 

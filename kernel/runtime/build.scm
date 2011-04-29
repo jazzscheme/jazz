@@ -473,7 +473,7 @@
                      (begin
                        (jazz:push-changed-units rcfile)
                        (feedback-message "; compiling {a}..." rcfile)
-                       (jazz:call-process "windres" (list rc "-o" res) directory: resources)
+                       (jazz:call-process (list path: "windres" arguments: (list rc "-o" res) directory: resources))
                        #t)
                    #f)))))
           (else
@@ -918,21 +918,22 @@
             
             (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))
             (jazz:call-process
-              "gcc"
-              `(,@(case platform
-                    ((windows) '("-shared" "-D___DYNAMIC"))
-                    (else '("-bundle" "-D___DYNAMIC")))
-                ,header-o
-                ,@(map (lambda (subunit-name)
-                         (jazz:with-unit-resources subunit-name #f
-                           (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                             (%%string-append (jazz:resource-pathname obj) ".o"))))
-                       sub-units)
-                ,linkfile
-                "-o" ,library-o1
-                ,(string-append "-I" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
-                ,(string-append "-L" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
-                ,@(link-options)))
+              (list
+                path: "gcc"
+                arguments: `(,@(case platform
+                                 ((windows) '("-shared" "-D___DYNAMIC"))
+                                 (else '("-bundle" "-D___DYNAMIC")))
+                             ,header-o
+                             ,@(map (lambda (subunit-name)
+                                      (jazz:with-unit-resources subunit-name #f
+                                        (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                                          (%%string-append (jazz:resource-pathname obj) ".o"))))
+                                    sub-units)
+                             ,linkfile
+                             "-o" ,library-o1
+                             ,(string-append "-I" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
+                             ,(string-append "-L" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
+                             ,@(link-options))))
             (case platform
               ((windows)
                (if jazz:single-objects?

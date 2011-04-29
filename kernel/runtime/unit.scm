@@ -1368,8 +1368,7 @@
           (build-library (%%product-build-library product))
           (descriptor (%%product-descriptor product)))
       (jazz:feedback "make {a}" name)
-      (jazz:load-foundation)
-      (jazz:load-unit 'core.unit.builder)
+      (jazz:load-build)
             
       (if build
           (build descriptor)
@@ -1774,6 +1773,11 @@
 
 (define (jazz:load-foundation)
   (jazz:load-unit 'core.module))
+
+
+(define (jazz:load-build)
+  (jazz:load-foundation)
+  (jazz:load-unit 'core.unit.builder))
 
 
 ;;;

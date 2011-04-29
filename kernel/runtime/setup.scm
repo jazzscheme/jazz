@@ -53,23 +53,19 @@
 
 
 (define (jazz:compile-unit . rest)
-  (jazz:load-foundation)
-  (jazz:load-unit 'core.unit.builder)
+  (jazz:load-build)
   (%%apply jazz:compile-unit-internal rest))
 
 (define (jazz:custom-compile-unit . rest)
-  (jazz:load-foundation)
-  (jazz:load-unit 'core.unit.builder)
+  (jazz:load-build)
   (%%apply jazz:custom-compile-unit-internal rest))
 
 (define (jazz:build-unit . rest)
-  (jazz:load-foundation)
-  (jazz:load-unit 'core.unit.builder)
+  (jazz:load-build)
   (%%apply jazz:build-unit-internal rest))
 
 (define (jazz:get-subunit-names . rest)
-  (jazz:load-foundation)
-  (jazz:load-unit 'core.unit.builder)
+  (jazz:load-build)
   (%%apply jazz:get-subunit-names-internal rest))
 
 

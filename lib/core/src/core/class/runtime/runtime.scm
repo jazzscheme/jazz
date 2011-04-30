@@ -351,7 +351,8 @@
       (%%append (%%vector->list (%%get-category-ancestors ascendant)) (%%list class))))
   
   (let ((core-class
-         (%%object
+         (%%allocate-class
+          ; Object
           class
           ; Category
           name

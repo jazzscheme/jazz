@@ -254,22 +254,12 @@
 
 
 ;;;
-;;;; Interface
-;;;
-
-
-(jazz:define-class-syntax jazz:Interface jazz:Category (constructor: jazz:allocate-interface accessors-type: macro)
-  ((ascendants getter: generate)
-   (rank       getter: generate)))
-
-
-;;;
 ;;;; Field
 ;;;
 
 
 (jazz:define-class-syntax jazz:Field jazz:Object (accessors-type: macro)
-  ((name getter: generate)))
+  ((name getter: #t)))
 
 
 (jazz:define-macro (%%get-category-field category field-name)
@@ -286,8 +276,8 @@
 
 
 (jazz:define-class-syntax jazz:Slot jazz:Field (constructor: jazz:allocate-slot accessors-type: macro)
-  ((offset     getter: generate)
-   (initialize getter: generate setter: generate)))
+  ((offset     getter: #t)
+   (initialize getter: #t setter: #t)))
 
 
 ;;;
@@ -324,6 +314,16 @@
    (next-node           getter: generate setter: generate)
    (next-implementation getter: generate setter: generate)
    (children            getter: generate setter: generate)))
+
+
+;;;
+;;;; Interface
+;;;
+
+
+(jazz:define-class-syntax jazz:Interface jazz:Category (constructor: jazz:allocate-interface accessors-type: macro)
+  ((ascendants getter: generate)
+   (rank       getter: generate)))
 
 
 ;;;

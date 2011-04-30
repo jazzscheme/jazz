@@ -152,53 +152,9 @@
   'all)
 
 
-
 ;;;
 ;;;; Configuration
 ;;;
-
-
-(define (jazz:make-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination properties)
-  (vector 'configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination properties))
-
-(define (jazz:configuration-name configuration)
-  (vector-ref configuration 1))
-
-(define (jazz:configuration-system configuration)
-  (vector-ref configuration 2))
-
-(define (jazz:configuration-platform configuration)
-  (vector-ref configuration 3))
-
-(define (jazz:configuration-windowing configuration)
-  (vector-ref configuration 4))
-
-(define (jazz:configuration-safety configuration)
-  (vector-ref configuration 5))
-
-(define (jazz:configuration-optimize? configuration)
-  (vector-ref configuration 6))
-
-(define (jazz:configuration-debug-environments? configuration)
-  (vector-ref configuration 7))
-
-(define (jazz:configuration-debug-location? configuration)
-  (vector-ref configuration 8))
-
-(define (jazz:configuration-debug-source? configuration)
-  (vector-ref configuration 9))
-
-(define (jazz:configuration-mutable-bindings? configuration)
-  (vector-ref configuration 10))
-
-(define (jazz:configuration-kernel-interpret? configuration)
-  (vector-ref configuration 11))
-
-(define (jazz:configuration-destination configuration)
-  (vector-ref configuration 12))
-
-(define (jazz:configuration-properties configuration)
-  (vector-ref configuration 13))
 
 
 (define (jazz:new-configuration
@@ -295,7 +251,7 @@
     (if (null? configurations)
         #f
       (let ((configuration (car configurations)))
-        (if (eq? (jazz:configuration-name configuration) name)
+        (if (eq? (jazz:get-configuration-name configuration) name)
             configurations
           (iter (cdr configurations)))))))
 
@@ -303,8 +259,8 @@
 (define (jazz:sort-configurations configurations)
   (jazz:sort configurations
              (lambda (c1 c2)
-               (let ((n1 (jazz:configuration-name c1))
-                     (n2 (jazz:configuration-name c2)))
+               (let ((n1 (jazz:get-configuration-name c1))
+                     (n2 (jazz:get-configuration-name c2)))
                  (cond ((not n1)
                         #t)
                        ((not n2)
@@ -314,7 +270,7 @@
 
 
 (define (jazz:register-configuration configuration)
-  (let ((name (jazz:configuration-name configuration)))
+  (let ((name (jazz:get-configuration-name configuration)))
     (let ((pair (jazz:find-configuration-pair name)))
       (if pair
           (set-car! pair configuration)
@@ -326,8 +282,8 @@
   (set! jazz:configurations
         (jazz:delete name jazz:configurations
           (lambda (c1 c2)
-            (eq? (jazz:configuration-name c1)
-                 (jazz:configuration-name c2)))))
+            (eq? (jazz:get-configuration-name c1)
+                 (jazz:get-configuration-name c2)))))
   (jazz:save-configurations))
 
 
@@ -366,43 +322,43 @@
          (if (null? configurations)
              (values anonymous named)
            (let ((configuration (car configurations)))
-             (if (not (jazz:configuration-name configuration))
+             (if (not (jazz:get-configuration-name configuration))
                  (split (cdr configurations) configuration named)
                (split (cdr configurations) anonymous (cons configuration named)))))))
   
   (define (save-configuration configuration file system-platform)
     (jazz:save-configuration
-      (jazz:configuration-name configuration)
-      (jazz:configuration-system configuration)
-      (jazz:configuration-platform configuration)
-      (jazz:configuration-windowing configuration)
-      (jazz:configuration-safety configuration)
-      (jazz:configuration-optimize? configuration)
-      (jazz:configuration-debug-environments? configuration)
-      (jazz:configuration-debug-location? configuration)
-      (jazz:configuration-debug-source? configuration)
-      (jazz:configuration-mutable-bindings? configuration)
-      (jazz:configuration-kernel-interpret? configuration)
-      (jazz:configuration-destination configuration)
-      (jazz:configuration-properties configuration)
+      (jazz:get-configuration-name configuration)
+      (jazz:get-configuration-system configuration)
+      (jazz:get-configuration-platform configuration)
+      (jazz:get-configuration-windowing configuration)
+      (jazz:get-configuration-safety configuration)
+      (jazz:get-configuration-optimize? configuration)
+      (jazz:get-configuration-debug-environments? configuration)
+      (jazz:get-configuration-debug-location? configuration)
+      (jazz:get-configuration-debug-source? configuration)
+      (jazz:get-configuration-mutable-bindings? configuration)
+      (jazz:get-configuration-kernel-interpret? configuration)
+      (jazz:get-configuration-destination configuration)
+      (jazz:get-configuration-properties configuration)
       file
       system-platform))
   
   (define (print-configuration configuration output)
     (jazz:print-configuration
-      (jazz:configuration-name configuration)
-      (jazz:configuration-system configuration)
-      (jazz:configuration-platform configuration)
-      (jazz:configuration-windowing configuration)
-      (jazz:configuration-safety configuration)
-      (jazz:configuration-optimize? configuration)
-      (jazz:configuration-debug-environments? configuration)
-      (jazz:configuration-debug-location? configuration)
-      (jazz:configuration-debug-source? configuration)
-      (jazz:configuration-mutable-bindings? configuration)
-      (jazz:configuration-kernel-interpret? configuration)
-      (jazz:configuration-destination configuration)
-      (jazz:configuration-properties configuration)
+      (jazz:get-configuration-name configuration)
+      (jazz:get-configuration-system configuration)
+      (jazz:get-configuration-platform configuration)
+      (jazz:get-configuration-windowing configuration)
+      (jazz:get-configuration-safety configuration)
+      (jazz:get-configuration-optimize? configuration)
+      (jazz:get-configuration-debug-environments? configuration)
+      (jazz:get-configuration-debug-location? configuration)
+      (jazz:get-configuration-debug-source? configuration)
+      (jazz:get-configuration-mutable-bindings? configuration)
+      (jazz:get-configuration-kernel-interpret? configuration)
+      (jazz:get-configuration-destination configuration)
+      (jazz:get-configuration-properties configuration)
       output))
   
   (receive (anonymous named) (split-configurations jazz:configurations)
@@ -423,19 +379,19 @@
 
 
 (define (jazz:describe-configuration configuration)
-  (let ((name (jazz:configuration-name configuration))
-        (system (jazz:configuration-system configuration))
-        (platform (jazz:configuration-platform configuration))
-        (windowing (jazz:configuration-windowing configuration))
-        (safety (jazz:configuration-safety configuration))
-        (optimize? (jazz:configuration-optimize? configuration))
-        (debug-environments? (jazz:configuration-debug-environments? configuration))
-        (debug-location? (jazz:configuration-debug-location? configuration))
-        (debug-source? (jazz:configuration-debug-source? configuration))
-        (mutable-bindings? (jazz:configuration-mutable-bindings? configuration))
-        (kernel-interpret? (jazz:configuration-kernel-interpret? configuration))
-        (destination (jazz:configuration-destination configuration))
-        (properties (jazz:configuration-properties configuration)))
+  (let ((name (jazz:get-configuration-name configuration))
+        (system (jazz:get-configuration-system configuration))
+        (platform (jazz:get-configuration-platform configuration))
+        (windowing (jazz:get-configuration-windowing configuration))
+        (safety (jazz:get-configuration-safety configuration))
+        (optimize? (jazz:get-configuration-optimize? configuration))
+        (debug-environments? (jazz:get-configuration-debug-environments? configuration))
+        (debug-location? (jazz:get-configuration-debug-location? configuration))
+        (debug-source? (jazz:get-configuration-debug-source? configuration))
+        (mutable-bindings? (jazz:get-configuration-mutable-bindings? configuration))
+        (kernel-interpret? (jazz:get-configuration-kernel-interpret? configuration))
+        (destination (jazz:get-configuration-destination configuration))
+        (properties (jazz:get-configuration-properties configuration)))
     (jazz:feedback "{a}" (or name "<default>"))
     (jazz:feedback "  system: {s}" system)
     (jazz:feedback "  platform: {s}" platform)
@@ -738,8 +694,8 @@
 
 (define (jazz:configuration-directory configuration)
   (jazz:destination-directory
-    (jazz:configuration-name configuration)
-    (jazz:configuration-destination configuration)
+    (jazz:get-configuration-name configuration)
+    (jazz:get-configuration-destination configuration)
     "./"))
 
 
@@ -1082,21 +1038,21 @@
   (define (build-kernel configuration image)
     (define (build configuration)
       (let ((configuration (jazz:invoke-build-configure configuration)))
-        (let ((name (jazz:configuration-name configuration))
-              (system (jazz:configuration-system configuration))
-              (platform (jazz:configuration-platform configuration))
-              (windowing (jazz:configuration-windowing configuration))
-              (safety (jazz:configuration-safety configuration))
-              (optimize? (jazz:configuration-optimize? configuration))
-              (debug-environments? (jazz:configuration-debug-environments? configuration))
-              (debug-location? (jazz:configuration-debug-location? configuration))
-              (debug-source? (jazz:configuration-debug-source? configuration))
-              (mutable-bindings? (jazz:configuration-mutable-bindings? configuration))
-              (kernel-interpret? (jazz:configuration-kernel-interpret? configuration))
+        (let ((name (jazz:get-configuration-name configuration))
+              (system (jazz:get-configuration-system configuration))
+              (platform (jazz:get-configuration-platform configuration))
+              (windowing (jazz:get-configuration-windowing configuration))
+              (safety (jazz:get-configuration-safety configuration))
+              (optimize? (jazz:get-configuration-optimize? configuration))
+              (debug-environments? (jazz:get-configuration-debug-environments? configuration))
+              (debug-location? (jazz:get-configuration-debug-location? configuration))
+              (debug-source? (jazz:get-configuration-debug-source? configuration))
+              (mutable-bindings? (jazz:get-configuration-mutable-bindings? configuration))
+              (kernel-interpret? (jazz:get-configuration-kernel-interpret? configuration))
               (source jazz:source)
-              (destination (jazz:configuration-destination configuration))
+              (destination (jazz:get-configuration-destination configuration))
               (destination-directory (jazz:configuration-directory configuration))
-              (properties (jazz:configuration-properties configuration)))
+              (properties (jazz:get-configuration-properties configuration)))
           (jazz:build-image #f
                             system:                system
                             platform:              platform
@@ -1125,7 +1081,7 @@
           (build configuration)))))
   
   (define (build-recursive target configuration image)
-    (let ((configuration-name (jazz:configuration-name configuration)))
+    (let ((configuration-name (jazz:get-configuration-name configuration)))
       (let ((jam (string-append jazz:source "jam"))
             (argument (string-append (if configuration-name
                                          (jazz:format "{a}@{a}" target configuration-name)
@@ -1584,33 +1540,11 @@
   '())
 
 
-(define (jazz:load-kernel-base)
-  (load (string-append jazz:source "kernel/runtime/product"))
-  (load (string-append jazz:source "kernel/runtime/base")))
-
-
-(define (jazz:load-kernel-build)
-  (load (string-append jazz:source "kernel/syntax/header"))
-  (load (string-append jazz:source "kernel/syntax/macro"))
-  (load (string-append jazz:source "kernel/syntax/block"))
-  (load (string-append jazz:source "kernel/syntax/expansion"))
-  (load (string-append jazz:source "kernel/syntax/features"))
-  (load (string-append jazz:source "kernel/syntax/declares"))
-  (load (string-append jazz:source "kernel/syntax/primitives"))
-  (load (string-append jazz:source "kernel/syntax/syntax"))
-  (load (string-append jazz:source "kernel/runtime/common"))
-  (load (string-append jazz:source "kernel/runtime/digest"))
-  (load (string-append jazz:source "kernel/runtime/settings"))
-  (load (string-append jazz:source "kernel/runtime/advise"))
-  (load (string-append jazz:source "kernel/runtime/build")))
-
-
 (define jazz:setup-kernel-build
   (let ((kernel-build-setup? #f))
     (lambda ()
       (if (not kernel-build-setup?)
           (begin
-            (jazz:load-kernel-build)
             (jazz:process-buildini #f)
             (set! kernel-build-setup? #t))))))
 
@@ -1624,10 +1558,18 @@
 
 
 ;;;
+;;;; Load
+;;;
+
+
+(load (string-append jazz:source "kernel/boot"))
+(jazz:load-kernel #f)
+
+
+;;;
 ;;;; Initialize
 ;;;
 
 
-(jazz:load-kernel-base)
 (jazz:setup-versions)
 (jazz:build-system-boot)

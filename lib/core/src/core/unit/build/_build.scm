@@ -50,8 +50,8 @@
 
 (define (jazz:manifest-references-valid? bin)
   (define (get-manifest)
-    (let ((digest-filepath (jazz:digest-pathname (%%resource-package bin) bin))
-          (manifest-filepath (jazz:manifest-pathname (%%resource-package bin) bin)))
+    (let ((digest-filepath (jazz:digest-pathname (%%get-resource-package bin) bin))
+          (manifest-filepath (jazz:manifest-pathname (%%get-resource-package bin) bin)))
       (jazz:load-manifest digest-filepath manifest-filepath)))
   
   (define (module-references-valid? version lst)
@@ -60,7 +60,7 @@
         (lambda (return)
           (jazz:for-each-higher-jazz-version version
             (lambda (jazz-version)
-              (let ((recompile-references (jazz:version-recompile-references jazz-version)))
+              (let ((recompile-references (jazz:get-version-recompile-references jazz-version)))
                 (if (and recompile-references
                          (jazz:some? (lambda (recompile-reference)
                                        (if (%%symbol? recompile-reference)
@@ -95,8 +95,8 @@
   
   (let ((manifest (get-manifest)))
     (if manifest
-        (let ((version (%%manifest-version manifest))
-              (references (%%manifest-references manifest)))
+        (let ((version (%%get-manifest-version manifest))
+              (references (%%get-manifest-references manifest)))
           (if references
               (jazz:every? (lambda (lst)
                              (module-references-valid? version lst))
@@ -125,15 +125,15 @@
   (lambda (unit-name #!key (force? #f))
     (let ((product (jazz:find-unit-product unit-name)))
       (let ((build (and product
-                        (%%product-build product))))
+                        (%%get-product-build product))))
         (if build
-            (build (%%product-descriptor product) unit: unit-name force?: force?)
+            (build (%%get-product-descriptor product) unit: unit-name force?: force?)
           (jazz:compile-unit unit-name force?: force?))))))
 
 
 (define (jazz:find-unit-product unit-name)
   (let ((src (jazz:find-unit-src unit-name #f)))
-    (let ((package (%%resource-package src)))
+    (let ((package (%%get-resource-package src)))
       (let ((products (%%package-products package)))
         (continuation-capture
           (lambda (return)
@@ -170,12 +170,12 @@
           (update-obj? (or force? (not obj-uptodate?) (not references-valid?)))
           (update-bin? (or force? (not bin-uptodate?) (not references-valid?))))
       (if (or update-obj? (and update-bin? (jazz:link-objects?)))
-          (let ((package (%%resource-package src))
+          (let ((package (%%get-resource-package src))
                 (pathname (jazz:resource-pathname src))
                 (bindir (jazz:resource-build-dir src)))
             (let ((build-package (jazz:create-build-package package)))
               (jazz:create-directories bindir)
-              (jazz:with-extension-reader (%%resource-extension src)
+              (jazz:with-extension-reader (%%get-resource-extension src)
                 (lambda ()
                   (parameterize ((jazz:walk-for 'compile))
                     (jazz:compile-file src bin update-obj? update-bin? build-package options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))))))))
@@ -258,7 +258,7 @@
     (let ((will-compile? (and update-obj? (or will-link? (jazz:link-libraries?))))
           (dry? (jazz:dry-run?)))
       (if (or will-compile? will-link?)
-          (let ((path (%%resource-path src)))
+          (let ((path (%%get-resource-path src)))
             (jazz:push-changed-units path)
             (display "; compiling ")
             (display path)

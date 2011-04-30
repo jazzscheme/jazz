@@ -43,12 +43,17 @@
 ;;;
 
 
-(jazz:define-macro (%%get-object-class object)
-  `(%%object-ref ,object ,jazz:object-class))
+(jazz:define-class-syntax jazz:Object () (record?: #t)
+  ())
 
 
-(jazz:define-macro (%%set-object-class object class)
-  `(%%object-set! ,object ,jazz:object-class ,class))
+;;;
+;;;; Type
+;;;
+
+
+(jazz:define-class-syntax jazz:Type jazz:Object (record?: #t)
+  ())
 
 
 ;;;
@@ -56,55 +61,12 @@
 ;;;
 
 
-(define jazz:category-identifier!rank
-  jazz:object-size)
-
-(define jazz:category-fields!rank
-  (%%fx+ jazz:category-identifier!rank 1))
-
-(define jazz:category-virtual-size!rank
-  (%%fx+ jazz:category-fields!rank 1))
-
-(define jazz:category-ancestors!rank
-  (%%fx+ jazz:category-virtual-size!rank 1))
-
-(define jazz:category-descendants!rank
-  (%%fx+ jazz:category-ancestors!rank 1))
-
-
-(jazz:define-macro (%%get-category-identifier category)
-  `(%%object-ref ,category ,jazz:category-identifier!rank))
-
-(jazz:define-macro (%%set-category-identifier category identifier)
-  `(%%object-set! ,category ,jazz:category-identifier!rank ,identifier))
-
-
-(jazz:define-macro (%%get-category-fields category)
-  `(%%object-ref ,category ,jazz:category-fields!rank))
-
-(jazz:define-macro (%%set-category-fields category fields)
-  `(%%object-set! ,category ,jazz:category-fields!rank ,fields))
-
-
-(jazz:define-macro (%%get-category-virtual-size category)
-  `(%%object-ref ,category ,jazz:category-virtual-size!rank))
-
-(jazz:define-macro (%%set-category-virtual-size category virtual-size)
-  `(%%object-set! ,category ,jazz:category-virtual-size!rank ,virtual-size))
-
-
-(jazz:define-macro (%%get-category-ancestors category)
-  `(%%object-ref ,category ,jazz:category-ancestors!rank))
-
-(jazz:define-macro (%%set-category-ancestors category ancestors)
-  `(%%object-set! ,category ,jazz:category-ancestors!rank ,ancestors))
-
-
-(jazz:define-macro (%%get-category-descendants category)
-  `(%%object-ref ,category ,jazz:category-descendants!rank))
-
-(jazz:define-macro (%%set-category-descendants category descendants)
-  `(%%object-set! ,category ,jazz:category-descendants!rank ,descendants))
+(jazz:define-class-syntax jazz:Category jazz:Type (record?: #t accessors-type: macro)
+  ((identifier   accessors: generate)
+   (fields       accessors: generate)
+   (virtual-size accessors: generate)
+   (ancestors    accessors: generate)
+   (descendants  accessors: generate)))
 
 
 ;;;
@@ -112,118 +74,16 @@
 ;;;
 
 
-(define jazz:class-ascendant!rank
-  (%%fx+ jazz:category-descendants!rank 1))
-
-(define jazz:class-interfaces!rank
-  (%%fx+ jazz:class-ascendant!rank 1))
-
-(define jazz:class-slots!rank
-  (%%fx+ jazz:class-interfaces!rank 1))
-
-(define jazz:class-instance-slots!rank
-  (%%fx+ jazz:class-slots!rank 1))
-
-(define jazz:class-instance-size!rank
-  (%%fx+ jazz:class-instance-slots!rank 1))
-
-(define jazz:class-level!rank
-  (%%fx+ jazz:class-instance-size!rank 1))
-
-(define jazz:class-virtual-names!rank
-  (%%fx+ jazz:class-level!rank 1))
-
-(define jazz:class-class-table!rank
-  (%%fx+ jazz:class-virtual-names!rank 1))
-
-(define jazz:class-interface-table!rank
-  (%%fx+ jazz:class-class-table!rank 1))
-
-
-(define jazz:class-size
-  (%%fx+ jazz:class-interface-table!rank 1))
-
-
-(jazz:define-macro (%%get-class-ascendant class)
-  `(%%object-ref ,class ,jazz:class-ascendant!rank))
-
-(jazz:define-macro (%%set-class-ascendant class ascendant)
-  `(%%object-set! ,class ,jazz:class-ascendant!rank ,ascendant))
-
-
-(jazz:define-macro (%%get-class-interfaces class)
-  `(%%object-ref ,class ,jazz:class-interfaces!rank))
-
-(jazz:define-macro (%%set-class-interfaces class interfaces)
-  `(%%object-set! ,class ,jazz:class-interfaces!rank ,interfaces))
-
-
-(jazz:define-macro (%%get-class-slots class)
-  `(%%object-ref ,class ,jazz:class-slots!rank))
-
-(jazz:define-macro (%%set-class-slots class slots)
-  `(%%object-set! ,class ,jazz:class-slots!rank ,slots))
-
-
-(jazz:define-macro (%%get-class-instance-slots class)
-  `(%%object-ref ,class ,jazz:class-instance-slots!rank))
-
-(jazz:define-macro (%%set-class-instance-slots class slots)
-  `(%%object-set! ,class ,jazz:class-instance-slots!rank ,slots))
-
-
-(jazz:define-macro (%%get-class-instance-size class)
-  `(%%object-ref ,class ,jazz:class-instance-size!rank))
-
-(jazz:define-macro (%%set-class-instance-size class size)
-  `(%%object-set! ,class ,jazz:class-instance-size!rank ,size))
-
-
-(jazz:define-macro (%%get-class-level class)
-  `(%%object-ref ,class ,jazz:class-level!rank))
-
-(jazz:define-macro (%%set-class-level class size)
-  `(%%object-set! ,class ,jazz:class-level!rank ,size))
-
-
-(jazz:define-macro (%%get-class-virtual-names class)
-  `(%%object-ref ,class ,jazz:class-virtual-names!rank))
-
-(jazz:define-macro (%%set-class-virtual-names class alist)
-  `(%%object-set! ,class ,jazz:class-virtual-names!rank ,alist))
-
-
-(jazz:define-macro (%%get-class-class-table class)
-  `(%%object-ref ,class ,jazz:class-class-table!rank))
-
-(jazz:define-macro (%%set-class-class-table class table)
-  `(%%object-set! ,class ,jazz:class-class-table!rank ,table))
-
-
-(jazz:define-macro (%%get-class-interface-table class)
-  `(%%object-ref ,class ,jazz:class-interface-table!rank))
-
-(jazz:define-macro (%%set-class-interface-table class table)
-  `(%%object-set! ,class ,jazz:class-interface-table!rank ,table))
-
-
-(jazz:define-macro (%%allocate-class class name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level virtual-names class-table interface-table)
-  `(%%object
-     ,class
-     ,name
-     ,fields
-     ,virtual-size
-     ,ancestors
-     ,descendants
-     ,ascendant
-     ,interfaces
-     ,slots
-     ,instance-slots
-     ,instance-size
-     ,level
-     ,virtual-names
-     ,class-table
-     ,interface-table))
+(jazz:define-class-syntax jazz:Class jazz:Category (record?: #t constructor: %%allocate-class accessors-type: macro)
+  ((ascendant       accessors: generate)
+   (interfaces      accessors: generate)
+   (slots           accessors: generate)
+   (instance-slots  accessors: generate)
+   (instance-size   accessors: generate)
+   (level           accessors: generate)
+   (virtual-names   accessors: generate)
+   (class-table     accessors: generate)
+   (interface-table accessors: generate)))
 
 
 ;;;
@@ -231,12 +91,8 @@
 ;;;
 
 
-(define jazz:field-name!rank
-  jazz:object-size)
-
-
-(jazz:define-macro (%%get-field-name field)
-  `(%%object-ref ,field ,jazz:field-name!rank))
+(jazz:define-class-syntax jazz:Field jazz:Object (record?: #t accessors-type: macro)
+  ((name getter: generate)))
 
 
 ;;;
@@ -244,34 +100,9 @@
 ;;;
 
 
-(define jazz:slot-offset!rank
-  (%%fx+ jazz:field-name!rank 1))
-
-(define jazz:slot-initialize!rank
-  (%%fx+ jazz:slot-offset!rank 1))
-
-
-(jazz:define-macro (%%get-slot-offset slot)
-  `(%%object-ref ,slot ,jazz:slot-offset!rank))
-
-
-(jazz:define-macro (%%get-slot-initialize slot)
-  `(%%object-ref ,slot ,jazz:slot-initialize!rank))
-
-(jazz:define-macro (%%set-slot-initialize slot initialize)
-  `(%%object-set! ,slot ,jazz:slot-initialize!rank ,initialize))
-
-
-(define jazz:slot-size
-  (%%fx+ jazz:slot-initialize!rank 1))
-
-
-(jazz:define-macro (%%allocate-slot class name offset initialize)
-  `(%%object
-     ,class
-     ,name
-     ,offset
-     ,initialize))
+(jazz:define-class-syntax jazz:Slot jazz:Field (record?: #t constructor: %%allocate-slot accessors-type: macro)
+  ((offset     getter: generate)
+   (initialize getter: generate setter: generate)))
 
 
 ;;;

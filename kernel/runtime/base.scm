@@ -35,499 +35,41 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;;;
-;;;; Source
-;;;
-
-
-(define jazz:jazz-source
-  jazz:source)
+(block kernel.base
 
 
 ;;;
-;;;; Version
+;;;; Number
 ;;;
 
 
-(define (jazz:make-version number gambit-version gambit-stamp rebuild recompile recompile-references update description)
-  (vector 'version number gambit-version gambit-stamp rebuild recompile recompile-references update description))
-
-(define (jazz:version-number version)
-  (vector-ref version 1))
-
-(define (jazz:version-gambit-version version)
-  (vector-ref version 2))
-
-(define (jazz:version-gambit-stamp version)
-  (vector-ref version 3))
-
-(define (jazz:version-rebuild version)
-  (vector-ref version 4))
-
-(define (jazz:version-recompile version)
-  (vector-ref version 5))
-
-(define (jazz:version-recompile-references version)
-  (vector-ref version 6))
-
-(define (jazz:version-update version)
-  (vector-ref version 7))
-
-(define (jazz:version-description version)
-  (vector-ref version 8))
-
-
-(define (jazz:new-version
-          #!key
-          (version #f)
-          (gambit-version #f)
-          (gambit-stamp #f)
-          (rebuild #f)
-          (recompile #f)
-          (recompile-references #f)
-          (update #f)
-          (description #f))
-  (jazz:make-version
-    version
-    gambit-version
-    gambit-stamp
-    rebuild
-    recompile
-    recompile-references
-    update
-    description))
-
-
-(define (jazz:split-version number)
-  (let ((str (number->string number)))
-    (let ((len (string-length str)))
-      (let ((major (string->number (substring str 0 (- len 5))))
-            (minor (string->number (substring str (- len 5) (- len 3))))
-            (revision (string->number (substring str (- len 3) len))))
-        (values major minor revision)))))
-
-
-(define (jazz:present-version number)
-  (receive (major minor revision) (jazz:split-version number)
-    (string-append (number->string major)
-                   "."
-                   (number->string minor)
-                   "."
-                   (number->string revision))))
-
-
-;;;
-;;;; Versions
-;;;
-
-
-(define jazz:jazz-versions-file
-  #f)
-
-(define jazz:jazz-versions
-  #f)
-
-(define jazz:jazz-version-number
-  #f)
-
-(define jazz:jazz-gambit-version
-  #f)
-
-(define jazz:jazz-gambit-stamp
-  #f)
-
-
-(define jazz:load-jazz-versions
-  (let ((loaded? #f))
-    (lambda ()
-      (define (determine-jazz-versions-file)
-        (or jazz:jazz-versions-file
-            (and jazz:jazz-source (string-append jazz:jazz-source "kernel/versions"))))
-      
-      (define (load-versions)
-        (let ((file (determine-jazz-versions-file)))
-          (if (and file (file-exists? file))
-              (call-with-input-file (list path: file eol-encoding: 'cr-lf)
-                (lambda (input)
-                  (set! jazz:jazz-versions (list->versions (read-all input read)))
-                  (set! jazz:jazz-version-number (jazz:version-number (car jazz:jazz-versions))))))))
-      
-      (define (list->versions lst)
-        (map (lambda (arguments)
-               (apply jazz:new-version arguments))
-             lst))
-      
-      (define (setup-jazz-gambit-version/stamp)
-        (if jazz:jazz-versions
-            (let iter ((jazz-versions jazz:jazz-versions))
-              (if (not (null? jazz-versions))
-                  (let ((jazz-version (car jazz-versions)))
-                    (let ((gambit-version (jazz:version-gambit-version jazz-version))
-                          (gambit-stamp (jazz:version-gambit-stamp jazz-version)))
-                      (if gambit-version
-                          (begin
-                            (set! jazz:jazz-gambit-version gambit-version)
-                            (set! jazz:jazz-gambit-stamp gambit-stamp))
-                        (iter (cdr jazz-versions)))))))))
-      
-      (if (not loaded?)
-          (begin
-            (load-versions)
-            (setup-jazz-gambit-version/stamp)
-            (set! loaded? #t))))))
-
-
-(define (jazz:get-jazz-versions)
-  (jazz:load-jazz-versions)
-  jazz:jazz-versions)
-
-
-(define (jazz:get-jazz-version-number)
-  (jazz:load-jazz-versions)
-  jazz:jazz-version-number)
-
-
-(define (jazz:get-jazz-gambit-version)
-  (jazz:load-jazz-versions)
-  jazz:jazz-gambit-version)
-
-
-(define (jazz:get-jazz-gambit-stamp)
-  (jazz:load-jazz-versions)
-  jazz:jazz-gambit-stamp)
-
-
-(define (jazz:gambit-jazz? gambit-vendor)
-  (and gambit-vendor
-       (string=? gambit-vendor "Jazz")))
-
-(define (jazz:gambit-uptodate? gambit-version gambit-stamp)
-  (let ((jazz-gambit-version (jazz:get-jazz-gambit-version))
-        (jazz-gambit-stamp (jazz:get-jazz-gambit-stamp)))
-    (or (not jazz-gambit-version)
-        (> gambit-version jazz-gambit-version)
-        (if jazz-gambit-stamp
-            (>= gambit-stamp jazz-gambit-stamp)
-          (>= gambit-version jazz-gambit-version)))))
-
-
-;;;
-;;;; Update
-;;;
-
-
-(define (jazz:make-update version targets description)
-  (vector 'update version targets description))
-
-(define (jazz:update-version update)
-  (vector-ref update 1))
-
-(define (jazz:update-targets update)
-  (vector-ref update 2))
-
-(define (jazz:update-description update)
-  (vector-ref update 3))
-
-
-(define (jazz:new-update
-          #!key
-          (version #f)
-          (targets #f)
-          (description #f))
-  (jazz:make-update
-    version
-    targets
-    description))
-
-
-;;;
-;;;; Updates
-;;;
-
-
-(define jazz:jazz-updates-file
-  #f)
-
-
-(define (jazz:get-jazz-updates)
-  (define (determine-jazz-updates-file)
-    (or jazz:jazz-updates-file
-        (and jazz:jazz-source (string-append jazz:jazz-source "kernel/updates"))))
-  
-  (define (load-updates)
-    (let ((file (determine-jazz-updates-file)))
-      (if (and file (file-exists? file))
-          (call-with-input-file (list path: file eol-encoding: 'cr-lf)
-            (lambda (input)
-              (jazz:list->updates (read-all input read))))
-        '())))
-  
-  (if (not jazz:jazz-updates)
-      (set! jazz:jazz-updates (load-updates)))
-  jazz:jazz-updates)
-
-
-(define (jazz:list->updates lst)
-  (map (lambda (arguments)
-         (apply jazz:new-update arguments))
-       lst))
-
-
-(define (jazz:for-each-update target updates proc)
-  (let iter ((updates updates))
-    (if (not (null? updates))
-        (let ((update (car updates)))
-          (let ((targets (jazz:update-targets update)))
-            (if (and targets (if (symbol? targets)
-                                 (eq? target targets)
-                               (memq target targets)))
-                (proc update))
-            (iter (cdr updates)))))))
-
-
-(define (jazz:versioned-directory root target updates converter)
-  (define (determine-version)
-    (let ((uptodate? #t))
-      (continuation-capture
-        (lambda (return)
-          (jazz:for-each-update target updates
-            (lambda (update)
-              (let ((version-number (jazz:update-version update)))
-                (let ((version-dir (version-directory version-number)))
-                  (if (file-exists? version-dir)
-                      (continuation-return return (values uptodate? version-number))
-                    (set! uptodate? #f))))))
-          (values uptodate? #f)))))
-  
-  (define (version-directory version-number)
-    (if (not version-number)
-        root
-      (string-append root (jazz:present-version version-number) "/")))
-  
-  (jazz:create-directories root)
-  (receive (uptodate? current-version-number) (determine-version)
-    (if uptodate?
-        (version-directory current-version-number)
-      (let ((current-dir (version-directory current-version-number))
-            (conversion-dir (string-append root "conversion/")))
-        (if (file-exists? conversion-dir)
-            (begin
-              (jazz:feedback "; deleting {a}..." conversion-dir)
-              (jazz:delete-directory conversion-dir)
-              ;; workaround to yet another windows bug
-              (thread-sleep! .1)))
-        (jazz:feedback "; converting {a}..." target)
-        (jazz:copy-directory current-dir conversion-dir feedback: (lambda (src level) (if (<= level 1) (jazz:feedback "; copying {a}..." src))))
-        (let iter ((working-version-number current-version-number))
-             (let ((converted-version-number (converter conversion-dir working-version-number)))
-               (if converted-version-number
-                   (iter converted-version-number)
-                 (let ((dir (version-directory working-version-number)))
-                   (jazz:feedback "; {a} converted to version {a}" target (jazz:present-version working-version-number))
-                   (rename-file conversion-dir dir)
-                   dir))))))))
-
-
-(define (jazz:versioned-version target updates)
-  (continuation-capture
-    (lambda (return)
-      (jazz:for-each-update target updates
-        (lambda (update)
-          (continuation-return return (jazz:update-version update))))
-      #f)))
-
-
-;;;
-;;;; Settings
-;;;
-
-
-(define jazz:jazz-settings-directory
-  #f)
-
-(define jazz:jazz-settings-version
-  #f)
-
-(define jazz:named-configurations-file
-  #f)
-
-
-(define (jazz:setup-settings)
-  (set! jazz:jazz-settings-directory (jazz:versioned-directory "~/.jazz/" 'settings (jazz:get-jazz-updates) jazz:convert-settings))
-  (set! jazz:jazz-settings-version (jazz:versioned-version 'settings (jazz:get-jazz-updates)))
-  (set! jazz:named-configurations-file (string-append jazz:jazz-settings-directory ".configurations")))
-
-
-(define (jazz:convert-settings dir old)
-  (define (convert-initial)
-    (jazz:convert-configurations dir
-      (lambda (configurations)
-        (map jazz:convert-configuration-205000 configurations)))
-    205000)
-  
-  (define (convert-205000)
-    (jazz:convert-configurations dir
-      (lambda (configurations)
-        (map jazz:convert-configuration-205001 configurations)))
-    205001)
-  
-  (define (convert-205001)
-    205002)
-  
-  (case old
-    ((#f) (convert-initial))
-    ((205000) (convert-205000))
-    ((205001) (convert-205001))
-    (else #f)))
-
-
-(define (jazz:convert-configurations dir converter)
-  (let ((configurations-file (string-append dir ".configurations")))
-    (define (read-configurations)
-      (call-with-input-file (list path: configurations-file eol-encoding: 'cr-lf)
-        (lambda (input)
-          (read-all input read))))
-    
-    (define (write-configurations configurations)
-      (call-with-output-file (list path: configurations-file #; eol-encoding: #; (jazz:platform-eol-encoding (jazz:guess-platform)))
-        (lambda (output)
-          (for-each (lambda (configuration)
-                      (write configuration output)
-                      (newline output))
-                    configurations))))
-    
-    (if (file-exists? configurations-file)
-        (write-configurations (converter (read-configurations))))))
-
-
-(define (jazz:convert-configuration-205000 configuration)
-  (jazz:convert-properties configuration
-    (lambda (property value)
-      (case property
-        ((interpret-kernel?:) (list kernel-interpret?: value))
-        ((source-access?:) (list))
-        (else (list property value))))))
-
-
-(define (jazz:convert-configuration-205001 configuration)
-  (jazz:convert-properties configuration
-    (lambda (property value)
-      (case property
-        ((destination:) (list destination: (if (string? value) (jazz:string-replace value #\: #\/) value)))
-        (else (list property value))))))
-
-
-(define (jazz:convert-properties plist converter)
-  (let iter ((scan plist) (result '()))
-    (if (null? scan)
-        result
-      (iter (cddr scan) (append result (converter (car scan) (cadr scan)))))))
-
-
-(define (jazz:load-global/local-configurations filename)
-  (define (load-if-exists file)
-    (if (file-exists? file)
-        (load file)))
-  
-  (let ((global (string-append jazz:jazz-settings-directory filename))
-        (local filename))
-    (load-if-exists global)
-    (load-if-exists local)))
-
-
-;;;
-;;;; Configuration
-;;;
-
-
-(define (jazz:save-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination properties file system-platform)
-  (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding system-platform))
-    (lambda (output)
-      (display "(configuration " output)
-      (display (jazz:get-jazz-version-number) output)
-      (newline output)
-      (newline output)
-      (display "  " output)
-      (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination properties output)
-      (display ")" output)
-      (newline output))))
-
-
-(define (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination properties output)
-  (define first?
-    #t)
-  
-  (define (print-property property value)
-    (if first?
-        (set! first? #f)
-      (display " " output))
-    (display property output)
-    (display " " output)
-    (write value output))
-  
-  (display "(" output)
-  (print-property name: name)
-  (print-property system: system)
-  (print-property platform: platform)
-  (print-property windowing: windowing)
-  (print-property safety: safety)
-  (print-property optimize?: optimize?)
-  (print-property debug-environments?: debug-environments?)
-  (print-property debug-location?: debug-location?)
-  (print-property debug-source?: debug-source?)
-  (print-property mutable-bindings?: mutable-bindings?)
-  (print-property kernel-interpret?: kernel-interpret?)
-  (print-property destination: destination)
-  (print-property properties: properties)
-  (display ")" output))
-
-
-;;;
-;;;; Link
-;;;
-
-
-(define (jazz:parse-link link)
-  (define link-options
-    '(("obj" objects)
-      ("objects" objects)
-      ("lib" libraries)
-      ("libraries" libraries)
-      ("all" objects libraries)))
-  
-  (define (invalid option)
-    (jazz:error "Invalid link option: {a}" option))
-  
-  (if (symbol? link)
-      (let ((lst (jazz:split-string (symbol->string link) #\/))
-            (result '()))
-        (for-each (lambda (option)
-                    (let ((pair (assoc option link-options)))
-                      (if pair
-                          (let ((options (cdr pair)))
-                            (for-each (lambda (option)
-                                        (if (not (member option result))
-                                            (set! result (cons option result))))
-                                      options))
-                        (invalid option))))
-                  lst)
-        result)
-    (invalid link)))
-
-
-;;;
-;;;; Destination
-;;;
-
-
-(define (jazz:destination-directory name destination dir)
-  (jazz:dirname-normalize
-    (or destination "bin")))
+(define (jazz:naturals from to)
+  (let iter ((n (- to 1)) (lst '()))
+       (if (< n from)
+           lst
+         (iter (- n 1) (cons n lst)))))
 
 
 ;;;
 ;;;; List
 ;;;
+
+
+(define (jazz:getprop plist target)
+  (let iter ((scan plist))
+    (cond ((null? scan)
+           #f)
+          ((eqv? (car scan) target)
+           scan)
+          (else
+           (iter (cddr scan))))))
+
+
+(define (jazz:getf plist target #!optional (not-found #f))
+  (let ((pair (jazz:getprop plist target)))
+    (if pair
+        (cadr pair)
+      not-found)))
 
 
 (define (jazz:sort l smaller)
@@ -560,6 +102,18 @@
 ;;;
 
 
+(define (jazz:string-find str c #!optional (start 0))
+  (declare (proper-tail-calls))
+  (let ((len (string-length str)))
+    (let iter ((n start))
+      (cond ((>= n len)
+             #f)
+            ((char=? (string-ref str n) c)
+             n)
+            (else
+             (iter (+ n 1)))))))
+
+
 (define (jazz:string-replace str old new)
   (declare (proper-tail-calls))
   (let ((cpy (string-copy str)))
@@ -570,6 +124,20 @@
                 (string-set! cpy n new))
             (iter (- n 1)))))
     cpy))
+
+
+;;;
+;;;; Symbol
+;;;
+
+
+(define (jazz:break-reference identifier)
+  (let ((str (symbol->string identifier)))
+    (let ((n (jazz:string-find str #\:)))
+      (if (not n)
+          (values identifier #f)
+        (values (string->symbol (substring str 0 n))
+                (string->symbol (substring str (+ n 1) (%%string-length str))))))))
 
 
 ;;;
@@ -812,4 +380,4 @@
 
 
 (define (jazz:set-crash-reporter proc)
-  (set! jazz:crash-reporter proc))
+  (set! jazz:crash-reporter proc)))

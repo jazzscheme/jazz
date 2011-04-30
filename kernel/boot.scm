@@ -44,28 +44,46 @@
     "kernel/syntax/features"
     "kernel/syntax/declares"
     "kernel/syntax/primitives"
+    "kernel/syntax/record"
     "kernel/syntax/syntax"
     "kernel/syntax/runtime"
-    "kernel/runtime/base"
-    "kernel/runtime/common"
     "kernel/runtime/settings"
+    "kernel/runtime/base"
+    "kernel/runtime/object"
+    "kernel/syntax/repository"
+    "kernel/runtime/configuration"
+    "kernel/runtime/version"
+    "kernel/runtime/common"
     "kernel/runtime/advise"
     "kernel/runtime/build"
-    "kernel/runtime/digest"
-    "kernel/runtime/unit"
+    "kernel/runtime/digest"))
+
+
+(define jazz:Kernel-Setup
+  '("kernel/runtime/unit"
     "kernel/runtime/setup"))
 
 
 (define jazz:load-kernel
   (let ((loaded? #f))
-    (lambda ()
+    (lambda (setup?)
+      (define verbose?
+        #f)
+      
+      (define (load-file file)
+        (if verbose?
+            (begin
+              (display file)
+              (newline)
+              (force-output)))
+        (load (string-append jazz:source file)))
+      
+      (define (load-files files)
+        (for-each load-file files))
+      
       (if (not loaded?)
           (begin
-            (for-each (lambda (path)
-                        (load (string-append jazz:source path)))
-                      jazz:Kernel)
+            (load-files jazz:Kernel)
+            (if setup?
+                (load-files jazz:Kernel-Setup))
             (set! loaded? #t))))))
-
-
-(jazz:load-kernel)
-(jazz:executable-main)

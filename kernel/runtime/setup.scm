@@ -160,7 +160,7 @@
   ; find the libraries
   (jazz:iterate-packages #t
     (lambda (package)
-      (let ((products (%%package-products package)))
+      (let ((products (%%get-package-products package)))
         (for-each (lambda (product-descriptor)
                     (let ((product-name (jazz:product-descriptor-name product-descriptor)))
                       (jazz:with-numbered-pathname

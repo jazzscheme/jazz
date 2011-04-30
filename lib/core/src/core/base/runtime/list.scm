@@ -150,15 +150,6 @@
     (%%cons (%%car lst) (jazz:butlast (%%cdr lst)))))
 
 
-(define (jazz:naturals from to)
-  (let ((lst '())
-        (n from))
-    (%%while (%%fx< n to)
-      (set! lst (%%cons n lst))
-      (set! n (%%fx+ n 1)))
-    (jazz:reverse! lst)))
-
-
 (define (jazz:remove! target lst)
   (%%while (and (%%not-null? lst) (%%eqv? target (%%car lst)))
     (set! lst (%%cdr lst)))

@@ -99,7 +99,7 @@
 
 
 (jazz:define-class-syntax jazz:Category jazz:Type (metaclass: #f)
-  ((name         accessors: #t)
+  ((identifier   accessors: #t)
    (fields       accessors: #t)
    (virtual-size accessors: #t)
    (ancestors    accessors: #t)

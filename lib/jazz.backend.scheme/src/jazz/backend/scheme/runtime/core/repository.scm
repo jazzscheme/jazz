@@ -44,22 +44,22 @@
 
 
 (define (jazz:repository-name repository)
-  (%%repository-name repository))
+  (%%get-repository-name repository))
 
 (define (jazz:repository-title repository)
-  (%%symbol->string (%%repository-name repository)))
+  (%%symbol->string (%%get-repository-name repository)))
 
 (define (jazz:repository-directory repository)
-  (%%repository-directory repository))
+  (%%get-repository-directory repository))
 
 (define (jazz:repository-library-root repository)
-  (%%repository-library-root repository))
+  (%%get-repository-library-root repository))
 
 (define (jazz:repository-library-directory repository)
-  (%%repository-library-directory repository))
+  (%%get-repository-library-directory repository))
 
 (define (jazz:repository-binary? repository)
-  (%%repository-binary? repository))
+  (%%get-repository-binary? repository))
 
 
 ;;;
@@ -68,22 +68,22 @@
 
 
 (define (jazz:package-repository package)
-  (%%package-repository package))
+  (%%get-package-repository package))
 
 (define (jazz:package-name package)
-  (%%package-name package))
+  (%%get-package-name package))
 
 (define (jazz:package-directory package)
   (jazz:package-root-pathname package ""))
 
 (define (jazz:package-products package)
-  (%%package-products package))
+  (%%get-package-products package))
 
 (define (jazz:package-profiles package)
-  (%%package-profiles package))
+  (%%get-package-profiles package))
 
 (define (jazz:package-profiles-set! package profiles)
-  (%%package-profiles-set! package profiles))
+  (%%set-package-profiles package profiles))
 
 (define (jazz:package-project package)
-  (%%package-project package)))
+  (%%get-package-project package)))

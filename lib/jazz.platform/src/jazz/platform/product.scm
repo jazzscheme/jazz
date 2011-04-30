@@ -179,7 +179,7 @@
         (jazz:build-product-descriptor descriptor))))
   (windows
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
-      (let ((build (%%repository-directory jazz:Build-Repository))
+      (let ((build (%%get-repository-directory jazz:Build-Repository))
             (source jazz:kernel-source))
         (define (build-file path)
           (string-append build path))

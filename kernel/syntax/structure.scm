@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Records
+;;;; Structures
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,19 +35,22 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(block kernel.record
+(block kernel.structure
 
 
 (jazz:kernel-declares)
 
 
-(define jazz:class-info
+(define jazz:structure-info
   (make-table test: eq?))
 
 
-(jazz:define-macro (jazz:define-record name ascendant-name class-options slots)
-  (define (downcase str)
-    (list->string (map char-downcase (string->list str))))
+(jazz:define-macro (jazz:define-structure name ascendant-name options slots)
+  (define (parse-slot slot accessors-prefix downcased-name)
+    (let ((slot (standardize-slot slot)))
+      (values (%%car slot)
+              (slot-getter slot accessors-prefix downcased-name)
+              (slot-setter slot accessors-prefix downcased-name))))
   
   (define (standardize-slot slot)
     (if (%%symbol? slot)
@@ -57,9 +60,9 @@
   (define (slot-name slot)
     (%%car slot))
   
-  (define (slot-getter slot prefix downcase-name)
+  (define (slot-getter slot prefix downcased-name)
     (define (generate-getter)
-      (%%string->symbol (%%string-append prefix "get-" downcase-name "-" (%%symbol->string (slot-name slot)))))
+      (%%string->symbol (%%string-append prefix "get-" downcased-name "-" (%%symbol->string (slot-name slot)))))
     
     (let ((getter (jazz:getf (%%cdr slot) getter: #f)))
       (if (%%not getter)
@@ -75,9 +78,9 @@
               (generate-getter)
             getter)))))
   
-  (define (slot-setter slot prefix downcase-name)
+  (define (slot-setter slot prefix downcased-name)
     (define (generate-setter)
-      (%%string->symbol (%%string-append prefix "set-" downcase-name "-" (%%symbol->string (slot-name slot)))))
+      (%%string->symbol (%%string-append prefix "set-" downcased-name "-" (%%symbol->string (slot-name slot)))))
     
     (let ((setter (jazz:getf (%%cdr slot) setter: #f)))
       (if (%%not setter)
@@ -93,33 +96,30 @@
               (generate-setter)
             setter)))))
   
-  (define (parse-slot slot accessors-prefix downcase-name)
-    (let ((slot (standardize-slot slot)))
-      (values (%%car slot)
-              (slot-getter slot accessors-prefix downcase-name)
-              (slot-setter slot accessors-prefix downcase-name))))
-  
-  (let* ((downcase-name (downcase (%%symbol->string name)))
-         (record? (jazz:getf class-options record?: #f))
-         (class? (%%not record?))
-         (constructor (jazz:getf class-options constructor:))
-         (accessors-type (jazz:getf class-options accessors-type: 'function))
+  (let* ((downcased-name (jazz:string-downcase (%%symbol->string name)))
+         (constructor (jazz:getf options constructor:))
+         (predicate (jazz:getf options predicate:))
+         (accessors-type (jazz:getf options accessors-type: 'function))
          (accessors-prefix (case accessors-type ((macro) "%%") (else "jazz:")))
          (ascendant-accessor (if (%%null? ascendant-name) #f ascendant-name))
-         (inherited-slot-names (if (%%null? ascendant-name) '() (%%table-ref jazz:class-info ascendant-name)))
+         (inherited-slot-names (if (%%null? ascendant-name) '() (%%table-ref jazz:structure-info ascendant-name)))
          (ascendant-size (%%length inherited-slot-names))
          (slot-names (map (lambda (slot) (slot-name (standardize-slot slot))) slots))
          (all-slot-names (%%append inherited-slot-names slot-names))
          (all-length (%%length all-slot-names))
-         (instance-size (%%fx+ jazz:record-size all-length)))
-    (%%table-set! jazz:class-info name all-slot-names)
+         (record-size (%%fx+ jazz:record-offset all-length)))
+    (%%table-set! jazz:structure-info name all-slot-names)
     `(begin
        ,@(if (%%not constructor)
              '()
-           `((jazz:define-macro (,constructor ,@all-slot-names)
-               (%%list '%%object '',name ,@all-slot-names))))
+           `((define (,constructor ,@all-slot-names)
+               (%%record ',name ,@all-slot-names))))
+       ,@(if (%%not predicate)
+             '()
+           `((define (,predicate obj)
+               (and (%%record? obj) (%%eq? (%%get-record-structure obj) ',name)))))
        ,@(map (lambda (slot rank)
-                (receive (slot-name slot-getter slot-setter) (parse-slot slot accessors-prefix downcase-name)
+                (receive (slot-name slot-getter slot-setter) (parse-slot slot accessors-prefix downcased-name)
                   `(begin
                      ,@(cond ((%%not slot-getter)
                               '())
@@ -142,5 +142,5 @@
                                  `((define (,slot-setter record value)
                                      (%%record-set! record ,rank value))))))))))
               slots
-              (jazz:naturals (%%fx+ jazz:record-size ascendant-size) instance-size))
-       (%%table-set! jazz:class-info ',name ',all-slot-names)))))
+              (jazz:naturals (%%fx+ jazz:record-offset ascendant-size) record-size))
+       (%%table-set! jazz:structure-info ',name ',all-slot-names)))))

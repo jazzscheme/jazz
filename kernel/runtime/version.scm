@@ -46,7 +46,7 @@
 ;;;
 
 
-(jazz:define-record Version () (constructor: jazz:make-version)
+(jazz:define-structure Version () (constructor: jazz:make-version predicate: jazz:version?)
   ((number               getter: generate)
    (gambit-version       getter: generate)
    (gambit-stamp         getter: generate)
@@ -196,7 +196,7 @@
 ;;;
 
 
-(jazz:define-record Update () (constructor: jazz:make-update)
+(jazz:define-structure Update () (constructor: jazz:make-update)
   ((version     getter: generate)
    (targets     getter: generate)
    (description getter: generate)))

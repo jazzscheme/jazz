@@ -55,7 +55,7 @@
 ;;;
 
 
-(jazz:define-record Configuration () (constructor: jazz:make-configuration)
+(jazz:define-structure Configuration () (constructor: jazz:make-configuration)
   ((name                getter: generate)
    (system              getter: generate)
    (platform            getter: generate)

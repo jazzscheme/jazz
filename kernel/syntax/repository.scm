@@ -51,7 +51,7 @@
 ;; defines search precedence.
 
 
-(jazz:define-record Repository () (constructor: %%make-repository accessors-type: macro)
+(jazz:define-structure Repository () (constructor: %%make-repository accessors-type: macro)
   ((name              getter: generate)
    (directory         getter: generate)
    (library-root      getter: generate)
@@ -69,7 +69,7 @@
 ;; discovered automatically and their order within their repository should not be relevant.
 
 
-(jazz:define-record Package () (constructor: %%make-package accessors-type: macro)
+(jazz:define-structure Package () (constructor: %%make-package accessors-type: macro)
   ((repository    getter: generate)
    (name          getter: generate)
    (parent        getter: generate)
@@ -92,7 +92,7 @@
 ;; A product is the runtime implementation of some user level entity that can be run and updated / built.
 
 
-(jazz:define-record Product () (constructor: %%make-product accessors-type: macro)
+(jazz:define-structure Product () (constructor: %%make-product accessors-type: macro)
   ((name          getter: generate)
    (title         getter: generate)
    (icon          getter: generate)
@@ -116,7 +116,7 @@
 ;; build subdir of the architecture directory to enable a cross-compilation scheme.
 
 
-(jazz:define-record Resource () (constructor: %%make-resource accessors-type: macro)
+(jazz:define-structure Resource () (constructor: %%make-resource accessors-type: macro)
   ((package   getter: generate)
    (path      getter: generate)
    (extension getter: generate)))
@@ -127,7 +127,7 @@
 ;;;
 
 
-(jazz:define-record Image-Unit () (constructor: %%make-image-unit accessors-type: macro)
+(jazz:define-structure Image-Unit () (constructor: %%make-image-unit accessors-type: macro)
   ((load-proc         getter: generate)
    (compile-time-hash getter: generate)))
 
@@ -137,7 +137,7 @@
 ;;;
 
 
-(jazz:define-record Digest () (constructor: %%make-digest accessors-type: macro)
+(jazz:define-structure Digest () (constructor: %%make-digest accessors-type: macro)
   ((pathname getter: generate setter: generate)
    (hash     getter: generate setter: generate)
    (time     getter: generate setter: generate)))
@@ -148,7 +148,7 @@
 ;;;
 
 
-(jazz:define-record Manifest () (constructor: %%make-manifest accessors-type: macro)
+(jazz:define-structure Manifest () (constructor: %%make-manifest accessors-type: macro)
   ((name              getter: generate)
    (version           getter: generate setter: generate)
    (compile-time-hash getter: generate setter: generate)

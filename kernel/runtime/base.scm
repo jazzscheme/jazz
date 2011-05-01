@@ -44,10 +44,10 @@
 
 
 (define (jazz:naturals from to)
-  (let iter ((n (- to 1)) (lst '()))
-       (if (< n from)
+  (let iter ((n (%%fx- to 1)) (lst '()))
+       (if (%%fx< n from)
            lst
-         (iter (- n 1) (cons n lst)))))
+         (iter (%%fx- n 1) (%%cons n lst)))))
 
 
 ;;;
@@ -57,41 +57,41 @@
 
 (define (jazz:getprop plist target)
   (let iter ((scan plist))
-    (cond ((null? scan)
+    (cond ((%%null? scan)
            #f)
-          ((eqv? (car scan) target)
+          ((%%eqv? (%%car scan) target)
            scan)
           (else
-           (iter (cddr scan))))))
+           (iter (%%cddr scan))))))
 
 
 (define (jazz:getf plist target #!optional (not-found #f))
   (let ((pair (jazz:getprop plist target)))
     (if pair
-        (cadr pair)
+        (%%cadr pair)
       not-found)))
 
 
 (define (jazz:sort l smaller)
   (define (merge-sort l)
     (define (merge l1 l2)
-      (cond ((null? l1) l2)
-            ((null? l2) l1)
+      (cond ((%%null? l1) l2)
+            ((%%null? l2) l1)
             (else
-             (let ((e1 (car l1)) (e2 (car l2)))
+             (let ((e1 (%%car l1)) (e2 (%%car l2)))
                (if (smaller e1 e2)
-                   (cons e1 (merge (cdr l1) l2))
-                 (cons e2 (merge l1 (cdr l2))))))))
+                   (%%cons e1 (merge (%%cdr l1) l2))
+                 (%%cons e2 (merge l1 (%%cdr l2))))))))
     
     (define (split l)
-      (if (or (null? l) (null? (cdr l)))
+      (if (or (%%null? l) (%%null? (%%cdr l)))
           l
-        (cons (car l) (split (cddr l)))))
+        (%%cons (%%car l) (split (%%cddr l)))))
     
-    (if (or (null? l) (null? (cdr l)))
+    (if (or (%%null? l) (%%null? (%%cdr l)))
         l
       (let* ((l1 (merge-sort (split l)))
-             (l2 (merge-sort (split (cdr l)))))
+             (l2 (merge-sort (split (%%cdr l)))))
         (merge l1 l2))))
   
   (merge-sort l))
@@ -104,26 +104,30 @@
 
 (define (jazz:string-find str c #!optional (start 0))
   (declare (proper-tail-calls))
-  (let ((len (string-length str)))
+  (let ((len (%%string-length str)))
     (let iter ((n start))
-      (cond ((>= n len)
+      (cond ((%%fx>= n len)
              #f)
-            ((char=? (string-ref str n) c)
+            ((%%char=? (%%string-ref str n) c)
              n)
             (else
-             (iter (+ n 1)))))))
+             (iter (%%fx+ n 1)))))))
 
 
 (define (jazz:string-replace str old new)
   (declare (proper-tail-calls))
   (let ((cpy (string-copy str)))
-    (let iter ((n (- (string-length cpy) 1)))
-      (if (>= n 0)
+    (let iter ((n (%%fx- (%%string-length cpy) 1)))
+      (if (%%fx>= n 0)
           (begin
-            (if (eqv? (string-ref cpy n) old)
-                (string-set! cpy n new))
-            (iter (- n 1)))))
+            (if (%%eqv? (%%string-ref cpy n) old)
+                (%%string-set! cpy n new))
+            (iter (%%fx- n 1)))))
     cpy))
+
+
+(define (jazz:string-downcase str)
+  (list->string (map char-downcase (string->list str))))
 
 
 ;;;
@@ -132,12 +136,12 @@
 
 
 (define (jazz:break-reference identifier)
-  (let ((str (symbol->string identifier)))
+  (let ((str (%%symbol->string identifier)))
     (let ((n (jazz:string-find str #\:)))
-      (if (not n)
+      (if (%%not n)
           (values identifier #f)
-        (values (string->symbol (substring str 0 n))
-                (string->symbol (substring str (+ n 1) (%%string-length str))))))))
+        (values (%%string->symbol (%%substring str 0 n))
+                (%%string->symbol (%%substring str (%%fx+ n 1) (%%string-length str))))))))
 
 
 ;;;
@@ -157,15 +161,15 @@
 
 
 (define (jazz:pathname-normalize path #!optional (error? #t))
-  (if (not (jazz:pathname-exists? path))
+  (if (%%not (jazz:pathname-exists? path))
       (if error?
           (jazz:error "No such directory: {s}" path)
         #f)
-    (let ((len (string-length path)))
+    (let ((len (%%string-length path)))
       (let ((dir? (jazz:string-ends-with? path "/")))
-        (let ((normalized (path-normalize (if dir? (substring path 0 (- len 1)) path))))
+        (let ((normalized (path-normalize (if dir? (%%substring path 0 (%%fx- len 1)) path))))
           (let ((standardized (jazz:pathname-standardize normalized)))
-            (if (and dir? (not (jazz:string-ends-with? standardized "/")))
+            (if (and dir? (%%not (jazz:string-ends-with? standardized "/")))
                 (string-append standardized "/")
               standardized)))))))
 
@@ -179,14 +183,14 @@
 (cond-expand
   (windows
     (define (jazz:path=? path1 path2)
-      (string-ci=? path1 path2)))
+      (%%string-ci=? path1 path2)))
   (else
    (define (jazz:path=? path1 path2)
-     (string=? path1 path2))))
+     (%%string=? path1 path2))))
 
 
 (define (jazz:create-directory dir #!key (feedback #f))
-  (if (not (file-exists? dir))
+  (if (%%not (file-exists? dir))
       (begin
         (if feedback
             (feedback "; creating {a}..." dir))
@@ -194,31 +198,31 @@
 
 
 (define (jazz:create-directories dir #!key (feedback #f))
-  (let ((path (reverse (jazz:split-string dir #\/))))
-    (let iter ((scan (if (equal? (car path) "") (cdr path) path)))
-      (if (not (null? scan))
+  (let ((path (%%reverse (jazz:split-string dir #\/))))
+    (let iter ((scan (if (%%equal? (%%car path) "") (%%cdr path) path)))
+      (if (%%not (%%null? scan))
           (begin
-            (iter (cdr scan))
-            (let ((subdir (jazz:join-strings (reverse scan) "/")))
-              (if (not (file-exists? subdir))
+            (iter (%%cdr scan))
+            (let ((subdir (jazz:join-strings (%%reverse scan) "/")))
+              (if (%%not (file-exists? subdir))
                   (jazz:create-directory subdir feedback: feedback))))))))
 
 
 (define (jazz:directory-content directory)
-  (directory-files (if (string? directory)
-                       (list path: directory ignore-hidden: 'dot-and-dot-dot)
+  (directory-files (if (%%string? directory)
+                       (%%list path: directory ignore-hidden: 'dot-and-dot-dot)
                      directory)))
 
 
 (define (jazz:directory-files directory)
   (jazz:collect-if (lambda (name)
-                     (eq? (jazz:pathname-type (string-append directory name)) 'regular))
+                     (%%eq? (jazz:pathname-type (string-append directory name)) 'regular))
                    (jazz:directory-content directory)))
 
 
 (define (jazz:directory-directories directory)
   (jazz:collect-if (lambda (name)
-                     (eq? (jazz:pathname-type (string-append directory name)) 'directory))
+                     (%%eq? (jazz:pathname-type (string-append directory name)) 'directory))
                    (jazz:directory-content directory)))
 
 
@@ -251,7 +255,7 @@
               (jazz:directory-files directory))
     (for-each (lambda (name)
                 (let ((dir (string-append directory name "/")))
-                  (if ((or delete-directory? default-delete-directory?) dir (+ level 1))
+                  (if ((or delete-directory? default-delete-directory?) dir (%%fx+ level 1))
                       (begin
                         (if feedback
                             (feedback dir level))
@@ -270,12 +274,12 @@
       (for-each (lambda (name)
                   (let ((sub-src (string-append src name))
                         (sub-dst (string-append dst name)))
-                    (if (or (eq? copy? #t) (copy? name level))
+                    (if (or (%%eq? copy? #t) (copy? name level))
                         (case (jazz:pathname-type sub-src)
                           ((regular)
                            (copy-file sub-src sub-dst))
                           ((directory)
-                           (copy (string-append sub-src "/") (string-append sub-dst "/") (+ level 1)))))))
+                           (copy (string-append sub-src "/") (string-append sub-dst "/") (%%fx+ level 1)))))))
                 src-content)))
   
   (copy src dst 0))
@@ -293,51 +297,51 @@
 
 
 (define (jazz:option? arg)
-  (and (> (string-length arg) 0)
-       (char=? (string-ref arg 0) #\-)))
+  (and (%%fx> (%%string-length arg) 0)
+       (%%char=? (%%string-ref arg 0) #\-)))
 
 
 (define (jazz:convert-option arg)
-  (let ((len (string-length arg)))
-    (let ((start (if (and (>= len 2) (equal? (substring arg 0 2) "--"))
+  (let ((len (%%string-length arg)))
+    (let ((start (if (and (%%fx>= len 2) (%%equal? (%%substring arg 0 2) "--"))
                      2
                    1)))
-      (substring arg start len))))
+      (%%substring arg start len))))
 
 
 (define (jazz:option=? arg option)
   (and (jazz:option? arg)
-       (equal? (jazz:convert-option arg) option)))
+       (%%equal? (jazz:convert-option arg) option)))
 
 
 (define (jazz:get-option name options)
-  (let ((pair (assoc name options)))
+  (let ((pair (%%assoc name options)))
     (if pair
-        (cdr pair)
+        (%%cdr pair)
       #f)))
 
 
 (define (jazz:split-command-line arguments options-with-no-args options-with-args missing-argument-for-option cont)
   (let loop ((args arguments)
              (rev-options '()))
-    (if (and (pair? args)
-             (jazz:option? (car args)))
-        (let ((opt (jazz:convert-option (car args)))
-              (rest (cdr args)))
-          (cond ((member opt options-with-no-args)
+    (if (and (%%pair? args)
+             (jazz:option? (%%car args)))
+        (let ((opt (jazz:convert-option (%%car args)))
+              (rest (%%cdr args)))
+          (cond ((%%member opt options-with-no-args)
                  (loop rest
-                       (cons (cons opt #t) rev-options)))
-                ((member opt options-with-args)
-                 (if (pair? rest)
-                     (loop (cdr rest)
-                           (cons (cons opt (car rest)) rev-options))
+                       (%%cons (%%cons opt #t) rev-options)))
+                ((%%member opt options-with-args)
+                 (if (%%pair? rest)
+                     (loop (%%cdr rest)
+                           (%%cons (%%cons opt (%%car rest)) rev-options))
                    (begin
                      (if missing-argument-for-option
                          (missing-argument-for-option opt))
                      (loop rest rev-options))))
                 (else
-                 (cont (reverse rev-options) args))))
-      (cont (reverse rev-options) args))))
+                 (cont (%%reverse rev-options) args))))
+      (cont (%%reverse rev-options) args))))
 
 
 ;;;

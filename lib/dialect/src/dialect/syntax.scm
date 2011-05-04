@@ -906,7 +906,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:If jazz:Expression (constructor: jazz:allocate-if)
+(jazz:define-class-syntax jazz:If jazz:Expression (constructor: jazz:allocate-if initialize?: #t)
   ((test getter: generate)
    (yes  getter: generate)
    (no   getter: generate)))

@@ -126,6 +126,13 @@
     cpy))
 
 
+(define (jazz:string-starts-with? str target)
+  (let ((sl (%%string-length str))
+        (tl (%%string-length target)))
+    (and (%%fx>= sl tl)
+         (%%string=? (%%substring str 0 tl) target))))
+
+
 (define (jazz:string-downcase str)
   (list->string (map char-downcase (string->list str))))
 

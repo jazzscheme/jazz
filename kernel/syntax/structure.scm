@@ -46,6 +46,12 @@
 
 
 (jazz:define-macro (jazz:define-structure name ascendant-name options slots)
+  (define (downcase str)
+    (let ((down (list->string (map char-downcase (string->list str)))))
+      (if (jazz:string-starts-with? down "jazz:")
+          (%%substring down 5 (%%string-length down))
+        down)))
+  
   (define (parse-slot slot accessors-prefix downcased-name)
     (let ((slot (standardize-slot slot)))
       (values (%%car slot)
@@ -96,8 +102,9 @@
               (generate-setter)
             setter)))))
   
-  (let* ((downcased-name (jazz:string-downcase (%%symbol->string name)))
+  (let* ((downcased-name (downcase (%%symbol->string name)))
          (constructor (jazz:getf options constructor:))
+         (constructor-structure? (jazz:getf options constructor-structure?: #f))
          (predicate (jazz:getf options predicate:))
          (accessors-type (jazz:getf options accessors-type: 'function))
          (accessors-prefix (case accessors-type ((macro) "%%") (else "jazz:")))
@@ -112,8 +119,11 @@
     `(begin
        ,@(if (%%not constructor)
              '()
-           `((define (,constructor ,@all-slot-names)
-               (%%record ',name ,@all-slot-names))))
+           (if (%%not constructor-structure?)
+               `((define (,constructor ,@all-slot-names)
+                   (%%record ',name ,@all-slot-names)))
+             `((define (,constructor structure ,@all-slot-names)
+                 (%%record structure ,@all-slot-names)))))
        ,@(if (%%not predicate)
              '()
            `((define (,predicate obj)

@@ -292,6 +292,22 @@
 ;;;
 
 
+(define (jazz:add-core-slot class slot-name slot-initialize)
+  (let ((actual (%%get-category-field class slot-name)))
+    (cond (actual
+           (%%set-slot-initialize actual slot-initialize)
+           actual)
+          (else
+           (let* ((instance-size (%%get-class-instance-size class))
+                  (slot-offset instance-size)
+                  (slot (%%allocate-slot slot-name slot-offset slot-initialize)))
+             (jazz:add-field class slot)
+             (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
+             (%%set-class-instance-slots class (%%append (%%get-class-instance-slots class) (%%list slot)))
+             (%%set-class-instance-size class (%%fx+ instance-size 1))
+             slot)))))
+
+
 (define (jazz:add-core-virtual-method class method-name)
   (%%set-class-virtual-names class
     (%%append (%%get-class-virtual-names class)

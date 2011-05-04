@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Object () (structure?: #t)
+(jazz:define-structure jazz:Object () ()
   ())
 
 
@@ -52,7 +52,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Type jazz:Object (structure?: #t)
+(jazz:define-structure jazz:Type jazz:Object ()
   ())
 
 
@@ -61,7 +61,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Category jazz:Type (structure?: #t accessors-type: macro)
+(jazz:define-structure jazz:Category jazz:Type (accessors-type: macro)
   ((identifier   accessors: generate)
    (fields       accessors: generate)
    (virtual-size accessors: generate)
@@ -74,7 +74,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Class jazz:Category (structure?: #t constructor: %%allocate-class accessors-type: macro)
+(jazz:define-structure jazz:Class jazz:Category (constructor: %%allocate-class constructor-structure?: #t accessors-type: macro)
   ((ascendant       accessors: generate)
    (interfaces      accessors: generate)
    (slots           accessors: generate)
@@ -91,7 +91,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Field jazz:Object (structure?: #t accessors-type: macro)
+(jazz:define-structure jazz:Field jazz:Object (accessors-type: macro)
   ((name getter: generate)))
 
 
@@ -100,7 +100,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Slot jazz:Field (structure?: #t constructor: %%allocate-slot accessors-type: macro)
+(jazz:define-structure jazz:Slot jazz:Field (constructor: %%allocate-slot constructor-structure?: #t accessors-type: macro)
   ((offset     getter: generate)
    (initialize getter: generate setter: generate)))
 

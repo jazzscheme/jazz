@@ -100,8 +100,8 @@
               (slot-setter slot accessors-prefix downcase-name))))
   
   (let* ((downcase-name (downcase (%%symbol->string name)))
-         (record? (jazz:getf class-options record?: #f))
-         (class? (%%not record?))
+         (structure? (jazz:getf class-options structure?: #f))
+         (class? (%%not structure?))
          (metaclass-name (jazz:getf class-options metaclass: #t))
          (constructor (jazz:getf class-options constructor:))
          (accessors-type (jazz:getf class-options accessors-type: 'function))
@@ -161,7 +161,7 @@
               slots
               (jazz:naturals (%%fx+ jazz:object-size ascendant-size) instance-size))
        (%%table-set! jazz:class-info ',name ',all-slot-names)
-       ,@(if record?
+       ,@(if structure?
              '()
            `((jazz:define-macro (,(jazz:define-class-runtime-helper name))
                `(begin

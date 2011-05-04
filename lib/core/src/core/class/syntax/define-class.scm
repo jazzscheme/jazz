@@ -38,6 +38,10 @@
 (unit protected core.class.syntax.define-class
 
 
+(jazz:define-structure Class-Info () (constructor: jazz:make-class-info)
+  ((slot-names getter: generate)))
+
+
 (define jazz:class-info
   (%%make-table test: eq?))
 
@@ -65,7 +69,7 @@
       (if (%%not getter)
           (let ((accessors (jazz:getf (%%cdr slot) accessors: #f)))
             (if (%%not accessors)
-                (generate-getter)
+                getter
               (if (%%eq? accessors #t)
                   #f
                 (generate-getter))))
@@ -83,7 +87,7 @@
       (if (%%not setter)
           (let ((accessors (jazz:getf (%%cdr slot) accessors: #f)))
             (if (%%not accessors)
-                (generate-setter)
+                setter
               (if (%%eq? accessors #t)
                   #f
                 (generate-setter))))
@@ -107,17 +111,18 @@
          (accessors-prefix (case accessors-type ((macro) "%%") (else "jazz:")))
          (metaclass-accessor (cond ((%%not metaclass-name) #f) ((%%eq? metaclass-name #t) 'jazz:Object-Class) (else metaclass-name)))
          (ascendant-accessor (if (%%null? ascendant-name) #f ascendant-name))
-         (inherited-slot-names (if (%%null? ascendant-name) '() (%%table-ref jazz:class-info ascendant-name)))
-         (ascendant-size (%%length inherited-slot-names))
+         (ascendant-info (%%table-ref jazz:class-info ascendant-name #f))
+         (ascendant-slot-names (if (%%null? ascendant-name) '() (jazz:get-class-info-slot-names ascendant-info)))
+         (ascendant-size (%%length ascendant-slot-names))
          (slot-names (map (lambda (slot) (slot-name (standardize-slot slot))) slots))
-         (all-slot-names (%%append inherited-slot-names slot-names))
+         (all-slot-names (%%append ascendant-slot-names slot-names))
          (all-variables (map (lambda (slot-name) (jazz:generate-symbol (%%symbol->string slot-name))) all-slot-names))
          (all-length (%%length all-slot-names))
          (instance-size (%%fx+ jazz:object-size all-length))
          (class-level-name (%%compose-helper name 'core-level))
          (class-symbol (jazz:generate-symbol "class"))
          (obj-symbol (jazz:generate-symbol "obj")))
-    (%%table-set! jazz:class-info name all-slot-names)
+    (%%table-set! jazz:class-info name (jazz:make-class-info all-slot-names))
     `(begin
        ;; this is necessary as the getter/setter type assertions will refer to
        ;; the class that is only defined later in the runtime implementation file
@@ -166,7 +171,7 @@
                                      (%%object-set! object ,rank value))))))))))
               slots
               (jazz:naturals (%%fx+ jazz:object-size ascendant-size) instance-size))
-       (%%table-set! jazz:class-info ',name ',all-slot-names)
+       (%%table-set! jazz:class-info ',name (jazz:make-class-info ',all-slot-names))
        (jazz:define-macro (,(jazz:define-class-runtime-helper name))
          `(begin
             (define ,',name
@@ -174,7 +179,7 @@
             (define ,',class-level-name
               (%%get-class-level ,',name))
             (jazz:set-core-class ',',(jazz:reference-name name) ,',name)
-            (jazz:validate-inherited-slots ',',name ,',ascendant-accessor ',',inherited-slot-names))))))
+            (jazz:validate-inherited-slots ',',name ,',ascendant-accessor ',',ascendant-slot-names))))))
 
 
 (jazz:define-macro (jazz:define-class name)

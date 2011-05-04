@@ -61,47 +61,30 @@
   (define (slot-name slot)
     (%%car slot))
   
-  (define (slot-getter slot prefix downcase-name)
-    (define (generate-getter)
-      (%%string->symbol (%%string-append prefix "get-" downcase-name "-" (%%symbol->string (slot-name slot)))))
+  (define (parse-slot slot prefix downcase-name)
+    (define (slot-getter slot)
+      (parse-accessor slot getter: "get-"))
     
-    (let ((getter (jazz:getf (%%cdr slot) getter: #f)))
-      (if (%%not getter)
-          (let ((accessors (jazz:getf (%%cdr slot) accessors: #f)))
-            (if (%%not accessors)
-                getter
-              (if (%%eq? accessors #t)
-                  #f
-                (generate-getter))))
-        (if (%%eq? getter #t)
-            #f
-          (if (%%eq? getter 'generate)
-              (generate-getter)
-            getter)))))
-  
-  (define (slot-setter slot prefix downcase-name)
-    (define (generate-setter)
-      (%%string->symbol (%%string-append prefix "set-" downcase-name "-" (%%symbol->string (slot-name slot)))))
+    (define (slot-setter slot)
+      (parse-accessor slot setter: "set-"))
     
-    (let ((setter (jazz:getf (%%cdr slot) setter: #f)))
-      (if (%%not setter)
-          (let ((accessors (jazz:getf (%%cdr slot) accessors: #f)))
-            (if (%%not accessors)
-                setter
-              (if (%%eq? accessors #t)
-                  #f
-                (generate-setter))))
-        (if (%%eq? setter #t)
-            #f
-          (if (%%eq? setter 'generate)
-              (generate-setter)
-            setter)))))
-  
-  (define (parse-slot slot accessors-prefix downcase-name)
+    (define (parse-accessor slot accessor-key accessor-prefix)
+      (define (generate-accessor)
+        (%%string->symbol (%%string-append prefix accessor-prefix downcase-name "-" (%%symbol->string (slot-name slot)))))
+      
+      (let ((accessor (or (jazz:getf (%%cdr slot) accessor-key #f)
+                          (jazz:getf (%%cdr slot) accessors: #f))))
+        (cond ((%%eq? accessor #t)
+               #f)
+              ((%%eq? accessor 'generate)
+               (generate-accessor))
+              (else
+               accessor))))
+    
     (let ((slot (standardize-slot slot)))
-      (values (%%car slot)
-              (slot-getter slot accessors-prefix downcase-name)
-              (slot-setter slot accessors-prefix downcase-name))))
+      (values (slot-name slot)
+              (slot-getter slot)
+              (slot-setter slot))))
   
   (let* ((downcase-name (downcase (%%symbol->string name)))
          (initialize? (jazz:getf options initialize?: #f))

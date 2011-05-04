@@ -142,7 +142,7 @@
        (%%table-set! jazz:class-info ',name (jazz:make-class-info ',metaclass-accessor ',ascendant-accessor ',constructor ',initialize? ',accessors-type ',slots ',slot-names ',all-slot-names ',instance-size)))))
 
 
-(jazz:define-macro (jazz:define-class name)
+(jazz:define-macro (jazz:define-class name #!optional (bootstrap? #f))
   (let ((class-info (%%table-ref jazz:class-info name))
         (class-level-name (%%compose-helper name 'core-level)))
     (let ((metaclass-accessor (jazz:get-class-info-metaclass-accessor class-info))
@@ -207,8 +207,14 @@
                       slots
                       (jazz:naturals (%%fx+ jazz:object-size ascendant-size) instance-size))
                (define ,name
-                 (jazz:new-core-class ,metaclass-accessor ',name (%%make-table test: eq?) ,ascendant-accessor ',slot-names ,instance-size))
+                 (jazz:new-core-class ,metaclass-accessor ',name (%%make-table test: eq?) ,ascendant-accessor ,instance-size))
                (define ,class-level-name
                  (%%get-class-level ,name))
-               (jazz:set-core-class ',(jazz:reference-name name) ,name)
-               (jazz:validate-inherited-slots ',name ,ascendant-accessor ',ascendant-slot-names)))))))))
+               ,@(if bootstrap?
+                     '()
+                   (map (lambda (slot rank)
+                          (jazz:bind (slot-name slot-getter slot-setter) slot
+                            `(jazz:add-core-slot ,name ',slot-name #f)))
+                        slots
+                        (jazz:naturals (%%fx+ jazz:object-size ascendant-size) instance-size)))
+               (jazz:set-core-class ',(jazz:reference-name name) ,name)))))))))

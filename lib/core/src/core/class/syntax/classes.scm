@@ -156,6 +156,33 @@
 
 
 ;;;
+;;;; Field
+;;;
+
+
+(jazz:define-class-syntax jazz:Field jazz:Object (accessors-type: macro)
+  ((name getter: #t)))
+
+
+(jazz:define-macro (%%get-category-field category field-name)
+  `(%%table-ref (%%get-category-fields ,category) ,field-name #f))
+
+
+(jazz:define-macro (%%set-category-field category field-name field)
+  `(%%table-set! (%%get-category-fields ,category) ,field-name ,field))
+
+
+;;;
+;;;; Slot
+;;;
+
+
+(jazz:define-class-syntax jazz:Slot jazz:Field (constructor: jazz:allocate-slot accessors-type: macro)
+  ((offset     getter: #t)
+   (initialize getter: #t setter: #t)))
+
+
+;;;
 ;;;; Object-Class
 ;;;
 
@@ -251,33 +278,6 @@
 (jazz:define-class-syntax jazz:EOF          jazz:Object   (metaclass: jazz:EOF-Class)          ())
 (jazz:define-class-syntax jazz:Unspecified  jazz:Object   (metaclass: jazz:Unspecified-Class)  ())
 (jazz:define-class-syntax jazz:Marker       jazz:Object   (metaclass: jazz:Marker-Class)       ())
-
-
-;;;
-;;;; Field
-;;;
-
-
-(jazz:define-class-syntax jazz:Field jazz:Object (accessors-type: macro)
-  ((name getter: #t)))
-
-
-(jazz:define-macro (%%get-category-field category field-name)
-  `(%%table-ref (%%get-category-fields ,category) ,field-name #f))
-
-
-(jazz:define-macro (%%set-category-field category field-name field)
-  `(%%table-set! (%%get-category-fields ,category) ,field-name ,field))
-
-
-;;;
-;;;; Slot
-;;;
-
-
-(jazz:define-class-syntax jazz:Slot jazz:Field (constructor: jazz:allocate-slot accessors-type: macro)
-  ((offset     getter: #t)
-   (initialize getter: #t setter: #t)))
 
 
 ;;;

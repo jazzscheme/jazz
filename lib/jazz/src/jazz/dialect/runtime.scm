@@ -394,7 +394,7 @@
         (for-each process lst)
         (jazz:queue-list queue)))
     
-    (let ((core-class-slot-names (map (lambda (name/slot) (if (%%symbol? name/slot) name/slot (%%get-field-name name/slot))) (%%get-class-instance-slots core-class)))
+    (let ((core-class-slot-names (map (lambda (name/slot) (if (%%symbol? name/slot) name/slot (%%get-field-name name/slot))) (%%get-class-slots core-class)))
           (declaration-slot-names (map (lambda (decl) (jazz:get-lexical-binding-name decl)) (collect-slots (jazz:get-namespace-declaration-body declaration)))))
       (%%when (%%not (%%equal? core-class-slot-names declaration-slot-names))
         (jazz:error "Inconsistant core-class/class slots for {s}: {s} / {s}" (jazz:get-lexical-binding-name declaration) core-class-slot-names declaration-slot-names))))

@@ -680,14 +680,6 @@
        (%%eq? (%%car form) 'slot)))
 
 
-(define (jazz:new class . rest)
-  (%%debug-assert (%%class? class)
-    (let ((object (%%make-object class (%%get-class-instance-size class))))
-      (jazz:initialize-slots object)
-      (apply (%%class-dispatch class 0 0) object rest)
-      object)))
-
-
 (define (jazz:new-instance class . rest)
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))
@@ -704,6 +696,14 @@
                          (let ((offset (%%get-slot-offset field)))
                            (jazz:set-object-slot object offset value))))
                      (iter remain))))))
+      object)))
+
+
+(define (jazz:new class . rest)
+  (%%debug-assert (%%class? class)
+    (let ((object (%%make-object class (%%get-class-instance-size class))))
+      (jazz:initialize-slots object)
+      (apply (%%class-dispatch class 0 0) object rest)
       object)))
 
 

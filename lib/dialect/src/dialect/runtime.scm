@@ -197,6 +197,21 @@
 (jazz:define-virtual (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))
 
 
+;; provide virtual access to some walker slots via the module-declaration
+(define (jazz:get-module-declaration-walker-literals lib-decl)
+  (jazz:get-walker-literals (jazz:get-module-declaration-walker lib-decl)))
+(define (jazz:set-module-declaration-walker-literals lib-decl value)
+  (jazz:set-walker-literals (jazz:get-module-declaration-walker lib-decl) value))
+(define (jazz:get-module-declaration-walker-variables lib-decl)
+  (jazz:get-walker-variables (jazz:get-module-declaration-walker lib-decl)))
+(define (jazz:get-module-declaration-walker-references lib-decl)
+  (jazz:get-walker-references (jazz:get-module-declaration-walker lib-decl)))
+(define (jazz:get-module-declaration-walker-autoloads lib-decl)
+  (jazz:get-walker-autoloads (jazz:get-module-declaration-walker lib-decl)))
+(define (jazz:set-module-declaration-walker-autoloads lib-decl value)
+  (jazz:set-walker-autoloads (jazz:get-module-declaration-walker lib-decl) value))
+
+
 ;;;
 ;;;; Walk Binding
 ;;;
@@ -325,7 +340,7 @@
     #f))
 
 
-(define (jazz:get-lexical-binding-hits binding)
+(define (jazz:lexical-binding-hits binding)
   (or (jazz:get-lexical-binding-hits binding)
       (let ((table (%%make-table test: eq?)))
         (jazz:set-lexical-binding-hits binding table)
@@ -648,7 +663,7 @@
 (jazz:define-method (jazz:lookup-declaration (jazz:Namespace-Declaration namespace-declaration) symbol access source-declaration)
   (define (add-to-hits declaration)
     (%%when (and declaration source-declaration (jazz:analysis-mode?))
-      (let ((hits-table (jazz:get-lexical-binding-hits declaration)))
+      (let ((hits-table (jazz:lexical-binding-hits declaration)))
         (%%table-set! hits-table (jazz:get-declaration-locator source-declaration) source-declaration))
       (%%when (%%is? declaration jazz:Autoload-Declaration)
         (jazz:set-analysis-data-autoload-reference (jazz:get-analysis-data (jazz:get-declaration-locator declaration)) declaration))))

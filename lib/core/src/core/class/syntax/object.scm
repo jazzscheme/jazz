@@ -76,7 +76,7 @@
     
     (define (jazz:new-object class . rest)
       (let ((obj (%%list->vector (%%cons class rest))))
-        (##subtype-set! obj ,jazz:subtype-jazz)
+        (##subtype-set! obj jazz:subtype-jazz)
         obj))
     
     (jazz:define-macro (%%make-object class size)

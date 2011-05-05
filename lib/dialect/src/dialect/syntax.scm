@@ -475,21 +475,6 @@
 (jazz:define-virtual-syntax (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))
 
 
-;; provide virtual access to some walker slots via the module-declaration
-(define (jazz:get-module-declaration-walker-literals lib-decl)
-  (jazz:get-walker-literals (jazz:get-module-declaration-walker lib-decl)))
-(define (jazz:set-module-declaration-walker-literals lib-decl value)
-  (jazz:set-walker-literals (jazz:get-module-declaration-walker lib-decl) value))
-(define (jazz:get-module-declaration-walker-variables lib-decl)
-  (jazz:get-walker-variables (jazz:get-module-declaration-walker lib-decl)))
-(define (jazz:get-module-declaration-walker-references lib-decl)
-  (jazz:get-walker-references (jazz:get-module-declaration-walker lib-decl)))
-(define (jazz:get-module-declaration-walker-autoloads lib-decl)
-  (jazz:get-walker-autoloads (jazz:get-module-declaration-walker lib-decl)))
-(define (jazz:set-module-declaration-walker-autoloads lib-decl value)
-  (jazz:set-walker-autoloads (jazz:get-module-declaration-walker lib-decl) value))
-
-
 ;;;
 ;;;; Walk Context
 ;;;

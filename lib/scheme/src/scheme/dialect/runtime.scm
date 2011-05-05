@@ -47,7 +47,7 @@
 
 
 (define (jazz:new-scheme-dialect name)
-  (jazz:allocate-scheme-dialect jazz:Scheme-Dialect name (%%make-table test: eq?) (%%make-table test: eq?)))
+  (jazz:allocate-scheme-dialect name (%%make-table test: eq?) (%%make-table test: eq?)))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Scheme-Dialect dialect))
@@ -63,7 +63,7 @@
 
 
 (define (jazz:new-scheme-walker)
-  (jazz:allocate-scheme-walker jazz:Scheme-Walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
+  (jazz:allocate-scheme-walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
 
 
 (jazz:define-method (jazz:runtime-export (jazz:Scheme-Walker walker) declaration)
@@ -97,7 +97,7 @@
 
 
 (define (jazz:new-define-declaration name type parent signature)
-  (let ((new-declaration (jazz:allocate-define-declaration jazz:Define-Declaration name type #f 'private 'uptodate '() #f parent #f #f signature #f)))
+  (let ((new-declaration (jazz:allocate-define-declaration name type #f 'private 'uptodate '() #f parent #f #f signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -175,7 +175,7 @@
 
 
 (define (jazz:new-define-special-form-declaration name type parent signature)
-  (let ((new-declaration (jazz:allocate-define-special-form-declaration jazz:Define-Special-Form-Declaration name type #f 'public 'uptodate '() #f parent #f #f signature #f)))
+  (let ((new-declaration (jazz:allocate-define-special-form-declaration name type #f 'public 'uptodate '() #f parent #f #f signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -247,7 +247,7 @@
 
 
 (define (jazz:new-define-macro-declaration name type parent signature)
-  (let ((new-declaration (jazz:allocate-define-macro-declaration jazz:Define-Macro-Declaration name type #f 'public 'uptodate '() #f parent #f #f signature #f)))
+  (let ((new-declaration (jazz:allocate-define-macro-declaration name type #f 'public 'uptodate '() #f parent #f #f signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -320,7 +320,7 @@
 
 
 (define (jazz:new-lambda type source signature body)
-  (jazz:allocate-lambda jazz:Lambda type source signature body))
+  (jazz:allocate-lambda type source signature body))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Lambda expression) declaration environment backend)
@@ -386,7 +386,7 @@
 
 
 (define (jazz:new-let source bindings body)
-  (jazz:allocate-let jazz:Let #f source bindings body))
+  (jazz:allocate-let #f source bindings body))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Let expression) declaration environment backend)
@@ -455,7 +455,7 @@
 
 
 (define (jazz:new-named-let source variable bindings body)
-  (jazz:allocate-named-let jazz:Named-Let #f source bindings body variable))
+  (jazz:allocate-named-let #f source bindings body variable))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Named-Let expression) declaration environment backend)
@@ -530,7 +530,7 @@
 
 
 (define (jazz:new-letstar source bindings body)
-  (jazz:allocate-letstar jazz:Letstar #f source bindings body))
+  (jazz:allocate-letstar #f source bindings body))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Letstar expression) declaration environment backend)
@@ -594,7 +594,7 @@
 
 
 (define (jazz:new-letrec source bindings body)
-  (jazz:allocate-letrec jazz:Letrec #f source bindings body))
+  (jazz:allocate-letrec #f source bindings body))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Letrec expression) declaration environment backend)
@@ -656,7 +656,7 @@
 
 
 (define (jazz:new-receive source variables expression body)
-  (jazz:allocate-receive jazz:Receive #f source variables expression body))
+  (jazz:allocate-receive #f source variables expression body))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Receive expression) declaration environment backend)
@@ -869,7 +869,7 @@
 
 
 (define (jazz:new-do bindings test result body)
-  (jazz:allocate-do jazz:Do #f #f bindings test result body))
+  (jazz:allocate-do #f #f bindings test result body))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Do expression) declaration environment backend)
@@ -980,7 +980,7 @@
 
 
 (define (jazz:new-reference-reification source reference resolver)
-  (jazz:allocate-reference-reification jazz:Reference-Reification #f source reference resolver))
+  (jazz:allocate-reference-reification #f source reference resolver))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Reference-Reification expression) declaration environment backend)

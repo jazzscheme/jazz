@@ -41,7 +41,7 @@
 
 (define (jazz:new-generic locator dynamic-signature root-proc)
   (let* ((name (jazz:identifier-name locator))
-         (generic (jazz:allocate-generic jazz:Generic locator name #f '())))
+         (generic (jazz:allocate-generic locator name #f '())))
     (jazz:generic-make-root generic dynamic-signature root-proc)
     generic))
 

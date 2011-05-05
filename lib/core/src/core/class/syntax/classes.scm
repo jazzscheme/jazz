@@ -114,7 +114,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Class jazz:Category (metaclass: jazz:Class constructor: jazz:allocate-class)
+(jazz:define-class-syntax jazz:Class jazz:Category (metaclass: jazz:Class)
   ((ascendant       accessors: #t)
    (interfaces      accessors: #t)
    (slots           accessors: #t)
@@ -321,7 +321,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Interface jazz:Category (constructor: jazz:allocate-interface accessors-type: macro)
+(jazz:define-class-syntax jazz:Interface jazz:Category (accessors-type: macro)
   ((ascendants getter: generate)
    (rank       getter: generate)))
 

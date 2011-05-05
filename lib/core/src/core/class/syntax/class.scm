@@ -87,6 +87,16 @@
 
 
 ;;;
+;;;; Interface
+;;;
+
+
+(jazz:define-structure jazz:Interface jazz:Category (constructor: %%allocate-interface constructor-structure?: #t accessors-type: macro)
+  ((ascendants getter: generate)
+   (rank       getter: generate)))
+
+
+;;;
 ;;;; Field
 ;;;
 

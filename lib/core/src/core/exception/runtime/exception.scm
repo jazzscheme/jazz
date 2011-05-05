@@ -82,7 +82,7 @@
 
 
 (define (jazz:new-exception-detail icon title location children)
-  (jazz:allocate-exception-detail jazz:Exception-Detail icon title location children))
+  (jazz:allocate-exception-detail icon title location children))
 
 
 ;;;

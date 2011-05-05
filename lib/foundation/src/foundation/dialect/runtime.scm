@@ -47,7 +47,7 @@
 
 
 (define (jazz:new-foundation-dialect name)
-  (jazz:allocate-foundation-dialect jazz:Foundation-Dialect name (%%make-table test: eq?) (%%make-table test: eq?)))
+  (jazz:allocate-foundation-dialect name (%%make-table test: eq?) (%%make-table test: eq?)))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Foundation-Dialect dialect))
@@ -63,7 +63,7 @@
 
 
 (define (jazz:new-foundation-walker)
-  (jazz:allocate-foundation-walker jazz:Foundation-Walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
+  (jazz:allocate-foundation-walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
 
 
 ;;;

@@ -40,4 +40,4 @@
 
 
 (define (jazz:new-specific signature-proc implementation)
-  (jazz:allocate-specific jazz:Specific signature-proc implementation '() '())))
+  (jazz:allocate-specific signature-proc implementation '() '())))

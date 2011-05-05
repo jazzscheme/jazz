@@ -784,8 +784,8 @@
 
 
 (jazz:define-class-syntax jazz:Expression jazz:Object ()
-  ((type   getter: generate)
-   (source getter: generate)))
+  ((type   initialize: #f getter: generate)
+   (source                getter: generate)))
 
 
 (jazz:define-virtual-syntax (jazz:emit-expression (jazz:Expression expression) declaration environment backend))
@@ -891,7 +891,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:If jazz:Expression (constructor: jazz:allocate-if initialize?: #t)
+(jazz:define-class-syntax jazz:If jazz:Expression (constructor: jazz:allocate-if)
   ((test getter: generate)
    (yes  getter: generate)
    (no   getter: generate)))

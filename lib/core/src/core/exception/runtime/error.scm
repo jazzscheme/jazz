@@ -42,7 +42,7 @@
 
 
 (define (jazz:new-error message)
-  (jazz:allocate-error jazz:Error message))
+  (jazz:allocate-error message))
 
 
 (jazz:define-method (jazz:exception-message (jazz:Error error))

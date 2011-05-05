@@ -47,7 +47,7 @@
 
 
 (define (jazz:new-definition-declaration name type access compatibility attributes parent expansion signature)
-  (let ((new-declaration (jazz:allocate-definition-declaration jazz:Definition-Declaration name type #f access compatibility attributes #f parent #f #f expansion signature #f)))
+  (let ((new-declaration (jazz:allocate-definition-declaration name type #f access compatibility attributes #f parent #f #f expansion signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -141,7 +141,7 @@
 
 
 (define (jazz:new-specialize)
-  (jazz:allocate-specialize jazz:Specialize #f #f))
+  (jazz:allocate-specialize #f #f))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Specialize expression) declaration environment backend)
@@ -160,7 +160,7 @@
 
 
 (define (jazz:new-generic-declaration name type access compatibility attributes parent dispatch-types signature)
-  (let ((new-declaration (jazz:allocate-generic-declaration jazz:Generic-Declaration name type #f access compatibility attributes #f parent #f #f dispatch-types signature #f)))
+  (let ((new-declaration (jazz:allocate-generic-declaration name type #f access compatibility attributes #f parent #f #f dispatch-types signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -198,7 +198,7 @@
 
 
 (define (jazz:new-specific-declaration name type access compatibility attributes parent generic signature root?)
-  (let ((new-declaration (jazz:allocate-specific-declaration jazz:Specific-Declaration name type #f access compatibility attributes #f parent #f #f generic signature #f root?)))
+  (let ((new-declaration (jazz:allocate-specific-declaration name type #f access compatibility attributes #f parent #f #f generic signature #f root?)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -247,7 +247,7 @@
 
 
 (define (jazz:new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant ascendant-relation ascendant-base interfaces)
-  (let ((new-declaration (jazz:allocate-class-declaration jazz:Class-Declaration name type #f access compatibility attributes #f parent #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
+  (let ((new-declaration (jazz:allocate-class-declaration name type #f access compatibility attributes #f parent #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -412,7 +412,7 @@
 
 
 (define (jazz:new-interface-declaration name type access compatibility attributes parent implementor metaclass ascendants)
-  (let ((new-declaration (jazz:allocate-interface-declaration jazz:Interface-Declaration name type #f access compatibility attributes #f parent #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass ascendants)))
+  (let ((new-declaration (jazz:allocate-interface-declaration name type #f access compatibility attributes #f parent #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass ascendants)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -480,7 +480,7 @@
 
 
 (define (jazz:new-slot-declaration name type access compatibility attributes parent initialize getter-name setter-name)
-  (let ((new-declaration (jazz:allocate-slot-declaration jazz:Slot-Declaration name type #f access compatibility attributes #f parent #f #f initialize getter-name setter-name)))
+  (let ((new-declaration (jazz:allocate-slot-declaration name type #f access compatibility attributes #f parent #f #f initialize getter-name setter-name)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -533,7 +533,7 @@
 
 
 (define (jazz:new-property-declaration name type access compatibility attributes parent initialize getter-name setter-name)
-  (let ((new-declaration (jazz:allocate-property-declaration jazz:Property-Declaration name type #f access compatibility attributes #f parent #f #f initialize getter-name setter-name #f #f)))
+  (let ((new-declaration (jazz:allocate-property-declaration name type #f access compatibility attributes #f parent #f #f initialize getter-name setter-name #f #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -561,7 +561,7 @@
 
 
 (define (jazz:new-method-declaration name type access compatibility attributes parent root propagation abstraction expansion remote synchronized signature)
-  (let ((new-declaration (jazz:allocate-method-declaration jazz:Method-Declaration name type #f access compatibility attributes #f parent #f #f root propagation abstraction expansion remote synchronized signature #f)))
+  (let ((new-declaration (jazz:allocate-method-declaration name type #f access compatibility attributes #f parent #f #f root propagation abstraction expansion remote synchronized signature #f)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -734,7 +734,7 @@
 
 
 (define (jazz:new-method-node-reference binding)
-  (jazz:allocate-method-node-reference jazz:Method-Node-Reference #f #f binding))
+  (jazz:allocate-method-node-reference #f #f binding))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Method-Node-Reference expression) declaration environment backend)
@@ -763,7 +763,7 @@
 
 
 (define (jazz:new-jazz-dialect name)
-  (jazz:allocate-jazz-dialect jazz:Jazz-Dialect name (%%make-table test: eq?) (%%make-table test: eq?)))
+  (jazz:allocate-jazz-dialect name (%%make-table test: eq?) (%%make-table test: eq?)))
 
 
 (jazz:define-method (jazz:dialect-walker (jazz:Jazz-Dialect dialect))
@@ -779,7 +779,7 @@
 
 
 (define (jazz:new-jazz-walker)
-  (jazz:allocate-jazz-walker jazz:Jazz-Walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
+  (jazz:allocate-jazz-walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
 
 
 (jazz:define-method (jazz:runtime-export (jazz:Jazz-Walker walker) declaration)
@@ -951,7 +951,7 @@
 
 
 (define (jazz:new-with-self body)
-  (jazz:allocate-with-self jazz:With-Self #f #f body))
+  (jazz:allocate-with-self #f #f body))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:With-Self expression) declaration environment backend)
@@ -980,7 +980,7 @@
 
 
 (define (jazz:new-with-dynamic-self code body)
-  (jazz:allocate-with-dynamic-self jazz:With-Dynamic-Self #f #f code body))
+  (jazz:allocate-with-dynamic-self #f #f code body))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:With-Dynamic-Self expression) declaration environment backend)
@@ -1022,7 +1022,7 @@
 
 
 (define (jazz:new-cast type expression)
-  (jazz:allocate-cast jazz:Cast type #f expression))
+  (jazz:allocate-cast type #f expression))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Cast expression) declaration environment backend)
@@ -1052,7 +1052,7 @@
 
 
 (define (jazz:new-allocate class values)
-  (jazz:allocate-allocate jazz:Allocate #f #f class values))
+  (jazz:allocate-allocate #f #f class values))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Allocate expression) declaration environment backend)
@@ -1145,7 +1145,7 @@
 
 
 (define (jazz:new-dispatch source name arguments)
-  (jazz:allocate-dispatch jazz:Dispatch #f source name arguments))
+  (jazz:allocate-dispatch #f source name arguments))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Dispatch expression) declaration environment backend)
@@ -1931,7 +1931,7 @@
 
 (define (jazz:new-nextmethod-variable name type)
   (%%assertion (jazz:variable-name-valid? name) (jazz:error "Invalid variable name: {s}" name)
-    (jazz:allocate-nextmethod-variable jazz:NextMethod-Variable name type #f #f 0)))
+    (jazz:allocate-nextmethod-variable name type #f #f 0)))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:NextMethod-Variable binding) source-declaration environment backend)
@@ -1965,7 +1965,7 @@
 
 
 (define (jazz:new-self-binding type)
-  (jazz:allocate-self-binding jazz:Self-Binding 'self type #f))
+  (jazz:allocate-self-binding 'self type #f))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Self-Binding declaration) source-declaration environment backend)
@@ -1984,7 +1984,7 @@
 
 
 (define (jazz:new-dynamic-self-binding type code)
-  (jazz:allocate-dynamic-self-binding jazz:Dynamic-Self-Binding 'self type #f code))
+  (jazz:allocate-dynamic-self-binding 'self type #f code))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Dynamic-Self-Binding declaration) source-declaration environment backend)

@@ -47,7 +47,7 @@
 
 
 (define (jazz:new-proclaim clauses)
-  (jazz:allocate-proclaim jazz:Proclaim #f #f clauses))
+  (jazz:allocate-proclaim #f #f clauses))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Proclaim expression) declaration environment backend)
@@ -80,7 +80,7 @@
 
 
 (define (jazz:new-delay expression)
-  (jazz:allocate-delay jazz:Delay #f #f expression))
+  (jazz:allocate-delay #f #f expression))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Delay expression) declaration environment backend)
@@ -100,7 +100,7 @@
 
 
 (define (jazz:new-quasiquote form)
-  (jazz:allocate-quasiquote jazz:Quasiquote #f #f form))
+  (jazz:allocate-quasiquote #f #f form))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Quasiquote expression) declaration environment backend)
@@ -271,7 +271,7 @@
 
 
 (define (jazz:new-if source test yes no)
-  (jazz:allocate-if jazz:If #f source test yes no))
+  (jazz:allocate-if #f source test yes no))
 
 
 (define jazz:type-tests
@@ -504,7 +504,7 @@
 
 
 (define (jazz:new-cond source clauses)
-  (jazz:allocate-cond jazz:Cond #f source clauses))
+  (jazz:allocate-cond #f source clauses))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Cond expression) declaration environment backend)
@@ -546,7 +546,7 @@
 
 
 (define (jazz:new-case source target clauses)
-  (jazz:allocate-case jazz:Case #f source target clauses))
+  (jazz:allocate-case #f source target clauses))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Case expression) declaration environment backend)
@@ -584,7 +584,7 @@
 
 
 (define (jazz:new-and source expressions)
-  (jazz:allocate-and jazz:And #f source expressions))
+  (jazz:allocate-and #f source expressions))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:And expression) declaration environment backend)
@@ -612,7 +612,7 @@
 
 
 (define (jazz:new-or source expressions)
-  (jazz:allocate-or jazz:Or #f source expressions))
+  (jazz:allocate-or #f source expressions))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Or expression) declaration environment backend)
@@ -640,7 +640,7 @@
 
 
 (define (jazz:new-declare declarations)
-  (jazz:allocate-declare jazz:Declare #f #f declarations))
+  (jazz:allocate-declare #f #f declarations))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Declare expression) declaration environment backend)
@@ -659,7 +659,7 @@
 
 
 (define (jazz:new-parameterize bindings body)
-  (jazz:allocate-parameterize jazz:Parameterize #f #f bindings body))
+  (jazz:allocate-parameterize #f #f bindings body))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Parameterize expression) declaration environment backend)
@@ -688,7 +688,7 @@
 
 
 (define (jazz:new-time-special expressions)
-  (jazz:allocate-time jazz:Time-Special #f #f expressions))
+  (jazz:allocate-time #f #f expressions))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Time-Special expression) declaration environment backend)

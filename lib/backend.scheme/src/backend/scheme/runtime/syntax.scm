@@ -54,7 +54,7 @@
 
 
 (define (jazz:new-module name access)
-  (jazz:allocate-module jazz:Module name access (%%make-table test: eq?) (%%make-table test: eq?)))
+  (jazz:allocate-module name access (%%make-table test: eq?) (%%make-table test: eq?)))
 
 
 ;;;
@@ -70,7 +70,7 @@
 
 
 (define (jazz:new-native name symbol)
-  (jazz:allocate-native jazz:Native name symbol))
+  (jazz:allocate-native name symbol))
 
 
 (define (jazz:register-native module-name name symbol)
@@ -91,7 +91,7 @@
 
 
 (define (jazz:new-runtime-reference resolver serialization)
-  (jazz:allocate-runtime-reference jazz:Runtime-Reference resolver serialization))
+  (jazz:allocate-runtime-reference resolver serialization))
 
 
 (define (jazz:resolve-runtime-reference runtime-reference)

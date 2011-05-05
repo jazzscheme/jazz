@@ -295,7 +295,8 @@
 (define (jazz:add-slot class slot-name slot-initialize slot-allocate?)
   (let ((actual (%%get-category-field class slot-name)))
     (cond (actual
-           (%%set-slot-initialize actual slot-initialize)
+           (if (%%eq? (jazz:walk-for) 'eval)
+               (%%set-slot-initialize actual slot-initialize))
            actual)
           (else
            (let* ((instance-size (%%get-class-instance-size class))
@@ -680,23 +681,38 @@
        (%%eq? (%%car form) 'slot)))
 
 
+(define (jazz:keyword-constructor class)
+  (%%debug-assert (%%class? class)
+    (lambda rest
+      (let ((object (%%make-object class (%%get-class-instance-size class))))
+        (jazz:initialize-object object rest)
+        object))))
+
+
 (define (jazz:new-instance class . rest)
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))
-      (jazz:initialize-slots object)
-      (let iter ((scan rest))
-           (if (%%not (%%null? scan))
-               (let ((key (%%car scan))
-                     (remain (%%cdr scan)))
-                 (%%debug-assert (and (%%keyword? key) (%%not (%%null? remain)))
-                   (let ((value (%%car remain))
-                         (remain (%%cdr remain)))
-                     (let ((field (jazz:category-field class (%%string->symbol (%%keyword->string key)))))
-                       (%%debug-assert (%%class-is? field jazz:Slot)
-                         (let ((offset (%%get-slot-offset field)))
-                           (jazz:set-object-slot object offset value))))
-                     (iter remain))))))
+      (jazz:initialize-object object rest)
       object)))
+
+
+(define (jazz:initialize-object object initargs)
+  (let ((class (%%get-object-class object)))
+    (jazz:initialize-slots object)
+    (let iter ((scan initargs))
+         (if (%%not (%%null? scan))
+             (let ((key (%%car scan))
+                   (remain (%%cdr scan)))
+               (%%debug-assert (and (%%keyword? key) (%%not (%%null? remain)))
+                 (let ((value (%%car remain))
+                       (remain (%%cdr remain)))
+                   (let ((field (jazz:category-field class (%%string->symbol (%%keyword->string key)))))
+                     (%%debug-assert (%%class-is? field jazz:Slot)
+                       (let ((offset (%%get-slot-offset field)))
+                         (jazz:set-object-slot object offset value))))
+                   (iter remain))))))
+    (jazz:initialize object)
+    object))
 
 
 (define (jazz:new class . rest)
@@ -798,7 +814,7 @@
 
 
 (define (jazz:new-slot slot-name slot-offset slot-initialize)
-  (jazz:allocate-slot jazz:Slot slot-name slot-offset slot-initialize))
+  (jazz:allocate-slot slot-name slot-offset slot-initialize))
 
 
 (define (jazz:slot? object)
@@ -1836,7 +1852,7 @@
                                    ascendants)
                               (%%list (%%list interface))))))
   
-  (let ((interface (jazz:allocate-interface class identifier (%%make-table test: eq?) 0 #f '() ascendants jazz:new-interface-rank)))
+  (let ((interface (%%allocate-interface class identifier (%%make-table test: eq?) 0 #f '() ascendants jazz:new-interface-rank)))
     (set! jazz:new-interface-rank (%%fx+ jazz:new-interface-rank 1))
     (%%set-category-ancestors interface (%%list->vector (compute-interface-ancestors interface ascendants)))
     (for-each (lambda (ascendant)
@@ -1907,7 +1923,7 @@
 
 
 (define (jazz:new-property slot-name slot-offset slot-initialize slot-getter slot-setter)
-  (jazz:allocate-property jazz:Property slot-name slot-offset slot-initialize slot-getter slot-setter))
+  (jazz:allocate-property slot-name slot-offset slot-initialize slot-getter slot-setter))
 
 
 (define (jazz:property? object)
@@ -2020,7 +2036,7 @@
 
 
 (define (jazz:new-final-method name implementation)
-  (jazz:allocate-method jazz:Method name 'final implementation #f #f #f))
+  (jazz:allocate-method name 'final implementation #f #f #f))
 
 
 (define (jazz:add-final-method class method-name method-implementation)
@@ -2051,7 +2067,7 @@
 
 
 (define (jazz:new-virtual-method name dispatch-type implementation-tree category-rank implementation-rank)
-  (jazz:allocate-method jazz:Method name dispatch-type #f implementation-tree category-rank implementation-rank))
+  (jazz:allocate-method name dispatch-type #f implementation-tree category-rank implementation-rank))
 
 
 (define (jazz:add-virtual-method category method-name method-implementation)
@@ -2187,7 +2203,7 @@
 
 (define (jazz:new-method-node category implementation next-node children)
   (let ((next-implementation (if next-node (%%get-method-node-implementation next-node) #f)))
-    (jazz:allocate-method-node jazz:Method-Node category implementation next-node next-implementation children)))
+    (jazz:allocate-method-node category implementation next-node next-implementation children)))
 
 
 (define (jazz:call-into-incoherent . rest)
@@ -2207,7 +2223,7 @@
 
 
 (define (jazz:new-queue)
-  (jazz:allocate-queue jazz:Queue '() '() #f))
+  (jazz:allocate-queue '() '() #f))
 
 
 (define (jazz:enqueue queue object)

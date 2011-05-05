@@ -86,9 +86,9 @@
               (slot-setter slot))))
   
   (let* ((downcase-name (downcase (%%symbol->string name)))
-         (constructor (jazz:getf options constructor:))
+         (constructor (jazz:getf options constructor: #f))
          (constructor-structure? (jazz:getf options constructor-structure?: #f))
-         (predicate (jazz:getf options predicate:))
+         (predicate (jazz:getf options predicate: #f))
          (accessors-type (jazz:getf options accessors-type: 'function))
          (accessors-prefix (case accessors-type ((macro) "%%") (else "jazz:")))
          (ascendant-accessor (if (%%null? ascendant-name) #f ascendant-name))

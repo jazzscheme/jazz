@@ -47,7 +47,7 @@
 
 
 (define (jazz:new-backend name)
-  (jazz:allocate-backend jazz:Backend name (%%make-table test: eq?)))
+  (jazz:allocate-backend name (%%make-table test: eq?)))
 
 
 (define (jazz:get-backend-binding backend name)

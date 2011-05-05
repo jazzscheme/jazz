@@ -47,7 +47,7 @@
 
 
 (define (jazz:new-definition name locator)
-  (jazz:allocate-definition jazz:Definition name locator))
+  (jazz:allocate-definition name locator))
 
 
 (define (jazz:register-definition module-name name locator)

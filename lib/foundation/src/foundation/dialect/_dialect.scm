@@ -39,7 +39,6 @@
 
 
 (require (dialect)
-         (foundation.dialect.syntax)
          (foundation.dialect.runtime)
          (backend.scheme)
          (foundation.backend.scheme.emit)))

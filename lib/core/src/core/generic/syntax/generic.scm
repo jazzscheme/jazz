@@ -45,14 +45,11 @@
 (unit protected core.generic.syntax.generic
 
 
-(jazz:define-class-syntax jazz:Generic jazz:Object (constructor: jazz:allocate-generic)
+(jazz:define-class jazz:Generic jazz:Object (constructor: jazz:allocate-generic)
   ((locator              getter: generate)
    (name                 getter: generate)
    (root-specific        getter: generate setter: generate)
    (pending-specifics    getter: generate setter: generate)))
-
-
-(jazz:define-class-runtime jazz:Generic)
 
 
 (jazz:define-macro (jazz:define-generic . rest)

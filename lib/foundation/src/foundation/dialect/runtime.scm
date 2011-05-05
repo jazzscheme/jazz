@@ -43,7 +43,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Foundation-Dialect)
+(jazz:define-class jazz:Foundation-Dialect jazz:Dialect (constructor: jazz:allocate-foundation-dialect)
+  ())
 
 
 (define (jazz:new-foundation-dialect name)
@@ -59,7 +60,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Foundation-Walker)
+(jazz:define-class jazz:Foundation-Walker jazz:Walker (constructor: jazz:allocate-foundation-walker)
+  ())
 
 
 (define (jazz:new-foundation-walker)

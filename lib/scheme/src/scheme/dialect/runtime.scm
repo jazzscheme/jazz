@@ -43,7 +43,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Scheme-Dialect)
+(jazz:define-class jazz:Scheme-Dialect jazz:Dialect (constructor: jazz:allocate-scheme-dialect)
+  ())
 
 
 (define (jazz:new-scheme-dialect name)
@@ -59,7 +60,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Scheme-Walker)
+(jazz:define-class jazz:Scheme-Walker jazz:Walker (constructor: jazz:allocate-scheme-walker)
+  ())
 
 
 (define (jazz:new-scheme-walker)
@@ -93,7 +95,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Define-Declaration)
+(jazz:define-class jazz:Define-Declaration jazz:Declaration (constructor: jazz:allocate-define-declaration)
+  ((signature getter: generate)
+   (value     getter: generate setter: generate)))
 
 
 (define (jazz:new-define-declaration name type parent signature)
@@ -171,7 +175,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Define-Special-Form-Declaration)
+(jazz:define-class jazz:Define-Special-Form-Declaration jazz:Declaration (constructor: jazz:allocate-define-special-form-declaration)
+  ((signature getter: generate setter: generate)
+   (body      getter: generate setter: generate)))
 
 
 (define (jazz:new-define-special-form-declaration name type parent signature)
@@ -243,7 +249,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Define-Macro-Declaration)
+(jazz:define-class jazz:Define-Macro-Declaration jazz:Declaration (constructor: jazz:allocate-define-macro-declaration)
+  ((signature getter: generate setter: generate)
+   (body      getter: generate setter: generate)))
 
 
 (define (jazz:new-define-macro-declaration name type parent signature)
@@ -316,7 +324,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Lambda)
+(jazz:define-class jazz:Lambda jazz:Expression (constructor: jazz:allocate-lambda)
+  ((signature getter: generate)
+   (body      getter: generate)))
 
 
 (define (jazz:new-lambda type source signature body)
@@ -382,7 +392,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Let)
+(jazz:define-class jazz:Let jazz:Expression (constructor: jazz:allocate-let)
+  ((bindings getter: generate)
+   (body     getter: generate)))
 
 
 (define (jazz:new-let source bindings body)
@@ -451,7 +463,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Named-Let)
+(jazz:define-class jazz:Named-Let jazz:Let (constructor: jazz:allocate-named-let)
+  ((variable getter: generate)))
 
 
 (define (jazz:new-named-let source variable bindings body)
@@ -526,7 +539,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Letstar)
+(jazz:define-class jazz:Letstar jazz:Expression (constructor: jazz:allocate-letstar)
+  ((bindings getter: generate)
+   (body     getter: generate)))
 
 
 (define (jazz:new-letstar source bindings body)
@@ -590,7 +605,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Letrec)
+(jazz:define-class jazz:Letrec jazz:Expression (constructor: jazz:allocate-letrec)
+  ((bindings getter: generate)
+   (body     getter: generate)))
 
 
 (define (jazz:new-letrec source bindings body)
@@ -652,7 +669,10 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Receive)
+(jazz:define-class jazz:Receive jazz:Expression (constructor: jazz:allocate-receive)
+  ((variables  getter: generate)
+   (expression getter: generate)
+   (body       getter: generate)))
 
 
 (define (jazz:new-receive source variables expression body)
@@ -865,7 +885,11 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Do)
+(jazz:define-class jazz:Do jazz:Expression (constructor: jazz:allocate-do)
+  ((bindings getter: generate)
+   (test     getter: generate)
+   (result   getter: generate)
+   (body     getter: generate)))
 
 
 (define (jazz:new-do bindings test result body)
@@ -976,7 +1000,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Reference-Reification)
+(jazz:define-class jazz:Reference-Reification jazz:Expression (constructor: jazz:allocate-reference-reification)
+  ((reference getter: generate)
+   (resolver  getter: generate)))
 
 
 (define (jazz:new-reference-reification source reference resolver)

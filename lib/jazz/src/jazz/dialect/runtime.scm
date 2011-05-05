@@ -43,7 +43,10 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Definition-Declaration)
+(jazz:define-class jazz:Definition-Declaration jazz:Declaration (constructor: jazz:allocate-definition-declaration)
+  ((expansion getter: generate)
+   (signature getter: generate setter: generate)
+   (value     getter: generate setter: generate)))
 
 
 (define (jazz:new-definition-declaration name type access compatibility attributes parent expansion signature)
@@ -137,7 +140,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Specialize)
+(jazz:define-class jazz:Specialize jazz:Expression (constructor: jazz:allocate-specialize)
+  ())
 
 
 (define (jazz:new-specialize)
@@ -156,7 +160,10 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Generic-Declaration)
+(jazz:define-class jazz:Generic-Declaration jazz:Declaration (constructor: jazz:allocate-generic-declaration)
+  ((dispatch-types getter: generate)
+   (signature      getter: generate setter: generate)
+   (body           getter: generate setter: generate)))
 
 
 (define (jazz:new-generic-declaration name type access compatibility attributes parent dispatch-types signature)
@@ -194,7 +201,11 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Specific-Declaration)
+(jazz:define-class jazz:Specific-Declaration jazz:Declaration (constructor: jazz:allocate-specific-declaration)
+  ((generic   getter: generate)
+   (signature getter: generate)
+   (body      getter: generate setter: generate)
+   (root?     getter: generate)))
 
 
 (define (jazz:new-specific-declaration name type access compatibility attributes parent generic signature root?)
@@ -228,7 +239,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Category-Declaration)
+(jazz:define-class jazz:Category-Declaration jazz:Namespace-Declaration ()
+  ((implementor getter: generate)
+   (metaclass   getter: generate)))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Category-Declaration declaration) source-declaration environment backend)
@@ -243,7 +256,11 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Class-Declaration)
+(jazz:define-class jazz:Class-Declaration jazz:Category-Declaration (constructor: jazz:allocate-class-declaration)
+  ((ascendant          getter: generate)
+   (ascendant-relation getter: generate)
+   (ascendant-base     getter: generate)
+   (interfaces         getter: generate)))
 
 
 (define (jazz:new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant ascendant-relation ascendant-base interfaces)
@@ -408,7 +425,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Interface-Declaration)
+(jazz:define-class jazz:Interface-Declaration jazz:Category-Declaration (constructor: jazz:allocate-interface-declaration)
+  ((ascendants getter: generate)))
 
 
 (define (jazz:new-interface-declaration name type access compatibility attributes parent implementor metaclass ascendants)
@@ -468,7 +486,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Field-Declaration)
+(jazz:define-class jazz:Field-Declaration jazz:Declaration ()
+  ())
 
 
 ;;;
@@ -476,7 +495,10 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Slot-Declaration)
+(jazz:define-class jazz:Slot-Declaration jazz:Field-Declaration (constructor: jazz:allocate-slot-declaration)
+  ((initialize  getter: generate setter: generate)
+   (getter-name getter: generate)
+   (setter-name getter: generate)))
 
 
 (define (jazz:new-slot-declaration name type access compatibility attributes parent initialize getter-name setter-name)
@@ -529,7 +551,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Property-Declaration)
+(jazz:define-class jazz:Property-Declaration jazz:Slot-Declaration (constructor: jazz:allocate-property-declaration)
+  ((getter getter: generate setter: generate)
+   (setter getter: generate setter: generate)))
 
 
 (define (jazz:new-property-declaration name type access compatibility attributes parent initialize getter-name setter-name)
@@ -557,7 +581,15 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Method-Declaration)
+(jazz:define-class jazz:Method-Declaration jazz:Field-Declaration (constructor: jazz:allocate-method-declaration)
+  ((root         getter: generate)
+   (propagation  getter: generate)
+   (abstraction  getter: generate)
+   (expansion    getter: generate)
+   (remote       getter: generate)
+   (synchronized getter: generate)
+   (signature    getter: generate setter: generate)
+   (body         getter: generate setter: generate)))
 
 
 (define (jazz:new-method-declaration name type access compatibility attributes parent root propagation abstraction expansion remote synchronized signature)
@@ -730,7 +762,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Method-Node-Reference)
+(jazz:define-class jazz:Method-Node-Reference jazz:Binding-Reference (constructor: jazz:allocate-method-node-reference)
+  ())
 
 
 (define (jazz:new-method-node-reference binding)
@@ -759,7 +792,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Jazz-Dialect)
+(jazz:define-class jazz:Jazz-Dialect jazz:Dialect (constructor: jazz:allocate-jazz-dialect)
+  ())
 
 
 (define (jazz:new-jazz-dialect name)
@@ -775,7 +809,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Jazz-Walker)
+(jazz:define-class jazz:Jazz-Walker jazz:Scheme-Walker (constructor: jazz:allocate-jazz-walker)
+  ())
 
 
 (define (jazz:new-jazz-walker)
@@ -947,7 +982,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:With-Self)
+(jazz:define-class jazz:With-Self jazz:Expression (constructor: jazz:allocate-with-self)
+  ((body getter: generate)))
 
 
 (define (jazz:new-with-self body)
@@ -976,7 +1012,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:With-Dynamic-Self)
+(jazz:define-class jazz:With-Dynamic-Self jazz:Expression (constructor: jazz:allocate-with-dynamic-self)
+  ((code getter: generate)
+   (body getter: generate)))
 
 
 (define (jazz:new-with-dynamic-self code body)
@@ -1018,7 +1056,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Cast)
+(jazz:define-class jazz:Cast jazz:Expression (constructor: jazz:allocate-cast)
+  ((expression getter: generate)))
 
 
 (define (jazz:new-cast type expression)
@@ -1048,7 +1087,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Allocate)
+(jazz:define-class jazz:Allocate jazz:Expression (constructor: jazz:allocate-allocate)
+  ((class  getter: generate)
+   (values getter: generate)))
 
 
 (define (jazz:new-allocate class values)
@@ -1141,7 +1182,9 @@
            (%%interface-dispatch class (%%get-method-category-rank field) (%%get-method-implementation-rank field))))))))
 
 
-(jazz:define-class-runtime jazz:Dispatch)
+(jazz:define-class jazz:Dispatch jazz:Expression (constructor: jazz:allocate-dispatch)
+  ((name      getter: generate)
+   (arguments getter: generate)))
 
 
 (define (jazz:new-dispatch source name arguments)
@@ -1926,7 +1969,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:NextMethod-Variable)
+(jazz:define-class jazz:NextMethod-Variable jazz:Variable (constructor: jazz:allocate-nextmethod-variable)
+  ())
 
 
 (define (jazz:new-nextmethod-variable name type)
@@ -1961,7 +2005,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Self-Binding)
+(jazz:define-class jazz:Self-Binding jazz:Lexical-Binding (constructor: jazz:allocate-self-binding)
+  ())
 
 
 (define (jazz:new-self-binding type)
@@ -1980,7 +2025,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Dynamic-Self-Binding)
+(jazz:define-class jazz:Dynamic-Self-Binding jazz:Lexical-Binding (constructor: jazz:allocate-dynamic-self-binding)
+  ((code getter: generate)))
 
 
 (define (jazz:new-dynamic-self-binding type code)

@@ -38,7 +38,8 @@
 (unit protected core.exception.runtime.error
 
 
-(jazz:define-class-runtime jazz:Error)
+(jazz:define-class jazz:Error jazz:Exception (constructor: jazz:allocate-error)
+  ((message getter: generate)))
 
 
 (define (jazz:new-error message)

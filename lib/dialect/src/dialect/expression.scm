@@ -43,7 +43,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Proclaim)
+(jazz:define-class jazz:Proclaim jazz:Expression (constructor: jazz:allocate-proclaim)
+  ((clauses getter: generate)))
 
 
 (define (jazz:new-proclaim clauses)
@@ -76,7 +77,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Delay)
+(jazz:define-class jazz:Delay jazz:Expression (constructor: jazz:allocate-delay)
+  ((expression getter: generate)))
 
 
 (define (jazz:new-delay expression)
@@ -96,7 +98,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Quasiquote)
+(jazz:define-class jazz:Quasiquote jazz:Expression (constructor: jazz:allocate-quasiquote)
+  ((form getter: generate)))
 
 
 (define (jazz:new-quasiquote form)
@@ -267,7 +270,10 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:If)
+(jazz:define-class jazz:If jazz:Expression (constructor: jazz:allocate-if)
+  ((test getter: generate)
+   (yes  getter: generate)
+   (no   getter: generate)))
 
 
 (define (jazz:new-if source test yes no)
@@ -500,7 +506,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Cond)
+(jazz:define-class jazz:Cond jazz:Expression (constructor: jazz:allocate-cond)
+  ((clauses getter: generate)))
 
 
 (define (jazz:new-cond source clauses)
@@ -542,7 +549,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Case)
+(jazz:define-class jazz:Case jazz:Expression (constructor: jazz:allocate-case)
+  ((target  getter: generate)
+   (clauses getter: generate)))
 
 
 (define (jazz:new-case source target clauses)
@@ -580,7 +589,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:And)
+(jazz:define-class jazz:And jazz:Expression (constructor: jazz:allocate-and)
+  ((expressions getter: generate)))
 
 
 (define (jazz:new-and source expressions)
@@ -608,7 +618,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Or)
+(jazz:define-class jazz:Or jazz:Expression (constructor: jazz:allocate-or)
+  ((expressions getter: generate)))
 
 
 (define (jazz:new-or source expressions)
@@ -636,7 +647,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Declare)
+(jazz:define-class jazz:Declare jazz:Expression (constructor: jazz:allocate-declare)
+  ((declarations getter: generate)))
 
 
 (define (jazz:new-declare declarations)
@@ -655,7 +667,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Parameterize)
+(jazz:define-class jazz:Parameterize jazz:Expression (constructor: jazz:allocate-parameterize)
+  ((bindings getter: generate)
+   (body     getter: generate)))
 
 
 (define (jazz:new-parameterize bindings body)
@@ -684,7 +698,8 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Time-Special)
+(jazz:define-class jazz:Time-Special jazz:Expression (constructor: jazz:allocate-time)
+  ((expressions getter: generate)))
 
 
 (define (jazz:new-time-special expressions)

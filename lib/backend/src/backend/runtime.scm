@@ -43,7 +43,9 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Backend)
+(jazz:define-class jazz:Backend jazz:Object (constructor: jazz:allocate-backend)
+  ((name     getter: generate)
+   (bindings getter: generate)))
 
 
 (define (jazz:new-backend name)

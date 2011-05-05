@@ -40,7 +40,6 @@
 
 (require (dialect)
          (scheme (phase syntax))
-         (gambit.dialect.syntax (phase syntax))
          (gambit.dialect.runtime))
 
 

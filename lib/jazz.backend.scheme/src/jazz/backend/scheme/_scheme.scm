@@ -38,5 +38,4 @@
 (unit jazz.backend.scheme
 
 
-(require (jazz.dialect.syntax (phase syntax))
-         (jazz.backend.scheme.emit)))
+(require (jazz.backend.scheme.emit)))

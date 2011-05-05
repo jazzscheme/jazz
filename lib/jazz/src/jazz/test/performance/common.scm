@@ -158,10 +158,8 @@
          (not safe))
 
 
-(jazz:define-class-syntax X jazz:Object (constructor: allocate-x)
+(jazz:define-class X jazz:Object (constructor: allocate-x)
   ())
-
-(jazz:define-class-runtime X)
 
 
 (define (new-x)

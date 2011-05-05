@@ -39,7 +39,6 @@
 
 
 (require (foundation)
-         (jazz.dialect.syntax)
          (jazz.dialect.runtime)
          (jazz.backend.scheme)
          (jazz.backend.scheme.runtime))

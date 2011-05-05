@@ -39,24 +39,12 @@
 
 
 ;;;
-;;;; Syntax
-;;;
-
-
-(jazz:define-class-syntax time:Time-Class jazz:Class  (metaclass: jazz:Class)      ())
-(jazz:define-class-syntax time:Time       jazz:Object (metaclass: time:Time-Class) ())
-
-
-(jazz:define-class-syntax time:Date-Class jazz:Class  (metaclass: jazz:Class)      ())
-(jazz:define-class-syntax time:Date       jazz:Object (metaclass: time:Date-Class) ())
-
-
-;;;
 ;;;; Time
 ;;;
 
 
-(jazz:define-class-runtime time:Time-Class)
+(jazz:define-class time:Time-Class jazz:Class (metaclass: jazz:Class)
+  ())
 
 
 (jazz:define-method (jazz:of-type? (time:Time-Class class) object)
@@ -76,7 +64,8 @@
     (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
 
 
-(jazz:define-class-runtime time:Time)
+(jazz:define-class time:Time jazz:Object (metaclass: jazz:Time-Class)
+  ())
 
 
 (%%table-set! jazz:primitive-types 'time time:Time)
@@ -90,7 +79,8 @@
 ;;;
 
 
-(jazz:define-class-runtime time:Date-Class)
+(jazz:define-class time:Date-Class jazz:Class (metaclass: jazz:Class)
+  ())
 
 
 (jazz:define-method (jazz:of-type? (time:Date-Class class) object)
@@ -110,7 +100,8 @@
     (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
 
 
-(jazz:define-class-runtime time:Date)
+(jazz:define-class time:Date jazz:Object (metaclass: jazz:Date-Class)
+  ())
 
 
 (%%table-set! jazz:primitive-types 'date time:Date)

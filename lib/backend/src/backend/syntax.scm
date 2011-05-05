@@ -39,16 +39,6 @@
 
 
 ;;;
-;;;; Backend
-;;;
-
-
-(jazz:define-class-syntax jazz:Backend jazz:Object (constructor: jazz:allocate-backend)
-  ((name     getter: generate)
-   (bindings getter: generate)))
-
-
-;;;
 ;;;; Backends
 ;;;
 

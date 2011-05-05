@@ -292,19 +292,20 @@
 ;;;
 
 
-(define (jazz:add-core-slot class slot-name slot-initialize)
+(define (jazz:add-slot class slot-name slot-initialize slot-allocate?)
   (let ((actual (%%get-category-field class slot-name)))
     (cond (actual
            (%%set-slot-initialize actual slot-initialize)
            actual)
           (else
            (let* ((instance-size (%%get-class-instance-size class))
-                  (slot-offset instance-size)
+                  (slot-offset (and slot-allocate? instance-size))
                   (slot (%%allocate-slot jazz:Slot slot-name slot-offset slot-initialize)))
              (jazz:add-field class slot)
              (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
              (%%set-class-instance-slots class (%%append (%%get-class-instance-slots class) (%%list slot)))
-             (%%set-class-instance-size class (%%fx+ instance-size 1))
+             (%%when slot-allocate?
+               (%%set-class-instance-size class (%%fx+ instance-size 1)))
              slot)))))
 
 
@@ -360,7 +361,7 @@
 ;;;
 
 
-(define (jazz:new-core-class class name fields ascendant instance-size)
+(define (jazz:new-core-class class name fields ascendant)
   (define (compute-core-class-ancestors class ascendant)
     (if (%%not ascendant)
         (%%list class)
@@ -381,7 +382,7 @@
           '()
           '()
           (if ascendant (%%get-class-instance-slots ascendant) '())
-          instance-size
+          (if ascendant (%%get-class-instance-size ascendant) 1)
           (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0)
           '()
           #f
@@ -624,7 +625,7 @@
              (set! ancestors (%%cons class ancestors))
              (add-classes (%%get-class-ascendant class))))
       ancestors))
-  
+
   ;; this should be made into a call to jazz:new somehow
   (let ((class (%%make-object class-of-class (%%get-class-instance-size class-of-class))))
     (%%set-category-identifier class identifier)
@@ -684,6 +685,25 @@
     (let ((object (%%make-object class (%%get-class-instance-size class))))
       (jazz:initialize-slots object)
       (apply (%%class-dispatch class 0 0) object rest)
+      object)))
+
+
+(define (jazz:new-instance class . rest)
+  (%%debug-assert (%%class? class)
+    (let ((object (%%make-object class (%%get-class-instance-size class))))
+      (jazz:initialize-slots object)
+      (let iter ((scan rest))
+           (if (%%not (%%null? scan))
+               (let ((key (%%car scan))
+                     (remain (%%cdr scan)))
+                 (%%debug-assert (and (%%keyword? key) (%%not (%%null? remain)))
+                   (let ((value (%%car remain))
+                         (remain (%%cdr remain)))
+                     (let ((field (jazz:category-field class (%%string->symbol (%%keyword->string key)))))
+                       (%%debug-assert (%%class-is? field jazz:Slot)
+                         (let ((offset (%%get-slot-offset field)))
+                           (jazz:set-object-slot object offset value))))
+                     (iter remain))))))
       object)))
 
 
@@ -785,31 +805,6 @@
   (%%class-is? object jazz:Slot))
 
 
-(define (jazz:add-slot class slot-name slot-initialize slot-allocate?)
-  (let ((actual (%%get-category-field class slot-name)))
-    (cond (actual
-           (%%set-slot-initialize actual slot-initialize)
-           actual)
-          (else
-           (let* ((instance-size (%%get-class-instance-size class))
-                  (slot-offset (and slot-allocate? instance-size))
-                  (slot (jazz:new-slot slot-name slot-offset slot-initialize)))
-             (jazz:add-field class slot)
-             (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-             (%%set-class-instance-slots class (%%append (%%get-class-instance-slots class) (%%list slot)))
-             (%%when slot-allocate?
-               (%%set-class-instance-size class (%%fx+ instance-size 1)))
-             slot)))))
-
-
-(define (jazz:remove-own-slots class)
-  (let ((ascendant (%%get-class-ascendant class))
-        (actual (%%get-class-instance-slots class)))
-    (%%set-class-slots class '())
-    (%%set-class-instance-slots class (if ascendant (%%get-class-instance-slots ascendant) '()))
-    (%%set-class-instance-size class (%%fx- (%%get-class-instance-size class) (%%length actual)))))
-
-
 (define (jazz:slot-value object slot-name)
   (jazz:get-object-slot object (jazz:find-slot-offset object slot-name)))
 
@@ -839,33 +834,13 @@
 ;;;
 
 
-(%%set-object-class jazz:Type jazz:Class)
-(%%set-object-class jazz:Category jazz:Class)
-(%%set-object-class jazz:Class jazz:Class)
-(%%set-object-class jazz:Object-Class jazz:Class)
-(%%set-object-class jazz:Object jazz:Object-Class)
-
-
-(jazz:add-core-slot jazz:Category 'identifier #f)
-(jazz:add-core-slot jazz:Category 'fields #f)
-(jazz:add-core-slot jazz:Category 'virtual-size #f)
-(jazz:add-core-slot jazz:Category 'ancestors #f)
-(jazz:add-core-slot jazz:Category 'descendants #f)
-
-(jazz:add-core-slot jazz:Class 'ascendant #f)
-(jazz:add-core-slot jazz:Class 'interfaces #f)
-(jazz:add-core-slot jazz:Class 'slots #f)
-(jazz:add-core-slot jazz:Class 'instance-slots #f)
-(jazz:add-core-slot jazz:Class 'instance-size #f)
-(jazz:add-core-slot jazz:Class 'level #f)
-(jazz:add-core-slot jazz:Class 'virtual-names #f)
-(jazz:add-core-slot jazz:Class 'class-table #f)
-(jazz:add-core-slot jazz:Class 'interface-table #f)
-
-(jazz:add-core-slot jazz:Field 'name #f)
-
-(jazz:add-core-slot jazz:Slot 'offset #f)
-(jazz:add-core-slot jazz:Slot 'initialize #f)
+(jazz:define-class-bootstrap jazz:Object)
+(jazz:define-class-bootstrap jazz:Type)
+(jazz:define-class-bootstrap jazz:Category)
+(jazz:define-class-bootstrap jazz:Class)
+(jazz:define-class-bootstrap jazz:Object-Class)
+(jazz:define-class-bootstrap jazz:Field)
+(jazz:define-class-bootstrap jazz:Slot)
 
 
 ;;;

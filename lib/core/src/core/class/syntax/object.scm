@@ -66,27 +66,24 @@
 
 (cond-expand
   (gambit
-    (jazz:define-macro (%%subtype-jazz)
-      7)
-    
     (jazz:define-macro (%%object? expr)
       `(##jazz? ,expr))
     
     (jazz:define-macro (%%object class . rest)
       (jazz:with-uniqueness class
         (lambda (cls)
-          `(##subtype-set! (%%vector ,cls ,@rest) (%%subtype-jazz)))))
+          `(##subtype-set! (%%vector ,cls ,@rest) ,jazz:subtype-jazz))))
     
     (define (jazz:new-object class . rest)
       (let ((obj (%%list->vector (%%cons class rest))))
-        (##subtype-set! obj (%%subtype-jazz))
+        (##subtype-set! obj ,jazz:subtype-jazz)
         obj))
     
     (jazz:define-macro (%%make-object class size)
       (jazz:with-uniqueness class
         (lambda (cls)
           (let ((obj (jazz:generate-symbol "obj")))
-            `(let ((,obj (##subtype-set! (%%make-vector ,size (%%unspecified)) (%%subtype-jazz))))
+            `(let ((,obj (##subtype-set! (%%make-vector ,size (%%unspecified)) ,jazz:subtype-jazz)))
                (%%set-object-class ,obj ,cls)
                ,obj)))))
     

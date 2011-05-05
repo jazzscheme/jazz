@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Object () (metaclass: #f)
+(jazz:define-class-syntax jazz:Object () (metaclass: jazz:Object-Class)
   ())
 
 
@@ -59,7 +59,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Type jazz:Object (metaclass: #f)
+(jazz:define-class-syntax jazz:Type jazz:Object (metaclass: jazz:Class)
   ())
 
 
@@ -98,7 +98,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Category jazz:Type (metaclass: #f)
+(jazz:define-class-syntax jazz:Category jazz:Type (metaclass: jazz:Class)
   ((identifier   accessors: #t)
    (fields       accessors: #t)
    (virtual-size accessors: #t)
@@ -114,7 +114,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Class jazz:Category (metaclass: #f constructor: jazz:allocate-class)
+(jazz:define-class-syntax jazz:Class jazz:Category (metaclass: jazz:Class constructor: jazz:allocate-class)
   ((ascendant       accessors: #t)
    (interfaces      accessors: #t)
    (slots           accessors: #t)
@@ -187,7 +187,7 @@
 ;;;
 
 
-(jazz:define-class-syntax jazz:Object-Class jazz:Class (metaclass: #f)
+(jazz:define-class-syntax jazz:Object-Class jazz:Class (metaclass: jazz:Class)
   ())
 
 

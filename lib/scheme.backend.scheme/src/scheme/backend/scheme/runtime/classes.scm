@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Define)
+(jazz:define-class-runtime jazz:Define)
 
 
 (define (jazz:new-define name locator)

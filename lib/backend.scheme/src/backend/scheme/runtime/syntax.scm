@@ -50,7 +50,7 @@
    (entries getter: %%get-module-entries)))
 
 
-(jazz:define-class jazz:Module)
+(jazz:define-class-runtime jazz:Module)
 
 
 (define (jazz:new-module name access)
@@ -66,7 +66,7 @@
   ((symbol getter: %%get-native-symbol)))
 
 
-(jazz:define-class jazz:Native)
+(jazz:define-class-runtime jazz:Native)
 
 
 (define (jazz:new-native name symbol)
@@ -87,7 +87,7 @@
    (serialization getter: %%get-runtime-reference-serialization)))
 
 
-(jazz:define-class jazz:Runtime-Reference)
+(jazz:define-class-runtime jazz:Runtime-Reference)
 
 
 (define (jazz:new-runtime-reference resolver serialization)

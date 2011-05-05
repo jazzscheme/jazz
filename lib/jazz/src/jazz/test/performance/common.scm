@@ -161,7 +161,7 @@
 (jazz:define-class-syntax X jazz:Object (constructor: allocate-x)
   ())
 
-(jazz:define-class X)
+(jazz:define-class-runtime X)
 
 
 (define (new-x)
@@ -189,7 +189,7 @@
 ;;;
 
 
-(jazz:define-class Z)
+(jazz:define-class-runtime Z)
 
 
 (jazz:define-virtual (f-vtable (Z z) n))
@@ -212,7 +212,7 @@
     (f-vtable z (%%fx- n 1))))
 
 
-(jazz:define-class W)
+(jazz:define-class-runtime W)
 
 
 (jazz:define-method (f-vtable (W w) n)

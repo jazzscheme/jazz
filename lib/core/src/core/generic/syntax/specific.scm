@@ -53,7 +53,7 @@
    (descendant-specifics getter: generate setter: generate)))
 
 
-(jazz:define-class jazz:Specific)
+(jazz:define-class-runtime jazz:Specific)
 
 
 (jazz:define-macro (jazz:define-specific . rest)

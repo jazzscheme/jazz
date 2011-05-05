@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Exception)
+(jazz:define-class-runtime jazz:Exception)
 
 
 (jazz:define-method (jazz:print-object (jazz:Exception exception) output detail)
@@ -78,7 +78,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Exception-Detail)
+(jazz:define-class-runtime jazz:Exception-Detail)
 
 
 (define (jazz:new-exception-detail icon title location children)
@@ -90,7 +90,7 @@
 ;;;
 
 
-(jazz:define-class jazz:System-Exception)
+(jazz:define-class-runtime jazz:System-Exception)
 
 
 (jazz:define-method (jazz:present-exception (jazz:System-Exception exception))

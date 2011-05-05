@@ -54,6 +54,12 @@
   (%%make-table test: eq?))
 
 
+(jazz:define-macro (jazz:define-class name ascendant-name options slots)
+  `(begin
+     (jazz:define-class-syntax ,name ,ascendant-name ,options ,slots)
+     (jazz:define-class-runtime ,name)))
+
+
 (jazz:define-macro (jazz:define-class-syntax name ascendant-name options slots)
   (define (downcase str)
     (let ((down (list->string (map char-downcase (string->list str)))))
@@ -65,9 +71,6 @@
     (if (%%symbol? slot)
         (%%list slot)
       slot))
-  
-  (define (slot-name slot)
-    (%%car slot))
   
   (define (parse-slot slot prefix downcase-name)
     (define (slot-initialize slot)
@@ -81,7 +84,7 @@
     
     (define (parse-accessor slot accessor-key accessor-prefix)
       (define (generate-accessor)
-        (%%string->symbol (%%string-append prefix accessor-prefix downcase-name "-" (%%symbol->string (slot-name slot)))))
+        (%%string->symbol (%%string-append prefix accessor-prefix downcase-name "-" (%%symbol->string (%%car slot)))))
       
       (let ((accessor (or (jazz:getf (%%cdr slot) accessor-key #f)
                           (jazz:getf (%%cdr slot) accessors: #f))))
@@ -97,6 +100,9 @@
               (slot-initialize slot)
               (slot-getter slot)
               (slot-setter slot))))
+  
+  (define (slot-name slot)
+    (%%car slot))
   
   (let* ((downcase-name (downcase (%%symbol->string name)))
          (metaclass-name (jazz:getf options metaclass: #f))
@@ -146,7 +152,7 @@
        (%%table-set! jazz:class-info ',name (jazz:make-class-info ',metaclass-accessor ',ascendant-accessor ',constructor ',constructor-type ',accessors-type ',slots ',slot-names ',all-slot-names ',instance-size)))))
 
 
-(jazz:define-macro (jazz:define-class name #!optional (bootstrap? #f))
+(jazz:define-macro (jazz:define-class-runtime name #!optional (bootstrap? #f))
   (let ((class-info (%%table-ref jazz:class-info name))
         (class-level-name (%%compose-helper name 'core-level)))
     (let ((metaclass-accessor (and (%%not bootstrap?) (jazz:get-class-info-metaclass-accessor class-info)))

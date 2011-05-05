@@ -57,9 +57,6 @@
         (%%list slot)
       slot))
   
-  (define (slot-name slot)
-    (%%car slot))
-  
   (define (parse-slot slot prefix downcase-name)
     (define (slot-getter slot)
       (parse-accessor slot getter: "get-"))
@@ -69,7 +66,7 @@
     
     (define (parse-accessor slot accessor-key accessor-prefix)
       (define (generate-accessor)
-        (%%string->symbol (%%string-append prefix accessor-prefix downcase-name "-" (%%symbol->string (slot-name slot)))))
+        (%%string->symbol (%%string-append prefix accessor-prefix downcase-name "-" (%%symbol->string (%%car slot)))))
       
       (let ((accessor (or (jazz:getf (%%cdr slot) accessor-key #f)
                           (jazz:getf (%%cdr slot) accessors: #f))))
@@ -84,6 +81,9 @@
       (values (slot-name slot)
               (slot-getter slot)
               (slot-setter slot))))
+  
+  (define (slot-name slot)
+    (%%car slot))
   
   (let* ((downcase-name (downcase (%%symbol->string name)))
          (constructor (jazz:getf options constructor: #f))

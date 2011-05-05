@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Definition-Declaration)
+(jazz:define-class-runtime jazz:Definition-Declaration)
 
 
 (define (jazz:new-definition-declaration name type access compatibility attributes parent expansion signature)
@@ -137,7 +137,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Specialize)
+(jazz:define-class-runtime jazz:Specialize)
 
 
 (define (jazz:new-specialize)
@@ -156,7 +156,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Generic-Declaration)
+(jazz:define-class-runtime jazz:Generic-Declaration)
 
 
 (define (jazz:new-generic-declaration name type access compatibility attributes parent dispatch-types signature)
@@ -194,7 +194,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Specific-Declaration)
+(jazz:define-class-runtime jazz:Specific-Declaration)
 
 
 (define (jazz:new-specific-declaration name type access compatibility attributes parent generic signature root?)
@@ -228,7 +228,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Category-Declaration)
+(jazz:define-class-runtime jazz:Category-Declaration)
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Category-Declaration declaration) source-declaration environment backend)
@@ -243,7 +243,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Class-Declaration)
+(jazz:define-class-runtime jazz:Class-Declaration)
 
 
 (define (jazz:new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant ascendant-relation ascendant-base interfaces)
@@ -408,7 +408,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Interface-Declaration)
+(jazz:define-class-runtime jazz:Interface-Declaration)
 
 
 (define (jazz:new-interface-declaration name type access compatibility attributes parent implementor metaclass ascendants)
@@ -468,7 +468,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Field-Declaration)
+(jazz:define-class-runtime jazz:Field-Declaration)
 
 
 ;;;
@@ -476,7 +476,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Slot-Declaration)
+(jazz:define-class-runtime jazz:Slot-Declaration)
 
 
 (define (jazz:new-slot-declaration name type access compatibility attributes parent initialize getter-name setter-name)
@@ -529,7 +529,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Property-Declaration)
+(jazz:define-class-runtime jazz:Property-Declaration)
 
 
 (define (jazz:new-property-declaration name type access compatibility attributes parent initialize getter-name setter-name)
@@ -557,7 +557,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Method-Declaration)
+(jazz:define-class-runtime jazz:Method-Declaration)
 
 
 (define (jazz:new-method-declaration name type access compatibility attributes parent root propagation abstraction expansion remote synchronized signature)
@@ -730,7 +730,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Method-Node-Reference)
+(jazz:define-class-runtime jazz:Method-Node-Reference)
 
 
 (define (jazz:new-method-node-reference binding)
@@ -759,7 +759,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Jazz-Dialect)
+(jazz:define-class-runtime jazz:Jazz-Dialect)
 
 
 (define (jazz:new-jazz-dialect name)
@@ -775,7 +775,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Jazz-Walker)
+(jazz:define-class-runtime jazz:Jazz-Walker)
 
 
 (define (jazz:new-jazz-walker)
@@ -947,7 +947,7 @@
 ;;;
 
 
-(jazz:define-class jazz:With-Self)
+(jazz:define-class-runtime jazz:With-Self)
 
 
 (define (jazz:new-with-self body)
@@ -976,7 +976,7 @@
 ;;;
 
 
-(jazz:define-class jazz:With-Dynamic-Self)
+(jazz:define-class-runtime jazz:With-Dynamic-Self)
 
 
 (define (jazz:new-with-dynamic-self code body)
@@ -1018,7 +1018,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Cast)
+(jazz:define-class-runtime jazz:Cast)
 
 
 (define (jazz:new-cast type expression)
@@ -1048,7 +1048,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Allocate)
+(jazz:define-class-runtime jazz:Allocate)
 
 
 (define (jazz:new-allocate class values)
@@ -1141,7 +1141,7 @@
            (%%interface-dispatch class (%%get-method-category-rank field) (%%get-method-implementation-rank field))))))))
 
 
-(jazz:define-class jazz:Dispatch)
+(jazz:define-class-runtime jazz:Dispatch)
 
 
 (define (jazz:new-dispatch source name arguments)
@@ -1926,7 +1926,7 @@
 ;;;
 
 
-(jazz:define-class jazz:NextMethod-Variable)
+(jazz:define-class-runtime jazz:NextMethod-Variable)
 
 
 (define (jazz:new-nextmethod-variable name type)
@@ -1961,7 +1961,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Self-Binding)
+(jazz:define-class-runtime jazz:Self-Binding)
 
 
 (define (jazz:new-self-binding type)
@@ -1980,7 +1980,7 @@
 ;;;
 
 
-(jazz:define-class jazz:Dynamic-Self-Binding)
+(jazz:define-class-runtime jazz:Dynamic-Self-Binding)
 
 
 (define (jazz:new-dynamic-self-binding type code)

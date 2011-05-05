@@ -52,7 +52,7 @@
    (pending-specifics    getter: generate setter: generate)))
 
 
-(jazz:define-class jazz:Generic)
+(jazz:define-class-runtime jazz:Generic)
 
 
 (jazz:define-macro (jazz:define-generic . rest)

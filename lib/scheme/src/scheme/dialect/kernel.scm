@@ -282,7 +282,6 @@
 (native vector->list <vector:list>)
 (native list->vector <list:vector>)
 (native vector-fill! <vector^object:void>)
-(native unsafe-vector-set! <object^int^object:void>)
 
 
 ;;;

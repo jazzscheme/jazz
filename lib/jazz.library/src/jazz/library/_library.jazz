@@ -43,6 +43,7 @@
 
 (import (jazz.library.autoload)
         (jazz.io)
+        (irregex)
         (time))
 
 
@@ -135,6 +136,33 @@
   
   (define (universal-variable? pattern)
     (eq? pattern '?))
+  
+  (match-clauses))
+
+
+;;;
+;;;; Match Regexp
+;;;
+
+
+(definition public (match-regexp-string str . clauses)
+  (define (match-clauses)
+    (continuation-capture
+      (lambda (found)
+        (for-each (lambda (clause)
+                    (match-clause clause found))
+                  clauses)
+        (unspecified))))
+  
+  (define (match-clause clause found)
+    (bind (regexp . proc) clause
+      (if (not regexp)
+          (continuation-return found (proc))
+        (let ((match (irregex-search regexp str)))
+          (when match
+            (continuation-return found
+                                 (proc (lambda (variable)
+                                         (irregex-match-substring match variable)))))))))
   
   (match-clauses))
 

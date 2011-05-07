@@ -99,6 +99,44 @@
 
 
 ;;;
+;;;; Match Regexp
+;;;
+
+
+@macro (regexp-match "a simple test"
+         (("foo") 'foo)
+         (("a s(.*)e t(.*)t" x y) (list 'match x y)))
+@expansion (regexp-match-string "a simple test"
+                                (list "foo"
+                                      (lambda (match)
+                                        'foo))
+                                (list "a s(.*)e t(.*)t"
+                                      (lambda (match)
+                                        (let ((x (match 1))
+                                              (y (match 2)))
+                                          (list 'match x y)))))
+
+
+(macro public (match-regexp str . clauses)
+  `(match-regexp-string ,str
+                        ,@(map (lambda (clause)
+                                 (bind (pattern . body) clause
+                                   (if (eq? pattern 'else)
+                                       `(cons #f (lambda ()
+                                                   ,@body))
+                                     (bind (regexp . variables) pattern
+                                       (let ((match (generate-symbol "match")))
+                                         `(cons ',regexp (lambda (,match)
+                                                           (let (,@(map (lambda (variable n)
+                                                                          (let ((index (+ n 1)))
+                                                                            `(,variable (,match ',index))))
+                                                                        variables
+                                                                        (naturals 0 (length variables))))
+                                                             ,@body))))))))
+                               clauses)))
+
+
+;;;
 ;;;; Environment
 ;;;
 

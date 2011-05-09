@@ -264,7 +264,9 @@
                  (if (and (has-effective-selection?) (composite-reference? form))
                      (edit-composite-reference appl item form)
                    (let ((target (standardize-form form #t)))
-                     (edit-definitions~ appl target workspace: (edition-workspace) context: (get-context) history-item: item)))))))))
+                     (if (not target)
+                         (bell)
+                       (edit-definitions~ appl target workspace: (edition-workspace) context: (get-context) history-item: item))))))))))
 
   
   (method (on-edit-references evt)
@@ -272,15 +274,17 @@
           (appl (get-application)))
       (when form
         (let ((target (standardize-form form (empty-effective-selection?))))
-          (edit-references~ appl target context: (get-context) history-item: (current-history-item))))))
+          (if (not target)
+              (bell)
+            (edit-references~ appl target context: (get-context) history-item: (current-history-item)))))))
   
   
   (method (standardize-form form extract?)
     (let ((target (cond ((string? form) form)
                         ((symbol? form) (symbol->string form))
                         ((keyword? form) (string-append (keyword->string form) ":"))
-                        (else (error "Unable to standardize: {s}" form)))))
-      (if (not extract?)
+                        (else #f))))
+      (if (or (not target) (not extract?))
           target
         (cond ((tag-string? target) (tag->name target))
               ((dispatch-string? target) (dispatch->name target))
@@ -305,11 +309,13 @@
                  (when cataloguer
                    (let ((item (current-history-item))
                          (target (standardize-form form #t)))
-                     (let ((definitions (get-coalesced-definitions~ cataloguer target context: (get-context))))
-                       (case (length definitions)
-                         ((0) (bell))
-                         ((1) (add-history~ appl item) (edit~ (car definitions)))
-                         (else (track-popup-menu (new Definitions-Menu definitions: definitions history-item: item) pos))))))))))))
+                     (if (not target)
+                         (bell)
+                       (let ((definitions (get-coalesced-definitions~ cataloguer target context: (get-context))))
+                         (case (length definitions)
+                           ((0) (bell))
+                           ((1) (add-history~ appl item) (edit~ (car definitions)))
+                           (else (track-popup-menu (new Definitions-Menu definitions: definitions history-item: item) pos)))))))))))))
 
 
   (method protected (edit-references pos)
@@ -318,13 +324,15 @@
         (let* ((appl (get-application))
                (cataloguer (get-cataloguer~ appl)))
           (when cataloguer
-            (let* ((item (current-history-item))
-                   (target (standardize-form form #t))
-                   (references (get-references~ cataloguer target context: (get-context))))
-              (case (length references)
-                ((0) (bell))
-                ((1) (add-history~ appl item) (edit-textual-reference~ (car references) target))
-                (else (track-popup-menu (new References-Menu target: target definitions: references history-item: item) pos)))))))))
+            (let ((item (current-history-item))
+                  (target (standardize-form form #t)))
+              (if (not target)
+                  (bell)
+                (let ((references (get-references~ cataloguer target context: (get-context))))
+                  (case (length references)
+                    ((0) (bell))
+                    ((1) (add-history~ appl item) (edit-textual-reference~ (car references) target))
+                    (else (track-popup-menu (new References-Menu target: target definitions: references history-item: item) pos)))))))))))
   
   
   (definition (edit-composite-reference appl item form)

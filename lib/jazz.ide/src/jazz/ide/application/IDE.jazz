@@ -132,13 +132,13 @@
             (layout-menu~ menu)))))
     ;; do this at the last moment possible because any error beyond this point
     ;; will be handled by the IDE itself which must thus be fully functional
-    (when (not (get-controller-debugger))
+    (when (and (use-local-debugger?) (not (get-controller-debugger)))
       (attach-to-controller (get-local-register) #t)
       (with-system-exception-debugger
-      (lambda ()
-        (ready-to-controller #f)
-        (current-input-port (console-input-port))
-        (current-output-port (console-output-port))))))
+        (lambda ()
+          (ready-to-controller #f)
+          (current-input-port (console-input-port))
+          (current-output-port (console-output-port))))))
 
 
   (method override (close-environment)
@@ -311,7 +311,8 @@
   
   (method override (terminate-process)
     (nextmethod)
-    (unregister-object~ (get-local-register) 'debugger error?: #f))
+    (when (use-local-debugger?)
+      (unregister-object~ (get-local-register) 'debugger error?: #f)))
 
 
   ;;;
@@ -546,12 +547,17 @@
   
   (method override (register-base-objects)
     (nextmethod)
-    (register-object~ (get-local-register) 'debugger (new Jazz-Debugger-Local-Proxy local-debugger)))
+    (when (use-local-debugger?)
+      (register-object~ (get-local-register) 'debugger (new Jazz-Debugger-Local-Proxy local-debugger))))
 
   
   ;;;
-  ;;;; Debuggers
+  ;;;; Debugger
   ;;;
+  
+  
+  (method protected virtual (use-local-debugger?)
+    #t)
     
   
   (method override (get-local-debugger)
@@ -563,19 +569,21 @@
 
   
   (method (start-debuggers)
-    (when (not local-debugger)
-      (set! local-debugger (new Jazz-Debugger))
-      (start-debugger~ local-debugger)
-      (register-debugger local-debugger)
-      (set-current-debugger local-debugger))
-    (when (not snapshot-debugger)
-      (set! snapshot-debugger (new Snapshot-Debugger))
-      (start-debugger~ snapshot-debugger)
-      (register-debugger snapshot-debugger)))
+    (when (use-local-debugger?)
+      (when (not local-debugger)
+        (set! local-debugger (new Jazz-Debugger))
+        (start-debugger~ local-debugger)
+        (register-debugger local-debugger)
+        (set-current-debugger local-debugger))
+      (when (not snapshot-debugger)
+        (set! snapshot-debugger (new Snapshot-Debugger))
+        (start-debugger~ snapshot-debugger)
+        (register-debugger snapshot-debugger))))
   
   
-  (definition (detach-debugger-processes)
-    (for-each detach-processes~ (get-debuggers)))
+  (method (detach-debugger-processes)
+    (when (use-local-debugger?)
+      (for-each detach-processes~ (get-debuggers))))
   
   
   ;;;

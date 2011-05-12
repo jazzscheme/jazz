@@ -2232,60 +2232,70 @@
   
   
   (method public (insert-char c)
-    (caret-update (insert-char~ model (get-selection) c)))
+    (when (write-allowed?)
+      (caret-update (insert-char~ model (get-selection) c))))
   
   
   (method public (insert-string str)
-    (caret-update (insert-string~ model (get-selection) str)))
+    (when (write-allowed?)
+      (caret-update (insert-string~ model (get-selection) str))))
   
   
   (method public (insert-styled string style)
-    (let ((start (get-start))
-          (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (get-style~ model style)))))
-      (insert-string string)
-      (set-style~ model (new Range$Cell$ start (get-start)) style)))
+    (when (write-allowed?)
+      (let ((start (get-start))
+            (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (get-style~ model style)))))
+        (insert-string string)
+        (set-style~ model (new Range$Cell$ start (get-start)) style))))
   
   
   (method public (replace-styled range strings style)
-    (let ((start (get-start~ range))
-          (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (get-style~ model style)))))
-      (replace~ model range strings)
-      (set-style~ model (new Range$Cell$ start (get-start)) style)))
+    (when (write-allowed?)
+      (let ((start (get-start~ range))
+            (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (get-style~ model style)))))
+        (replace~ model range strings)
+        (set-style~ model (new Range$Cell$ start (get-start)) style))))
   
   
   (method public (insert-line line (proper? #t))
-    (replace-selection (if proper? (list line "") (list line))))
+    (when (write-allowed?)
+      (replace-selection (if proper? (list line "") (list line)))))
   
   
   (method public (insert-bulleted-line line)
-    (let ((line (get-line~ (get-start))))
-      (insert-line line)
-      (toggle-bulleted~ model line)))
+    (when (write-allowed?)
+      (let ((line (get-line~ (get-start))))
+        (insert-line line)
+        (toggle-bulleted~ model line))))
   
   
   (method public (insert-newline)
-    (end-completion)
-    (insert-string "\n"))
+    (when (write-allowed?)
+      (end-completion)
+      (insert-string "\n")))
   
   
   (method public (insert-link string (font: font #f) (anchor: anchor #f) (action: action #f))
-    (let* ((font (or font {Font Link}))
-           (style (new Link-Style font: font color: {Color Link} anchor: anchor action: action)))
-      (insert-styled string style)))
+    (when (write-allowed?)
+      (let* ((font (or font {Font Link}))
+             (style (new Link-Style font: font color: {Color Link} anchor: anchor action: action)))
+        (insert-styled string style))))
   
   
   (method public (insert-image moniker)
-    (let ((style (new Image-Style moniker: moniker)))
-      (insert-styled " " style)))
+    (when (write-allowed?)
+      (let ((style (new Image-Style moniker: moniker)))
+        (insert-styled " " style))))
   
   
   (method public (insert-view view/form)
-    (let* ((view (if (is? view/form View) view/form (instantiate~ view/form)))
-           (end (get-end))
-           (paragraph (get-paragraph (get-line~ end))))
-      (set-parent~ view paragraph)
-      (let ((style (new View-Style view: view)))
-        (insert-styled " " style))))
+    (when (write-allowed?)
+      (let* ((view (if (is? view/form View) view/form (instantiate~ view/form)))
+             (end (get-end))
+             (paragraph (get-paragraph (get-line~ end))))
+        (set-parent~ view paragraph)
+        (let ((style (new View-Style view: view)))
+          (insert-styled " " style)))))
   
   
   ;;;
@@ -2325,11 +2335,13 @@
   
   
   (method protected (replace-text range <Range$Cell$> strings)
-    (caret-update (replace-text~ model range strings)))
+    (when (write-allowed?)
+      (caret-update (replace-text~ model range strings))))
   
   
   (method public (replace-selection strings)
-    (caret-update (replace~ model (get-selection) strings)))
+    (when (write-allowed?)
+      (caret-update (replace~ model (get-selection) strings))))
   
   
   (method (caret-update caret)

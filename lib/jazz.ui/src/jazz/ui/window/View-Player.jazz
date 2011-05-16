@@ -288,8 +288,8 @@
     processed)
   
   
-  (method (simulate-mouse-down)
-    (let ((pos (mouse-position)))
+  (method (simulate-mouse-down (pos #f))
+    (let ((pos (or pos (mouse-position))))
       (let ((view (find-view pos)))
         (when view
           (dispatch-mouse-down~ root (get-h~ pos) (get-v~ pos))))))
@@ -301,11 +301,20 @@
     processed)
   
   
-  (method (simulate-mouse-move)
-    (let ((pos (mouse-position)))
+  (method (simulate-mouse-move (pos #f))
+    (let ((pos (or pos (mouse-position))))
       (let ((view (find-view pos)))
         (when view
           (dispatch-mouse-move~ root (get-h~ pos) (get-v~ pos))))))
+  
+  
+  (method (simulate-global-mouse-move)
+    (let ((pos (platform-mouse-position)))
+      (let ((player (find-window pos)))
+        (when (is? player View-Player)
+          (let ((root (get-root~ player))
+                (pos (acquire~ player (get-desktop) pos)))
+            (dispatch-mouse-move~ root (get-h~ pos) (get-v~ pos)))))))
   
   
   (method override (mouse-up h v)
@@ -352,7 +361,7 @@
   
   
   (method override (mouse-leave)
-    (when mouse-in
+    (when (and mouse-in (eq? (get-player~ mouse-in) self))
       (call-mouse-leave~ mouse-in)
       (cancel-tooltip-tracking~ mouse-in)
       (reset-mouse-in)))

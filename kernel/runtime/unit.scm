@@ -240,6 +240,10 @@
 (set! jazz:jazz-source jazz:kernel-source)
 
 
+(define jazz:kernel-source-access?
+  jazz:source-access?)
+
+
 (define jazz:kernel-binary-repositories
   jazz:binary-repositories)
 

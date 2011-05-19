@@ -257,26 +257,30 @@
       (for-each-alias child proc))))
 
 
-(definition public (initialize-aliases)
-  (define (register-home)
-    (register-alias 'Home (tokenise-filename (pathname-normalize "~"))))
-  
-  (define (register-settings)
-    (register-alias 'Jazz-Settings (tokenise-filename jazz-settings-directory)))
-  
-  (define (register-repositories)
-    (for-each register-repository-aliases (get-repositories)))
-  
-  (define (register-build-repository)
-    (let ((repository (get-build-repository)))
-      (when repository
-        (register-repository-alias repository))))
-  
-  (register-platform-aliases)
-  (register-home)
-  (register-settings)
-  (register-repositories)
-  (register-build-repository))
+(definition public initialize-aliases
+  (let ((initialized? #f))
+    (lambda ()
+      (define (register-home)
+        (register-alias 'Home (tokenise-filename (pathname-normalize "~"))))
+      
+      (define (register-settings)
+        (register-alias 'Jazz-Settings (tokenise-filename jazz-settings-directory)))
+      
+      (define (register-repositories)
+        (for-each register-repository-aliases (get-repositories)))
+      
+      (define (register-build-repository)
+        (let ((repository (get-build-repository)))
+          (when repository
+            (register-repository-alias repository))))
+      
+      (when (not initialized?)
+        (register-platform-aliases)
+        (register-home)
+        (register-settings)
+        (register-repositories)
+        (register-build-repository)
+        (set! initialized? #t)))))
 
 
 (cond-expand
@@ -301,13 +305,16 @@
   
   (unless (repository-binary? repository)
     (let ((repository-alias (register-repository-alias repository)))
-      (register-repository-packages repository repository-alias))))
+      (when repository-alias
+        (register-repository-packages repository repository-alias)))))
 
 
 (definition public (register-repository-alias repository)
-  (let ((name (repository-name repository))
-        (directory (remove-trailing-char (repository-directory repository) #\/)))
-    (register-alias name (tokenise-filename directory))))
+  (let ((name (repository-name repository)))
+    ;; this test is a quick fix for the .buildini that can register a repo twice
+    (unless (is-alias? name)
+      (let ((directory (remove-trailing-char (repository-directory repository) #\/)))
+        (register-alias name (tokenise-filename directory))))))
 
 
 (definition (validate-alias name path)

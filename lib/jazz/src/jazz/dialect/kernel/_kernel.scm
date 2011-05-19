@@ -522,6 +522,7 @@
 (native jazz:kernel-built)
 (native jazz:kernel-install)
 (native jazz:kernel-source)
+(native jazz:kernel-source-access?)
 (native jazz:kernel-version)
 (native jazz:get-jazz-version-number)
 (native jazz:jazz-settings-directory)

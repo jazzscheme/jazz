@@ -811,6 +811,19 @@
   
   
   ;;;
+  ;;;; Marks
+  ;;;
+  
+  
+  (method (with-adjusted-marks range thunk)
+    (let ((caret (thunk)))
+      (for-each-client
+        (lambda (view)
+          (adjust-marks~ view range caret)))
+      caret))
+  
+  
+  ;;;
   ;;;; Replace
   ;;;
   
@@ -820,11 +833,9 @@
   
   
   (method public (replace range <Range$Cell$> strings)
-    (let ((caret (replace-text range strings)))
-      (for-each-client
-        (lambda (view)
-          (adjust-marks~ view range caret)))
-      caret))
+    (with-adjusted-marks range
+      (lambda ()
+        (replace-text range strings))))
   
   
   (method protected (replace-text range <Range$Cell$> strings)
@@ -1419,27 +1430,24 @@
   
   
   (method protected (replace-formatted range <Range$Cell$> info)
-    (let ((caret
-           (typecase info
-             ((Formatted-Text)
-              (let* ((formats (get-formats~ info))
-                     (styles (get-styles~ info))
-                     (paragraphs (get-paragraphs~ info))
-                     (interned-formats (map intern-format formats))
-                     (interned-styles (map intern-style styles))
-                     (strings (map (lambda (run-info)
-                                     (bind (format . runs) run-info
-                                       (run-infos->string runs)))
-                                   paragraphs)))
-                (replace-formatted-text range strings interned-formats interned-styles paragraphs)))
-             ((Text)
-              (replace-text range (split-lines (get-paragraphs~ info))))
-             (else
-              (error "Unsupported text: {t}" info)))))
-      (for-each-client
-        (lambda (view)
-          (adjust-marks~ view range caret)))
-      caret))
+    (with-adjusted-marks range
+      (lambda ()
+        (typecase info
+          ((Formatted-Text)
+           (let* ((formats (get-formats~ info))
+                  (styles (get-styles~ info))
+                  (paragraphs (get-paragraphs~ info))
+                  (interned-formats (map intern-format formats))
+                  (interned-styles (map intern-style styles))
+                  (strings (map (lambda (run-info)
+                                  (bind (format . runs) run-info
+                                    (run-infos->string runs)))
+                                paragraphs)))
+             (replace-formatted-text range strings interned-formats interned-styles paragraphs)))
+          ((Text)
+           (replace-text range (split-lines (get-paragraphs~ info))))
+          (else
+           (error "Unsupported text: {t}" info))))))
   
   
   (method protected (replace-formatted-text range <Range$Cell$> strings formats styles paragraphs)

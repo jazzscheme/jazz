@@ -45,21 +45,22 @@
 (class TCP-Server extends Object
   
   
-  (slot name                                  getter generate)
-  (slot host                                  getter generate)
-  (slot service                               getter generate)
-  (slot socket-info                           getter generate)
-  (slot server-port       initialize #f       accessors generate)
+  (slot name                                   getter generate)
+  (slot host                                   getter generate)
+  (slot service                                getter generate)
+  (slot socket-info                            getter generate)
+  (slot server-port        initialize #f       accessors generate)
   (slot server-thread)
   (slot started-condition)
-  (slot state             initialize 'stopped)
-  (slot hits              initialize 0        getter generate)
-  (slot debug?                                accessors generate)
-  (slot reuse-address?    initialize #t       accessors generate)
+  (slot state              initialize 'stopped)
+  (slot hits               initialize 0        getter generate)
+  (slot debug?                                 accessors generate)
+  (slot reuse-address?     initialize #t       accessors generate)
+  (slot connection-handler initialize #f)
   
   
   (method override (initialize . rest)
-    (bind-keywords ((name #f) (host #f) (service #f) (debug? #f) (reuse-address? #t)) rest
+    (bind-keywords ((name #f) (host #f) (service #f) (debug? #f) (reuse-address? #t) (connection-handler #f)) rest
       (nextmethod)
       (set! name~self name)
       (set! host~self host)
@@ -68,7 +69,14 @@
       (set! server-thread~self #f)
       (set! started-condition~self (make-condition))
       (set! debug?~self debug?)
-      (set! reuse-address?~self reuse-address?)))
+      (set! reuse-address?~self reuse-address?)
+      (set! connection-handler~self connection-handler)))
+  
+  
+  (method override (destroy)
+    (when server-port
+      (close-port server-port))
+    (nextmethod))
 
   
   ;;;
@@ -214,4 +222,5 @@
   
   
   (method protected virtual (process-connection port)
-    )))
+    (when connection-handler
+      (connection-handler port)))))

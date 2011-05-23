@@ -111,30 +111,36 @@
               (+ (get-col~ cell) col-delta)
             (get-col~ cell)))))
     
-    (define (touch)
-      (when strict?
-        (set-range (new Range$Cell$ caret caret))))
+    (define (update-range r)
+      (set! range r)
+      change-proc)
+    
+    (define (touch-range r)
+      (if strict?
+          (set! range (new Range$Cell$ caret caret))
+        (set! range r))
+      change-proc)
     
     (let ((mark-start (get-start~ range))
           (mark-end (get-end~ range)))
       (let ((start-pos (cell-position mark-start))
             (end-pos (cell-position mark-end)))
         (case end-pos
-          ((before at))
+          ((before at)
+           #f)
           ((inside)
            (case start-pos
              ((before)
-              (set-range (new Range$Cell$ mark-start start)))
+              (touch-range (new Range$Cell$ mark-start start)))
              ((inside)
-              (set-range (new Range$Cell$ caret caret))))
-           (touch))
+              (touch-range (new Range$Cell$ caret caret)))
+             (else
+              #f)))
           ((after)
            (case start-pos
              ((before)
-              (set-range (new Range$Cell$ mark-start (adjust-cell mark-end)))
-              (touch))
+              (touch-range (new Range$Cell$ mark-start (adjust-cell mark-end))))
              ((inside)
-              (set-range (new Range$Cell$ caret (adjust-cell mark-end)))
-              (touch))
+              (touch-range (new Range$Cell$ caret (adjust-cell mark-end))))
              ((after at)
-              (set-range (new Range$Cell$ (adjust-cell mark-start) (adjust-cell mark-end))))))))))))
+              (update-range (new Range$Cell$ (adjust-cell mark-start) (adjust-cell mark-end))))))))))))

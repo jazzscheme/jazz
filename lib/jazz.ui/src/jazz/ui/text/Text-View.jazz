@@ -81,6 +81,7 @@
   (slot protected caret-pulse?           initialize #t)
   (slot protected caret-visible?         initialize #f)
   (slot protected completion-active?     initialize #f)
+  (slot protected completion-unique?     initialize #f)
   (slot protected mark                   initialize #f accessors generate)
   (slot protected marks                  initialize '())
   (slot protected previous-position      initialize #f)
@@ -2925,6 +2926,10 @@
     (and completion-active? (has-selection?)))
   
   
+  (method protected (has-ambiguous-completion?)
+    (and completion-active? (not completion-unique?) (has-selection?)))
+  
+  
   (method protected (has-effective-selection?)
     (and (not completion-active?) (has-selection?)))
   
@@ -2938,8 +2943,9 @@
       (get-selection)))
 
 
-  (method protected (set-completion range)
+  (method protected (set-completion range unique?)
     (set! completion-active? #t)
+    (set! completion-unique? unique?)
     (set-selection range))
   
 
@@ -2993,7 +2999,8 @@
         (coerce alphabet-char String)))
     
     (let ((name (skip-prefix (completion-name pos))))
-      (when name
+      (if (not name)
+          (values #f #f)
         (let ((size (string-length name))
               (favorite (and (favorite-completions?) (or (get-user-completion name) (favorite-completion name))))
               (feedback? (not (macro-playing?~ (get-application)))))
@@ -3001,37 +3008,37 @@
               (begin
                 (when feedback?
                   (clear-user-message))
-                (subseq favorite size))
+                (values (subseq favorite size) #t))
             (if (not (complete-name? size))
                 (begin
                   (when feedback?
                     (clear-user-message))
-                  #f)
+                  (values #f #f))
               (let* ((completions (symbol-completions name))
                      (count (length completions)))
                 (cond ((= count 0)
                        (when feedback?
                          (clear-user-message))
-                       #f)
+                       (values #f #f))
                       ((= count 1)
                        (let ((found (car completions)))
                          (when feedback?
                            (user-message "{a}" found))
                          (if (string=? name found)
-                             #f
-                           (subseq found size))))
+                             (values #f #f)
+                           (values (subseq found size) #t))))
                       ((> count 5)
                        (let* ((common (completions-prefix completions))
                               (offset (string-length common))
                               (alphabet (alphabetize-completion completions offset)))
                          (when feedback?
                            (user-message "{a} ... [{a}]" common alphabet))
-                         (subseq common size)))
+                         (values (subseq common size) #f)))
                       (else
                        (let ((common (completions-prefix completions)))
                          (when feedback?
                            (user-message "{l detail: :human}" completions))
-                         (subseq common size)))))))))))
+                         (values (subseq common size) #f)))))))))))
   
   
   (method protected virtual (complete-name? size)
@@ -3074,11 +3081,13 @@
   (method (complete-at pos <Cell>)
     (unless (or (textual-style?~ model (get-style-at~ model pos))
                 (macro-recording?~ (get-application)))
-      (let ((completion (completion-string pos)))
+      (receive (completion unique?) (completion-string pos)
         (if (not completion)
-            (set! completion-active? #t)
+            (begin
+              (set! completion-active? #t)
+              (set! completion-unique? #t))
           (insert-string completion)
-          (set-completion (new Range$Cell$ pos (+ pos (cast <fx> (cardinality completion)))))))))
+          (set-completion (new Range$Cell$ pos (+ pos (cast <fx> (cardinality completion)))) unique?)))))
   
   
   (method protected (convert-completion)

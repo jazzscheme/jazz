@@ -64,9 +64,9 @@
             (##thread-heartbeat!)            
             (let ((profile (active-profile)))
               (profile-register-call profile
-                                     (identify-call cont
-                                                    (profile-depth profile)
-                                                    (profile-profiler profile))
+                                     (get-cont-stack-for-profile cont
+                                                                 (profile-depth profile)
+                                                                 (profile-profiler profile))
                                      0)))))))
 
 

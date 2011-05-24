@@ -118,7 +118,7 @@
 
 
 (define (make-profile label profiler depth)
-  (%%vector 'profile label profiler depth 0 0 #f (%%make-table test: equal?)))
+  (%%vector 'profile label profiler depth 0 0 #f '()))
 
 
 (define (profile-label profile)
@@ -217,28 +217,6 @@
 
 
 ;;;
-;;;; Profile Call
-;;;
-
-
-(define (make-profile-call)
-  (%%cons 0 0))
-
-
-(define (profile-call-count call)
-  (%%car call))
-
-(define (profile-call-count-set! call count)
-  (%%set-car! call count))
-
-(define (profile-call-duration call)
-  (%%cdr call))
-
-(define (profile-call-duration-set! call duration)
-  (%%set-cdr! call duration))
-
-
-;;;
 ;;;; Active
 ;;;
 
@@ -263,24 +241,14 @@
       (profile-depth-set! profile depth))
   (profile-calls-count-set! profile 0)
   (profile-calls-duration-set! profile 0)
-  (profile-calls-set! profile (%%make-table test: equal?)))
-
-
-(define (profile-call profile name)
-  (let ((calls (profile-calls profile))
-        (name (or name '<unknown>)))
-    (or (%%table-ref calls name #f)
-        (let ((call (make-profile-call)))
-          (%%table-set! calls name call)
-          call))))
+  (profile-calls-set! profile '()))
 
 
 (define (profile-register-call profile stack duration)
   (profile-calls-count-set! profile (+ (profile-calls-count profile) 1))
   (profile-calls-duration-set! profile (+ (profile-calls-duration profile) duration))
-  (let ((call (profile-call profile stack)))
-    (profile-call-count-set! call (+ (profile-call-count call) 1))
-    (profile-call-duration-set! call (+ (profile-call-duration call) duration))))
+  (profile-calls-set! profile
+                      (cons (list (or stack '((<unknown> #f))) duration) (profile-calls profile))))
 
 
 (define (profiler-real-time)
@@ -345,7 +313,7 @@
 ;;;
 
 
-(define (identify-call cont depth profiler)
+(define (get-cont-stack-for-profile cont depth profiler)
   (define (continuation-creator cont)
     (let ((proc (%%continuation-creator cont)))
       (if (and proc (%%closure? proc))

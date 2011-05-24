@@ -241,7 +241,7 @@
 
 
 (define jazz:kernel-source-access?
-  jazz:source-access?)
+  (or jazz:source-access? (not jazz:product)))
 
 
 (define jazz:kernel-binary-repositories
@@ -321,7 +321,7 @@
             (%%list jazz)
           '())))
   
-  (let ((source-access? (or jazz:source-access? (not jazz:product))))
+  (let ((source-access? jazz:kernel-source-access?))
     (let ((build (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t create?: #t))
           (jazz (and source-access? (jazz:make-repository 'Jazz "lib" (or (jazz:jazz-repository) jazz:kernel-source))))
           (binary-repositories (or (and source-access? jazz:kernel-binary-repositories) '()))

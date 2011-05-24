@@ -272,7 +272,7 @@
           (if jazz-repository (jazz:jazz-repository jazz-repository))
           (if repositories (jazz:repositories repositories))
           (if nosource?
-              (set! jazz:source-access? #f))
+              (set! jazz:kernel-source-access? #f))
           (jazz:prepare-repositories)
           (jazz:setup-repositories))
           

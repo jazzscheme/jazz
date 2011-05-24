@@ -248,9 +248,6 @@
 (define jazz:jazz-updates-file
   #f)
 
-(define jazz:jazz-updates
-  #f)
-
 
 (define (jazz:get-jazz-updates)
   (define (determine-jazz-updates-file)

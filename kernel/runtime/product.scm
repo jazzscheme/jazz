@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Kernel Boot
+;;;; Kernel Product
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,38 +35,32 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(define jazz:Kernel
-  (list
-    "kernel/runtime/product"
-    "kernel/syntax/header"
-    "kernel/syntax/macro"
-    "kernel/syntax/block"
-    "kernel/syntax/expansion"
-    "kernel/syntax/features"
-    "kernel/syntax/declares"
-    "kernel/syntax/primitives"
-    "kernel/syntax/syntax"
-    "kernel/syntax/runtime"
-    "kernel/runtime/base"
-    "kernel/runtime/common"
-    "kernel/runtime/settings"
-    "kernel/runtime/advise"
-    "kernel/runtime/build"
-    "kernel/runtime/digest"
-    "kernel/runtime/unit"
-    "kernel/runtime/setup"))
+(define jazz:product
+  #f)
 
+(define jazz:image
+  #f)
 
-(define jazz:load-kernel
-  (let ((loaded? #f))
-    (lambda ()
-      (if (not loaded?)
-          (begin
-            (for-each (lambda (path)
-                        (load (string-append jazz:source path)))
-                      jazz:Kernel)
-            (set! loaded? #t))))))
+(define jazz:built
+  #f)
 
+(define jazz:gambit-dir
+  #f)
 
-(jazz:load-kernel)
-(jazz:executable-main)
+(define jazz:source-built
+  #f)
+
+(define jazz:binary-repositories
+  #f)
+
+(define jazz:source-repositories
+  #f)
+
+(define jazz:source-access?
+  #f)
+
+(define jazz:single-objects?
+  #f)
+
+(define jazz:jazz-updates
+  #f)

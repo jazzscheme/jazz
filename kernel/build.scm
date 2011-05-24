@@ -1478,6 +1478,7 @@
 
 
 (define (jazz:load-kernel-base)
+  (load (string-append jazz:source "kernel/runtime/product"))
   (load (string-append jazz:source "kernel/runtime/base")))
 
 

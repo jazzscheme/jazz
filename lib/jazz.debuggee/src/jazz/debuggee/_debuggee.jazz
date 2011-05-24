@@ -187,13 +187,11 @@
 
 (definition public (post-stop exc)
   (continuation-capture
-    (lambda (continuation)
-      (let ((reason (exception-reason exc))
-            (detail (exception-detail exc)))
-        (thread-write
-          (primordial-thread)
-          (lambda ()
-            (invoke-debugger 'exception reason detail exc continuation)))))))
+    (lambda (cont)
+      (thread-write
+        (primordial-thread)
+        (lambda ()
+          (jazz-handle-exception exc cont))))))
 
 
 (definition public (post-continuation cont)
@@ -681,6 +679,17 @@
 
 
 (definition public (jazz-exception-debugger exc)
+  (continuation-capture
+    (lambda (cont)
+      (jazz-handle-exception exc cont))))
+
+
+(definition public (with-jazz-exception-debugger thunk)
+  (with-exception-debugger jazz-exception-debugger
+    thunk))
+
+
+(definition (jazz-handle-exception exc cont)
   (let ((debugger (get-controller-debugger))
         (use (use-debugger?)))
     (if (or (not debugger) (not use))
@@ -689,16 +698,9 @@
         (lambda ()
           (when (eq? use 'once)
             (use-debugger? #f))
-          (continuation-capture
-            (lambda (continuation)
-              (let ((reason (exception-reason exc))
-                    (detail (exception-detail exc)))
-                (invoke-debugger 'exception reason detail exc continuation)))))))))
-
-
-(definition public (with-jazz-exception-debugger thunk)
-  (with-exception-debugger jazz-exception-debugger
-    thunk))
+          (let ((reason (exception-reason exc))
+                (detail (exception-detail exc)))
+            (invoke-debugger 'exception reason detail exc cont)))))))
 
 
 (definition public (local-debugger?)

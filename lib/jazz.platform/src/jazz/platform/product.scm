@@ -175,7 +175,7 @@
                           ,@jazz:carbon-units
                           ,@jazz:clipboard-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-        (jazz:update-product-descriptor descriptor))))
+        (jazz:build-product-descriptor descriptor))))
   (windows
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((build (%%repository-directory jazz:Build-Repository))
@@ -203,7 +203,7 @@
                             ,@jazz:windows-units
                             ,@jazz:com-units)))
           (jazz:custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
-          (jazz:update-product-descriptor descriptor)))))
+          (jazz:build-product-descriptor descriptor)))))
   (x11
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
@@ -215,7 +215,7 @@
                           ,@jazz:x11-units
                           ,@jazz:clipboard-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-        (jazz:update-product-descriptor descriptor)))))
+        (jazz:build-product-descriptor descriptor)))))
 
 
 ;;;

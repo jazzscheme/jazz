@@ -159,9 +159,17 @@
 
 
   (method public (set-file value)
+    (define (load-content)
+      (with-jazz-readtable
+        (lambda ()
+          (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
+            (lambda (port)
+              (table-load content port #f)))))
+      (set! modified? #f))
+    
     (set! file value)
-    (if (not file)
-        (set! content #f)
+    (set! content (make-table test: eq?))
+    (when file
       (load-content)))
 
 
@@ -172,16 +180,6 @@
   (method public (set-setting setting value)
     (table-set! content setting value)
     (set! modified? #t))
-
-
-  (method public (load-content)
-    (set! content (make-table test: eq?))
-    (with-jazz-readtable
-      (lambda ()
-        (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
-          (lambda (port)
-            (table-load content port #f)))))
-    (set! modified? #f))
 
 
   (method public (save-content)

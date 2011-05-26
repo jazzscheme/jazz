@@ -40,7 +40,8 @@
 
 (import (jazz.debuggee)
         (jazz.io)
-        (jazz.system))
+        (jazz.system)
+        (jazz.ui.window))
 
 
 (class Server-Panel extends Object
@@ -60,10 +61,14 @@
   
   (method (run-loop server)
     (define input
-      (console-input-port))
+      #f)
     
     (define output
-      (console-output-port))
+      #f)
+    
+    (define (setup-input/output)
+      (set! input (console-input-port))
+      (set! output (console-output-port)))
     
     (define (process-command command)
       (call-with-input-string command
@@ -102,11 +107,17 @@
     
     (define (attach-command arguments)
       (let ((debugger (car arguments)))
-        (setup-debuggee debugger: debugger)
+        (execute-event
+          (lambda ()
+            (setup-debuggee debugger: debugger)
+            (start-repl-thread (current-thread) #f (get-console-port))
+            (select-console)))
+        (setup-input/output)
         (format output "Attached to debugger {a}{%}" debugger)))
     
     (define (detach-command arguments)
       (detach-from-controller)
+      (setup-input/output)
       (format output "Detached from debugger{%}"))
     
     (define (repl-command arguments)
@@ -213,6 +224,8 @@
     ;;;
     ;;;; Panel
     ;;;
+    
+    (setup-input/output)
     
     (format output "{a} Server v{a}{%}{%}" (server-name~ server) (present~ (server-version~ server)))
     (force-output output)

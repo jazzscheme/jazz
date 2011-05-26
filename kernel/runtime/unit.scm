@@ -1059,7 +1059,8 @@
 
 (define (jazz:load-debuggee)
   (jazz:load-debuggee-units)
-  (jazz:load-unit 'jazz.debuggee.setup))
+  (jazz:load-unit 'jazz.debuggee.setup)
+  (jazz:load-unit 'jazz.debuggee.update))
 
 
 (define (jazz:load-debuggee-units)
@@ -1260,18 +1261,14 @@
 
 
 (define (jazz:setup-product name)
-  (if (%%not jazz:debugger)
-      (jazz:get-product name)
-    (begin
+  (let ((product (jazz:get-product name)))
+    (let ((descriptor (%%product-descriptor product)))
       (set! jazz:process-name name)
-      (jazz:load-debuggee)
-      (let ((product (jazz:get-product name)))
-        (let ((descriptor (%%product-descriptor product)))
-          (set! jazz:process-name name)
-          (set! jazz:process-title (or (%%product-title product) (jazz:product-descriptor-title descriptor)))
-          (set! jazz:process-icon (or (%%product-icon product) (jazz:product-descriptor-icon descriptor)))
-          (jazz:load-unit 'jazz.debuggee.update)
-          product)))))
+      (set! jazz:process-title (or (%%product-title product) (jazz:product-descriptor-title descriptor)))
+      (set! jazz:process-icon (or (%%product-icon product) (jazz:product-descriptor-icon descriptor))))
+    (if jazz:debugger
+        (jazz:load-debuggee))
+    product))
 
 
 (define (jazz:register-product-run name proc)

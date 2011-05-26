@@ -207,7 +207,7 @@
     
     
     (define (jazz:get-continuation-location cont)
-      (jazz:locat->file/line/col (%%continuation-locat cont)))
+      (jazz:locat->container/line/col (%%continuation-locat cont)))
     
     
     (define (jazz:interpreted-continuation? cont)

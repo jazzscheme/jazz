@@ -192,7 +192,12 @@
   
   
   (method (on-select-location evt)
-    (edit-source))
+    (let ((user-origin (get-user-origin~ evt)))
+      (edit-source)
+      ;; as a quick solution we let the previous call give the focus to the document
+      ;; because a lot of framework behavior depends on a new document gaining focus
+      (when user-origin
+        (acquire-focus~ (locate 'calls)))))
   
   
   ;;;
@@ -264,18 +269,18 @@
           (remove-every-row~ tree)
           (let ((calls calls))
             
-           (with-update-locked~ tree
-                                (lambda ()
-                                  (for-each (lambda (call)
-                                              (bind (stack count . duration) call
-                                                (if (null? stack)
-                                                    (add-row~ tree children: (make-children "(interaction)" count duration) user-data: #f)
-                                                    (bind (head-frame . frames) stack
-                                                      (let ((row (add-row~ tree children: (make-children head-frame count duration) user-data: head-frame)))
-                                                        (for-each (lambda (frame)
-                                                                    (add-row~ tree father: row children: (make-children frame #f #f) user-data: frame))
-                                                                  frames))))))
-                                            (sort > calls key: second))))))))))
+            (with-update-locked~ tree
+              (lambda ()
+                (for-each (lambda (call)
+                            (bind (stack count . duration) call
+                              (if (null? stack)
+                                  (add-row~ tree children: (make-children "(interaction)" count duration) user-data: #f)
+                                (bind (head-frame . frames) stack
+                                  (let ((row (add-row~ tree children: (make-children head-frame count duration) user-data: head-frame)))
+                                    (for-each (lambda (frame)
+                                                (add-row~ tree father: row children: (make-children frame #f #f) user-data: frame))
+                                              frames))))))
+                          (sort > calls key: second))))))))))
 
 
 ;;;

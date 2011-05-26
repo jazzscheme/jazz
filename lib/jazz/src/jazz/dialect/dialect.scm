@@ -2596,27 +2596,25 @@
   
   (let ((out-list (generate-cotype-transform generate-out)))
     `(lambda (coptr ,@(generate-cotype-transform generate-in))
-               (let (,@(generate-cotype-transform generate-encode/enref))
-                 (let ((result (,lowlevel-name coptr ,@(generate-cotype-transform generate-low))))
-                   ,(if hresult?
-                        (if com-interface
-                            `(validate-hresult2 result coptr ,com-interface)
-                          `(validate-hresult result))
-                      '(begin))
-                   (let (,@(generate-cotype-transform generate-ref))
-                     (begin
-                       ,@(generate-cotype-transform generate-free))
-                     ,(if hresult?
-                          (case (%%length out-list)
-                            ((0)
-                             '(unspecified))
-                            ((1)
-                             (%%car out-list))
-                            (else
-                             `(values ,@out-list)))
-                        (if (%%fx= (%%length out-list) 0)
-                            'result
-                          `(values result ,@out-list)))))))))
+       (let (,@(generate-cotype-transform generate-encode/enref))
+         (let ((result (,lowlevel-name coptr ,@(generate-cotype-transform generate-low))))
+           (let (,@(generate-cotype-transform generate-ref))
+             ,@(generate-cotype-transform generate-free)
+             ,@(if hresult?
+                   (list
+                     (if com-interface
+                         `(validate-hresult2 result coptr ,com-interface)
+                       `(validate-hresult result))
+                     (case (%%length out-list)
+                       ((0)
+                        '(unspecified))
+                       ((1)
+                        (%%car out-list))
+                       (else
+                        `(values ,@out-list))))
+                 (if (%%fx= (%%length out-list) 0)
+                     '(result)
+                   `((values result ,@out-list))))))))))
 
 
 (define (get-cotype-default-value cotype)

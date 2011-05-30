@@ -2603,7 +2603,7 @@
              ,@(if hresult?
                    (list
                      (if com-interface
-                         `(validate-hresult2 result coptr ,com-interface)
+                         `(validate-hresult-with-errorinfo result coptr ,com-interface)
                        `(validate-hresult result))
                      (case (%%length out-list)
                        ((0)

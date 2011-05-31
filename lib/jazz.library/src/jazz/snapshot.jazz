@@ -100,8 +100,9 @@
 (definition (print-process-snapshot output (reason: reason #f) (exception: exception #f) (max-depth: max-depth (snapshot-max-depth)) (max-width: max-width (snapshot-max-width)) (max-content: max-content (snapshot-max-content)) (max-entries: max-entries (snapshot-max-entries)))
   (let ((values (make-table test: eq?)))
     (define package-info-serial first)
-    (define package-info-presentation second)
-    (define package-info-more? third)
+    (define package-info-class second)
+    (define package-info-presentation third)
+    (define package-info-more? fourth)
     
     (define (register-package-info info depth)
       (let ((serial (package-info-serial info)))
@@ -110,9 +111,10 @@
               ((and max-entries (>= (table-length values) max-entries))
                #f)
               (else
-               (let ((presentation (package-info-presentation info))
+               (let ((class (package-info-class info))
+                     (presentation (package-info-presentation info))
                      (content (if (package-info-more? info) (register-content serial (+ depth 1)) '())))
-                 (table-set! values serial (cons presentation content))
+                 (table-set! values serial (list class presentation content))
                  serial)))))
     
     (define (register-content serial depth)
@@ -224,9 +226,9 @@
       (format output "{%}")
       (format output "    (<values>")
       (for-each (lambda (info)
-                  (bind (serial presentation . content) info
+                  (bind (serial class presentation content) info
                     (format output "{%}")
-                    (format output "      (<value> serial: {a} presentation: {s}" serial presentation)
+                    (format output "      (<value> serial: {a} class: {s} presentation: {s}" serial class presentation)
                     (when (not-null? content)
                       (format output " content: {s}" content))
                     (format output ")")))

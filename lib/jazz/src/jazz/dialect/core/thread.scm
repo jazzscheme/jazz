@@ -45,6 +45,19 @@
 
 (cond-expand
   (gambit
+    (define jazz:disable-interrupts! ##disable-interrupts!)
+    (define jazz:enable-interrupts! ##enable-interrupts!))
+  
+  (else))
+
+
+;;;
+;;;; Thread
+;;;
+
+
+(cond-expand
+  (gambit
     (define jazz:current-thread current-thread)
     (define jazz:thread? thread?)
     (define jazz:make-thread make-thread)

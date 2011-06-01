@@ -1106,6 +1106,8 @@
 ;;;
 
 
+(native jazz:disable-interrupts!)
+(native jazz:enable-interrupts!)
 (native jazz:current-thread)
 (native jazz:thread?)
 (native jazz:make-thread)
@@ -1140,6 +1142,7 @@
 (native jazz:thread-state-normally-terminated-result)
 (native jazz:thread-state-normally-terminated?)
 (native jazz:thread-state-uninitialized?)
+(native jazz:thread-cont)
 (native jazz:pristine-thread-continuation)
 (native jazz:mutex?)
 (native jazz:make-mutex)

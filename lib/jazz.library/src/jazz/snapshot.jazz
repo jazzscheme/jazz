@@ -51,16 +51,13 @@
 (declare (proper-tail-calls))
 
 
-(definition *snapshots-directory*
+;;;
+;;;; Settings
+;;;
+
+
+(define-setting snapshots-directory
   {Directory Jazz-Settings "crashes"})
-
-
-(definition public (snapshots-directory)
-  *snapshots-directory*)
-
-(definition public (set-snapshots-directory dir)
-  (set! *snapshots-directory* dir))
-
 
 (define-setting snapshot-max-depth
   2)
@@ -75,47 +72,47 @@
   #f)
 
 
-(definition *snapshot-process-mutex*
-  (make-mutex 'snapshot-process))
+;;;
+;;;; Snapshot
+;;;
 
 
 (definition public (snapshot-process . rest)
-  (define (with-mutex proc)
-    (mutex-lock! *snapshot-process-mutex*)
-    (unwind-protect
-        (proc)
-      (mutex-unlock! *snapshot-process-mutex*)))
-  
-  (with-mutex
-    (lambda ()
-      (bind-keywords ((directory #f) . others) rest
-        (let ((file (timestamped-file (or directory *snapshots-directory*) (current-process-present) "snapshot")))
-          (create-directories~ file)
-          (call-with-output-file (path-settings file)
-            (lambda (output)
-              (apply print-process-snapshot output others)))
-          file)))))
+  (disable-interrupts!)
+  (prog1 (continuation-capture
+           (lambda (continuation)
+             (bind-keywords ((directory #f) . others) rest
+               (let ((file (timestamped-file (or directory (snapshots-directory)) (current-process-present) "snapshot")))
+                 (create-directories~ file)
+                 (call-with-output-file (path-settings file)
+                   (lambda (output)
+                     (apply print-process-snapshot continuation output others)))
+                 file))))
+    (enable-interrupts!)))
 
 
-(definition (print-process-snapshot output (reason: reason #f) (exception: exception #f) (max-depth: max-depth (snapshot-max-depth)) (max-width: max-width (snapshot-max-width)) (max-content: max-content (snapshot-max-content)) (max-entries: max-entries (snapshot-max-entries)))
-  (let ((values (make-table test: eq?)))
+(definition (print-process-snapshot continuation output (reason: reason #f) (exception: exception #f) (max-depth: max-depth (snapshot-max-depth)) (max-width: max-width (snapshot-max-width)) (max-content: max-content (snapshot-max-content)) (max-entries: max-entries (snapshot-max-entries)))
+  (let ((cache (make-table test: eqv?))
+        (content-cache (make-table test: eqv?)))
     (define package-info-serial first)
     (define package-info-class second)
     (define package-info-presentation third)
     (define package-info-more? fourth)
     
+    (define (package-value value)
+      (package-info value))
+    
     (define (register-package-info info depth)
       (let ((serial (package-info-serial info)))
-        (cond ((table-ref values serial #f)
+        (cond ((table-ref cache serial #f)
                serial)
-              ((and max-entries (>= (table-length values) max-entries))
+              ((and max-entries (>= (table-length cache) max-entries))
                #f)
               (else
-               (let ((class (package-info-class info))
-                     (presentation (package-info-presentation info))
-                     (content (if (package-info-more? info) (register-content serial (+ depth 1)) '())))
-                 (table-set! values serial (list class presentation content))
-                 serial)))))
+               (when (package-info-more? info)
+                 (let ((content (register-content serial (+ depth 1))))
+                   (table-set! content-cache serial content)))
+               serial))))
     
     (define (register-content serial depth)
       (if (< depth max-depth)
@@ -123,7 +120,7 @@
             (map (lambda (name+info)
                    (bind (name . info) name+info
                      (list name (register-package-info info depth))))
-                 (inspect-value value max-width: max-width max-content: max-content)))
+                 (inspect-value value max-width: max-width max-content: max-content cache: cache)))
         '()))
     
     (define (print-process)
@@ -150,25 +147,12 @@
     (define (print-threads)
       (format output "{%}")
       (format output "  (<threads>")
-      (continuation-capture
-        (lambda (continuation)
-          (print-thread (current-thread) continuation)))
-      (let ((mutex (make-mutex 'snapshot)))
-        (mutex-lock! mutex)
-        (for-each (lambda (thread)
-                    (with-exception-filter
-                      inactive-thread-exception?
-                      inactive-thread-exception?
-                      (lambda ()
-                        (when (and (neq? thread (current-thread)) (thread-state-active? (thread-state thread)))
-                          (thread-interrupt! thread
-                                             (lambda ()
-                                               (continuation-capture
-                                                 (lambda (continuation)
-                                                   (print-thread thread continuation)))
-                                               (mutex-unlock! mutex)))
-                          (mutex-lock! mutex)))))
-                  (top-threads)))
+      (print-thread (current-thread) continuation)
+      (for-each (lambda (thread)
+                  (when (and (neq? thread (current-thread)) (thread-state-active? (thread-state thread)))
+                    (let ((continuation (thread-cont thread)))
+                      (print-thread thread continuation))))
+                (top-threads))
       (format output ")"))
     
     (define (print-thread thread continuation)
@@ -194,48 +178,47 @@
       (format output ")"))
     
     (define (print-stack continuation)
-      (define (skip-snapshot-frames frames)
-        (let (iterate (frames frames) (scan frames))
-          (cond ((null? scan) frames)
-                ((eq? (get-continuation-name (car scan)) 'jazz.snapshot:snapshot-process) (iterate scan (cdr scan)))
-                (else (iterate frames (cdr scan))))))
-      
-      (let ((stack (skip-snapshot-frames (get-continuation-stack continuation #f))))
-        (loop (for cont in stack)
-              (do (let ((name (get-continuation-name cont))
-                        (location (get-continuation-location cont))
-                        (variables (get-continuation-lexical-environment cont)))
-                    (format output "{%}")
-                    (format output "      (<frame> name: {s}" name)
-                    (when location
-                      (format output " location: {s}" location))
-                    (loop (for variable in variables)
-                          (do (format output "{%}")
-                              (bind (name value mutable?) variable
-                                (let ((info (package-info value mutable?: mutable? max-width: max-width)))
-                                  (let ((serial (register-package-info info 0))
-                                        (presentation (package-info-presentation info)))
-                                    (let ((atomic? (and (atom? value)
-                                                        ;; this test is necessary as object->string can return a truncated unreadable string
-                                                        (< (string-length presentation) max-width))))
-                                      (format output "        (<variable> name: {s} serial: {s}{?: presentation: {a}~})" name serial atomic? presentation)))))))
-                    (format output ")")
-                    (force-output output))))))
+      (loop (for cont in (get-continuation-stack continuation #f))
+            (do (let ((name (get-continuation-name cont))
+                      (location (get-continuation-location cont))
+                      (variables (get-continuation-lexical-environment cont)))
+                  (format output "{%}")
+                  (format output "      (<frame> name: {s}" name)
+                  (when location
+                    (format output " location: {s}" location))
+                  (loop (for variable in variables)
+                        (do (format output "{%}")
+                            (bind (name value mutable?) variable
+                              (let ((info (package-info value mutable?: mutable? max-width: max-width cache: cache)))
+                                (let ((serial (register-package-info info 0))
+                                      (presentation (package-info-presentation info)))
+                                  (let ((atomic? (and (atom? value)
+                                                      ;; this test is necessary as object->string can return a truncated unreadable string
+                                                      (< (string-length presentation) max-width))))
+                                    (format output "        (<variable> name: {s} serial: {s}{?: presentation: {a}~})" name serial atomic? presentation)))))))
+                  (format output ")")
+                  (force-output output)))))
     
     (define (print-values)
       (format output "{%}")
       (format output "    (<values>")
       (for-each (lambda (info)
-                  (bind (serial class presentation content) info
+                  (bind (key serial class presentation more? mutable? kind) info
                     (format output "{%}")
                     (format output "      (<value> serial: {a} class: {s} presentation: {s}" serial class presentation)
-                    (when (not-null? content)
-                      (format output " content: {s}" content))
+                    (let ((content (table-ref content-cache serial '())))
+                      (when (not-null? content)
+                        (format output " content: {s}" content)))
                     (format output ")")))
-                (sort < (table->list values) key: car))
+                (sort < (table->list cache) key: car))
       (format output ")"))
   
     (print-process)))
+
+
+;;;
+;;;; Exception
+;;;
 
 
 (definition public (snapshot-exception-debugger (feedback: feedback #f))

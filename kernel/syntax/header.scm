@@ -255,12 +255,16 @@
 ;;;
 
 
+(define (jazz:thread-cont thread)
+  (macro-thread-cont thread))
+
+
 (define (jazz:btq-owner mutex)
   (macro-btq-owner mutex))
 
 
 ;;;
-;;;; Thread
+;;;; Various
 ;;;
 
 

@@ -58,7 +58,7 @@
   Unbound)
 
 
-(definition public (package-info value (kind: kind :value) (mutable?: mutable? #t) (max-width: max-width #f))
+(definition public (package-info value (kind: kind :value) (mutable?: mutable? #t) (max-width: max-width #f) (cache: cache #f))
   (define (more-value? value)
     (cond ((pair? value) #t)
           ((table? value) (> (table-length value) 0))
@@ -74,15 +74,19 @@
           (concatenate (subseq str 0 limit) "...")
         str)))
   
-  (let* ((unbound? (eq? value Unbound))
-         (raw? (eq? kind :raw))
-         (serial (object->serial value))
-         (class (category-identifier (class-of value)))
-         (presentation (cond (unbound? "<unbound>")
-                             (raw? (truncate (->string value)))
-                             (else (present-object value (or max-width presentation-limit)))))
-         (more? (if (or unbound? raw?) #f (or (memq? kind '(frame: context:)) (more-value? value)))))
-    (list serial class presentation more? mutable? kind)))
+  (let ((serial (object->serial value)))
+    (or (and cache (table-ref cache serial #f))
+        (let* ((unbound? (eq? value Unbound))
+               (raw? (eq? kind :raw))
+               (class (category-identifier (class-of value)))
+               (presentation (cond (unbound? "<unbound>")
+                                   (raw? (truncate (->string value)))
+                                   (else (present-object value (or max-width presentation-limit)))))
+               (more? (if (or unbound? raw?) #f (or (memq? kind '(frame: context:)) (more-value? value))))
+               (info (list serial class presentation more? mutable? kind)))
+          (when cache
+            (table-set! cache serial info))
+          info))))
 
 
 ;;;
@@ -94,7 +98,7 @@
   100)
 
 
-(definition public (inspect-value value (max-width: max-width #f) (max-content: max-content inspect-rank-limit))
+(definition public (inspect-value value (max-width: max-width #f) (max-content: max-content inspect-rank-limit) (packager: packager package-info))
   (define (inspect-structure struct)
     (let ((kind (structure-kind struct)))
       (let (iter (kind kind)
@@ -104,7 +108,7 @@
           (iter (kind-super kind)
                 (append (map (lambda (info)
                                (bind (name index) info
-                                 (cons name (package-info (structure-ref struct index kind)))))
+                                 (cons name (packager (structure-ref struct index kind)))))
                              (kind-fields kind))
                         fields))))))
   
@@ -114,10 +118,10 @@
       (cond ((>= rank max-content)
              (list (inspect-limit rank (+ rank (proper-length scan)))))
             ((pair? scan)
-             (cons (cons rank (package-info (car scan)))
+             (cons (cons rank (packager (car scan)))
                    (iter (cdr scan) (+ rank 1))))
             ((not (null? scan))
-             (list (cons 'rest (package-info scan))))
+             (list (cons 'rest (packager scan))))
             (else
              '()))))
   
@@ -128,7 +132,7 @@
     (map (lambda (pair)
            (bind (key . value) pair
              (cons (present-object key max-width)
-                   (package-info value))))
+                   (packager value))))
          (let ((lst (table->list table)))
            (if (> (table-length table) max-content)
                (append (sort-content (subseq lst 0 max-content))
@@ -144,13 +148,13 @@
     (let ((infos (collect (lambda (slot)
                             ;; when we forget to redefine core classes in jazz, slots are symbols
                             (if (symbol? slot)
-                                (cons slot (package-info "<core slot>" kind: :raw))
+                                (cons slot (packager "<core slot>" kind: :raw))
                               (let ((value (slot-value object (field-name slot))))
                                 (if (and (unspecified? value) (property? slot))
                                     (cons (field-name slot)
-                                          (package-info (read-property object slot) kind: :raw))
+                                          (packager (read-property object slot) kind: :raw))
                                   (cons (field-name slot)
-                                        (package-info value))))))
+                                        (packager value))))))
                           (class-slots (class-of object)))))
       @when-we-have-sorting-through-the-ui
       infos
@@ -158,7 +162,7 @@
   
   (define (inspect-limit displayed total)
     (let ((missing (- total displayed)))
-      (cons "..." (package-info (format "{a} missing of {a}" missing total) kind: :raw))))
+      (cons "..." (packager (format "{a} missing of {a}" missing total) kind: :raw))))
   
   (cond ((null/pair? value) (inspect-list value))
         ((table? value) (inspect-table value))

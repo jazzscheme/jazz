@@ -2497,19 +2497,22 @@
 
 
   (method public (view->tree pos <Point> (any?: any? #f) (uniform-height?: uniform-height? #f))
-    (let ((line (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->row (get-v~ pos))))
-          (col (h->col (get-h~ pos))))
-      (when (not line)
-        (set! line (v->merged-cells-line (get-v~ pos))))
-      (when (not col)
-        (set! col (h->merged-cells-col (get-h~ pos))))
-      (when (and line col (>= line 0))
-        (let ((cell (new Cell line col)))
-          (set! cell (get-top-cell cell))
-          (if any?
-              cell
-            (when (cell-visible? cell)
-              cell))))))
+    (define (top-cell line col)
+      (visible-cell (get-top-cell (new Cell line col))))
+    
+    (define (visible-cell cell)
+      (if any?
+          cell
+        (when (cell-visible? cell)
+          cell)))
+    
+    (let ((merge-cell (find-merged-cell pos)))
+      (if merge-cell
+          (top-cell (get-first-line~ merge-cell) (get-first-col~ merge-cell))
+        (let ((line (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->row (get-v~ pos))))
+              (col (h->col (get-h~ pos))))
+          (when (and line col (>= line 0))
+            (visible-cell (new Cell line col)))))))
 
 
   (method public (call-with-view->tree pos <Point> proc)
@@ -2547,28 +2550,13 @@
     (borders-left (get-borders col)))
 
 
-  (method public (h->merged-cells-col h)
+  (method public (find-merged-cell pos)
     (continuation-capture
       (lambda (return)
         (loop (for merge-cell in merge-cell-list)
               (let ((rect (merge-cell-rect merge-cell)))
-                (let ((left (get-left~ rect))
-                      (right (get-right~ rect)))
-                  (when (and (>= h left) (<= h right) (/= left right))
-                    (continuation-return return (get-first-col~ merge-cell))))))
-        #f)))
-
-
-  (method public (v->merged-cells-line v)
-    (continuation-capture
-      (lambda (return)
-        (loop (for merge-cell in merge-cell-list)
-              (let ((rect (merge-cell-rect merge-cell)))
-                (when rect
-                  (let ((top (get-top~ rect))
-                        (bottom (get-bottom~ rect)))
-                    (when (and (>= v top) (<= v bottom) (/= top bottom))
-                      (continuation-return return (get-first-line~ merge-cell)))))))
+                (when (in-rect? pos rect)
+                  (continuation-return return merge-cell))))
         #f)))
   
   

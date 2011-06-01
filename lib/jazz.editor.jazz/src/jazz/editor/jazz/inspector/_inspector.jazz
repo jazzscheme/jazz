@@ -58,7 +58,7 @@
   Unbound)
 
 
-(definition public (package-info value (kind: kind :value) (mutable?: mutable? #t) (max-width: max-width #f) (cache: cache #f))
+(definition public (package-info value (kind: kind :value) (mutable?: mutable? #t) (max-width: max-width #f))
   (define (more-value? value)
     (cond ((pair? value) #t)
           ((table? value) (> (table-length value) 0))
@@ -75,18 +75,16 @@
         str)))
   
   (let ((serial (object->serial value)))
-    (or (and cache (table-ref cache serial #f))
-        (let* ((unbound? (eq? value Unbound))
-               (raw? (eq? kind :raw))
-               (class (category-identifier (class-of value)))
-               (presentation (cond (unbound? "<unbound>")
-                                   (raw? (truncate (->string value)))
-                                   (else (present-object value (or max-width presentation-limit)))))
-               (more? (if (or unbound? raw?) #f (or (memq? kind '(frame: context:)) (more-value? value))))
-               (info (list serial class presentation more? mutable? kind)))
-          (when cache
-            (table-set! cache serial info))
-          info))))
+    (let* ((unbound? (eq? value Unbound))
+           (raw? (eq? kind :raw))
+           (class (category-identifier (class-of value)))
+           (presentation (cond (unbound? "<unbound>")
+                               (raw? (truncate (->string value)))
+                               (else (present-object value (or max-width presentation-limit)))))
+           (more? (cond ((or unbound? raw?) #f)
+                        ((memq? kind '(frame: context:)) #t)
+                        (else (more-value? value)))))
+      (list serial class presentation more? mutable? kind))))
 
 
 ;;;

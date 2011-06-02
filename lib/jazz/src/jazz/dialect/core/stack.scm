@@ -75,16 +75,19 @@
     
     
     (define (jazz:get-continuation-stack cont depth)
-      (let ((queue (jazz:new-queue)))
-        (let iter ((d 0)
-                   (cont cont))
-          (if (or (%%not depth) (%%fx< d depth))
-              (and cont
-                   (begin
-                     (jazz:enqueue queue cont)
-                     (iter (%%fx+ d 1)
-                           (%%continuation-next-frame cont #f))))))
-        (jazz:queue-list queue)))
+      (if (not (eqv? (##vector-ref cont 0) 0)) ; hack - gambit thread init with dummy continuation
+          (let ((queue (jazz:new-queue)))
+            (let iter ((d 0)
+                       (cont cont))
+                 (if (or (%%not depth) (%%fx< d depth))
+                     (and cont
+                          (begin
+                            (jazz:enqueue queue cont)
+                            (iter (%%fx+ d 1)
+                                  (%%continuation-next-frame cont #f))))))
+            (jazz:queue-list queue))
+        '()))
+      
     
     
     (define (jazz:collect-var-val var val-or-box cte queue)

@@ -99,16 +99,10 @@
 (definition public (inspect-value value (max-width: max-width #f) (max-content: max-content inspect-rank-limit) (packager: packager package-info))
   (define (inspect-structure struct)
     (let ((kind (structure-kind struct)))
-      (let (iter (kind kind)
-                 (fields '()))
-        (if (not kind)
-            fields
-          (iter (kind-super kind)
-                (append (map (lambda (info)
-                               (bind (name index) info
-                                 (cons name (packager (structure-ref struct index kind)))))
-                             (kind-fields kind))
-                        fields))))))
+      (map (lambda (info)
+             (bind (name index) info
+               (cons name (packager (structure-ref struct index kind)))))
+           (cached-kind-fields kind))))
   
   (define (inspect-list lst)
     (let (iter (scan lst)
@@ -167,4 +161,20 @@
         ((structure? value) (inspect-structure value))
         ((sequence? value) (inspect-list (coerce value List)))
         ((object? value) (inspect-object value))
-        (else '()))))
+        (else '())))
+
+
+;;;
+;;;; Kind
+;;;
+
+
+(definition kind-cache
+  (make-table test: eq?))
+
+
+(definition (cached-kind-fields kind)
+  (or (table-ref kind-cache kind #f)
+      (let ((fields (kind-fields kind)))
+        (table-set! kind-cache kind fields)
+        fields))))

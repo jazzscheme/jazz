@@ -1257,7 +1257,7 @@
     (let* ((start (get-start))
            (v (line->display-v (get-line~ start))))
       (scroll (new Point 0 (get-page-size 'vert)))
-      (let* ((line (display-v->row v))
+      (let* ((line (display-v->line v))
              (dest (new Cell line 0)))
         (if shift?
             (change-selection dest)
@@ -1268,7 +1268,7 @@
     (let* ((start (get-start))
            (v (line->display-v (get-line~ start))))
       (scroll (new Point 0 (- (get-page-size 'vert))))
-      (let* ((line (display-v->row v))
+      (let* ((line (display-v->line v))
              (dest (new Cell line 0)))
         (if shift?
             (change-selection dest)
@@ -1281,7 +1281,7 @@
       (- v top)))
   
   
-  (method (display-v->row v) <fx>
+  (method (display-v->line v) <fx>
     (let* ((top (- (get-v~ position)))
            (pos (new Point left-padding (+ top v)))
            (text (view->text pos)))
@@ -2743,12 +2743,21 @@
   
   
   (method public (view->text pos <Point>) <Cell>
+    (define (effective-line v)
+      (cond ((< v 0)
+             0)
+            ((>= v (get-visible-height~ model))
+             (get-limit))
+            (else
+             (v->line v))))
+    
     (let ((v (get-v~ pos)))
-      (if (< v 0)
-          {Cell 0 0}
-        (let* ((line (if (< v (get-visible-height~ model)) (v->row v) (get-limit)))
-               (par (get-paragraph line)))
-          (new Cell line (view->col~ par (- pos (get-position~ par))))))))
+      (let ((line (effective-line v)))
+        (assert line
+          (let ((par (get-paragraph line)))
+            (let ((col (view->col~ par (- pos (get-position~ par)))))
+              (assert col
+                (new Cell line col))))))))
   
   
   (method public (text->view pos <Cell>) <Point>

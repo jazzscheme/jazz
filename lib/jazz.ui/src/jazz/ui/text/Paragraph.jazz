@@ -552,16 +552,16 @@
   ;;;
   
   
-  (method protected (view->col view <Point>) <fx>
-    (let ((view (new Point (- (get-h~ view) (get-left-margin~ format)) (get-v~ view))))
+  (method protected (view->col pos <Point>) <fx>
+    (let ((pos (new Point (- (get-h~ pos) (get-left-margin~ format)) (max 0 (min (- (get-height) 1) (get-v~ pos))))))
       (continuation-capture
         (lambda (return)
           (for-each (lambda (line <Line>)
-                      (let ((col (view->col~ line view)))
+                      (let ((col (view->col~ line pos)))
                         (when col
                           (continuation-return return (+ (get-offset~ line) col)))))
                     lines)
-          (get-length)))))
+          #f))))
   
   
   (method protected (col->view col <fx>) <Point>
@@ -573,7 +573,8 @@
                              (view (col->view~ line (- col (get-offset~ line)) strict?)))
                         (when view
                           (continuation-return return (new Point (+ (paragraph-left) (get-h~ view)) (get-v~ view))))))
-                    lines)))))
+                    lines)
+          #f))))
   
   
   (method protected (col->view-extended col <fx>)
@@ -585,7 +586,8 @@
                              (view (col->view~ line (- col (get-offset~ line)) strict?)))
                         (when view
                           (continuation-return return (cons line (new Point (+ (paragraph-left) (get-h~ view)) (get-v~ view)))))))
-                    lines)))))
+                    lines)
+          #f))))
   
   
   (method protected (col->text col <fx>) <Cell>
@@ -598,18 +600,4 @@
                           (continuation-return return text)))
                       (set! last line))
                     lines)
-          (new Cell (get-rank~ last) (get-length~ last))))))
-  
-  
-  (method protected (text->col text)
-    )
-  
-  
-  ;; could be optimized...
-  (method protected (view->text view) <Cell>
-    (col->text (view->col view)))
-  
-  
-  ;; could be optimized...
-  (method protected (text->view text) <Point>
-    (col->view (text->col text)))))
+          (new Cell (get-rank~ last) (get-length~ last))))))))

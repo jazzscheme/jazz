@@ -90,6 +90,11 @@
 
 (definition (print-process-snapshot continuation output (reason: reason #f) (exception: exception #f) (max-depth: max-depth (snapshot-max-depth)) (max-width: max-width (snapshot-max-width)) (max-content: max-content (snapshot-max-content)))
   (let ((cache (make-table test: eqv?)))
+    (define package-info-serial first)
+    (define package-info-class second)
+    (define package-info-presentation third)
+    (define package-info-more? fourth)
+    
     (define (print-process)
       (define (present-process-version)
         (let ((process (get-process)))
@@ -162,7 +167,7 @@
                                                 (let ((info (package-info value mutable?: mutable? max-width: max-width)))
                                                   (table-set! cache serial info)
                                                   info))))
-                                  (let ((presentation (third info)))
+                                  (let ((presentation (package-info-presentation info)))
                                     (let ((atomic? (and (atom? value)
                                                         ;; this test is necessary as object->string can return a truncated unreadable string
                                                         (< (string-length presentation) max-width))))
@@ -172,7 +177,7 @@
     
     (define (print-values)
       (let ((content-cache (make-table test: eqv?)))
-        (let ((depth-values (map (lambda (kv) (serial->object (second kv))) (table->list cache))))
+        (let ((depth-values (map (lambda (kv) (serial->object (package-info-serial (cdr kv)))) (table->list cache))))
           (loop (repeat max-depth)
                 (let ((missed-values '()))
                   (define (packager value (kind: kind :value))
@@ -185,17 +190,17 @@
                           serial))))
                   
                   (for-each (lambda (value)
-                              (unless (port? value) ; hack - boomsky with buffers
-                                (let ((content (inspect-value value max-width: max-width max-content: max-content packager: packager)))
-                                  (unless (null? content)
-                                    (let ((serial (object->serial value)))
+                              (let ((serial (object->serial value)))
+                                (when (package-info-more? (table-ref cache serial))
+                                  (let ((content (inspect-value value max-width: max-width max-content: max-content packager: packager)))
+                                    (unless (null? content)
                                       (table-set! content-cache serial content))))))
                             depth-values)
                   (set! depth-values missed-values))))
         (format output "{%}")
         (format output "    (<values>")
-        (for-each (lambda (info)
-                    (bind (key serial class presentation more? mutable? kind) info
+        (for-each (lambda (kv)
+                    (bind (key serial class presentation more? mutable? kind) kv
                       (format output "{%}")
                       (format output "      (<value> serial: {a} class: {s} presentation: {s}" serial class presentation)
                       (let ((content (table-ref content-cache serial '())))

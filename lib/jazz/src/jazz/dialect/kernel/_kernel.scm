@@ -1143,6 +1143,7 @@
 (native jazz:thread-state-normally-terminated?)
 (native jazz:thread-state-uninitialized?)
 (native jazz:thread-cont)
+(native jazz:thread-continuation)
 (native jazz:pristine-thread-continuation)
 (native jazz:mutex?)
 (native jazz:make-mutex)

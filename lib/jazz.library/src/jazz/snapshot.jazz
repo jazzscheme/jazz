@@ -66,10 +66,7 @@
   32768)
 
 (define-setting snapshot-max-content
-  100)
-
-(define-setting snapshot-max-entries
-  #f)
+  256)
 
 
 ;;;
@@ -91,13 +88,8 @@
     (enable-interrupts!)))
 
 
-(definition (print-process-snapshot continuation output (reason: reason #f) (exception: exception #f) (max-depth: max-depth (snapshot-max-depth)) (max-width: max-width (snapshot-max-width)) (max-content: max-content (snapshot-max-content)) (max-entries: max-entries (snapshot-max-entries)))
+(definition (print-process-snapshot continuation output (reason: reason #f) (exception: exception #f) (max-depth: max-depth (snapshot-max-depth)) (max-width: max-width (snapshot-max-width)) (max-content: max-content (snapshot-max-content)))
   (let ((cache (make-table test: eqv?)))
-    (define package-info-serial first)
-    (define package-info-class second)
-    (define package-info-presentation third)
-    (define package-info-more? fourth)
-    
     (define (print-process)
       (define (present-process-version)
         (let ((process (get-process)))
@@ -124,10 +116,10 @@
       (format output "  (<threads>")
       (print-thread (current-thread) continuation)
       (for-each (lambda (thread)
-                  (when (and (neq? thread (current-thread))
-                             (thread-state-active? (thread-state thread)))
-                    (let ((continuation (thread-cont thread)))
-                      (print-thread thread continuation))))
+                  (when (neq? thread (current-thread))
+                    (let ((continuation (thread-continuation thread)))
+                      (when continuation
+                        (print-thread thread continuation)))))
                 (top-threads))
       (format output ")"))
     
@@ -153,9 +145,6 @@
         (print-stack continuation))
       (format output ")"))
     
-    (define fo
-      force-output)
-    
     (define (print-stack continuation)
       (loop (for cont in (get-continuation-stack continuation #f))
             (do (let ((name (get-continuation-name cont))
@@ -165,7 +154,6 @@
                   (format output "      (<frame> name: {s}" name)
                   (when location
                     (format output " location: {s}" location))
-                  (fo output)
                   (loop (for variable in variables)
                         (do (format output "{%}")
                             (bind (name value mutable?) variable
@@ -174,12 +162,11 @@
                                                 (let ((info (package-info value mutable?: mutable? max-width: max-width)))
                                                   (table-set! cache serial info)
                                                   info))))
-                                  (let ((presentation (package-info-presentation info)))
+                                  (let ((presentation (third info)))
                                     (let ((atomic? (and (atom? value)
                                                         ;; this test is necessary as object->string can return a truncated unreadable string
                                                         (< (string-length presentation) max-width))))
-                                      (format output "        (<variable> name: {s} serial: {s}{?: presentation: {a}~})" name serial atomic? presentation)
-                                      (fo output))))))))
+                                      (format output "        (<variable> name: {s} serial: {s}{?: presentation: {a}~})" name serial atomic? presentation))))))))
                   (format output ")")
                   (force-output output)))))
     
@@ -192,7 +179,7 @@
                     (let ((serial (object->serial value)))
                       (if (table-ref cache serial #f)
                           serial
-                        (let ((info (package-info value kind: kind)))
+                        (let ((info (package-info value kind: kind max-width: max-width)))
                           (table-set! cache serial info)
                           (set! missed-values (cons value missed-values))
                           serial))))

@@ -461,14 +461,6 @@
 
 
 (jazz:define-method (jazz:lookup-declaration (jazz:Namespace-Declaration namespace-declaration) symbol access source-declaration)
-  (define (add-to-module-references declaration)
-    (%%when (and declaration
-                 (%%neq? namespace-declaration (%%get-declaration-toplevel declaration)))
-      (let* ((module-declaration (%%get-declaration-toplevel namespace-declaration))
-             (references-table (%%get-module-declaration-walker-references module-declaration)))
-        (%%when (%%neq? module-declaration (%%get-declaration-toplevel declaration))
-          (%%table-set! references-table (%%get-declaration-locator declaration) declaration)))))
-  
   (define (add-to-hits declaration)
     (%%when (and declaration source-declaration (jazz:analysis-mode?))
       (let ((hits-table (jazz:get-lexical-binding-hits declaration)))
@@ -477,7 +469,7 @@
         (%%set-analysis-data-autoload-reference (jazz:get-analysis-data (%%get-declaration-locator declaration)) declaration))))
   
   (let ((found (%%table-ref (%%get-access-lookup namespace-declaration access) symbol #f)))
-    (add-to-module-references found)
+    (jazz:add-to-module-references namespace-declaration found)
     (add-to-hits found)
     found))
 
@@ -626,6 +618,15 @@
                       (%%get-lexical-binding-name module-declaration)
                       suffix
                       conflicts))))))
+
+
+(define (jazz:add-to-module-references namespace-declaration method-declaration)
+  (%%when (and method-declaration
+               (%%neq? namespace-declaration (%%get-declaration-toplevel method-declaration)))
+    (let* ((module-declaration (%%get-declaration-toplevel namespace-declaration))
+           (references-table (%%get-module-declaration-walker-references module-declaration)))
+      (%%when (%%neq? module-declaration (%%get-declaration-toplevel method-declaration))
+        (%%table-set! references-table (%%get-declaration-locator method-declaration) method-declaration)))))
 
 
 (define (jazz:generate-reference-list module-declaration)

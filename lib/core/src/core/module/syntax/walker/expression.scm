@@ -603,11 +603,13 @@
                              (let ((function-type (%%get-lexical-binding-type specializer)))
                                (if (jazz:match-signature? arguments types function-type)
                                    (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration environment)
-                                       (jazz:new-code
-                                         (let ((locator (%%get-declaration-locator specializer)))
-                                           `(,locator ,@(jazz:codes-forms arguments-codes)))
-                                         (%%get-function-type-result function-type)
-                                         #f))
+                                       (begin
+                                         (jazz:add-to-module-references (%%get-declaration-toplevel declaration) specializer)
+                                         (jazz:new-code
+                                           (let ((locator (%%get-declaration-locator specializer)))
+                                             `(,locator ,@(jazz:codes-forms arguments-codes)))
+                                           (%%get-function-type-result function-type)
+                                           #f)))
                                  (iter (%%cdr scan))))))))))
             #f)))))
 

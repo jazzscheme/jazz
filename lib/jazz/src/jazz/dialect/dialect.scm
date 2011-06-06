@@ -1388,14 +1388,6 @@
                 #f))
           #f)))
     
-    (define (add-to-module-references namespace-declaration method-declaration)
-      (%%when (and method-declaration
-                   (%%neq? namespace-declaration (%%get-declaration-toplevel method-declaration)))
-        (let* ((module-declaration (%%get-declaration-toplevel namespace-declaration))
-               (references-table (%%get-module-declaration-walker-references module-declaration)))
-          (%%when (%%neq? module-declaration (%%get-declaration-toplevel method-declaration))
-            (%%table-set! references-table (%%get-declaration-locator method-declaration) method-declaration)))))
-    
     (define (lookup-method/warn object-code)
       (let ((method-declaration (lookup-method object-code)))
         (if (%%not method-declaration)
@@ -1404,7 +1396,7 @@
                   (jazz:debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'find 'dispatch 'method name))
               #f)
           (begin
-            (add-to-module-references declaration method-declaration)
+            (jazz:add-to-module-references declaration method-declaration)
             method-declaration))))
     
     (let ((object-argument (%%car arguments))

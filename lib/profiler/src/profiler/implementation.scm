@@ -118,7 +118,7 @@
 
 
 (define (make-profile label profiler depth)
-  (%%vector 'profile label profiler depth 0 0 #f '()))
+  (%%vector 'profile label profiler depth 0 0 #f (%%make-table test: equal?)))
 
 
 (define (profile-label profile)
@@ -241,14 +241,19 @@
       (profile-depth-set! profile depth))
   (profile-calls-count-set! profile 0)
   (profile-calls-duration-set! profile 0)
-  (profile-calls-set! profile '()))
+  (profile-calls-set! profile (%%make-table test: equal?)))
 
 
 (define (profile-register-call profile stack duration)
   (profile-calls-count-set! profile (+ (profile-calls-count profile) 1))
   (profile-calls-duration-set! profile (+ (profile-calls-duration profile) duration))
-  (profile-calls-set! profile
-                      (cons (list (or stack '((<unknown> #f))) duration) (profile-calls profile))))
+  (let* ((calls (profile-calls profile))
+         (key (or stack '((<unknown> #f))))
+         (call (%%table-ref calls key #f)))
+    (if call
+        (%%table-set! calls key
+                      (list (+ 1 (car call)) (+ (cadr call) duration)))
+        (%%table-set! calls key (list 1 duration)))))
 
 
 (define (profiler-real-time)

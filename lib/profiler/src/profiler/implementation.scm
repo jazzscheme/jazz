@@ -319,7 +319,7 @@
 ;;;
 
 
-(define (get-cont-stack-for-profile cont depth profiler)
+(define (get-continuation-stack-for-profile cont depth profiler)
   (define (continuation-creator cont)
     (let ((proc (%%continuation-creator cont)))
       (if (and proc (%%closure? proc))

@@ -63,11 +63,12 @@
           (parameterize ((*in-profile-heartbeat?* #t))
             (##thread-heartbeat!)            
             (let ((profile (active-profile)))
-              (profile-register-call profile
-                                     (get-cont-stack-for-profile cont
-                                                                 (profile-depth profile)
-                                                                 (profile-profiler profile))
-                                     0)))))))
+              (%%when profile
+                (profile-register-call profile
+                                       (get-continuation-stack-for-profile cont
+                                                                           (profile-depth profile)
+                                                                           (profile-profiler profile))
+                                       0))))))))
 
 
 ;;;

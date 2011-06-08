@@ -61,7 +61,7 @@
   
   
   (method override (new-syntax)
-    (new SQL-Syntax))
+    (new SQL-Syntax model))
   
   
   (method meta override (external-name . rest)
@@ -91,22 +91,6 @@
 
   
   ;;;
-  ;;;; Completion
-  ;;;
-
-
-  (method override (favorite-completions)
-    (get-completions~ (get-preferences '(documents sql-text))))
-  
-  
-  (method override (commented? pos)
-    (let ((style (get-style-at pos)))
-      (and style
-           (or (inherits?~ style 'Title)
-               (inherits?~ style 'Line-Comment)))))
-
-  
-  ;;;
   ;;;; Tabulation
   ;;;
 
@@ -114,238 +98,6 @@
   (method override (return-press key)
     (nextmethod key)
     (tabulate))
-
-
-  ;;;
-  ;;;; Explorer
-  ;;;
-
-
-  (method override (explorer-class)
-    SQL-Explorer)
- 
-  
-  ;;;
-  ;;;; Expr
-  ;;;
-
-
-  (method override (current-name)
-    (name-at (current-expr-range)))
-  
-  
-  (method (name-at range)
-    (when range
-      (let ((name (get-string range)))
-        (when (> (cardinality name) 0)
-          (if (eqv? (element name 0) #\open-brace)
-              (read-string-element name)
-            name)))))
-
-
-  (method override (current-expr)
-    (current-name))
-  
-  
-  (method override (current-expr-range)
-    (or (effective-selection)
-        (expr-range (get-end))))
-  
-  
-  (method override (expr-at pos)
-    (name-at (expr-range pos)))
-
-  
-  ;;;
-  ;;;; Chapters
-  ;;;
-  
-  
-  (constant headers
-    (list
-      "--- "))
-  
-  
-  (method override (get-headers)
-    headers)
-  
-  
-  (method override (get-first-special?)
-    #f)
-
-  
-  ;;;
-  ;;;; Definitions
-  ;;;
-  
-  
-  (constant Definitions
-    '("*"))
-  
-  
-  (definition (get-definitions)
-    Definitions)
-
-  
-  ;;;
-  ;;;; Keywords
-  ;;;
-  
-  
-  (constant Keywords
-    '(;"="
-      ;"<>"
-      ;"<"
-      ;"<="
-      ;">"
-      ;">="
-      ;"("
-      ;")"
-      ;";"
-      "ACTION"
-      "ADD"
-      "ALL"
-      "ALTER"
-      "AND"
-      "ANY"
-      "APPLY"
-      "AS"
-      "ASC"
-      "BEGIN"
-      "BETWEEN"
-      "BY"
-      "CASCADE"
-      "CASE"
-      "CAST"
-      "CHECK"
-      "CLUSTERED"
-      "COLLATE"
-      "COMMIT"
-      "CONSTRAINT"
-      "CONTAINS"
-      "COUNT"
-      "CREATE"
-      "CROSS"
-      "CURSOR"
-      "DECLARE"
-      "DEFAULT"
-      "DEFINE"
-      "DELETE"
-      "DESC"
-      "DISTINCT"
-      "DROP"
-      "ELSE"
-      "END"
-      "EXEC"
-      "EXECUTE"
-      "EXISTS"
-      "FILLFACTOR"
-      "FOR"
-      "FOREIGN"
-      "FROM"
-      "FULL"
-      "GROUP"
-      "HAVING"
-      "IN"
-      "INNER"
-      "INSENSITIVE"
-      "INSERT"
-      "INTO"
-      "IS"
-      "JOIN"
-      "KEY"
-      "LEFT"
-      "LIKE"
-      "MAX"
-      "MIN"
-      "MODIFY"
-      "NO"
-      "NOCHECK"
-      "NONCLUSTERED"
-      "NOT"
-      "NULL"
-      "OF"
-      "ON"
-      "OR"
-      "ORDER"
-      "OUTER"
-      "PARAMETERS"
-      "PIVOT"
-      "PRIMARY"
-      "PRINT"
-      "PROC"
-      "PROCEDURE"
-      "REFERENCES"
-      "REPLICATION"
-      "RETURN"
-      "RIGHT"
-      "ROWGUIDCOL"
-      "SELECT"
-      "SET"
-      "SOME"
-      "SUM"
-      "TABLE"
-      "TEXTIMAGE_ON"
-      "THEN"
-      "TOP"
-      "TRANSACTION"
-      "TRANSFORM"
-      "TRIGGER"
-      "TRUNCATE"
-      "UNION"
-      "UNIQUE"
-      "UPDATE"
-      "VALUES"
-      "VIEW"
-      "WHEN"
-      "WHERE"
-      "WITH"))
-  
-  
-  (method protected virtual (get-keywords)
-    Keywords)
-
-  
-  ;;;
-  ;;;; Coloring
-  ;;;
-  
-  
-  (definition Syntax-Targets
-    #f)
-  
-  (definition Syntax-Automata
-    #f)
-  
-  
-  (method override (syntax-targets)
-    (unless Syntax-Targets
-      (set! Syntax-Targets (compute-syntax-targets)))
-    Syntax-Targets)
-  
-  
-  (method override (syntax-automata)
-    (unless Syntax-Automata
-      (set! Syntax-Automata (compute-syntax-automata)))
-    Syntax-Automata)
-  
-  
-  (method override (compute-syntax-targets)
-    (append (list (list "--" 'line-comment #f))
-            (map (lambda (str) (list str 'definition)) (get-definitions))
-            (map (lambda (str) (list str 'keyword)) (get-keywords))))
-        
-  
-  (method override (compute-syntax-automata)
-    (build-search-automata (syntax-targets) #t #t sql-constituent?))
-  
-  
-  (method override (colorize-type found type start end colorizer recolorize?)
-    (case type
-      ((line-comment) (colorize-line-comment found start end colorizer 'Line-Comment 'Title #\minus))
-      ((definition)   (colorize-keyword      found start end colorizer 'Definition))
-      ((keyword)      (colorize-keyword      found start end colorizer 'Keyword))
-      (else (nextmethod found type start end colorizer recolorize?))))
   
   
   ;;;
@@ -356,8 +108,8 @@
   (method override (evaluate-selection)
     (define (statement-range)
       (let* ((pos (statement-pos))
-             (start (text-search ";" start: pos reversed?: #t))
-             (end (text-search ";" start: pos)))
+             (start (text-search~ model ";" start: pos reversed?: #t))
+             (end (text-search~ model ";" start: pos)))
         (new Range$Cell$
           (if start (next-pos start 1) (text-beginning))
           (if end end (text-ending)))))

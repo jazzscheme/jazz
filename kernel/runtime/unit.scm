@@ -240,6 +240,10 @@
 (set! jazz:jazz-source jazz:kernel-source)
 
 
+(define jazz:kernel-source-access?
+  (or jazz:source-access? (not jazz:product)))
+
+
 (define jazz:kernel-binary-repositories
   jazz:binary-repositories)
 
@@ -317,7 +321,7 @@
             (%%list jazz)
           '())))
   
-  (let ((source-access? (or jazz:source-access? (not jazz:product))))
+  (let ((source-access? jazz:kernel-source-access?))
     (let ((build (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t create?: #t))
           (jazz (and source-access? (jazz:make-repository 'Jazz "lib" (or (jazz:jazz-repository) jazz:kernel-source))))
           (binary-repositories (or (and source-access? jazz:kernel-binary-repositories) '()))
@@ -1055,11 +1059,12 @@
 
 (define (jazz:load-debuggee)
   (jazz:load-debuggee-units)
-  (jazz:load-unit 'jazz.debuggee.setup))
+  (jazz:load-unit 'jazz.debuggee.setup)
+  (jazz:load-unit 'jazz.debuggee.update))
 
 
 (define (jazz:load-debuggee-units)
-  (jazz:load-unit 'core.module)
+  (jazz:load-foundation)
   (jazz:load-unit 'jazz)
   (jazz:load-unit 'jazz.debuggee)
   (jazz:load-unit 'jazz.debuggee.Debuggee-Frame)
@@ -1256,18 +1261,14 @@
 
 
 (define (jazz:setup-product name)
-  (if (%%not jazz:debugger)
-      (jazz:get-product name)
-    (begin
+  (let ((product (jazz:get-product name)))
+    (let ((descriptor (%%product-descriptor product)))
       (set! jazz:process-name name)
-      (jazz:load-debuggee)
-      (let ((product (jazz:get-product name)))
-        (let ((descriptor (%%product-descriptor product)))
-          (set! jazz:process-name name)
-          (set! jazz:process-title (or (%%product-title product) (jazz:product-descriptor-title descriptor)))
-          (set! jazz:process-icon (or (%%product-icon product) (jazz:product-descriptor-icon descriptor)))
-          (jazz:load-unit 'jazz.debuggee.update)
-          product)))))
+      (set! jazz:process-title (or (%%product-title product) (jazz:product-descriptor-title descriptor)))
+      (set! jazz:process-icon (or (%%product-icon product) (jazz:product-descriptor-icon descriptor))))
+    (if jazz:debugger
+        (jazz:load-debuggee))
+    product))
 
 
 (define (jazz:register-product-run name proc)
@@ -1368,8 +1369,7 @@
           (build-library (%%product-build-library product))
           (descriptor (%%product-descriptor product)))
       (jazz:feedback "make {a}" name)
-      (jazz:load-unit 'core.module)
-      (jazz:load-unit 'core.unit.builder)
+      (jazz:load-build)
             
       (if build
           (build descriptor)
@@ -1770,6 +1770,15 @@
                       (jazz:load-resource src)))))
               (else
                (jazz:error "Unable to find unit: {s}" unit-name)))))))
+
+
+(define (jazz:load-foundation)
+  (jazz:load-unit 'core.module))
+
+
+(define (jazz:load-build)
+  (jazz:load-foundation)
+  (jazz:load-unit 'core.unit.builder))
 
 
 ;;;

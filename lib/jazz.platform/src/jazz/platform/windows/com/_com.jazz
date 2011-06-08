@@ -140,7 +140,7 @@
      (throw (new COM-Exception hresult #f)))))
 
 
-(definition public (validate-hresult2 hresult iunknown refiid)
+(definition public (validate-hresult-with-errorinfo hresult iunknown refiid)
   (define (extract-errorinfo-message)
     (receive (result isupport) (CoQueryNoValidate iunknown (com-interface-guid ISupportErrorInfo))
       (when (= result S_OK)
@@ -406,10 +406,10 @@
     coptr))
 
 
-(com-external HRESULT (CoQuery (in GUID) (out IUnknown**)) #f 0)
-(com-external ULONG (CoQueryNoValidate (in GUID*) (out IUnknown**)) #f 0)
-(com-external ULONG (CoAddRef) #f 1)
-(com-external ULONG (CoRelease) #f 2)
+(com-external (CoQuery (in GUID) (out IUnknown**)) HRESULT #f 0)
+(com-external (CoQueryNoValidate (in GUID*) (out IUnknown**)) ULONG #f 0)
+(com-external (CoAddRef) ULONG #f 1)
+(com-external (CoRelease) ULONG #f 2)
 
 
 (definition public (CoCreateInstance class interface)
@@ -598,7 +598,8 @@
   (DECIMAL* pdecVal)
   (IUnknown* punkVal)
   (VARIANT_BOOL* pboolVal)
-  (INT intVal))
+  (INT intVal)
+  (ulong ulVal))
 
 
 (definition public VariantInit
@@ -652,6 +653,8 @@
      (VariantTimeToSystemTime (VARIANT-dblVal-ref variant)))
     ((8) ; VT_BSTR
      (BSTR-ref (VARIANT-bstrVal-ref variant)))
+    ((10) ; VT_ERROR
+     (VARIANT-ulVal-ref variant))
     ((11) ; VT_BOOL
      (boolean->truth (/= 0 (VARIANT-boolVal-ref variant))))
     ((13)
@@ -735,11 +738,11 @@
   (com-interface "1CF2B120-547D-101B-8E65-08002B2BD119"))
 
 
-(com-external ULONG (IErrorInfo$GetGUID (out GUID*)) #f 3)
-(com-external ULONG (IErrorInfo$GetSource (out BSTR*)) #f 4)
-(com-external ULONG (IErrorInfo$GetDescription (out BSTR*)) #f 5)
-(com-external ULONG (IErrorInfo$GetHelpFile (out BSTR*)) #f 6)
-(com-external ULONG (IErrorInfo$GetHelpContext (out DWORD*)) #f 7)
+(com-external (IErrorInfo$GetGUID (out GUID*)) ULONG #f 3)
+(com-external (IErrorInfo$GetSource (out BSTR*)) ULONG #f 4)
+(com-external (IErrorInfo$GetDescription (out BSTR*)) ULONG #f 5)
+(com-external (IErrorInfo$GetHelpFile (out BSTR*)) ULONG #f 6)
+(com-external (IErrorInfo$GetHelpContext (out DWORD*)) ULONG #f 7)
 
 
 (definition public (GetErrorInfo)
@@ -761,7 +764,7 @@
   (com-interface "DF0B3D60-548F-101B-8E65-08002B2BD119"))
 
 
-(com-external ULONG (ISupportErrorInfo$InterfaceSupportsErrorInfo (in GUID*)) #f 3)
+(com-external (ISupportErrorInfo$InterfaceSupportsErrorInfo (in GUID*)) ULONG #f 3)
 
 
 ;;;

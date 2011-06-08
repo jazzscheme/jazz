@@ -96,6 +96,10 @@
   (get-parameter arg identity setting identity default))
 
 
+(definition public (symbol-parameter arg setting (default (unspecified)))
+  (get-parameter arg read-string-element setting identity default))
+
+
 @convert
 (definition public (pathname-argument name)
   (let ((arg (command-argument name)))
@@ -141,7 +145,7 @@
 
 
   (slot file      initialize #f)
-  (slot content   initialize #f)
+  (slot content   initialize (make-table test: eq?))
   (slot modified? initialize #f)
   
   
@@ -155,9 +159,16 @@
 
 
   (method public (set-file value)
+    (define (load-content)
+      (with-jazz-readtable
+        (lambda ()
+          (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
+            (lambda (port)
+              (table-load content port #f)))))
+      (set! modified? #f))
+    
     (set! file value)
-    (if (not file)
-        (set! content #f)
+    (when file
       (load-content)))
 
 
@@ -168,16 +179,6 @@
   (method public (set-setting setting value)
     (table-set! content setting value)
     (set! modified? #t))
-
-
-  (method public (load-content)
-    (set! content (make-table test: eq?))
-    (with-jazz-readtable
-      (lambda ()
-        (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
-          (lambda (port)
-            (table-load content port #f)))))
-    (set! modified? #f))
 
 
   (method public (save-content)
@@ -280,7 +281,7 @@
 (definition public (sort-predicates)
   (if (sort-case-sensitive?)
       (values nu=? nu<? nu>?)
-    (values ci=? ci<? ci>?)))
+    (values di=? di<? di>?)))
 
 
 (definition public (sort-predicate name)
@@ -549,19 +550,6 @@
 
 
 ;;;
-;;;; Performance
-;;;
-
-
-(definition public inline (get-performance-frequency)
-  (QueryPerformanceFrequency))
-
-
-(definition public inline (get-performance-counter)
-  (QueryPerformanceCounter))
-
-
-;;;
 ;;;; Process
 ;;;
 
@@ -586,5 +574,4 @@
 
 
 (definition public (initialize-system)
-  @w(profiler-performance-frequency-set! get-performance-frequency)
-  @w(profiler-performance-counter-set! get-performance-counter)))
+  ))

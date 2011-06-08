@@ -41,64 +41,59 @@
 (import (jazz.debuggee)
         (jazz.editor.jazz.inspector)
         (jazz.io)
+        (jazz.library)
         (jazz.locale)
         (jazz.platform)
         (jazz.system)
         (time))
 
 
-(definition *snapshots-directory*
+(declare (proper-tail-calls))
+
+
+;;;
+;;;; Settings
+;;;
+
+
+(define-setting snapshots-directory
   {Directory Jazz-Settings "crashes"})
 
+(define-setting snapshot-max-depth
+  2)
 
-(definition *snapshot-process-mutex*
-  (make-mutex 'snapshot-process))
+(define-setting snapshot-max-width
+  1024)
+
+(define-setting snapshot-max-content
+  256)
+
+
+;;;
+;;;; Snapshot
+;;;
 
 
 (definition public (snapshot-process . rest)
-  (define (with-mutex proc)
-    (mutex-lock! *snapshot-process-mutex*)
-    (unwind-protect
-        (proc)
-      (mutex-unlock! *snapshot-process-mutex*)))
-  
-  (with-mutex
-    (lambda ()
-      (bind-keywords ((directory #f) . others) rest
-        (let ((file (timestamped-file (or directory *snapshots-directory*) (current-process-present) "snapshot")))
-          (create-directories~ file)
-          (call-with-output-file (path-settings file)
-            (lambda (output)
-              (apply print-process-snapshot output others)))
-          file)))))
+  (disable-interrupts!)
+  (prog1 (continuation-capture
+           (lambda (continuation)
+             (bind-keywords ((directory #f) . others) rest
+               (let ((file (timestamped-file (or directory (snapshots-directory)) (current-process-present) "snapshot")))
+                 (create-directories~ file)
+                 (call-with-output-file (path-settings file)
+                   (lambda (output)
+                     (apply print-process-snapshot continuation output others)))
+                 file))))
+    (enable-interrupts!)))
 
 
-(definition (print-process-snapshot output (reason: reason #f) (exception: exception #f) (max-depth: max-depth 2) (max-width: max-width 256) (max-content: max-content 100) (max-entries: max-entries #f))
-  (let ((values (make-table test: eq?)))
+(definition (print-process-snapshot continuation output (reason: reason #f) (exception: exception #f) (max-depth: max-depth (snapshot-max-depth)) (max-width: max-width (snapshot-max-width)) (max-content: max-content (snapshot-max-content)))
+  (let ((cache (make-table test: eqv?)))
     (define package-info-serial first)
-    (define package-info-presentation second)
-    (define package-info-more? third)
-    
-    (define (register-package-info info depth)
-      (let ((serial (package-info-serial info)))
-        (cond ((table-ref values serial #f)
-               serial)
-              ((and max-entries (>= (table-length values) max-entries))
-               #f)
-              (else
-               (let ((presentation (package-info-presentation info))
-                     (content (if (package-info-more? info) (register-content serial (+ depth 1)) '())))
-                 (table-set! values serial (cons presentation content))
-                 serial)))))
-    
-    (define (register-content serial depth)
-      (if (< depth max-depth)
-          (let ((value (serial->object serial)))
-            (map (lambda (name+info)
-                   (bind (name . info) name+info
-                     (list name (register-package-info info depth))))
-                 (inspect-value value max-width: max-width max-content: max-content)))
-        '()))
+    (define package-info-class second)
+    (define package-info-presentation third)
+    (define package-info-more? fourth)
     
     (define (print-process)
       (define (present-process-version)
@@ -124,25 +119,13 @@
     (define (print-threads)
       (format output "{%}")
       (format output "  (<threads>")
-      (continuation-capture
-        (lambda (continuation)
-          (print-thread (current-thread) continuation)))
-      (let ((mutex (make-mutex 'snapshot)))
-        (mutex-lock! mutex)
-        (for-each (lambda (thread)
-                    (with-exception-filter
-                      inactive-thread-exception?
-                      inactive-thread-exception?
-                      (lambda ()
-                        (when (and (neq? thread (current-thread)) (thread-state-active? (thread-state thread)))
-                          (thread-interrupt! thread
-                                             (lambda ()
-                                               (continuation-capture
-                                                 (lambda (continuation)
-                                                   (print-thread thread continuation)))
-                                               (mutex-unlock! mutex)))
-                          (mutex-lock! mutex)))))
-                  (top-threads)))
+      (print-thread (current-thread) continuation)
+      (for-each (lambda (thread)
+                  (when (neq? thread (current-thread))
+                    (let ((continuation (thread-continuation thread)))
+                      (when continuation
+                        (print-thread thread continuation)))))
+                (top-threads))
       (format output ")"))
     
     (define (print-thread thread continuation)
@@ -168,51 +151,71 @@
       (format output ")"))
     
     (define (print-stack continuation)
-      (define (skip-snapshot-frames frames)
-        (let (iterate (frames frames) (scan frames))
-          (cond ((null? scan) frames)
-                ((eq? (get-continuation-name (car scan)) 'jazz.snapshot.snapshot-process) (iterate scan (cdr scan)))
-                (else (iterate frames (cdr scan))))))
-      
-      (let ((stack (skip-snapshot-frames (get-continuation-stack continuation #f))))
-        (loop (for cont in stack)
-              (do (let ((name (get-continuation-name cont))
-                        (location (get-continuation-location cont))
-                        (variables (get-continuation-lexical-environment cont)))
-                    (format output "{%}")
-                    (format output "      (<frame> name: {a}" name)
-                    (when location
-                      (format output " location: {s}" location)
-                      (let ((unit (find-pathname-unit (car location))))
-                        (when unit
-                          (format output " unit: {s}" unit))))
-                    (loop (for variable in variables)
-                          (do (format output "{%}")
-                              (bind (name value mutable?) variable
-                                (let ((info (package-info value mutable?: mutable? max-width: max-width)))
-                                  (let ((serial (register-package-info info 0))
-                                        (presentation (package-info-presentation info)))
+      (loop (for cont in (get-continuation-stack continuation #f))
+            (do (let ((name (get-continuation-name cont))
+                      (location (get-continuation-location cont))
+                      (variables (get-continuation-lexical-environment cont)))
+                  (format output "{%}")
+                  (format output "      (<frame> name: {s}" name)
+                  (when location
+                    (format output " location: {s}" location))
+                  (loop (for variable in variables)
+                        (do (format output "{%}")
+                            (bind (name value mutable?) variable
+                              (let ((serial (object->serial value)))
+                                (let ((info (or (table-ref cache serial #f)
+                                                (let ((info (package-info value mutable?: mutable? max-width: max-width)))
+                                                  (table-set! cache serial info)
+                                                  info))))
+                                  (let ((presentation (package-info-presentation info)))
                                     (let ((atomic? (and (atom? value)
                                                         ;; this test is necessary as object->string can return a truncated unreadable string
                                                         (< (string-length presentation) max-width))))
-                                      (format output "        (<variable> name: {s} serial: {s}{?: presentation: {a}~})" name serial atomic? presentation)))))))
-                    (format output ")")
-                    (force-output output))))))
+                                      (format output "        (<variable> name: {s} serial: {s}{?: presentation: {a}~})" name serial atomic? presentation))))))))
+                  (format output ")")
+                  (force-output output)))))
     
     (define (print-values)
-      (format output "{%}")
-      (format output "    (<values>")
-      (for-each (lambda (info)
-                  (bind (serial presentation . content) info
-                    (format output "{%}")
-                    (format output "      (<value> serial: {a} presentation: {s}" serial presentation)
-                    (when (not-null? content)
-                      (format output " content: {s}" content))
-                    (format output ")")))
-                (sort < (table->list values) key: car))
-      (format output ")"))
+      (let ((content-cache (make-table test: eqv?)))
+        (let ((depth-values (map (lambda (kv) (serial->object (package-info-serial (cdr kv)))) (table->list cache))))
+          (loop (repeat max-depth)
+                (let ((missed-values '()))
+                  (define (packager value (kind: kind :value))
+                    (let ((serial (object->serial value)))
+                      (if (table-ref cache serial #f)
+                          serial
+                        (let ((info (package-info value kind: kind max-width: max-width)))
+                          (table-set! cache serial info)
+                          (set! missed-values (cons value missed-values))
+                          serial))))
+                  
+                  (for-each (lambda (value)
+                              (let ((serial (object->serial value)))
+                                (when (package-info-more? (table-ref cache serial))
+                                  (let ((content (inspect-value value max-width: max-width max-content: max-content packager: packager)))
+                                    (unless (null? content)
+                                      (table-set! content-cache serial content))))))
+                            depth-values)
+                  (set! depth-values missed-values))))
+        (format output "{%}")
+        (format output "    (<values>")
+        (for-each (lambda (kv)
+                    (bind (key serial class presentation more? mutable? kind) kv
+                      (format output "{%}")
+                      (format output "      (<value> serial: {a} class: {s} presentation: {s}" serial class presentation)
+                      (let ((content (table-ref content-cache serial '())))
+                        (when (not-null? content)
+                          (format output " content: {s}" content)))
+                      (format output ")")))
+                  (sort < (table->list cache) key: car))
+        (format output ")")))
   
     (print-process)))
+
+
+;;;
+;;;; Exception
+;;;
 
 
 (definition public (snapshot-exception-debugger (feedback: feedback #f))

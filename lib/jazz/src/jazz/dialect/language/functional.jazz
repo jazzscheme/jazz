@@ -260,7 +260,9 @@
 
 
 (definition public inline (coerce object <Object> class <Class>)
-  (coerce-object~ class object))
+  (if (is? object class)
+      object
+    (coerce-object~ class object)))
 
 
 (definition public (allocate class <Class> size <int>)
@@ -1049,6 +1051,10 @@
     (compare-object obj))
   
   
+  (method override (di-compare-object obj)
+    (compare-object obj))
+  
+  
   (method override (numeric-norm)
     (abs self))
   
@@ -1572,7 +1578,6 @@
   
   
   (method override (coerce-object seq)
-    ;; add List optimization
     (let ((len (cardinality seq)))
       (let ((new-sequence (allocate-sequence len)))
         (loop (for n from 0 below len)
@@ -2859,7 +2864,15 @@
   
   
   (method override (allocate-sequence len)
-    (make-list len)))
+    (make-list len))
+  
+  
+  (method override (coerce-object seq)
+    (let ((queue (new-queue)))
+      (iterate seq
+               (lambda (object)
+                 (enqueue queue object)))
+      (queue-list queue))))
 
 
 (class primitive List metaclass List-Class extends Sequence
@@ -2938,6 +2951,12 @@
   (method override (compare-object obj)
     (if (null? obj)
         :equal
+      :not-equal))
+  
+  
+  (method override (di-compare-object obj)
+    (if (null? obj)
+        :equal
       :not-equal)))
 
 
@@ -2963,6 +2982,26 @@
                     :greater)
                    (else
                     (compare left right)))))
+          (else :not-equal))
+      :not-equal))
+
+
+  (method override (di-compare-object obj)
+    (if (pair? obj)
+        (case (di-compare (car self) (car obj))
+          ((:less) :less)
+          ((:greater) :greater)
+          ((:equal)
+           (let ((left (cdr self))
+                 (right (cdr obj)))
+             (cond ((and (null? left) (null? right))
+                    :equal)
+                   ((null? left)
+                    :less)
+                   ((null? right)
+                    :greater)
+                   (else
+                    (di-compare left right)))))
           (else :not-equal))
       :not-equal))
   
@@ -4023,9 +4062,9 @@
     (force-output thread-port)))
 
 
-(definition package (thread-read)
+(definition package (thread-read (timeout: timeout +infinity))
   (let ((thread-port (get-thread-port (current-thread))))
-    (input-port-timeout-set! thread-port +infinity)
+    (input-port-timeout-set! thread-port timeout)
     (read thread-port)))
 
 
@@ -4350,14 +4389,6 @@
 
 (specialize (allocate class <category<Axis>> size <fx>) <Axis>
   (new-axis size))
-
-
-(specialize (coerce seq class <category<Axis>>) <Axis>
-  (let ((len <fx> (cardinality seq)))
-    (let ((new-sequence (allocate class len)))
-      (loop (for n from 0 below len)
-            (set-element! new-sequence n (element seq n)))
-      new-sequence)))
 
 
 (specialize inline as axis-ref (element axis <Axis> n <fx>) <object>
@@ -4902,6 +4933,10 @@
         (print-unreadable self output
           (lambda (output)
             (system-format output "{s}" str))))))
+  
+  
+  (method public (print-content output)
+    (display (substring sequence start (+ start size)) output))
   
   
   (method override (sequence-element n <fx>) <any>

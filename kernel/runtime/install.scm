@@ -91,9 +91,9 @@
   (else))
 
 
-(set! jazz:executable-directory
-      (lambda ()
-        (let ((path (platform-executable-path)))
-          (if path
-              (jazz:pathname-dir (jazz:pathname-normalize path))
-            #f)))))
+(jazz:define-variable-override jazz:executable-directory
+  (lambda ()
+    (let ((path (platform-executable-path)))
+      (if path
+          (jazz:pathname-dir (jazz:pathname-normalize path))
+        #f)))))

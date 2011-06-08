@@ -187,23 +187,19 @@
 
 (definition public (post-stop exc)
   (continuation-capture
-    (lambda (continuation)
-      (let ((reason (exception-reason exc))
-            (detail (exception-detail exc)))
-        (thread-write
-          (primordial-thread)
-          (lambda ()
-            (invoke-debugger 'exception reason detail exc continuation)))))))
+    (lambda (cont)
+      (thread-write
+        (primordial-thread)
+        (lambda ()
+          (jazz-handle-exception exc cont))))))
 
 
 (definition public (post-continuation cont)
   (let ((exc (new Error message: "Posted continuation")))
-    (let ((reason (exception-reason exc))
-          (detail (exception-detail exc)))
-      (thread-write
-        (primordial-thread)
-        (lambda ()
-          (invoke-debugger 'exception reason detail exc cont))))))
+    (thread-write
+      (primordial-thread)
+      (lambda ()
+        (jazz-handle-exception exc cont)))))
 
 
 ;;;
@@ -547,7 +543,10 @@
                   (command cmd arguments console console-read console-eval console-print))
               (let ((frame (current-frame)))
                 (let ((evaluator (frame-evaluator frame)))
-                  (eval-in-context context frame evaluator expr))))))))
+                  (catch (Walk-Problems problems
+                           (display-exception problems)
+                           (unspecified))
+                    (eval-in-context context frame evaluator expr)))))))))
     
     (define (console-print result)
       (when (and (thread-call-result? result)
@@ -678,6 +677,17 @@
 
 
 (definition public (jazz-exception-debugger exc)
+  (continuation-capture
+    (lambda (cont)
+      (jazz-handle-exception exc cont))))
+
+
+(definition public (with-jazz-exception-debugger thunk)
+  (with-exception-debugger jazz-exception-debugger
+    thunk))
+
+
+(definition (jazz-handle-exception exc cont)
   (let ((debugger (get-controller-debugger))
         (use (use-debugger?)))
     (if (or (not debugger) (not use))
@@ -686,16 +696,9 @@
         (lambda ()
           (when (eq? use 'once)
             (use-debugger? #f))
-          (continuation-capture
-            (lambda (continuation)
-              (let ((reason (exception-reason exc))
-                    (detail (exception-detail exc)))
-                (invoke-debugger 'exception reason detail exc continuation)))))))))
-
-
-(definition public (with-jazz-exception-debugger thunk)
-  (with-exception-debugger jazz-exception-debugger
-    thunk))
+          (let ((reason (exception-reason exc))
+                (detail (exception-detail exc)))
+            (invoke-debugger 'exception reason detail exc cont)))))))
 
 
 (definition public (local-debugger?)
@@ -767,7 +770,7 @@
   *advices*)
 
 
-;; a.b.c/d/e (a.b.c d e)
+;; a.b.c:d/e (a.b.c d e)
 (definition protected (advise-internal what proc)
   (define (advise-all)
     (iterate-table (get-modules)
@@ -775,7 +778,8 @@
         (advise-module module))))
   
   (define (advise-symbol symbol)
-    (advise-path (split-symbol symbol #\:)))
+    (receive (module-name name) (break-reference symbol)
+      (advise-path (cons module-name (if (not name) '() (split-symbol name #\/))))))
   
   (define (advise-path path)
     (bind (module-name . rest) path
@@ -983,6 +987,7 @@
            (new Debuggee-Restart-Local-Proxy (new Debuggee-Restart thread restart)))
          (current-restarts)))
   
+  (enable-interrupts!)
   (release-load-mutex!)
   (release-catalog-entries)
   (let ((thread (current-thread))

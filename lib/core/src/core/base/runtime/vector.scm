@@ -38,6 +38,10 @@
 (unit protected core.base.runtime.vector
 
 
+(define (jazz:unsafe-vector-set! vector index object)
+  (##vector-set! vector index object))
+
+
 (define (jazz:vector-for-each proc vector)
   (let ((len (%%vector-length vector)))
     (let iter ((n 0))

@@ -123,22 +123,22 @@
 (jazz:define-option jazz:default-safety
   'release)
 
-(jazz:define-option jazz:default-optimize
+(jazz:define-option jazz:default-optimize?
   #t)
 
-(jazz:define-option jazz:default-debug-environments
+(jazz:define-option jazz:default-debug-environments?
   #t)
 
-(jazz:define-option jazz:default-debug-location
+(jazz:define-option jazz:default-debug-location?
   #t)
 
-(jazz:define-option jazz:default-debug-source
+(jazz:define-option jazz:default-debug-source?
   #f)
 
-(jazz:define-option jazz:default-mutable-bindings
+(jazz:define-option jazz:default-mutable-bindings?
   #f)
 
-(jazz:define-option jazz:default-kernel-interpret
+(jazz:define-option jazz:default-kernel-interpret?
   #f)
 
 (jazz:define-option jazz:default-destination
@@ -597,7 +597,7 @@
 
 
 (define (jazz:require-optimize? optimize)
-  (jazz:or-option optimize (jazz:default-optimize)))
+  (jazz:or-option optimize (jazz:default-optimize?)))
 
 
 (define (jazz:validate-optimize? optimize)
@@ -617,7 +617,7 @@
 
 
 (define (jazz:require-debug-environments? debug-environments)
-  (jazz:or-option debug-environments (jazz:default-debug-environments)))
+  (jazz:or-option debug-environments (jazz:default-debug-environments?)))
 
 
 (define (jazz:validate-debug-environments? debug-environments)
@@ -637,7 +637,7 @@
 
 
 (define (jazz:require-debug-location? debug-location)
-  (jazz:or-option debug-location (jazz:default-debug-location)))
+  (jazz:or-option debug-location (jazz:default-debug-location?)))
 
 
 (define (jazz:validate-debug-location? debug-location)
@@ -657,7 +657,7 @@
 
 
 (define (jazz:require-debug-source? debug-source)
-  (jazz:or-option debug-source (jazz:default-debug-source)))
+  (jazz:or-option debug-source (jazz:default-debug-source?)))
 
 
 (define (jazz:validate-debug-source? debug-source)
@@ -677,7 +677,7 @@
 
 
 (define (jazz:require-mutable-bindings? mutable-bindings)
-  (jazz:or-option mutable-bindings (jazz:default-mutable-bindings)))
+  (jazz:or-option mutable-bindings (jazz:default-mutable-bindings?)))
 
 
 (define (jazz:validate-mutable-bindings? mutable-bindings)
@@ -697,7 +697,7 @@
 
 
 (define (jazz:require-kernel-interpret? kernel-interpret)
-  (jazz:or-option kernel-interpret (jazz:default-kernel-interpret)))
+  (jazz:or-option kernel-interpret (jazz:default-kernel-interpret?)))
 
 
 (define (jazz:validate-kernel-interpret? kernel-interpret)
@@ -1064,7 +1064,7 @@
                                      (if image
                                          (string-append ":" (symbol->string image))
                                        ""))))
-        (jazz:call-process "sh" `(,jam "make" ,argument)))))
+        (jazz:call-process (list path: "sh" arguments: `(,jam "make" ,argument))))))
   
   (if local?
       (build-kernel configuration image)
@@ -1079,11 +1079,12 @@
 (define (jazz:make-product product configuration link jobs)
   (jazz:make-kernel configuration #f #f)
   (jazz:call-process
-     (string-append (jazz:configuration-directory configuration) "kernel")
-     `("-make"
-       ,(symbol->string product) "-:daqD"
-       ,@(if link `("-link" ,(symbol->string link)) '())
-       ,@(if jobs `("-jobs" ,(number->string jobs)) '()))))
+     (list
+       path: (string-append (jazz:configuration-directory configuration) "kernel")
+       arguments: `("-make"
+                    ,(symbol->string product) "-:daqD"
+                    ,@(if link `("-link" ,(symbol->string link)) '())
+                    ,@(if jobs `("-jobs" ,(number->string jobs)) '())))))
 
 
 ;;;
@@ -1477,6 +1478,7 @@
 
 
 (define (jazz:load-kernel-base)
+  (load (string-append jazz:source "kernel/runtime/product"))
   (load (string-append jazz:source "kernel/runtime/base")))
 
 

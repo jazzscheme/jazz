@@ -58,10 +58,6 @@
   (slot console-port   initialize #f accessors generate)
   (slot console-pump   initialize #f accessors generate)
   (slot partial-line   initialize #f)
-  
-  
-  (form
-    (<install> base-style: {Text-Style Code-Base} wrap?: #t left-padding: 2))
 
   
   (method meta override (external-name . rest)
@@ -76,12 +72,14 @@
     #t)
   
   
-  (method override (propagate-styles?)
-    #f)
+  (method override (new-model)
+    (new Text-Model base-style: {Text-Style Code-Base} wrap?: #t left-padding: 2))
 
   
   (method override (install rest)
     (nextmethod rest)
+    (set-propagate-styles?~ model #f)
+    (set-colorize?~ syntax #f)
     (let ((pref (preferences)))
       (add-style 'Banner  (get-banner-style~ pref))
       (add-style 'Prompt  (get-prompt-style~ pref))
@@ -172,10 +170,8 @@
       (nextmethod)))
   
   
-  (method override (scrollee-size)
-    (if wrap?
-        (new Dimension (get-display-width) (scrollee-height))
-      (nextmethod)))
+  (method override (scrollee-width)
+    (get-display-width))
 
 
   (method override (context-menu pos)
@@ -209,7 +205,7 @@
         (unless (empty-string? command)
           (display command console-port)
           (force-output console-port)
-          (set-style range (get-style 'Input))
+          (set-style~ model range (get-style 'Input))
           (reset-inserted)))))
   
   
@@ -283,15 +279,6 @@
   
   (method override (current-history-item)
     #f)
-
-
-  ;;;
-  ;;;; Coloring
-  ;;;
-      
-  
-  (method override (recolorize-text start end-line)
-    )
   
 
   ;;;
@@ -304,17 +291,17 @@
       ((banner)
        (with-formatted-range input
          (lambda (range)
-           (set-style range (get-style 'Banner))
+           (set-style~ model range (get-style 'Banner))
            (set! banner (get-string range)))))
       ((banner-prompt)
        (with-formatted-range input
          (lambda (range)
-           (set-style range (get-style 'Prompt))
+           (set-style~ model range (get-style 'Prompt))
            (set! banner-prompt (get-string range)))))
       ((prompt)
        (with-formatted-range input
          (lambda (range)
-           (set-style range (get-style 'Prompt)))))
+           (set-style~ model range (get-style 'Prompt)))))
       (else
        (nextmethod directive input))))
 
@@ -325,19 +312,19 @@
   
   
   (method protected (backward-style pos predicate)
-    (let ((explorer (new (explorer-class) self start: pos end: pos)))
+    (let ((explorer (new (explorer-class) model start: pos end: pos)))
       (backward-style~ explorer predicate)
       (get-range~ explorer)))
   
   
   (method protected (forward-style pos predicate)
-    (let ((explorer (new (explorer-class) self start: pos end: pos)))
+    (let ((explorer (new (explorer-class) model start: pos end: pos)))
       (forward-style~ explorer predicate)
       (get-range~ explorer)))
   
   
   (method protected (select-style pos predicate)
-    (let ((explorer (new (explorer-class) self start: pos end: pos)))
+    (let ((explorer (new (explorer-class) model start: pos end: pos)))
       (select-style~ explorer predicate)
       (get-range~ explorer)))
     
@@ -375,7 +362,7 @@
   
   
   (method public (fresh-prompt)
-    (set-style (block-at (get-end)) (get-style 'Comment))
+    (set-style~ model (block-at (get-end)) (get-style 'Comment))
     (let ((end (text-ending)))
       (set-caret end)
       (let ((prompt-range (last-prompt)))

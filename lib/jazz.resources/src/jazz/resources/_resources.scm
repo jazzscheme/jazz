@@ -63,7 +63,7 @@
       (copy-files "lib/jazz.resources/resources/sounds"))
     
     (jazz:custom-compile/build '() unit: unit pre-build: copy-resource-directories force?: force?)
-    (jazz:update-product-descriptor descriptor)))
+    (jazz:build-product-descriptor descriptor)))
 
 
 ;;;

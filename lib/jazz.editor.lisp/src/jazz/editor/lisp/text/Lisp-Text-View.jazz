@@ -47,6 +47,7 @@
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.search)
         (jazz.ui.view))
 
 
@@ -84,7 +85,7 @@
     
   
   (method override (new-syntax)
-    (new Lisp-Syntax))
+    (new Lisp-Syntax model))
 
   
   ;;;
@@ -142,224 +143,9 @@
         (nextmethod key modifiers)
       (if (shift-key? modifiers)
           (insert-char #\tab)
-        (with-atomic-undo~ undoer
+        (with-atomic-undo~ (get-undoer~ model)
           (lambda ()
             (tabulate))))))
-  
-  
-  ;;;
-  ;;;; Coloring
-  ;;;
-  
-  
-  (method override (colorize-syntax (recoloring?: recoloring? #f))
-    (nextmethod entries?: #f)
-    (with-safe-explore
-      (lambda ()
-        (let ((expl <Text-Explorer> (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
-              (colorizer (and (not recoloring?) (new-colorizer self))))
-          (colorize-declarations expl colorizer)
-          (when colorizer
-            (finish-current~ colorizer)))
-        (let ((expl <Text-Explorer> (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
-              (colorizer (and (not recoloring?) (new-colorizer self))))
-          (colorize-comments expl colorizer)
-          (when colorizer
-            (finish-current~ colorizer))))))
-  
-  
-  (definition Syntax-Targets
-    #f)
-  
-  (definition Syntax-Automata
-    #f)
-  
-  
-  (method override (syntax-targets)
-    (unless Syntax-Targets
-      (set! Syntax-Targets (compute-syntax-targets)))
-    Syntax-Targets)
-  
-  
-  (method override (syntax-automata)
-    (unless Syntax-Automata
-      (set! Syntax-Automata (compute-syntax-automata)))
-    Syntax-Automata)
-  
-  
-  (method override (compute-syntax-targets)
-    Syntax-Targets)
-  
-  
-  (method override (compute-syntax-automata)
-    (let ((targets (syntax-targets)))
-      (when targets
-        (build-search-automata targets #t #f text-constituent?))))
-  
-  
-  (method override (colorize-type found type start end colorizer recolorize?)
-    )
-  
-  
-  (method override (colorize-declarations expl colorizer)
-    (walk-declarations~ expl
-      #f
-      ;; declaration
-      (lambda (context kind symbol start end marked documented?)
-        (when (and marked (not (memq? kind '(script anonymous))) (not (memq? symbol '(getter setter))))
-          (apply-coloring colorizer start end (declaration-style documented?))))
-      ;; keyword
-      (lambda (context start end)
-        (apply-coloring colorizer start end 'Declaration-Keyword))
-      ;; expression
-      (lambda (context start end mode kind)
-        (case kind
-          ((symbol)
-           @wait-no-easy-way-to-recolorize-when-on-multiple-lines
-           (when (memq? mode '(quote quasiquote))
-             (apply-coloring #f start end 'Quotation)))
-          ((keyword)
-           ;; This test doesn't work because of our use of a Colorizer
-           @wait-fix
-           (when (eq? (get-name~ (get-style-at start)) 'Base)
-             (apply-coloring colorizer start end 'Keyword)))
-          ((tag)
-           (colorize-tag colorizer start end))
-          ((specifier)
-           (colorize-specifier colorizer start end))
-          ((char)
-           (apply-coloring colorizer start end 'Char))
-          ((number)
-           @wait-this-is-too-much
-           (apply-coloring colorizer start end 'Number))
-          ((boolean)
-           (apply-coloring colorizer start end 'Boolean))
-          ((string)
-           (apply-coloring colorizer start end 'String))
-          ((delimited-string)
-           (apply-coloring colorizer start end 'Delimited-String))
-          ((named-string)
-           (apply-coloring colorizer start end 'Named-String))
-          ((expr-comment)
-           (apply-coloring colorizer start end 'Expr-Comment))
-          ((named-comment)
-           (apply-coloring colorizer start end 'Named-Comment))
-          ((literal)
-           @wait-buggy-because-of-coloring-within-coloring
-           (apply-coloring colorizer start end 'Literal))
-          ((feature)
-           (apply-coloring colorizer start end 'Feature))))
-      (get-documentation-cataloguer~ (get-application))))
-  
-  
-  (method protected virtual (colorize-tag colorizer start end)
-    )
-  
-  
-  (method protected virtual (colorize-specifier colorizer start end)
-    )
-  
-  
-  (method protected virtual (declaration-style documented?)
-    )
-  
-  
-  (method override (colorize-comments expl colorizer (start: start #f) (end: end #f))
-    (for-each-comment~ expl
-      (lambda (start <Cell> end <Cell> title?)
-        (let* ((line (get-line~ start))
-               (len (paragraph-length line))
-               (end (new Cell line len)))
-          (if (not title?)
-              (apply-coloring colorizer start end 'Comment)
-            (apply-coloring colorizer start (+ start 4) 'Comment)
-            (apply-coloring colorizer (+ start 4) end 'Title))))
-      start-line: start
-      end-line: end))
-
-  
-  (method override (recolorize-text start end-line)
-    (define (recolorize-declarations start-line end-line)
-      (define (explorer)
-        (let* ((str (paragraph-string start-line))
-               (col (skip-whitespace str))
-               (pos (new Cell start-line col)))
-          (new (explorer-class) self start: pos end: pos)))
-      
-      (catch Explore-Error
-        (let ((expl <Text-Explorer> (explorer))
-              (colorizer (new-colorizer self)))
-          (continuation-capture
-            (lambda (exit)
-              (set-line-hook~ expl
-                (lambda (expl)
-                  (when (> (get-line~ (get-end~ expl)) end-line)
-                    (continuation-return exit))))
-              (let (iterate)
-                (colorize-declarations expl colorizer)
-                (when (exit-list~ expl)
-                  (iterate)))))
-          (finish-current~ colorizer))))
-    
-    (define (recolorize-comments start-line end-line)
-      (define (explorer)
-        (let* ((str (paragraph-string start-line))
-               (col (skip-whitespace str))
-               (pos (new Cell start-line col)))
-          (new (explorer-class) self start: pos end: pos)))
-      
-      (catch Explore-Error
-        (let ((expl <Text-Explorer> (explorer))
-              (colorizer (new-colorizer self)))
-          (continuation-capture
-            (lambda (exit)
-              (set-line-hook~ expl
-                (lambda (expl)
-                  (when (> (get-line~ (get-end~ expl)) end-line)
-                    (continuation-return exit))))
-              (colorize-comments expl colorizer start: start-line end: end-line)))
-          (finish-current~ colorizer))))
-    
-    (nextmethod start end-line)
-    (recolorize-declarations (get-line~ start) end-line)
-    (recolorize-comments (get-line~ start) end-line))
-  
-  
-  ;;;
-  ;;;; Completion
-  ;;;
-  
-  
-  (definition Comment-Styles
-    '(Title Comment))
-  
-  (definition String-Styles
-    '(String Delimited-String Named-String))
-  
-  
-  (method override (commented? pos)
-    (comment-style? (get-style-at pos)))
-  
-  
-  (method override (comment-style? style)
-    (some? (lambda (style-name)
-             (inherits?~ style style-name))
-           Comment-Styles))
-  
-  
-  (method override (string-style? style)
-    (some? (lambda (style-name)
-             (inherits?~ style style-name))
-           String-Styles))
-  
-  
-  (method override (textual-style? style)
-    (or (comment-style? style)
-        (string-style? style)))
-
-
-  (method override (favorite-completions)
-    (get-completions~ (preferences)))
 
   
   ;;;
@@ -386,13 +172,13 @@
   
   
   (method (on-tabulate evt)
-    (with-atomic-undo~ undoer
+    (with-atomic-undo~ (get-undoer~ model)
       (lambda ()
         (tabulate))))
 
 
   (method override (return-press key)
-    (with-atomic-undo~ undoer
+    (with-atomic-undo~ (get-undoer~ model)
       (lambda ()
         (nextmethod key)
         (tabulate))))
@@ -473,7 +259,7 @@
                           (cdr lst)))))
     
     (let* ((pos (new Cell line 0))
-           (expl <Text-Explorer> (new (explorer-class) self start: pos))
+           (expl <Text-Explorer> (new (explorer-class) model start: pos))
            (expressions (remove-specifiers (remove-expression-comments~ expl (collect-backward-exprs~ expl))))
            (opening (- (get-start~ expl) 1))
            (count (length expressions))
@@ -550,14 +336,14 @@
     (define (collect-declaration-names)
       (let ((start (get-start~ range))
             (end (get-end~ range)))
-        (let ((expl (new (explorer-class) self start: start end: start))
+        (let ((expl (new (explorer-class) model start: start end: start))
               (queue (new-queue)))
           (when (forward-expr~ expl)
             (let (iterate)
               (let ((s (get-start~ expl))
                     (e (get-end~ expl)))
                 (cond ((nu<=? e end)
-                       (let ((form (read-text-form (get-range~ expl))))
+                       (let ((form (read-text-form~ syntax (get-range~ expl))))
                          (let ((name (form-name~ expl form)))
                            (when name
                              (enqueue queue name))))
@@ -579,42 +365,6 @@
   
   (method protected virtual (prepare-expressions range)
     )
-  
-  
-  ;;;
-  ;;;; Expr
-  ;;;
-
-
-  (method override (current-name)
-    (let ((range (current-expr-range)))
-      (when range
-        (get-string range))))
-
-
-  (method override (current-expr)
-    (let ((range (current-expr-range)))
-      (when range
-        (range-expr range))))
-  
-  
-  (method override (range-expr range)
-    (with-readtable (get-readtable)
-      (lambda ()
-        (read-string-element (get-string range)))))
-  
-  
-  (method (current-symbol)
-    (let ((expr (current-expr)))
-      (when (symbol? expr)
-        expr)))
-  
-  
-  (method override (expr-at pos)
-    (let ((string (get-string (expr-range pos))))
-      (with-readtable (get-readtable)
-        (lambda ()
-          (read-string-element string)))))
   
 
   ;;;
@@ -661,7 +411,7 @@
   
   
   (method public (declaration-range pos)
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
+    (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
       (let (iterate (range #f))
         (if (not (outer-expr~ expl))
             range
@@ -683,7 +433,7 @@
   
   
   (method public (outer-declaration-range range)
-    (let ((expl <Text-Explorer> (new (explorer-class) self range: range)))
+    (let ((expl <Text-Explorer> (new (explorer-class) model range: range)))
       (let (iterate (range range))
         (if (not (outer-expr~ expl))
             #f
@@ -697,7 +447,7 @@
   
   (method override (info-message)
     (define (collect-names)
-      (let ((expl (new (explorer-class) self range: (or (current-declaration-range) (get-selection)))))
+      (let ((expl (new (explorer-class) model range: (or (current-declaration-range) (get-selection)))))
         (let (iter (names '()))
           (let ((names (if (declaration-expr?~ expl)
                            (cons (declaration-name~ expl) names)
@@ -737,23 +487,24 @@
   
   
   (method (reference-search-context target)
-    (search-context (and target (standardize-form target (empty-effective-selection?)))
+    (search-context~ model (and target (standardize-form target (empty-effective-selection?)))
       whole-words?: #t))
   
   
   (method (on-highlight-selection evt)
-    (let ((declaration-range (declaration-range (get-start)))
-          (expr-range (current-expr-range)))
-      (if (or (not declaration-range) (not expr-range))
-          (bell)
-        (let ((constant (range-expr expr-range)))
-          (if (not (constant? constant))
-              (bell)
-            (let ((target (reference-search-context constant))
-                  (style (get-style-at (get-end~ expr-range))))
-              (if (highlight-style? style)
-                  (unhighlight-expression declaration-range target)
-                (highlight-expression declaration-range target))))))))
+    (let ((pos (get-start)))
+      (let ((declaration-range (declaration-range pos))
+            (expr-range (current-expr-range)))
+        (if (or (not declaration-range) (not expr-range))
+            (bell)
+          (let ((constant (range-expr expr-range)))
+            (if (not (constant? constant))
+                (bell)
+              (let ((target (reference-search-context constant))
+                    (style (get-style-at~ model pos)))
+                (if (highlight-style? style)
+                    (unhighlight-expression declaration-range target)
+                  (highlight-expression declaration-range target)))))))))
   
   
   (method (on-highlight-declaration evt)
@@ -776,7 +527,8 @@
           (begin
             (bell)
             (select-command-search~ (get-application) 'forward target))
-        (select-command-highlight~ (get-application) 'forward range target (get-start~ declaration-range) (get-end~ declaration-range) highlight?: #t))))
+        (let ((search-result (make-text-search-result target self (get-start~ declaration-range) (get-end~ declaration-range))))
+          (select-command-highlight~ (get-application) 'forward range search-result self highlight?: #t)))))
 
   
   (method (on-remove-highlights evt)
@@ -795,21 +547,15 @@
         #f)))
   
   
-  (method public (highlight-reference declaration-range target)
-    (select-command-highlight~ (get-application) 'forward #f (search-context target) (get-start~ declaration-range) (get-end~ declaration-range)))
+  (method public (highlight-reference direction range search-result)
+    (select-command-highlight~ (get-application) direction range search-result self))
   
   
   (method public (highlight-expression range target)
-    (let ((ranges (new-queue))
-          (reference-style (get-style 'Reference)))
+    (let ((ranges (new-queue)))
       (iterate-expression-target range target
         (lambda (found)
-          (modify-style found
-            (lambda (s)
-              (unless (inherits?~ s reference-style)
-                (let ((style (extend~ s)))
-                  (set-base~ style (cons 'Reference (get-base~ style)))
-                  style))))
+          (push-style~ model found 'Reference)
           (enqueue ranges found)))
       (queue-list ranges)))
   
@@ -817,29 +563,24 @@
   (method public (unhighlight-expression range target)
     (iterate-expression-target range target
       (lambda (found)
-        (modify-style found
-          (lambda (s)
-            (let ((base (get-base~ s)))
-              (when (memq? 'Reference base)
-                (let ((style (extend~ s)))
-                  (set-base~ style (remove 'Reference (get-base~ style)))
-                  style))))))))
+        (pop-style~ model found 'Reference))))
   
   
   (method public (remove-highlights range)
-    (for-each-paragraph (lambda (line <fx> paragraph <Paragraph>)
-                          (for-each (lambda (run)
-                                      (let ((style (get-style~ run)))
-                                        (when (highlight-style? style)
-                                          (set-style~ run default-style)
-                                          (invalidate-paragraph paragraph))))
-                                    (get-runs~ paragraph)))
-                        start: (get-line~ (get-start~ range))
-                        end: (get-line~ (get-end~ range))))
+    (for-each-paragraph~ model
+      (lambda (line <fx> paragraph <Paragraph>)
+        (for-each (lambda (run)
+                    (let ((style (get-style~ run)))
+                      (when (highlight-style? style)
+                        (set-style~ run (get-default-style~ model))
+                        (invalidate-paragraph~ model paragraph))))
+                  (get-runs~ paragraph)))
+      start: (get-line~ (get-start~ range))
+      end: (get-line~ (get-end~ range))))
   
   
   (method (iterate-expression-target range target proc)
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ range) end: (get-start~ range))))
+    (let ((expl <Text-Explorer> (new (explorer-class) model start: (get-start~ range) end: (get-start~ range))))
       (iterate-expression~ expl
         (lambda (mode)
           (when (constant?~ expl)

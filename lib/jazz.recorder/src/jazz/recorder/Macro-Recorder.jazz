@@ -58,8 +58,19 @@
 (class Macro-Recorder extends Object
   
   
-  (slot recording? initialize #f getter generate)
-  (slot playing?   initialize #f getter generate)
+  (slot recording?  initialize #f getter generate)
+  (slot playing?    initialize #f getter generate)
+  (slot event-hook? initialize #f getter generate)
+  
+  
+  ;;;
+  ;;;; Hook
+  ;;;
+  
+  
+  (method (event-hook action/handler event)
+    (when recording?
+      (record action/handler event)))
     
   
   ;;;
@@ -71,7 +82,10 @@
     (when (not recording?)
       (user-message "Recording...")
       (set! recording? #t)
-      (set! Recording-Factory (new List-Factory))))
+      (set! Recording-Factory (new List-Factory))
+      (when (not event-hook?)
+        (register-event-hook event-hook)
+        (set! event-hook? #t))))
   
   
   (method (on-stop-recording evt)
@@ -181,17 +195,18 @@
     (let ((text (get-focus)))
       (if (is-not? text Text-View)
           (bell)
-        (with-atomic-undo~ (get-undoer~ text)
-          (lambda ()
-            (insert-char~ text #\open-parenthesis)
-            (loop (for first? first #t then #f)
-                  (for action in actions)
-                  (do (unless first?
-                        (insert-newline~ text))
-                      (insert-string~ text (->string action :reader))
+        (let ((model (get-model~ text)))
+          (with-atomic-undo~ (get-undoer~ model)
+            (lambda ()
+              (insert-char~ text #\open-parenthesis)
+              (loop (for first? first #t then #f)
+                    (for action in actions)
+                    (do (unless first?
+                          (insert-newline~ text))
+                        (insert-string~ text (->string action :reader))
                       (unless first?
                         (tabulate~ text))))
-            (insert-char~ text #\close-parenthesis))))))
+              (insert-char~ text #\close-parenthesis)))))))
   
   
   (method (target-name target)
@@ -269,10 +284,11 @@
                 (set! playing? #t)
                 (let ((focus (get-focus)))
                   (if (is? focus Text-View)
-                      (with-atomic-undo~ (get-undoer~ focus)
-                        (lambda ()
-                          (for-each play-action recording)
-                          (end-completion~ focus)))
+                      (let ((model (get-model~ focus)))
+                        (with-atomic-undo~ (get-undoer~ model)
+                          (lambda ()
+                            (for-each play-action recording)
+                            (end-completion~ focus))))
                     (for-each play-action recording))))
             (set! playing? old)))
       (error "You cannot play while a recording is in progress")))

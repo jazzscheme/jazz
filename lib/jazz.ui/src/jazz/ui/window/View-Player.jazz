@@ -157,9 +157,10 @@
           (if caption-base
               (localize caption-base)
             "")
-        (if caption-base
-            (format "{a} - {a}" (localize caption-base) caption)
-          caption)))
+        (let ((caption (localize caption)))
+          (if caption-base
+              (format "{a} - {a}" (localize caption-base) caption)
+            caption))))
     
     (set-title (effective-title)))
 
@@ -287,8 +288,8 @@
     processed)
   
   
-  (method (simulate-mouse-down)
-    (let ((pos (mouse-position)))
+  (method (simulate-mouse-down (pos #f))
+    (let ((pos (or pos (mouse-position))))
       (let ((view (find-view pos)))
         (when view
           (dispatch-mouse-down~ root (get-h~ pos) (get-v~ pos))))))
@@ -300,11 +301,20 @@
     processed)
   
   
-  (method (simulate-mouse-move)
-    (let ((pos (mouse-position)))
+  (method (simulate-mouse-move (pos #f))
+    (let ((pos (or pos (mouse-position))))
       (let ((view (find-view pos)))
         (when view
           (dispatch-mouse-move~ root (get-h~ pos) (get-v~ pos))))))
+  
+  
+  (method (simulate-global-mouse-move)
+    (let ((pos (platform-mouse-position)))
+      (let ((player (find-window pos)))
+        (when (is? player View-Player)
+          (let ((root (get-root~ player))
+                (pos (acquire~ player (get-desktop) pos)))
+            (dispatch-mouse-move~ root (get-h~ pos) (get-v~ pos)))))))
   
   
   (method override (mouse-up h v)
@@ -351,7 +361,7 @@
   
   
   (method override (mouse-leave)
-    (when mouse-in
+    (when (and mouse-in (eq? (get-player~ mouse-in) self))
       (call-mouse-leave~ mouse-in)
       (cancel-tooltip-tracking~ mouse-in)
       (reset-mouse-in)))
@@ -407,8 +417,9 @@
   (method override (focus-gain)
     (set-focused-window self)
     (when (and view-focus (in-player?~ view-focus))
-      (focus-view view-focus)
-      (focus-delegate~ view-focus))
+      (parameterize ((activating-window? #t))
+        (focus-view view-focus)
+        (focus-delegate~ view-focus)))
     processed)
   
   
@@ -461,7 +472,8 @@
         (set! pushed-focuses (cdr pushed-focuses))
         (when view-focus
           (call-focus-lose~ view-focus))
-        (focus-view new-focus #f))))
+        (parameterize ((activating-window? #t))
+          (focus-view new-focus #f)))))
   
   
   (method package (pop-view-focuses popup)

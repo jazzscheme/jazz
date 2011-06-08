@@ -78,12 +78,12 @@
       (let ((queue (jazz:new-queue)))
         (let iter ((d 0)
                    (cont cont))
-          (if (or (%%not depth) (%%fx< d depth))
-              (and cont
-                   (begin
-                     (jazz:enqueue queue cont)
-                     (iter (%%fx+ d 1)
-                           (%%continuation-next-frame cont #f))))))
+             (if (or (%%not depth) (%%fx< d depth))
+                 (and cont
+                      (begin
+                        (jazz:enqueue queue cont)
+                        (iter (%%fx+ d 1)
+                              (%%continuation-next-frame cont #f))))))
         (jazz:queue-list queue)))
     
     
@@ -207,7 +207,7 @@
     
     
     (define (jazz:get-continuation-location cont)
-      (jazz:locat->file/line/col (%%continuation-locat cont)))
+      (jazz:locat->container/line/col (%%continuation-locat cont)))
     
     
     (define (jazz:interpreted-continuation? cont)

@@ -58,25 +58,28 @@
 
   (slot current-resultset initialize #f  getter generate)
   (slot resultset-stack   initialize '() getter generate)
+  (slot categorized?      initialize #f)
 
 
   (form
     (<install>
-      (<!>                           name: tools
-        (<Separator>                                 size: {Dimension 4 0})
-        (<Push-Tool>                 name: pop       size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Pop Resultset" resource: {Image-Resource "ClearResults"} portfolio: :images action-handler: {Event-Handler :guest on-pop-resultset})
-        (<Separator>                                 size: {Dimension 4 0})
-        (<Layout-View>                               size: {Dimension 150 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
-          (<Border-View>                             border-color: {Color Dark}
-            (<Resultset-Combo>       name: resultset))))
-      (<!>                           name: scroller
-        (<!>                         name: content
-          (<!>                       name: header
-            (<!>                     name: content
-              (<!>                   name: results   filled-column: location multiple-selection?: #t context-menu-handler: {Event-Handler :form on-context-menu}
-                (<Tree-Node-Column>  name: name      title: "Name" width: 200)
-                (<Tree-Label-Column> name: location  title: "Location" width: 337)
-                (<Tree-Label-Column> name: type      title: "Type" width: 100))))))))
+      (<!>                              name: tools
+        (<Toggle-Tool>                                  size: {Dimension 22 22} before: edit location: tail tooltip?: #t tooltip-text: "Display Flat / Categorized" resource: {Image-Resource "Tree"} portfolio: :images action-handler: {Event-Handler :guest on-categorize})
+        (<Separator>                                    size: {Dimension 8 0} before: edit)
+        (<Separator>                                    size: {Dimension 4 0})
+        (<Push-Tool>                    name: pop       size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Pop Resultset" resource: {Image-Resource "ClearResults"} portfolio: :images action-handler: {Event-Handler :guest on-pop-resultset})
+        (<Separator>                                    size: {Dimension 4 0})
+        (<Layout-View>                                  size: {Dimension 150 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
+          (<Border-View>                                border-color: {Color Dark}
+            (<Resultset-Combo>          name: resultset))))
+      (<!>                              name: scroller
+        (<!>                            name: content
+          (<!>                          name: header
+            (<!>                        name: content
+              (<!>                      name: results   filled-column: location multiple-selection?: #t context-menu-handler: {Event-Handler :form on-context-menu}
+                (<Tree-Node-Column>     name: name      title: "Name" width: 250)
+                (<Tree-Location-Column> name: location  title: "Location" width: 337)
+                (<Tree-Label-Column>    name: type      title: "Type" width: 100))))))))
   
   
   (method meta override (external-name . rest)
@@ -122,6 +125,11 @@
     (new Found-Menu))
   
   
+  (method (on-categorize evt)
+    (set! categorized? (not categorized?))
+    (update-resultset))
+  
+  
   (method (on-pop-resultset evt)
     (pop-resultset))
 
@@ -131,19 +139,22 @@
   ;;;
   
 
-  (method override (edit-selection forward?)
+  (method override (edit-selection select)
     (let ((selection (get-selection~ (get-tree))))
       (for-each (lambda (rank)
-                    (edit-result rank forward? #t #t))
-                  selection)))
+                  (edit-result (rank->result rank) select))
+                selection)))
   
 
-  (method public (edit-result rank forward? focus? visible?)
+  (method (edit-result result select (visible?: visible? #t) (activate-focus?: activate-focus? #t))
     (with-cursor :wait
       (lambda ()
-        (set-active-search (get-search~ current-resultset))
-        (let ((result (get-user-data~ (get-row~ (get-tree) rank))))
-          (edit~ result forward? focus? visible?)))))
+        (set-active-search-result result)
+        (edit~ result select visible?: visible? activate-focus?: activate-focus?))))
+  
+  
+  (method (rank->result rank)
+    (get-user-data~ (get-row~ (get-tree) rank)))
   
   
   ;;;
@@ -152,35 +163,29 @@
   
   
   (method public (replace-selected)
-    (let ((search (get-search~ current-resultset)))
-      (if (not search)
-          (bell)
-        (if (not (every? (lambda (result)
-                           (is? result File-Search-Result))
-                         (get-results~ current-resultset)))
-            (message-box "Replace selected currently only supports file searches")
-          (let ((code (message-box "Automatically save & close except for currently edited files?" type: 'confirmation)))
-            (if (eq? code 'cancel)
-                (throw-cancel)
-              (set-active-search search)
-              (let ((auto-save/close? (eq? code 'yes))
-                    (selection (get-selection~ (get-tree)))
-                    (modified-count 0))
-                (for-each (lambda (rank)
-                            (receive (frame new?) (edit-result rank #t #f #f)
-                              (let* ((guest (get-guest~ frame))
-                                     (text (get-text-view~ guest)))
-                                (user-feedback "Processing {a}..." (name-status~ (get-controller~ text)))
-                                (replace-all~ search text)
-                                (when (and auto-save/close? new?)
-                                  (when (get-modified?~ text)
-                                    (save~ guest)
-                                    (increase! modified-count))
-                                  (close~ frame)))))
-                          selection)
-                (when auto-save/close?
-                  (message-box (format "{a} file{a} modified" modified-count (format-plural modified-count))))
-                (user-feedback "Done"))))))))
+    (let ((code (message-box "Automatically save & close except for currently edited files?" type: 'confirmation)))
+      (if (eq? code 'cancel)
+          (throw-cancel)
+        (let ((auto-save/close? (eq? code 'yes))
+              (selection (get-selection~ (get-tree)))
+              (modified-count 0))
+          (for-each (lambda (rank)
+                      (let ((result (rank->result rank)))
+                        (receive (frame new?) (edit-result result 'forward visible?: #f activate-focus?: #f)
+                          (let* ((guest (get-guest~ frame))
+                                 (text (get-text-view~ guest)))
+                            (user-feedback "Processing {a}..." (name-status~ (get-controller~ text)))
+                            (set-active-search-result result)
+                            (replace-all~ result client: text)
+                            (when (and auto-save/close? new?)
+                              (when (get-modified?~ text)
+                                (save~ guest)
+                                (increase! modified-count))
+                              (close~ frame))))))
+                    selection)
+          (when auto-save/close?
+            (message-box (format "{a} file{a} modified" modified-count (format-plural modified-count))))
+          (user-feedback "Done")))))
 
 
   ;;;
@@ -188,14 +193,13 @@
   ;;;
 
 
-  (method public (select-results search results)
-    (let ((resultset (new Search-Resultset search results)))
-      (preserve-current-selection)
-      (set! current-resultset resultset)
-      (set! resultset-stack (cons current-resultset resultset-stack))
-      (update-resultset)
-      (update-resultset-combo))
-    (set-active-search search)
+  (method public (select-results resultset)
+    (preserve-current-selection)
+    (set! current-resultset resultset)
+    (set! resultset-stack (cons current-resultset resultset-stack))
+    (update-resultset)
+    (update-resultset-combo)
+    (set-active-search-result (new Search-Result resultset))
     (select-resultset))
   
   
@@ -214,7 +218,7 @@
     (set! current-resultset resultset)
     (update-resultset)
     (update-resultset-combo)
-    (set-active-search (get-search~ current-resultset)))
+    (set-active-search-result (new Search-Result current-resultset)))
   
   
   (method (pop-resultset)
@@ -224,7 +228,7 @@
       (set! current-resultset (car resultset-stack))
       (update-resultset)
       (update-resultset-combo)
-      (set-active-search (get-search~ current-resultset))))
+      (set-active-search-result (new Search-Result current-resultset))))
   
   
   (method (update-resultset-combo)
@@ -242,31 +246,32 @@
 
 
   (method (update-resultset)
-    (let ((appl (get-application))
-          (tree (get-tree))
-          (search (get-search~ current-resultset))
-          (results (get-results~ current-resultset))
-          (selection (get-selection~ current-resultset)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
-        (lambda ()
-          (set-toplevel-controls?~ (get-node-column~ tree) (supports-drill-down?~ search))
-          (for-each add-result (sort string<? results key: present-name~))))
-      (when (and results (> (get-visible-count~ tree) 0))
-        (set-selection~ tree (or selection (list 0))))
-      (update-search-actions~ appl)))
+    (when current-resultset
+      (let ((appl (get-application))
+            (tree (get-tree))
+            (search (get-search~ current-resultset))
+            (results (get-results~ current-resultset))
+            (selection (get-selection~ current-resultset)))
+        (remove-every-row~ tree)
+        (with-update-locked~ tree
+          (lambda ()
+            (set-toplevel-controls?~ (get-node-column~ tree) (supports-drill-down?~ search))
+            (install-results~ search self results categorized?)))
+        (when (> (get-visible-count~ tree) 0)
+          (set-selection~ tree (or selection (list 0))))
+        (update-search-actions~ appl))))
 
   
   (method (update-tree-row row)
     (let ((result (get-user-data~ row)))
       (for-each (lambda (result)
                   (add-result result father: row))
-                (drill-down~ result))))
+                (get-results~ (drill-down~ result)))))
   
   
   (method (add-result result (father: father #f))
     (let ((tree (get-tree))
-          (state (if (supports-drill-down?~ (get-search~ result)) 'dynamic 'collapsed))
+          (state (if (dynamic-search?~ (get-search~ result) categorized?) 'dynamic 'collapsed))
           (node (new Tree-Node title: (present-name~ result) image: (get-icon~ result)))
           (location (new Tree-Label title: (present-location~ result)))
           (type (new Tree-Label title: (present-type~ result)))
@@ -343,6 +348,18 @@
     (<install>
       (<Action-Item> name: action         action-handler: {Event-Handler :focus on-action} shortcut: {Shortcut :control Return})
       (<Action-Item> name: edit-selection action-handler: {Event-Handler :focus on-edit-selection} shortcut: {Shortcut F12} alternate-shortcut: {Shortcut :alt #\.}))))
+
+
+;;;
+;;;; Tree-Location-Column
+;;;
+
+
+(class Tree-Location-Column extends Tree-Label-Column
+  
+  
+  (method override (sort-value row data)
+    (location-sort-value~ (get-user-data~ row))))
 
 
 ;;;

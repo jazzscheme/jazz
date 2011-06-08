@@ -39,7 +39,7 @@
 
 
 (import (jazz.editor.c)
-        (jazz.library.automata)
+        (jazz.editor.clike)
         (jazz.system)
         (jazz.ui))
 
@@ -61,7 +61,7 @@
   
   
   (method override (new-syntax)
-    (new C-Syntax))
+    (new CLike-Syntax model))
 
   
   ;;;
@@ -72,45 +72,6 @@
   (method override (return-press key)
     (nextmethod key)
     (tabulate))
-
-  
-  ;;;
-  ;;;; Completion
-  ;;;
-  
-  
-  (method override (commented? pos)
-    (let ((style (get-style-at pos)))
-      (and style
-           (or (inherits?~ style 'Title)
-               (inherits?~ style 'Line-Comment)
-               (inherits?~ style 'Balanced-Comment)))))
-
-  
-  ;;;
-  ;;;; Keywords
-  ;;;
-  
-  
-  (method protected virtual (get-keywords)
-    )
-      
-  
-  ;;;
-  ;;;; Profile
-  ;;;
-
-  
-  (method protected virtual (get-profile-macros profile)
-    )
-  
-  
-  (method protected virtual (get-profile-keywords profile)
-    )
-  
-  
-  (method protected virtual (get-profile-types profile)
-    )
 
   
   ;;;
@@ -130,77 +91,6 @@
       (when (and (/= end (text-ending)) (text-constituent?~ syntax (last copy)) (text-constituent?~ syntax (get-char end)))
         (set! copy (concatenate copy " ")))
       (insert-string copy)))
-
-  
-  ;;;
-  ;;;; Coloring
-  ;;;
-  
-  
-  (method override (compute-syntax-targets)
-    (let ((profile (get-profile~ (get-application))))
-      (append (list (list "/*" 'balanced-comment #f))
-              (list (list "*/" 'balanced-comment-backward #f))
-              (list (list "//" 'line-comment #f))
-              (map (lambda (str) (list str 'keyword)) (get-keywords))
-              (map (lambda (str) (list str 'profile-macro)) (get-profile-macros profile))
-              (map (lambda (str) (list str 'profile-keyword)) (get-profile-keywords profile))
-              (map (lambda (str) (list str 'profile-type)) (get-profile-types profile)))))
-  
-  
-  (method override (compute-syntax-automata)
-    (build-search-automata (syntax-targets) #t #f c-constituent?))
-
-  
-  (method override (colorize-type found type start end colorizer recolorize?)
-    (case type
-      ((balanced-comment)          (colorize-balanced-comment          found start end colorizer 'Balanced-Comment))
-      ((balanced-comment-backward) (colorize-balanced-comment-backward found start end colorizer 'Balanced-Comment recolorize?))
-      ((line-comment)              (colorize-line-comment              found start end colorizer 'Line-Comment 'Title #\slash))
-      ((keyword)                   (colorize-keyword                   found start end colorizer 'Keyword))
-      ((profile-macro)             (colorize-keyword                   found start end colorizer 'Profile-Macro))
-      ((profile-keyword)           (colorize-keyword                   found start end colorizer 'Profile-Keyword))
-      ((profile-type)              (colorize-keyword                   found start end colorizer 'Profile-Type))
-      (else (nextmethod found type start end colorizer recolorize?))))
-
-
-  ;;;
-  ;;;; Explorer
-  ;;;
-
-
-  (method override (explorer-class)
-    C-Explorer)
- 
-  
-  ;;;
-  ;;;; Expr
-  ;;;
-
-
-  (method override (current-name)
-    (name-at (current-expr-range)))
-  
-  
-  (method (name-at range)
-    (when range
-      (let ((name (get-string range)))
-        (if (eqv? (element name 0) #\open-brace)
-            (read-string-element name)
-          name))))
-
-
-  (method override (current-expr)
-    (current-name))
-  
-  
-  (method override (current-expr-range)
-    (or (effective-selection)
-        (expr-range (get-end))))
-  
-  
-  (method override (expr-at pos)
-    (name-at (expr-range pos)))
 
   
   ;;;

@@ -45,10 +45,12 @@
         (jazz.library)
         (jazz.library.automata)
         (jazz.platform)
+        (jazz.project)
         (jazz.system)
         (jazz.ui)
-        (jazz.ui.window)
+        (jazz.ui.search)
         (jazz.ui.view)
+        (jazz.ui.window)
         (time))
 
 
@@ -58,12 +60,12 @@
   (slot matching-highlights initialize '())
   
   
-  (form
-    (<install> base-style: {Text-Style Code-Base} left-padding: 12))
+  (method override (new-model)
+    (new Text-Model base-style: {Text-Style Code-Base} left-padding: 12))
   
   
   (method override (new-syntax)
-    (new Code-Syntax))
+    (new Code-Syntax model))
   
   
   (method override (preferences)
@@ -139,21 +141,12 @@
       (if (symbol? expr)
           (with-cursor :wait
             (lambda ()
-              (find-imports~ (get-syntax) self expr)))
+              (find-imports~ (get-syntax) expr)))
         (message-box "Please select the symbol that will be searched for imports"))))
   
   
   (method (on-find-all-imports evt)
     )
-  
-
-  ;;;
-  ;;;; Explorer
-  ;;;
-
-
-  (method override (explorer-class)
-    Code-Explorer)
 
   
   ;;;
@@ -186,13 +179,13 @@
   
   
   (method package (on-backward-outline evt)
-    (let ((expl <Text-Explorer> (new (explorer-class) self end: (get-start))))
+    (let ((expl <Text-Explorer> (new (explorer-class) model end: (get-start))))
       (when (backward-expr~ expl)
         (set-selection (get-range~ expl)))))
   
   
   (method package (on-forward-outline evt)
-    (let ((expl <Text-Explorer> (new (explorer-class) self end: (get-end))))
+    (let ((expl <Text-Explorer> (new (explorer-class) model end: (get-end))))
       (when (forward-expr~ expl)
         (set-selection (get-range~ expl)))))
   
@@ -206,7 +199,7 @@
   
   
   (method protected virtual (backward-expr (extend?: extend? locked-anchor?))
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start))))
+    (let ((expl <Text-Explorer> (new (explorer-class) model start: (get-start))))
       (when (backward-expr~ expl)
         (if extend?
             (change-selection (get-start~ expl))
@@ -214,7 +207,7 @@
 
 
   (method protected virtual (forward-expr (extend?: extend? locked-anchor?))
-    (let ((expl <Text-Explorer> (new (explorer-class) self end: (get-end))))
+    (let ((expl <Text-Explorer> (new (explorer-class) model end: (get-end))))
       (when (forward-expr~ expl)
         (if extend?
             (change-selection (get-end~ expl))
@@ -222,13 +215,13 @@
   
   
   (method protected virtual (enter-composite)
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start) end: (get-end))))
+    (let ((expl <Text-Explorer> (new (explorer-class) model start: (get-start) end: (get-end))))
       (when (enter-composite~ expl)
         (set-caret (get-end~ expl)))))
   
   
   (method protected virtual (exit-composite)
-    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-end) end: (get-end))))
+    (let ((expl <Text-Explorer> (new (explorer-class) model start: (get-end) end: (get-end))))
       (when (exit-list~ expl)
         (set-caret (get-end~ expl)))))
   
@@ -263,7 +256,7 @@
     (let ((form (current-expr))
           (appl (get-application)))
       (when form
-        (cond ((string? form)
+        (cond ((and (supports-expr?~ syntax) (string? form))
                (edit-document~ appl (new File (tokenise-filename form))))
               ((file? form)
                (edit-document~ appl form workspace: (edition-workspace)))
@@ -272,7 +265,9 @@
                  (if (and (has-effective-selection?) (composite-reference? form))
                      (edit-composite-reference appl item form)
                    (let ((target (standardize-form form #t)))
-                     (edit-definitions~ appl target workspace: (edition-workspace) context: (get-context) history-item: item)))))))))
+                     (if (not target)
+                         (bell)
+                       (edit-definitions~ appl target workspace: (edition-workspace) context: (get-context) history-item: item))))))))))
 
   
   (method (on-edit-references evt)
@@ -280,24 +275,22 @@
           (appl (get-application)))
       (when form
         (let ((target (standardize-form form (empty-effective-selection?))))
-          (edit-references~ appl target context: (get-context) history-item: (current-history-item))))))
+          (if (not target)
+              (bell)
+            (edit-references~ appl target context: (get-context) history-item: (current-history-item)))))))
   
   
   (method (standardize-form form extract?)
     (let ((target (cond ((string? form) form)
                         ((symbol? form) (symbol->string form))
                         ((keyword? form) (string-append (keyword->string form) ":"))
-                        (else (error "Unable to standardize: {s}" form)))))
-      (if (not extract?)
+                        (else #f))))
+      (if (or (not target) (not extract?))
           target
         (cond ((tag-string? target) (tag->name target))
               ((dispatch-string? target) (dispatch->name target))
               ((reference-string? target) (reference->name target))
               (else target)))))
-
-
-  (method protected virtual (expr-at pos)
-    )
     
   
   (method protected virtual (edit-symbol-class symbol)
@@ -307,7 +300,7 @@
   (method protected (edit-definitions pos)
     (let ((form (expr-at (view->text pos))))
       (when form
-        (cond ((string? form)
+        (cond ((and (supports-expr?~ syntax) (string? form))
                (edit-document~ (get-application) (new File (tokenise-filename form))))
               ((file? form)
                (edit-document~ (get-application) form workspace: (edition-workspace)))
@@ -317,11 +310,13 @@
                  (when cataloguer
                    (let ((item (current-history-item))
                          (target (standardize-form form #t)))
-                     (let ((definitions (get-coalesced-definitions~ cataloguer target context: (get-context))))
-                       (case (length definitions)
-                         ((0) (bell))
-                         ((1) (add-history~ appl item) (edit~ (car definitions)))
-                         (else (track-popup-menu (new Definitions-Menu definitions: definitions history-item: item) pos))))))))))))
+                     (if (not target)
+                         (bell)
+                       (let ((definitions (get-coalesced-definitions~ cataloguer target context: (get-context))))
+                         (case (length definitions)
+                           ((0) (bell))
+                           ((1) (add-history~ appl item) (edit~ (car definitions)))
+                           (else (track-popup-menu (new Definitions-Menu definitions: definitions history-item: item) pos)))))))))))))
 
 
   (method protected (edit-references pos)
@@ -330,13 +325,15 @@
         (let* ((appl (get-application))
                (cataloguer (get-cataloguer~ appl)))
           (when cataloguer
-            (let* ((item (current-history-item))
-                   (target (standardize-form form (empty-effective-selection?)))
-                   (references (get-references~ cataloguer target context: (get-context))))
-              (case (length references)
-                ((0) (bell))
-                ((1) (add-history~ appl item) (edit-textual-reference~ (car references) target))
-                (else (track-popup-menu (new References-Menu target: target definitions: references history-item: item) pos)))))))))
+            (let ((item (current-history-item))
+                  (target (standardize-form form #t)))
+              (if (not target)
+                  (bell)
+                (let ((references (get-references~ cataloguer target context: (get-context))))
+                  (case (length references)
+                    ((0) (bell))
+                    ((1) (add-history~ appl item) (edit-textual-reference~ (car references) target))
+                    (else (track-popup-menu (new References-Menu target: target definitions: references history-item: item) pos)))))))))))
   
   
   (definition (edit-composite-reference appl item form)
@@ -395,227 +392,6 @@
             ;; quicky until we check for catalogs overlapping
             (let ((entry (car entries)))
               (get-catalog~ entry)))))))
-
-  
-  ;;;
-  ;;;; Coloring
-  ;;;
-
-
-  (method package (on-recolorize-syntax evt)
-    (with-cursor :wait
-      (lambda ()
-        (recolorize-syntax))))
-  
-  
-  (method public (recolorize-syntax)
-    (uncolorize-all)
-    (colorize-syntax recoloring?: #t))
-
-
-  (method (uncolorize-all)
-    (for-each uncolorize-row (naturals 0 (get-length))))
-  
-  
-  (method protected virtual (syntax-targets)
-    #f)
-  
-  
-  (method protected virtual (syntax-automata)
-    #f)
-  
-  
-  (method protected virtual (compute-syntax-targets)
-    )
-  
-  
-  (method protected virtual (compute-syntax-automata)
-    (let ((targets (syntax-targets)))
-      (when targets
-        (build-search-automata targets #t #f c-constituent?))))
-  
-  
-  (method override (colorize-syntax (recoloring?: recoloring? #f) (entries?: entries? #t))
-    (define (colorize-syntax-from pos)
-      (let ((automata (syntax-automata)))
-        (when automata
-          (let ((found (automata-search automata (new TextTape (get-paragraphs) (get-limit) 0 0)))
-                (colorizer (and (not recoloring?) (new-colorizer self))))
-            (while (not-null? found)
-              (let ((info (car found)))
-                (bind ((target type) line col) info
-                  (let ((start (new Cell line col))
-                        (end (new Cell line (+ col (string-length target)))))
-                    (set! found (colorize-type found type start end colorizer #f))))))
-            (when colorizer
-              (finish-current~ colorizer))))))
-    
-    (colorize-syntax-from (text-beginning))
-    (when entries?
-      (colorize-entries)))
-  
-  
-  (method protected (apply-coloring colorizer start end style-name)
-    (if (not colorizer)
-        (apply-style style-name start end)
-      (apply-style~ colorizer start end style-name)))
-  
-  
-  (method protected virtual (colorize-type found type start end colorizer recolorize?)
-    (error "Unknown type: {s}" type))
-  
-  
-  (method protected virtual (colorize-balanced-comment found start end colorizer style)
-    (continuation-capture
-      (lambda (return)
-        (while (not-null? found)
-          (let ((info (car found)))
-            (bind ((target type) line col) info
-              (if (eq? type 'balanced-comment-backward)
-                  (let ((end (new Cell line (+ col 2))))
-                    (apply-coloring colorizer start end style)
-                    (continuation-return return (cdr found)))
-                (set! found (cdr found))))))
-        found)))
-  
-  
-  (method protected (colorize-balanced-comment-backward found start end colorizer style recolorize? (open: open "/*") (close: close "*/"))
-    (cdr found)
-    @irregex-to-convert
-    (when recolorize?
-      (let ((found (text-regular-search (list (make-search-context close user-data: 'close) (make-search-context open user-data: 'open)) position: start reversed?: #t)))
-        (when found
-          (bind (pos . (target type)) found
-            (when (eq? type 'open)
-              (apply-coloring colorizer pos end style)
-              (cdr found)))))))
-  
-  
-  (method protected (colorize-line-comment found start end colorizer line-style title-style title-char)
-    (let ((title? (and title-char (eqv? (get-char (next-pos start 2)) title-char))))
-      (if (not title?)
-          (apply-coloring colorizer start (new Cell (get-line~ start) (paragraph-length (get-line~ start))) line-style)
-        (apply-coloring colorizer start (nu+ start 3) line-style)
-        (apply-coloring colorizer (nu+ start 3) (new Cell (get-line~ start) (paragraph-length (get-line~ start))) title-style))
-      (let ((line (get-line~ start)))
-        (set! found (cdr found))
-        (while (and (not-null? found) (= (second (car found)) line))
-          (set! found (cdr found)))
-        found)))
-  
-  
-  (method protected (colorize-keyword found start end colorizer style)
-    (apply-coloring colorizer start end style)
-    (cdr found))
-  
-  
-  (method (find-specifier-end start)
-    (let* ((line (get-line~ start))
-           (col (get-col~ start))
-           (str (paragraph-string line)))
-      (unless (>= (+ col 1) (cardinality str))
-        (let ((nxt (element str (+ col 1))))
-          (unless (or (eqv? nxt #\space) (eqv? nxt #\=))
-            (let ((col (find-balanced #\< #\> str start: (+ col 1) return: 'position)))
-              (when col
-                (new Cell line (+ col 1)))))))))
-
-  
-  (method override (recolorize-text start end-line)
-    (let ((pos (new Cell (get-line~ start) 0))
-          (targets (syntax-targets)))
-      @commented-for-slow-machines-until-optimized
-      (when targets
-        (let ((opening (text-regular-search (list (make-search-context "/*" user-data: 'open) (make-search-context "*/" user-data: 'close)) position: start reversed?: #t)))
-          (when opening
-            (bind (start . (target type)) opening
-              (when (eq? type 'open)
-                (set! pos start))))))
-      (let ((range (naturals (get-line~ pos) (+ end-line 1))))
-        (for-each uncolorize-row range))
-      (let ((automata (syntax-automata)))
-        (when automata
-          (let ((found (automata-search automata (new TextTape (get-paragraphs) end-line (get-line~ pos) (get-col~ pos))))
-                (colorizer (new-colorizer self)))
-            (while (not-null? found)
-              (let ((info (car found)))
-                (bind ((target type) line col) info
-                  (let ((start (new Cell line col))
-                        (end (new Cell line (+ col (string-length target)))))
-                    (set! found (colorize-type found type start end colorizer #f))))))
-            (finish-current~ colorizer))))))
-  
-  
-  (method public virtual (colorize-entries)
-    (let ((entries (get-parsed-entries)))
-      (when entries
-        (for-each colorize-entry entries))))
-  
-  
-  (method protected virtual (get-parsed-entries)
-    (let ((moniker (get-moniker)))
-      (when (and moniker (file? moniker) (not (get-modified?)))
-        (let ((cataloguer (get-cataloguer~ (get-application))))
-          (when cataloguer
-            (let ((entries (get-file-entries~ cataloguer moniker context: '(c))))
-              (when (not-null? entries)
-                (let ((file-entry (car entries)))
-                  (when (= (time->seconds (get-time~ file-entry)) (time->seconds (get-moniker-time~ (get-controller))))
-                    (get-definitions~ file-entry))))))))))
-
-  
-  (method (colorize-entry entry)
-    (let* ((name (get-name~ entry))
-           (line (get-line~ entry))
-           (column (get-column~ entry))
-           (start (new Cell line column))
-           (end (new Cell line (+ column (string-length name)))))
-      ;; until the time test of the previous method becomes functional
-      (when (<= line (get-limit))
-        (stylize 'Definition start end)
-        @cannot-work-yet
-        (when (equal? Class-Entry (class-of entry))
-          (colorize-entry (get-extends~ entry))
-          (colorize-entry (get-implements~ entry)))
-        (for-each colorize-entry (get-definitions~ entry)))))
-  
-  
-  (method public (recolorize-entries)
-    (let ((entries (get-parsed-entries)))
-      (when entries
-        (uncolorize-all)
-        (colorize-syntax entries?: #f)
-        (for-each colorize-entry entries))))
-
-  
-  ;;;
-  ;;;; Reading
-  ;;;
-  
-  
-  (method protected virtual (get-readtable)
-    (current-readtable))
-  
-  
-  (method (read-text-form range (string: string #f) (readtable: readtable (get-readtable)))
-    (let ((string (or string (get-string range))))
-      (call-with-input-string (list init: string readtable: readtable)
-        read)))
-  
-  
-  (method (read-text-forms range (string: string #f) (readtable: readtable (get-readtable)))
-    (let ((string (or string (get-string range))))
-      (call-with-input-string (list init: string readtable: readtable)
-        (lambda (port)
-          (read-until eof-object? port)))))
-  
-  
-  (definition (offset-pos/range pos range)
-    (if (= 0 (get-line~ (get-start~ range)) (get-line~ (get-end~ range)))
-        (new Range$Cell$ (+ pos (get-start~ range)) (+ pos (get-end~ range)))
-      (new Range$Cell$
-        (new Cell (+ (get-line~ pos) (get-line~ (get-start~ range))) (get-col~ (get-start~ range)))
-        (new Cell (+ (get-line~ pos) (get-line~ (get-end~ range))) (get-col~ (get-end~ range))))))
 
   
   ;;;
@@ -696,7 +472,7 @@
           (let ((c (get-char prev)))
             (unless (string-delimiter? c)
               (when (text-constituent?~ syntax c)
-                (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
+                (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
                   (when (and (backward-expr~ expl) (memq? (get-kind~ expl) '(symbol specifier tag keyword string)))
                     (let ((c (char-backward~ expl 0)))
                       (when (or (not c) (not (string-delimiter? c)))
@@ -720,6 +496,17 @@
                       (when (compare-n anchor-name name len)
                         (table-set! table anchor-name #t)))))))
             (table-keys table))))))
+
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+
+
+  (method package (on-recolorize-syntax evt)
+    (with-cursor :wait
+      (lambda ()
+        (recolorize-syntax~ syntax))))
     
   
   ;;;
@@ -819,7 +606,7 @@
                   (sleep flash-duration)
                   (execute-event
                     (lambda () (run-text-action remove))))))
-          (let ((expl <Text-Explorer> (new (explorer-class) self start: (nu+ start 1) end: (nu+ start 1))))
+          (let ((expl <Text-Explorer> (new (explorer-class) model start: (nu+ start 1) end: (nu+ start 1))))
             (user-message "{l detail: :human}" (map (lambda (mark)
                                                       (get-string (get-range~ mark)))
                                                     (collect-forward-exprs~ expl 3)))))))
@@ -853,7 +640,7 @@
             (catch (Explore-Error err
                      (bell)
                      #f)
-              (let ((expl <Text-Explorer> (new (explorer-class) self start: pos)))
+              (let ((expl <Text-Explorer> (new (explorer-class) model start: pos)))
                 (when (backward-expr~ expl)
                   (let ((start (get-start~ expl)))
                     (cons (new-highlight start (next-cell start))
@@ -865,7 +652,7 @@
           (catch (Explore-Error err
                    (bell)
                      #f)
-            (let ((expl <Text-Explorer> (new (explorer-class) self start: pos)))
+            (let ((expl <Text-Explorer> (new (explorer-class) model start: pos)))
               (when (forward-expr~ expl)
                 (let ((end (get-end~ expl)))
                   (cons (new-highlight (previous-cell end) end)
@@ -874,7 +661,7 @@
     (define (new-highlight start end)
       (let ((range (new-range start end))
             (style (get-style 'Match)))
-        (new Text-Highlight range style show-unfocused?: #f)))
+        (new Text-Highlight self range style show-unfocused?: #f)))
     
     (unless (macro-playing?~ (get-application))
       (when (empty-selection?)
@@ -934,7 +721,7 @@
   
   
   (method (on-set-read/write evt)
-    (let ((moniker (get-moniker~ controller)))
+    (let ((moniker (get-moniker~ (get-controller))))
       (set-read/write~ moniker)
       (update-status))))
 

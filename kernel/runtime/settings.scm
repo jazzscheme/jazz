@@ -99,7 +99,7 @@
 ;;;
 
 
-;; print Jazz objects by calling their print method
+;; low-level setting to disable calling print methods
 (jazz:define-setting jazz:use-print?
   #t)
 

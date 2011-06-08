@@ -82,7 +82,7 @@
 (define (jazz:build-opengl descriptor . rest)
   (let ((unit-specs jazz:opengl-units))
     (apply jazz:custom-compile/build unit-specs pre-build: jazz:copy-opengl-files rest)
-    (jazz:update-product-descriptor descriptor)))
+    (jazz:build-product-descriptor descriptor)))
 
 
 ;;;

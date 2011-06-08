@@ -51,25 +51,8 @@
   (slot ruler initialize #f)
   
   
-  (form
-    (<install> wrap?: #t))
-
-  
-  ;;;
-  ;;;; External
-  ;;;
-  
-  
-  (method meta override (external-name . rest)
-    'formatted-text)
-  
-  
-  (method override (default-extension)
-    "ftx")
-  
-  
-  (method override (extensions)
-    '(("Formatted Texts" . "ftx")))
+  (method override (new-model)
+    (new Formatted-Text-Model))
   
   
   ;;;
@@ -98,6 +81,14 @@
   
   (method override (new-controller)
     (new Formatted-Text-Controller self))
+  
+  
+  (method override (default-extension)
+    "ftx")
+  
+  
+  (method override (extensions)
+    '(("Formatted Texts" . "ftx")))
 
 
   ;;;
@@ -111,26 +102,6 @@
   
   (method public (set-ruler r)
     (set! ruler r))
-
-  
-  ;;;
-  ;;;; Content
-  ;;;
-
-  
-  (method override (empty-content)
-    (new Formatted-Text
-      formats: '()
-      styles: '()
-      paragraphs: (list (list #f (list "")))))
-  
-  
-  (method override (get-content)
-    (get-formatted-content))
-  
-  
-  (method override (set-content text)
-    (set-formatted-content (or text (empty-content))))
 
   
   ;;;
@@ -155,7 +126,7 @@
              (par (get-paragraph (get-line~ pos))))
         (if (< (get-h~ view) (paragraph-left~ par))
             (set-cursor :left-arrow)
-          (let ((style (get-style-at pos)))
+          (let ((style (get-style-at~ model pos)))
             (if (is? style Link-Style)
                 (set-cursor :finger)
               (set-cursor :ibeam)))))))
@@ -169,7 +140,7 @@
   (method override (mouse-down view)
     (when (view-enabled?)
       (let* ((pos (view->text view))
-             (style (get-style-at pos)))
+             (style (get-style-at~ model pos)))
         (unless (is? style Link-Style)
           (nextmethod view)))))
 
@@ -182,7 +153,7 @@
              (action))))
     
     (define (goto-anchor anchor)
-      (for-each-heading
+      (for-each-heading~ model
         (lambda (name heading line string)
           (when (equal? string anchor)
             (set-selection (new Range$Cell$
@@ -193,7 +164,7 @@
       (nextmethod view)
       (when (and (view-enabled?) (not mouse-selecting?))
         (let* ((pos (view->text view))
-               (style (get-style-at pos)))
+               (style (get-style-at~ model pos)))
           (when (is? style Link-Style)
             (let ((anchor (get-anchor~ style))
                   (action (get-action~ style)))
@@ -216,111 +187,7 @@
   
   
   (method override (paste-clipboard)
-    (paste-formatted-clipboard))
-
-
-  ;;;
-  ;;;; Input/Output
-  ;;;
-  
-  
-  (method override (read-moniker moniker)
-    (read-formatted moniker))
-  
-  
-  (method override (save-to moniker)
-    (save-formatted moniker))
-
-  
-  ;;;
-  ;;;; Headings
-  ;;;
-  
-  
-  (method public (for-each-heading proc)
-    (let ((all '(Heading1 Heading2 Heading3 Heading4 Heading5)))
-      (for-each-paragraph
-        (lambda (line <fx> paragraph <Paragraph>)
-          (let ((run (first-run~ paragraph)))
-            (let ((style (and run (get-style~ run))))
-              (when style
-                (for-each (lambda (name)
-                            (let ((heading (get-style name error?: #f)))
-                              (when (and heading (inherits?~ style heading))
-                                (proc name heading line (get-string~ paragraph)))))
-                          all))))))))
-  
-  
-  (method public (collect-headings)
-    (let ((headings (new List-Factory)))
-      (for-each-heading
-        (lambda (name style line string)
-           (put~ headings (list name style line string))))
-      (get-output~ headings)))
-
-  
-  ;;;
-  ;;;; Table Of Content
-  ;;;
-  
-  
-  (method override (insert-table-of-content)
-    (let ((headings (collect-headings)))
-      (insert-styled "Table Of Content" 'Heading1)
-      (insert-newline)
-      (for-each (lambda (heading)
-                  (bind (name style line string) heading
-                    (when (eq? name 'Heading1)
-                      (insert-newline))
-                    (let* ((start (get-start))
-                           (line (get-line~ start)))
-                      (insert-link string anchor: string)
-                      (insert-newline)
-                      (unless (eq? name 'Heading1)
-                        (toggle-bulleted line)))))
-                headings))
-    (insert-newline)
-    (insert-newline))
-
-
-  ;;;
-  ;;;; Headings
-  ;;;
-  
-  
-  (definition Heading-Levels
-    '((Heading1 . 1)
-      (Heading2 . 2)
-      (Heading3 . 3)
-      (Heading4 . 4)
-      (Heading5 . 5)))
-  
-  
-  (definition (heading-level heading)
-    (let ((info (assq heading Heading-Levels)))
-      (if info
-          (cdr info)
-        (error "Unable to get heading level of {t}" heading))))
-
-
-  ;;;
-  ;;;; Chapters
-  ;;;
-  
-  
-  (method override (get-chapters)
-    (map (lambda (heading)
-           (bind (name style line string) heading
-             (list (heading-level name) (new Cell line 0) "" string)))
-         (collect-headings)))
-  
-  
-  (method override (get-first-chapter lst)
-    #f)
-  
-  
-  (method override (get-remaining-chapters lst)
-    lst))
+    (paste-formatted-clipboard)))
 
 
 ;;;

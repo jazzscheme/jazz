@@ -54,6 +54,28 @@
 
   
   ;;;
+  ;;;; Preferences
+  ;;;
+
+  
+  (method override (preferences)
+    (get-preferences '(documents jazz-text)))
+
+  
+  ;;;
+  ;;;; IO
+  ;;;
+  
+  
+  (method override (default-extension)
+    "jazz")
+  
+  
+  (method override (extensions)
+    '(("Jazz Texts" . "jazz")))
+
+  
+  ;;;
   ;;;; Parser
   ;;;
   
@@ -80,6 +102,62 @@
   
   (method override (get-constituent-test)
     jazz-constituent?)
+   
+
+  ;;;
+  ;;;; Explorer
+  ;;;
+
+
+  (method override (explorer-class)
+    Jazz-Explorer)
+  
+  
+  ;;;
+  ;;;; Reading
+  ;;;
+  
+  
+  (method override (get-readtable)
+    jazz-readtable)
+  
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (method override (declaration-style documented?)
+    (if documented?
+        'Documented-Declaration
+      'Undocumented-Declaration))
+  
+  
+  (method override (colorize-tag colorizer start end)
+    (apply-coloring colorizer start end 'Tag))
+  
+  
+  (method override (colorize-specifier colorizer start end)
+    (apply-coloring colorizer start end 'Specifier))
+  
+  
+  (method (recolorize-named-comments line)
+    (let* ((str (paragraph-string~ model line))
+           (len (cardinality str))
+           (col 0)
+           (done? #f))
+      (while (not done?)
+        (let ((comment (search str "@" start: col)))
+          (if (not comment)
+              (set! done? #t)
+            (unless (and (> comment 0) (eqv? (element str (- comment 1)) #\,))
+              (let* ((pos (new Cell line (+ comment 1)))
+                     (expl <Text-Explorer> (new (explorer-class) model start: pos end: pos))
+                     (kind (forward-expr~ expl))
+                     (end (get-end~ expl)))
+                (when (and (eq? kind 'symbol) (= (get-line~ end) line))
+                  (apply-style~ model 'Named-Comment (- (get-start~ expl) 1) (get-end~ expl)))))
+            (set! col (+ comment 1)))))))
 
 
   ;;;
@@ -87,7 +165,7 @@
   ;;;
   
   
-  (method override (find-imports text symbol)
+  (method override (find-imports symbol)
     (define (present-imports imports)
       (let* ((border (new Imports-Border size: {Dimension 450 150}))
              (tree (locate~ border 'tree))
@@ -120,11 +198,11 @@
            (set-clipboard-text (join (map symbol->string imports) " "))))
         ((no)
          (unless (null? imports)
-           (let ((expl (new (explorer-class~ text) text)))
+           (let ((expl (new (explorer-class) model)))
              (for-each (lambda (import)
                          (unless (eq? import 'jazz)
-                           (set-start~ expl (text-beginning~ text))
-                           (set-end~ expl (text-beginning~ text))
+                           (set-start~ expl (text-beginning~ model))
+                           (set-end~ expl (text-beginning~ model))
                            (insert-import-invoice~ expl import)))
                        imports))))
         ((cancel)

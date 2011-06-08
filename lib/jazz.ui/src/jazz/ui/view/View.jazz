@@ -431,6 +431,10 @@
     )
   
   
+  (method public virtual (split-view)
+    #f)
+  
+  
   ;;;
   ;;;; Frame
   ;;;
@@ -908,6 +912,10 @@
   ;;;
   
   
+  (method public virtual (scrollee-size) <Dimension>
+    (new Dimension (scrollee-width) (scrollee-height)))
+  
+  
   (method protected virtual (scrollee-width)
     (get-width))
   
@@ -920,6 +928,7 @@
   ;; so for now we override those methods to implement dynamic scrollees
   (method protected virtual (dynamic-scrollee?)
     #f)
+  
   
   (method protected virtual (dynamic-set-scrollee-size)
     (set-size (scrollee-size)))
@@ -1441,11 +1450,10 @@
           (scroll (new Point (- fit right) 0)))))
     
     (unless update-locked?
+      (when (dynamic-scrollee?)
+        (dynamic-set-scrollee-size))
       (if (not scroller)
-          (begin
-            (when (dynamic-scrollee?)
-              (dynamic-set-scrollee-size))
-            (layout-scrollee-content))
+          (layout-scrollee-content)
         (let ((size (scrollee-size)))
           (when size
             (set-size size)
@@ -1468,10 +1476,6 @@
   
   (method public virtual (layout-scrollee-content)
     )
-  
-  
-  (method public virtual (scrollee-size) <Dimension>
-    (get-size))
 
 
   (method package virtual (on-vscroll code thumb-pos orientation)
@@ -1951,6 +1955,9 @@
   
   (method public virtual (receive-files pos pathnames)
     (let ((appl (get-application)))
+      (let ((stage (find-ascendant Stage include-self?: #t)))
+        (when stage
+          (set-current-stage stage)))
       (receive-files~ appl pos pathnames)))
 
 
@@ -2402,8 +2409,9 @@
     (define (new-tooltip-view text)
       (if (and (get-formatted-tooltip?) (pair? text))
           (let* ((view (new Tooltip-Text size: {Dimension 4000 100}))
-                 (text-view (get-text~ view)))
-            (set-text~ text-view text)
+                 (text-view (get-text~ view))
+                 (text-model (get-model~ text-view)))
+            (set-text~ text-model text)
             (set-size~ view (nu+ (scrollee-content-size~ text-view) {Dimension 2 2}))
             view)
         (new Tooltip-Label title: text)))
@@ -2446,7 +2454,7 @@
              (view (first-child~ border))
              (text-view (get-text~ view)))
         (set-size~ view {Dimension 4000 100})
-        (set-text~ text-view text)
+        (set-text~ (get-model~ text-view) text)
         (set-size~ tooltip (nu+ (scrollee-content-size~ text-view) {Dimension 6 6}))
         (set-size~ border (get-size~ tooltip))
         (layout-view~ border))))
@@ -2796,14 +2804,11 @@
   (method protected (call-key-press key)
     (if key-press-handler
         (invoke-handler self key-press-handler (new Keyboard-Event :char self key))
-      (key-press key)
-      (let ((appl (get-application)))
-        (when (macro-recording?~ appl)
-          (let ((recorder (get-recorder~ appl)))
-            (when recorder
-              (let ((handler {Event-Handler :focus on-insert})
-                    (event (new Event (if char? :char :key) self content: key)))
-                (record~ recorder handler event))))))))
+      (let ((handler {Event-Handler :focus on-insert})
+            (event (new Event (if char? :char :key) self content: key)))
+        (hook-event handler event
+          (lambda ()
+            (key-press key))))))
   
   
   (method (on-arrow evt)

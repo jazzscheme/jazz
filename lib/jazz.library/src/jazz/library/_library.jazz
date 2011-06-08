@@ -43,6 +43,7 @@
 
 (import (jazz.library.autoload)
         (jazz.io)
+        (irregex)
         (time))
 
 
@@ -135,6 +136,33 @@
   
   (define (universal-variable? pattern)
     (eq? pattern '?))
+  
+  (match-clauses))
+
+
+;;;
+;;;; Match Regexp
+;;;
+
+
+(definition public (match-regexp-string str . clauses)
+  (define (match-clauses)
+    (continuation-capture
+      (lambda (found)
+        (for-each (lambda (clause)
+                    (match-clause clause found))
+                  clauses)
+        (unspecified))))
+  
+  (define (match-clause clause found)
+    (bind (regexp . proc) clause
+      (if (not regexp)
+          (continuation-return found (proc))
+        (let ((match (irregex-search regexp str)))
+          (when match
+            (continuation-return found
+                                 (proc (lambda (variable)
+                                         (irregex-match-substring match variable)))))))))
   
   (match-clauses))
 
@@ -457,6 +485,29 @@
         (lambda (input2)
           (not (wi= (read-content-string input1)
                     (read-content-string input2))))))))
+
+
+;;;
+;;;; Event
+;;;
+
+
+(definition *event-hooks*
+  '())
+
+
+(definition public (register-event-hook hook)
+  (set! *event-hooks* (append *event-hooks* (list hook))))
+
+(definition public (unregister-event-hook hook)
+  (set! *event-hooks* (remove! hook *event-hooks*)))
+
+
+(definition public (hook-event action/handler event proc)
+  (prog1 (proc)
+    (for-each (lambda (hook)
+                (hook action/handler event))
+              *event-hooks*)))
 
 
 ;;;

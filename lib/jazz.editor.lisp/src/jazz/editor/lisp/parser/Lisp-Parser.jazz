@@ -137,59 +137,63 @@
     (define Lisp-Period
       ".")
     
-    (let ((text (new (text-view-class) char-encoding: char-encoding colorize?: #f)))
-      (set-moniker~ text file)
-      (let* ((beginning (text-beginning~ text))
-             (expl (new (explorer-class file) text start: beginning end: beginning))
-             (fact (new List-Factory)))
-        (walk-declarations~ expl
-          #f
-          ;; declaration
-          (lambda (parent kind symbol start end marked documented?)
-            (define (mangle-name name)
-              (expression-syntax-name-mangler symbol))
-            
-            (define (mangle-signature signature)
-              (let ((mangler (expression-syntax-signature-mangler symbol)))
-                (if mangler
-                    (cons (string-append (car signature) mangler) (cdr signature))
-                  signature)))
-            
-            (define (mangle-declaration name signature)
-              (let ((name-mangle (mangle-name name))
-                    (signature-mangle (and signature (mangle-signature signature))))
-                (when (or name-mangle signature-mangle)
-                  (cond ((and name-mangle signature-mangle)
-                         (append name-mangle signature-mangle))
-                        (else
-                         (or signature-mangle
-                             name-mangle))))))
-            
-            (let* ((name (reference->name (if (pair? marked) (car marked) marked)))
-                   (signature (mangle-declaration name (if (pair? marked) (cdr marked) #f))))
-              (let ((entry (new Lisp-Entry name kind signature (get-line~ start) (get-col~ start) (get-line~ end) (get-col~ end) '() '())))
-                (if (not parent)
-                    (put~ fact entry)
-                  (set-parent~ entry parent)
-                  (add-definition~ parent entry))
-                entry)))
-          ;; keyword
-          (lambda (parent start end)
+    (let ((text (new (text-view-class))))
+      (let ((model (get-model~ text))
+            (syntax (get-syntax~ text)))
+        (set-char-encoding~ model char-encoding)
+        (set-colorize?~ syntax #f)
+        (set-moniker~ text file)
+        (let* ((beginning (text-beginning~ model))
+               (expl (new (explorer-class file) model start: beginning end: beginning))
+               (fact (new List-Factory)))
+          (walk-declarations~ expl
+            #f
+            ;; declaration
+            (lambda (parent kind symbol start end marked documented?)
+              (define (mangle-name name)
+                (expression-syntax-name-mangler symbol))
+              
+              (define (mangle-signature signature)
+                (let ((mangler (expression-syntax-signature-mangler symbol)))
+                  (if mangler
+                      (cons (string-append (car signature) mangler) (cdr signature))
+                    signature)))
+              
+              (define (mangle-declaration name signature)
+                (let ((name-mangle (mangle-name name))
+                      (signature-mangle (and signature (mangle-signature signature))))
+                  (when (or name-mangle signature-mangle)
+                    (cond ((and name-mangle signature-mangle)
+                           (append name-mangle signature-mangle))
+                          (else
+                           (or signature-mangle
+                               name-mangle))))))
+              
+              (let* ((name (reference->name (if (pair? marked) (car marked) marked)))
+                     (signature (mangle-declaration name (if (pair? marked) (cdr marked) #f))))
+                (let ((entry (new Lisp-Entry name kind signature (get-line~ start) (get-col~ start) (get-line~ end) (get-col~ end) '() '())))
+                  (if (not parent)
+                      (put~ fact entry)
+                    (set-parent~ entry parent)
+                    (add-definition~ parent entry))
+                  entry)))
+            ;; keyword
+            (lambda (parent start end)
+              #f)
+            ;; expression
+            (lambda (parent start end mode kind)
+              (when (and parent (memq? kind '(symbol specifier tag keyword)))
+                (let ((name (get-marked~ expl)))
+                  (unless (or (empty-string? name)
+                              (eqv? (string-ref name 0) #\')
+                              (string=? name Lisp-Period))
+                    (iterate-references~ (class-of self) name
+                      (lambda (ref pos)
+                        (unless (empty-string? ref)
+                          (add-reference~ parent ref)))))))
+              parent)
             #f)
-          ;; expression
-          (lambda (parent start end mode kind)
-            (when (and parent (memq? kind '(symbol specifier tag keyword)))
-              (let ((name (get-marked~ expl)))
-                (unless (or (empty-string? name)
-                            (eqv? (string-ref name 0) #\')
-                            (string=? name Lisp-Period))
-                  (iterate-references~ (class-of self) name
-                    (lambda (ref pos)
-                      (unless (empty-string? ref)
-                        (add-reference~ parent ref)))))))
-            parent)
-          #f)
-        (get-output~ fact))))
+          (get-output~ fact)))))
   
   
   ;;;

@@ -40,6 +40,8 @@
 
 (export (jazz.project.autoload))
 (import (jazz.project.autoload)
+        (jazz.catalog)
+        (jazz.editor.lisp)
         (jazz.ide)
         (jazz.io)
         (jazz.system))
@@ -151,6 +153,50 @@
         (when (concrete?~ file)
           (enqueue projects file))))
     (queue-list projects)))
+
+
+;;;
+;;;; Locator
+;;;
+
+
+(definition public (unit->entry unit)
+  (let ((cataloguer (get-cataloguer~ (get-application))))
+    (let ((entry (get-definition~ cataloguer unit)))
+      (when (and (is? entry Lisp-Entry)
+                 (memq? (get-kind~ entry) '(block unit module)))
+        entry))))
+
+
+(definition public (unit->file unit)
+  (let ((entry (unit->entry unit)))
+    (when entry
+      (get-file~ (get-file-definition~ entry)))))
+
+
+(definition public (locator->entry locator)
+  (bind (unit . path) (split-reference locator)
+    (let ((unit-entry (unit->entry unit)))
+      (when unit-entry
+        (child~ unit-entry path)))))
+
+
+(definition public (container->file container)
+  (cond ((file? container)
+         container)
+        ((string? container)
+         (new File (tokenise-filename container)))
+        ((symbol? container)
+         (unit->file container))
+        (else
+         #f)))
+
+
+(definition public (locat->file/line/col locat)
+  (bind (container line col) (locat->container/line/col locat)
+    (let ((file (container->file container)))
+      (when file
+        (list file line col)))))
 
 
 ;;;

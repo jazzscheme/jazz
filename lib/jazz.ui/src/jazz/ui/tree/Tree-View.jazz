@@ -53,7 +53,7 @@
         (jazz.ui.window))
 
 
-(class Tree-View extends Outline-View implements Selection-Provider
+(class Tree-View extends Outline-View-Old implements Selection-Provider
   
 
   ;;;
@@ -126,6 +126,12 @@
   ;;;
   ;;;; Initialization
   ;;;
+  
+  
+  (method override (prepare rest)
+    (nextmethod rest)
+    (set! selection '()))
+  
   
   (method override (conclude rest)
     (nextmethod rest)
@@ -413,7 +419,7 @@
   
   (method override (scrollee-width)
     (let ((width (if show-header? columns-right (+ visible-width column-spacing))))
-      (if (and scroller fit-in-scroller?)
+      (if (and scroller fit-to-scroller?)
           (max (get-display-width) width)
         width)))
   
@@ -867,25 +873,25 @@
         (invalidate-column-header~ header (get-column sorted-column)))))
   
   
-  (method public (sort-column column)
+  (method public (sort-column col)
     (define (sort-rows rows equal direction)
-      (let ((dual? (/= column 0))
-            (get-node
-              (lambda (row children n)
-                (let ((data (element children n)))
-                  (or (sort-value~ (get-column n) row data) "")))))
+      (let ((dual? (/= col 0)))
+        (define (get-node row children n)
+          (let ((data (element children n)))
+            (or (sort-value~ (get-column n) row data) "")))
+        
         (sort (lambda (rx ry)
                 (let* ((cx (get-children~ rx))
                        (cy (get-children~ ry))
-                       (nx (localize (get-node rx cx column)))
-                       (ny (localize (get-node ry cy column))))
+                       (nx (localize (get-node rx cx col)))
+                       (ny (localize (get-node ry cy col))))
                   (or (direction nx ny)
                       (and dual?
                            (equal nx ny)
                            (direction (localize (get-node rx cx 0)) (localize (get-node ry cy 0)))))))
               rows)))
     
-    (set-sorted column (or (not sorted-column) (/= column sorted-column) (not sort-ascending?)))
+    (set-sorted col (or (not sorted-column) (/= col sorted-column) (not sort-ascending?)))
     (receive (equal smaller greater) (sort-predicates)
       (let ((direction (if sort-ascending? smaller greater)))
         (define (iter row)
@@ -2199,8 +2205,8 @@
             (set! edited-cell (get-master-cell edited))
             (replace-cell edited-cell cell-editor))))
       (let ((selection (restore-selection saved-selection)))
-        (set-selection selection ensure-displayed?: ensure-displayed? generate-event?: generate-event? auto-expand?: #f)
-        (scroll-to (nu- saved-position (selection-position selection))))))
+        (scroll-to (nu- saved-position (selection-position selection)))
+        (set-selection selection ensure-displayed?: ensure-displayed? generate-event?: generate-event? auto-expand?: #f))))
   
   
   (method public (get-single-selection)
@@ -2491,23 +2497,26 @@
 
 
   (method public (view->tree pos <Point> (any?: any? #f) (uniform-height?: uniform-height? #f))
-    (let ((line (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->row (get-v~ pos))))
-          (col (h->col (get-h~ pos))))
-      (when (not line)
-        (set! line (v->merged-cells-line (get-v~ pos))))
-      (when (not col)
-        (set! col (h->merged-cells-col (get-h~ pos))))
-      (when (and line col (>= line 0))
-        (let ((cell (new Cell line col)))
-          (set! cell (get-top-cell cell))
-          (if any?
-              cell
-            (when (cell-visible? cell)
-              cell))))))
+    (define (top-cell line col)
+      (visible-cell (get-top-cell (new Cell line col))))
+    
+    (define (visible-cell cell)
+      (if any?
+          cell
+        (when (cell-visible? cell)
+          cell)))
+    
+    (let ((merge-cell (find-merged-cell pos)))
+      (if merge-cell
+          (top-cell (get-first-line~ merge-cell) (get-first-col~ merge-cell))
+        (let ((line (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->line (get-v~ pos))))
+              (col (h->col (get-h~ pos))))
+          (when (and line col (>= line 0))
+            (visible-cell (new Cell line col)))))))
 
 
   (method public (call-with-view->tree pos <Point> proc)
-    (call-with-v->row (get-v~ pos)
+    (call-with-v->line (get-v~ pos)
       (lambda (line v height)
         (if line
             (let ((col (h->col (get-h~ pos))))
@@ -2523,7 +2532,7 @@
   (method public (tree->view cell)
     (new Point
       (col->h (get-col~ cell))
-      (row->v (get-line~ cell))))
+      (line->v (get-line~ cell))))
   
 
   (method public (h->col h)
@@ -2541,28 +2550,13 @@
     (borders-left (get-borders col)))
 
 
-  (method public (h->merged-cells-col h)
+  (method public (find-merged-cell pos)
     (continuation-capture
       (lambda (return)
         (loop (for merge-cell in merge-cell-list)
               (let ((rect (merge-cell-rect merge-cell)))
-                (let ((left (get-left~ rect))
-                      (right (get-right~ rect)))
-                  (when (and (>= h left) (<= h right) (/= left right))
-                    (continuation-return return (get-first-col~ merge-cell))))))
-        #f)))
-
-
-  (method public (v->merged-cells-line v)
-    (continuation-capture
-      (lambda (return)
-        (loop (for merge-cell in merge-cell-list)
-              (let ((rect (merge-cell-rect merge-cell)))
-                (when rect
-                  (let ((top (get-top~ rect))
-                        (bottom (get-bottom~ rect)))
-                    (when (and (>= v top) (<= v bottom) (/= top bottom))
-                      (continuation-return return (get-first-line~ merge-cell)))))))
+                (when (in-rect? pos rect)
+                  (continuation-return return merge-cell))))
         #f)))
   
   
@@ -2735,7 +2729,10 @@
   
   
   (method public virtual (select-cell cell . rest)
-    (set-single-selection (get-line~ cell)))
+    (set-single-selection 
+      (if (eq? selection-mode 'cell)
+          cell
+        (get-line~ cell))))
   
   
   ;;;

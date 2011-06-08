@@ -43,6 +43,7 @@
         (jazz.jml)
         (jazz.library)
         (jazz.platform)
+        (jazz.project)
         (jazz.system)
         (jazz.ui))
 
@@ -133,18 +134,20 @@
       (uninstall-active-indicators)
       (for-each (lambda (location)
                   (receive (frame text range) (find-location location)
-                    (apply-style~ text 'Fatal (get-start~ range) (get-end~ range))
-                    (ensure-cell-displayed~ text (get-start~ range))
-                    (reset-tooltip~ text)
-                    (acquire-focus~ text)))
+                    (let ((model (get-model~ text)))
+                      (apply-style~ model 'Fatal (get-start~ range) (get-end~ range))
+                      (ensure-cell-displayed~ text (get-start~ range))
+                      (reset-tooltip~ text)
+                      (acquire-focus~ text))))
                 locations)
       (set! *indicators* locations))
     
     (define (uninstall-indicators locations)
       (for-each (lambda (location)
                   (receive (frame text range) (find-location location)
-                    (apply-style~ text (get-default-style~ text) (get-start~ range) (get-end~ range))
-                    (reset-tooltip~ text)))
+                    (let ((model (get-model~ text)))
+                      (apply-style~ model (get-default-style~ model) (get-start~ range) (get-end~ range))
+                      (reset-tooltip~ text))))
                 locations))
     
     (define (uninstall-active-indicators)
@@ -153,8 +156,8 @@
         (set! *indicators* #f)))
     
     (define (find-location location)
-      (bind (filename line col) location
-        (let ((file (new File (list filename)))
+      (bind (container line col) location
+        (let ((file (container->file container))
               (start (new Cell line col))
               (end (new Cell line (+ col 1))))
           (let ((frame (edit-document~ (get-application) file activate-focus?: #f visible?: #f))
@@ -166,14 +169,7 @@
                  (let ((location (get-location~ detail)))
                    (when location
                      (let ((locat (get-locat~ location)))
-                       (when locat
-                         (let ((info (locat->line/col locat)))
-                           (bind (line . col) info
-                             (list
-                               ;; we want path as it was converted from the unit-name in the debuggee
-                               (get-path~ location)
-                               line
-                               col))))))))
+                       (locat->container/line/col locat)))))
                (detail-subdetails detail)))
     
     ;; when all this works, I think stop details

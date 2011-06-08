@@ -128,6 +128,7 @@
       (jazz.platform.windows.WinCtrl     cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinDlg      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinPerf     cc-options: ,(string-append "-I" windows-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" windows-lib-path " -mwindows -lpdh"))
+      (jazz.platform.windows.WinPSAPI    cc-options: ,(string-append "-I" windows-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" windows-lib-path " -mwindows -lpsapi"))
       (jazz.platform.cairo.cairo-windows cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))
       (jazz.platform.crash.windows       cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))
 
@@ -175,7 +176,7 @@
                           ,@jazz:carbon-units
                           ,@jazz:clipboard-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-        (jazz:update-product-descriptor descriptor))))
+        (jazz:build-product-descriptor descriptor))))
   (windows
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((build (%%repository-directory jazz:Build-Repository))
@@ -188,9 +189,11 @@
         
         (define (copy-platform-files)
           (jazz:copy-file (source-file "foreign/cairo/lib/windows/libcairo-2.dll") (build-file "libcairo-2.dll") feedback: jazz:feedback)
-          (jazz:copy-file (source-file "foreign/png/lib/windows/libpng13.dll") (build-file "libpng13.dll") feedback: jazz:feedback)
-          (jazz:copy-file (source-file "foreign/zlib/lib/windows/zlib1.dll") (build-file "zlib1.dll") feedback: jazz:feedback)
-          (jazz:copy-file (source-file "foreign/pixman/lib/windows/libpixman-1-0.dll") (build-file "libpixman-1-0.dll") feedback: jazz:feedback))
+          (jazz:copy-file (source-file "foreign/cairo/lib/windows/libfontconfig-1.dll") (build-file "libfontconfig-1.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/cairo/lib/windows/freetype6.dll") (build-file "freetype6.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/cairo/lib/windows/libexpat-1.dll") (build-file "libexpat-1.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/png/lib/windows/libpng14-14.dll") (build-file "libpng14-14.dll") feedback: jazz:feedback)
+          (jazz:copy-file (source-file "foreign/zlib/lib/windows/zlib1.dll") (build-file "zlib1.dll") feedback: jazz:feedback))
         
         (let ((unit-specs `((jazz.platform)
                             (jazz.platform.crash)
@@ -201,7 +204,7 @@
                             ,@jazz:windows-units
                             ,@jazz:com-units)))
           (jazz:custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
-          (jazz:update-product-descriptor descriptor)))))
+          (jazz:build-product-descriptor descriptor)))))
   (x11
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
@@ -213,7 +216,7 @@
                           ,@jazz:x11-units
                           ,@jazz:clipboard-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-        (jazz:update-product-descriptor descriptor)))))
+        (jazz:build-product-descriptor descriptor)))))
 
 
 ;;;

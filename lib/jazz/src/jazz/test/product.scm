@@ -38,7 +38,7 @@
 (define (jazz:build-test descriptor #!key (unit #f) (force? #f))
   (let ((unit-specs `((jazz.test cc-options: "" ld-options: ""))))
     (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-    (jazz:update-product-descriptor descriptor)))
+    (jazz:build-product-descriptor descriptor)))
 
 
 (jazz:register-product 'test

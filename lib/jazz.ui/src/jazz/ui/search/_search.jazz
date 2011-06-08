@@ -48,22 +48,24 @@
 ;;;
 
 
-(define *active-search*
+(define *active-search-result*
   #f)
 
 
-(definition public (active-search)
-  *active-search*)
+(definition public (active-search-result)
+  *active-search-result*)
 
 
-(definition public (set-active-search search)
-  (set! *active-search* search)
-  (if search
-      (install-indicators~ search *beginning-indicator* *ending-indicator*)
+(definition public (set-active-search-result search-result)
+  (set! *active-search-result* search-result)
+  (if search-result
+      (install-indicators~ search-result *beginning-indicator* *ending-indicator*)
     (reset~ *beginning-indicator*)
     (reset~ *ending-indicator*))
   (let ((appl (get-application)))
-    (set-search-message~ appl (if search (present~ search) ""))
+    (if search-result
+        (set-search-result~ appl (get-icon~ search-result) (present~ search-result))
+      (set-search-result~ appl #f #f))
     (update-search-actions~ appl)))
 
 
@@ -79,16 +81,26 @@
 ;;;
 
 
-(definition public (make-definition-search-results search definitions)
-  (map (lambda (definition)
-         (new Definition-Search-Result search definition))
-       definitions))
+(definition public (make-definition-search-resultset search definitions)
+  (let ((resultset (new Search-Resultset search)))
+    (for-each (lambda (definition)
+                (add-result~ resultset (new Definition-Search-Result resultset definition)))
+              definitions)
+    resultset))
 
 
-(definition public (make-reference-search-results search references)
-  (map (lambda (reference)
-         (new Reference-Search-Result search reference))
-       references))
+(definition public (make-reference-search-resultset search references)
+  (let ((resultset (new Search-Resultset search)))
+    (for-each (lambda (reference)
+                (add-result~ resultset (new Reference-Search-Result resultset reference)))
+              references)
+    resultset))
+
+
+(definition public (make-text-search-result find client beginning ending)
+  (let ((search (new Text-Search find #f)))
+    (let ((resultset (new Search-Resultset search)))
+      (new Text-Search-Result resultset client: client beginning: beginning ending: ending))))
 
 
 ;;;

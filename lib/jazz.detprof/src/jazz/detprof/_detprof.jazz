@@ -87,71 +87,75 @@
 
 (definition public (profile-code original proc)
   (let ((profile (active-profile))
-        (original-call (and original (list original (locat->file/line/col (procedure-locat original))))))
+        (original-call (and original (list original (locat->container/line/col (procedure-locat original))))))
     (define (profile-stack)
       (continuation-capture
         (lambda (cont)
           (if original-call
-              (cons original-call (identify-call cont (- (profile-depth profile) 1) (profile-profiler profile)))
-            (identify-call cont (profile-depth profile) (profile-profiler profile))))))
+              (cons original-call (get-cont-stack-for-profile cont
+                                                              (- (profile-depth profile) 1)
+                                                              (profile-profiler profile)))
+            (get-cont-stack-for-profile cont
+                                        (profile-depth profile)
+                                        (profile-profiler profile))))))
     
     (if profile
-        (let ((outer-start-time (profiler-performance-counter)))
+        (let ((outer-start-time (profiler-real-time)))
           (let ((result (parameterize ((time-spent-in-children 0))
-                          (let ((inner-start-time (profiler-performance-counter)))
+                          (let ((inner-start-time (profiler-real-time)))
                             (let ((result (proc)))
-                              (let ((total-elapsed-time (- (profiler-performance-counter) inner-start-time (get-inner-epsilon))))
+                              (let ((total-elapsed-time (- (profiler-real-time) inner-start-time (get-inner-overhead))))
                                 (profile-register-call profile (profile-stack) (- total-elapsed-time (time-spent-in-children))))
                               result)))))
-            (let ((total-elapsed-time (- (profiler-performance-counter) outer-start-time (get-outer-epsilon))))
+            (let ((total-elapsed-time (- (profiler-real-time) outer-start-time (get-outer-overhead))))
               (time-spent-in-children (+ (time-spent-in-children) total-elapsed-time)))
             result))
       (proc))))
 
 
 ;;;
-;;;; Epsilon
+;;;; Overhead
 ;;;
 
 
-(define outer-epsilon
+(define outer-overhead
   #f)
 
-(define inner-epsilon
+(define inner-overhead
   #f)
 
 
-(define (get-outer-epsilon)
-  (when (not outer-epsilon)
-    (setup-epsilon))
-  outer-epsilon)
+(define (get-outer-overhead)
+  (when (not outer-overhead)
+    (setup-overhead))
+  outer-overhead)
 
-(define (get-inner-epsilon)
-  (when (not inner-epsilon)
-    (setup-epsilon))
-  inner-epsilon)
+(define (get-inner-overhead)
+  (when (not inner-overhead)
+    (setup-overhead))
+  inner-overhead)
 
 
-(define (setup-epsilon)
-  (define (estimate-outer-epsilon)
-    (let ((outer-start-time (profiler-performance-counter)))
+(define (setup-overhead)
+  (define (estimate-outer-overhead)
+    (let ((outer-start-time (profiler-real-time)))
       (time-spent-in-children (+ (time-spent-in-children) 1))
       (unroll 99
-              (profiler-performance-counter)
+              (profiler-real-time)
               (time-spent-in-children (+ (time-spent-in-children) 1)))
-      (quotient (- (profiler-performance-counter) outer-start-time) 100)))
+      (quotient (- (profiler-real-time) outer-start-time) 100)))
   
-  (define (estimate-inner-epsilon)
-    (let ((inner-start-time (profiler-performance-counter)))
+  (define (estimate-inner-overhead)
+    (let ((inner-start-time (profiler-real-time)))
       (apply test-proc '(1 2 3))
       (unroll 99
-              (profiler-performance-counter)
+              (profiler-real-time)
               (apply test-proc '(1 2 3)))
-      (quotient (- (profiler-performance-counter) inner-start-time) 100)))
+      (quotient (- (profiler-real-time) inner-start-time) 100)))
   
   (parameterize ((time-spent-in-children 0))
-    (set! outer-epsilon (estimate-outer-epsilon))
-    (set! inner-epsilon (estimate-inner-epsilon))))
+    (set! outer-overhead (estimate-outer-overhead))
+    (set! inner-overhead (estimate-inner-overhead))))
 
 
 (define (test-proc . rest)

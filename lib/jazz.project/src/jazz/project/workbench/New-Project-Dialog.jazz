@@ -63,7 +63,7 @@
       (<Border-View>              name: name-border         position: {Point 247 109} size: {Dimension 218 19} border-type: edge style: entry
         (<Scroller-View>                                    hscroll?: #f vscroll?: #f
           (<!>                    name: content             layout-type: fill
-            (<Name-Text-View>     name: name                left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t base-style: {Text-Style Text-Base} tooltip?: #t tooltip-text: "Fully qualified name of the project" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change}))))
+            (<Name-Text-View>     name: name                accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t tooltip?: #t tooltip-text: "Fully qualified name of the project" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change}))))
       (<Label-View>               name: directory-label     title: "Directory:" position: {Point 182 143} size: {Dimension 64 16} font: {Font Label})
       (<Border-View>              name: directory-border    position: {Point 247 140} size: {Dimension 218 19} border-type: edge style: entry
         (<Moniker-Widget>         name: directory           protocol: dir display-protocol?: #f moniker-update-handler: {Event-Handler :form on-moniker-update}
@@ -78,7 +78,6 @@
   (method override (finish rest)
     (nextmethod rest)
     (setup-kinds)
-    (setup-name)
     (setup-directory))
   
   
@@ -124,10 +123,6 @@
     (update-ok))
   
   
-  (method (setup-name)
-    (set-string-content~ (locate 'name) "new"))
-  
-  
   (method (setup-directory)
     (let ((widget (locate 'directory)))
       (set-moniker~ widget {Directory Settings "projects" "lib"})))
@@ -149,7 +144,9 @@
   
   (method override (validate-dialog)
     (receive (kind template empty? name directory) (get-modal-result)
-      (let ((destination (new-directory~ directory name)))
+      (let ((destination (if empty?
+                             (new-file~ directory (format "{a}.project" name))
+                           (new-directory~ directory name))))
         (let ((message (validate-name kind name destination)))
           (when message
             (message-box message)
@@ -225,15 +222,19 @@
   
   
   (method (update-ok)
-    (set-enabled?~ (locate 'ok) (and (get-property~ (selected-kind) 'kind) (not (empty-string? (get-string-content~ (locate 'name)))))))
+    (let ((node (selected-kind)))
+      (set-enabled?~ (locate 'ok) (and (get-property~ node 'kind)
+                                       (or (get-property~ node 'empty?)
+                                           (not (empty-string? (get-string-content~ (locate 'name)))))))))
   
   
   (definition (validate-name kind name destination)
     (cond ((exists?~ destination)
            (format "Project already exists: {a}" (parse~ destination)))
-          ((let ((first (first name)))
-             (not (or (eqv? first #\_)
-                      (alphabetic? first))))
+          ((and (not (empty-string? name))
+                (let ((first (first name)))
+                  (not (or (eqv? first #\_)
+                           (alphabetic? first)))))
            "Name must start with a letter or an underscore")
           ((not (every? (lambda (char)
                           (or (alphabetic? char)
@@ -256,16 +257,4 @@
   
   (method override (draw surface context lh lv)
     (let ((size (get-size)))
-      (gradient-fill~ surface (new Rect 0 0 (get-width~ size) 50) (list (list 0 {Color White}) (list 1 Header-Color))))))
-
-
-;;;
-;;;; Name-Text-View
-;;;
-
-
-(class Name-Text-View extends Plain-Text-View
-  
-  
-  (method override (get-context-menu)
-    (new-text-context-menu))))
+      (gradient-fill~ surface (new Rect 0 0 (get-width~ size) 50) (list (list 0 {Color White}) (list 1 Header-Color)))))))

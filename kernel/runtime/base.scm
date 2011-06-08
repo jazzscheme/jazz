@@ -248,9 +248,6 @@
 (define jazz:jazz-updates-file
   #f)
 
-(define jazz:jazz-updates
-  #f)
-
 
 (define (jazz:get-jazz-updates)
   (define (determine-jazz-updates-file)
@@ -762,7 +759,8 @@
                      (loop (cdr rest)
                            (cons (cons opt (car rest)) rev-options))
                    (begin
-                     (missing-argument-for-option opt)
+                     (if missing-argument-for-option
+                         (missing-argument-for-option opt))
                      (loop rest rev-options))))
                 (else
                  (cont (reverse rev-options) args))))
@@ -774,18 +772,18 @@
 ;;;
 
 
-(define (jazz:call-process path arguments #!key (directory #f))
-  (let ((port (open-process
-                (list
-                  path: path
-                  arguments: arguments
-                  directory: directory
-                  stdin-redirection: #f
-                  stdout-redirection: #f
-                  stderr-redirection: #f))))
-    (let ((code (process-status port)))
-      (if (not (= code 0))
-          (jazz:error "failed")))))
+(define (jazz:invoke-process path-or-settings)
+  (let ((port (open-process `(,@path-or-settings
+                              stdin-redirection: #f
+                              stdout-redirection: #f
+                              stderr-redirection: #f))))
+    (process-status port)))
+
+
+(define (jazz:call-process path-or-settings)
+  (let ((code (jazz:invoke-process path-or-settings)))
+    (if (not (= code 0))
+        (jazz:error "Process failed ({a}): {s}" code path-or-settings))))
 
 
 ;;;

@@ -63,6 +63,7 @@
     (cond ((pair? value) #t)
           ((table? value) (> (table-length value) 0))
           ((structure? value) (> (kind-length (structure-kind value)) 0))
+          ((string? value) #f)
           ((sequence? value) (> (cardinality value) 0))
           ((object? value) (not-null? (get-instance-slots~ (class-of value))))
           (else #f)))
@@ -73,14 +74,17 @@
           (concatenate (subseq str 0 limit) "...")
         str)))
   
-  (let* ((unbound? (eq? value Unbound))
-         (raw? (eq? kind :raw))
-         (serial (object->serial value))
-         (presentation (cond (unbound? "<unbound>")
-                             (raw? (truncate (->string value)))
-                             (else (present-object value (or max-width presentation-limit)))))
-         (more? (if (or unbound? raw?) #f (or (memq? kind '(frame: context:)) (more-value? value)))))
-    (list serial presentation more? mutable? kind)))
+  (let ((serial (object->serial value)))
+    (let* ((unbound? (eq? value Unbound))
+           (raw? (eq? kind :raw))
+           (class (category-identifier (class-of value)))
+           (presentation (cond (unbound? "<unbound>")
+                               (raw? (truncate (->string value)))
+                               (else (present-object value (or max-width presentation-limit)))))
+           (more? (cond ((or unbound? raw?) #f)
+                        ((memq? kind '(frame: context:)) #t)
+                        (else (more-value? value)))))
+      (list serial class presentation more? mutable? kind))))
 
 
 ;;;
@@ -89,22 +93,16 @@
 
 
 (constant inspect-rank-limit
-  100)
+  256)
 
 
-(definition public (inspect-value value (max-width: max-width #f) (max-content: max-content inspect-rank-limit))
+(definition public (inspect-value value (max-width: max-width #f) (max-content: max-content inspect-rank-limit) (packager: packager package-info))
   (define (inspect-structure struct)
     (let ((kind (structure-kind struct)))
-      (let (iter (kind kind)
-                 (fields '()))
-        (if (not kind)
-            fields
-          (iter (kind-super kind)
-                (append (map (lambda (info)
-                               (bind (name index) info
-                                 (cons name (package-info (structure-ref struct index kind)))))
-                             (kind-fields kind))
-                        fields))))))
+      (map (lambda (info)
+             (bind (name index) info
+               (cons name (packager (structure-ref struct index kind)))))
+           (cached-kind-fields kind))))
   
   (define (inspect-list lst)
     (let (iter (scan lst)
@@ -112,26 +110,27 @@
       (cond ((>= rank max-content)
              (list (inspect-limit rank (+ rank (proper-length scan)))))
             ((pair? scan)
-             (cons (cons rank (package-info (car scan)))
+             (cons (cons rank (packager (car scan)))
                    (iter (cdr scan) (+ rank 1))))
             ((not (null? scan))
-             (list (cons 'rest (package-info scan))))
+             (list (cons 'rest (packager scan))))
             (else
              '()))))
   
   (define (inspect-table table)
-    (define (sort-content lst)
-      (sort string<=? lst key: (lambda (pair) (present-object (car pair) max-width))))
-    
-    (map (lambda (pair)
-           (bind (key . value) pair
-             (cons (present-object key max-width)
-                   (package-info value))))
-         (let ((lst (table->list table)))
-           (if (> (table-length table) max-content)
-               (append (sort-content (subseq lst 0 max-content))
-                       (list (inspect-limit max-content (table-length table))))
-             (sort-content lst)))))
+    (let ((limit? (> (table-length table) max-content)))
+      (let ((content (map (lambda (pair)
+                            (bind (key . value) pair
+                              (cons (present-object key max-width)
+                                    (packager value))))
+                          (let ((lst (table->list table)))
+                            (if limit?
+                                (subseq lst 0 max-content)
+                              lst)))))
+        (let ((sorted (sort string<? content key: car)))
+          (if limit?
+              (append sorted (list (inspect-limit max-content (table-length table))))
+            sorted)))))
   
   (define (inspect-object object)
     (define (class-slots class)
@@ -142,13 +141,13 @@
     (let ((infos (collect (lambda (slot)
                             ;; when we forget to redefine core classes in jazz, slots are symbols
                             (if (symbol? slot)
-                                (cons slot (package-info "<core slot>" kind: :raw))
+                                (cons slot (packager "<core slot>" kind: :raw))
                               (let ((value (slot-value object (field-name slot))))
                                 (if (and (unspecified? value) (property? slot))
                                     (cons (field-name slot)
-                                          (package-info (read-property object slot) kind: :raw))
+                                          (packager (read-property object slot) kind: :raw))
                                   (cons (field-name slot)
-                                        (package-info value))))))
+                                        (packager value))))))
                           (class-slots (class-of object)))))
       @when-we-have-sorting-through-the-ui
       infos
@@ -156,11 +155,27 @@
   
   (define (inspect-limit displayed total)
     (let ((missing (- total displayed)))
-      (cons "..." (package-info (format "{a} missing of {a}" missing total) kind: :raw))))
+      (cons "..." (packager (format "{a} missing of {a}" missing total) kind: :raw))))
   
   (cond ((null/pair? value) (inspect-list value))
         ((table? value) (inspect-table value))
         ((structure? value) (inspect-structure value))
         ((sequence? value) (inspect-list (coerce value List)))
         ((object? value) (inspect-object value))
-        (else '()))))
+        (else '())))
+
+
+;;;
+;;;; Kind
+;;;
+
+
+(definition kind-cache
+  (make-table test: eq?))
+
+
+(definition (cached-kind-fields kind)
+  (or (table-ref kind-cache kind #f)
+      (let ((fields (kind-fields kind)))
+        (table-set! kind-cache kind fields)
+        fields))))

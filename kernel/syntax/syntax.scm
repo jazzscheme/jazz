@@ -69,6 +69,10 @@
        (set! ,name ,expr))))
 
 
+(jazz:define-macro (jazz:define-variable-override name value)
+  `(set! ,name ,value))
+
+
 ;;;
 ;;;; Repository
 ;;;

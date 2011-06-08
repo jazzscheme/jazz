@@ -45,7 +45,7 @@
 (class Undoer extends Object
   
   
-  (slot client         initialize #f  getter generate)
+  (slot reset-modified)
   (slot undo-list      initialize '() getter generate)
   (slot redo-list      initialize '())
   (slot undoing?       initialize #f)
@@ -55,9 +55,9 @@
   (slot save-depth     initialize 0)
   
   
-  (method override (initialize clt)
+  (method override (initialize (reset-modified: reset-modified #f))
     (nextmethod)
-    (set! client clt))
+    (set! reset-modified~self reset-modified))
 
 
   ;;;
@@ -83,7 +83,7 @@
   ;;;
 
 
-  (method public (register-undo action)
+  (method public (register-undo action (reset #f))
     (cond (atomic?
            (register-atomic-action action))
           (undoing?
@@ -94,8 +94,8 @@
            (increase! save-depth)
            (unless redoing?
              (set! redo-list '()))))
-    (when (and (= 0 save-depth) (not atomic?))
-      (set-modified?~ (get-controller~ client) #f)))
+    (when (and reset-modified (= save-depth 0) (not atomic?))
+      (reset-modified)))
   
   
   (method public (can-undo?)

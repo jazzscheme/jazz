@@ -45,6 +45,19 @@
 
 (cond-expand
   (gambit
+    (define jazz:disable-interrupts! ##disable-interrupts!)
+    (define jazz:enable-interrupts! ##enable-interrupts!))
+  
+  (else))
+
+
+;;;
+;;;; Thread
+;;;
+
+
+(cond-expand
+  (gambit
     (define jazz:current-thread current-thread)
     (define jazz:thread? thread?)
     (define jazz:make-thread make-thread)
@@ -78,7 +91,17 @@
     (define jazz:thread-state-initialized? thread-state-initialized?)
     (define jazz:thread-state-normally-terminated-result thread-state-normally-terminated-result)
     (define jazz:thread-state-normally-terminated? thread-state-normally-terminated?)
-    (define jazz:thread-state-uninitialized? thread-state-uninitialized?))
+    (define jazz:thread-state-uninitialized? thread-state-uninitialized?)
+    
+    
+    (define (jazz:thread-continuation thread)
+      (if (jazz:thread-state-active? (jazz:thread-state thread))
+          (let ((cont (jazz:thread-cont thread)))
+            ;; hack - gambit thread init with dummy continuation
+            (if (%%not (%%eqv? (##vector-ref cont 0) 0))
+                cont
+              #f))
+        #f)))
   
   (else))
 

@@ -32,18 +32,18 @@
   *statprof-running?*)
 
 
+(define heartbeat-interval 0.001)
+
+
 (define (start-statprof profile)
-  (profile-last-counter-set! profile (profiler-performance-counter))
+  (##heartbeat-interval-set! heartbeat-interval)
   (set! *statprof-running?* #t)
-  (if (%%not (%%fx= (profile-depth profile) 0))
-      (%%interrupt-vector-set! 1 profile-heartbeat!)))
+  (%%interrupt-vector-set! 1 profile-heartbeat!))
 
 
 (define (stop-statprof profile)
   (%%interrupt-vector-set! 1 ##thread-heartbeat!)
-  (set! *statprof-running?* #f)
-  (if (%%fx= (profile-depth profile) 0)
-      (profile-total-duration-set! profile (+ (profile-total-duration profile) (- (profiler-performance-counter) (profile-last-counter profile))))))
+  (set! *statprof-running?* #f))
 
 
 ;;;
@@ -61,20 +61,13 @@
       (%%continuation-capture
         (lambda (cont)
           (parameterize ((*in-profile-heartbeat?* #t))
-            (##thread-heartbeat!)
-            (register-continuation (active-profile) cont))))))
-
-
-(define (register-continuation profile cont)
-  (define (duration)
-    (let ((counter (profiler-performance-counter))
-          (last-counter (profile-last-counter profile)))
-      (profile-last-counter-set! profile counter)
-      (- counter last-counter)))
-  
-  (let ((duration (max 1 (duration)))
-        (stack (identify-call cont (profile-depth profile) (profile-profiler profile))))
-    (profile-register-call profile stack duration)))
+            (##thread-heartbeat!)            
+            (let ((profile (active-profile)))
+              (profile-register-call profile
+                                     (get-cont-stack-for-profile cont
+                                                                 (profile-depth profile)
+                                                                 (profile-profiler profile))
+                                     0)))))))
 
 
 ;;;

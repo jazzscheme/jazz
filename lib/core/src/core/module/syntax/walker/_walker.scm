@@ -461,14 +461,6 @@
 
 
 (jazz:define-method (jazz:lookup-declaration (jazz:Namespace-Declaration namespace-declaration) symbol access source-declaration)
-  (define (add-to-module-references declaration)
-    (%%when (and declaration
-                 (%%neq? namespace-declaration (%%get-declaration-toplevel declaration)))
-      (let* ((module-declaration (%%get-declaration-toplevel namespace-declaration))
-             (references-table (%%get-module-declaration-walker-references module-declaration)))
-        (%%when (%%neq? module-declaration (%%get-declaration-toplevel declaration))
-          (%%table-set! references-table (%%get-declaration-locator declaration) declaration)))))
-  
   (define (add-to-hits declaration)
     (%%when (and declaration source-declaration (jazz:analysis-mode?))
       (let ((hits-table (jazz:get-lexical-binding-hits declaration)))
@@ -477,7 +469,7 @@
         (%%set-analysis-data-autoload-reference (jazz:get-analysis-data (%%get-declaration-locator declaration)) declaration))))
   
   (let ((found (%%table-ref (%%get-access-lookup namespace-declaration access) symbol #f)))
-    (add-to-module-references found)
+    (jazz:add-to-module-references namespace-declaration found)
     (add-to-hits found)
     found))
 
@@ -626,6 +618,15 @@
                       (%%get-lexical-binding-name module-declaration)
                       suffix
                       conflicts))))))
+
+
+(define (jazz:add-to-module-references namespace-declaration method-declaration)
+  (%%when (and method-declaration
+               (%%neq? namespace-declaration (%%get-declaration-toplevel method-declaration)))
+    (let* ((module-declaration (%%get-declaration-toplevel namespace-declaration))
+           (references-table (%%get-module-declaration-walker-references module-declaration)))
+      (%%when (%%neq? module-declaration (%%get-declaration-toplevel method-declaration))
+        (%%table-set! references-table (%%get-declaration-locator method-declaration) method-declaration)))))
 
 
 (define (jazz:generate-reference-list module-declaration)
@@ -1908,7 +1909,7 @@
 (jazz:define-method (jazz:walk-binding-expand-form (jazz:Define-Syntax-Declaration binding) walker resume declaration environment form-src)
   (let ((locator (%%get-declaration-locator binding)))
     (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
-        (jazz:walk-warning walker resume declaration "Syntaxes shouldn't be used from within the same file: {s}" locator))
+        (jazz:walk-warning walker declaration form-src "Syntaxes shouldn't be used from within the same file: {s}" locator))
     (let ((parent-declaration (%%get-declaration-parent binding)))
       (jazz:load-unit (%%get-declaration-locator (%%get-declaration-toplevel parent-declaration)))
       (let* ((define-syntax-form (jazz:need-macro locator))
@@ -3161,10 +3162,12 @@
     (cond ((%%null? infos) #f)
           ((%%memq x (%%caar infos)) #t)
           (else (is-modifier? (%%cdr infos) x))))
+  
   (define (skip-modifiers infos ls)
     (if (and (%%pair? ls) (is-modifier? infos (jazz:source-code (%%car ls))))
         (skip-modifiers infos (%%cdr ls))
         ls))
+  
   (define (get-modifier names from to)
     (cond ((%%eq? from to) #f)
           ((%%memq (jazz:source-code (%%car from)) names)
@@ -3172,6 +3175,7 @@
                   => (lambda (x) (jazz:walk-error "Ambiguous modifiers: {s} {s}" walker resume declaration (%%car from) x)))
                  (else (jazz:source-code (%%car from)))))
           (else (get-modifier names (%%cdr from) to))))
+  
   (let ((modifiers rest)
         (rest (skip-modifiers infos rest)))
     (let lp ((ls infos) (res '()))
@@ -3377,7 +3381,7 @@
                (dialect (jazz:require-dialect dialect-name))
                (walker (jazz:dialect-walker dialect))
                (resume #f)
-               (actual (jazz:get-catalog-entry name))
+               (actual (jazz:valid-catalog-entry name))
                (declaration (jazz:call-with-catalog-entry-lock name
                               (lambda ()
                                 (let ((declaration (jazz:walk-module-declaration walker actual name access dialect-name dialect-invoice body)))
@@ -5319,6 +5323,13 @@
                            (%%cdr entry)
                          entry))))
     (jazz:set-catalog-entry unit-name (if status (%%cons status declaration) declaration))))
+
+
+(define (jazz:valid-catalog-entry unit-name)
+  (let ((entry (jazz:get-catalog-entry unit-name)))
+    (if (%%pair? entry)
+        (jazz:circular-dependency-error unit-name (map cdr jazz:Load-Stack))
+      entry)))
 
 
 (define (jazz:release-catalog-entries)

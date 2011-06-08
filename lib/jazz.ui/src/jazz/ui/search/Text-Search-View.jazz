@@ -56,11 +56,7 @@
         (<content~>
           (<Radio-Button> name: window      title: "Window" position: {Point 13 14} size: {Dimension 120 18} group: domain selected?: #t)
           (<Radio-Button> name: declaration title: "Declaration" position: {Point 13 34} size: {Dimension 120 18} group: domain)
-          (<Radio-Button> name: selection   title: "Selection" position: {Point 13 54} size: {Dimension 120 18} group: domain)
-          @wait
-          (<Radio-Button> name: text        title: "Text" position: {Point 143 14} size: {Dimension 120 18} group: restriction selected?: #t)
-          @wait
-          (<Radio-Button> name: highlights  title: "Highlights" position: {Point 143 34} size: {Dimension 120 18} group: restriction)))))
+          (<Radio-Button> name: selection   title: "Selection" position: {Point 13 54} size: {Dimension 120 18} group: domain)))))
   
   
   (method (preferences)
@@ -89,10 +85,12 @@
         (if (not text)
             (bell)
           (let ((search (new Text-Search find replace)))
-            (set-active-search search)
-            (set-caret~ text (get-start~ text))
-            (find-forward~ search text)
-            (acquire-focus~ text)))))
+            (let ((resultset (new Search-Resultset search)))
+              (let ((result (new Text-Search-Result resultset)))
+                (set-active-search-result result)
+                (set-caret~ text (get-start~ text))
+                (find-forward~ result client: text)
+                (acquire-focus~ text)))))))
     
     (define (search-declaration)
       (let ((text (active-text)))
@@ -101,9 +99,13 @@
           (let ((range (declaration-range~ text (get-start~ text))))
             (if (not range)
                 (message-box "Unable to determine declaration")
-              (let ((search (new Text-Search find replace client: text beginning: (get-start~ range) ending: (get-end~ range))))
-                (set-active-search search)
-                (acquire-focus~ text)))))))
+              (let ((search (new Text-Search find replace)))
+                (let ((resultset (new Search-Resultset search)))
+                  (let ((result (new Text-Search-Result resultset client: text beginning: (get-start~ range) ending: (get-end~ range))))
+                    (set-active-search-result result)
+                    (set-caret~ text (get-start~ text))
+                    (find-forward~ result client: text)
+                    (acquire-focus~ text)))))))))
     
     (define (search-selection)
       (let ((text (active-text)))
@@ -112,9 +114,13 @@
           (let ((range (get-selection~ text)))
             (if (empty?~ range)
                 (message-box "Selection is empty")
-              (let ((search (new Text-Search find replace client: text beginning: (get-start~ range) ending: (get-end~ range))))
-                (set-active-search search)
-                (acquire-focus~ text)))))))
+              (let ((search (new Text-Search find replace)))
+                (let ((resultset (new Search-Resultset search)))
+                  (let ((result (new Text-Search-Result resultset client: text beginning: (get-start~ range) ending: (get-end~ range))))
+                    (set-active-search-result result)
+                    (set-caret~ text (get-start~ text))
+                    (find-forward~ result client: text)
+                    (acquire-focus~ text)))))))))
     
     (define (active-text)
       (let ((frames (all-frames)))

@@ -138,7 +138,7 @@
 
 
 (define (jazz:custom-compile/build unit-specs #!key (unit #f) (pre-build #f) (force? #f))
-  (jazz:load-unit 'core.unit.builder)
+  (jazz:load-build)
   (if unit
       (let ((compile-args (assq unit unit-specs)))
         (if compile-args

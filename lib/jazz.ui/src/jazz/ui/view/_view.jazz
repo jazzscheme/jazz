@@ -379,10 +379,17 @@
   (collect-if in-player?~ *stages*))
 
 
+(definition public (first-stage)
+  (first (get-active-stages)))
+
+(definition public (last-stage)
+  (last (get-active-stages)))
+
+
 (definition public (current-stage)
   *current-stage*)
 
-(definition public (set-current-stage stage)
+(definition public (set-current-stage stage (activate?: activate? #t))
   (unless (eq? stage *current-stage*)
     (let ((previous *current-stage*))
       (set! *current-stage* stage)
@@ -393,7 +400,8 @@
       (when stage
         (invalidate-border~ (get-border~ stage))
         (stage-activate~ stage))))
-  (activate-current-frame)
+  (when activate?
+    (activate-current-frame))
   (update-menubar-buttons~ (get-application)))
 
 (definition public (reset-current-stage)
@@ -504,14 +512,15 @@
       (let ((splitter (get-parent~ stage)))
         (if (is-not? splitter Splitter-Preferences)
             (bell)
-          (delete-stages designer stage splitter))))))
+          (let ((splitter-view (get-parent~ (get-border~ current-stage))))
+            (delete-stages designer stage splitter current-stage splitter-view)))))))
 
 
 (definition public (delete-other-stages)
-  (define (find-splitter splitter parent)
+  (define (find-splitter splitter parent view)
     (if (stage-splitter? parent)
-        (find-splitter parent (get-parent~ parent))
-      splitter))
+        (find-splitter parent (get-parent~ parent) (get-parent~ view))
+      (values splitter view)))
   
   (define (stage-splitter? splitter)
     (and (is? splitter Splitter-Preferences)
@@ -526,14 +535,25 @@
       (let ((splitter (get-parent~ stage)))
         (if (is-not? splitter Splitter-Preferences)
             (bell)
-          (delete-stages designer stage (find-splitter splitter (get-parent~ splitter))))))))
+          (receive (splitter splitter-view) (find-splitter splitter (get-parent~ splitter) (get-parent~ (get-border~ current-stage)))
+            (delete-stages designer stage splitter current-stage splitter-view)))))))
 
 
-(definition (delete-stages designer stage splitter)
+(definition (delete-stages designer stage splitter stage-view splitter-view)
   (define (only-stages? view)
     (or (is? view Stage-Preferences)
         (and (is? view Splitter-Preferences)
              (every? only-stages? (get-children~ view)))))
+  
+  (define (move-frames destroyed-stages stage-view)
+    (for-each (lambda (stage)
+                (for-each (lambda (frame)
+                            (if (find-frame-brother stage-view frame)
+                                (close~ frame)
+                              (set-parent~ frame stage-view)
+                              (send-to-back~ frame)))
+                          (get-children~ stage)))
+              destroyed-stages))
   
   (let ((parent (get-parent~ splitter)))
     (if (or (not (can-move-component?~ designer stage parent))
@@ -542,7 +562,28 @@
       (set-property~ designer stage 'location (get-location~ splitter))
       (move-component~ designer stage parent)
       (remove-child~ designer splitter)
-      (select-current-workspace))))
+      (let ((border-view (get-border~ stage-view)))
+        (let ((parent-view (get-parent~ splitter-view))
+              (destroyed-stages (remove! stage-view (collect-descendants~ splitter-view Stage))))
+          (move-frames destroyed-stages stage-view)
+          (set-location~ border-view (get-location~ splitter-view))
+          (set-parent~ border-view parent-view)
+          (close~ splitter-view)
+          (layout-view~ parent-view)))
+      (update-window-actions~ (get-application)))))
+
+
+(definition protected (find-frame-brother stage frame)
+  (and (is? frame Host-View)
+       (let ((guest (get-guest~ frame)))
+         (and (is? guest Text-View)
+              (let ((model (get-model~ guest)))
+                (find-if (lambda (actual-frame)
+                           (and (is? actual-frame Host-View)
+                                (let ((actual-guest (get-guest~ actual-frame)))
+                                  (and (is? actual-guest Text-View)
+                                       (eq? (get-model~ actual-guest) model)))))
+                         (get-views~ stage)))))))
 
 
 (definition public (split-stage-vertically)
@@ -558,7 +599,8 @@
         (current-stage (current-stage)))
     (if (not current-stage)
         (bell)
-      (let ((stage (get-figure-preferences~ current-stage)))
+      (let ((stage (get-figure-preferences~ current-stage))
+            (frame (first-view~ current-stage)))
         (let ((parent (get-parent~ stage))
               (new-splitter (new Splitter-Preferences))
               (new-stage (new Stage-Preferences)))
@@ -571,28 +613,105 @@
           (set-property~ designer new-splitter 'division 50)
           (set-property~ designer stage 'location 'first)
           (set-property~ designer new-stage 'location 'second)
-          (set-property~ designer new-stage 'maximized? (get-maximized?~ stage))))
-      (select-current-workspace))))
+          (set-property~ designer new-stage 'maximized? (get-maximized?~ stage))
+          (let ((border (get-border~ current-stage)))
+            (let ((parent (get-parent~ border))
+                  (splitter (new Splitter-View))
+                  (stage (remember-stage~ new-stage)))
+              (set-parent~ border splitter)
+              (set-parent~ splitter parent)
+              (set-parent~ (get-parent~ stage) splitter)
+              (apply-properties~ new-splitter splitter)
+              (set-location~ border 'first)
+              (set-location~ (get-parent~ stage) 'second)
+              (set-maximized?~ stage (get-maximized?~ current-stage))
+              (layout-view~ (get-parent~ splitter))
+              (layout-view~ splitter)
+              (set-current-stage stage activate?: #f)
+              (when (is? frame Host-View)
+                (let ((splitted (split-view~ (get-guest~ frame))))
+                  (when splitted
+                    (remember-workspace-stage~ splitted))))
+              (activate-current-frame)))
+          (update-window-actions~ (get-application)))))))
 
 
-(definition public (navigate-frame)
+(definition public (move-frame)
+  (let ((frame (current-frame)))
+    (let ((stage (if frame (get-stage~ frame) (current-stage))))
+      (let ((next-stage (next-stage stage)))
+        (if (not next-stage)
+            (bell)
+          (when frame
+            (set-parent~ frame next-stage)
+            (maximize/restore~ frame)
+            (remember-workspace-stage~ frame))
+          (set-current-stage next-stage))))))
+
+
+(definition public (clone-frame)
+  (let ((frame (current-frame)))
+    (if (is-not? frame Host-View)
+        (bell)
+      (let ((stage (get-stage~ frame)))
+        (let ((next-stage (next-stage stage)))
+          (if (not next-stage)
+              (bell)
+            (let ((brother (find-frame-brother next-stage frame)))
+              (if brother
+                  (focus-host~ brother)
+                (let ((splitted (split-view~ (get-guest~ frame))))
+                  (if (not splitted)
+                      (bell)
+                    (set-parent~ splitted next-stage)
+                    (maximize/restore~ splitted)
+                    (remember-workspace-stage~ splitted)
+                    (set-current-stage next-stage)))))))))))
+
+
+(definition public (next-stage stage)
   (let ((stages (get-active-stages)))
     (let ((count (length stages)))
-      (define (navigate stage frame)
-        (let ((rank (find stages stage)))
-          (let ((next (element stages (modulo (- rank 1) count))))
-            (when frame
-              (set-parent~ frame next)
-              (maximize/restore~ frame)
-              (remember-workspace-stage~ frame))
-            (set-current-stage next))))
-      
-      (if (< count 2)
-          (bell)
-        (let ((frame (current-frame)))
-          (if frame
-              (navigate (get-stage~ frame) frame)
-            (navigate (current-stage) #f)))))))
+      (when (>= count 2)
+        (next-element stages stage)))))
+
+
+(definition public (previous-stage stage)
+  (let ((stages (get-active-stages)))
+    (let ((count (length stages)))
+      (when (>= count 2)
+        (previous-element stages stage)))))
+
+
+(definition public (navigate-next-stage)
+  (define (bring-stage-to-front stage)
+    (set! *stages* (cons stage (remove! stage *stages*))))
+  
+  (let ((stages (get-active-stages)))
+    (if (< (length stages) 2)
+        (bell)
+      (let ((stage (last-stage)))
+        (bring-stage-to-front stage)
+        (activate-stage stage)))))
+
+
+(definition public (navigate-previous-stage)
+  (define (send-stage-to-back stage)
+    (set! *stages* (append (remove! stage *stages*) (list stage))))
+  
+  (let ((stages (get-active-stages)))
+    (if (< (length stages) 2)
+        (bell)
+      (let ((stage (first-stage)))
+        (send-stage-to-back stage)
+        (activate-stage (first-stage))))))
+
+
+(define (activate-stage stage)
+  (let ((frame (first-view~ stage)))
+    (if frame
+        (focus-host~ frame)
+      (acquire-focus~ stage))))
 
 
 ;;;

@@ -41,26 +41,30 @@
 (define (jazz:generate-symbol #!optional (prefix "sym"))
   (let ((for (jazz:generate-symbol-for))
         (counter (jazz:generate-symbol-counter)))
-    (if (not counter)
-        (error "Invalid call to generate-symbol without a counter")
-      (let ((name (##string-append prefix (or for "^") (##number->string counter))))
-        (jazz:generate-symbol-counter (+ counter 1))
-        (##make-uninterned-symbol name)))))
+    (cond ((not counter)
+           (error "Invalid call to generate-symbol without a counter"))
+          (else
+           (let ((name (##string-append prefix (or for "^") (##number->string counter))))
+             (jazz:generate-symbol-counter (+ counter 1))
+             (##make-uninterned-symbol name))))))
 
 
 (define (jazz:generate-global-symbol #!optional (prefix "sym"))
   (let ((for (jazz:generate-symbol-for))
         (context (jazz:generate-symbol-context))
         (counter (jazz:generate-symbol-counter)))
-    (if (not context)
-        (error "Invalid call to generate-global-symbol without a context")
-      (let ((module (jazz:string-replace (##symbol->string context) #\. #\/)))
-        (let ((name (##string-append module "_" prefix (or for "^") (##number->string counter))))
-          (if (##find-interned-symbol name)
-              (error "Detected invalid state:" name)
-            (begin
-              (jazz:generate-symbol-counter (+ counter 1))
-              (##string->symbol name))))))))
+    (cond ((not for)
+           (error "Invalid call to generate-global-symbol without a for"))
+          ((not context)
+           (error "Invalid call to generate-global-symbol without a context"))
+          (else
+           (let ((module (jazz:string-replace (##symbol->string context) #\. #\/)))
+             (let ((name (##string-append module "_" prefix for (##number->string counter))))
+               ;; this test is not correct if we are compiling a syntax module that is already loaded compiled
+               ;; (if (##find-interned-symbol name)
+               ;;    (error "Detected invalid state:" name))
+               (jazz:generate-symbol-counter (+ counter 1))
+               (##string->symbol name)))))))
 
 
 (define (jazz:simplify-begin form)

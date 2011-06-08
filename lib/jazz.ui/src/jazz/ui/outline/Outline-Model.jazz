@@ -1,0 +1,908 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Outline Model
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ui.outline.Outline-Model jazz
+
+
+(import (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view))
+
+
+(class Outline-Model extends View
+  
+  
+  ;;;
+  ;;;; Lexicon
+  ;;;
+
+  
+  ;; visible : a row that has all its parents expanded
+  ;; line    : the rank of a visible row
+
+  
+  (property protected default-row-height <fx> initialize 17 accessors generate)
+  (property protected row-spacing        <fx> initialize 0  accessors explicit)
+  (property protected left-padding       <fx> initialize 0  accessors explicit)
+  (property protected top-padding        <fx> initialize 0  accessors explicit)
+  (property protected background-filler       initialize #f accessors explicit)
+  
+  
+  (slot protected root-row                    initialize #f getter generate)
+  (slot protected visible-count          <fx> initialize 0  getter generate)
+  (slot protected visible-height         <fx> initialize 0  getter generate)
+  (slot protected visible-width          <fx> initialize 0  getter generate)
+  (slot protected clients                     initialize '())
+  
+
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method override (install rest)
+    (nextmethod rest)
+    (setup-outline))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (layout-scrollee))
+  
+  
+  (method override (set-player plr)
+    (when (neq? player plr)
+      (nextmethod plr)
+      (when root-row
+        (set-player~ root-row plr))))
+  
+  
+  (method (setup-outline)
+    (set! root-row (new (row-class)))
+    (set-parent~ root-row self)
+    (set-father~ root-row #f)
+    (set-level~ root-row -1)
+    (set-state~ root-row 'expanded))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method override (size-change size)
+    (nextmethod size)
+    (unless (or update-locked? (not (get-finished?)))
+      (layout-scrollee)))
+  
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-row-spacing)
+    row-spacing)
+
+
+  (method public (set-row-spacing spacing)
+    (set! row-spacing spacing)
+    (update-displayed)
+    (invalidate-view))
+
+  
+  (method public (get-left-padding)
+    left-padding)
+  
+  
+  (method public (set-left-padding padding)
+    (set! left-padding padding)
+    (invalidate-view))
+  
+  
+  (method public (get-top-padding)
+    top-padding)
+  
+  
+  (method public (set-top-padding padding)
+    (set! top-padding padding)
+    (invalidate-view))
+  
+
+  (method public (get-background-filler)
+    background-filler)
+
+
+  (method public (set-background-filler value)
+    (set! background-filler value)
+    (invalidate-view))
+
+
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method public (get-expand-state (include-invisibles?: include-invisibles? #f))
+    (when root-row
+      (letrec ((proc
+                 (lambda (row)
+                   (let ((title (get-title~ (first-child~ row)))
+                         (state (get-state~ row))
+                         (sons (get-sons~ row)))
+                     (when (or (and include-invisibles? (> (cardinality sons) 0)) (eq? state 'expanded))
+                       (cons title
+                             (cons state
+                                   (collect proc sons))))))))
+        (collect proc (get-sons~ root-row) type: List))))
+  
+  
+  ;; This function will only work properly for a fully collapsed outline.
+  ;; Note that its main purpose being to restore a new outline to a stored state,
+  ;; this is not a limitation but a design decision.
+  (method public (set-expand-state state)
+    (when root-row
+      (letrec ((proc
+                (lambda (row info)
+                  (bind (title state . children) info
+                    (let ((subrow (find-by-title~ row title)))
+                      (when subrow
+                        (let ((actual (get-state~ subrow)))
+                          (if (eq? state 'expanded)
+                              (unless (eq? actual 'expanded)
+                                (expand/collapse subrow))
+                            (when (and (eq? actual 'dynamic) children)
+                              (update-row subrow))))
+                        (iterate children
+                                 (lambda (info)
+                                   (proc subrow info)))))))))
+        (for-each (lambda (info)
+                    (proc root-row info))
+                  state))))
+  
+  
+  ;;;
+  ;;;; Spine
+  ;;;
+  
+  
+  (method public (expand-spine spine)
+    (when root-row
+      (letrec ((proc
+                (lambda (row spine)
+                  (bind (title . subspine) spine
+                    (let ((subrow (find-by-title~ row title)))
+                      (when subrow
+                        (let ((actual (get-state~ subrow)))
+                          (unless (or (eq? actual 'expanded) (null? subspine))
+                            (expand/collapse subrow)))
+                        (if (null? subspine)
+                            subrow
+                          (proc subrow subspine))))))))
+        (proc root-row spine))))
+  
+
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method override (layout-scrollee-content)
+    (define (layout-rows)
+      (let ((width (- (get-width) left-padding))
+            (row (get-next~ root-row))
+            (rt top-padding))
+        (while row
+          (let* ((height (effective-row-height~ row))
+                 (rb (+ rt height)))
+            (set-position~ row (new Point left-padding rt))
+            (set-size~ row (new Dimension width height))
+            (set! rt rb)
+            (set! row (get-next~ row))
+            (increase! rt row-spacing)))))
+    
+    (layout-rows))
+  
+
+  ;;;
+  ;;;; Scrollee
+  ;;;
+  
+  
+  (method override (scrollee-width)
+    (+ left-padding visible-width))
+  
+  
+  (method override (scrollee-height)
+    (+ top-padding visible-height))
+  
+  
+  (method (scrollee-content-size)
+    (new Dimension (scrollee-content-width) (scrollee-content-height)))
+  
+  
+  (method public virtual (scrollee-content-width)
+    (+ left-padding visible-width))
+  
+  
+  (method public virtual (scrollee-content-height)
+    (+ top-padding visible-height))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method override (invalidate-update)
+    (update-visible)
+    (layout-scrollee))
+  
+  
+  (method public virtual (update-visible)
+    )
+
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method protected virtual (draw-outline surface context lh lv sh sv sc sc? outline scrolled-pos)
+    (define (draw-rows top bottom)
+      (define (draw-row row line)
+        (let* ((width (get-width))
+               (height (get-height~ row))
+               (total-height (+ height row-spacing))
+               (selected? #f @mvc (line-draw-selected? line))
+               (pos <Point> (get-position~ row)))
+          (set-font~ surface (effective-font))
+          (let ((new-context (optimize-context selected? line context)))
+            (paint-content~ row surface #t '() new-context (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
+      
+      (let ((row (get-first-displayed~ outline))
+            (line <fx> (get-first-displayed-line~ outline))
+            (rt <fx> (- top-padding (get-first-displayed-offset~ outline)))
+            (width <fx> (get-width)))
+        (while (and row (< rt bottom))
+          (let* ((height <fx> (get-height~ row))
+                 (rb <fx> (+ rt height)))
+            (when (>= rb top)
+              (draw-row row line))
+            (increase! line)
+            (set! rt rb)
+            (set! row (get-next~ row))
+            (increase! rt row-spacing)))
+        (draw-empty surface top bottom sh sv sc sc? rt width)))
+    
+    (let ((clipper (get-logical-clipper~ surface)))
+      (let ((top (+ (get-top~ clipper) (get-v~ scrolled-pos)))
+            (bottom (+ (get-bottom~ clipper) (get-v~ scrolled-pos))))
+        (draw-rows top bottom))))
+  
+  
+  (method protected virtual (draw-empty surface top bottom sh sv sc sc? rt width)
+    )
+  
+  
+  ;; this memory optimization should work because as drawing always
+  ;; occurs in the primary thread, it is implicitly synchronized...
+  (definition optimized-context
+    (list selected?: #f line: 0))
+  
+  
+  (definition (optimize-context selected? line context)
+    (if context
+        (cons selected?: (cons selected? (cons line: (cons line context))))
+      (set-second! optimized-context selected?)
+      (set-fourth! optimized-context line)
+      optimized-context))
+
+  
+  ;;;
+  ;;;; Rows
+  ;;;
+  
+  
+  (method protected virtual (row-class)
+    Outline-Row)
+
+  
+  (method public (add-row . rest)
+    (bind-keywords ((class (row-class)) (row #f) (father #f) (position #f) . others) rest
+      (let* ((father (or father root-row))
+             (level (+ (get-level~ father) 1))
+             (row (or row (apply new class parent: self others))))
+        (set-height-noevent~ row default-row-height)
+        (set-descendants-level~ row level)
+        (add-son~ father row position)
+        (when (row-visible?~ row)
+          (increase! visible-count (+ 1 (count-visible~ row)))
+          (when (not update-locked?)
+            (let ((height (node-height~ row)))
+              (increase! visible-height height)
+              (update-visible-width-incremental level (get-effective-width~ row))
+              (update-displayed)
+              (update-visible)
+              (layout-scrollee)
+              (for-each-client add-row-scroll~))))
+        (update-father-control father)
+        row)))
+  
+  
+  ;; is this really necessary?
+  (method protected virtual (update-visible-width-incremental level width)
+    )
+
+  
+  (method public virtual (remove-row row)
+    (when (attached?~ row)
+      (let* ((father (get-father~ row))
+             (visible? (row-visible?~ row))
+             (height (node-height~ row))
+             (line (row->line row))
+             (top (and line (row-top line))))
+        (when visible?
+          (decrease! visible-count (+ 1 (count-visible~ row)))
+          (decrease! visible-height height))
+        (remove-son~ father row)
+        @is-this-really-a-good-idea
+        (when (= (cardinality (get-sons~ father)) 0)
+          (set-state~ father 'collapsed))
+        @mvc
+        (when line
+          (removed-update-selection line 1))
+        (when (and (not update-locked?) visible?)
+          (update-displayed)
+          (update-visible)
+          (layout-scrollee)
+          (for-each-client remove-row-scroll~))
+        (detach-descendants~ row)
+        (update-father-control father))))
+  
+  
+  (method public (move-row row father (position: position #f))
+    (remove-row row)
+    (let ((position (if (procedure? position) (position) position)))
+      (add-row row: row father: father position: position)))
+  
+  
+  (method public (find-ordered-position title father)
+    (if (not title)
+        0
+      (ordered-position title (get-sons~ father) key: row-title test: (sort-predicate 'smaller/equal))))
+  
+  
+  (method public virtual (remove-every-row)
+    (set! visible-count 0)
+    (set! visible-height 0)
+    (set! visible-width 0)
+    (for-each-client remove-every-row~))
+  
+  
+  (method protected virtual (update-father-control father)
+    (for-each-client
+      (lambda (view)
+        (update-father-control~ view father))))
+  
+  
+  (method override (update-displayed)
+    (for-each-client update-displayed~))
+  
+  
+  (method protected (update-displayed-from line)
+    (for-each-client
+      (lambda (client)
+        (update-displayed-from~ client line))))
+  
+  
+  (method public (first-row)
+    (first (get-sons~ root-row)))
+  
+  
+  (method public (get-root-rows)
+    (get-sons~ root-row))
+  
+  
+  (method public (first-visible-row)
+    (get-next~ root-row))
+  
+  
+  (method public (get-visible-row l)
+    (continuation-capture
+      (lambda (return)
+        (for-each-visible-row
+          (lambda (row line)
+            (when (= line l)
+              (continuation-return return row))))
+        #f)))
+  
+  
+  ;; for debugging...
+  (method (get-row-classic line)
+    (let ((row root-row))
+      (while (and row (>= line 0))
+        (set! row (get-next~ row))
+        (decrease! line))
+      row))
+  
+  
+  (method public (row->line target)
+    (continuation-capture
+      (lambda (return)
+        (for-each-visible-row
+          (lambda (row line)
+            (when (eq? row target)
+              (continuation-return return line))))
+        #f)))
+  
+  
+  (method public (rows->lines targets)
+    (map row->line targets))
+  
+  
+  (method public (row-title row)
+    (get-title~ (first-child~ row)))
+  
+  
+  (method (forward row line)
+    (while (> line 0)
+      (set! row (get-next~ row))
+      (decrease! line))
+    row)
+  
+  
+  (method (backward row line)
+    (while (> line 0)
+      (set! row (get-previous~ row))
+      (decrease! line))
+    row)
+  
+  
+  (method public (ensure-row-exists row)
+    (ensure-visible-count (+ row 1)))
+  
+  
+  (method public (ensure-visible-count line)
+    (while (< visible-count line)
+      (add-empty-row)))
+  
+  
+  (method public virtual (add-empty-row (father: father #f))
+    (let ((father (or father root-row)))
+      (add-row father: father)))
+  
+
+  (method public (get-row-count)
+    (if (not root-row)
+        0
+      (cardinality (get-sons~ root-row))))
+  
+  
+  ;;;
+  ;;;; Navigation
+  ;;;
+  
+  
+  (method public (for-each-row proc)
+    (let ((line 0))
+      (define (recurse row visible?)
+        (let* ((visible? (and visible? (get-visible-flag~ row)))
+               (son-visible? (and visible? (expanded?~ row))))
+          (proc row (and visible? line))
+          (when visible?
+            (increase! line))
+          (recurse-sons row son-visible?)))
+      
+      (define (recurse-sons row son-visible?)
+        (iterate (get-sons~ row)
+                 (lambda (row)
+                   (recurse row son-visible?))))
+      
+      (recurse-sons root-row #t)))
+  
+  
+  (method public (for-each-visible-row proc (start: start #f) (end: end #f) (wrap?: wrap? #f))
+    (let ((row (or start (get-next~ root-row)))
+          (line (if start (row->line start) 0)))
+      (when line
+        (while (and row (neq? row end))
+          (proc row line)
+          (set! row (get-next~ row))
+          (increase! line))
+        (when (and wrap? start (not row))
+          (for-each-visible-row proc end: (or end start))))))
+  
+  
+  (method public (for-each-visible-descendant parent-row proc)
+    (let* ((first-son (first-visible-son~ parent-row))
+           (last-son (last-visible-descendant~ parent-row))
+           (end-row (and last-son (get-next~ last-son))))
+      (when first-son
+        (for-each-visible-row proc start: first-son end: end-row))))
+  
+  
+  (method public (collect-rows)
+    (let ((queue (new-queue)))
+      (for-each-row
+        (lambda (row line)
+          (enqueue queue row)))
+      (queue-list queue)))
+  
+  
+  (method public (collect-visible-rows)
+    (let ((queue (new-queue)))
+      (for-each-visible-row
+        (lambda (row line)
+          (enqueue queue row)))
+      (queue-list queue)))
+
+  
+  ;;;
+  ;;;; Content
+  ;;;
+  
+  
+  (method public virtual (get-content)
+    (get-sons~ root-row))
+  
+  
+  (method public virtual (set-content content)
+    (set-sons~ root-row content)
+    (set-next~ root-row (car content))
+    (invalidate-columns)
+    (set! visible-count (count-visible~ root-row))
+    (set! visible-height (sons-height~ root-row))
+    (update-displayed)
+    (layout-scrollee)
+    (invalidate-view))
+  
+  
+  (method public (set-subrows row seq proc)
+    (unless (empty? seq)
+      (let* ((row (or row root-row))
+             (count 0)
+             (height 0)
+             (level (+ (get-level~ row) 1))
+             (previous #f)
+             (rows (map (lambda (info)
+                          (let ((subrow (proc info)))
+                            (set-father~ subrow row)
+                            (set-level~ subrow level)
+                            (when previous
+                              (set-previous~ subrow previous)
+                              (set-next~ previous subrow))
+                            (set! previous subrow)
+                            (increase! count)
+                            (increase! height (get-row-height~ subrow))
+                            subrow))
+                        seq)))
+        (set-sons~ row (and rows (coerce rows Axis)))
+        (when (eq? (get-state~ row) 'expanded)
+          (let ((old-next (get-next~ row))
+                (first-son (first rows)))
+            (link-rows row first-son)
+            (let ((last (last-proper-descendant~ row)))
+              (link-rows last old-next)))
+          (increase! visible-count count)
+          (increase! visible-height height)))))
+  
+  
+  ;; temp...
+  (method public virtual (invalidate-columns)
+    )
+
+
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method public virtual (expand/collapse row)
+    (case (get-state~ row)
+      ((collapsed) (expand row))
+      ((expanded) (collapse row))))
+  
+  
+  (method protected virtual (update-row row)
+    )
+  
+  
+  (method public (expand row (dynamic? #f))
+    (when (neq? (get-state~ row) 'expanded)
+      (set-state~ row 'expanded)
+      (let ((first (first-descendant~ row))
+            (last (last-visible-descendant~ row))
+            (previous row)
+            (next (get-next~ row))
+            (in-expand? #t))
+        (when first
+          (show-rows first last previous next (row-visible?~ row) in-expand? dynamic?)))))
+  
+  
+  (method protected virtual (invalidate-expand row top dynamic?)
+    )
+  
+  
+  (method public (expand-all row)
+    (with-update-locked
+      (lambda ()
+        (unless (eq? (get-state~ row) 'expanded)
+          (expand/collapse row))
+        (iterate (get-sons~ row) expand-all))))
+  
+  
+  (method public (collapse row)
+    (when (neq? (get-state~ row) 'collapsed)
+      (let ((first (first-descendant~ row))
+            (in-collapse? #t))
+        (if (not first)
+            (set-state~ row 'collapsed)
+          (let ((line (row->line row))
+                (top (get-v~ (get-position~ row))))
+            (let ((selected? #f @mvc (line-selected? line)))
+              (invalidate-collapse line row top selected?)))
+          (hide-rows first (last-proper-descendant~ row) (row-visible?~ row) in-collapse?)))))
+  
+  
+  (method protected virtual (collapse-selection line selected?)
+    )
+  
+  
+  (method protected virtual (invalidate-collapse line row top selected?)
+    (when selected?
+      @mvc
+      (invalidate-rect (line-rect line))))
+  
+  
+  (method public (collapse-all row)
+    (with-update-locked
+      (lambda ()
+        (iterate (get-sons~ row) collapse-all)
+        (when (eq? (get-state~ row) 'expanded)
+          (expand/collapse row)))))
+  
+  
+  (definition (link-rows before after)
+    (when before
+      (set-next~ before after))
+    (when after
+      (set-previous~ after before)))
+  
+  
+  (definition (unlink-rows first last)
+    (let ((previous (get-previous~ first))
+          (next (get-next~ last)))
+      (link-rows previous next)
+      (set-previous~ first #f)
+      (set-next~ last #f)))
+  
+  
+  (method public (ensure-expanded row)
+    (let ((scan (get-father~ row)))
+      (while scan
+        (when (eq? (get-state~ scan) 'collapsed)
+          (expand scan))
+        (set! scan (get-father~ scan)))))
+  
+  
+  (method public (ensure-expanded-rows rows)
+    (for-each ensure-expanded rows))
+
+
+  ;;;
+  ;;;; Visibility
+  ;;;
+  
+  
+  ;; this will currently only work with flat outlines
+  (method public (set-visibilities predicate)
+    (let ((previous root-row))
+      (iterate (get-sons~ root-row)
+               (lambda (row)
+                 (let ((visible? (predicate row)))
+                   (when visible?
+                     (link-rows previous row)
+                     (set! previous row)))))))
+  
+  
+  (method package (show-rows first last previous next visible? in-expand? dynamic?)
+    (link-rows previous first)
+    (link-rows last next)
+    (when (and (not update-locked?) visible?)
+      (receive (count height width) (count-visible-size first last #t)
+        (increase! visible-count count)
+        (increase! visible-height height)
+        (update-visible-width-incremental (get-level~ previous) width)
+        (update-displayed)
+        (update-visible)
+        (let* ((line (or (row->line previous) -1))
+               (top (or (get-v~ (get-position~ previous)) 0))
+               (opens (+ top (get-height~ previous)))
+               (display (get-display))
+               (display-size (get-size~ display))
+               (display-width (get-width~ display-size))
+               (display-height (get-height~ display-size)))
+          @mvc (added-update-selection (+ line 1) count)
+          (invalidate-view)
+          @buggy
+          (when (< (+ top (get-scrolled-v)) display-height)
+            (when in-expand?
+              (invalidate-expand previous top dynamic?))
+            (scroll-view~ display 0 height (new Rect 0 opens display-width display-height)))
+          (layout-scrollee)
+          @mvc
+          (when (> count 0)
+            (ensure-row-range-displayed (+ line 1) (+ line count)))))))
+  
+  
+  (method package (hide-rows first last visible? in-collapse?)
+    (receive (count height width) (count-visible-size first last visible?)
+      (when visible?
+        (decrease! visible-count count)
+        (decrease! visible-height height))
+      (let ((previous (get-previous~ first)))
+        (unlink-rows first last)
+        (when (and previous in-collapse?)
+          (set-state~ previous 'collapsed))
+        (when (and (not update-locked?) visible?)
+          (update-displayed)
+          (update-visible)
+          (let* ((line (or (row->line previous) -1))
+                 (top (or (get-v~ (get-position~ previous)) 0))
+                 (opens (+ top (get-height~ first)))
+                 @mvc (removed (removed-update-selection (+ line 1) count))
+                 (display (get-display))
+                 (display-size (get-size~ display))
+                 (display-width (get-width~ display-size))
+                 (display-height (get-height~ display-size)))
+            @mvc (when (and previous in-collapse?)
+              (collapse-selection line removed))
+            (invalidate-view)
+            @buggy
+            (when (< top display-height)
+              (invalidate-collapse line first top removed)
+              (scroll-view~ display 0 (- height) (new Rect 0 (+ opens height) display-width (+ display-height height)))))
+          (layout-scrollee)))))
+  
+  
+  (method public (count-visible-size first last visible?)
+    (let ((scan (and visible? first))
+          (stop (and last (get-next~ last)))
+          (count 0)
+          (height 0)
+          (width 0))
+      (while (and scan (neq? scan stop))
+        (increase! count)
+        (increase! height (+ (get-effective-height~ scan) row-spacing))
+        (let ((w (get-effective-width~ scan)))
+          (when (and w (> w width))
+            (set! width w)))
+        (set! scan (get-next~ scan)))
+      (values count height width)))
+  
+  
+  ;;;
+  ;;;; Clients
+  ;;;
+  
+  
+  (method public (get-clients)
+    clients)
+  
+  
+  (method public (add-client client)
+    (set! clients (cons client clients)))
+  
+  
+  (method public (remove-client client)
+    (set! clients (remove! client clients)))
+  
+  
+  (method public (for-each-client proc)
+    (for-each proc clients))
+  
+  
+  ;; quick solution to stuff like wrapping that cannot work on multiple clients with the current paragraph / line structure
+  (method public (single-client)
+    (when (= (length clients) 1)
+      (car clients)))
+  
+
+  ;;;
+  ;;;; Coordinates
+  ;;;
+  
+  
+  ;; This method gets called before the row is layed out.
+  ;; This is why it cannot simply get the position of the row...
+  (method protected (row-top line)
+    (let ((row (first-visible-row))
+          (v 0))
+      (while (> line 0)
+        (decrease! line)
+        (increase! v (get-height~ row))
+        (increase! v row-spacing)
+        (set! row (get-next~ row)))
+      v))
+  
+  
+  (method protected (get-row n)
+    (get-row-from root-row (+ n 1)))
+  
+  
+  (method protected (get-row-from row n)
+    (while (and row (> n 0))
+      (set! row (get-next~ row))
+      (decrease! n))
+    row)
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Outline-Model-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer))
+
+
+(class Outline-Model-Descriptor extends View-Descriptor
+  
+  
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: default-row-height title: "Default Row Height")
+        (<Property-Descriptor> name: row-spacing title: "Row Spacing")
+        (<Property-Descriptor> name: left-padding title: "Left Padding")
+        (<Property-Descriptor> name: top-padding title: "Top Padding")
+        (<Property-Descriptor> name: background-filler title: "Background Filler")))))))

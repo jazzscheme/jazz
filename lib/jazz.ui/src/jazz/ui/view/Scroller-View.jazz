@@ -123,40 +123,41 @@
   
   
   (method override (layout)
-    (define (content-position size)
-      {Point 0 0})
-    
-    (define (content-size size)
-      (new Dimension
-        (- (get-width~ size) (if vscroll scrollbar-size 0))
-        (- (get-height~ size) (if hscroll scrollbar-size 0))))
-    
-    (define (vscroll-position size)
-      (new Point (- (get-width~ size) scrollbar-size) 0))
-    
-    (define (vscroll-size size)
-      (new Dimension scrollbar-size (- (get-height~ size) (if hscroll scrollbar-size 0))))
-    
-    (define (hscroll-position size)
-      (new Point 0 (- (get-height~ size) scrollbar-size)))
-    
-    (define (hscroll-size size)
-      (new Dimension (- (get-width~ size) (if vscroll scrollbar-size 0)) scrollbar-size))
-    
-    (let ((size (get-size)))
-      (let ((content (find-child 'content)))
-        (when content
-          (set-position~ content (content-position size))
-          (set-size~ content (content-size size))
-          @i-think-this-is-not-necessary-anymore-as-it-is-called-from-Outline-View.size-change
-          (when client
-            (layout-scrollee~ client))))
-      (when vscroll
-        (set-position~ vscroll (vscroll-position size))
-        (set-size~ vscroll (vscroll-size size)))
-      (when hscroll
-        (set-position~ hscroll (hscroll-position size))
-        (set-size~ hscroll (hscroll-size size)))))
+    (let ((v? (vscroll-active?))
+          (h? (hscroll-active?)))
+      (define (content-position size)
+        {Point 0 0})
+      
+      (define (content-size size)
+        (new Dimension
+          (- (get-width~ size) (if v? scrollbar-size 0))
+          (- (get-height~ size) (if h? scrollbar-size 0))))
+      
+      (define (vscroll-position size)
+        (new Point (- (get-width~ size) scrollbar-size) 0))
+      
+      (define (vscroll-size size)
+        (new Dimension scrollbar-size (- (get-height~ size) (if h? scrollbar-size 0))))
+      
+      (define (hscroll-position size)
+        (new Point 0 (- (get-height~ size) scrollbar-size)))
+      
+      (define (hscroll-size size)
+        (new Dimension (- (get-width~ size) (if v? scrollbar-size 0)) scrollbar-size))
+      
+      (let ((size (get-size)))
+        (let ((content (find-child 'content)))
+          (when content
+            (set-position~ content (content-position size))
+            (set-size~ content (content-size size))
+            (when client
+              (layout-scrollee~ client))))
+        (when (and v? vscroll)
+          (set-position~ vscroll (vscroll-position size))
+          (set-size~ vscroll (vscroll-size size)))
+        (when (and h? hscroll)
+          (set-position~ hscroll (hscroll-position size))
+          (set-size~ hscroll (hscroll-size size))))))
   
 
   ;;;
@@ -215,13 +216,23 @@
   ;;;
   
   
+  (method (vscroll-active?)
+    (and vscroll (get-visible?~ vscroll)))
+  
+  
   (method public (set-vscroll-needed? flag)
-    (when (and vscroll? (neq? flag (boolean vscroll)))
-      (if (not vscroll)
-          (set! vscroll (new Scrollbar parent: self orientation: 'vert flat?: flat? style: style))
-        (close~ vscroll)
-        (set! vscroll #f))
+    (when (and vscroll? (neq? (boolean flag) (boolean (vscroll-active?))))
+      (if flag
+          (if vscroll
+              (show~ vscroll)
+            (set! vscroll (new Scrollbar parent: self orientation: 'vert flat?: flat? style: style)))
+        (when vscroll
+          (hide~ vscroll)))
       (layout-view)))
+  
+  
+  (method (hscroll-active?)
+    (and hscroll (get-visible?~ hscroll)))
   
   
   (method public (set-hscroll-needed? flag)

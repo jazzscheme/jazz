@@ -46,6 +46,55 @@
 (class Text-Syntax extends Object
   
   
+  (slot model     accessors generate)
+  (slot colorize? accessors generate)
+  
+  
+  (method override (initialize model (colorize?: colorize? #t))
+    (nextmethod)
+    (set! model~self model)
+    (set! colorize?~self colorize?))
+  
+  
+  ;;;
+  ;;;; Preferences
+  ;;;
+  
+  
+  (method protected virtual (preferences)
+    (new Text-Preferences))
+  
+  
+  ;;;
+  ;;;; Styles
+  ;;;
+  
+  
+  (method public virtual (comment-style? style)
+    #f)
+  
+  
+  (method public virtual (string-style? style)
+    #f)
+  
+  
+  (method public virtual (textual-style? style)
+    #f)
+   
+
+  ;;;
+  ;;;; IO
+  ;;;
+  
+  
+  (method protected virtual (default-extension)
+    "txt")
+  
+  
+  (method protected virtual (extensions)
+    '(("Texts" . "txt")))
+  
+  
   ;;;
   ;;;; Comment
   ;;;
@@ -57,6 +106,61 @@
   
   (method public virtual (title-comment-string)
     #f)
+  
+  
+  ;;;
+  ;;;; Chapters
+  ;;;
+  
+  
+  (method public virtual (get-headers) <list>
+    #f)
+  
+  
+  (method public virtual (get-chapters) <list>
+    (let ((headers (get-headers)))
+      (if (not headers)
+          '()
+        (let ((occurences (text-regular-search-all~ model (map make-search-context headers)))
+              (chapters (new List-Factory)))
+          (for-each (lambda (info)
+                      (bind (from . to) info
+                        (let ((line (get-line~ from))
+                              (col (get-col~ from)))
+                          (when (= col (get-column~ model line))
+                            (let ((string (paragraph-string~ model line)))
+                              (let ((header (subseq string col (get-col~ to)))
+                                    (level (if (= col 0) 1 2))
+                                    (label (get-chapter-label string col from to)))
+                                (put~ chapters (list level from header label))))))))
+                    occurences)
+          (get-output~ chapters)))))
+  
+  
+  (method public virtual (get-chapter-label string col from to)
+    (subseq string (+ col (- (position-offset~ model to) (position-offset~ model from)))))
+  
+  
+  (method public virtual (get-first-special?) <bool>
+    #t)
+  
+  
+  (method public virtual (get-first-chapter lst)
+    (if (get-first-special?)
+        (if (null? lst) #f (car lst))
+      (let ((file (get-moniker~ model)))
+        (list 0
+              (text-beginning~ model)
+              ""
+              (if (not file)
+                  "<Top>"
+                (get-name~ file))))))
+  
+  
+  (method public virtual (get-remaining-chapters lst)
+    (if (get-first-special?)
+        (if (null? lst) '() (cdr lst))
+      lst))
   
   
   ;;;
@@ -107,6 +211,91 @@
   (method public virtual (auto-complete-char? key last)
     (or (memq? key (auto-complete-characters))
         (not (text-constituent? key))))
+  
+  
+  (method public virtual (favorite-completions)
+    '())
+  
+  
+  (method public virtual (symbol-completions name)
+    '())
+  
+  
+  ;;;
+  ;;;; Explorer
+  ;;;
+  
+  
+  (method public virtual (explorer-class)
+    Text-Explorer)
+  
+  
+  ;;;
+  ;;;; Expression
+  ;;;
+  
+  
+  (method public virtual (name-at range)
+    (range-expr range))
+  
+  
+  (method public virtual (expr-at pos)
+    (name-at (expr-range pos)))
+  
+  
+  (method public virtual (supports-expr?)
+    #f)
+  
+  
+  (method public virtual (range-expr range)
+    (get-string~ model range))
+  
+  
+  (method public virtual (expr-range pos)
+    (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
+      (outer-expr~ expl)
+      (get-range~ expl)))
+  
+  
+  (method public (outer-range range)
+    (let ((expl <Text-Explorer> (new (explorer-class) model range: range)))
+      (when (outer-expr~ expl)
+        (get-range~ expl))))
+  
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (method protected (colorize)
+    (when colorize?
+      (colorize-syntax)))
+  
+  
+  (method protected virtual (colorize-syntax . rest)
+    )
+  
+  
+  (method protected virtual (colorize-comments . rest)
+    )
+  
+  
+  (method protected virtual (colorize-declarations . rest)
+    )
+  
+  
+  (method protected virtual (recolorize start end-line)
+    (when colorize?
+      (recolorize-text start end-line)))
+  
+  
+  (method protected virtual (recolorize-text start end-line)
+    )
+  
+  
+  (method public (uncolorize-row line <fx>) <void>
+    (uncolorize-row~ model line))
 
 
   ;;;

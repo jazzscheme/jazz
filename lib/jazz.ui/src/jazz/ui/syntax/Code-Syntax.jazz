@@ -38,7 +38,224 @@
 (module protected jazz.ui.syntax.Code-Syntax jazz
 
 
-(import (jazz.ui))
+(import (jazz.io)
+        (jazz.library)
+        (jazz.library.automata)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view)
+        (time))
 
 
-(class undocumented Code-Syntax extends Text-Syntax))
+(class undocumented Code-Syntax extends Text-Syntax
+  
+
+  ;;;
+  ;;;; Explorer
+  ;;;
+
+
+  (method override (explorer-class)
+    Code-Explorer)
+
+  
+  ;;;
+  ;;;; Reading
+  ;;;
+  
+  
+  (method protected virtual (get-readtable)
+    (current-readtable))
+  
+  
+  (method protected (read-text-form range (string: string #f) (readtable: readtable (get-readtable)))
+    (let ((string (or string (get-string~ model range))))
+      (call-with-input-string (list init: string readtable: readtable)
+        read)))
+
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (method public (recolorize-syntax)
+    (uncolorize-all)
+    (colorize-syntax recoloring?: #t))
+
+
+  (method (uncolorize-all)
+    (for-each uncolorize-row (naturals 0 (get-length~ model))))
+  
+  
+  (method protected virtual (syntax-targets)
+    #f)
+  
+  
+  (method protected virtual (syntax-automata)
+    #f)
+  
+  
+  (method protected virtual (compute-syntax-targets)
+    )
+  
+  
+  (method protected virtual (compute-syntax-automata)
+    (let ((targets (syntax-targets)))
+      (when targets
+        (build-search-automata targets #t #f c-constituent?))))
+  
+  
+  (method override (colorize-syntax (recoloring?: recoloring? #f) (entries?: entries? #t))
+    (define (colorize-syntax-from pos)
+      (let ((automata (syntax-automata)))
+        (when automata
+          (let ((found (automata-search automata (new TextTape (get-paragraphs~ model) (get-limit~ model) 0 0)))
+                (colorizer (and (not recoloring?) (new-colorizer~ model))))
+            (while (not-null? found)
+              (let ((info (car found)))
+                (bind ((target type) line col) info
+                  (let ((start (new Cell line col))
+                        (end (new Cell line (+ col (string-length target)))))
+                    (set! found (colorize-type found type start end colorizer #f))))))
+            (when colorizer
+              (finish-current~ colorizer))))))
+    
+    (colorize-syntax-from (text-beginning~ model))
+    (when entries?
+      (colorize-entries)))
+  
+  
+  (method protected (apply-coloring colorizer start end style-name)
+    (if (not colorizer)
+        (apply-style~ model style-name start end)
+      (apply-style~ colorizer start end style-name)))
+  
+  
+  (method protected virtual (colorize-type found type start end colorizer recolorize?)
+    (error "Unknown type: {s}" type))
+  
+  
+  (method protected virtual (colorize-balanced-comment found start end colorizer style)
+    (continuation-capture
+      (lambda (return)
+        (while (not-null? found)
+          (let ((info (car found)))
+            (bind ((target type) line col) info
+              (if (eq? type 'balanced-comment-backward)
+                  (let ((end (new Cell line (+ col 2))))
+                    (apply-coloring colorizer start end style)
+                    (continuation-return return (cdr found)))
+                (set! found (cdr found))))))
+        found)))
+  
+  
+  (method protected (colorize-balanced-comment-backward found start end colorizer style recolorize? (open: open "/*") (close: close "*/"))
+    (cdr found)
+    @irregex-to-convert
+    (when recolorize?
+      (let ((found (text-regular-search (list (make-search-context close user-data: 'close) (make-search-context open user-data: 'open)) position: start reversed?: #t)))
+        (when found
+          (bind (pos . (target type)) found
+            (when (eq? type 'open)
+              (apply-coloring colorizer pos end style)
+              (cdr found)))))))
+  
+  
+  (method protected (colorize-line-comment found start end colorizer line-style title-style title-char)
+    (let ((title? (and title-char (eqv? (get-char~ model (next-pos~ model start 2)) title-char))))
+      (if (not title?)
+          (apply-coloring colorizer start (new Cell (get-line~ start) (paragraph-length~ model (get-line~ start))) line-style)
+        (apply-coloring colorizer start (nu+ start 3) line-style)
+        (apply-coloring colorizer (nu+ start 3) (new Cell (get-line~ start) (paragraph-length~ model (get-line~ start))) title-style))
+      (let ((line (get-line~ start)))
+        (set! found (cdr found))
+        (while (and (not-null? found) (= (second (car found)) line))
+          (set! found (cdr found)))
+        found)))
+  
+  
+  (method protected (colorize-keyword found start end colorizer style)
+    (apply-coloring colorizer start end style)
+    (cdr found))
+  
+  
+  (method (find-specifier-end start)
+    (let* ((line (get-line~ start))
+           (col (get-col~ start))
+           (str (paragraph-string~ model line)))
+      (unless (>= (+ col 1) (cardinality str))
+        (let ((nxt (element str (+ col 1))))
+          (unless (or (eqv? nxt #\space) (eqv? nxt #\=))
+            (let ((col (find-balanced #\< #\> str start: (+ col 1) return: 'position)))
+              (when col
+                (new Cell line (+ col 1)))))))))
+
+  
+  (method override (recolorize-text start end-line)
+    (let ((pos (new Cell (get-line~ start) 0))
+          (targets (syntax-targets)))
+      @commented-for-slow-machines-until-optimized
+      (when targets
+        (let ((opening (text-regular-search (list (make-search-context "/*" user-data: 'open) (make-search-context "*/" user-data: 'close)) position: start reversed?: #t)))
+          (when opening
+            (bind (start . (target type)) opening
+              (when (eq? type 'open)
+                (set! pos start))))))
+      (let ((range (naturals (get-line~ pos) (+ end-line 1))))
+        (for-each uncolorize-row range))
+      (let ((automata (syntax-automata)))
+        (when automata
+          (let ((found (automata-search automata (new TextTape (get-paragraphs~ model) end-line (get-line~ pos) (get-col~ pos))))
+                (colorizer (new-colorizer~ model)))
+            (while (not-null? found)
+              (let ((info (car found)))
+                (bind ((target type) line col) info
+                  (let ((start (new Cell line col))
+                        (end (new Cell line (+ col (string-length target)))))
+                    (set! found (colorize-type found type start end colorizer #f))))))
+            (finish-current~ colorizer))))))
+  
+  
+  (method public virtual (colorize-entries)
+    (let ((entries (get-parsed-entries)))
+      (when entries
+        (for-each colorize-entry entries))))
+  
+  
+  (method protected virtual (get-parsed-entries)
+    #f
+    @obsolete!?
+    (let ((moniker (get-moniker~ model)))
+      (when (and moniker (file? moniker) (not (get-modified?~ model)))
+        (let ((cataloguer (get-cataloguer~ (get-application))))
+          (when cataloguer
+            (let ((entries (get-file-entries~ cataloguer moniker context: '(c))))
+              (when (not-null? entries)
+                (let ((file-entry (car entries)))
+                  (when (= (time->seconds (get-time~ file-entry)) (time->seconds (get-moniker-time~ (get-controller~ model))))
+                    (get-definitions~ file-entry))))))))))
+
+  
+  (method (colorize-entry entry)
+    (let* ((name (get-name~ entry))
+           (line (get-line~ entry))
+           (column (get-column~ entry))
+           (start (new Cell line column))
+           (end (new Cell line (+ column (string-length name)))))
+      ;; until the time test of the previous method becomes functional
+      (when (<= line (get-limit~ model))
+        (stylize~ model 'Definition start end)
+        @cannot-work-yet
+        (when (equal? Class-Entry (class-of entry))
+          (colorize-entry (get-extends~ entry))
+          (colorize-entry (get-implements~ entry)))
+        (for-each colorize-entry (get-definitions~ entry)))))
+  
+  
+  (method public (recolorize-entries)
+    (let ((entries (get-parsed-entries)))
+      (when entries
+        (uncolorize-all)
+        (colorize-syntax entries?: #f)
+        (for-each colorize-entry entries))))))

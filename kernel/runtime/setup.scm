@@ -53,23 +53,19 @@
 
 
 (define (jazz:compile-unit . rest)
-  (jazz:load-unit 'core.module)
-  (jazz:load-unit 'core.unit.builder)
+  (jazz:load-build)
   (%%apply jazz:compile-unit-internal rest))
 
 (define (jazz:custom-compile-unit . rest)
-  (jazz:load-unit 'core.module)
-  (jazz:load-unit 'core.unit.builder)
+  (jazz:load-build)
   (%%apply jazz:custom-compile-unit-internal rest))
 
 (define (jazz:build-unit . rest)
-  (jazz:load-unit 'core.module)
-  (jazz:load-unit 'core.unit.builder)
+  (jazz:load-build)
   (%%apply jazz:build-unit-internal rest))
 
 (define (jazz:get-subunit-names . rest)
-  (jazz:load-unit 'core.module)
-  (jazz:load-unit 'core.unit.builder)
+  (jazz:load-build)
   (%%apply jazz:get-subunit-names-internal rest))
 
 
@@ -276,7 +272,7 @@
           (if jazz-repository (jazz:jazz-repository jazz-repository))
           (if repositories (jazz:repositories repositories))
           (if nosource?
-              (set! jazz:source-access? #f))
+              (set! jazz:kernel-source-access? #f))
           (jazz:prepare-repositories)
           (jazz:setup-repositories))
           
@@ -304,7 +300,7 @@
               (jazz:dry-run? #t)))
         
         (define (run-scripts lst)
-          (jazz:load-unit 'core.module)
+          (jazz:load-foundation)
           (for-each (lambda (path)
                       (if (file-exists? path)
                           (jazz:load-script path)))

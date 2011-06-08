@@ -154,7 +154,7 @@
     (define (create-profile)
       (with-safe-execution "loading the profile"
         (lambda ()
-          (set! profile (if (find-repository 'Jazz)
+          (set! profile (if (find-unit-source profile-class)
                             (new (load-profile-class profile-class))
                           (new Me))))
         continue-text: (list (format "to bypass this problem by using a generic profile class"))
@@ -169,6 +169,7 @@
   
   (method override (finish-environment)
     (nextmethod)
+    (register-locale (new Locale english: '(english: "English")))
     (register-locale-change locale-change)
     (add-save-environment-listener self)
     (when profile
@@ -349,13 +350,16 @@
     (let ((focus (get-focus)))
       (if (or (is-not? focus Text-View) (null? Clipboard-Stack))
           (bell)
-        (let ((text (get-clipboard-text))
-              (expl (new (explorer-class~ focus) focus)))
-          (set-pos~ expl (get-start~ focus))
-          (when (looking-back?~ expl text)
-            (backward-n~ expl (string-length text))
-            (delete-range~ focus (get-range~ expl)))
-          (insert-string~ focus (if reversed? (cycle-clipboard-reversed) (cycle-clipboard)))))))
+        (let ((text (get-clipboard-text)))
+          (if (not text)
+              (bell)
+            (let ((model (get-model~ focus)))
+              (let ((expl (new (explorer-class~ focus) model)))
+                (set-pos~ expl (get-start~ focus))
+                (when (looking-back?~ expl text)
+                  (backward-n~ expl (string-length text))
+                  (delete-range~ model (get-range~ expl)))
+                (insert-string~ focus (if reversed? (cycle-clipboard-reversed) (cycle-clipboard))))))))))
   
   
   (method package (on-copy-formatted evt)
@@ -557,9 +561,9 @@
     @wait
     (save-page-setup)
     (nextmethod))
-      
   
-  (method public (confirm-all-close)
+  
+  (method virtual (confirm-all-close)
     (define (frame-dependent-document? frame)
       (and (is? frame Host-View)
            (let ((guest (get-guest~ frame)))
@@ -656,7 +660,7 @@
                (list "Send comments, suggestions, bugs,... to:")
                (list email))
            '()))
-        title: (format "About {a}" name))))
+        title: (format "{a} {a}" (localize {Locales english: "About" french: "À propos de"}) name))))
 
 
   ;;;
@@ -1023,6 +1027,14 @@
   
   
   (method public virtual (show-toplevel)
+    (define (setup-stage)
+      (let ((stage (current-stage)))
+        (when stage
+          (case (get-setting 'jazz.ui.stage-state #f)
+            ((restored) (restore~ stage))
+            ((maximized) (maximize~ stage))))))
+    
+    (setup-stage)
     (set-visible?~ toplevel #t))
   
   
@@ -1185,7 +1197,7 @@
   
   (method (prepare-skins)
     (let ((skins (default-skins)))
-      (set-skin (child~ skins 'jazz))))
+      (set-skin (child~ skins (default-skin)))))
   
   
   (method (install-skins)
@@ -1193,12 +1205,16 @@
       (lambda ()
         (let ((skins (load-skins)))
           (set-skins-designer skins)
-          (set-skin (child~ skins (or (get-active~ skins) 'jazz)))))
+          (set-skin (child~ skins (or (get-active~ skins) (default-skin))))))
       continue-handler:
       (lambda (err)
         (let ((skins (default-skins)))
           (set-skins-designer skins)
-          (set-skin (child~ skins 'jazz))))))
+          (set-skin (child~ skins (default-skin)))))))
+  
+  
+  (method protected virtual (default-skin)
+    (get-setting 'jazz.ui.skin 'jazz))
   
   
   (method protected virtual (skins-file)
@@ -1215,7 +1231,7 @@
   (method protected virtual (default-skins)
     (instantiate~
       (<form>
-        (<Skins>                        active: jazz
+        (<Skins>
           (<Default-Skin> name: default)
           (<Jazz-Skin>    name: jazz)
           (<Windows-Skin> name: windows)))))
@@ -1466,9 +1482,24 @@
   
   
   (method public (locale-update)
+    (define (update-menubar)
+      (let ((menubar (find-menubar)))
+        (layout-menu~ menubar)
+        (for-each (lambda (child)
+                    (when (is? child Label-Item)
+                      (let ((content (get-content~ child)))
+                        (when (is? content Menu)
+                          (layout-menu~ content)))))
+                  (get-children~ menubar))))
+    
+    (define (update-toplevel)
+      (let ((toplevel (get-toplevel)))
+        (invalidate-title~ toplevel)
+        (redraw-window~ toplevel)))
+    
     ;; All this should of course be event based but it will do for now...
-    (layout-menu~ (find-menubar))
-    (redraw-window~ (get-toplevel)))
+    (update-menubar)
+    (update-toplevel))
   
   
   ;;;
@@ -1676,8 +1707,12 @@
     (split-stage-horizontally))
   
   
-  (method public (on-navigate-frame evt)
-    (navigate-frame))
+  (method public (on-move-frame evt)
+    (move-frame))
+  
+  
+  (method public (on-clone-frame evt)
+    (clone-frame))
 
 
   ;;;
@@ -1829,19 +1864,20 @@
   (method public (update-search-actions)
     (let* ((frames (all-frames))
            (count (length frames))
-           (search (active-search))
+           (result (active-search-result))
            (results (get-search-results))
+           (resultset (get-current-resultset~ results))
            (results-count (get-visible-count~ (get-tree~ results))))
-      (set-action-enabled? {Action application find-forward} (and search (>= count 1)))
-      (set-action-enabled? {Action application find-backward} (and search (>= count 1)))
-      (set-action-enabled? {Action application replace} (and search (>= count 1)))
-      (set-action-enabled? {Action application replace&find-forward} (and search (>= count 1)))
-      (set-action-enabled? {Action application replace-all} (and search (>= count 1)))
+      (set-action-enabled? {Action application find-forward} (and result (>= count 1)))
+      (set-action-enabled? {Action application find-backward} (and result (>= count 1)))
+      (set-action-enabled? {Action application replace} (and result (>= count 1)))
+      (set-action-enabled? {Action application replace&find-forward} (and result (>= count 1)))
+      (set-action-enabled? {Action application replace-all} (and result (>= count 1)))
       (set-action-enabled? {Action application edit-next} (>= results-count 1))
       (set-action-enabled? {Action application edit-previous} (>= results-count 1))
       (set-action-enabled? {Action application edit-current} (>= results-count 1))
       (set-action-enabled? {Action application replace-selected} (>= results-count 1))
-      (set-action-enabled? {Action application previous-search} search)))
+      (set-action-enabled? {Action application previous-search} (and result resultset))))
 
 
   ;;;
@@ -1920,39 +1956,42 @@
 
 
   (method package (on-find-forward evt)
-    (let ((search (active-search))
-          (text (get-target-text)))
-      (unless (and search text (find-forward~ search text))
+    (let ((result (active-search-result)))
+      (if result
+          (if (find-forward~ result follow?: #f)
+              (acquire-focus~ (effective-client~ result))
+            (unless (follow-forward~ result)
+              (bell)))
         (bell))))
 
 
   (method package (on-find-backward evt)
-    (let ((search (active-search))
-          (text (get-target-text)))
-      (unless (and search text (find-backward~ search text))
+    (let ((result (active-search-result)))
+      (if result
+          (if (find-backward~ result follow?: #f)
+              (acquire-focus~ (effective-client~ result))
+            (unless (follow-backward~ result)
+              (bell)))
         (bell))))
 
 
   (method package (on-replace evt)
-    (let ((search (active-search))
-          (text (get-target-text)))
-      (unless (and search text (replace-selection~ search text))
+    (let ((result (active-search-result)))
+      (unless (and result (replace-selection~ result))
         (bell))))
 
 
   (method package (on-replace&find-forward evt)
-    (let ((search (active-search))
-          (text (get-target-text)))
-      (unless (and search text (replace-selection&find-forward~ search text))
+    (let ((result (active-search-result)))
+      (unless (and result (replace-selection&find-forward~ result))
         (bell))))
 
 
   (method package (on-replace-all evt)
-    (let ((search (active-search))
-          (text (get-target-text)))
-      (if (or (not search) (not text))
+    (let ((result (active-search-result)))
+      (if (not result)
           (bell)
-        (replace-all~ search text))))
+        (replace-all~ result))))
   
   
   (method package (on-replace-selected evt)
@@ -1960,21 +1999,12 @@
 
 
   (method package (on-previous-search evt)
-    (let ((search (active-search))
+    (let ((result (active-search-result))
           (results (get-search-results)))
       (let ((resultset (get-current-resultset~ results)))
-        (let ((results-search (and resultset (get-search~ resultset))))
-          (if (and results-search (eq? search results-search))
-              (pop-resultset~ results)
-            (set-active-search results-search))))))
-
-
-  (method (get-target-text)
-    (let ((frame (first-frame)))
-      (when (is? frame Frame-Host)
-        (let ((guest (get-guest~ frame)))
-          (when (is? guest Document)
-            (get-text-view~ guest))))))
+        (if (eq? (get-current-resultset~ results) (get-resultset~ result))
+            (pop-resultset~ results)
+          (set-active-search-result (new Search-Result resultset))))))
 
   
   ;;;
@@ -2036,8 +2066,8 @@
     (select-search~ (require-unzoomed-command-text) direction range initial again?: #f))
   
   
-  (method public (select-command-highlight direction range initial beginning ending (highlight?: highlight? #f))
-    (select-search~ (require-unzoomed-command-text) direction range initial again?: #f highlight?: highlight? beginning: beginning ending: ending))
+  (method public (select-command-highlight direction range search-result client (highlight?: highlight? #f))
+    (select-search~ (require-unzoomed-command-text) direction range #f search-result: search-result client: client highlight?: highlight? again?: #f))
   
   
   (method public (select-command-extended)
@@ -2110,8 +2140,8 @@
                                 (char-encoding: char-encoding #f)
                                 (wrap?: wrap? #f)
                                 (force-new?: force-new? #f)
-                                (activate-focus?: activate-focus? #t)
                                 (visible?: visible? #t)
+                                (activate-focus?: activate-focus? #t)
                                 (return-new?: return-new? #f))
     (when moniker
       (if (not (exists?~ moniker))
@@ -2131,11 +2161,11 @@
                                          initialize: (lambda (host document)
                                                        (let ((text? (is? document Text-View)))
                                                          (when text?
-                                                           (set-char-encoding~ document char-encoding))
+                                                           (set-char-encoding~ (get-model~ document) char-encoding))
                                                          (set-moniker~ (get-controller~ document) moniker)
                                                          (when text?
                                                            (when wrap?
-                                                             (set-wrap?~ document #t))
+                                                             (set-wrap?~ (get-model~ document) #t))
                                                            (when selection
                                                              (end-completion~ document)
                                                              (set-selection-safe~ document selection ensure-displayed?: 'center-caret))))))
@@ -2455,25 +2485,27 @@
   
   
   (method public (update-window-actions)
-    (let* ((frames (all-frames))
-           (count (length frames))
-           (in-modal? (in-modal?)))
-      (set-action-enabled? {Action application close}             (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action application close-all}         (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action guest save}                    (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action guest save-as}                 (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action application save-all}          (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action guest revert-saved}            (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action guest compare-saved}           (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action application page-setup}        (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action application print-layout}      (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action application print-preview}     (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action application print}             (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action application next-frame}        (and (>= count 2) (not in-modal?)))
-      (set-action-enabled? {Action application previous-frame}    (and (>= count 2) (not in-modal?)))
-      (set-action-enabled? {Action application current-frame}     (and (>= count 1) (not in-modal?)))
-      (set-action-enabled? {Action application tile-horizontally} (and (>= count 2) (not in-modal?)))
-      (set-action-enabled? {Action application tile-vertically}   (and (>= count 2) (not in-modal?)))))
+    (let ((frames (length (all-frames)))
+          (stages (length (get-active-stages)))
+          (in-modal? (in-modal?)))
+      (set-action-enabled? {Action application close}             (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application close-all}         (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action guest save}                    (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action guest save-as}                 (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application save-all}          (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action guest revert-saved}            (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action guest compare-saved}           (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application page-setup}        (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application print-layout}      (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application print-preview}     (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application print}             (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application next-frame}        (and (>= frames 2) (not in-modal?)))
+      (set-action-enabled? {Action application previous-frame}    (and (>= frames 2) (not in-modal?)))
+      (set-action-enabled? {Action application current-frame}     (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application next-stage}        (and (>= stages 2) (not in-modal?)))
+      (set-action-enabled? {Action application previous-stage}    (and (>= stages 2) (not in-modal?)))
+      (set-action-enabled? {Action application tile-horizontally} (and (>= frames 2) (not in-modal?)))
+      (set-action-enabled? {Action application tile-vertically}   (and (>= frames 2) (not in-modal?)))))
   
   
   (method package virtual (on-next-frame evt)
@@ -2491,6 +2523,14 @@
   (method package virtual (on-current-frame evt)
     (let ((first (first-frame)))
       (focus-host~ first)))
+  
+  
+  (method package (on-next-stage evt)
+    (navigate-next-stage))
+  
+  
+  (method package (on-previous-stage evt)
+    (navigate-previous-stage))
   
   
   (method package virtual (on-tile-horizontally evt)

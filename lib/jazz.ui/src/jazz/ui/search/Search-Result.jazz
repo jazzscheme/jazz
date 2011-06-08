@@ -38,15 +38,26 @@
 (module protected jazz.ui.search.Search-Result jazz
 
 
+(import (jazz.library)
+        (jazz.system)
+        (irregex))
+
+
 (class Search-Result extends Object
   
   
-  (slot search getter generate)
+  (slot resultset getter generate)
+  (slot search    getter generate)
+  (slot beginning accessors generate)
+  (slot ending    accessors generate)
   
   
-  (method override (initialize search)
+  (method override (initialize resultset (beginning: beginning #f) (ending: ending #f))
     (nextmethod)
-    (set! search~self search))
+    (set! resultset~self resultset)
+    (set! search~self (get-search~ resultset))
+    (set! beginning~self beginning)
+    (set! ending~self ending))
   
   
   ;;;
@@ -55,7 +66,11 @@
   
   
   (method protected virtual (get-icon)
-    )
+    (get-icon~ search))
+  
+  
+  (method protected virtual (present)
+    (present~ search))
   
   
   (method protected virtual (present-name)
@@ -68,16 +83,179 @@
   
   (method protected virtual (present-type)
     )
+    
   
+  ;;;
+  ;;;; Sorting
+  ;;;
+  
+  
+  (method protected virtual (location-sort-value)
+    (present-location))
+
   
   ;;;
   ;;;; Edition
   ;;;
   
   
-  (method protected virtual (edit forward? focus? visible?)
-    )
+  (method protected virtual (edit select (visible?: visible? #t) (activate-focus?: activate-focus? #t))
+    #f)
   
   
   (method protected virtual (drill-down)
-    )))
+    )
+  
+  
+  ;;;
+  ;;;; Client
+  ;;;
+  
+  
+  (method public virtual (effective-client)
+    (let ((info (edit #f visible?: #f activate-focus?: #f)))
+      (when info
+        (receive (frame new?) info
+          (get-text-view~ (get-guest~ frame))))))
+  
+  
+  ;;;
+  ;;;; Boundaries
+  ;;;
+  
+  
+  (method public (get-boundaries)
+    (when (and beginning ending)
+      (new Range$Cell$ beginning ending)))
+  
+  
+  ;;;
+  ;;;; Find
+  ;;;
+  
+  
+  (method protected (find-forward (client: client #f) (follow?: follow? #t))
+    (let ((client (or client (effective-client))))
+      (if (and client (find-next client))
+          #t
+        (when follow?
+          (follow-forward)))))
+  
+  
+  (method protected (find-backward (client: client #f) (follow?: follow? #t))
+    (let ((client (or client (effective-client))))
+      (if (and client (find-previous client))
+          #t
+        (when follow?
+          (follow-backward)))))
+  
+  
+  (method protected (find-next client)
+    (select-next~ client (get-find~ search) end: ending))
+  
+  
+  (method protected (find-previous client)
+    (select-previous~ client (get-find~ search) end: beginning))
+  
+  
+  (method protected (follow-forward)
+    (let ((results (get-results)))
+      (when (same-search? results)
+        (edit-next~ results))))
+  
+  
+  (method protected (follow-backward)
+    (let ((results (get-results)))
+      (when (same-search? results)
+        (edit-previous~ results))))
+  
+  
+  (method protected virtual (install-indicators beginning-indicator ending-indicator)
+    (reset~ beginning-indicator)
+    (reset~ ending-indicator))
+  
+  
+  (method protected (get-results)
+    (get-search-results~ (get-application)))
+  
+  
+  (method protected (same-search? results)
+    (eq? (get-current-resultset~ results) resultset))
+  
+  
+  ;;;
+  ;;;; Replace
+  ;;;
+  
+  
+  (method protected (replace-selection (client: client #f))
+    (let ((find (get-find~ search))
+          (replace (get-replace~ search))
+          (expression? (get-expression?~ search)))
+      (let ((find-list (get-contexts~ find))
+            (repl-list (get-replace-list~ replace))
+            (preserve-case? (get-preserve-case?~ replace))
+            (play-recording? (get-play-recording?~ replace))
+            (client (or client (effective-client))))
+        (define (determine-case str)
+          (if (or (empty-string? str) (lower-case? (element str 0)))
+              'lower-case
+            (if (or (= (cardinality str) 1) (upper-case? (element str 1)))
+                'upper-case
+              'capitalized)))
+        
+        (define (convert-case str cs)
+          (case cs
+            ((lower-case)  (downcase str))
+            ((upper-case)  (upcase str))
+            ((capitalized) (capitalize str))))
+        
+        (define (get-replacement str find-list repl-list)
+          (and (pair? find-list)
+               (pair? repl-list)
+               (let ((m (irregex-match (search-context-regexp (car find-list)) str)))
+                 (if m
+                     (if (get-regexp?~ (car find-list))
+                         (expand-replacement str m (car repl-list))
+                       (car repl-list))
+                   (get-replacement str (cdr find-list) (cdr repl-list))))))
+        
+        (define (expand-replacement str m repl)
+          (let ((end (- (string-length repl) 1)))
+            (let (lp (from 0) (i 0) (res '()))
+              (define (collect) (if (= i from) res (cons (substring repl from i) res)))
+              (cond
+                ((>= i end) (apply string-append (reverse (collect))))
+                ((eqv? #\\ (string-ref repl i))
+                 (lp (+ i 2)
+                     (+ i 2)
+                     (cons
+                       (case (string-ref repl (+ i 1))
+                         ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
+                          (or (irregex-match-substring m (- (char->integer (string-ref repl (+ i 1))) (char->integer #\0))) ""))
+                         ((#\n) "\n") ((#\t) "\t") ((#\r) "\r")
+                         (else (substring repl (+ i 1) (+ i 2))))
+                       (collect))))
+                (else (lp from (+ i 1) res))))))
+        
+        (let* ((str (get-selected-string~ client))
+               (repl (and str repl-list (if expression? (car repl-list) (get-replacement str find-list repl-list)))))
+          (when repl
+            (if (not play-recording?)
+                (insert-string~ client (if preserve-case? (convert-case repl (determine-case str)) repl))
+              ;; temp... should not be necessary. play-recording should be
+              ;; made to work even if the window doesn't have the focus.
+              (acquire-focus~ client)
+              (play-current-recording~ (get-recorder~ (get-application))))
+            #t)))))
+  
+  
+  (method protected (replace-selection&find-forward (client: client #f) (follow?: follow? #t))
+    (replace-selection client: client)
+    (find-forward client: client follow?: follow?))
+  
+  
+  (method protected (replace-all (client: client #f))
+    (replace-selection client: client)
+    (while (find-forward client: client follow?: #f)
+      (replace-selection client: client)))))

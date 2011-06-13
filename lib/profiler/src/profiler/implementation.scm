@@ -252,8 +252,8 @@
          (call (%%table-ref calls key #f)))
     (if call
         (%%table-set! calls key
-                      (list (+ 1 (car call)) (+ (cadr call) duration)))
-        (%%table-set! calls key (list 1 duration)))))
+          (list (+ 1 (car call)) (+ (cadr call) duration)))
+      (%%table-set! calls key (list 1 duration)))))
 
 
 (define (profiler-real-time)
@@ -286,28 +286,28 @@
 
 (define (stop-profiler profile)
   (define (secs->msecs x)
-          (##inexact->exact (##round (##* x 1000))))
-
+    (##inexact->exact (##round (##* x 1000))))
+  
   (if (profile-process-info profile)
       (let* ((at-start (profile-process-info profile))
              (at-end (##process-statistics))
              (user-time
-              (secs->msecs
-               (##- (##f64vector-ref at-end 0)
-                    (##f64vector-ref at-start 0))))
+               (secs->msecs
+                 (##- (##f64vector-ref at-end 0)
+                      (##f64vector-ref at-start 0))))
              (sys-time
-              (secs->msecs
-               (##- (##f64vector-ref at-end 1)
-                    (##f64vector-ref at-start 1))))
+               (secs->msecs
+                 (##- (##f64vector-ref at-end 1)
+                      (##f64vector-ref at-start 1))))
              (gc-real-time
-              (secs->msecs
-               (##- (##f64vector-ref at-end 5)
-                    (##f64vector-ref at-start 5))))
+               (secs->msecs
+                 (##- (##f64vector-ref at-end 5)
+                      (##f64vector-ref at-start 5))))
              (bytes-allocated
-              (##flonum.->exact-int
-               (##- (##- (##f64vector-ref at-end 7)
-                         (##f64vector-ref at-start 7))
-                    (##f64vector-ref at-end 9)))))
+               (##flonum.->exact-int
+                 (##- (##- (##f64vector-ref at-end 7)
+                           (##f64vector-ref at-start 7))
+                      (##f64vector-ref at-end 9)))))
         (profile-process-info-set! profile (list user-time sys-time gc-real-time bytes-allocated))))
   (let ((stop (profiler-stop-func (profile-profiler profile))))
     (if stop

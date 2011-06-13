@@ -337,14 +337,12 @@
            #f)))
   
   (define (continuation-next-distinct cont creator)
-    (let ((creator-name (jazz:procedure-name creator)))
-      (let loop ((current-cont (%%continuation-next cont)))
-           (if current-cont
-               (let ((current-creator (continuation-creator current-cont)))
-                 (if (%%eq? creator-name (jazz:procedure-name current-creator))
-                     (loop (%%continuation-next current-cont))
-                   current-cont))
-             #f))))
+    (let loop ((current-cont (%%continuation-next cont)))
+         (if current-cont
+             (if (%%eq? creator (continuation-creator current-cont))
+                 (loop (%%continuation-next current-cont))
+               current-cont)
+           #f)))
   
   (define (identify-location locat)
     ;; copy of jazz:locat->file/line/col

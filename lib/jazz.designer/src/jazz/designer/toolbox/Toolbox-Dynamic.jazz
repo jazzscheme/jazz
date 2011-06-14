@@ -39,6 +39,7 @@
 
 
 (import (jazz.designer)
+        (jazz.designer.view)
         (jazz.jml)
         (jazz.library))
 
@@ -62,7 +63,10 @@
   
   (method public (get-module-classes)
     (if module-name
-        (let* ((module (require-module module-name))
+        (let* ((module (with-exception-catcher
+                         (lambda (exc)
+                           (designer-error "Module {a} does not exist" module-name))
+                         (lambda () (require-module module-name))))
                (exports (table-keys (get-exports~ module))))
           (sort string<? (collect-if (lambda (export-name)
                                        (let ((obj (module-ref module-name export-name)))

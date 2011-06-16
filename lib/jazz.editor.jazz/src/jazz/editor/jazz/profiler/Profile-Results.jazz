@@ -153,8 +153,8 @@
     (profiler-stop~ (require-focused-process~ (get-debugger-manager)))
     (view-profile)
     (user-message "Profiler stopped"))
-
-
+  
+  
   (method (on-choose-profile evt)
     (define (present-profile profile)
       (or profile "<default>"))
@@ -245,39 +245,40 @@
         (bind (label profiler depth calls-count calls-duration process-info calls) profile
           (define (make-children frame count duration total-duration)
             (let ((duration (if count (* count (/ total-duration calls-count)) #f)))
-             (list (new Tree-Node
-                        title: (present-frame frame)
-                        image: {Image-Resource "Link"})
-                   (new Tree-Label title: (if count (->string count) ""))
-                   (new Tree-Label title: (if duration (format "{r precision: 3}" duration) ""))
-                   (new Tree-Label title: (if duration (format "{r precision: 2}" (* 100.0 (/ duration total-duration))) "")))))
-            
+              (list (new Tree-Node
+                      title: (present-frame frame)
+                      image: {Image-Resource "Link"})
+                    (new Tree-Label title: (if count (->string count) ""))
+                    (new Tree-Label title: (if duration (format "{r precision: 3}" duration) ""))
+                    (new Tree-Label title: (if duration (format "{r precision: 2}" (* 100.0 (/ duration total-duration))) "")))))
+          
           (define (present-frame frame)
             (if (string? frame)
                 frame
-                (let ((name (and frame (car frame))))
-                  (if name
-                      (present-reference name)
-                      "(interaction)"))))
+              (let ((name (and frame (car frame))))
+                (if name
+                    (present-reference name)
+                  "(interaction)"))))
+          
           (set-value~ (locate 'profiler) profiler)
           (set-value~ (locate 'depth) depth)
           (remove-every-row~ tree)
           (unless (empty? calls)
             (bind (user-time sys-time gc-time bytes-allocated) process-info
               (set-title~ (locate 'profile)
-                          (format "{?{a}~} Program: {a}ms Kernel: {a}ms GC: {a}ms Memory allocated: {a}KiB" label user-time sys-time gc-time (floor (/ bytes-allocated 1024))))
+                (format "{?{a}~} Program: {a}ms Kernel: {a}ms GC: {a}ms Allocation: {a}KiB" label user-time sys-time gc-time (floor (/ bytes-allocated 1024))))
               (with-update-locked~ tree
-                                   (lambda ()
-                                     (for-each (lambda (call)
-                                                 (bind (stack count duration) call
-                                                   (if (null? stack)
-                                                       (add-row~ tree children: (make-children "(interaction)" count duration user-time) user-data: #f)
-                                                       (bind (head-frame . frames) stack
-                                                         (let ((row (add-row~ tree children: (make-children head-frame count duration user-time) user-data: head-frame)))
-                                                           (for-each (lambda (frame)
-                                                                       (add-row~ tree father: row children: (make-children frame #f #f user-time) user-data: frame))
-                                                                     frames))))))
-                                               (sort > calls key: second)))))))))))
+                (lambda ()
+                  (for-each (lambda (call)
+                              (bind (stack count duration) call
+                                (if (null? stack)
+                                    (add-row~ tree children: (make-children "(interaction)" count duration (max user-time 1)) user-data: #f)
+                                  (bind (head-frame . frames) stack
+                                    (let ((row (add-row~ tree children: (make-children head-frame count duration (max user-time 1)) user-data: head-frame)))
+                                      (for-each (lambda (frame)
+                                                  (add-row~ tree father: row children: (make-children frame #f #f (max user-time 1)) user-data: frame))
+                                                frames))))))
+                            (sort > calls key: second)))))))))))
 
 
 ;;;

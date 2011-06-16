@@ -249,44 +249,57 @@
   
   
   (method public (profiler-profile)
-    (define (frame->symbol frame)
-      (or (when frame
-            (bind (creator locat) frame
-              (when creator
-                (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
-                  (list name locat)))))
-          frame))
-
-    (define (merge-profile profile remote-profile)
-      (let ((temp-profile (new-profile label: (profile-label profile) profiler: (profile-profiler profile) depth: (profile-depth profile))))
+    (define (merge-profiles profile remote-profile)
+      (define (frame->symbol frame)
+        (or (when frame
+              (bind (creator locat) frame
+                (when creator
+                  (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
+                    (list name locat)))))
+            frame))
+          
+      (define (merge-calls calls source-calls)
+        (iterate-table source-calls
+          (lambda (proc count-duration)
+            (let* ((key (map frame->symbol proc))
+                   (temp-call (table-ref calls key #f)))
+              (table-set! calls key
+                          (if temp-call
+                              (list (+ (first count-duration) (first temp-call))
+                                    (+ (second count-duration) (second temp-call)))
+                              count-duration))))))
+      
+      (let ((temp-profile (new-profile label: (profile-label profile)
+                                       profiler: (profile-profiler profile)
+                                       depth: (profile-depth profile))))
         (profile-calls-count-set! temp-profile (+ (profile-calls-count profile)
                                                   (if remote-profile
                                                       (profile-calls-count remote-profile)
                                                       0)))
-        (profile-calls-duration-set! temp-profile (profile-calls-duration profile))
-        (profile-process-info-set! temp-profile (profile-process-info profile))
-        (profile-calls-set! temp-profile (append (profile-calls profile)
-                                                 (if remote-profile
-                                                     (profile-calls remote-profile)
-                                                     '())))
+        (profile-calls-duration-set! temp-profile (+ (profile-calls-duration profile)
+                                                     (if remote-profile
+                                                         (profile-calls-duration remote-profile)
+                                                         0)))
+        (profile-process-info-set! temp-profile (profile-process-info profile)) ;; ?
+        (let ((temp-calls (profile-calls temp-profile)))
+          (merge-calls temp-calls (profile-calls profile))
+          (when remote-profile
+            (merge-calls temp-calls (profile-calls remote-profile))))
         temp-profile))
 
     
-   (let ((profile (find-selected-profile)))
-     (when profile
-       (let ((label (profile-label profile)))
-         (let ((remote-profile (and (get-application) (get-remote-profile~ (get-application) label))))
-           (let ((temp-profile (merge-profile profile remote-profile)))
-             (list label
-                   (profiler-type (profile-profiler temp-profile))
-                   (profile-depth temp-profile)
-                   (profile-calls-count temp-profile)
-                   (profile-calls-duration temp-profile)
-                   (profile-process-info temp-profile)
-                   (map (lambda (frame-info)
-                          (list (map frame->symbol (first frame-info))
-                                (second frame-info)))
-                        (profile-calls temp-profile)))))))))
+    (let ((profile (find-selected-profile)))
+      (when profile
+        (let* ((label (profile-label profile))
+               (remote-profile (and (get-application) (get-remote-profile~ (get-application) label)))
+               (temp-profile (merge-profiles profile remote-profile)))
+          (list label
+                (profiler-type (profile-profiler temp-profile))
+                (profile-depth temp-profile)
+                (profile-calls-count temp-profile)
+                (profile-calls-duration temp-profile)
+                (profile-process-info temp-profile)
+                (table->list (profile-calls temp-profile)))))))
   
   
   (method public (profile-reset profiler depth)

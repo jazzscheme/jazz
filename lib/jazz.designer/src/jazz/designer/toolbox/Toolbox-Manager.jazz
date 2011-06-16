@@ -215,19 +215,21 @@
   
   
   (method (on-synchronize evt)
-    (with-update-locked
+    (with-safe-design
       (lambda ()
-        (for-each (lambda (toolbox)
-                    (let ((module-name (get-module-name~ toolbox)))
-                      (for-each (lambda (class-name)
-                                  (let ((model (new Toolbox-Model parent: toolbox name: class-name))
-                                        (props (list unit: module-name model: class-name)))
-                                    (install-new-component~ (get-tree) designer model toolbox (symbol->string class-name) '() props)))
-                                (get-missing-classes~ toolbox))
-                      (for-each (lambda (tool)
-                                  (remove-child~ designer tool))
-                                (get-removed-classes~ toolbox))))
-                  (get-dynamic-toolboxes))))))
+        (with-update-locked
+          (lambda ()
+            (for-each (lambda (toolbox)
+                        (let ((module-name (get-module-name~ toolbox)))
+                          (for-each (lambda (class-name)
+                                      (let ((model (new Toolbox-Model parent: toolbox name: class-name))
+                                            (props (list unit: module-name model: class-name)))
+                                        (install-new-component~ (get-tree) designer model toolbox (symbol->string class-name) '() props)))
+                                    (get-missing-classes~ toolbox))
+                          (for-each (lambda (tool)
+                                      (remove-child~ designer tool))
+                                    (get-removed-classes~ toolbox))))
+                      (get-dynamic-toolboxes))))))))
 
 
 ;;;

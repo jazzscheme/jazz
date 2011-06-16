@@ -254,12 +254,27 @@
   
   
   (method (insert-imports text module-name)
-    (for-each (lambda (unit)
-                (let ((explorer (new Jazz-Explorer (get-model~ text))))
-                  (insert-import-invoice~ explorer unit)))
-              (let ((explorer (new Jazz-Explorer (get-model~ text)))
-                    (units (cons 'jazz.jml (remove module-name (map car (get-imports~ (get-data~ form)))))))
-                (filter-existing-import-invoices~ explorer units))))
+    (define (insert-import unit)
+      (let ((explorer (new Jazz-Explorer (get-model~ text))))
+        (forward-namespace~ explorer)
+        (if (not (enter-import~ explorer))
+            (error "Unable to find import declaration")
+          (receive (found? first?) (find-import-invoice~ explorer unit #t)
+            (unless found?
+              (set-caret~ text (get-end~ explorer))
+              (cond (first?
+                      (insert-string~ text (format " ({a})" unit))
+                      (insert-newline~ text)
+                      (tabulate~ text))
+                    (else
+                     (insert-newline~ text)
+                     (tabulate~ text)
+                     (insert-string~ text (format "({a})" unit)))))))))
+    
+    
+    (for-each insert-import (let ((explorer (new Jazz-Explorer (get-model~ text)))
+                                  (units (cons 'jazz.jml (remove module-name (map car (get-imports~ (get-data~ form)))))))
+                              (filter-existing-import-invoices~ explorer units))))
   
   
   (method (save-to-class class)

@@ -118,7 +118,7 @@
 
 
 (define (make-profile label profiler depth)
-  (%%vector 'profile label profiler depth 0 0 #f '()))
+  (%%vector 'profile label profiler depth 0 0 #f (%%make-table test: equal?)))
 
 
 (define (profile-label profile)
@@ -241,14 +241,19 @@
       (profile-depth-set! profile depth))
   (profile-calls-count-set! profile 0)
   (profile-calls-duration-set! profile 0)
-  (profile-calls-set! profile '()))
+  (profile-calls-set! profile (%%make-table test: equal?)))
 
 
 (define (profile-register-call profile stack duration)
   (profile-calls-count-set! profile (+ (profile-calls-count profile) 1))
   (profile-calls-duration-set! profile (+ (profile-calls-duration profile) duration))
-  (profile-calls-set! profile
-                      (cons (list (or stack '((<unknown> #f))) duration) (profile-calls profile))))
+  (let* ((calls (profile-calls profile))
+         (key (or stack '((<unknown> #f))))
+         (call (%%table-ref calls key #f)))
+    (if call
+        (%%table-set! calls key
+          (list (+ 1 (car call)) (+ (cadr call) duration)))
+      (%%table-set! calls key (list 1 duration)))))
 
 
 (define (profiler-real-time)
@@ -281,28 +286,28 @@
 
 (define (stop-profiler profile)
   (define (secs->msecs x)
-          (##inexact->exact (##round (##* x 1000))))
-
+    (##inexact->exact (##round (##* x 1000))))
+  
   (if (profile-process-info profile)
       (let* ((at-start (profile-process-info profile))
              (at-end (##process-statistics))
              (user-time
-              (secs->msecs
-               (##- (##f64vector-ref at-end 0)
-                    (##f64vector-ref at-start 0))))
+               (secs->msecs
+                 (##- (##f64vector-ref at-end 0)
+                      (##f64vector-ref at-start 0))))
              (sys-time
-              (secs->msecs
-               (##- (##f64vector-ref at-end 1)
-                    (##f64vector-ref at-start 1))))
+               (secs->msecs
+                 (##- (##f64vector-ref at-end 1)
+                      (##f64vector-ref at-start 1))))
              (gc-real-time
-              (secs->msecs
-               (##- (##f64vector-ref at-end 5)
-                    (##f64vector-ref at-start 5))))
+               (secs->msecs
+                 (##- (##f64vector-ref at-end 5)
+                      (##f64vector-ref at-start 5))))
              (bytes-allocated
-              (##flonum.->exact-int
-               (##- (##- (##f64vector-ref at-end 7)
-                         (##f64vector-ref at-start 7))
-                    (##f64vector-ref at-end 9)))))
+               (##flonum.->exact-int
+                 (##- (##- (##f64vector-ref at-end 7)
+                           (##f64vector-ref at-start 7))
+                      (##f64vector-ref at-end 9)))))
         (profile-process-info-set! profile (list user-time sys-time gc-real-time bytes-allocated))))
   (let ((stop (profiler-stop-func (profile-profiler profile))))
     (if stop
@@ -314,7 +319,7 @@
 ;;;
 
 
-(define (get-cont-stack-for-profile cont depth profiler)
+(define (get-continuation-stack-for-profile cont depth profiler)
   (define (continuation-creator cont)
     (let ((proc (%%continuation-creator cont)))
       (if (and proc (%%closure? proc))
@@ -332,14 +337,12 @@
            #f)))
   
   (define (continuation-next-distinct cont creator)
-    (let ((creator-name (jazz:procedure-name creator)))
-      (let loop ((current-cont (%%continuation-next cont)))
-           (if current-cont
-               (let ((current-creator (continuation-creator current-cont)))
-                 (if (%%eq? creator-name (jazz:procedure-name current-creator))
-                     (loop (%%continuation-next current-cont))
-                   current-cont))
-             #f))))
+    (let loop ((current-cont (%%continuation-next cont)))
+         (if current-cont
+             (if (%%eq? creator (continuation-creator current-cont))
+                 (loop (%%continuation-next current-cont))
+               current-cont)
+           #f)))
   
   (define (identify-location locat)
     ;; copy of jazz:locat->file/line/col

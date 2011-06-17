@@ -244,7 +244,8 @@
       (when profile
         (bind (label profiler depth calls-count calls-duration process-info calls) profile
           (define (make-children frame count duration total-duration)
-            (let ((duration (if count (* count (/ total-duration calls-count)) #f)))
+            (let ((duration (unless (and duration (not (eqv? duration 0))) (if count (* count (/ total-duration calls-count)) #f)))
+                  (total-duration (max total-duration 1)))
               (list (new Tree-Node
                       title: (present-frame frame)
                       image: {Image-Resource "Link"})
@@ -267,18 +268,36 @@
             (bind (user-time sys-time gc-time bytes-allocated) process-info
               (set-title~ (locate 'profile)
                 (format "{?{a}~} Program: {a}ms Kernel: {a}ms GC: {a}ms Allocation: {a}KiB" label user-time sys-time gc-time (floor (/ bytes-allocated 1024))))
-              (with-update-locked~ tree
-                (lambda ()
-                  (for-each (lambda (call)
-                              (bind (stack count duration) call
-                                (if (null? stack)
-                                    (add-row~ tree children: (make-children "(interaction)" count duration (max user-time 1)) user-data: #f)
-                                  (bind (head-frame . frames) stack
-                                    (let ((row (add-row~ tree children: (make-children head-frame count duration (max user-time 1)) user-data: head-frame)))
-                                      (for-each (lambda (frame)
-                                                  (add-row~ tree father: row children: (make-children frame #f #f (max user-time 1)) user-data: frame))
-                                                frames))))))
-                            (sort > calls key: second)))))))))))
+              (let ((locator-table (make-table test: eq?))
+                    (null-stack "(interaction)"))
+                (for-each (lambda (call)
+                            (bind (stack count duration) call
+                              (if (null? stack)
+                                  (bind (total-count calls) (table-ref locator-table null-stack '(0 ()))
+                                    (table-set! locator-table null-stack (list (+ total-count count) (cons call calls))))
+                                (for-each (lambda (frame)
+                                            (let ((locator (car frame)))
+                                              (bind (total-count calls) (table-ref locator-table locator '(0 ()))
+                                                (table-set! locator-table locator (list (+ total-count count) (cons call calls))))))
+                                          stack))))
+                          calls)
+                (with-update-locked~ tree
+                  (lambda ()
+                    (for-each (lambda (kv)
+                                (bind (locator total-count calls) kv
+                                  (let ((locator-name (if (string? locator) locator (list locator))))
+                                    (let ((father (add-row~ tree children: (make-children locator-name total-count #f user-time) user-data: #f)))
+                                      (for-each (lambda (call)
+                                                  (bind (stack count duration) call
+                                                    (if (null? stack)
+                                                        (add-row~ tree father: father children: (make-children "(interaction)" count duration user-time) user-data: #f)
+                                                      (bind (head-frame . frames) stack
+                                                        (let ((row (add-row~ tree father: father children: (make-children head-frame count duration user-time) user-data: head-frame)))
+                                                          (for-each (lambda (frame)
+                                                                      (add-row~ tree father: row children: (make-children frame #f #f user-time) user-data: frame))
+                                                                    frames))))))
+                                                (sort > calls key: second))))))
+                              (sort > (table->list locator-table) key: second))))))))))))
 
 
 ;;;

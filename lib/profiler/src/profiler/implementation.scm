@@ -118,7 +118,12 @@
 
 
 (define (make-profile label profiler depth)
-  (%%vector 'profile label profiler depth 0 0 #f (%%make-table test: equal?)))
+  (let ((count 0)
+        (duration 0)
+        (start-info #f)
+        (stop-info #f)
+        (calls (%%make-table test: equal?)))
+    (%%vector 'profile label profiler depth count duration start-info stop-info calls)))
 
 
 (define (profile-label profile)
@@ -148,17 +153,23 @@
 (define (profile-calls-duration-set! profile total)
   (%%vector-set! profile 5 total))
 
-(define (profile-process-info profile)
+(define (profile-process-start-info profile)
   (%%vector-ref profile 6))
 
-(define (profile-process-info-set! profile time)
+(define (profile-process-start-info-set! profile time)
   (%%vector-set! profile 6 time))
 
-(define (profile-calls profile)
+(define (profile-process-stop-info profile)
   (%%vector-ref profile 7))
 
+(define (profile-process-stop-info-set! profile time)
+  (%%vector-set! profile 7 time))
+
+(define (profile-calls profile)
+  (%%vector-ref profile 8))
+
 (define (profile-calls-set! profile calls)
-  (%%vector-set! profile 7 calls))
+  (%%vector-set! profile 8 calls))
 
 
 (define (new-profile #!key (label #f) (profiler #f) (depth #f))
@@ -269,6 +280,10 @@
 ;;;
 
 
+(define (process-statistics)
+  (##process-statistics))
+
+
 (define (with-profiling profile thunk)
   (start-profiler profile)
   (parameterize ((active-profile profile))
@@ -278,40 +293,41 @@
 
 
 (define (start-profiler profile)
-  (profile-process-info-set! profile (##process-statistics))
+  (profile-process-start-info-set! profile (process-statistics))
   (let ((start (profiler-start-func (profile-profiler profile))))
     (if start
         (start profile))))
 
 
 (define (stop-profiler profile)
-  (define (secs->msecs x)
-    (##inexact->exact (##round (##* x 1000))))
-  
-  (if (profile-process-info profile)
-      (let* ((at-start (profile-process-info profile))
-             (at-end (##process-statistics))
-             (user-time
-               (secs->msecs
-                 (##- (##f64vector-ref at-end 0)
-                      (##f64vector-ref at-start 0))))
-             (sys-time
-               (secs->msecs
-                 (##- (##f64vector-ref at-end 1)
-                      (##f64vector-ref at-start 1))))
-             (gc-real-time
-               (secs->msecs
-                 (##- (##f64vector-ref at-end 5)
-                      (##f64vector-ref at-start 5))))
-             (bytes-allocated
-               (##flonum.->exact-int
-                 (##- (##- (##f64vector-ref at-end 7)
-                           (##f64vector-ref at-start 7))
-                      (##f64vector-ref at-end 9)))))
-        (profile-process-info-set! profile (list user-time sys-time gc-real-time bytes-allocated))))
+  (profile-process-stop-info-set! profile (process-statistics))
   (let ((stop (profiler-stop-func (profile-profiler profile))))
     (if stop
         (stop profile))))
+
+
+(define (profile-process-info profile)
+  (define (secs->msecs x)
+    (##inexact->exact (##round (##* x 1000))))
+  
+  (let ((at-start (profile-process-start-info profile)))
+    (if at-start
+        (let ((at-end (or (profile-process-stop-info profile) (process-statistics))))
+          (let ((user-time (secs->msecs
+                             (##- (##f64vector-ref at-end 0)
+                                  (##f64vector-ref at-start 0))))
+                (sys-time (secs->msecs
+                            (##- (##f64vector-ref at-end 1)
+                                 (##f64vector-ref at-start 1))))
+                (gc-real-time (secs->msecs
+                                (##- (##f64vector-ref at-end 5)
+                                     (##f64vector-ref at-start 5))))
+                (bytes-allocated (##flonum.->exact-int
+                                   (##- (##- (##f64vector-ref at-end 7)
+                                             (##f64vector-ref at-start 7))
+                                        (##f64vector-ref at-end 9)))))
+            (list user-time sys-time gc-real-time bytes-allocated)))
+      (list 0 0 0 0))))
 
 
 ;;;

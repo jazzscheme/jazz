@@ -350,6 +350,27 @@
 
 (cond-expand
   (windows
+    (definition public (filename=? x y)
+      (ci=? x y))
+    
+    (definition public (extension=? x y)
+      (ci=? x y))
+    
+    (definition public filename=?-hash
+      string-ci=?-hash))
+  (else
+    (definition public (filename=? x y)
+      (equal? x y))
+    
+    (definition public (extension=? x y)
+      (equal? x y))
+    
+    (definition public filename=?-hash
+      string=?-hash)))
+
+
+(cond-expand
+  (windows
    (definition (normalize-filename-separators filename <string>)
      (substitute #\\ #\/ filename)))
   (else
@@ -649,7 +670,7 @@
   
   (method override (compare-pathname object)
     (and (is? object Pathname)
-         (ci=? (parse) (parse~ object))))
+         (filename=? (parse) (parse~ object))))
   
   
   (method public (context-alias?)
@@ -803,7 +824,7 @@
              target-path)
             ((null? target-path)
              #f)
-            ((equal? (car path) (car target-path))
+            ((filename=? (car path) (car target-path))
              (iterate (cdr path) (cdr target-path)))
             (else
              #f))))
@@ -823,7 +844,7 @@
            (base-expd (expand~ anchor))
            (base-length (length base-expd))
            (expd (expand))
-           (rank (mismatch base-expd expd test: ci=?))
+           (rank (mismatch base-expd expd test: filename=?))
            (result-list (unspecified)))
       (continuation-capture
         (lambda (return)
@@ -885,7 +906,7 @@
 
 
 (definition public (pathname-hash pathname <Pathname>)
-  (string-ci=?-hash (parse~ pathname)))
+  (filename=?-hash (parse~ pathname)))
 
 
 ;;;
@@ -1039,10 +1060,6 @@
 
 (definition public inline (file? object)
   (is? object File))
-
-
-(definition public (extension=? x y)
-  (ci=? x y))
 
 
 (definition public (timestamped-file dir base ext)

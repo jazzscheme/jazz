@@ -431,15 +431,15 @@
         (begin
           (select)
           (edit-client))
-      (if (eq? client (get-client~ editor))
+      (let ((outer (outer-client)))
+        (if (eq? outer (get-client~ editor))
+            (select)
+          @wait
+          (begin
+            (set! dragging? #t)
+            (set! start-position pos)
+            (acquire-capture~ client))
           (select)
-        @wait
-        (begin
-          (set! dragging? #t)
-          (set! start-position pos)
-          (acquire-capture~ client))
-        (select)
-        (let ((outer (outer-client~ (get-surrogate~ client))))
           (when (and (move-client?~ (get-surrogate~ outer)) (some-movable? (get-selection~ editor)))
             (let ((selection (get-selection)))
               (set! processing? #t)
@@ -653,12 +653,13 @@
   
   
   (method (on-arrow-press evt)
-    (let ((modifiers (get-modifiers~ evt)))
-      (case (get-property~ evt direction:)
-        ((left)  (move-selection -1  0 modifiers))
-        ((up)    (move-selection  0 -1 modifiers))
-        ((right) (move-selection  1  0 modifiers))
-        ((down)  (move-selection  0  1 modifiers)))))
+    (unless (eq? (outer-client) (get-client~ editor))
+      (let ((modifiers (get-modifiers~ evt)))
+        (case (get-property~ evt direction:)
+          ((left)  (move-selection -1  0 modifiers))
+          ((up)    (move-selection  0 -1 modifiers))
+          ((right) (move-selection  1  0 modifiers))
+          ((down)  (move-selection  0  1 modifiers))))))
   
   
   (method (on-backspace-press evt)

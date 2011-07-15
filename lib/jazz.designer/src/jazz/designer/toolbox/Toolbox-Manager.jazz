@@ -55,7 +55,7 @@
 ;;;
 
 
-(definition (read-toolbox)
+(definition (read-toolbox toolbox)
   (define (load-toolbox file)
     (if (exists?~ file)
         (instantiate~ (read-form file))
@@ -64,7 +64,7 @@
   (with-safe-execution "loading the toolbox"
     (lambda ()
       (let ((appl (get-application)))
-        (let ((toolbox (load-toolbox (toolbox-file~ appl))))
+        (let ((toolbox (load-toolbox (toolbox-file~ appl toolbox))))
           (install-context~ appl toolbox)
           toolbox)))
     continue-handler:
@@ -78,6 +78,9 @@
 
 
 (class undocumented Toolbox-Manager extends Component-Editor implements Exit-Listener
+  
+  
+  (property toolbox initialize #f getter generate setter explicit)
   
   
   (form
@@ -149,6 +152,20 @@
   
   
   ;;;
+  ;;;; Toolbox
+  ;;;
+  
+  
+  (method public (get-toolbox)
+    toolbox)
+  
+  
+  (method public (set-toolbox tlb)
+    (set! toolbox tlb)
+    (set-client (and toolbox (read-toolbox toolbox))))
+  
+  
+  ;;;
   ;;;; Component
   ;;;
   
@@ -157,7 +174,6 @@
     (nextmethod rest)
     (set-shown?~ (locate-component '(descendants header)) #f)
     (set-editor~ (locate 'descendants) self)
-    (set-client (read-toolbox))
     (add-exit-listener~ (get-application) self))
   
   

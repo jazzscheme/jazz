@@ -3,17 +3,26 @@
 
 (import (jazz.graphic)
         (jazz.platform.cairo)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.print))
+
+
+(definition pdf-zoom 1.25)
 
 
 (definition public (document->pdf filename view)
-  (let* ((size (get-size~ view))
-         (surface (new Pdf-Surface #f size filename)))
-    (set-clipper~ surface (new Rect 0 0 10000 10000))
-    (let ((job (new Print-Job surface view (get-page-setup-for~ view 'printer) 60)))
+  (let* ((surface (new Pdf-Surface #f (new Dimension (* 17/2 72) (* 11 72)) filename))
+         (page-setup (get-page-setup-for~ view 'printer)))
+    (let ((job (new Pdf-Job surface view page-setup 60 zoom: pdf-zoom)))
       (print-job~ job))
     (destroy~ surface)))
     
+
+(class Pdf-Job extends Print-Job
+  
+  
+  (method override (end-page no)
+    (show-page~ surface)))
 
 
 (class Pdf-Surface extends Surface
@@ -25,4 +34,8 @@
   (method override (initialize _ size filename)
     (let ((surface (cairo_pdf_surface_create filename (exact->inexact (get-width~ size)) (exact->inexact (get-height~ size)))))
       (nextmethod surface)
-      (set! size~self size)))))
+      (set! size~self size)))
+  
+  
+  (method (show-page)
+    (cairo_show_page context))))

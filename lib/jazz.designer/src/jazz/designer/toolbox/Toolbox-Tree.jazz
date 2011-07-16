@@ -104,27 +104,32 @@
       (and class (edit-class class))))
   
   
+  (method (on-new evt)
+    (let ((model (or (selected-model) 'View))
+          (unit (or (selected-unit) 'jazz.ui)))
+      (edit-new model unit)))
+  
+  
+  (method (edit-new model unit (size: size #f))
+    (let* ((model-name (string->symbol (string-append "<" (symbol->string model) ">")))
+           (form-data (new Data 'jazz `((,unit)) #f))
+           (form (construct-form
+                   (list model-name)
+                   (let ((imports (effective-imports~ form-data)))
+                     (imports-locator imports))
+                   form-data))
+           (target (instantiate~ form)))
+      (when size
+        (set-size~ target size))
+      (edit-component target)))
+  
+  
   (method (on-add evt)
     (let ((class (selected-class))
           (unit (selected-unit))
           (editor (current-document)))
       (when (and class (is? editor View-Editor))
         (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f import: unit))))
-  
-  
-  (method (on-new evt)
-    (let ((class 'View)
-          (unit 'jazz.ui))
-      (when class
-        (let* ((model-name (string->symbol (string-append "<" (symbol->string class) ">")))
-               (form-data (new Data 'jazz `((,unit)) #f))
-               (form (construct-form
-                       (list model-name)
-                       (let ((imports (effective-imports~ form-data)))
-                         (imports-locator imports))
-                       form-data))
-               (target (instantiate~ form size: {Dimension 800 600})))
-          (edit-component target)))))
   
   
   (method override (row-state component update? level)

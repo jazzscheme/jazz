@@ -83,6 +83,10 @@
     (call-with-selected-toolbox-model get-unit~))
   
   
+  (method public (selected-toolbox)
+    (call-with-selected-toolbox-model (lambda (model) (find-ascendant~ model Toolbox))))
+  
+  
   (method override (update-selection expand-state selected-components)
     )
   
@@ -96,7 +100,11 @@
   
   
   (method (on-double-click evt)
-    (on-edit evt))
+    (let ((action (or (get-default-action~ (selected-toolbox)) 'new)))
+      (case action
+        ((new) (on-new evt))
+        ((edit) (on-edit evt))
+        ((add) (on-add evt)))))
   
   
   (method override (on-edit evt)
@@ -128,8 +136,9 @@
     (let ((class (selected-class))
           (unit (selected-unit))
           (editor (current-document)))
-      (when (and class (is? editor View-Editor))
-        (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f import: unit))))
+      (if (and class (is? editor View-Editor))
+          (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f import: unit)
+        (bell))))
   
   
   (method override (row-state component update? level)

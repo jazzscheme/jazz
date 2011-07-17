@@ -145,6 +145,24 @@
   
   
   (method public (with-atomic-undo proc)
+    (let ((preserved atomic?)
+          (completed? #f))
+      (unwind-protect
+          (begin
+            (start-atomic-undo)
+            (proc)
+            (set! completed? #t))
+        (end-atomic-undo preserved completed?))))
+  
+  
+  (method public (start-atomic-undo)
+    (prog1 atomic?
+      (unless atomic?
+        (set! atomic-actions '()))
+      (set! atomic? #t)))
+  
+  
+  (method public (end-atomic-undo preserved (completed? #t))
     (define (register-atomic-actions actions)
       (when (not-null? actions)
         (register-undo
@@ -155,23 +173,14 @@
                             (play-action action))
                           actions)))))))
     
-    (let ((preserved atomic?)
-          (completed? #f))
-      (unwind-protect
-          (begin
-            (unless atomic?
-              (set! atomic-actions '()))
-            (set! atomic? #t)
-            (proc)
-            (set! completed? #t))
-        (set! atomic? preserved)
-        (unless atomic?
-          (let ((actions atomic-actions))
-            (set! atomic-actions '())
-            (when (and completed? (not atomic?))
-              (register-atomic-actions actions)
-              (let ((appl (get-application)))
-                (update-focus-actions~ appl))))))))
+    (set! atomic? preserved)
+    (unless atomic?
+      (let ((actions atomic-actions))
+        (set! atomic-actions '())
+        (when (and completed? (not atomic?))
+          (register-atomic-actions actions)
+          (let ((appl (get-application)))
+            (update-focus-actions~ appl))))))
   
   
   (method (register-atomic-action action)

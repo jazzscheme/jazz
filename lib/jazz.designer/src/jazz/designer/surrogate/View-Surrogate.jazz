@@ -75,12 +75,13 @@
   (slot protected client-return-press-handler    initialize #f)
   
   
-  (slot state           initialize #f)
-  (slot current-part    initialize #f)
-  (slot start-mouse     initialize #f)
-  (slot start-positions initialize #f)
-  (slot start-position  initialize #f)
-  (slot start-size      initialize #f)
+  (slot state            initialize #f)
+  (slot current-part     initialize #f)
+  (slot start-mouse      initialize #f)
+  (slot start-positions  initialize #f)
+  (slot start-position   initialize #f)
+  (slot start-size       initialize #f)
+  (slot atomic-preserved initialize #f)
 
 
   ;;;
@@ -448,6 +449,7 @@
                                          selection))
               (set! start-position (get-position~ client))
               (set! start-size (get-size~ client))
+              (set! atomic-preserved (start-atomic-undo~ (get-undoer)))
               (acquire-capture~ client))))))
     (acquire-focus~ client))
   
@@ -516,7 +518,8 @@
        (release-capture~ client)
        (set! current-part #f)
        (set! state #f)
-       (verify-position/size))))
+       (verify-position/size)
+       (end-atomic-undo~ (get-undoer) atomic-preserved))))
   
   
   (method public virtual (double-click pos)
@@ -620,7 +623,8 @@
             (outer (outer-client~ (get-surrogate~ client))))
         (when (move-client?~ (get-surrogate~ outer))
           (let ((pos (get-position~ outer)))
-            (safe-set-property~ designer outer position: (new Point (+ (get-h~ pos) dh) (+ (get-v~ pos) dv))))))))
+            (safe-set-property~ designer outer position: (new Point (+ (get-h~ pos) dh) (+ (get-v~ pos) dv))))
+          (update-focus-actions~ (get-application))))))
 
 
   (method (size-client dwidth dheight)
@@ -634,7 +638,8 @@
         (with ((region (border-region)))
           (invalidate-region~ outer region))
         (when (eq? client (get-reference~ editor))
-          (update-scrollbars~ client)))))
+          (update-scrollbars~ client)))
+      (update-focus-actions~ (get-application))))
   
   
   (method protected virtual (edit-client)
@@ -736,11 +741,11 @@
   
   
   (method public virtual (can-undo?)
-    #f)
+    (can-undo?~ (get-undoer)))
   
   
   (method public virtual (can-redo?)
-    #f)
+    (can-redo?~ (get-undoer)))
   
   
   (method public virtual (can-cut?)
@@ -772,11 +777,13 @@
   
   
   (method public virtual (undo)
-    )
+    (undo~ (get-undoer))
+    (update-focus-actions~ (get-application)))
   
   
   (method public virtual (redo)
-    )
+    (redo~ (get-undoer))
+    (update-focus-actions~ (get-application)))
   
   
   (method public virtual (cut-selection)
@@ -820,6 +827,10 @@
   
   (method public virtual (select-all . rest)
     (set-selection (collect-type View (get-children~ client))))
+  
+  
+  (method (get-undoer)
+    (get-undoer~ (get-designer~ editor)))
   
 
   ;;;

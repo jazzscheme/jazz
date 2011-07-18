@@ -61,7 +61,6 @@
   
   (slot designer   initialize #f getter generate)
   (slot listeners  initialize '())
-  (slot undoer     initialize #f)
   (slot selection  initialize '())
   (slot controller initialize #f)
   (slot rights     initialize #f accessors generate)
@@ -293,15 +292,9 @@
   ;;;
   
   
-  (method protected (property-change trait component property value undoable?)
-    (when undoable?
-      (let ((category (get-category~ (class-of component) property))
-            (property (symbolize-property property)))
-        (unless (or (= (get-rank~ category) 0) (find-changed-property trait component property))
-          (register-undo~ undoer (list trait component property))))))
-  
-  
   (method protected (find-changed-property trait component property)
+    #f
+    @convert
     (let ((property (symbolize-property property))
           (undo-list (get-undo-list~ undoer)))
       (find-if (lambda (action)
@@ -507,7 +500,6 @@
         (when old
           (remove-surrogate~ old))
         (set! client clt)
-        (set! undoer (and client (new Editor-Undoer)))
         (client-update)
         (process-client-change old client)
         (edit-component client)
@@ -594,7 +586,6 @@
     (let ((kind (get-kind~ evt)))
       (case kind
         ((:property-change)
-         (property-change (get-property~ evt trait:) (get-property~ evt component:) (get-property~ evt property:) (get-property~ evt value:) (get-property~ evt undoable?:))
          (set-controller-modified? #t))
         ((:child-add :child-remove :send-before)
          (set-controller-modified? #t)))))
@@ -694,16 +685,4 @@
     (let ((reference (get-reference)))
       (if (not reference)
           "Component Editor"
-        (format "Component Editor - {s}" (category-identifier (class-of reference)))))))
-
-
-;;;
-;;;; Editor-Undoer
-;;;
-
-
-(class Editor-Undoer extends Undoer
-  
-  
-  (method override (play-action action)
-    (unimplemented 'play-action))))
+        (format "Component Editor - {s}" (category-identifier (class-of reference))))))))

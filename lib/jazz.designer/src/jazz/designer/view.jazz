@@ -66,15 +66,19 @@
 
 
 (definition package (component-addable-classes component)
-  (flatten (or (component-categorized-toolbox-addable-classes component)
-               (get-categorized-addable-classes~ component))))
+  (remove-duplicates
+    (flatten
+      (component-categorized-toolbox-addable-classes component))
+    key: serialize-runtime-reference
+    test: equal?))
 
 
 (definition package (component-categorized-toolbox-addable-classes component)
   (let ((toolbox (find-docked Toolbox-Manager)))
     (and toolbox
          (is? component Component)
-         (list (get-addable-models-refs~ toolbox component)))))
+         (append (get-categorized-addable-classes~ component)
+                 (list (get-addable-models-refs~ toolbox component))))))
 
 
 (definition package (component-categorized-addable-classes component parent)
@@ -91,10 +95,10 @@
 
 
 (definition public (redundant-descendant? component components)
-    (some? (lambda (target)
-             (and (neq? component target)
-                  (has-parent?~ component target)))
-           components))
+  (some? (lambda (target)
+           (and (neq? component target)
+                (has-parent?~ component target)))
+         components))
 
 
 (definition (can-modify-components? components pred)

@@ -83,6 +83,10 @@
     (call-with-selected-toolbox-model get-unit~))
   
   
+  (method public (selected-toolbox)
+    (call-with-selected-toolbox-model (lambda (model) (find-ascendant~ model Toolbox))))
+  
+  
   (method override (update-selection expand-state selected-components)
     )
   
@@ -96,34 +100,46 @@
   
   
   (method (on-double-click evt)
-    (on-edit evt))
+    (let ((kind (get-kind~ (selected-toolbox))))
+      (if (eq? kind 'user)
+          (on-edit evt)
+        (on-add evt))))
   
   
   (method override (on-edit evt)
-    (let ((class (selected-class)))
-      (and class (edit-class class))))
+    (when (or (eq? (get-kind~ (selected-toolbox)) 'user)
+              (eq? (message-box "Are you sure you want to edit this non-user class?" type: 'question) 'yes))
+      (let ((class (selected-class)))
+        (and class (edit-class class)))))
+  
+  
+  (method (on-new evt)
+    (let ((model (or (selected-model) 'View))
+          (unit (or (selected-unit) 'jazz.ui)))
+      (edit-new model unit)))
+  
+  
+  (method (edit-new model unit (size: size #f))
+    (let* ((model-name (string->symbol (string-append "<" (symbol->string model) ">")))
+           (form-data (new Data 'jazz `((,unit)) #f))
+           (form (construct-form
+                   (list model-name)
+                   (let ((imports (effective-imports~ form-data)))
+                     (imports-locator imports))
+                   form-data))
+           (target (instantiate~ form)))
+      (when size
+        (set-size~ target size))
+      (edit-component target)))
   
   
   (method (on-add evt)
     (let ((class (selected-class))
           (unit (selected-unit))
           (editor (current-document)))
-      (when (and class (is? editor View-Editor))
-        (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f import: unit))))
-  
-  
-  (method (on-new evt)
-    (let ((class (or (selected-model) 'View))
-          (unit (or (selected-unit) 'jazz.ui)))
-      (when class
-        (let* ((model-name (string->symbol (string-append "<" (symbol->string class) ">")))
-               (form-data (new Data 'jazz `((,unit)) #f))
-               (form (construct-form
-                       (list model-name)
-                       (let ((imports (effective-imports~ form-data)))
-                         (imports-locator imports))
-                       form-data)))
-          (jazz.designer.view:edit-component form)))))
+      (if (and class (is? editor View-Editor))
+          (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f import: unit)
+        (bell))))
   
   
   (method override (row-state component update? level)

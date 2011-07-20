@@ -52,10 +52,6 @@
   (property zoomable? initialize #t accessors generate)
   
   
-  (form
-    (<install> icon: {Image-Resource "Docked"}))
-  
-  
   ;;;
   ;;;; Applying
   ;;;
@@ -64,15 +60,26 @@
   (method override (apply-preferences (parent #f))
     (assert parent)
     (let* ((class (resolve-reference~ model))
-           (host (singleton-docked class name)))
+           (host (create-host class)))
       (set-parent~ host parent)
-      (when title
-        (set-title~ host title))
-      (set-caption?~ host caption?)
-      (set-zoomable?~ host zoomable?)
-      (set-location~ host location)
+      (setup-host host)
       (client-activate~ (get-guest~ host))
       (set-visible?~ host #t)))
+  
+  
+  (method protected virtual (create-host class)
+    (singleton-docked class name))
+  
+  
+  (method protected virtual (setup-host host)
+    (when title
+      (set-title~ host title))
+    (when icon
+      (set-icon~ host icon))
+    (set-caption?~ host caption?)
+    (set-zoomable?~ host zoomable?)
+    (set-location~ host location)
+    (set-preferences~ host self))
   
   
   ;;;
@@ -109,6 +116,10 @@
   ;;;
   ;;;; Present
   ;;;
+  
+  
+  (method override (component-get-component-image component)
+    (or (get-icon~ component) {Image-Resource "Docked"}))
   
   
   (method override (component-presentation-property? component property)

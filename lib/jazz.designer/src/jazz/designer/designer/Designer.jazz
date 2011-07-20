@@ -63,6 +63,7 @@
   (slot reference initialize #f getter generate)
   (slot listeners initialize '())
   (slot modified? initialize #f accessors generate)
+  (slot undoer    initialize #f getter generate)
 
   
   ;;;
@@ -73,7 +74,9 @@
   (method override (initialize (form: form #f) (reference: reference #f))
     (define (setup-form frm)
       (if (not frm)
-          (set! form~self (new Form textual?: #f origin: (class-of reference) action: 'new model: 'install))
+          (begin
+            (set! form~self (new Form textual?: #f origin: (class-of reference) action: 'new model: 'install))
+            (set-data~ form~self (new Data 'jazz '() #f)))
         (let ((origin (get-origin~ frm)))
           (if (file? origin)
               (setup-file-form frm)
@@ -93,14 +96,20 @@
     ;; to the copy.
     (define (setup-class-form frm)
       (set! form~self frm)
+      (unless (get-data~ frm)
+        (set-data~ frm (new Data 'jazz '() #f)))
       (set! form-copy (copy-object~ frm #t)))
     
     (define (setup-file-form frm)
       (set! form~self frm))
     
+    (define (setup-undoer)
+      (set! undoer (new Undoer reset-modified: reset-modified?)))
+    
     (nextmethod)
     (set! reference~self reference)
-    (setup-form form))
+    (setup-form form)
+    (setup-undoer))
   
   
   ;;;
@@ -366,6 +375,10 @@
     (apply print-file-form form rest))
   
   
+  (method (reset-modified?)
+    (set-modified? #f))
+  
+  
   ;;;
   ;;;; Design
   ;;;
@@ -421,6 +434,10 @@
               (receive (form restore) (find-form component branch restore?: #t)
                 (receive (next-form next-restore) (find-next-branch branch component property)
                   (set-property~ form property value)
+                  (register-undo~ undoer
+                    (let ((old-value (read-property component property)))
+                      (lambda ()
+                        (set-property component/path property old-value))))
                   (when installed?
                     (if (not next-form)
                         (let ((old-value (read-property component property)))
@@ -482,7 +499,10 @@
                                           (else (category-name (class-of child))))
                              tag-reference: tag-reference)))
           (set-form~ child child-form)
-          (add-form~ parent form child-form))
+          (add-form~ parent form child-form)
+          (register-undo~ undoer
+            (lambda ()
+              (remove-child child))))
         (when restore
           (remember-creation~ restore self child))
         (when name
@@ -918,21 +938,23 @@
   ;;;
   ;;;; View
   ;;;
-    
+  
   
   ;; This special support for views is not clean, but it is better
   ;; than having it directly inside add-child where it was before!
   (method public virtual (add-view child parent . rest)
     (bind-keywords ((name #f) (position #f) (centered? #f) (visible? #t) . others) rest
-      (apply add-child child parent name: name others)
-      (when position
-        (set-property child 'position position))
-      (when centered?
-        (let ((size (get-size~ child)))
-          (move-figure~ child (- (quotient (get-width~ size) 2)) (- (quotient (get-height~ size) 2)))))
-      (when visible?
-        (set-visible?~ child #t))
-      (set-modified? #t)))
+      (with-atomic-undo~ undoer
+        (lambda ()
+          (apply add-child child parent name: name others)
+          (when position
+            (set-property child 'position position))
+          (when centered?
+            (let ((size (get-size~ child)))
+              (move-figure~ child (- (quotient (get-width~ size) 2)) (- (quotient (get-height~ size) 2)))))
+          (when visible?
+            (set-visible?~ child #t))
+          (set-modified? #t)))))
   
   
   ;;;
@@ -1081,11 +1103,14 @@
   (method public (edit-form)
     (let ((appl (get-application))
           (origin (get-origin~ form)))
+      (define (find-entry locator)
+        ((module-ref 'jazz.project 'locator->entry) locator))
+      
       (cond ((not origin)
-             (bell))
+             (edit~ (find-entry (category-identifier (class-of reference)))))
             ((file? origin)
              (edit-document~ appl origin class: Jazz-Text-View))
-            (((module-ref 'jazz.catalog 'locator->entry) (get-name~ origin)) => edit~)
+            ((find-entry (get-name~ origin)) => edit~)
             (else
              (receive (module class) (break-reference (get-name~ origin))
                (edit-document~ appl (find-unit-source module) class: Jazz-Text-View))))))

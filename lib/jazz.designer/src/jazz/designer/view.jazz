@@ -66,15 +66,19 @@
 
 
 (definition package (component-addable-classes component)
-  (flatten (or (component-categorized-toolbox-addable-classes component)
-               (get-categorized-addable-classes~ component))))
+  (remove-duplicates
+    (flatten
+      (component-categorized-toolbox-addable-classes component))
+    key: serialize-runtime-reference
+    test: equal?))
 
 
 (definition package (component-categorized-toolbox-addable-classes component)
   (let ((toolbox (find-docked Toolbox-Manager)))
     (and toolbox
          (is? component Component)
-         (list (get-addable-models-refs~ toolbox component)))))
+         (append (get-categorized-addable-classes~ component)
+                 (list (get-addable-models-refs~ toolbox component))))))
 
 
 (definition package (component-categorized-addable-classes component parent)
@@ -91,10 +95,10 @@
 
 
 (definition public (redundant-descendant? component components)
-    (some? (lambda (target)
-             (and (neq? component target)
-                  (has-parent?~ component target)))
-           components))
+  (some? (lambda (target)
+           (and (neq? component target)
+                (has-parent?~ component target)))
+         components))
 
 
 (definition (can-modify-components? components pred)
@@ -134,9 +138,10 @@
     (find-frame-if-guest
       (lambda (guest)
         (and (is? guest Component-Editor)
-             (let* ((client (get-client~ guest))
-                    (origin (get-origin~ (get-form~ client))))
-               (eq? class origin))))))
+             (let ((client (get-client~ guest))
+                   (origin (get-origin~ (get-form~ (get-designer~ guest)))))
+               (and (eq? (class-of client) class)
+                    (eq? origin class)))))))
   
   (if (class? class)
       (let ((frame (find-editor)))
@@ -146,7 +151,7 @@
                  (editor-class (typecase component
                                  ((View) View-Editor)
                                  ((Component) Grid-Component-Editor))))
-            (new-frame editor-class client: component))))
+            (edit-component component editor-class: editor-class))))
     (error "Unable to edit: {s}" class)))
 
 
@@ -161,7 +166,10 @@
                             (typecase component
                               ((View) View-Editor)
                               ((Component) Grid-Component-Editor)))))
-      (new-frame editor-class client: component))))
+      (let ((frame (new-frame editor-class client: component)))
+        (let ((editor (get-guest~ frame)))
+          (set-selection~ editor (list component))
+          editor)))))
 
 
 ;;;
@@ -240,7 +248,11 @@
 
 
 (definition public (designer-error . rest)
-  (signal (new Designer-Error message: (apply format rest))))
+  @wait
+  (signal (new Designer-Error message: (apply format rest)))
+  (message-box (apply format rest) title: "Designer")
+  (throw-cancel))
+
 
 (definition public (with-safe-design thunk)
   (with-catched-exception

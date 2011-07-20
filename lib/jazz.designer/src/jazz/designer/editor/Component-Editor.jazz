@@ -61,7 +61,6 @@
   
   (slot designer   initialize #f getter generate)
   (slot listeners  initialize '())
-  (slot undoer     initialize #f)
   (slot selection  initialize '())
   (slot controller initialize #f)
   (slot rights     initialize #f accessors generate)
@@ -293,15 +292,9 @@
   ;;;
   
   
-  (method protected (property-change trait component property value undoable?)
-    (when undoable?
-      (let ((category (get-category~ (class-of component) property))
-            (property (symbolize-property property)))
-        (unless (or (= (get-rank~ category) 0) (find-changed-property trait component property))
-          (register-undo~ undoer (list trait component property))))))
-  
-  
   (method protected (find-changed-property trait component property)
+    #f
+    @convert
     (let ((property (symbolize-property property))
           (undo-list (get-undo-list~ undoer)))
       (find-if (lambda (action)
@@ -332,10 +325,11 @@
   (method public (set-selection new (origin: origin #f) (force-parent?: force-parent? #f) (force?: force? #f) (focus?: focus? #t))
     (let ((appl (get-application))
           (old selection))
-      (process-selection-changing old new origin force-parent? force? focus?)
-      (process-selection-changed old new origin force-parent? force? focus?)
-      (set-selected~ appl self new force?: force?)
-      (update-focus-actions~ appl)))
+      (unless (equal? old new)
+        (process-selection-changing old new origin force-parent? force? focus?)
+        (process-selection-changed old new origin force-parent? force? focus?)
+        (set-selected~ appl self new force?: force?)
+        (update-focus-actions~ appl))))
   
   
   (method protected (outer-selection)
@@ -359,7 +353,7 @@
   
   
   (method public (select component (focus?: focus? #t))
-    (if (control-down?)
+    (if (or (control-down?) (shift-down?))
         (if (memq? component selection)
             (set-selection (remove component selection) origin: self focus?: focus?)
           (set-selection (append selection (list component)) origin: self focus?: focus?))
@@ -482,13 +476,13 @@
          (let ((cpn (car selection)))
            (when (is? cpn Component)
              (save-component-properties~ cpn designer)))))
-       ((:selection-changed)
-        (let ((old (get-old~ evt))
-              (selection (get-selection~ evt))
-              (origin (get-origin~ evt))
-              (force-parent? (get-force-parent?~ evt))
-              (focus? (get-user-origin~ evt)))
-          (selection-changed old selection origin force-parent? focus?)))))
+      ((:selection-changed)
+       (let ((old (get-old~ evt))
+             (selection (get-selection~ evt))
+             (origin (get-origin~ evt))
+             (force-parent? (get-force-parent?~ evt))
+             (focus? (get-user-origin~ evt)))
+         (selection-changed old selection origin force-parent? focus?)))))
   
   
   ;;;
@@ -506,7 +500,6 @@
         (when old
           (remove-surrogate~ old))
         (set! client clt)
-        (set! undoer (and client (new Editor-Undoer)))
         (client-update)
         (process-client-change old client)
         (edit-component client)
@@ -559,7 +552,24 @@
   
   
   (method protected virtual (install-current-designer component form)
+    (define (setup-undoer)
+      (let ((undoer (get-undoer~ designer)))
+        (set-preserve-state~ undoer preserve-state)
+        (set-restore-state~ undoer restore-state)
+        (set-reset-modified~ undoer reset-modified)))
+    
+    (define (preserve-state)
+      (get-selection))
+    
+    (define (restore-state state)
+      (set-selection state))
+    
+    (define (reset-modified)
+      (reset-modified?~ designer)
+      (set-modified? #f))
+      
     (set! designer (new (get-designer-class) form: form reference: component))
+    (setup-undoer)
     (add-designer-listener~ designer (new Event-Handler target: self method-name: 'on-designer))
     (install-designer~ client designer))
   
@@ -576,7 +586,6 @@
     (let ((kind (get-kind~ evt)))
       (case kind
         ((:property-change)
-         (property-change (get-property~ evt trait:) (get-property~ evt component:) (get-property~ evt property:) (get-property~ evt value:) (get-property~ evt undoable?:))
          (set-controller-modified? #t))
         ((:child-add :child-remove :send-before)
          (set-controller-modified? #t)))))
@@ -676,16 +685,4 @@
     (let ((reference (get-reference)))
       (if (not reference)
           "Component Editor"
-        (format "Component Editor - {s}" (category-identifier (class-of reference)))))))
-
-
-;;;
-;;;; Editor-Undoer
-;;;
-
-
-(class Editor-Undoer extends Undoer
-  
-  
-  (method override (play-action action)
-    (unimplemented 'play-action))))
+        (format "Component Editor - {s}" (category-identifier (class-of reference))))))))

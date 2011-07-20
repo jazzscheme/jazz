@@ -55,7 +55,7 @@
 ;;;
 
 
-(definition (read-toolbox)
+(definition (read-toolbox toolbox)
   (define (load-toolbox file)
     (if (exists?~ file)
         (instantiate~ (read-form file))
@@ -64,7 +64,7 @@
   (with-safe-execution "loading the toolbox"
     (lambda ()
       (let ((appl (get-application)))
-        (let ((toolbox (load-toolbox (toolbox-file~ appl))))
+        (let ((toolbox (load-toolbox (toolbox-file~ appl toolbox))))
           (install-context~ appl toolbox)
           toolbox)))
     continue-handler:
@@ -80,11 +80,14 @@
 (class undocumented Toolbox-Manager extends Component-Editor implements Exit-Listener
   
   
+  (property toolbox initialize #f accessors explicit)
+  
+  
   (form
     (<install>                            layout-type: border
       (<Layout-View>    name: tools
-        (<Push-Tool>    name: edit        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit Class" resource: {Image-Resource "EditResult"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-edit})
-        (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New Subclass" resource: {Image-Resource "NewTrait"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-new})
+        (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New" resource: {Image-Resource "NewTrait"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-new})
+        (<Push-Tool>    name: edit        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" resource: {Image-Resource "EditResult"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-edit})
         (<Push-Tool>    name: add         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Add" resource: {Image-Resource "Added"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-add})
         (<Separator>                      size: {Dimension 4 0})
         (<Push-Tool>    name: synchronize size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Synchronize" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-synchronize}))
@@ -149,6 +152,20 @@
   
   
   ;;;
+  ;;;; Toolbox
+  ;;;
+  
+  
+  (method public (get-toolbox)
+    toolbox)
+  
+  
+  (method public (set-toolbox tlb)
+    (set! toolbox tlb)
+    (set-client (and toolbox (read-toolbox toolbox))))
+  
+  
+  ;;;
   ;;;; Component
   ;;;
   
@@ -157,7 +174,6 @@
     (nextmethod rest)
     (set-shown?~ (locate-component '(descendants header)) #f)
     (set-editor~ (locate 'descendants) self)
-    (set-client (read-toolbox))
     (add-exit-listener~ (get-application) self))
   
   

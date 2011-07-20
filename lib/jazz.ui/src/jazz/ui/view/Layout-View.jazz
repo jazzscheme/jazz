@@ -48,11 +48,19 @@
 (class Layout-View extends View
   
   
-  ;; fill fit center justify border snap flow box
+  ;; fill    : make every child fill the layout
+  ;; fit     : fit layout around children
+  ;; center  : center children in layout
+  ;; justify : justify children in layout
+  ;; border  : west top right bottom center layout
+  ;; snap
+  ;; flow    : flow the children accross the layout
+  ;; box
   (property layout-type          initialize #f             accessors explicit)
   (property layout-insets        initialize {Rect 0 0 0 0} accessors explicit)
   (property layout-justification initialize 'center        accessors explicit)
   (property layout-padding       initialize 0              accessors explicit)
+  (property layout-fit           initialize #f             accessors explicit)
   
   
   ;;;
@@ -99,6 +107,17 @@
     (set! layout-padding pad)
     (when layout-type
       (layout-view)))
+  
+  
+  (method public (get-layout-fit)
+    layout-fit)
+  
+  
+  (method public (set-layout-fit fit)
+    (when (neq? fit layout-fit)
+      (set! layout-fit fit)
+      (when layout-fit
+        (layout-view))))
 
   
   ;;;
@@ -107,6 +126,8 @@
   
   
   (method override (inner? view)
+    #f
+    @old-inner
     (and layout-type (memq? view children)))
 
   
@@ -127,12 +148,8 @@
                        (set-size~ child size)))
                    children)))
       ((fit)
-       (let ((child (first-child)))
-         (when child
-           (set-position~ child (rect-position layout-insets))
-           (set-size-noevent (new Dimension
-                               (+ (get-left~ layout-insets) (get-width~ child) (get-right~ layout-insets))
-                               (+ (get-top~ layout-insets) (get-height~ child) (get-bottom~ layout-insets)))))))
+       (let ((ly (new Fit-Layout insets: layout-insets)))
+         (layout~ ly self)))
       ((center)
        (let ((size (get-size)))
          (for-each (lambda (child)
@@ -152,7 +169,7 @@
                          (set-position~ child pos))))
                    children)))
       ((border)
-       (let ((ly (new Border-Layout insets: layout-insets padding: layout-padding)))
+       (let ((ly (new Border-Layout insets: layout-insets padding: layout-padding fit: layout-fit)))
          (layout~ ly children (get-width) (get-height))))
       ((snap)
        (let ((ly (new Snap-Layout insets: layout-insets justification: layout-justification padding: layout-padding)))
@@ -164,7 +181,42 @@
        (let ((ly (new Flow-Layout insets: layout-insets justification: layout-justification padding: layout-padding fill?: #t)))
          (layout~ ly children (get-width) (get-height))))
       (else
-       (error "Unknown layout type: {s}" layout-type))))
+       (error "Unknown layout type: {s}" layout-type)))
+    (adjust))
+  
+  
+  (method override (adjust?)
+    (boolean layout-fit))
+  
+  
+  (method override (adjust-fit)
+    (when layout-fit
+      (layout-view)
+      (let ((scroller (get-scroller)))
+        (when scroller
+          (update-scrollbars)))))
+  
+  
+  (method override (adjust)
+    (case layout-fit
+      ((#f))
+      ((around)
+       (let ((left 0)
+             (top 0)
+             (right 0)
+             (bottom 0))
+         (for-each (lambda (child)
+                     (when (and (is? child View) (get-visible?~ child))
+                       (let ((rect (get-rect~ child)))
+                         (set! left (min left (get-left~ rect)))
+                         (set! top (min top (get-top~ rect)))
+                         (set! right (max right (get-right~ rect)))
+                         (set! bottom (max bottom (get-bottom~ rect))))))
+                   children)
+         (let ((size (new Dimension
+                       (+ (get-left~ layout-insets) (- right left) (get-right~ layout-insets))
+                       (+ (get-top~ layout-insets) (- bottom top) (get-bottom~ layout-insets)))))
+           (set-size size))))))
   
   
   (method protected virtual (fill-position) <Point>
@@ -210,7 +262,6 @@
         (<Property-Descriptor>    name: layout-padding title: "Layout Padding"))))
   
   
-  @too-many-icons!
   (method override (class-image class)
     {Image-Resource "Layout"}))
 

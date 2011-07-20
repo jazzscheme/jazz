@@ -39,6 +39,7 @@
 
 
 (import (jazz.designer)
+        (jazz.graphic)
         (jazz.jml)
         (jazz.library)
         (jazz.ui)
@@ -47,15 +48,16 @@
 
 (class undocumented Containment-Editor extends View
 
-
-  (property client initialize #f accessors explicit)
+  
+  (slot editor initialize #f)
+  (slot client initialize #f)
     
   
   (slot flow-layout)
   
 
   (form
-    (<install>))
+    (<install> background: {Color Medium}))
        
   
   (method meta override (external-name . rest)
@@ -77,23 +79,67 @@
   
   (method override (client-activate)
     (let ((guest (current-document)))
-      (when (is? guest View-Editor)
-        (set-client (get-client~ guest)))))
+      (when (is? guest Component-Editor)
+        (set-editor guest)
+        (set-client (determine-client (get-selection~ editor))))))
+  
+  
+  (method override (client-deactivate)
+    (set-editor #f)
+    (set-client #f))
 
   
   ;;;
   ;;;; Events
   ;;;
+  
+  
+  (method override (destroy)
+    (set-editor #f)
+    (nextmethod))
 
 
   (method override (finish initargs)
     (nextmethod initargs)
-    (set! flow-layout (new Flow-Layout insets: {Rect 4 5 0 0}))
+    (set! flow-layout (new Flow-Layout insets: {Rect 4 5 0 0} padding: 4))
     (layout-view))
   
   
   (method override (layout)
     (layout~ flow-layout children (get-width) (get-height)))
+
+
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method public (get-editor)
+    editor)
+    
+  
+  (method public (set-editor edt)
+    (when (neq? edt editor)
+      (when editor
+        (remove-editor-listener~ editor self))
+      (set! editor edt)
+      (when editor
+        (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))))
+    
+  
+  (method protected virtual (on-editor evt)
+    (case (get-kind~ evt)
+      ((:selection-changed) (selection-changed (get-selection~ evt) (get-old~ evt) (get-origin~ evt) (get-force-parent?~ evt) (get-user-origin~ evt)))))
+  
+  
+  (method protected virtual (selection-changed selection old origin force-parent? focus?)
+    (set-client (determine-client selection)))
+  
+  
+  (method (determine-client selection)
+    (if (= (length selection) 1)
+        (car selection)
+      #f))
   
   
   ;;;
@@ -106,5 +152,54 @@
 
 
   (method public (set-client clt)
+    (define (collect-inner outer)
+      (let ((queue (new-queue)))
+        (define (collect component)
+          (enqueue queue component)
+          (for-each (lambda (child)
+                      (when (inner?~ component child)
+                        (collect child)))
+                    (get-children~ component)))
+        
+        (collect outer)
+        (queue-list queue)))
+    
     (when (neq? clt client)
-      (set! client clt)))))
+      (set! client clt)
+      (close-children)
+      (when client
+        (let ((outer (outer-component~ client (get-reference~ editor))))
+          (for-each (lambda (component)
+                      (let ((execute
+                              (lambda (event)
+                                (set-selection~ editor (list component) origin: self))))
+                        (new Containment-Tool parent: self resource: (get-component-image~ component) portfolio: :images selected?: (eq? component client) client: component action-handler: (new Event-Handler execute: execute))))
+                    (collect-inner outer))))
+      (layout-view))))
+
+
+;;;
+;;;; Tool
+;;;
+
+
+(class Containment-Tool extends Radio-Tool
+  
+  
+  (property client initialize #f accessors generate)
+  
+  
+  (form
+    (<install> tooltip?: #t))
+  
+  
+  (method override (get-formatted-tooltip?)
+    #f)
+  
+  
+  (method override (get-tooltip-context pos)
+    (new Tooltip-Context
+      view: self
+      text: (format "{a}{? {a}~}"
+                    (category-name (class-of client))
+                    (get-name~ client))))))

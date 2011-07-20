@@ -66,6 +66,7 @@
 
 
 (definition public (read-json port)
+  
   (define (convert obj)
     (cond ((string? obj) obj)
           ((number? obj) obj)
@@ -108,11 +109,22 @@
 
 
 (definition public (print-json json port)
+  (define (escape-double-quotes string)
+    (let ((printer (open-output-string))
+          (reader (open-input-string string)))
+      (let (iterate (c (read-char reader)))
+        (unless (eof-object? c)
+          (when (or (eqv? c #\") (eqv? c #\backslash))
+            (write-char #\backslash printer))
+          (write-char c printer)
+          (iterate (read-char reader))))
+      (get-output-string printer)))
+  
   (define (print obj depth)
     (cond ((eq? obj #f) (display "false" port))
           ((eq? obj #t) (display "true" port))
           ((null? obj) (display "null" port))
-          ((string? obj) (write obj port))
+          ((string? obj) (format port "\"{a}\"" (escape-double-quotes obj)))
           ((number? obj) (write obj port))
           ((pair? obj) (print-array obj depth))
           ((table? obj) (print-object obj depth))

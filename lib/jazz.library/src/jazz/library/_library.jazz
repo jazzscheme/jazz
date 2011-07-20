@@ -202,14 +202,19 @@
 
 
 (definition public (resolve-trait context name/trait)
-  (if (is? name/trait Trait)
-      name/trait
-    (bind (name . path) (split-symbol name/trait #\:)
-      (if (null? path)
-          (if context
-              (child~ (get-creator~ context) name)
-            (error "Unable to find trait: {s}" name))
-        (child~ (require-trait name) path)))))
+  (cond ((is? name/trait Trait)
+         name/trait)
+        ((enumerator? name/trait)
+         (let ((name (enumerator->symbol name/trait)))
+           (if context
+               (child~ (get-creator~ context) name)
+             (error "Unable to find trait: {s}" name))))
+        (else
+         (bind (name . path) (split-symbol name/trait #\:)
+           (let ((trait (require-trait name)))
+             (if (null? path)
+                 trait
+               (child~ trait path)))))))
 
 
 ;;;

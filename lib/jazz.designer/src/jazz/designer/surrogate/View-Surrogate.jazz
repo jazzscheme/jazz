@@ -220,16 +220,26 @@
             (draw-handles))))
   
       (define (draw-information surface)
-        (define Default-Font
-          {Font Heading5})
+        (define (parse-info info)
+          (if (string? info)
+              (values info #f)
+            (values (car info) (parse-font (cadr info)))))
+        
+        (define (parse-font info)
+          (case info
+            ((small)  {Font font-name: "Times New Roman" point-size: 12})
+            ((medium) {Font font-name: "Times New Roman" point-size: 18})
+            ((large)  {Font font-name: "Times New Roman" point-size: 28})
+            (else info)))
         
         (let ((info (get-information)))
           (when (and info (draw-information?))
-            (set-font~ surface Default-Font)
-            (let* ((extent (get-text-extent~ surface info))
-                   (pos (center extent (get-display-size~ client))))
-              (set-text-color~ surface {Color Medium-Gray})
-              (draw-text~ surface (get-h~ pos) (get-v~ pos) info #t)))))
+            (receive (text font) (parse-info info)
+              (set-font~ surface (or font Small-Information))
+              (let* ((extent (get-text-extent~ surface text))
+                     (pos (center extent (get-size~ client))))
+                (set-text-color~ surface {Color Medium-Gray})
+                (draw-text~ surface (get-h~ pos) (get-v~ pos) text #t))))))
       
       (draw-showed-property surface)
       (draw-selected-background surface)

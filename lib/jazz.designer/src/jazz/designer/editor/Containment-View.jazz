@@ -83,8 +83,8 @@
       (set! editor edt)
       (when editor
         (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))
-      (set-client (and editor (determine-client (get-selection~ editor))))))
-    
+      (set-client (and editor (get-selection~ editor)))))
+  
   
   (method protected virtual (on-editor evt)
     (case (get-kind~ evt)
@@ -92,13 +92,7 @@
   
   
   (method protected virtual (selection-changed selection old origin force-parent? focus?)
-    (set-client (determine-client selection)))
-  
-  
-  (method (determine-client selection)
-    (if (= (length selection) 1)
-        (car selection)
-      #f))
+    (set-client selection))
   
   
   ;;;
@@ -111,6 +105,19 @@
 
 
   (method public (set-client clt)
+    (define (collect-groups client)
+      (let ((reference (get-reference~ editor)))
+        (let ((outers (map (lambda (component)
+                             (outer-component~ component reference))
+                           client)))
+          (let ((inners (map collect-inner outers)))
+            (when (uniform inners key: length)
+              (let ((groups (apply zip inners)))
+                (when (every? (lambda (group)
+                                (uniform group key: class-of))
+                              groups)
+                  groups)))))))
+      
     (define (collect-inner outer)
       (let ((queue (new-queue)))
         (define (collect component)
@@ -123,18 +130,32 @@
         (collect outer)
         (queue-list queue)))
     
-    (when (neq? clt client)
+    (define (selected-group groups client)
+      (let ((selected (collect-if (lambda (group)
+                                    (some? (lambda (component)
+                                             (member? component client))
+                                           group))
+                                  groups)))
+        (when (= (length selected) 1)
+          (car selected))))
+    
+    (define (selector selection)
+      (lambda (event)
+        (set-selection~ editor selection origin: self)))
+    
+    (unless (equal? clt client)
       (set! client clt)
       (close-children)
-      (when client
-        (let ((outer (outer-component~ client (get-reference~ editor))))
-          (for-each (lambda (component)
-                      (let ((execute
-                              (lambda (event)
-                                (set-selection~ editor (list component) origin: self))))
-                        (new Containment-Tool parent: self resource: (get-component-image~ component) portfolio: :images selected?: (eq? component client) client: component action-handler: (new Event-Handler execute: execute))))
-                    (collect-inner outer))))
-      (layout-view))))
+      (when (and client (not-null? client))
+        (let ((groups (collect-groups client)))
+          (cond (groups
+                 (let ((selected (selected-group groups client)))
+                   (for-each (lambda (group)
+                               (new Containment-Tool parent: self resource: (get-component-image~ (car group)) portfolio: :images selected?: (eq? group selected) selection: group uniform?: #t action-handler: (new Event-Handler execute: (selector group))))
+                             groups)))
+                (else
+                 (new Containment-Tool parent: self resource: {Image-Resource "All"} portfolio: :images selected?: #t selection: client uniform?: #f action-handler: (new Event-Handler execute: (selector client))))))
+        (layout-view)))))
 
 
 ;;;
@@ -145,7 +166,8 @@
 (class Containment-Tool extends Radio-Tool
   
   
-  (property client initialize #f accessors generate)
+  (property selection initialize #f accessors generate)
+  (property uniform?  initialize #f accessors generate)
   
   
   (form
@@ -157,8 +179,12 @@
   
   
   (method override (get-tooltip-context pos)
-    (new Tooltip-Context
-      view: self
-      text: (format "{a}{? {a}~}"
-                    (category-name (class-of client))
-                    (get-name~ client))))))
+    (let ((any (car selection)))
+      (new Tooltip-Context
+        view: self
+        text: (if uniform?
+                  (format "{a}{? {a}~}"
+                          (category-name (class-of any))
+                          (uniform (map get-name~ selection)))
+                (format "{a} selected"
+                        (length selection))))))))

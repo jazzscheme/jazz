@@ -99,8 +99,8 @@
     (let ((data (get-single-selected-data)))
       (when (is? data Toolbox-Addable)
         (let ((model? (is? data Toolbox-Model)))
-          (set-action-enabled? {Action components-tree edit} model?)
           (set-action-enabled? {Action components-tree new} #t)
+          (set-action-enabled? {Action components-tree edit} model?)
           (set-action-enabled? {Action components-tree add} #t)))))
   
   
@@ -111,6 +111,15 @@
         (on-add evt))))
   
   
+  (method (on-new evt)
+    (let ((addable (selected-addable)))
+      (typecase addable
+        ((Toolbox-Model)
+         (let ((model (get-model~ addable))
+               (unit (get-unit~ addable)))
+           (new-model model unit))))))
+  
+  
   (method override (on-edit evt)
     (when (or (eq? (get-kind~ (selected-toolbox)) 'user)
               (eq? (message-box "Are you sure you want to edit this non-user class?" type: 'question) 'yes))
@@ -118,13 +127,7 @@
         (and class (edit-class class)))))
   
   
-  (method (on-new evt)
-    (let ((model (or (selected-model) 'View))
-          (unit (or (selected-unit) 'jazz.ui)))
-      (edit-new model unit)))
-  
-  
-  (method (edit-new model unit (size: size #f))
+  (method (new-model model unit (size: size #f))
     (let* ((model-name (string->symbol (string-append "<" (symbol->string model) ">")))
            (form-data (new Data 'jazz `((,unit)) #f))
            (form (construct-form
@@ -139,11 +142,15 @@
   
   
   (method (on-add evt)
-    (let ((class (selected-class))
-          (unit (selected-unit))
+    (let ((addable (selected-addable))
           (editor (current-document)))
-      (if (and class (is? editor View-Editor))
-          (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f import: unit)
+      (if (and addable (is? editor View-Editor))
+          (let ((surrogate (get-surrogate~ (get-client~ editor))))
+            (typecase addable
+              ((Toolbox-Model)
+               (add-new~ surrogate (get-class~ addable) {Point 0 0} centered?: #f import: (get-unit~ addable)))
+              ((Toolbox-Form)
+               (add-new-form~ surrogate (locate-form~ addable) {Point 0 0} centered?: #f imports: (get-imports~ addable)))))
         (bell))))
   
   

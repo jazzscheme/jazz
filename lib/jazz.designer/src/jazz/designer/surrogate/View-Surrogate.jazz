@@ -172,8 +172,8 @@
   (method override (render drawing surface draw-self? nodes context lh lv sh sv sc sc?)
     (define (default-render)
       (let ((content? (get-show-content?~ editor)))
-        (when (is? (get-parent~ client) View-Workbench)
-          (fill-rect~ surface (get-bounds~ client) {Color Medium}))
+        (when (eq? client (get-client~ editor)) @w (is? (get-parent~ client) View-Workbench)
+          (fill-rect~ surface (get-bounds~ client) {Color White} @w {Color Medium}))
         (when content?
           (draw-background~ drawing surface context))
         (when content?
@@ -301,10 +301,6 @@
   (method public (selected-color rank)
     (let ((colors Selected-Colors))
       (element colors (min rank (- (length colors) 1)))))
-  
-  
-  (method protected virtual (get-information)
-    #f)
 
 
   ;;;
@@ -367,17 +363,20 @@
          (set-cursor :cross))
         (else
          (let ((outer (outer-client~ (get-surrogate~ client))))
-           (if (eq? outer (get-client~ editor))
-               (set-cursor :arrow)
-             (let ((part (and (memq? client (get-selection))
-                              (or (not (memq? state '(tolerance process))) current-part)
-                              (or current-part (if (size-client?~ (get-surrogate~ outer)) (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t) #f)))))
-               (cond (part
-                      (set-cursor (get-resize-cursor part)))
-                     ((move-client?)
-                      (set-cursor :opened-hand))
-                     (else
-                      (set-cursor :arrow))))))))))
+           (let ((part (and (memq? client (get-selection))
+                            (or (not (memq? state '(tolerance process))) current-part)
+                            (or current-part (if (size-client?~ (get-surrogate~ outer))
+                                                 (let ((part (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t)))
+                                                   (and (or (neq? outer (get-client~ editor))
+                                                            (member? part '((1 . 0) (0 . 1) (1 . 1))))
+                                                        part))
+                                               #f)))))
+             (cond (part
+                    (set-cursor (get-resize-cursor part)))
+                   ((and (move-client?) (neq? outer (get-client~ editor)))
+                    (set-cursor :opened-hand))
+                   (else
+                    (set-cursor :arrow)))))))))
 
 
   ;;;
@@ -468,20 +467,21 @@
         (begin
           (select)
           (edit-client))
-      (let ((outer (outer-client)))
-        (if (eq? outer (get-client~ editor))
-            (select)
-          @wait
-          (begin
-            (set! state 'scroll)
-            (set! start-position pos)
-            (acquire-capture~ client))
-          (let ((previous-selection (get-selection)))
-            (select)
-            (when (and (move-client?~ (get-surrogate~ outer)) (some-movable? (get-selection~ editor)))
+      @wait
+      (begin
+        (set! state 'scroll)
+        (set! start-position pos)
+        (acquire-capture~ client))
+      (let ((outer (outer-client))
+            (previous-selection (get-selection)))
+        (select)
+        (when (and (move-client?~ (get-surrogate~ outer)) (some-movable? (get-selection~ editor)))
+          (let ((part (if (and (memq? client previous-selection) (size-client?~ (get-surrogate~ outer))) (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t) #f)))
+            (when (or (neq? outer (get-client~ editor))
+                      (member? part '((1 . 0) (0 . 1) (1 . 1))))
               (let ((selection (get-selection)))
                 (set! state 'tolerance)
-                (set! current-part (if (and (memq? client previous-selection) (size-client?~ (get-surrogate~ outer))) (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t) #f))
+                (set! current-part part)
                 (set! start-mouse (to-desktop~ client pos))
                 (set! start-positions (map (lambda (view) (get-position~ (outer-client~ (get-surrogate~ view))))
                                            selection))

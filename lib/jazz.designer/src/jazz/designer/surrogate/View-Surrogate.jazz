@@ -336,7 +336,7 @@
                (set-cursor :arrow)
              (let ((part (and (memq? client (get-selection))
                               (or (not (memq? state '(tolerance process))) current-part)
-                              (or current-part (if (size-client?~ (get-surrogate~ outer)) (find-resize-part (acquire~ outer client pos) (get-size~ outer)) #f)))))
+                              (or current-part (if (size-client?~ (get-surrogate~ outer)) (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t) #f)))))
                (cond (part
                       (set-cursor (get-resize-cursor part)))
                      ((move-client?)
@@ -446,7 +446,7 @@
             (when (and (move-client?~ (get-surrogate~ outer)) (some-movable? (get-selection~ editor)))
               (let ((selection (get-selection)))
                 (set! state 'tolerance)
-                (set! current-part (if (and (memq? client previous-selection) (size-client?~ (get-surrogate~ outer))) (find-resize-part (acquire~ outer client pos) (get-size~ outer)) #f))
+                (set! current-part (if (and (memq? client previous-selection) (size-client?~ (get-surrogate~ outer))) (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t) #f))
                 (set! start-mouse (to-desktop~ client pos))
                 (set! start-positions (map (lambda (view) (get-position~ (outer-client~ (get-surrogate~ view))))
                                            selection))
@@ -533,25 +533,30 @@
     (let ((sender (get-view~ (get-source~ drag-drop))))
       (typecase sender
         ((Toolbox-Tree)
-         (let ((class (selected-class~ sender)))
-           (and class
-                (addable-class?~ client class)
-                (new Surrogate-Drop-Target (selected-component~ sender) view: client))))
+         (let ((addable (selected-addable~ sender)))
+           (let ((class (selected-class~ sender)))
+             (and class
+                  (addable-class?~ client class)
+                  (new Drop-Target view: client user-data: (selected-component~ sender))))))
         ((Properties-Tree)
          (let ((row (get-row~ (get-source~ drag-drop))))
            (and (is? row Value-Row)
-                (new Surrogate-Drop-Target row view: client))))
+                (new Drop-Target view: client user-data: row))))
         (else #f))))
 
 
   (method public virtual (receive-drop pos sender drag-drop)
-    (let ((payload (get-payload~ (get-target~ drag-drop))))
+    (let ((data (get-user-data~ (get-target~ drag-drop))))
       (typecase sender
         ((Toolbox-Tree)
-         (add-new (get-class~ payload) pos import: (get-unit~ payload)))
+         (typecase data
+           ((Toolbox-Model)
+            (add-new (get-class~ data) pos import: (get-unit~ data)))
+           ((Toolbox-Form)
+            (add-new-form (require-form (get-locator~ data)) pos imports: (get-imports~ data)))))
         ((Properties-Tree)
          (set-selection~ sender '())
-         (let* ((property (get-property~ payload))
+         (let* ((property (get-property~ data))
                 (name (field-name property)))
            (if (eq? name (get-showed-property~ editor))
                (set-showed-property~ editor #f)
@@ -577,6 +582,24 @@
                 (set-name~ designer child name)))))
         (when (get-default-property~ child)
           (select-docked Properties-Manager focus?: #t)))))
+  
+  
+  ;; this should probably be unified with add-new above
+  (method public (add-new-form form pos (centered?: centered? #t) (name: name #f) (imports: imports '()))
+    (debug form)
+    (let ((preferences (get-preferences 'designer))
+          (designer (get-designer~ editor)))
+      (let ((child (add-form~ designer form client imports: imports name: name)))
+        (let ((model (class-of child)))
+          (layout-view~ client)
+          (set-selection~ editor (list child) origin: self)
+          (when (and (not name) (xor (get-new-requests-name?~ preferences) (shift-down?)))
+            (let ((presentation (request-component-presentation model (get-children~ client))))
+              (when presentation
+                (let ((name (presentation->name~ model presentation)))
+                  (set-name~ designer child name)))))
+          (when (get-default-property~ child)
+            (select-docked Properties-Manager focus?: #t))))))
 
 
   (method public virtual (context-menu pos)
@@ -876,22 +899,6 @@
         (let ((manager (select-docked Properties-Manager focus?: #t)))
           (select-property~ (get-tree~ manager) default-property))))))
 
-
-;;;
-;;;; Surrogate-Drop-Target
-;;;
-
-
-(class Surrogate-Drop-Target extends Drop-Target
-  
-  
-  (slot payload getter generate)
-  
-  
-  (method override (initialize payload . rest)
-    (apply nextmethod rest)
-    (set! payload~self payload))
-  )
 
 ;;;
 ;;;; Surrogate-Menu

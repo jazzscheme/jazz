@@ -54,11 +54,10 @@
     (<install> portfolio: :images draggable?: #t reorderable?: #t multiple-selection?: #f selection-mode: row))
   
   
-  (method override (addable-root-classes)
-    (list
-     (reference Toolbox-Group)
-     #f
-     (reference Toolbox-Model)))
+  (method public (call-with-selected-addable func)
+    (let ((selected (get-single-selected-data)))
+      (and (is? selected Toolbox-Addable)
+           (func selected))))
   
   
   (method (call-with-selected-toolbox-model func)
@@ -69,6 +68,10 @@
   
   (method public (find-model-if pred)
     (find-if pred (collect-descendants client Toolbox-Model)))
+  
+  
+  (method public (selected-addable)
+    (call-with-selected-addable identity))
   
   
   (method public (selected-class)
@@ -84,7 +87,7 @@
   
   
   (method public (selected-toolbox)
-    (call-with-selected-toolbox-model (lambda (model) (find-ascendant~ model Toolbox))))
+    (call-with-selected-addable (lambda (addable) (find-ascendant~ addable Toolbox))))
   
   
   (method override (update-selection expand-state selected-components)
@@ -93,10 +96,12 @@
   
   (method override (focus-update-actions)
     (nextmethod)
-    (when (is? (get-single-selected-data) Toolbox-Model)
-      (set-action-enabled? {Action components-tree edit} #t)
-      (set-action-enabled? {Action components-tree new} #t)
-      (set-action-enabled? {Action components-tree add} #t)))
+    (let ((data (get-single-selected-data)))
+      (when (is? data Toolbox-Addable)
+        (let ((model? (is? data Toolbox-Model)))
+          (set-action-enabled? {Action components-tree edit} model?)
+          (set-action-enabled? {Action components-tree new} #t)
+          (set-action-enabled? {Action components-tree add} #t)))))
   
   
   (method (on-double-click evt)

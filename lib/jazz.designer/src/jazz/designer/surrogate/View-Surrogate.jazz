@@ -172,6 +172,8 @@
   (method override (render drawing surface draw-self? nodes context lh lv sh sv sc sc?)
     (define (default-render)
       (let ((content? (get-show-content?~ editor)))
+        (when (is? (get-parent~ client) View-Workbench)
+          (fill-rect~ surface (get-bounds~ client) {Color Medium}))
         (when content?
           (draw-background~ drawing surface context))
         (when content?
@@ -185,7 +187,7 @@
   (method public virtual (draw surface)
     (let ((reference (get-reference~ editor))
           (selection (get-selection~ editor)))
-      (define (draw-surrogate-background surface)
+      (define (draw-selected-background surface)
         (when (and (neq? client reference)
                    (memq client selection)
                    (not (editing?)))
@@ -204,7 +206,7 @@
                   Unselected-Inner-Color)
               (element Selected-Colors (min rank 2)))))
         
-        (when (and (get-show-frames?~ editor) @w(eq? (outer-client) client))
+        (when (get-show-frames?~ editor)
           (let ((color (frame-color))
                 (outside (get-bounds~ client)))
             (define (draw-frame)
@@ -218,7 +220,7 @@
             (draw-handles))))
       
       (draw-showed-property surface)
-      (draw-surrogate-background surface)
+      (draw-selected-background surface)
       (draw-surrogate-frame surface)))
   
   
@@ -574,6 +576,7 @@
             (add-view~ designer child client position: pos centered?: centered? name: name import: import properties: properties)
           (add-child~ designer child client import: import name: name properties: properties))
         (layout-view~ client)
+        (layout-view~ child)
         (set-selection~ editor (list child) origin: self)
         (when (and (not name) (xor (get-new-requests-name?~ preferences) (shift-down?)))
           (let ((presentation (request-component-presentation model (get-children~ client))))
@@ -591,6 +594,7 @@
       (let ((child (add-form~ designer form client imports: imports name: name)))
         (let ((model (class-of child)))
           (layout-view~ client)
+          (layout-view~ child)
           (set-selection~ editor (list child) origin: self)
           (when (and (not name) (xor (get-new-requests-name?~ preferences) (shift-down?)))
             (let ((presentation (request-component-presentation model (get-children~ client))))

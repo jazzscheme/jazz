@@ -112,12 +112,7 @@
   
   
   (method (on-new evt)
-    (let ((addable (selected-addable)))
-      (typecase addable
-        ((Toolbox-Model)
-         (let ((model (get-model~ addable))
-               (unit (get-unit~ addable)))
-           (new-model model unit))))))
+    (new-addable (selected-addable)))
   
   
   (method override (on-edit evt)
@@ -127,7 +122,15 @@
         (and class (edit-class class)))))
   
   
-  (method (new-model model unit (size: size #f))
+  (method (new-addable addable)
+    (typecase addable
+      ((Toolbox-Model)
+       (new-class (get-model~ addable) (get-unit~ addable)))
+      ((Toolbox-Form)
+       (new-form (locate-form~ addable) (get-imports~ addable)))))
+  
+  
+  (method (new-class model unit (size: size #f))
     (let* ((model-name (string->symbol (string-append "<" (symbol->string model) ">")))
            (form-data (new Data 'jazz `((,unit)) #f))
            (form (construct-form
@@ -136,6 +139,13 @@
                      (imports-locator imports))
                    form-data))
            (target (instantiate~ form)))
+      (when size
+        (set-size~ target size))
+      (edit-component target)))
+  
+  
+  (method (new-form form imports (size: size #f))
+    (let ((target (instantiate~ form)))
       (when size
         (set-size~ target size))
       (edit-component target)))

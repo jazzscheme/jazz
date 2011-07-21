@@ -218,10 +218,23 @@
             
             (draw-frame)
             (draw-handles))))
+  
+      (define (draw-information surface)
+        (define Default-Font
+          {Font Heading5})
+        
+        (let ((info (get-information)))
+          (when (and info (draw-information?))
+            (set-font~ surface Default-Font)
+            (let* ((extent (get-text-extent~ surface info))
+                   (pos (center extent (get-display-size~ client))))
+              (set-text-color~ surface {Color Medium-Gray})
+              (draw-text~ surface (get-h~ pos) (get-v~ pos) info #t)))))
       
       (draw-showed-property surface)
       (draw-selected-background surface)
-      (draw-surrogate-frame surface)))
+      (draw-surrogate-frame surface)
+      (draw-information surface)))
   
   
   (method public (draw-showed-property surface)
@@ -257,6 +270,22 @@
         (set-style~ surface 'solid))))
   
   
+  (method protected virtual (get-information)
+    #f)
+  
+  
+  (method protected virtual (draw-information?)
+    (null? (get-visible-children~ client)))
+  
+  
+  (method (with-information-update thunk)
+    (let ((before (draw-information?)))
+      (prog1 (thunk)
+        (let ((after (draw-information?)))
+          (unless (eqv? before after)
+            (invalidate-view~ client))))))
+  
+  
   (method (border-region)
     (border-region~ (outer-client) insets: {Rect 2 2 2 2}))
   
@@ -272,6 +301,10 @@
   (method public (selected-color rank)
     (let ((colors Selected-Colors))
       (element colors (min rank (- (length colors) 1)))))
+  
+  
+  (method protected virtual (get-information)
+    #f)
 
 
   ;;;
@@ -566,43 +599,47 @@
   
   
   (method public (add-new model pos (centered?: centered? #t) (name: name #f) (properties: properties '()) (import: import #f))
-    (let ((preferences (get-preferences 'designer))
-          (designer (get-designer~ editor))
-          (view? (subclass? model View)))
-      (let ((child (if view?
-                       (new model parent: client visible?: #f)
-                     (new model parent: client))))
-        (if view?
-            (add-view~ designer child client position: pos centered?: centered? name: name import: import properties: properties)
-          (add-child~ designer child client import: import name: name properties: properties))
-        (layout-view~ client)
-        (layout-view~ child)
-        (set-selection~ editor (list child) origin: self)
-        (when (and (not name) (xor (get-new-requests-name?~ preferences) (shift-down?)))
-          (let ((presentation (request-component-presentation model (get-children~ client))))
-            (when presentation
-              (let ((name (presentation->name~ model presentation)))
-                (set-name~ designer child name)))))
-        (when (get-default-property~ child)
-          (select-docked Properties-Manager focus?: #t)))))
+    (with-information-update
+      (lambda ()
+        (let ((preferences (get-preferences 'designer))
+              (designer (get-designer~ editor))
+              (view? (subclass? model View)))
+          (let ((child (if view?
+                           (new model parent: client visible?: #f)
+                         (new model parent: client))))
+            (if view?
+                (add-view~ designer child client position: pos centered?: centered? name: name import: import properties: properties)
+              (add-child~ designer child client import: import name: name properties: properties))
+            (layout-view~ client)
+            (layout-view~ child)
+            (set-selection~ editor (list child) origin: self)
+            (when (and (not name) (xor (get-new-requests-name?~ preferences) (shift-down?)))
+              (let ((presentation (request-component-presentation model (get-children~ client))))
+                (when presentation
+                  (let ((name (presentation->name~ model presentation)))
+                    (set-name~ designer child name)))))
+            (when (get-default-property~ child)
+              (select-docked Properties-Manager focus?: #t)))))))
   
   
   ;; this should probably be unified with add-new above
   (method public (add-new-form form pos (centered?: centered? #t) (name: name #f) (imports: imports '()))
-    (let ((preferences (get-preferences 'designer))
-          (designer (get-designer~ editor)))
-      (let ((child (add-form~ designer form client imports: imports name: name)))
-        (let ((model (class-of child)))
-          (layout-view~ client)
-          (layout-view~ child)
-          (set-selection~ editor (list child) origin: self)
-          (when (and (not name) (xor (get-new-requests-name?~ preferences) (shift-down?)))
-            (let ((presentation (request-component-presentation model (get-children~ client))))
-              (when presentation
-                (let ((name (presentation->name~ model presentation)))
-                  (set-name~ designer child name)))))
-          (when (get-default-property~ child)
-            (select-docked Properties-Manager focus?: #t))))))
+    (with-information-update
+      (lambda ()
+        (let ((preferences (get-preferences 'designer))
+              (designer (get-designer~ editor)))
+          (let ((child (add-form~ designer form client imports: imports name: name)))
+            (let ((model (class-of child)))
+              (layout-view~ client)
+              (layout-view~ child)
+              (set-selection~ editor (list child) origin: self)
+              (when (and (not name) (xor (get-new-requests-name?~ preferences) (shift-down?)))
+                (let ((presentation (request-component-presentation model (get-children~ client))))
+                  (when presentation
+                    (let ((name (presentation->name~ model presentation)))
+                      (set-name~ designer child name)))))
+              (when (get-default-property~ child)
+                (select-docked Properties-Manager focus?: #t))))))))
 
 
   (method public virtual (context-menu pos)

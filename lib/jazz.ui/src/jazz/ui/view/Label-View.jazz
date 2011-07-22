@@ -103,6 +103,26 @@
 
   
   ;;;
+  ;;;; Font
+  ;;;
+  
+  
+  (method override (effective-font)
+    (if style
+        (get-font~ style)
+      (nextmethod)))
+
+  
+  ;;;
+  ;;;; Style
+  ;;;
+  
+  
+  (method override (style-update)
+    (adjust-size))
+
+  
+  ;;;
   ;;;; Layout
   ;;;
   
@@ -142,12 +162,20 @@
       (let ((pos (justify-lazy (lambda () (get-text-extent~ surface title))
                                (lambda () (get-size))
                                (if (pair? justification) justification (list justification 'center)))))
-        (when shadow?
-          (set-text-color~ surface {Color Medium-Gray})
-          (draw-text~ surface (+ (get-h~ pos) 2) (+ (get-v~ pos) 2) title))
-        (let ((enabled? (view-enabled?)))
-          (set-text-color~ surface (if enabled? color {Color Dark}))
-          (draw-text~ surface (get-h~ pos) (get-v~ pos) title enabled?)))))
+        (if style
+            (let ((h (get-h~ pos))
+                  (v (get-v~ pos))
+                  (line-height (get-height))
+                  (tabs '())
+                  (left 0)
+                  (enabled? (view-enabled?)))
+              (draw-style~ style surface context title h v line-height tabs left enabled?))
+          (when shadow?
+            (set-text-color~ surface {Color Medium-Gray})
+            (draw-text~ surface (+ (get-h~ pos) 2) (+ (get-v~ pos) 2) title))
+          (let ((enabled? (view-enabled?)))
+            (set-text-color~ surface (if enabled? color {Color Dark}))
+            (draw-text~ surface (get-h~ pos) (get-v~ pos) title enabled?))))))
   
   
   ;;;

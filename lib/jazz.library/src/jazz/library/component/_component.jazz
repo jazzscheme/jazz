@@ -174,6 +174,83 @@
 
 
 ;;;
+;;;; Components
+;;;
+
+
+(definition public (component-ancestry component ancestor)
+  (let ((end? (lambda (scan)
+                (if scan
+                    (eq? scan ancestor)
+                  (error "{t} is not a descendant of the reference component {t}" component ancestor)))))
+    (unfold-right end? identity get-parent-component~ component)))
+
+
+(definition public (owned-form form ancestry)
+  (continuation-capture
+    (lambda (return)
+      (for-each (lambda (cpn)
+                  (let ((children (get-children~ form))
+                        (cpn-form (get-form~ cpn)))
+                    (if (not cpn-form)
+                        (continuation-return return #f)
+                      (if (memq? cpn-form children)
+                          (set! form cpn-form)
+                        (let ((name (get-name~ cpn)))
+                          (if (not name)
+                              (continuation-return return #f)
+                            (let ((subform (find-in children name key: get-name~ test: equal?)))
+                              (if (not subform)
+                                  (continuation-return return #f)
+                                (set! form subform)))))))))
+                ancestry)
+      form)))
+
+
+(definition public (first-ancestry-owned-form component ascendant form)
+  (let (loop (cur component))
+    (if (eq? component ascendant)
+        form
+      (let ((owned-form (owned-form form (component-ancestry cur ascendant))))
+        (or owned-form (loop (get-parent~ cur)))))))
+
+
+(definition public (ancestry-traits-owned-forms component ascendant form)
+  (let (loop (current-form (first-ancestry-owned-form (get-parent~ component) ascendant form))
+             (traits-owned-forms '()))
+    (if current-form
+        (let ((traits (get-traits~ current-form component)))
+          (loop (get-parent~ current-form)
+                (append traits-owned-forms
+                        (collect (lambda (trait)
+                                   (let ((trait-form (get-client-form~ trait)))
+                                     (owned-form trait-form (component-ancestry component ascendant))))
+                                 traits))))
+      traits-owned-forms)))
+
+
+(definition public (component-ascendant-owned-forms component ascendant)
+  (let (loop (class (class-of ascendant))
+             (forms '()))
+    (if (and class (subtype? class Component))
+        (let* ((class-form (get-class-form~ class))
+               (owned-form (and class-form (owned-form class-form (component-ancestry component ascendant))))
+               (traits-forms (map get-client-form~ (if owned-form (get-traits~ owned-form component) '())))
+               (ancestry-traits-forms (if class-form (ancestry-traits-owned-forms component ascendant class-form) '())))
+          (loop (get-ascendant~ class) (append ancestry-traits-forms traits-forms (if owned-form (list owned-form) '()) forms)))
+      forms)))
+
+
+(definition public (component-forms component)
+  (let (loop (ascendant (get-parent~ component))
+             (forms '()))
+    (if ascendant
+        (loop (get-parent~ ascendant)
+              (append forms (component-ascendant-owned-forms component ascendant)))
+        forms)))
+
+
+;;;
 ;;;; Clipboard
 ;;;
 

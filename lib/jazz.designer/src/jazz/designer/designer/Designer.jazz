@@ -742,7 +742,6 @@
   
   
   (method (package-components components (trait: trait #f))
-    
     (define (form-imports form)
       (let ((imports (case (get-action~ form)
                        ((new)
@@ -758,28 +757,40 @@
         (remove-duplicates (apply append imports (map form-imports (get-children~ form))))))
     
     ;; Allows copying the reference component
-    (define (replace-master forms component)
-      (if (null? forms)
-          forms
-        (let ((master (copy-object~ (car forms) #t))
-              (class-name (get-name~ (class-of component))))
-          (receive (module models) (split-locator class-name)
-            (let* ((model (car models))
-                   (reference (deserialize-runtime-reference (list 'module-private class-name))))
-              (set-action~ master 'new)
-              (set-model~ master model)
-              (setup-context~ master master)
-              (set-locator~ master (let ((locator (get-locator~ master)))
-                                     (lambda (symbol)
-                                       (if (eq? symbol model) reference (locator symbol)))))
-              (cons master (cdr forms)))))))
+    (define (replace-master old-master component)
+      (if (eq? (get-action~ old-master) 'install)
+          (let ((master (copy-object~ old-master #t))
+                (class-name (get-name~ (class-of component))))
+            (receive (module models) (split-locator class-name)
+              (let* ((model (car models))
+                     (reference (deserialize-runtime-reference (list 'module-private class-name))))
+                (set-action~ master 'new)
+                (set-model~ master model)
+                (setup-context~ master master)
+                (set-locator~ master (let ((locator (get-locator~ master)))
+                                       (lambda (symbol)
+                                         (debug symbol)
+                                         (if (eq? symbol model) reference (locator symbol)))))
+                (debug master (get-locator~ master))
+                master)))
+        old-master))
+    
+    ;; Modifying the master from its parent is equivalent to an install
+    (define (modify->install form)
+      (let ((new-form (copy-object~ form #f)))
+        (when (eq? (get-action~ new-form) 'modify)
+          (set-action~ new-form 'install)
+          (set-name~ new-form #f))
+        new-form))
     
     (define (package-component component)
-      (let ((forms (replace-master (component-forms component) component)))
-        (if (and (not-null? forms) (memq? (get-action~ (car forms)) '(new install)))
-            (let ((imports (map listify (apply union (map form-imports forms)))))
-              (new Component-Parcel (current-process-id) (object->serial component) imports forms))
-          (designer-error "Unable to find owner for {t}" component))))
+      (let ((original-forms (component-forms component)))
+        (if (null? original-forms)
+            (designer-error "Unable to find owner for {t}" component)
+          (let* ((forms (cons (replace-master (car original-forms) component)
+                              (map modify->install (cdr original-forms))))
+                 (imports (map listify (apply union (map form-imports forms)))))
+            (new Component-Parcel (current-process-id) (object->serial component) imports forms)))))
     
     (map package-component components))
   
@@ -815,12 +826,11 @@
                (conflict? (and name (member? name domain test: equal))))
           (when conflict?
             (case name-resolution
-              ((rename) (set! name (unique-name name domain))
-               (for-each (lambda (form)
-                           (set-name~ form name))
-                         forms))
-              ((override) (let ((conflicts (name-conflicts (list name) brothers)))
-                            (delete-components conflicts trait: trait))))))
+              ((rename)
+               (set! name (unique-name name domain)))
+              ((override)
+               (let ((conflicts (name-conflicts (list name) brothers)))
+                 (delete-components conflicts trait: trait))))))
         (let ((imports (get-imports~ parcel)))
           (let ((locator (imports-locator imports)))
             (for-each (lambda (f)
@@ -829,10 +839,7 @@
                       forms))
           (let ((component (instantiate-form name name-resolution master parent trait design-events? descendant? imports: imports)))
             (for-each (lambda (form)
-                        ;; This is a hack to support install forms from traits installed on the master.
-                        (if (eq? (get-action~ form) 'install)
-                            (instantiate-form name #f form component trait design-events? descendant?)
-                          (instantiate-form name #f form parent trait design-events? descendant?)))
+                        (instantiate-form name #f form component trait design-events? descendant?))
                       (cdr forms))
             component)))))
   

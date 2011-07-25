@@ -139,6 +139,7 @@
   (method override (layout)
     (case layout-type
       ((#f))
+      ((gravity)) ;; done in resize
       ((fill)
        (let ((position (fill-position))
              (size (fill-size)))
@@ -183,6 +184,56 @@
       (else
        (error "Unknown layout type: {s}" layout-type)))
     (adjust))
+  
+  
+  (method override (resize dh dv)
+    (define (expand-location location)
+      (define (invalid)
+        (error "Ill-formed location property: {s}" location))
+      
+      (cond ((not location)
+             (values #f #f))
+            ((pair? location)
+             (bind (h-location v-location) location
+               (values (case h-location
+                         ((move fill #f)
+                          h-location)
+                         (else
+                          (invalid)))
+                       (case v-location
+                         ((move fill #f)
+                          v-location)
+                         (else
+                          (invalid))))))
+            ((symbol? location)
+             (case location
+               ((move)   (values 'move 'move))
+               ((h-move) (values 'move #f))
+               ((v-move) (values #f 'move))
+               ((fill)   (values 'fill 'fill))
+               ((h-fill) (values 'fill #f))
+               ((v-fill) (values #f 'fill))
+               (else     (invalid))))
+            (else
+             (invalid))))
+    
+    (define (resize-child view location)
+      (receive (h-location v-location) (expand-location location)
+        (move-figure~ view
+          (if (eq? h-location 'move) dh 0)
+          (if (eq? v-location 'move) dv 0))
+        (size-figure~ view
+          (if (eq? h-location 'fill) dh 0)
+          (if (eq? v-location 'fill) dv 0))))
+    
+    (nextmethod dh dv)
+    (when (eq? layout-type 'gravity)
+      (for-each (lambda (child)
+                  (when (is? child View)
+                    (let ((location (get-location~ child)))
+                      (when location
+                        (resize-child child location)))))
+                (get-children))))
   
   
   (method override (adjust?)

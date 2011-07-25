@@ -252,22 +252,32 @@
     (case layout-fit
       ((#f))
       ((around)
-       (let ((left 0)
-             (top 0)
+       (let ((left #f)
+             (top #f)
              (right 0)
              (bottom 0))
          (for-each (lambda (child)
                      (when (and (is? child View) (get-visible?~ child))
                        (let ((rect (get-rect~ child)))
-                         (set! left (min left (get-left~ rect)))
-                         (set! top (min top (get-top~ rect)))
+                         (set! left (if (not left) (get-left~ rect) (min left (get-left~ rect))))
+                         (set! top (if (not top) (get-top~ rect) (min top (get-top~ rect))))
                          (set! right (max right (get-right~ rect)))
                          (set! bottom (max bottom (get-bottom~ rect))))))
                    children)
-         (let ((size (new Dimension
-                       (+ (get-left~ layout-insets) (- right left) (get-right~ layout-insets))
-                       (+ (get-top~ layout-insets) (- bottom top) (get-bottom~ layout-insets)))))
-           (set-size size))))))
+         (if (not left)
+             (set-size (new Dimension
+                         (+ (get-left~ layout-insets) (get-right~ layout-insets))
+                         (+ (get-top~ layout-insets) (get-bottom~ layout-insets))))
+           (let ((dh (- (get-left~ layout-insets) left))
+                 (dv (- (get-top~ layout-insets) top)))
+             (for-each (lambda (child)
+                         (when (and (is? child View) (get-visible?~ child))
+                           (move-figure~ child dh dv)))
+                       children))
+           (let ((size (new Dimension
+                         (+ (get-left~ layout-insets) (- right left) (get-right~ layout-insets))
+                         (+ (get-top~ layout-insets) (- bottom top) (get-bottom~ layout-insets)))))
+             (set-size size)))))))
   
   
   (method protected virtual (fill-position) <Point>
@@ -310,7 +320,9 @@
           (<Rect-Domain>          name: domain))
         (<Property-Descriptor>    name: layout-justification title: "Layout Justification"
           (<Justification-Domain> name: domain))
-        (<Property-Descriptor>    name: layout-padding title: "Layout Padding"))))
+        (<Property-Descriptor>    name: layout-padding title: "Layout Padding")
+        (<Property-Descriptor>    name: layout-fit title: "Layout Fit"
+          (<Boolean-Domain>       name: domain)))))
   
   
   (method override (class-image class)

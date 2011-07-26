@@ -153,11 +153,11 @@
   
   
   (method (save-as (default-extension: default-extension #f) (extensions: extensions '()))
-    (let ((toolbox-manager (find-docked Toolbox-Manager)))
+    (let ((toolbox-managers (collect-type Toolbox-Manager (docked-views))))
         (set-origin~ form 
-          (if toolbox-manager
-              (choose-new-origin toolbox-manager)
-            (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))))
+          (if (null? toolbox-managers)
+              (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))
+            (choose-new-origin toolbox-managers)))
         (save-content)))
   
   
@@ -181,7 +181,7 @@
     (apply evaluate-expressions~ (get-local-process) (prepare-expressions~ text (current-declaration-range~ text))))
   
   
-  (method (choose-new-origin toolbox-manager)
+  (method (choose-new-origin toolbox-managers)
     (define (parse-class-name class-string)
       (let ((content (with-exception-catcher
                        (lambda (err) #f)
@@ -228,7 +228,7 @@
                (class-string (format "{%}{%}{%}(class {a} extends {a})" class-name super-class)))
           (insert-string~ text class-string))))
     
-    (let* ((modules (get-module-names~ toolbox-manager))
+    (let* ((modules (apply union test: eq? (map get-module-names~ toolbox-managers)))
            (result (get-modal Save-Chooser modules: modules)))
       (if (is? result File)
           result

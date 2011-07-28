@@ -179,41 +179,47 @@
   
   
   (method public (get-expand-state (include-invisibles?: include-invisibles? #f))
+    (define (get-state row)
+      (let ((title (get-title~ (first-child~ row)))
+            (state (get-state~ row))
+            (sons (get-sons~ row)))
+        (when (or (and include-invisibles? (> (cardinality sons) 0)) (eq? state 'expanded))
+          (cons title
+                (cons state
+                      (collect get-state sons))))))
+      
     (when root-row
-      (letrec ((proc
-                 (lambda (row)
-                   (let ((title (get-title~ (first-child~ row)))
-                         (state (get-state~ row))
-                         (sons (get-sons~ row)))
-                     (when (or (and include-invisibles? (> (cardinality sons) 0)) (eq? state 'expanded))
-                       (cons title
-                             (cons state
-                                   (collect proc sons))))))))
-        (collect proc (get-sons~ root-row) type: List))))
+      (collect get-state (get-sons~ root-row) type: List)))
   
   
   ;; This function will only work properly for a fully collapsed outline.
   ;; Note that its main purpose being to restore a new outline to a stored state,
   ;; this is not a limitation but a design decision.
   (method public (set-expand-state state)
+    (define (set-state row info)
+      (bind (title state . children) info
+        (let ((subrow (find-by-title~ row title)))
+          (when subrow
+            (let ((actual (get-state~ subrow)))
+              (if (eq? state 'expanded)
+                  (unless (eq? actual 'expanded)
+                    (expand/collapse subrow))
+                (when (and (eq? actual 'dynamic) children)
+                  (update-row subrow))))
+            (iterate children
+                     (lambda (info)
+                       (set-state subrow info)))))))
+    
     (when root-row
-      (letrec ((proc
-                (lambda (row info)
-                  (bind (title state . children) info
-                    (let ((subrow (find-by-title~ row title)))
-                      (when subrow
-                        (let ((actual (get-state~ subrow)))
-                          (if (eq? state 'expanded)
-                              (unless (eq? actual 'expanded)
-                                (expand/collapse subrow))
-                            (when (and (eq? actual 'dynamic) children)
-                              (update-row subrow))))
-                        (iterate children
-                                 (lambda (info)
-                                   (proc subrow info)))))))))
-        (for-each (lambda (info)
-                    (proc root-row info))
-                  state))))
+      (for-each (lambda (info)
+                  (set-state root-row info))
+                state)))
+  
+  
+  (method public (with-preserved-expand-state thunk)
+    (let ((saved-state (get-expand-state)))
+      (thunk)
+      (set-expand-state saved-state)))
   
   
   ;;;

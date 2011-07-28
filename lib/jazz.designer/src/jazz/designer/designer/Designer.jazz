@@ -789,8 +789,10 @@
         new-form))
     
     (define (package-component component)
-      (let ((original-forms (if (eq? reference component) (list form) (component-forms component))))
-        (if (null? original-forms)
+      (let ((original-forms (let ((forms (if (eq? reference component) (list form) (component-forms component))))
+                              ;; This is when the form is not associated to a class. Does not work with traits
+                              (if (null? forms) (list (owned-form form (component-ancestry component reference))) forms))))
+        (if (not original-forms)
             (designer-error "Unable to find owner for {t}" component)
           (let* ((forms (cons (replace-master (car original-forms) component)
                               (map modify->install (cdr original-forms))))

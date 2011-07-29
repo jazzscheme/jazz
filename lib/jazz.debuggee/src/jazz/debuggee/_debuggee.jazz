@@ -415,6 +415,17 @@
     (increase! *eval-count*)))
 
 
+(definition public (evaluate-in-unit unit-name expr evaluator)
+  (load-unit unit-name)
+  (let ((module-declaration (outline-unit unit-name)))
+    (parameterize ((requested-unit-name #f)
+                   (generate-symbol-for (format "%{a}&" (eval-count)))
+                   (generate-symbol-context unit-name)
+                   (generate-symbol-counter 0))
+      (evaluator
+        `(module ,unit-name ,(get-dialect-name~ module-declaration) ,expr)))))
+
+
 ;;;
 ;;;; Loop
 ;;;
@@ -505,35 +516,29 @@
                                     expr)))
                       ((symbol? effective-context)
                        (let ((unit-name effective-context))
-                         (load-unit unit-name)
-                         (let ((module-declaration (outline-unit unit-name)))
-                           (parameterize ((requested-unit-name #f)
-                                          (generate-symbol-for (format "%{a}&" (eval-count)))
-                                          (generate-symbol-context unit-name)
-                                          (generate-symbol-counter 0))
+                         (evaluate-in-unit
+                           unit-name
+                           `(with-local-variables ,local-names
+                              ,expr)
+                           (lambda (expr)
                              (evaluator (lambda (thunk)
                                           (parameterize ((current-console-context unit-name))
                                             (thunk)))
-                                        `(module ,unit-name ,(get-dialect-name~ module-declaration)
-                                         (with-local-variables ,local-names
-                                           ,expr)))))))
+                                        expr)))))
                       (else
                        (let ((class-identifier (category-identifier (class-of effective-context))))
                          (receive (unit-name class-name) (break-reference class-identifier)
-                           (load-unit unit-name)
-                           (let ((module-declaration (outline-unit unit-name)))
-                             (parameterize ((requested-unit-name #f)
-                                            (generate-symbol-for (format "%{a}&" (eval-count)))
-                                            (generate-symbol-context unit-name)
-                                            (generate-symbol-counter 0))
+                           (evaluate-in-unit
+                             unit-name
+                             `(class ,class-name
+                                (with-dynamic-self (jazz.debuggee:current-console-context)
+                                  (with-local-variables ,local-names
+                                    ,expr)))
+                             (lambda (expr)
                                (evaluator (lambda (thunk)
                                             (parameterize ((current-console-context effective-context))
                                               (thunk)))
-                                          `(module ,unit-name ,(get-dialect-name~ module-declaration)
-                                           (class ,class-name
-                                             (with-dynamic-self (jazz.debuggee:current-console-context)
-                                               (with-local-variables ,local-names
-                                                 ,expr))))))))))))))))
+                                          expr))))))))))))
       
       (let ((console (current-console)))
         (let ((context (console-context console)))

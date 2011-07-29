@@ -174,6 +174,40 @@
 
 
 ;;;
+;;;; Imports
+;;;
+
+
+(definition public (form-imports form (private-import #f))
+  (define (collect-nodes form)
+    (let ((factory (new List-Factory)))
+      (iterate-nodes form (~ put factory))
+      (get-output~ factory)))
+  
+  (define (collect-symbols form)
+    (let* ((nodes (collect-nodes form))
+           (properties (append-map get-properties~ nodes))
+           (new-nodes (collect-if (lambda (action) (eq? action 'new))
+                                  nodes
+                                  key: get-action~)))
+      (append
+        (collect (lambda (val)
+                   (and (is? val Reference)
+                        (get-symbol~ val)))
+                 (map-property (lambda (_ value) value) properties))
+        (map get-model~ new-nodes))))
+  
+  (define (symbol-import symbol)
+    (let ((ref (serialize-runtime-reference (get-reference~ form symbol))))
+      (if (eq? (car ref) 'module-public)
+          (second ref)
+        private-import)))
+  
+  (let ((symbols (collect-symbols form)))
+    (remove-duplicates (collect symbol-import symbols))))
+
+
+;;;
 ;;;; Components
 ;;;
 

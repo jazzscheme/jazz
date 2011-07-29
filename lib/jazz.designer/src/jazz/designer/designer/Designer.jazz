@@ -134,7 +134,7 @@
         (let ((origin (get-origin~ form)))
           (if (not origin)
               (save-as default-extension: default-extension extensions: extensions)
-            (save-content))))))
+            (save-content origin))))))
   
   
   (method public (save-to file)
@@ -153,12 +153,11 @@
   
   
   (method (save-as (default-extension: default-extension #f) (extensions: extensions '()))
-    (let ((toolbox-managers (collect-type Toolbox-Manager (docked-views))))
-        (set-origin~ form 
-          (if (null? toolbox-managers)
-              (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))
-            (choose-new-origin toolbox-managers)))
-        (save-content)))
+    (let* ((toolbox-managers (collect-type Toolbox-Manager (docked-views)))
+           (destination (if (null? toolbox-managers)
+                            (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))
+                          (choose-new-origin toolbox-managers))))
+      (save-content destination)))
   
   
   (method (call-with-saved-text file func)
@@ -218,15 +217,33 @@
         (evaluate-at-caret text)
         (module-ref module-name class-name)))
     
-    (define (insert-class text class-name)
+    (define (super-class-name)
+      (or (get-model~ form)
+          (receive (unit names) (split-locator (get-name~ (class-ascendant (get-origin~ form))))
+            (car names))))
+    
+    (define (super-class-import super-class-name)
+      (and (not (get-model~ form))
+           (receive (unit _) (split-locator (get-name~ (get-origin~ form)))
+             (let ((ser (serialize-runtime-reference (evaluate-in-unit unit `(reference ,super-class-name) eval))))
+               (if (eq? (first ser) 'module-private)
+                   (origin-import form)
+                 (second ser))))))
+    
+    (define (insert-class text class-name super-class-name)
       (let ((explorer (new Jazz-Explorer (get-model~ text))))
         (forward-namespace~ explorer)
         ;; We suppose the import form exist
         (forward-expr~ explorer)
         (set-caret~ text (get-end~ explorer))
-        (let* ((super-class (get-model~ form))
-               (class-string (format "{%}{%}{%}(class {a} extends {a})" class-name super-class)))
+        (let ((class-string (format "{%}{%}{%}(class {a} extends {a})" class-name super-class-name)))
           (insert-string~ text class-string))))
+    
+    (define (imports-to-insert super-class-name module-name)
+      (let ((super-class-import (super-class-import super-class-name)))
+        (remove module-name (remove-duplicates (append (default-designer-imports~ (get-application))
+                                                       (if super-class-import (list super-class-import) '())
+                                                       (form-imports form (origin-import form)))))))
     
     (let* ((modules (apply union test: eq? (map get-module-names~ toolbox-managers)))
            (result (get-modal Save-Chooser modules: modules)))
@@ -235,22 +252,22 @@
         (bind (module-name class-string) result
           (with-safe-design
             (lambda ()
-              (let ((class-name (parse-class-name class-string)))
+              (let ((class-name (parse-class-name class-string))
+                    (super-class-name (super-class-name)))
                 (validate-module-name module-name)
                 (validate-class-name module-name class-name)
                 (call-with-saved-text (find-unit-source module-name)
                   (lambda (text)
-                    (insert-imports text module-name)
+                    (insert-imports text (imports-to-insert super-class-name module-name))
                     (evaluate-imports text)
-                    (insert-class text class-name)
+                    (insert-class text class-name super-class-name)
                     (evaluate-class text module-name class-name))))))))))
   
   
-  (method (save-content)
-    (let ((origin (get-origin~ form)))
-      (if (file? origin)
-          (save-to-file origin)
-        (save-to-class origin)))
+  (method (save-content destination)
+    (if (file? destination)
+        (save-to-file destination)
+      (save-to-class destination))
     (set-modified? #f))
   
   
@@ -262,35 +279,11 @@
       (evaluate-at-caret text)))
   
   
-  (method (insert-imports text module-name)
-    (define (insert-import-declaration)
-      (let ((explorer (new Jazz-Explorer (get-model~ text))))
-        (forward-namespace~ explorer)
-        (unless (enter-import~ explorer)
-          (let ((explorer (new Jazz-Explorer (get-model~ text))))
-            (forward-namespace~ explorer)
-            (set-caret~ text (get-end~ explorer))
-            (insert-string~ text (format "{%}{%}{%}(import)"))))))
-    
-    (define (insert-import unit)
-      (let ((explorer (new Jazz-Explorer (get-model~ text))))
-        (forward-namespace~ explorer)
-        (enter-import~ explorer)
-        (receive (found? first?) (find-import-invoice~ explorer unit #t)
-          (unless found?
-            (set-caret~ text (get-end~ explorer))
-            (cond (first?
-                    (insert-string~ text (format " ({a})" unit))
-                    (tabulate~ text))
-                  (else
-                   (insert-newline~ text)
-                   (tabulate~ text)
-                   (insert-string~ text (format "({a})" unit))))))))
-    
-    (insert-import-declaration)
-    (for-each insert-import (let ((explorer (new Jazz-Explorer (get-model~ text)))
-                                  (units (cons 'jazz.jml (remove module-name (map car (get-imports~ (get-data~ form)))))))
-                              (filter-existing-import-invoices~ explorer units))))
+  (method (origin-import form)
+    (let ((locator (get-name~ (get-origin~ form)))
+          (toolbox-models (apply union (map get-toolbox-models~ (collect-type Toolbox-Manager (docked-views))))))
+      (receive (_ models) (split-locator locator)
+        (get-unit~ (find-in toolbox-models (car models) key: get-model~)))))
   
   
   (method (save-to-class class)
@@ -299,16 +292,21 @@
       
       (define (save-to-existing-class text)
         (let ((form-exists? (eq? form (get-class-form~ class))))
-          (insert-imports text module-name)
+          (insert-imports text (remove module-name (append (default-designer-imports~ (get-application))
+                                                           (form-imports form (origin-import form)))))
           (evaluate-imports text)
           (save-form text form form-exists?)
           (tabulate-form text)
           (unless form-exists? (evaluate-form text))))
       
       (define (save-to-new-class text)
-        (let ((adjusted-form (new Form textual?: #f action: 'new model: 'install properties: (get-properties~ form) children: (get-children~ form))))
+        (let ((adjusted-form (new Form textual?: #f action: 'new model: 'install properties: (get-properties~ form) children: (get-children~ form)))
+              (origin (get-origin~ form)))
           (save-form text adjusted-form #f)
           (tabulate-form text)
+          ;; If we are saving in a new class from an old class
+          (when origin
+            (revert))
           (evaluate-form text)
           (set-object-slot reference 0 class)
           (for-each (lambda (designer)
@@ -749,20 +747,6 @@
   
   
   (method (package-components components (trait: trait #f))
-    (define (form-imports form)
-      (let ((imports (case (get-action~ form)
-                       ((new)
-                        (let* ((context (get-context~ form))
-                               (reference (get-reference~ context (get-model~ form)))
-                               (serialization (serialize-runtime-reference reference)))
-                          (list (if (eq? (first serialization) 'module-private)
-                                    (receive (module symbol) (split-locator (second serialization))
-                                      module)
-                                  (second serialization)))))
-                       (else
-                        '()))))
-        (remove-duplicates (apply append imports (map form-imports (get-children~ form))))))
-    
     ;; Allows copying the reference component
     (define (replace-master old-master component)
       (if (eq? (get-action~ old-master) 'install)

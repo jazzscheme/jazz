@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; View Descendants-Editor
+;;;; Descendants-Manager-Tree
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,24 +35,57 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.editor.View-Descendants-Editor jazz
+(module protected jazz.designer.editor.Descendants-Manager-Tree jazz
 
 
 (import (jazz.designer)
-        (jazz.jml))
+        (jazz.designer.view)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view))
 
 
-(class undocumented View-Descendants-Editor extends Descendants-Editor
+(class undocumented Descendants-Manager-Tree extends Descendants-Tree
   
   
-  (form
-    (<install>
-      (<!>     name: scroller
-        (<!>   name: content
-          (<!> name: header   shown?: #f)))))
+  (slot preserved-states initialize (make-table test: eq? weak-keys: #t))
+  
 
+  ;;;
+  ;;;; Classes
+  ;;;
   
-  (method override (form-model form)
-    (case (get-name~ form)
-      ((tree) View-Descendants-Tree)
-      (else (nextmethod form))))))
+  
+  (method override (categorized-addable-classes component)
+    (or (component-categorized-toolbox-addable-classes component)
+        (nextmethod component)))
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method override (focus-update-actions)
+    (nextmethod)
+    (when (is? (get-single-selected-data) Component)
+      (set-action-enabled? {Action components-tree open} #t)))
+
+
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method override (client-update)
+    (when editor
+      (update expand-state: (table-ref preserved-states client #f) selected-components: (get-selection~ editor))))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method override (preserve-state client)
+    (table-set! preserved-states client (get-expand-state)))))

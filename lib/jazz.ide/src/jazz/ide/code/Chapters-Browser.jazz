@@ -52,6 +52,9 @@
   
   (slot client-selection initialize #f)
   (slot client-position  initialize #f)
+  
+  
+  (slot preserved-states initialize (make-table test: eq? weak-keys: #t))
 
 
   (form
@@ -192,6 +195,21 @@
   
   
   ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method (preserve-state client)
+    (table-set! preserved-states client (get-view-state~ (locate 'chapters) use: 'text)))
+  
+  
+  (method (restore-state client)
+    (let ((state (table-ref preserved-states client #f)))
+      (when state
+        (set-view-state~ (locate 'chapters) state))))
+  
+  
+  ;;;
   ;;;; Client
   ;;;
 
@@ -202,8 +220,12 @@
  
   (method public (set-client clt)
     (when (neq? clt client)
+      (when client
+        (preserve-state client))
       (set! client clt)
-      (update)))
+      (update)
+      (when client
+        (restore-state client))))
   
   
   (method (update)

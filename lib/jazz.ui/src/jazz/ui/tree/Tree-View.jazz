@@ -2152,11 +2152,15 @@
     (define (save-cell cell)
       (cons (save-row (get-line~ cell)) (get-col~ cell)))
     
-    (define (save-row row)
+    (define (save-row line)
       (case use
-        ((row) (get-row row))
-        ((rank) row)
-        ((data) (get-user-data~ (get-row row)))))
+        ((row) (get-row line))
+        ((rank) line)
+        ((text) (line->text line))
+        ((data) (get-user-data~ (get-row line)))))
+    
+    (define (line->text line)
+      (map row-title (get-spine~ (get-row line))))
     
     (let ((saved-selection (save-selection (get-selection)))
           (saved-position (nu+ (get-scrolled-position) (selection-position (get-selection))))
@@ -2187,7 +2191,16 @@
         (case use
           ((row) (row->line saved))
           ((rank) saved)
+          ((text) (text->line saved))
           ((data) (user-data-index saved test: test))))
+      
+      (define (text->line text)
+        (let (iter (row root-row) (text text))
+          (if (null? text)
+              (row->line row)
+            (let ((subrow (find-by-title~ row (car text))))
+              (when subrow
+                (iter subrow (cdr text)))))))
       
       (when saved-pivot
         (let ((pivot (restore-selection saved-pivot)))
@@ -2399,6 +2412,21 @@
     (case selection-mode
       ((cell) (get-line~ element))
       (else element)))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method override (get-view-state (use: use 'row))
+    (list (get-expand-state) (get-selection-state use: use)))
+  
+  
+  (method override (set-view-state state)
+    (bind (expand-state selection-state) state
+      (set-expand-state expand-state)
+      (set-selection-state selection-state)))
   
   
   ;;;

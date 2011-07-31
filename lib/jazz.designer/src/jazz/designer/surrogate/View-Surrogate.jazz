@@ -150,23 +150,6 @@
   ;;;
   ;;;; Drawing
   ;;;
-  
-  
-  (definition Focused-Background
-    {Color Dark-Purple alpha: 0.15})
-  
-  (definition Unfocused-Background
-    {Color Dark alpha: 0.15})
-    
-  
-  (definition Selected-Colors
-    '({Color Red} {Color Orange} {Color Dark-Yellow}))
-
-  (definition Unselected-Outer-Color
-    {Color Blue})
-
-  (definition Unselected-Inner-Color
-    {Color Gray})
 
 
   (method override (render drawing surface draw-self? nodes context lh lv sh sv sc sc?)
@@ -199,19 +182,15 @@
         (define (outer-component view)
           (outer-client~ (get-surrogate~ view)))
         
-        (define (frame-color)
-          (let ((rank (find selection client key: outer-component)))
-            (if (not rank)
-                (if (eq? (outer-client) client)
-                    Unselected-Outer-Color
-                  Unselected-Inner-Color)
-              (element Selected-Colors (min rank 2)))))
-        
         (when (get-show-frames?~ editor)
-          (let ((color (frame-color))
+          (let ((rank (find selection client key: outer-component))
                 (outside (get-bounds~ client)))
             (define (draw-frame)
-              (frame-rect~ surface outside color))
+              (set-style~ surface 'solid)
+              (if (not rank)
+                  (when (eq? (outer-client) client)
+                    (frame-rect~ surface outside Unselected-Color))
+                (frame-rect~ surface outside (selected-color rank))))
             
             (define (draw-handles)
               ;; todo
@@ -307,11 +286,6 @@
   
   (method override (redraw-border)
     (redraw-border~ (outer-client) insets: {Rect 2 2 2 2}))
-  
-  
-  (method public (selected-color rank)
-    (let ((colors Selected-Colors))
-      (element colors (min rank (- (length colors) 1)))))
 
 
   ;;;
@@ -401,15 +375,13 @@
   (method (on-mouse-down evt)
     (let ((mode (get-mode~ editor))
           (pos (get-position~ evt)))
-      (case mode
-        ((select)
-         (if #t @wait (neq? client (get-client~ editor))
-             (mouse-down pos)
-           (when (select?)
-             (select-in-editor))
-           (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))))
-        ((rect)
-         (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))))))
+      (if (or (eq? mode 'rect) (control-down?))
+          (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))
+        (if #t @wait (neq? client (get-client~ editor))
+            (mouse-down pos)
+          (when (select?)
+            (select-in-editor))
+          (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))))))
 
   
   (method (on-mouse-up evt)
@@ -670,7 +642,7 @@
   
   
   (method public virtual (get-context-menu)
-    (let ((components (get-selection) )
+    (let ((components (get-selection))
           (menu (new (context-menu-class))))
       (define (categorized-addable-classes)
         (let ((component (car components)))

@@ -1102,14 +1102,6 @@
     (new Tree-Drag-Source view: self position: pos @old image: @old (get-drag-image pos) row: row col: col))
   
   
-  (method override (get-drag-hotspot)
-    (let* ((cell (view->tree mouse-down-point))
-           (row (get-row (get-line~ cell)))
-           (left (image-h~ node-column (get-level~ row)))
-           (top (get-v~ (get-position~ row))))
-      (new Point left top)))
-  
-  
   (method override (get-drag-image pos)
     (let* ((cell (view->tree pos))
            (line (get-line~ cell)))
@@ -2093,7 +2085,7 @@
                       (cond ((null? selection) (set! selection-pivot #f))
                             ((< selection-pivot (car selection)) (set! selection-pivot (car selection)))
                             ((> selection-pivot (last selection)) (set! selection-pivot (last selection))))))))
-        (when (and (member? element selection) (allow-start-drag?~ selection-manager))
+        (when (and (member? element selection test: (if (eq? selection-mode 'cell) cell=? equal?)) (allow-start-drag?~ selection-manager))
           (delay-selection~ selection-manager))
         (set! selection-pivot element)
         (set-selection (list element) set-pivot?: #f user-origin: user-origin))))
@@ -2151,7 +2143,7 @@
         (call-selection-handler old-selection selection force? user-origin))))
   
   
-  (method public (with-preserved-selection thunk (use: use 'row) (test: test eqv?) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
+  (method public (get-selection-state (use: use 'row))
     (define (save-selection selection)
       (case selection-mode
         ((cell) (map save-cell selection))
@@ -2160,39 +2152,56 @@
     (define (save-cell cell)
       (cons (save-row (get-line~ cell)) (get-col~ cell)))
     
-    (define (save-row row)
+    (define (save-row line)
       (case use
-        ((row) (get-row row))
-        ((rank) row)
-        ((data) (get-user-data~ (get-row row)))))
+        ((row) (get-row line))
+        ((rank) line)
+        ((text) (line->text line))
+        ((data) (get-user-data~ (get-row line)))))
     
-    (define (restore-selection saved-selection)
-      (remove-false
-        (case selection-mode
-          ((cell) (map restore-cell saved-selection))
-          (else (map restore-row saved-selection)))))
-    
-    (define (restore-cell saved)
-      (bind (row . col) saved
-        (let ((line (restore-row row)))
-          (when line
-            (new Cell line col)))))
-    
-    (define (restore-row saved)
-      (case use
-        ((row) (row->line saved))
-        ((rank) saved)
-        ((data) (user-data-index saved test: test))))
-    
-    (define (selection-position selection)
-      (with ((region (selection-region selection 0 0 1.0)))
-        (rect-position (get-box~ region))))
+    (define (line->text line)
+      (map row-title (get-spine~ (get-row line))))
     
     (let ((saved-selection (save-selection (get-selection)))
           (saved-position (nu+ (get-scrolled-position) (selection-position (get-selection))))
           (saved-pivot (and selection-pivot (save-selection (list selection-pivot))))
           (saved-edited (and edited-cell (save-cell edited-cell))))
-      (thunk)
+      (list use
+            saved-selection
+            saved-position
+            saved-pivot
+            saved-edited)))
+  
+  
+  (method public (set-selection-state state (test: test eqv?) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
+    (bind (use saved-selection saved-position saved-pivot saved-edited) state
+      (define (restore-selection saved-selection)
+        (remove-false
+          (case selection-mode
+            ((cell) (map restore-cell saved-selection))
+            (else (map restore-row saved-selection)))))
+      
+      (define (restore-cell saved)
+        (bind (row . col) saved
+          (let ((line (restore-row row)))
+            (when line
+              (new Cell line col)))))
+      
+      (define (restore-row saved)
+        (case use
+          ((row) (row->line saved))
+          ((rank) saved)
+          ((text) (text->line saved))
+          ((data) (user-data-index saved test: test))))
+      
+      (define (text->line text)
+        (let (iter (row root-row) (text text))
+          (if (null? text)
+              (row->line row)
+            (let ((subrow (find-by-title~ row (car text))))
+              (when subrow
+                (iter subrow (cdr text)))))))
+      
       (when saved-pivot
         (let ((pivot (restore-selection saved-pivot)))
           (set! selection-pivot (cond ((not-null? pivot) (car pivot))
@@ -2207,6 +2216,17 @@
       (let ((selection (restore-selection saved-selection)))
         (scroll-to (nu- saved-position (selection-position selection)))
         (set-selection selection ensure-displayed?: ensure-displayed? generate-event?: generate-event? auto-expand?: #f))))
+  
+  
+  (method (selection-position selection)
+    (with ((region (selection-region selection 0 0 1.0)))
+      (rect-position (get-box~ region))))
+  
+  
+  (method public (with-preserved-selection thunk (use: use 'row) (test: test eqv?) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
+    (let ((saved-state (get-selection-state use: use)))
+      (thunk)
+      (set-selection-state saved-state test: test ensure-displayed?: ensure-displayed? generate-event?: generate-event?)))
   
   
   (method public (get-single-selection)
@@ -2392,6 +2412,21 @@
     (case selection-mode
       ((cell) (get-line~ element))
       (else element)))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method override (get-view-state (use: use 'row))
+    (list (get-expand-state) (get-selection-state use: use)))
+  
+  
+  (method override (set-view-state state)
+    (bind (expand-state selection-state) state
+      (set-expand-state expand-state)
+      (set-selection-state selection-state)))
   
   
   ;;;

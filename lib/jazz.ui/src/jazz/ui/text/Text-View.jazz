@@ -61,6 +61,8 @@
 (class Text-View extends Outline-View implements Document
   
   
+  ;; the text content automaticaly saved in a canonical form when the text is visually edited
+  (property protected text-content              initialize #f accessors explicit)
   (property protected selectable?               initialize #t accessors generate)
   (property protected editable?                 initialize #t accessors generate)
   (property protected accepts-returns?          initialize #t accessors generate)
@@ -346,6 +348,20 @@
   
   (method override (compare-moniker moniker)
     (compare-moniker~ model moniker))
+  
+  
+  ;;;
+  ;;;; Content
+  ;;;
+  
+  
+  (method public (get-text-content)
+    text-content)
+  
+  
+  (method public (set-text-content value)
+    (set! text-content value)
+    (set-content~ model text-content))
   
   
   ;;;
@@ -2028,10 +2044,6 @@
     (paragraph-length~ model line))
   
   
-  (method (paragraph->string paragraph <Paragraph>) <string>
-    (paragraph->string~ model paragraph))
-  
-  
   (method public (first-paragraph)
     (first-paragraph~ model))
   
@@ -2270,17 +2282,17 @@
   (method public (insert-styled string style)
     (when (write-allowed?)
       (let ((start (get-start))
-            (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (get-style~ model style)))))
+            (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (locate-style~ model style)))))
         (insert-string string)
-        (set-style~ model (new Range$Cell$ start (get-start)) style))))
+        (stylize-range~ model (new Range$Cell$ start (get-start)) style))))
   
   
   (method public (replace-styled range strings style)
     (when (write-allowed?)
       (let ((start (get-start~ range))
-            (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (get-style~ model style)))))
+            (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (locate-style~ model style)))))
         (replace~ model range strings)
-        (set-style~ model (new Range$Cell$ start (get-start)) style))))
+        (stylize-range~ model (new Range$Cell$ start (get-start)) style))))
   
   
   (method public (insert-line line (proper? #t))
@@ -2508,16 +2520,16 @@
   
   
   ;;;
-  ;;;; Styles
+  ;;;; Style
   ;;;
-  
+
   
   (method public (add-style name pref-style) <Style>
     (add-style~ model name pref-style))
   
   
-  (method public (get-style name/style (error?: error? #t)) <Style>
-    (get-style~ model name/style error?: error?))
+  (method public (locate-style name/style (error?: error? #t)) <Style>
+    (locate-style~ model name/style error?: error?))
   
   
   ;;;
@@ -2720,7 +2732,7 @@
   
   
   ;;;
-  ;;;; Format
+  ;;;; Formats
   ;;;
   
   
@@ -2849,8 +2861,8 @@
   
   
   (method public (set-selection-format/style name/exemplar (format?: format? #f) (style?: style? #f))
-    (let* ((format (and format? (get-format~ model name/exemplar error?: #f)))
-           (style (and style? (get-style~ model name/exemplar error?: #f)))
+    (let* ((format (and format? (locate-format~ model name/exemplar error?: #f)))
+           (style (and style? (locate-style~ model name/exemplar error?: #f)))
            (selection (get-selection))
            (start (get-start))
            (end (get-end))
@@ -3272,5 +3284,5 @@
   
   (method override (component-save-properties component designer)
     (when (get-modified?~ component)
-      (set-property~ designer component 'text-content (get-content~ component) design-events?: #f)
+      (set-property~ designer component 'text-content (get-content~ (get-model~ component)) design-events?: #f)
       (set-modified?~ component #f))))))

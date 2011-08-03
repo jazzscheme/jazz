@@ -39,6 +39,7 @@
 
 
 (import (jazz.designer)
+        (jazz.designer.view)
         (jazz.graphic)
         (jazz.jml)
         (jazz.library)
@@ -47,20 +48,19 @@
         (jazz.ui.window))
 
 
-(class Designer-Manager extends View
+(class Designer-Manager extends Layout-View
 
 
   (property client initialize #f accessors explicit)
-    
-  
-  (slot flow-layout)
 
 
   (form
-    (<install>                           background: {Color Medium}
-      (<Radio-Tool>    name: mode-select size: {Dimension 22 22} resource: {Image-Resource "ModeSelect"} portfolio: :images selected?: #t tooltip?: #t tooltip-text: "Select" action-handler: {Event-Handler :form on-mode mode: select})
+    (<install>                           layout-type: flow layout-insets: {Rect 4 5 0 0} background: {Color Medium}
+      (<Radio-Tool>    name: select      size: {Dimension 22 22} resource: {Image-Resource "ModeSelect"} portfolio: :images selected?: #t tooltip?: #t tooltip-text: "Select" action-handler: {Event-Handler :form on-mode mode: select})
       (<Separator>                       size: {Dimension 2 0})
-      (<Radio-Tool>    name: mode-rect   size: {Dimension 22 22} resource: {Image-Resource "ModeRect"} portfolio: :images tooltip?: #t tooltip-text: "Rectangle" action-handler: {Event-Handler :form on-mode mode: rect})
+      (<Radio-Tool>    name: rect        size: {Dimension 22 22} resource: {Image-Resource "ModeRect"} portfolio: :images tooltip?: #t tooltip-text: "Rectangle" action-handler: {Event-Handler :form on-mode mode: rect})
+      (<Separator>)
+      (<Toggle-Tool>   name: switch-mode size: {Dimension 22 22} tooltip?: #t tooltip-text: "Switch Mode" resource: {Image-Resource "DesignTables"} portfolio: :images action-handler: {Event-Handler :form on-switch-mode})
       (<Separator>)
       (<Toggle-Tool>   name: frames      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Frames?" resource: {Image-Resource "Fill"} portfolio: :images selected?: #t action-handler: {Event-Handler :form on-toggle-frames})
       (<Toggle-Tool>   name: content     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Content?" resource: {Image-Resource "View"} portfolio: :images selected?: #t action-handler: {Event-Handler :form on-toggle-content})
@@ -100,16 +100,6 @@
   ;;;
   ;;;; Events
   ;;;
-
-
-  (method override (finish initargs)
-    (nextmethod initargs)
-    (set! flow-layout (new Flow-Layout insets: {Rect 4 5 0 0}))
-    (layout-view))
-  
-  
-  (method override (layout)
-    (layout~ flow-layout children (get-width) (get-height)))
   
   
   (method (on-editor evt)
@@ -138,6 +128,19 @@
       (when (or (is-not? component View)
                 (not (try-out~ (get-surrogate~ component))))
         (toggle-try-out~ client))))
+  
+  
+  (method (on-switch-mode evt)
+    (let ((editor client))
+      (let ((client (get-client~ editor))
+            (view-editor? (is? editor View-Editor))
+            (modified? (get-modified?~ editor))
+            (form-copy (get-form-copy~ (get-designer~ editor))))
+        (set-parent~ client #f)
+        (close~ (get-frame~ editor))
+        (let* ((editor (open-component client editor-class: (if view-editor? Grid-Component-Editor View-Editor))))
+          (set-form-copy~ (get-designer~ editor) form-copy)
+          (set-modified?~ editor modified?)))))
   
   
   (method (on-edit-form evt)
@@ -171,18 +174,22 @@
   
   
   (method (client-update)
-    (let ((view-editor? (and client (is? client View-Editor))))
-      (set-enabled?~ (locate 'mode-select) view-editor?)
-      (set-enabled?~ (locate 'mode-rect) view-editor?)
+    (let ((view-editor? (and client (is? client View-Editor)))
+          (view? (and client (is? (get-client~ client) View))))
+      (set-enabled?~ (locate 'select) view-editor?)
+      (set-enabled?~ (locate 'rect) view-editor?)
       (let ((frames-button (locate 'frames))
             (content-button (locate 'content))
-            (try-out-button (locate 'try-out)))
+            (try-out-button (locate 'try-out))
+            (switch-mode-button (locate 'switch-mode)))
         (set-enabled?~ frames-button view-editor?)
         (set-enabled?~ content-button view-editor?)
         (set-enabled?~ try-out-button view-editor?)
+        (set-enabled?~ switch-mode-button view?)
         (set-selected?~ frames-button (and view-editor? (get-show-frames?~ client)))
         (set-selected?~ content-button (and view-editor? (get-show-content?~ client)))
-        (set-selected?~ try-out-button (and view-editor? (trying-out?~ client))))
+        (set-selected?~ try-out-button (and view-editor? (trying-out?~ client)))
+        (set-selected?~ switch-mode-button (and client (not view-editor?))))
       (set-enabled?~ (locate 'edit-form) client)))
   
   

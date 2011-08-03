@@ -881,17 +881,17 @@
     (let* ((focus (get-focus))
            (view? (and focus (is? focus View))))
       (when preferences-designer
-        (set-action-enabled? {Action view undo} (and view? (can-undo?~ focus)))
-        (set-action-enabled? {Action view redo} (and view? (can-redo?~ focus)))
-        (set-action-enabled? {Action view cut} (and view? (can-cut?~ focus)))
-        (set-action-enabled? {Action view copy} (and view? (can-copy?~ focus)))
-        (set-action-enabled? {Action application copy-formatted} (and view? (can-copy?~ focus)))
-        (set-action-enabled? {Action view paste} (and view? (can-paste?~ focus)))
-        (set-action-enabled? {Action application paste-cycle-stack} (and view? (can-paste?~ focus) (not-null? Clipboard-Stack)))
-        (set-action-enabled? {Action application paste-cycle-stack-reversed} (and view? (can-paste?~ focus) (not-null? Clipboard-Stack)))
-        (set-action-enabled? {Action view paste-properties} (and view? (can-paste-properties?~ focus)))
-        (set-action-enabled? {Action view delete} (and view? (can-delete?~ focus)))
-        (set-action-enabled? {Action view select-all} (and view? (can-select-all?~ focus)))
+        (set-action-enabled? {Action view undo} (and view? (can-view-undo?~ focus)))
+        (set-action-enabled? {Action view redo} (and view? (can-view-redo?~ focus)))
+        (set-action-enabled? {Action view cut} (and view? (can-view-cut?~ focus)))
+        (set-action-enabled? {Action view copy} (and view? (can-view-copy?~ focus)))
+        (set-action-enabled? {Action application copy-formatted} (and view? (can-view-copy?~ focus)))
+        (set-action-enabled? {Action view paste} (and view? (can-view-paste?~ focus)))
+        (set-action-enabled? {Action application paste-cycle-stack} (and view? (can-view-paste?~ focus) (not-null? Clipboard-Stack)))
+        (set-action-enabled? {Action application paste-cycle-stack-reversed} (and view? (can-view-paste?~ focus) (not-null? Clipboard-Stack)))
+        (set-action-enabled? {Action view paste-properties} (and view? (can-view-paste-properties?~ focus)))
+        (set-action-enabled? {Action view delete} (and view? (can-view-delete?~ focus)))
+        (set-action-enabled? {Action view select-all} (and view? (can-view-select-all?~ focus)))
         (when view?
           (focus-update-actions~ focus)))))
   
@@ -1862,17 +1862,16 @@
   
   ;; This needs cleanup as it cannot be done for every application
   (method public (update-search-actions)
-    (let* ((frames (all-frames))
-           (count (length frames))
+    (let* ((document (current-document))
            (result (active-search-result))
            (results (get-search-results))
            (resultset (get-current-resultset~ results))
            (results-count (get-visible-count~ (get-tree~ results))))
-      (set-action-enabled? {Action application find-forward} (and result (>= count 1)))
-      (set-action-enabled? {Action application find-backward} (and result (>= count 1)))
-      (set-action-enabled? {Action application replace} (and result (>= count 1)))
-      (set-action-enabled? {Action application replace&find-forward} (and result (>= count 1)))
-      (set-action-enabled? {Action application replace-all} (and result (>= count 1)))
+      (set-action-enabled? {Action application find-forward} (and result document))
+      (set-action-enabled? {Action application find-backward} (and result document))
+      (set-action-enabled? {Action application replace} (and result document))
+      (set-action-enabled? {Action application replace&find-forward} (and result document))
+      (set-action-enabled? {Action application replace-all} (and result document))
       (set-action-enabled? {Action application edit-next} (>= results-count 1))
       (set-action-enabled? {Action application edit-previous} (>= results-count 1))
       (set-action-enabled? {Action application edit-current} (>= results-count 1))
@@ -2173,7 +2172,8 @@
               (when selection
                 (let ((document (get-guest~ frame)))
                   (end-completion~ document)
-                  (set-selection-safe~ document selection ensure-displayed?: 'center-caret)))
+                  (set-selection-safe~ document selection ensure-displayed?: #f)
+                  (ensure-displayed~ document force-vertical: 'head)))
               (when (and visible? activate-focus?)
                 (focus-host~ frame))
               (verify-reload~ (get-controller~ (get-guest~ frame)))
@@ -2201,7 +2201,7 @@
   
   
   (method package virtual (on-close evt)
-    (let ((frame (first-frame)))
+    (let ((frame (front-frame)))
       (when frame
         (close-host~ frame))))
 
@@ -2486,14 +2486,15 @@
   
   
   (method public (update-window-actions)
-    (let ((frames (length (all-frames)))
+    (let ((all-frames (length (all-frames)))
+          (frames (length (current-stage-frames)))
           (stages (length (get-active-stages)))
           (in-modal? (in-modal?)))
       (set-action-enabled? {Action application close}             (and (>= frames 1) (not in-modal?)))
-      (set-action-enabled? {Action application close-all}         (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application close-all}         (and (>= all-frames 1) (not in-modal?)))
       (set-action-enabled? {Action guest save}                    (and (>= frames 1) (not in-modal?)))
       (set-action-enabled? {Action guest save-as}                 (and (>= frames 1) (not in-modal?)))
-      (set-action-enabled? {Action application save-all}          (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application save-all}          (and (>= all-frames 1) (not in-modal?)))
       (set-action-enabled? {Action guest revert-saved}            (and (>= frames 1) (not in-modal?)))
       (set-action-enabled? {Action guest compare-saved}           (and (>= frames 1) (not in-modal?)))
       (set-action-enabled? {Action application page-setup}        (and (>= frames 1) (not in-modal?)))
@@ -2511,14 +2512,14 @@
   
   (method package virtual (on-next-frame evt)
     (let ((first (first-frame)))
-      (send-frame-to-back first)
-      (focus-host~ (current-frame))))
+      (send-to-back~ first)
+      (focus-host~ (front-frame))))
   
   
   (method package virtual (on-previous-frame evt)
     (let ((last (last-frame)))
-      (bring-frame-to-front last)
-      (focus-host~ (current-frame))))
+      (bring-to-front~ last)
+      (focus-host~ (front-frame))))
   
   
   (method package virtual (on-current-frame evt)
@@ -2540,24 +2541,6 @@
            (count (length frames))
            (width (get-width~ stage))
            (height (get-height~ stage))
-           (h (quotient height count))
-           (t 0))
-      (with-locked-update
-        (lambda ()
-          (restore~ stage)
-          (for-each (lambda (frame)
-                      (set-position~ frame (new Point 0 t))
-                      (set-size~ frame (new Dimension width h))
-                      (increase! t h))
-                    frames)))))
-  
-  
-  (method package virtual (on-tile-vertically evt)
-    (let* ((stage (current-stage))
-           (frames (get-views~ stage))
-           (count (length frames))
-           (width (get-width~ stage))
-           (height (get-height~ stage))
            (w (quotient width count))
            (l 0))
       (with-locked-update
@@ -2567,6 +2550,24 @@
                       (set-position~ frame (new Point l 0))
                       (set-size~ frame (new Dimension w height))
                       (increase! l w))
+                    frames)))))
+  
+  
+  (method package virtual (on-tile-vertically evt)
+    (let* ((stage (current-stage))
+           (frames (get-views~ stage))
+           (count (length frames))
+           (width (get-width~ stage))
+           (height (get-height~ stage))
+           (h (quotient height count))
+           (t 0))
+      (with-locked-update
+        (lambda ()
+          (restore~ stage)
+          (for-each (lambda (frame)
+                      (set-position~ frame (new Point 0 t))
+                      (set-size~ frame (new Dimension width h))
+                      (increase! t h))
                     frames)))))
   
   

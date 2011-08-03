@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Components Tree Actions
+;;;; Toolbox Forms
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,83 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.editor.Components-Tree-Actions jazz
+(module protected jazz.designer.toolbox.Toolbox-Form jazz
 
 
 (import (jazz.designer)
         (jazz.jml)
-        (jazz.library)
-        (jazz.ui))
+        (jazz.library))
 
 
-(class undocumented Components-Tree-Actions extends Actions
+(class undocumented Toolbox-Form extends Toolbox-Addable
+
+
+  (property imports initialize #f accessors generate)
+  (property locator initialize #f accessors generate)
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (locate-form)
+    (require-form locator))
+  
+  
+  (method override (get-class)
+    (resolve-model~ (locate-form)))
+
+
+  ;;;
+  ;;;; Print
+  ;;;
+
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" locator))))
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Toolbox-Form-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer))
+
+
+(class Toolbox-Form-Descriptor extends Component-Descriptor
   
   
   (form
-    (<install>
-      (<Action-Item> name: rename     action-handler: {Event-Handler :focus on-rename-component} shortcut: {Shortcut F2})
-      (<Action-Item> name: properties action-handler: {Event-Handler :focus on-properties})
-      (<Action-Item> name: new        action-handler: {Event-Handler :focus on-new})
-      (<Action-Item> name: open       action-handler: {Event-Handler :focus on-open})
-      (<Action-Item> name: add        action-handler: {Event-Handler :focus on-add})))))
+    (<install>                 title: "Form" image: {Image-Resource "Green"}
+      (<properties~>
+        (<Property-Descriptor> name: title)
+        (<Property-Descriptor> name: imports)
+        (<Property-Descriptor> name: locator))))
+  
+  
+  (method override (component-presentation-property? component property)
+    (memq? (field-name property) '(title locator)))
+  
+  
+  (method override (component-get-presentation component)
+    (or (get-title~ component) (get-locator~ component)))
+  
+  
+  (method override (component-set-presentation component designer presentation)
+    (set-property~ designer component title: presentation)))))

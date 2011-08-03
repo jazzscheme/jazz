@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Components Tree Actions
+;;;; Style Domains
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,53 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.editor.Components-Tree-Actions jazz
+(module protected jazz.designer.domain.Style-Domain jazz
 
 
 (import (jazz.designer)
-        (jazz.jml)
         (jazz.library)
+        (jazz.locale)
+        (jazz.graphic)
         (jazz.ui))
 
 
-(class undocumented Components-Tree-Actions extends Actions
+(class Style-Domain extends Domain
   
   
-  (form
-    (<install>
-      (<Action-Item> name: rename     action-handler: {Event-Handler :focus on-rename-component} shortcut: {Shortcut F2})
-      (<Action-Item> name: properties action-handler: {Event-Handler :focus on-properties})
-      (<Action-Item> name: new        action-handler: {Event-Handler :focus on-new})
-      (<Action-Item> name: open       action-handler: {Event-Handler :focus on-open})
-      (<Action-Item> name: add        action-handler: {Event-Handler :focus on-add})))))
+  (property width   initialize 100 accessors generate)
+  (property choices initialize '() accessors generate)
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method override (present value)
+    (if (not value)
+        "{}"
+      (let ((pair (assq value choices)))
+        (if (not pair)
+            (->string value)
+          (localize (cadr pair))))))
+  
+  
+  ;;;
+  ;;;; Entry
+  ;;;
+  
+  
+  (method (style-choices)
+    '(Text-Base
+      Text-Bold))
+  
+  
+  (method override (setup-entry view client)
+    (set! choices~self (cons (list #f "None")
+                             (map (lambda (name)
+                                    (let ((style (symbolic-style name))
+                                          (title (->string name)))
+                                      (list style title)))
+                                  (sort nu<? (style-choices) key: symbol->string))))
+    (let ((entry (new Enumeration-Entry parent: view size: (new Dimension width 19) domain: self)))
+      (set-choices~ (locate~ entry 'combo) choices)))))

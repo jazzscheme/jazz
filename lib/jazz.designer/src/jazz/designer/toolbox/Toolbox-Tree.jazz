@@ -54,11 +54,10 @@
     (<install> portfolio: :images draggable?: #t reorderable?: #t multiple-selection?: #f selection-mode: row))
   
   
-  (method override (addable-root-classes)
-    (list
-     (reference Toolbox-Group)
-     #f
-     (reference Toolbox-Model)))
+  (method public (call-with-selected-addable func)
+    (let ((selected (get-single-selected-data)))
+      (and (is? selected Toolbox-Addable)
+           (func selected))))
   
   
   (method (call-with-selected-toolbox-model func)
@@ -69,6 +68,10 @@
   
   (method public (find-model-if pred)
     (find-if pred (collect-descendants client Toolbox-Model)))
+  
+  
+  (method public (selected-addable)
+    (call-with-selected-addable identity))
   
   
   (method public (selected-class)
@@ -84,7 +87,7 @@
   
   
   (method public (selected-toolbox)
-    (call-with-selected-toolbox-model (lambda (model) (find-ascendant~ model Toolbox))))
+    (call-with-selected-addable (lambda (addable) (find-ascendant~ addable Toolbox))))
   
   
   (method override (update-selection expand-state selected-components)
@@ -93,33 +96,42 @@
   
   (method override (focus-update-actions)
     (nextmethod)
-    (when (is? (get-single-selected-data) Toolbox-Model)
-      (set-action-enabled? {Action components-tree edit} #t)
-      (set-action-enabled? {Action components-tree new} #t)
-      (set-action-enabled? {Action components-tree add} #t)))
+    (let ((data (get-single-selected-data)))
+      (when (is? data Toolbox-Addable)
+        (let ((model? (is? data Toolbox-Model)))
+          (set-action-enabled? {Action components-tree new} #t)
+          (set-action-enabled? {Action components-tree open} model?)
+          (set-action-enabled? {Action components-tree add} #t)))))
   
   
   (method (on-double-click evt)
-    (let ((kind (get-kind~ (selected-toolbox))))
-      (if (eq? kind 'user)
-          (on-edit evt)
-        (on-add evt))))
-  
-  
-  (method override (on-edit evt)
-    (when (or (eq? (get-kind~ (selected-toolbox)) 'user)
-              (eq? (message-box "Are you sure you want to edit this non-user class?" type: 'question) 'yes))
-      (let ((class (selected-class)))
-        (and class (edit-class class)))))
+    (let ((selected (selected-toolbox)))
+      (when selected
+        (if (eq? (get-kind~ selected) 'user)
+            (on-open evt)
+          (on-add evt)))))
   
   
   (method (on-new evt)
-    (let ((model (or (selected-model) 'View))
-          (unit (or (selected-unit) 'jazz.ui)))
-      (edit-new model unit)))
+    (new-addable (selected-addable)))
   
   
-  (method (edit-new model unit (size: size #f))
+  (method override (on-open evt)
+    (when (or (eq? (get-kind~ (selected-toolbox)) 'user)
+              (eq? (message-box "Are you sure you want to open this non-user class?" type: 'question) 'yes))
+      (let ((class (selected-class)))
+        (and class (open-class class)))))
+  
+  
+  (method (new-addable addable)
+    (typecase addable
+      ((Toolbox-Model)
+       (new-class (get-model~ addable) (get-unit~ addable)))
+      ((Toolbox-Form)
+       (new-form (locate-form~ addable) (get-imports~ addable)))))
+  
+  
+  (method (new-class model unit (size: size #f))
     (let* ((model-name (string->symbol (string-append "<" (symbol->string model) ">")))
            (form-data (new Data 'jazz `((,unit)) #f))
            (form (construct-form
@@ -130,15 +142,26 @@
            (target (instantiate~ form)))
       (when size
         (set-size~ target size))
-      (edit-component target)))
+      (open-component target)))
+  
+  
+  (method (new-form form imports (size: size #f))
+    (let ((target (instantiate~ form)))
+      (when size
+        (set-size~ target size))
+      (open-component target)))
   
   
   (method (on-add evt)
-    (let ((class (selected-class))
-          (unit (selected-unit))
+    (let ((addable (selected-addable))
           (editor (current-document)))
-      (if (and class (is? editor View-Editor))
-          (add-new~ (get-surrogate~ (get-client~ editor)) class {Point 0 0} centered?: #f import: unit)
+      (if (and addable (is? editor View-Editor))
+          (let ((surrogate (get-surrogate~ (get-client~ editor))))
+            (typecase addable
+              ((Toolbox-Model)
+               (add-new~ surrogate (get-class~ addable) {Point 0 0} centered?: #f import: (get-unit~ addable)))
+              ((Toolbox-Form)
+               (add-new-form~ surrogate (locate-form~ addable) {Point 0 0} centered?: #f imports: (get-imports~ addable)))))
         (bell))))
   
   

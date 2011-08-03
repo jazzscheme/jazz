@@ -91,13 +91,9 @@
     (show-properties))
   
   
-  (method virtual (on-open-grid evt)
-    (new-frame Grid-Component-Editor client: (get-client)))
-  
-  
-  (method virtual (on-edit evt)
+  (method virtual (on-open evt)
     (let ((component (selected-component)))
-      (edit-class (class-of component))))
+      (open-class (class-of component))))
   
   ;;;
   ;;;; Focus
@@ -111,10 +107,9 @@
   
   (method override (focus-update-actions)
     (set-action-enabled? {Action components-tree rename} (can-rename?))
-    (set-action-enabled? {Action components-tree edit} #f)
     (set-action-enabled? {Action components-tree new} #f)
-    (set-action-enabled? {Action components-tree add} #f)
-    (set-action-enabled? {Action components-tree open-grid} #f))
+    (set-action-enabled? {Action components-tree open} #f)
+    (set-action-enabled? {Action components-tree add} #f))
 
 
   ;;;
@@ -347,12 +342,9 @@
   
   
   (method override (categorized-addable-classes component)
-    (cond ((not component)
-           (categorized-addable-root-classes))
-          ((is-not? component Component)
-           '())
-          (else
-           (component-categorized-addable-classes component (parent-relocation (get-parent~ component))))))
+    (if (is? component Component)
+        (component-categorized-addable-classes component (parent-relocation (get-parent~ component)))
+      '()))
   
   
   (method override (add-component-class reference (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
@@ -395,8 +387,8 @@
     '())
   
   
-  (method protected virtual (install-new-component designer child parent presentation added-properties extra-properties (import: import #f))
-    (add-child~ designer child parent import: import)
+  (method protected virtual (install-new-component designer child parent presentation added-properties extra-properties (import: import #f) (descendant?: descendant? #f))
+    (add-child~ designer child parent import: import descendant?: descendant?)
     (when presentation
       (set-presentation-property~ child designer presentation))
     (install-new-properties designer child added-properties extra-properties))
@@ -612,7 +604,7 @@
   
   (method virtual (on-selection-change evt)
     (when (and editor (eq? editor (get-selected-owner~ (get-application))))
-      (set-selection~ editor (selected-components) origin: self force?: #t focus?: #f)))
+      (set-selection~ editor (selected-components) origin: self focus?: #f)))
   
   
   (method public (select-component component)

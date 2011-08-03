@@ -59,6 +59,9 @@
   (slot client-selection initialize #f)
   (slot client-position  initialize #f)
   
+  
+  (slot preserved-states initialize (make-table test: eq? weak-keys: #t))
+  
 
   (form
     (<install>                                        layout-type: fill
@@ -247,9 +250,13 @@
  
   (method public (set-client/entry clt entry)
     (when (neq? entry client-entry)
+      (when client
+        (preserve-state client))
       (set! client clt)
       (set! client-entry entry)
-      (update)))
+      (update)
+      (when client
+        (restore-state client))))
   
   
   (method (update)
@@ -323,6 +330,21 @@
              (with-update-locked~ tree
                (lambda ()
                  (insert-entry-definition tree client-entry)))))))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method (preserve-state client)
+    (table-set! preserved-states client (get-view-state~ (locate 'definitions) use: 'text)))
+  
+  
+  (method (restore-state client)
+    (let ((state (table-ref preserved-states client #f)))
+      (when state
+        (set-view-state~ (locate 'definitions) state))))
   
   
   ;;;

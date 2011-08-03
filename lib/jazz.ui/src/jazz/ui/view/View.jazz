@@ -60,6 +60,7 @@
   
   (property title                                initialize #f accessors explicit)
   (property font                                 initialize #f accessors explicit)
+  (property style                                initialize #f accessors explicit)
   (property background                           initialize #f accessors explicit)
   (property auto-size?                           initialize #f accessors explicit)
   (property tooltip?                             initialize #f accessors explicit)
@@ -1675,6 +1676,25 @@
   (method public virtual (effective-font)
     (or font (registered-font default-font)))
 
+
+  ;;;
+  ;;;; Style
+  ;;;
+
+
+  (method public (get-style)
+    style)
+
+
+  (method public (set-style value)
+    (when (neq? value style)
+      (set! style value)
+      (style-update)))
+  
+  
+  (method protected virtual (style-update)
+    (invalidate-view))
+
   
   ;;;
   ;;;; Background
@@ -1799,6 +1819,19 @@
   (method public (call-selection-handler old selection force? user-origin)
     (when selection-handler
       (invoke-handler self selection-handler (new Selection-Event :selection-change self old selection force?: force? user-origin: user-origin))))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method public virtual (get-view-state)
+    )
+  
+  
+  (method public virtual (set-view-state state)
+    )
 
 
   ;;;
@@ -2131,7 +2164,7 @@
           (when (allow-start-drag? pos)
             (let ((drag-drop (get-drag-drop)))
               (when drag-drop
-                (drag-start pos (nu- mouse-down-point (get-drag-hotspot)) drag-drop))))
+                (drag-start pos drag-drop))))
           (when (current-drag-drop)
             (drag-follow pos)))
       (call-drag-move pos)))
@@ -2667,10 +2700,6 @@
         (new DnD source: source))))
   
   
-  (method public virtual (get-drag-hotspot)
-    {Point 0 0})
-  
-  
   (method public virtual (get-drag-source)
     (let ((pos (get-drag-position)))
       (new Drag-Source view: self position: pos image: (get-drag-image pos))))
@@ -2684,7 +2713,7 @@
     #f)
   
   
-  (method (drag-start pos hotspot drag-drop)
+  (method (drag-start pos drag-drop)
     (set-current-drag-drop drag-drop)
     (let ((view (get-view~ (get-source~ drag-drop))))
       (set-cursor :no)
@@ -3056,58 +3085,94 @@
       (select-all~ surrogate)))
   
   
-  (method public virtual (can-undo?)
+  (method public (can-view-undo?)
     (if surrogate
         (can-undo?~ surrogate)
-      #f))
+      (can-undo?)))
+  
+  
+  (method public virtual (can-undo?)
+    #f)
+  
+  
+  (method public (can-view-redo?)
+    (if surrogate
+        (can-redo?~ surrogate)
+      (can-redo?)))
   
   
   (method public virtual (can-redo?)
+    #f)
+  
+  
+  (method public (can-view-cut?)
     (if surrogate
-        (can-redo?~ surrogate)
-      #f))
+        (can-cut?~ surrogate)
+      (can-cut?)))
   
   
   (method public virtual (can-cut?)
+    #f)
+  
+  
+  (method public (can-view-copy?)
     (if surrogate
-        (can-cut?~ surrogate)
-      #f))
+        (can-copy?~ surrogate)
+      (can-copy?)))
   
   
   (method public virtual (can-copy?)
+    #f)
+  
+  
+  (method public (can-view-paste?)
     (if surrogate
-        (can-copy?~ surrogate)
-      #f))
+        (can-paste?~ surrogate)
+      (can-paste?)))
   
   
   (method public virtual (can-paste?)
+    #f)
+  
+  
+  (method public (can-view-paste-properties?)
     (if surrogate
-        (can-paste?~ surrogate)
-      #f))
+        (can-paste-properties?~ surrogate)
+      (can-paste-properties?)))
   
   
   (method public virtual (can-paste-properties?)
+    #f)
+  
+  
+  (method public (can-view-delete?)
     (if surrogate
-        (can-paste-properties?~ surrogate)
-      #f))
+        (can-delete?~ surrogate)
+      (can-delete?)))
   
   
   (method public virtual (can-delete?)
+    #f)
+  
+  
+  (method public (can-view-rename?)
     (if surrogate
-        (can-delete?~ surrogate)
-      #f))
+        (can-rename?~ surrogate)
+      (can-rename?)))
   
   
   (method public virtual (can-rename?)
+    #f)
+  
+  
+  (method public (can-view-select-all?)
     (if surrogate
-        (can-rename?~ surrogate)
-      #f))
+        (can-select-all?~ surrogate)
+      (can-select-all?)))
   
   
   (method public virtual (can-select-all?)
-    (if surrogate
-        (can-select-all?~ surrogate)
-      #f))
+    #f)
   
   
   (method public virtual (undo)
@@ -3211,14 +3276,14 @@
   
   
   (method override (get-parent/child-clipper child h v)
-    (let ((sc <fl> (if scaled? scaling 1.0)))
-      (let ((p (get-translated-clipper (- (* h sc) (get-h~ (get-position~ child))) (- (* v sc) (get-v~ (get-position~ child)))))
+    (if (not scaled?)
+        (nextmethod child h v)
+      (let ((p (get-translated-clipper (- (* h scaling) (get-h~ (get-position~ child))) (- (* v scaling) (get-v~ (get-position~ child)))))
             (c (offset-rect (get-bounds~ child) (fxround h) (fxround v))))
-        (when scaled?
-          (set-left~ p (fxround (/ (get-left~ p) sc)))
-          (set-top~ p (fxround (/ (get-top~ p) sc)))
-          (set-right~ p (fxround (/ (get-right~ p) sc)))
-          (set-bottom~ p (fxround (/ (get-bottom~ p) sc))))
+        (set-left~ p (fxround (/ (get-left~ p) scaling)))
+        (set-top~ p (fxround (/ (get-top~ p) scaling)))
+        (set-right~ p (fxround (/ (get-right~ p) scaling)))
+        (set-bottom~ p (fxround (/ (get-bottom~ p) scaling)))
         (rect-intersection p c))))
   
   
@@ -3399,6 +3464,8 @@
           (<Localized-Domain>  name: domain))
         (<Property-Descriptor> name: font title: "Font"
           (<Font-Domain>       name: domain))
+        (<Property-Descriptor> name: style title: "Style"
+          (<Style-Domain>      name: domain))
         (<Property-Descriptor> name: background title: "Background"
           (<Color-Domain>      name: domain))
         (<Property-Descriptor> name: auto-size? title: "Auto Size"

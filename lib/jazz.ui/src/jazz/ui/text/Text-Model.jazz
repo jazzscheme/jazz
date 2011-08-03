@@ -72,8 +72,6 @@
   
   ;; a user friendly textual input format that is saved as is
   (property protected text                           initialize #f                       accessors explicit)
-  ;; the text content automaticaly saved in a canonical form when the text is visually edited
-  (property protected text-content                   initialize #f                       accessors explicit)
   (property protected wrap?                          initialize #f                       accessors generate)
   (property protected base-format                    initialize #f                       accessors generate)
   (property protected default-format                 initialize #f                       accessors explicit)
@@ -735,9 +733,9 @@
   
   (method public (insert-styled range string style)
     (let ((start (get-start~ range))
-          (style (cond ((is? style Style) style) ((not style) default-style) (else (get-style style)))))
+          (style (cond ((is? style Style) style) ((not style) default-style) (else (locate-style style)))))
       (let ((end (insert-string range string)))
-        (set-style (new Range$Cell$ start end) style))))
+        (stylize-range (new Range$Cell$ start end) style))))
   
   
   (method public (insert-link range string (font: font #f) (anchor: anchor #f) (action: action #f))
@@ -1070,7 +1068,7 @@
             (case target
               ((style:)
                (let ((name (get-next~ scan)))
-                 (set! style (get-style name))))
+                 (set! style (locate-style name))))
               ((:link)
                (let ((action (get-next~ scan)))
                  (set! style (new-link-style action))))
@@ -1230,20 +1228,6 @@
   
   
   ;;;
-  ;;;; Text Content
-  ;;;
-  
-  
-  (method public (get-text-content)
-    text-content)
-  
-  
-  (method public (set-text-content value)
-    (set! text-content value)
-    (set-content text-content))
-  
-  
-  ;;;
   ;;;; Formatted
   ;;;
   
@@ -1338,7 +1322,7 @@
             (lambda (line <fx> paragraph <Paragraph>)
               (put~ fact (cons (get-rank (get-format~ paragraph) formats)
                                (map (lambda (run)
-                                      (list (get-string~ run) (get-rank (get-style~ run) styles)))
+                                      (list (export-string~ run) (get-rank (get-style~ run) styles)))
                                     (get-runs~ paragraph))))))
           (get-output~ fact)))
       
@@ -1478,7 +1462,7 @@
                                   (bind (string . ref) run
                                     (let ((style (reference-style styles (car ref))))
                                       (set-col~ end (+ (get-col~ start) (cast <fx> (cardinality string))))
-                                      (set-style (new Range$Cell$ start end) style)
+                                      (stylize-range (new Range$Cell$ start end) style)
                                       (set-col~ start (get-col~ end)))))
                                 runs)
                       (let* ((full-paragraph (get-paragraph (get-line~ start)))
@@ -1560,16 +1544,16 @@
   
   
   (method public (apply-style name start (end #f))
-    (stylize (get-style name) start end))
+    (stylize (locate-style name) start end))
   
   
   (method public (stylize name/style start (end #f))
     (when (not end)
       (set! end (new Cell (get-line~ start) (paragraph-length (get-line~ start)))))
-    (set-text-style (new Range$Cell$ start end) (get-style name/style)))
+    (set-text-style (new Range$Cell$ start end) (locate-style name/style)))
   
   
-  (method public (set-style range <Range$Cell$> style <Style>)
+  (method public (stylize-range range <Range$Cell$> style <Style>)
     (let ((style (intern-style style)))
       (for-each-range range
         (lambda (line paragraph start end)
@@ -1736,7 +1720,7 @@
       (register-exemplar name format formats)))
   
   
-  (method public (get-format name/format (error?: error? #t)) <Format>
+  (method public (locate-format name/format (error?: error? #t)) <Format>
     (if (is? name/format Format)
         name/format
       (locate~ formats name/format error?: error?)))
@@ -1748,7 +1732,7 @@
   
   (method (reference-format formats reference)
     (if (symbol? reference)
-        (get-format reference)
+        (locate-format reference)
       (element formats reference)))
   
   
@@ -1799,7 +1783,7 @@
       (register-exemplar name style styles)))
   
   
-  (method public (get-style name/style (error?: error? #t)) <Style>
+  (method public (locate-style name/style (error?: error? #t)) <Style>
     (if (is? name/style Style)
         name/style
       (locate~ styles name/style error?: error?)))
@@ -1811,7 +1795,7 @@
   
   (method (reference-style styles reference)
     (if (symbol? reference)
-        (get-style reference)
+        (locate-style reference)
       (element styles reference)))
   
   

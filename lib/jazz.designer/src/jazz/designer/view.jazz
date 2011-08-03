@@ -68,17 +68,19 @@
 (definition package (component-addable-classes component)
   (remove-duplicates
     (flatten
-      (component-categorized-toolbox-addable-classes component))
+      (or (component-categorized-toolbox-addable-classes component) '()))
     key: serialize-runtime-reference
     test: equal?))
 
 
 (definition package (component-categorized-toolbox-addable-classes component)
-  (let ((toolbox (find-docked Toolbox-Manager)))
-    (and toolbox
+  (let ((toolbox-managers (get-toolbox-managers)))
+    (and (not-null? toolbox-managers)
          (is? component Component)
          (append (get-categorized-addable-classes~ component)
-                 (list (get-addable-models-refs~ toolbox component))))))
+                 (list (apply union (map (lambda (manager)
+                                           (get-addable-models-refs~ manager component))
+                                         toolbox-managers)))))))
 
 
 (definition package (component-categorized-addable-classes component parent)
@@ -101,7 +103,7 @@
          components))
 
 
-(definition (can-modify-components? components pred)
+(definition public (can-modify-components? components pred)
   (every? (lambda (component)
             (and (is? component Component)
                  (pred component)
@@ -129,11 +131,11 @@
 
 
 ;;;
-;;;; Edit
+;;;; Open
 ;;;
 
 
-(definition public (edit-class class)
+(definition public (open-class class)
   (define (find-editor)
     (find-frame-if-guest
       (lambda (guest)
@@ -151,11 +153,11 @@
                  (editor-class (typecase component
                                  ((View) View-Editor)
                                  ((Component) Grid-Component-Editor))))
-            (edit-component component editor-class: editor-class))))
-    (error "Unable to edit: {s}" class)))
+            (open-component component editor-class: editor-class))))
+    (error "Unable to open: {s}" class)))
 
 
-(definition public (edit-component target (editor-class: editor-class #f))
+(definition public (open-component target (editor-class: editor-class #f))
   (let ((component (parameterize ((designing? #t))
                      (cond ((class? target) (new target))
                            ((is? target Form) (instantiate~ target))
@@ -168,7 +170,7 @@
                               ((Component) Grid-Component-Editor)))))
       (let ((frame (new-frame editor-class client: component)))
         (let ((editor (get-guest~ frame)))
-          (set-selection~ editor (list component))
+          (set-selection~ editor (list component) origin: editor)
           editor)))))
 
 
@@ -259,4 +261,13 @@
     (lambda (obj)
       (and (object? obj)
            (is? obj Designer-Error)))
-    thunk)))
+    thunk))
+
+
+;;;
+;;;; Toolboxes
+;;;
+
+
+(definition public (get-toolbox-managers)
+  (collect-type Toolbox-Manager (docked-views))))

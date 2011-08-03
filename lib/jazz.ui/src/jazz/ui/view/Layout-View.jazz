@@ -53,7 +53,7 @@
   ;; center  : center children in layout
   ;; justify : justify children in layout
   ;; border  : west top right bottom center layout
-  ;; snap
+  ;; snap    : snap around a center and adjust layout
   ;; flow    : flow the children accross the layout
   ;; box
   (property layout-type          initialize #f             accessors explicit)
@@ -139,6 +139,7 @@
   (method override (layout)
     (case layout-type
       ((#f))
+      ((gravity)) ;; done in resize
       ((fill)
        (let ((position (fill-position))
              (size (fill-size)))
@@ -185,6 +186,56 @@
     (adjust))
   
   
+  (method override (resize dh dv)
+    (define (expand-location location)
+      (define (invalid)
+        (error "Ill-formed location property: {s}" location))
+      
+      (cond ((not location)
+             (values #f #f))
+            ((pair? location)
+             (bind (h-location v-location) location
+               (values (case h-location
+                         ((move fill #f)
+                          h-location)
+                         (else
+                          (invalid)))
+                       (case v-location
+                         ((move fill #f)
+                          v-location)
+                         (else
+                          (invalid))))))
+            ((symbol? location)
+             (case location
+               ((move)   (values 'move 'move))
+               ((h-move) (values 'move #f))
+               ((v-move) (values #f 'move))
+               ((fill)   (values 'fill 'fill))
+               ((h-fill) (values 'fill #f))
+               ((v-fill) (values #f 'fill))
+               (else     (invalid))))
+            (else
+             (invalid))))
+    
+    (define (resize-child view location)
+      (receive (h-location v-location) (expand-location location)
+        (move-figure~ view
+          (if (eq? h-location 'move) dh 0)
+          (if (eq? v-location 'move) dv 0))
+        (size-figure~ view
+          (if (eq? h-location 'fill) dh 0)
+          (if (eq? v-location 'fill) dv 0))))
+    
+    (nextmethod dh dv)
+    (when (eq? layout-type 'gravity)
+      (for-each (lambda (child)
+                  (when (is? child View)
+                    (let ((location (get-location~ child)))
+                      (when location
+                        (resize-child child location)))))
+                (get-children))))
+  
+  
   (method override (adjust?)
     (boolean layout-fit))
   
@@ -201,22 +252,32 @@
     (case layout-fit
       ((#f))
       ((around)
-       (let ((left 0)
-             (top 0)
+       (let ((left #f)
+             (top #f)
              (right 0)
              (bottom 0))
          (for-each (lambda (child)
                      (when (and (is? child View) (get-visible?~ child))
                        (let ((rect (get-rect~ child)))
-                         (set! left (min left (get-left~ rect)))
-                         (set! top (min top (get-top~ rect)))
+                         (set! left (if (not left) (get-left~ rect) (min left (get-left~ rect))))
+                         (set! top (if (not top) (get-top~ rect) (min top (get-top~ rect))))
                          (set! right (max right (get-right~ rect)))
                          (set! bottom (max bottom (get-bottom~ rect))))))
                    children)
-         (let ((size (new Dimension
-                       (+ (get-left~ layout-insets) (- right left) (get-right~ layout-insets))
-                       (+ (get-top~ layout-insets) (- bottom top) (get-bottom~ layout-insets)))))
-           (set-size size))))))
+         (if (not left)
+             (set-size (new Dimension
+                         (+ (get-left~ layout-insets) (get-right~ layout-insets))
+                         (+ (get-top~ layout-insets) (get-bottom~ layout-insets))))
+           (let ((dh (- (get-left~ layout-insets) left))
+                 (dv (- (get-top~ layout-insets) top)))
+             (for-each (lambda (child)
+                         (when (and (is? child View) (get-visible?~ child))
+                           (move-figure~ child dh dv)))
+                       children))
+           (let ((size (new Dimension
+                         (+ (get-left~ layout-insets) (- right left) (get-right~ layout-insets))
+                         (+ (get-top~ layout-insets) (- bottom top) (get-bottom~ layout-insets)))))
+             (set-size size)))))))
   
   
   (method protected virtual (fill-position) <Point>
@@ -259,7 +320,9 @@
           (<Rect-Domain>          name: domain))
         (<Property-Descriptor>    name: layout-justification title: "Layout Justification"
           (<Justification-Domain> name: domain))
-        (<Property-Descriptor>    name: layout-padding title: "Layout Padding"))))
+        (<Property-Descriptor>    name: layout-padding title: "Layout Padding")
+        (<Property-Descriptor>    name: layout-fit title: "Layout Fit"
+          (<Boolean-Domain>       name: domain)))))
   
   
   (method override (class-image class)

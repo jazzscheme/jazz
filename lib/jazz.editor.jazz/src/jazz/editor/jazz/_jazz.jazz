@@ -38,4 +38,38 @@
 (module jazz.editor.jazz jazz
 
 
-(export (jazz.editor.jazz.autoload)))
+(import (jazz.editor.jazz.autoload))
+
+
+(export (jazz.editor.jazz.autoload))
+
+
+(definition public (insert-imports text imports)
+  (define (insert-import-declaration initial-import)
+    (let ((explorer (new Jazz-Explorer (get-model~ text))))
+      (forward-namespace~ explorer)
+      (unless (enter-import~ explorer)
+        (let ((explorer (new Jazz-Explorer (get-model~ text))))
+          (forward-namespace~ explorer)
+          (set-caret~ text (get-end~ explorer))
+          (insert-string~ text (format "{%}{%}{%}(import ({a}))" initial-import))))))
+  
+  (define (insert-import unit)
+    (let ((explorer (new Jazz-Explorer (get-model~ text))))
+      (forward-namespace~ explorer)
+      (enter-import~ explorer)
+      (receive (found? first?) (find-import-invoice~ explorer unit #t)
+        (unless found?
+          (set-caret~ text (get-end~ explorer))
+          (cond (first?
+                  (insert-string~ text (format " ({a})" unit))
+                  (insert-newline~ text)
+                  (tabulate~ text))
+                (else
+                 (insert-newline~ text)
+                 (tabulate~ text)
+                 (insert-string~ text (format "({a})" unit))))))))
+  
+  (insert-import-declaration (car imports))
+  (for-each insert-import (let ((explorer (new Jazz-Explorer (get-model~ text))))
+                            (filter-existing-import-invoices~ explorer (remove-duplicates (cdr imports)))))))

@@ -115,18 +115,18 @@
   
   
   (method (with-orientation surface page clipper proc)
-    (let* ((landscape? (print-landscape?))
-           (proc
-            (lambda ()
-              (with-clipper~ surface (if landscape? (inverse-rect clipper) clipper)
-                (lambda ()
-                  (proc))))))
+    (let ((landscape? (print-landscape?)))
+      (define (clip-proc)
+        (with-clipper~ surface (if landscape? (inverse-rect clipper) clipper)
+          (lambda ()
+            (proc))))
+      
       (if (not landscape?)
-          (proc)
+          (clip-proc)
         (let ((orientation 'counterclockwise)
               (page-size (rect-size page)))
           (with-landscape~ surface
-            orientation page-size proc)))))
+            orientation page-size clip-proc)))))
   
   
   (method public (print-page surface lh lv page no)
@@ -171,7 +171,6 @@
              (clipper (offset-rect (scale (offset-rect page (- (get-left~ page)) (- (get-top~ page))) scaling) left top)))
         (with-orientation surface page clipper
           (lambda ()
-            (set-clipper~ surface content)
             (paint-drawing~ client surface context new-lh new-lv left top scaling #t))))))
   
   

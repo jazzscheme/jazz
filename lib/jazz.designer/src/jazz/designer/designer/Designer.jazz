@@ -247,7 +247,7 @@
     (let* ((super-class-import (super-class-import))
            (modules (remove-duplicates (append (default-designer-imports~ (get-application))
                                                (if super-class-import (list super-class-import) '())
-                                               (form-imports form (and (get-origin~ form) (origin-import form)))))))
+                                               (form-imports form (and (is? (get-origin~ form) Class) (origin-import form)))))))
       (if module-name (remove module-name modules) modules)))
   
   
@@ -340,7 +340,10 @@
       (call-with-output-file (path-settings file char-encoding: 'UTF-8)
         (lambda (output)
           (let ((data (get-data~ form))
-                (adjusted-form (new Form textual?: #f action: 'new model: (super-class-name form) properties: (get-properties~ form) children: (get-children~ form))))
+                (adjusted-form (copy-object~ form #t)))
+            (set-origin~ adjusted-form file)
+            (set-action~ adjusted-form 'new)
+            (set-model~ adjusted-form (super-class-name form))
             (output-header (get-model~ adjusted-form) output)
             (format output "{%}{%}")
             (format output "(data {a}{%}" (if data (get-dialect~ data) 'jazz))
@@ -355,7 +358,10 @@
                           (cdr imports))
                 (format output  "){%}{%}{%}")))
             (print-file-form adjusted-form 1 output)
-            (format output "){%}"))))))
+            (format output "){%}")
+            (for-each (lambda (designer)
+                        (set-form~ designer adjusted-form))
+                      (get-designers~ reference)))))))
 
 
   (method public (saved-form . rest)

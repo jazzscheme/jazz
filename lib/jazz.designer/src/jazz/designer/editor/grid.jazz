@@ -274,11 +274,21 @@
         (is? column-data Component-Provider-Selection-Data))))
   
   
+  (method (component-owned? component)
+    (owned-form (get-form~ designer) (component-ancestry component (get-reference~ designer))))
+  
+  
   (method override (cell-editable? row column)
     (call-with-row/column-data row column
       (lambda (row-data column-data)
         (and (not (get-read-only?~ column-data))
-             (not (is? column-data Component-Provider-Selection-Data))))))
+             (not (is? column-data Component-Provider-Selection-Data))
+             (or (not (class-selection?~ column-data))
+                 (get-data~ (get-provider) row-data column-data
+                   (lambda (component _)
+                     (component-owned? component))
+                   (const #f)))))))
+  
   
   (method (get-provider)
     (get-provider~ parent))
@@ -619,7 +629,7 @@
         ref))
     
     (define (setup-selection-columns addable-references component-offset add-to)
-      (let ((class-references (map runtime-reference->reference addable-references)))
+      (let ((class-references (remove-duplicates (map runtime-reference->reference addable-references) key: resolve-reference~)))
         (add-selection-column #f component-offset add-to class-references)
         (add-property-column component-offset 'name-info "Name" #t)
         (setup-class-column class-references component-offset)
@@ -759,4 +769,5 @@
   
   (method override (install rest)
     (nextmethod rest)
-    (set-editor~ (locate 'grid) self))))
+    (set-editor~ (locate 'grid) self)
+    (set-designer~ (locate 'grid) designer))))

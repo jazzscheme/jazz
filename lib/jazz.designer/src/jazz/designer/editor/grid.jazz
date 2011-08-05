@@ -169,17 +169,13 @@
            (column-data-component-property row-data column-data (const #f) property-domain~))))
   
   
-  (method (component-owned? component)
-    (owned-form (get-form~ designer) (component-ancestry component (get-reference~ designer))))
-  
-  
   (method override (read-only? row-data column-data)
     (or (get-read-only?~ column-data)
         (and (class-selection?~ column-data)
              (column-data-component-class-references row-data column-data
                (lambda args #t)
                (lambda (component _)
-                 (not (component-owned? component))))))))
+                 (not (component-owned? component (get-form~ designer) (get-reference~ designer)))))))))
 
 
 (class Component-Controller-Actions extends Actions
@@ -308,8 +304,10 @@
            (let ((row-data (car rows-data))
                  (column-data (car columns-data)))
              (and (is? column-data Component-Provider-Selection-Data)
-                  (element row-data (get-component-offset~ column-data))
-                  (not (get-identifier~ column-data)))))))
+                  (let ((component (element row-data (get-component-offset~ column-data))))
+                    (and component
+                         (not (get-identifier~ column-data))
+                         (component-owned-by-reference? component))))))))
   
   
   (method public (can-insert?)
@@ -387,12 +385,18 @@
       (paste-parcels~ designer (get-jazz-parcels) parent)))
   
   
+  (method (component-owned-by-reference? component)
+    (component-owned? component (get-form~ designer) (get-reference~ designer)))
+  
+  
   (method override (can-copy?)
     (can-copy-components? (selected-components)))
   
   
   (method override (can-cut?)
-    (can-cut-components? (selected-components)))
+    (let ((components (selected-components)))
+      (and (every? component-owned-by-reference? components)
+           (can-cut-components? components))))
   
   
   (method override (can-paste?)
@@ -400,7 +404,9 @@
   
   
   (method override (can-delete?)
-    (can-delete-components? (selected-components)))
+    (let ((components (selected-components)))
+      (and (every? component-owned-by-reference? components)
+           (can-delete-components? components))))
   
   
   (method override (get-draggable?)

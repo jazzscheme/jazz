@@ -169,8 +169,17 @@
            (column-data-component-property row-data column-data (const #f) property-domain~))))
   
   
+  (method (component-owned? component)
+    (owned-form (get-form~ designer) (component-ancestry component (get-reference~ designer))))
+  
+  
   (method override (read-only? row-data column-data)
-    (get-read-only?~ column-data)))
+    (or (get-read-only?~ column-data)
+        (and (class-selection?~ column-data)
+             (column-data-component-class-references row-data column-data
+               (lambda args #t)
+               (lambda (component _)
+                 (not (component-owned? component))))))))
 
 
 (class Component-Controller-Actions extends Actions
@@ -274,20 +283,11 @@
         (is? column-data Component-Provider-Selection-Data))))
   
   
-  (method (component-owned? component)
-    (owned-form (get-form~ designer) (component-ancestry component (get-reference~ designer))))
-  
-  
   (method override (cell-editable? row column)
     (call-with-row/column-data row column
       (lambda (row-data column-data)
         (and (not (get-read-only?~ column-data))
-             (not (is? column-data Component-Provider-Selection-Data))
-             (or (not (class-selection?~ column-data))
-                 (get-data~ (get-provider) row-data column-data
-                   (lambda (component _)
-                     (component-owned? component))
-                   (const #f)))))))
+             (not (is? column-data Component-Provider-Selection-Data))))))
   
   
   (method (get-provider)

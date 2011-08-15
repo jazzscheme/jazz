@@ -80,7 +80,7 @@
            (class (category-identifier (class-of value)))
            (presentation (cond (unbound? "<unbound>")
                                (raw? (truncate (->string value)))
-                               (else (present-object value (or max-width presentation-limit)))))
+                               (else (safe-present-object value (or max-width presentation-limit)))))
            (more? (cond ((or unbound? raw?) #f)
                         ((memq? kind '(frame: context:)) #t)
                         (else (more-value? value)))))
@@ -121,7 +121,7 @@
     (let ((limit? (> (table-length table) max-content)))
       (let ((content (map (lambda (pair)
                             (bind (key . value) pair
-                              (cons (present-object key max-width)
+                              (cons (safe-present-object key max-width)
                                     (packager value))))
                           (let ((lst (table->list table)))
                             (if limit?
@@ -142,12 +142,11 @@
                             ;; when we forget to redefine core classes in jazz, slots are symbols
                             (if (symbol? slot)
                                 (cons slot (packager "<core slot>" kind: :raw))
-                              (let ((value (slot-value object (field-name slot))))
-                                (if (and (unspecified? value) (property? slot))
-                                    (cons (field-name slot)
-                                          (packager (read-property object slot) kind: :raw))
-                                  (cons (field-name slot)
-                                        (packager value))))))
+                              (cons (field-name slot)
+                                    (let ((offset (get-offset~ slot)))
+                                      (if (not offset)
+                                          (packager (safe-present-property object slot) kind: :raw)
+                                        (packager (get-object-slot object offset)))))))
                           (class-slots (class-of object)))))
       @when-we-have-sorting-through-the-ui
       infos

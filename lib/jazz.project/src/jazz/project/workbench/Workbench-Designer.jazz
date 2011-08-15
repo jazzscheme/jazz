@@ -165,13 +165,22 @@
   ;;;
   
   
+  (method (find-owner-project component)
+    (if (or (eq? component reference) (is? component Project))
+        component
+      (find-owner-project (get-parent~ component))))
+  
+  
+  (method override (component-owned-by-reference? component)
+    (let ((owner-project (find-owner-project component)))
+      (and owner-project
+           (if (eq? owner-project reference)
+               (component-owned? component form reference)
+             (component-owned-by-reference?~ (get-project-designer owner-project) component)))))
+  
+  
   (method (find-modification-owner components)
     (define (find-components-owner)
-      (define (find-owner-project component)
-        (if (or (eq? component reference) (is? component Project))
-            component
-          (find-owner-project (get-parent~ component))))
-      
       (if (pair? components)
           (let ((owners (remove-duplicates (map find-owner-project components))))
             (if (> (length owners) 1)

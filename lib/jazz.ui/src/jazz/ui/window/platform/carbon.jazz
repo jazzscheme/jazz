@@ -292,7 +292,7 @@
                        (win (get-window view)))
                   (if win
                       (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
-                        (mouse-move~ win (inexact->exact x) (inexact->exact y))
+                        (mouse-move~ win (flonum->fixnum x) (flonum->fixnum y))
                         noErr)
                     eventNotHandledErr))))))
          ((= type kEventMouseUp)
@@ -302,7 +302,7 @@
                      (win (get-window view)))
                 (if win
                     (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
-                      (mouse-up~ win (inexact->exact x) (inexact->exact y))
+                      (mouse-up~ win (flonum->fixnum x) (flonum->fixnum y))
                       noErr)
                   eventNotHandledErr)))))
          ((= type kEventMouseDown)
@@ -312,7 +312,7 @@
                      (win (get-window view)))
                 (if win
                     (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
-                      (mouse-down~ win (inexact->exact x) (inexact->exact y))
+                      (mouse-down~ win (flonum->fixnum x) (flonum->fixnum y))
                       noErr)
                   eventNotHandledErr)))))
          (else eventNotHandledErr)))
@@ -350,9 +350,10 @@
            noErr)
           ((= type kEventControlBoundsChanged)
            (receive (left top width height) (HIViewGetBounds handle)
-             (if (is? (get-window handle) Docked-Host) (show-window handle))
-             (call-size-change~ (get-window handle) 'restored (inexact->exact width) (inexact->exact height))
-             (call-position-change~ (get-window handle) (inexact->exact left) (inexact->exact top)))
+             (when (is? (get-window handle) Docked-Host)
+               (show-window handle))
+             (call-size-change~ (get-window handle) 'restored (flonum->fixnum width) (flonum->fixnum height))
+             (call-position-change~ (get-window handle) (flonum->fixnum left) (flonum->fixnum top)))
            noErr)
           (else
            eventNotHandledErr))))
@@ -468,7 +469,7 @@
   (let ((x (get-h~ shape))
         (y (get-v~ shape)))
     (receive (x y) (convertCoordinates from-handle to-handle (exact->inexact x) (exact->inexact y))
-      (new Point (inexact->exact x) (inexact->exact y)))))
+      (new Point (flonum->fixnum x) (flonum->fixnum y)))))
 
 
 (definition public (acquire-rect to-handle from-handle shape)
@@ -487,12 +488,12 @@
   (let* ((window (HIViewGetWindow handle))
          (root   (HIViewGetRoot window)))
     (receive (x y) (convertCoordinates handle root 0.0 0.0)
-       (receive (l t w h) (WindowGetBounds window kWindowContentRgn)
-          (new Point (inexact->exact (+ l x)) (inexact->exact (+ t y)))))))
+      (receive (l t w h) (WindowGetBounds window kWindowContentRgn)
+        (new Point (flonum->fixnum (+ l x)) (flonum->fixnum (+ t y)))))))
 
 (definition package (platform-get-position handle parent-handle)
   (receive (left top width height) (platform-get-system-rect handle)
-    (new Point (inexact->exact left) (inexact->exact top))))
+    (new Point (flonum->fixnum left) (flonum->fixnum top))))
 
 
 (definition package (platform-set-position handle pos)
@@ -506,7 +507,7 @@
 
 (definition package (platform-get-size handle)
   (receive (left top width height) (platform-get-system-rect handle)
-    (new Dimension (inexact->exact width) (inexact->exact height))))
+    (new Dimension (flonum->fixnum width) (flonum->fixnum height))))
 
 
 (definition package (platform-get-window-size handle)

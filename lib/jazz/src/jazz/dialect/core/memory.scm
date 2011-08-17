@@ -47,7 +47,7 @@
 
 
 (define (jazz:gc-count)
-  (inexact->exact (f64vector-ref (##process-statistics) 6)))
+  (%%flonum->fixnum (f64vector-ref (##process-statistics) 6)))
 
 
 ;;;
@@ -62,11 +62,11 @@
           (live       (f64vector-ref vec 17))
           (movable    (f64vector-ref vec 18))
           (nonmovable (f64vector-ref vec 19)))
-      (values (inexact->exact heap)
-              (inexact->exact alloc)
-              (inexact->exact live)
-              (inexact->exact movable)
-              (inexact->exact nonmovable)))))
+      (values (%%flonum->fixnum heap)
+              (%%flonum->fixnum alloc)
+              (%%flonum->fixnum live)
+              (%%flonum->fixnum movable)
+              (%%flonum->fixnum nonmovable)))))
 
 
 (define (jazz:symbols-memory)

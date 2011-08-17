@@ -1,0 +1,123 @@
+(module jazz.network.smtp jazz
+
+
+(class Smtp-Client extends Object
+  
+  
+  (slot port)
+  
+  
+  (method override (initialize server-address (port-number: port-number 25) (username: username "") (password: password ""))
+    (set! port (open-tcp-client (list
+                                  server-address: server-address
+                                  port-number: port-number
+                                  eol-encoding: 'cr-lf
+                                  buffering: 'line
+                                  keep-alive: #t)))
+    (get-reply "220" #f)
+    (display (format "EHLO {a}\r\n" server-address) port)
+    (let* ((commands (cdr (get-reply "250" #f)))
+           (login-methods (get-login-methods commands)))
+      (cond ((member? "LOGIN" login-methods)
+             (auth-login username password))
+            ((member? "PLAIN" login-methods)
+             (auth-plain username password))
+            (else
+             (error "No supported login methods")))))
+  
+  
+  (method override (destroy)
+    (display "QUIT\r\n" port)
+    (close-port port)
+    (nextmethod))
+  
+  (method (get-reply code (invalid #f))
+    (let ((reply (read-line port)))
+      (if (eof-object? reply)
+          (error "Unexpected end of file")
+        (unless (string-starts-with? reply code)
+          (if invalid
+              (invalid)
+            (error "Expected {a}, received {a}" code reply)))
+        (if (string-starts-with? reply (format "{a}-" code))
+            (cons (substring reply 4 (string-length reply))
+                  (get-reply code invalid))
+          '()))))
+  
+  (method (get-login-methods commands)
+    (cdr (split (find commands "AUTH" test: (lambda (target str) (string-starts-with? str target)) return: 'item) " ")))
+  
+  (method (auth-login username password)
+    (display "AUTH LOGIN\r\n" port)
+    (get-reply "334")
+    (display (ascii-string->base64-string username) port)
+    (newline port)
+    (get-reply "334" (lambda () (error "Invalid username.")))
+    (display (ascii-string->base64-string password) port)
+    (newline port)
+    (get-reply "235" (lambda () (error "Invalid credentials."))))
+  
+  
+  (method (auth-plain username password)
+    (display "AUTH PLAIN\r\n" port)
+    (get-reply "334")
+    (display (ascii-string->base64-string 
+               (list->string
+                 (append '(#\nul) (string->list username) '(#\nul) (string->list password)))) port)
+    (newline port)
+    (get-reply "235" (lambda ()
+                       (throw "Invalid credentials."))))
+  
+  
+  (method (send-mail from <string> to <string> subject <string> message <string> (bcc: bcc '()) (cc: cc '()))
+    (define (loop-recipient-list lst code)
+      (when (not (empty? lst))
+        (display (format "{a}: {a}" code (car lst)) port)
+        (for-each
+          (lambda (elem)
+            (display (format ", {a}" elem) port))
+          (cdr lst))
+        (newline port)))
+    
+    (display "RSET\r\n" port)
+    (get-reply "250")
+    
+    (display (format "MAIL FROM:<{a}>\r\n" from) port)
+    (get-reply "250" 
+      (lambda () (error (format "Error adding sender {a}." from))))
+    
+    (for-each
+      (lambda (recipient)
+        (begin
+          (display (format "RCPT TO: {a}\r\n" recipient) port)
+          (get-reply "250" (lambda () (error (format "Error adding recipient {a}." recipient))))))
+      (append (list to) cc bcc))
+    
+    (display "data\r\n" port)
+    (get-reply "354" (lambda () (error "Error sending the message. Server not accepting data.")))
+    
+    (display (format "From: {a}\r\n" from) port)
+    (loop-recipient-list bcc "Bcc")
+    (loop-recipient-list (list to) "To")
+    (loop-recipient-list cc "Cc")
+    (display (format "Subject: {a}\r\n" subject) port)
+    (display (format "{a}\r\n" message) port)
+    (display ".\n" port)
+    (debug 'lalala)
+    (get-reply "250" (lambda () (error "Error sending the message.")))))
+
+
+(definition (base64-string->ascii-string str)
+  (list->string
+    (map
+      integer->char
+      (u8vector->list
+        (base64-string->u8vector str)))))
+
+(definition (ascii-string->base64-string str)
+  (u8vector->base64-string 
+    (list->u8vector
+      (map char->integer
+           (string->list str))))))
+
+

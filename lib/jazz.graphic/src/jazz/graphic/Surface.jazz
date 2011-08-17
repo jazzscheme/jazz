@@ -127,8 +127,14 @@
   ;;;
 
 
-  (method public (logical->device shape <Point>)
-    (cairo_user_to_device context shape))
+  (method public (logical->device shape <Object>)
+    (typecase shape
+      ((Point)
+       (cairo_user_to_device context shape))
+      ((Rect)
+       (let ((lt (cairo_user_to_device context (new Point (get-left~ shape) (get-top~ shape))))
+             (rb (cairo_user_to_device context (new Point (get-right~ shape) (get-bottom~ shape)))))
+         (new Rect (get-h~ lt) (get-v~ lt) (get-h~ rb) (get-v~ rb))))))
   
   
   (method public (device->logical shape <Object>)
@@ -136,9 +142,9 @@
       ((Point)
        (cairo_device_to_user context shape))
       ((Rect)
-       (let ((pt1 (cairo_device_to_user context (new Point (get-left~ shape) (get-top~ shape))))
-             (pt2 (cairo_device_to_user context (new Point (get-right~ shape) (get-bottom~ shape)))))
-         (new Rect (get-h~ pt1) (get-v~ pt1) (get-h~ pt2) (get-v~ pt2))))))
+       (let ((lt (cairo_device_to_user context (new Point (get-left~ shape) (get-top~ shape))))
+             (rb (cairo_device_to_user context (new Point (get-right~ shape) (get-bottom~ shape)))))
+         (new Rect (get-h~ lt) (get-v~ lt) (get-h~ rb) (get-v~ rb))))))
   
   
   ;;;
@@ -148,10 +154,6 @@
   
   (method public (get-logical-clipper) <Rect>
     (device->logical (get-clipper)))
-  
-  
-  (method public (get-cairo-clipper)
-    (cairo_get_clipper context))
   
   
   (method public (get-clipper) <Rect>
@@ -166,14 +168,17 @@
     (set-top~ clipper (get-top~ rect))
     (set-right~ clipper (get-right~ rect))
     (set-bottom~ clipper (get-bottom~ rect))
-    (select-clipper clipper))
+    (set-cairo-clipper clipper))
+  
+  
+  (method public (get-cairo-clipper)
+    (cairo_get_clipper context))
 
 
-  (method public (select-clipper rect <Rect>)
-    (unless (debug-painting?)
-      (cairo_reset_clip context)
-      (draw-rectangle rect)
-      (cairo_clip context)))
+  (method public (set-cairo-clipper rect <Rect>)
+    (cairo_reset_clip context)
+    (draw-rectangle rect)
+    (cairo_clip context))
   
   
   ;; we should remove the clipper slot and only use the cairo clipper
@@ -188,7 +193,7 @@
             (proc))
         (when selected?
           (set-clipper old-clipper)
-          (select-clipper old-cairo-clipper)))))
+          (set-cairo-clipper old-cairo-clipper)))))
   
   
   ;;;
@@ -217,7 +222,7 @@
   ;; dh dv : position of the drawing relative to the scaled view, i.e. s - l
   ;; ch cv : position of the clipper in device coordinates
   ;; cwidth cheight : size of the clipper in device coordinates
-    
+  
   
   (method public (set-transform lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
     (define (set-transform-scaled)

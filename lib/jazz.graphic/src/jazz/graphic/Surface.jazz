@@ -493,7 +493,7 @@
       (fill)))
 
   
-  (method public (draw-image handle x y)
+  (method public (draw-surface handle x y)
     (set-source-surface handle x y)
     (paint))
   
@@ -532,42 +532,56 @@
           ((Image-Resource) (new Image resource: content))
           ((File) (and (exists?~ content) (new Image moniker: content))))))
     
-    (define (draw-positioned image)
-      (let ((pos (get-attribute~ texture 'position not-found: {Point 0 0}))
-            (size (get-attribute~ texture 'size)))
-        (define (draw image)
-          (draw~ image self #f (get-h~ pos) (get-v~ pos)))
-        
-        (if (not size)
-            (draw image)
-          (with ((resized (new Image handle: (resize-image (get-handle~ image) (get-width~ size) (get-height~ size)))))
-            (draw resized)))))
+    (with ((image (texture-image)))
+      (if (not image)
+          (fill-rect rect {Color Red})
+        (let ((mode (get-mode~ texture))
+              (position (get-attribute~ texture 'position))
+              (size (get-attribute~ texture 'size)))
+          (fill-image rect image mode: mode position: position size: size)))))
+  
+  
+  (method public (fill-image rect image (mode: mode 'stretch) (position: position #f) (size: size #f))
+    (define (draw-position image)
+      (let ((position (or position {Point 0 0})))
+        (draw-at~ image self #f (get-h~ position) (get-v~ position))))
     
-    (define (draw-centered image)
+    (define (draw-center image)
       (let ((pos (center (image-size~ image) (rect-size rect))))
-        (draw~ image self #f (get-h~ pos) (get-v~ pos))))
+        (draw-at~ image self #f (get-h~ pos) (get-v~ pos))))
     
-    (define (draw-filled image)
+    (define (draw-fill image)
+      (draw-scale image 'fill))
+    
+    (define (draw-fit image)
+      (draw-scale image 'fit))
+    
+    (define (draw-scale image mode)
+      (let ((image-size (image-size~ image))
+            (rect-size (rect-size rect)))
+        (let ((ratio (fit-dimensions image-size rect-size mode)))
+          (with ((resized (new Image handle: (resize-image (get-handle~ image) (fxround (* (get-width~ image-size) ratio)) (fxround (* (get-height~ image-size) ratio))))))
+            (draw-at~ resized self #f 0 0)))))
+    
+    (define (draw-stretch image)
       (with ((resized (new Image handle: (resize-image (get-handle~ image) (rect-width rect) (rect-height rect)))))
-        (draw~ resized self #f 0 0)))
+        (draw-at~ resized self #f 0 0)))
     
-    (define (draw-tiled image)
+    (define (draw-tile image)
       (let ((handle (get-handle~ image)))
         (set-source-surface handle 0 0)
         (cairo_pattern_set_extend (get-source) CAIRO_EXTEND_REPEAT)
         (cairo_rectangle context (cast <fl> (get-left~ rect)) (cast <fl> (get-top~ rect)) (cast <fl> (rect-width rect)) (cast <fl> (rect-height rect)))
         (cairo_fill context)))
     
-    (let ((mode (get-mode~ texture)))
-      (with ((image (texture-image)))
-        (if (not image)
-            (fill-rect rect {Color Red})
-          (case mode
-            ((position) (draw-positioned image))
-            ((center) (draw-centered image))
-            ((fill) (draw-filled image))
-            ((tile) (draw-tiled image))
-            (else (error "Unknown texture mode: {s}" mode)))))))
+    (case mode
+      ((position) (draw-position image))
+      ((center) (draw-center image))
+      ((fill) (draw-fill image))
+      ((fit) (draw-fit image))
+      ((stretch) (draw-stretch image))
+      ((tile) (draw-tile image))
+      (else (error "Unknown fill mode: {s}" mode))))
   
   
   ;;;

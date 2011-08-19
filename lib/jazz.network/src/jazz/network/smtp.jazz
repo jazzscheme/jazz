@@ -15,7 +15,7 @@
                                   buffering: 'line
                                   keep-alive: #t)))
     (get-reply "220" #f)
-    (display (format "EHLO {a}\r\n" server-address) port)
+    (display (format "EHLO {a}\n" server-address) port)
     (let* ((commands (cdr (get-reply "250" #f)))
            (login-methods (get-login-methods commands)))
       (cond ((member? "LOGIN" login-methods)
@@ -27,7 +27,7 @@
   
   
   (method override (destroy)
-    (display "QUIT\r\n" port)
+    (display "QUIT\n" port)
     (close-port port)
     (nextmethod))
   
@@ -48,7 +48,7 @@
     (cdr (split (find commands "AUTH" test: (lambda (target str) (string-starts-with? str target)) return: 'item) " ")))
   
   (method (auth-login username password)
-    (display "AUTH LOGIN\r\n" port)
+    (display "AUTH LOGIN\n" port)
     (get-reply "334")
     (display (ascii-string->base64-string username) port)
     (newline port)
@@ -59,7 +59,7 @@
   
   
   (method (auth-plain username password)
-    (display "AUTH PLAIN\r\n" port)
+    (display "AUTH PLAIN\n" port)
     (get-reply "334")
     (display (ascii-string->base64-string 
                (list->string
@@ -69,7 +69,7 @@
                        (throw "Invalid credentials."))))
   
   
-  (method (send-mail from <string> to <string> subject <string> message <string> (bcc: bcc '()) (cc: cc '()))
+  (method (send-mail origin <string> recipients content <string>)
     (define (loop-recipient-list lst code)
       (when (not (empty? lst))
         (display (format "{a}: {a}" code (car lst)) port)
@@ -79,32 +79,104 @@
           (cdr lst))
         (newline port)))
     
-    (display "RSET\r\n" port)
+    (display "RSET\n" port)
     (get-reply "250")
     
-    (display (format "MAIL FROM:<{a}>\r\n" from) port)
+    (display (format "MAIL FROM:<{a}>\n" origin) port)
     (get-reply "250" 
-      (lambda () (error (format "Error adding sender {a}." from))))
+               (lambda () (error (format "Error adding sender {a}." origin))))
     
     (for-each
       (lambda (recipient)
         (begin
-          (display (format "RCPT TO: {a}\r\n" recipient) port)
+          (display (format "RCPT TO: {a}\n" recipient) port)
           (get-reply "250" (lambda () (error (format "Error adding recipient {a}." recipient))))))
-      (append (list to) cc bcc))
+      recipients)
     
-    (display "data\r\n" port)
+    (display "data\n" port)
     (get-reply "354" (lambda () (error "Error sending the message. Server not accepting data.")))
     
-    (display (format "From: {a}\r\n" from) port)
-    (loop-recipient-list bcc "Bcc")
-    (loop-recipient-list (list to) "To")
-    (loop-recipient-list cc "Cc")
-    (display (format "Subject: {a}\r\n" subject) port)
-    (display (format "{a}\r\n" message) port)
-    (display ".\n" port)
-    (debug 'lalala)
+    (display content port)
+    (display "\n.\n" port)
     (get-reply "250" (lambda () (error "Error sending the message.")))))
+
+
+(definition public (make-mime-header from to subject (cc: cc '()) (bcc: bcc '()))
+  (string-append (format "From: {a}\n" from)
+                 (format "To: {a}\n" (join to ", "))
+                 (format "Cc: {a}\n" (join cc ", "))
+                 (format "Bcc: {a}\n" (join bcc ", "))
+                 (format "Subject: {a}\n" subject)
+                 "MIME-Version: 1.0\n"))
+
+
+(definition (separate-lines string ch-size)
+  (let ((length (string-length string)))
+    (let (recurse (index 0))
+      (cond ((>= index length)
+             "\n")
+            ((< (- length index) ch-size)
+             (string-append (substring string index length) "\n"))
+            (else
+             (string-append (substring string index (+ index ch-size))
+                            "\n"
+                            (recurse (+ index ch-size))))))))
+
+
+(definition public (file->u8vector file)
+  (with-input-from-file (parse~ file)
+    (lambda ()
+      (define (read-vectors)
+        (let* ((vector (make-u8vector 1024))
+               (l (read-subu8vector vector 0 1024)))
+          (if (zero? l)
+              '()
+            (u8vector-shrink! vector l)
+            (cons vector (read-vectors)))))
+      
+      (append-u8vectors (read-vectors)))))
+
+
+(definition public (file->base64-string file)
+  (u8vector->base64-string (file->u8vector file)))
+
+
+(definition public (make-plain-mime-message header body)
+  (string-append header
+                 "Content-Type: text/plain;\n\n"
+                 body
+                 "\n\n"))
+
+
+(definition public (make-multipart-mime-message header body attachments)
+  ;; Generate this boundary
+  (let* ((boundary "CF69BC42-C9CB-11E0-82A0-A5C34824019B")
+         (parts (append (list (format "Content-Type: multipart/mixed; boundary={a}\n" boundary)
+                              (format "Content-Type: text/plain;\n\n{a}\n\n" body))
+                        (map (lambda (file)
+                               (string-append (format "Content-Type: application/octet-stream\n")
+                                              (format "Content-Disposition: attachment; filename={s}\n" (get-name~ file))
+                                              "Content-Transfer-Encoding: base64\n\n"
+                                              (separate-lines (file->base64-string file) 72)
+                                              "\n"))
+                             attachments))))
+    (string-append header
+                   (join parts (format "--{a}\n" boundary))
+                   (format "--{a}--\n" boundary))))
+
+
+
+(definition public (make-mime-message from to subject message (cc: cc '()) (bcc: bcc '()) (attachments: attachments '()))
+  (let ((header (make-mime-header from to subject cc: cc bcc: bcc)))
+    (if (null? attachments)
+        (make-plain-mime-message header message)
+      (make-multipart-mime-message header message attachments))))
+
+
+(definition public (send-message message from to server (username: username "") (password: password ""))
+  (let ((client (new SMTP-Client server username: username password: password)))
+    (send-mail~ client from to message)
+    (close~ client)))
 
 
 (definition (base64-string->ascii-string str)

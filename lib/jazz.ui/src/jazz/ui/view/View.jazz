@@ -963,10 +963,10 @@
   ;;;
   
 
-  (method override (render surface draw-self? nodes context lh lv sh sv sc sc?)
+  (method override (render surface draw-self? nodes context)
     (if renderer
-        (render~ renderer self surface draw-self? nodes context lh lv sh sv sc sc?)
-      (nextmethod surface draw-self? nodes context lh lv sh sv sc sc?)))
+        (render~ renderer self surface draw-self? nodes context)
+      (nextmethod surface draw-self? nodes context)))
 
   
   ;;;
@@ -985,9 +985,9 @@
     background)
   
   
-  (method override (draw-content surface context lh lv)
+  (method override (draw-content surface context)
     (set-font~ surface (effective-font))
-    (draw surface context lh lv))
+    (draw surface context))
   
   
   ;;;
@@ -1173,7 +1173,7 @@
   (method public (export-picture (context: context '()) (where: where 'file) (destination: destination #f))
     (with ((surface (new Memory-Surface #f (get-size))))
       (set-clipper~ surface (new Rect 0 0 (get-width) (get-height)))
-      (paint-drawing surface context 0 0 0 0 1. #f)
+      (paint-drawing surface context)
       (export-to-png~ surface (or destination (choose-new-file default-extension: "png")))))
 
 
@@ -1192,10 +1192,10 @@
                          (lie (get-lie))
                          (lh (get-h~ lie))
                          (lv (get-v~ lie)))
-                    (let ((content (offset-rect area lh lv)))
-                      (with-clipper~ picture content
+                    (let ((content (offset-rect area)))
+                      (with-clip~ picture content
                         (lambda ()
-                          (paint-drawing picture context lh lv (get-left~ content) (get-top~ content) 1. #f)))))))
+                          (paint-drawing picture context (get-left~ content) (get-top~ content) 1. #f)))))))
               (set! metafile (get-metafile~ picture)))
             (if (eq? where 'clipboard)
                 (set-clipboard-metafile metafile)
@@ -1387,7 +1387,7 @@
   
   
   (method (scroll-offscreen dh dv src-rect clip-rect)
-    (with ((surface (get-surface)))
+    (with ((surface (get-view-surface)))
       (let* ((src-rect (rect-intersection src-rect clip-rect))
              (dst-rect (offset-rect src-rect dh dv))
              (modified-rect (rect-intersection (rect-union src-rect dst-rect) clip-rect))
@@ -3292,11 +3292,10 @@
   ;;;
 
 
-  (method public (get-surface)
+  (method public (get-view-surface)
     (let ((surface (new Surface (get-window-surface (get-player))))
           (lie (get-lie)))
-      (set-transform~ surface (get-h~ lie) (get-v~ lie) (get-width) (get-height) 0 0 1. #f)
-      (set-clipper~ surface (get-bounds))
+      (set-transform~ surface (get-h~ lie) (get-v~ lie) (get-width) (get-height) (get-scaling) (get-scaled?))
       surface))
 
 

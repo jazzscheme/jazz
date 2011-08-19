@@ -423,27 +423,27 @@
   
   
   (method public (paint-root surface <Surface> update-region <Region>) <void>
-    (bind (view draw-self? . nodes) (painting-tree update-region 0 0)
-      (paint surface draw-self? nodes '() 0 0 0 0 1. #f)))
+    (bind (view draw-self? . nodes) (painting-tree update-region)
+      (paint surface draw-self? nodes '())))
   
   
-  (method public (paint-drawing surface <Surface> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
+  (method public (paint-drawing surface <Surface> context <list>) <void>
     (with ((region (new Region (get-clipper~ surface))))
-      (bind (view draw-self? . nodes) (painting-tree region lh lv)
-        (paint surface draw-self? nodes context lh lv sh sv sc sc?))))
+      (bind (view draw-self? . nodes) (painting-tree region)
+        (paint surface draw-self? nodes context))))
   
   
-  (method public (painting-tree region <Region> lh <fx> lv <fx>)
-    (define (make-tree view region lh lv)
+  (method public (painting-tree region <Region>)
+    (define (make-tree view region h v)
       (let ((nodes '()))
         (with ((update (copy-region region)))
-          (with ((coverage (if (get-opaque?~ view) (new Region lh lv (+ lh (get-width~ view)) (+ lv (get-height~ view))) (new Region))))
+          (with ((coverage (if (get-opaque?~ view) (new Region h v (+ h (get-width~ view)) (+ v (get-height~ view))) (new Region))))
             (for-each-view-reversed~ view
               (lambda (child)
                 (let ((position (get-position~ child))
                       (size (get-size~ child)))
-                  (let ((ch (+ lh (get-h~ position)))
-                        (cv (+ lv (get-v~ position))))
+                  (let ((ch (+ h (get-h~ position)))
+                        (cv (+ v (get-v~ position))))
                     (with ((child-region (new Region ch cv (+ ch (get-width~ size)) (+ cv (get-height~ size)))))
                       (with ((intersection (region-intersection update child-region)))
                         (when (not (empty?~ intersection))
@@ -457,7 +457,7 @@
     ;; temporary patch until full-fledged regions in X11
     (if (neq? kernel-platform 'windows)
         (full-painting-tree)
-      (bind (coverage . node) (make-tree self region lh lv)
+      (bind (coverage . node) (make-tree self region 0 0)
         (close~ coverage)
         node)))
   
@@ -473,52 +473,46 @@
     (make-tree self))
 
   
-  (method public (paint surface <Surface> draw-self? <bool> nodes <list> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
+  (method public (paint surface <Surface> draw-self? <bool> nodes <list> context <list>) <void>
     (if (not (get-offscreen?))
-        (paint-content surface draw-self? nodes context lh lv sh sv sc sc?)
+        (paint-content surface draw-self? nodes context)
       (let ((offscreen (get-offscreen surface)))
         (set-clipper~ offscreen (get-clipper~ surface))
-        (paint-content offscreen draw-self? nodes context lh lv sh sv sc sc?)
+        (paint-content offscreen draw-self? nodes context)
         (blit-surface~ surface offscreen))))
   
   
-  (method public (paint-content surface <Surface> draw-self? <bool> nodes <list> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
-    (let ((scaled? (get-scaled?)))
-      (let ((new-sh (if (not scaled?) sh lh))
-            (new-sv (if (not scaled?) sv lv))
-            (new-sc (if (not scaled?) sc (get-scaling)))
-            (new-sc? (if (not scaled?) sc? #t)))
-        (with-transform~ surface lh lv (get-width~ size) (get-height~ size) new-sh new-sv new-sc new-sc?
-          (lambda ()
-            (render surface draw-self? nodes context lh lv new-sh new-sv new-sc new-sc?))))))
+  (method public (paint-content surface <Surface> draw-self? <bool> nodes <list> context <list>) <void>
+    (with-transform~ surface (get-h~ position) (get-v~ position) (get-width~ size) (get-height~ size) (get-scaling)
+      (lambda ()
+        (render surface draw-self? nodes context))))
 
   
-  (method public virtual (render surface <Surface> draw-self? <bool> nodes <list> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
+  (method public virtual (render surface <Surface> draw-self? <bool> nodes <list> context <list>) <void>
     (when draw-self?
       (if (debug-paint?)
           (fill-rect~ surface (get-bounds) (cycle-debug-color!))
         (draw-background surface context))
-      (draw-content surface context lh lv))
-    (draw-children surface nodes context lh lv sh sv sc sc?))
+      (draw-content surface context))
+    (draw-children surface nodes context))
 
   
   (method public virtual (draw-background surface <Surface> context) <void>
     )
   
   
-  (method public virtual (draw-content surface <Surface> context <list> lh <fx> lv <fx>) <void>
-    (draw surface context lh lv))
+  (method public virtual (draw-content surface <Surface> context <list>) <void>
+    (draw surface context))
     
   
-  (method public virtual (draw surface <Surface> context <list> lh <fx> lv <fx>) <void>
+  (method public virtual (draw surface <Surface> context <list>) <void>
     )
 
   
-  (method public virtual (draw-children surface <Surface> nodes <list> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
+  (method public virtual (draw-children surface <Surface> nodes <list> context <list>) <void>
     (for-each (lambda (node)
                 (bind (drawing draw-self? . nodes) node
-                  (let ((pos (get-position~ drawing)))
-                    (paint~ drawing surface draw-self? nodes context (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
+                  (paint~ drawing surface draw-self? nodes context)))
               nodes))
 
 

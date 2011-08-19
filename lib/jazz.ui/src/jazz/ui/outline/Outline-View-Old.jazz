@@ -336,8 +336,8 @@
     )
   
   
-  (method override (draw-children surface nodes context lh lv sh sv sc sc?)
-    (let ((clipper (get-logical-clipper~ surface)))
+  (method override (draw-children surface nodes context)
+    (let ((clipper (get-clipper~ surface)))
       (let ((background (cond ((debug-paint?)
                                (cycle-debug-color!))
                               ((not (view-enabled?))
@@ -346,24 +346,22 @@
                                (get-drawing-background context)))))
         (when background
           (fill-rect~ surface clipper background)))
-      (draw-outline surface context clipper lh lv sh sv sc sc?)))
+      (draw-outline surface context clipper (- (get-v~ (get-scrolled-position))))))
   
   
-  (method protected virtual (draw-outline surface context clipper lh lv sh sv sc sc?)
-    (define (draw-rows top bottom)
-      (define (draw-row row line)
-        (let* ((width (get-width))
-               (height (get-height~ row))
-               (total-height (+ height row-spacing))
-               (selected? (line-draw-selected? line))
-               (pos <Point> (get-position~ row)))
-          (set-font~ surface (effective-font))
-          (let ((new-context (optimize-context selected? line context)))
-            (paint-content~ row surface #t '() new-context (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
-      
-      (let ((row (get-first-displayed~ outline))
+  (method protected virtual (draw-outline surface context clipper scrolled-v)
+    (define (draw-row row line)
+      (let ((selected? (line-draw-selected? line)))
+        (set-font~ surface (effective-font))
+        (let ((new-context (optimize-context selected? line context)))
+          (paint-content~ row surface #t '() new-context))))
+    
+    (let ((clipper (get-clipper~ surface)))
+      (let ((top (get-top~ clipper))
+            (bottom (get-bottom~ clipper))
+            (row (get-first-displayed~ outline))
             (line <fx> (get-first-displayed-line~ outline))
-            (rt <fx> (- top-padding (get-first-displayed-offset~ outline)))
+            (rt <fx> (+ scrolled-v (- top-padding (get-first-displayed-offset~ outline))))
             (width <fx> (get-width)))
         (while (and row (< rt bottom))
           (let* ((height <fx> (get-height~ row))
@@ -374,15 +372,10 @@
             (set! rt rb)
             (set! row (get-next~ row))
             (increase! rt row-spacing)))
-        (draw-empty surface top bottom sh sv sc sc? rt width)))
-    
-    (let ((pos (get-scrolled-position)))
-      (let ((top (+ (get-top~ clipper) (get-v~ pos)))
-            (bottom (+ (get-bottom~ clipper) (get-v~ pos))))
-        (draw-rows top bottom))))
+        (draw-empty surface top bottom rt width))))
   
   
-  (method protected virtual (draw-empty surface top bottom sh sv sc sc? rt width)
+  (method protected virtual (draw-empty surface top bottom rt width)
     )
   
   

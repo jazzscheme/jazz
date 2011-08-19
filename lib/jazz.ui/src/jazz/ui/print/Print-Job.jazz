@@ -159,11 +159,12 @@
            (printed-bounds (get-bounds~ printed))
            (printed-rect (offset-rect (scale printed-bounds ratio) 0 0 @lh lv)))
       (wrap-header/footer~ page-setup context)
-      @w
-      (with-orientation surface printed-bounds printed-rect
+      (;with-orientation surface printed-bounds printed-rect
         (lambda ()
-          (scale~ surface ratio ratio)
-          (paint-drawing~ printed surface context)))
+          (with-matrix~ surface
+            (lambda ()
+              (scale~ surface ratio ratio)
+              (paint-drawing~ printed surface context)))))
       (let* ((offset (acquire~ page-setup printed {Point 0 0}))
              (content-rect (scale (offset-rect (get-content-rect~ page-setup) (- (get-h~ offset)) (- (get-v~ offset))) ratio))
              (left (get-left~ content-rect))
@@ -172,12 +173,14 @@
              (page-top (- (get-top~ page))))
         (;with-orientation surface page clipper
           (lambda ()
-            (translate~ surface left top)
-            (scale~ surface scaling scaling)
-            (translate~ surface page-left page-top)
-            (with-clip~ surface page
+            (with-matrix~ surface
               (lambda ()
-                (paint-drawing~ client surface context))))))))
+                (translate~ surface left top)
+                (scale~ surface scaling scaling)
+                (translate~ surface page-left page-top)
+                (with-clip~ surface page
+                  (lambda ()
+                    (paint-drawing~ client surface context))))))))))
   
   
   (method protected virtual (printed-page)

@@ -162,16 +162,16 @@
     (cairo_clip context))
   
   
-  (method public (with-clip clip-rect <Rect> proc <procedure>)
-    (let ((old-clipper (get-clipper))
+  (method public (with-clip clip-rect <Rect> thunk <procedure>)
+    (let ((preserved-clipper (cairo_get_clipper_raw context))
           (selected? #f))
       (unwind-protect
           (begin
             (clip clip-rect)
             (set! selected? #t)
-            (proc))
+            (thunk))
         (when selected?
-          (set-clipper old-clipper)))))
+          (cairo_set_clipper_raw context preserved-clipper)))))
   
   
   ;;;
@@ -179,14 +179,14 @@
   ;;;
   
   
-  (method public (with-landscape rotation <symbol> page <Dimension> proc <procedure>)
+  (method public (with-landscape rotation <symbol> page <Dimension> thunk <procedure>)
     (let ((preserved landscape?))
       (unwind-protect
           (begin
             (set! landscape? #t)
             (set! landscape-rotation rotation)
             (set! landscape-page page)
-            (proc))
+            (thunk))
         (set! landscape? preserved))))
   
   
@@ -201,27 +201,19 @@
     (clip (new Rect 0 0 width height)))
   
   
-  (method public (with-transform h <fx> v <fx> width <fx> height <fx> scaling <fl> proc <procedure>)
-    (let ((preserved-matrix (get-matrix))
-          (preserved-clipper (get-clipper)))
+  (method public (with-transform h <fx> v <fx> width <fx> height <fx> scaling <fl> thunk <procedure>)
+    (let ((preserved-matrix (cairo_get_matrix_raw context))
+          (preserved-clipper (cairo_get_clipper_raw context)))
       (set-transform h v width height scaling)
-      (proc)
-      (cairo_set_matrix context preserved-matrix)
-      (cairo_matrix_t-free preserved-matrix)
-      (set-clipper preserved-clipper)))
+      (thunk)
+      (cairo_set_matrix_raw context preserved-matrix)
+      (cairo_set_clipper_raw context preserved-clipper)))
   
   
   (method public (with-matrix thunk)
-    (let ((preserved-matrix (get-matrix)))
+    (let ((preserved-matrix (cairo_get_matrix_raw context)))
       (thunk)
-      (cairo_set_matrix context preserved-matrix)
-      (cairo_matrix_t-free preserved-matrix)))
-  
-  
-  (method public (get-matrix)
-    (let ((matrix (cairo_matrix_t-make)))
-      (cairo_get_matrix context matrix)
-      matrix))
+      (cairo_set_matrix_raw context preserved-matrix)))
 
   
   ;;;
@@ -1097,26 +1089,26 @@
   
   (method public (draw-rectangle rect <Rect>)
     (let ((x (get-left~ rect))
-          (y (get-top~ rect))
-          (w (- (get-right~ rect) (get-left~ rect)))
-          (h (- (get-bottom~ rect) (get-top~ rect))))
-      (cairo_rectangle context
-                       (cast <fl> x)
-                       (cast <fl> y)
-                       (cast <fl> w)
-                       (cast <fl> h))))
+          (y (get-top~ rect)))
+      (let ((w (- (get-right~ rect) x))
+            (h (- (get-bottom~ rect) y)))
+        (cairo_rectangle context
+                         (cast <fl> x)
+                         (cast <fl> y)
+                         (cast <fl> w)
+                         (cast <fl> h)))))
 
   
   (method public (draw-rectangle$fl$ rect <Rect$fl$>)
     (let ((x (get-left~ rect))
-          (y (get-top~ rect))
-          (w (- (get-right~ rect) (get-left~ rect)))
-          (h (- (get-bottom~ rect) (get-top~ rect))))
-      (cairo_rectangle context
-                       x
-                       y
-                       w
-                       h)))
+          (y (get-top~ rect)))
+      (let ((w (- (get-right~ rect) x))
+            (h (- (get-bottom~ rect) y)))
+        (cairo_rectangle context
+                         x
+                         y
+                         w
+                         h))))
   
   
   (method public (set-color color <Color>)

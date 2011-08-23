@@ -170,7 +170,12 @@
   
   
   (method override (read-only? row-data column-data)
-    (get-read-only?~ column-data)))
+    (or (get-read-only?~ column-data)
+        (and (class-selection?~ column-data)
+             (column-data-component-class-references row-data column-data
+               (lambda args #t)
+               (lambda (component _)
+                 (not (component-owned? component (get-form~ designer) (get-reference~ designer)))))))))
 
 
 (class Component-Controller-Actions extends Actions
@@ -280,6 +285,7 @@
         (and (not (get-read-only?~ column-data))
              (not (is? column-data Component-Provider-Selection-Data))))))
   
+  
   (method (get-provider)
     (get-provider~ parent))
   
@@ -298,8 +304,10 @@
            (let ((row-data (car rows-data))
                  (column-data (car columns-data)))
              (and (is? column-data Component-Provider-Selection-Data)
-                  (element row-data (get-component-offset~ column-data))
-                  (not (get-identifier~ column-data)))))))
+                  (let ((component (element row-data (get-component-offset~ column-data))))
+                    (and component
+                         (not (get-identifier~ column-data))
+                         (component-owned-by-reference?~ designer component))))))))
   
   
   (method public (can-insert?)
@@ -382,7 +390,9 @@
   
   
   (method override (can-cut?)
-    (can-cut-components? (selected-components)))
+    (let ((components (selected-components)))
+      (and (every? (~ component-owned-by-reference? designer) components)
+           (can-cut-components? components))))
   
   
   (method override (can-paste?)
@@ -390,7 +400,9 @@
   
   
   (method override (can-delete?)
-    (can-delete-components? (selected-components)))
+    (let ((components (selected-components)))
+      (and (every? (~ component-owned-by-reference? designer) components)
+           (can-delete-components? components))))
   
   
   (method override (get-draggable?)
@@ -619,7 +631,7 @@
         ref))
     
     (define (setup-selection-columns addable-references component-offset add-to)
-      (let ((class-references (map runtime-reference->reference addable-references)))
+      (let ((class-references (remove-duplicates (map runtime-reference->reference addable-references) key: resolve-reference~)))
         (add-selection-column #f component-offset add-to class-references)
         (add-property-column component-offset 'name-info "Name" #t)
         (setup-class-column class-references component-offset)
@@ -759,4 +771,5 @@
   
   (method override (install rest)
     (nextmethod rest)
-    (set-editor~ (locate 'grid) self))))
+    (set-editor~ (locate 'grid) self)
+    (set-designer~ (locate 'grid) designer))))

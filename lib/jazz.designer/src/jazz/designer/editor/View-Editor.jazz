@@ -270,8 +270,8 @@
   ;;;
   
   
-  (method override (render surface draw-self? nodes context lh lv sh sv sc sc?)
-    (nextmethod surface draw-self? nodes context lh lv sh sv sc sc?)
+  (method override (render surface draw-self? nodes context)
+    (nextmethod surface draw-self? nodes context)
     (for-each (lambda (view rank)
                 (when (is? view View)
                   (let* ((surrogate (get-surrogate~ view))
@@ -550,7 +550,77 @@
   
   (method (set-view-lie view lie)
     (safe-set-property~ designer view 'position (get-position~ view))
-    (set-lie~ view lie)))
+    (set-lie~ view lie))
+
+
+  ;;;
+  ;;;; Style
+  ;;;
+  
+  
+  (method (extend-selection-style generate-properties)
+    (let* ((selection (car (get-selection)))
+           (style (or (get-style~ selection) (new Text-Style))))
+      (safe-set-property~ designer selection 'style (apply extend~ style (generate-properties style)))))
+  
+  
+  (method (extend-selection-font generate-properties)
+    (extend-selection-style
+      (lambda (style)
+        (list font: (let ((font (get-font~ style)))
+                      (apply extend~ font (generate-properties font)))))))
+  
+  
+  (method (toggle-bold)
+    (extend-selection-font
+      (lambda (font)
+        (list bold?: (not (get-bold?~ font))))))
+  
+  
+  (method (toggle-italic)
+    (extend-selection-font
+      (lambda (font)
+        (list italic?: (not (get-italic?~ font))))))
+  
+  
+  (method (toggle-underline)
+    (extend-selection-font
+      (lambda (font)
+        (list underline?: (not (get-underline?~ font))))))
+  
+  
+  (method (on-font-size val)
+    (extend-selection-font
+      (lambda (font)
+        (list point-size: val))))
+  
+  
+  (method (on-font-name val)
+    (extend-selection-style
+      (lambda (style)
+        (let ((font (get-font~ style)))
+          (list font: (if font
+                          (extend~ font font-name: val)
+                        (new Font font-name: val point-size: 8)))))))
+  
+  
+  (method (on-style val)
+    (let* ((selection (car (get-selection))))
+      (safe-set-property~ designer selection 'style val)))
+  
+  
+  (method public (change-text-color color)
+    (extend-selection-style (lambda (style) (list color: color))))
+  
+  
+  (method public (change-highlight-color color)
+    (extend-selection-style (lambda (style) (list highlight: color))))
+  
+  
+  (method public (change-frame-color color)
+    (extend-selection-style (lambda (style) (list frame: color))))
+  
+  )
 
 
 ;;;
@@ -621,7 +691,7 @@
   (property editor)
   
   
-  (method override (draw surface context lh lv)
+  (method override (draw surface context)
     (let ((base (get-base-position~ editor))
           (current (get-current-position~ editor)))
       (when current

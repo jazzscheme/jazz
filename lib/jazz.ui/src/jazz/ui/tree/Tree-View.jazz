@@ -494,23 +494,19 @@
           (nextmethod context))))
 
   
-  (method override (draw-outline surface context clipper lh lv sh sv sc sc?)
-    (nextmethod surface context clipper lh lv sh sv sc sc?)
-    (let* ((pos (get-position))
-           (left (+ (get-left~ clipper) (get-h~ pos)))
-           (right (+ (get-right~ clipper) (get-h~ pos)))
-           (height (get-height)))
-      ;; probably buggy in ftx fix with alain
+  (method override (draw-outline surface context clipper scrolled-v)
+    (nextmethod surface context clipper scrolled-v)
+    (let ((right (+ (get-right~ clipper) (get-h~ (get-position))))
+          (height (get-height)))
       (when (and (view-enabled?) empty-background (<= columns-right right))
-        (let ((rect (new Rect (if sc? (fxround (* columns-right sc)) columns-right) 0 (if sc? (fxround (* right sc)) right) (if sc? (fxround (* height sc)) height))))
+        (let ((rect (new Rect columns-right 0 right height)))
           (fill-rect~ surface rect (if (debug-paint?) (cycle-debug-color!) empty-background)))))
     (draw-highlighted surface))
   
   
-  ;; probably still buggy when scaling, so limit to tree-view for now
-  (method override (draw-empty surface top bottom sh sv sc sc? rt width)
+  (method override (draw-empty surface top bottom rt width)
     (when (and (view-enabled?) empty-background (<= rt bottom))
-      (let ((rect (new Rect 0 (fxround (if sc? (* rt sc) rt)) (fxround (if sc? (* width sc) width)) (fxround (if sc? (* bottom sc) bottom)))))
+      (let ((rect (new Rect 0 (fxround rt) width bottom)))
         (fill-rect~ surface rect (if (debug-paint?) (cycle-debug-color!) empty-background)))))
   
   
@@ -552,13 +548,11 @@
     {Color Medium})
   
   
-  (method override (draw-children surface <Surface> nodes context lh <fx> lv <fx> sh sv sc sc?)
-    (define (paint-data context column row lh lv h v width height data)
-      (let ((cell-h (+ lh h))
-            (cell-v (+ lv v)))
-        (if (is-not? data View)
-            (paint-data~ column surface context cell-h cell-v h v width height row data sh sv sc sc?)
-          (paint-drawing~ data surface context cell-h cell-v sh sv sc sc?))))
+  (method override (draw-children surface <Surface> nodes context)
+    (define (paint-data context column row h v width height data)
+      (if (is-not? data View)
+          (paint-data~ column surface context h v width height row data)
+        (paint-drawing~ data surface context)))
     
     (define (merge-geometry top-left bottom-right)
       (let ((top-left-rect (unmerged-site-rect top-left))
@@ -578,9 +572,9 @@
                   (data (get-cell-data (get-master-cell~ merge-cell)))
                   (selected? (merge-cell-selected? merge-cell)))
               (let ((new-context (cons selected?: (cons selected? (cons line: (cons (row->line top-row) context))))))
-                (paint-data new-context left-column top-row (+ lh left) (+ lv top) 0 0 width height data)))))))
+                (paint-data new-context left-column top-row left top width height data)))))))
     
-    (nextmethod surface nodes context lh lv sh sv sc sc?)
+    (nextmethod surface nodes context)
     (for-each paint-merge-cell-data merge-cell-list))
   
   
@@ -1158,8 +1152,8 @@
                 (get-row-reorder-target drag-drop row quarter)))))))
     
     (define (get-row-quarter v height)
-      (let ((quarter (/ height 4))
-            (middle (/ height 2)))
+      (let ((quarter (/ (cast <fl> height) 4))
+            (middle (/ (cast <fl> height) 2)))
         (cond ((< v quarter) 1)
               ((< v middle) 2)
               ((< v (- height quarter)) 3)
@@ -1747,7 +1741,7 @@
     (when (view-visible?)
       (let ((root (get-root)))
         (receive (dh dv sc) (get-delta~ root self)
-          (with ((region (new Region (acquire-delta dh dv sc (rect-intersection (merge-cell-rect merge-cell) (get-clipper))))))
+          (with ((region (new Region (acquire-delta dh dv sc (rect-intersection (merge-cell-rect merge-cell) (get-view-clipper))))))
             (invalidate-region~ player region))))))
   
   
@@ -2219,7 +2213,7 @@
   
   
   (method (selection-position selection)
-    (with ((region (selection-region selection 0 0 1.0)))
+    (with ((region (selection-region selection 0 0 1.)))
       (rect-position (get-box~ region))))
   
   

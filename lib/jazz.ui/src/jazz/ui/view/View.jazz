@@ -109,7 +109,7 @@
   (slot scroller                                 initialize #f)
   (slot renderer                                 initialize #f accessors generate)
   (slot scaled?                     <bool>       initialize #f)
-  (slot scaling                     <fl>         initialize 1.0)
+  (slot scaling                     <fl>         initialize 1.)
   (slot previous-size               <Dimension+> initialize #f)
   (slot update-locked?              <bool>       initialize #f getter generate)
   (slot scrollee-locked?            <bool>       initialize #f)
@@ -649,8 +649,8 @@
     scaling)
 
 
-  (method override (set-scaling value)
-    (set! scaling (/ (round (* value 1000)) 1000)))
+  (method override (set-scaling value <fl>)
+    (set! scaling (/ (cast <fl> (round (* value 1000))) 1000)))
 
   
   ;;;
@@ -754,7 +754,7 @@
   (method override (get-delta origin <View>)
     (let ((origin-player (get-player~ origin)))
       (if (and player origin-player (neq? player origin-player))
-          (receive (h <fl> v <fl> sc <fl>) (get-lie-parent 0.0 0.0 1.0)
+          (receive (h <fl> v <fl> sc <fl>) (get-lie-parent 0. 0. 1.)
             (let ((delta <Point> (- (get-global~ origin) (get-global))))
               (values (* (get-h~ delta) sc) (* (get-v~ delta) sc) sc)))
         (nextmethod origin))))
@@ -963,10 +963,10 @@
   ;;;
   
 
-  (method override (render surface draw-self? nodes context lh lv sh sv sc sc?)
+  (method override (render surface draw-self? nodes context)
     (if renderer
-        (render~ renderer self surface draw-self? nodes context lh lv sh sv sc sc?)
-      (nextmethod surface draw-self? nodes context lh lv sh sv sc sc?)))
+        (render~ renderer self surface draw-self? nodes context)
+      (nextmethod surface draw-self? nodes context)))
 
   
   ;;;
@@ -985,9 +985,9 @@
     background)
   
   
-  (method override (draw-content surface context lh lv)
+  (method override (draw-content surface context)
     (set-font~ surface (effective-font))
-    (draw surface context lh lv))
+    (draw surface context))
   
   
   ;;;
@@ -1173,7 +1173,7 @@
   (method public (export-picture (context: context '()) (where: where 'file) (destination: destination #f))
     (with ((surface (new Memory-Surface #f (get-size))))
       (set-clipper~ surface (new Rect 0 0 (get-width) (get-height)))
-      (paint-drawing surface context 0 0 0 0 1.0 #f)
+      (paint-drawing surface context)
       (export-to-png~ surface (or destination (choose-new-file default-extension: "png")))))
 
 
@@ -1192,10 +1192,10 @@
                          (lie (get-lie))
                          (lh (get-h~ lie))
                          (lv (get-v~ lie)))
-                    (let ((content (offset-rect area lh lv)))
-                      (with-clipper~ picture content
+                    (let ((content (offset-rect area)))
+                      (with-clip~ picture content
                         (lambda ()
-                          (paint-drawing picture context lh lv (get-left~ content) (get-top~ content) 1.0 #f)))))))
+                          (paint-drawing picture context (get-left~ content) (get-top~ content) 1. #f)))))))
               (set! metafile (get-metafile~ picture)))
             (if (eq? where 'clipboard)
                 (set-clipboard-metafile metafile)
@@ -1300,9 +1300,9 @@
           (let* ((size (get-size))
                  (display (get-display))
                  (display-size (get-size~ display))
-                 (sc (if scaled? scaling 1.0))
-                 (min-h (- (/ (get-width~ display-size) sc) (get-width~ size)))
-                 (min-v (- (/ (get-height~ display-size) sc) (get-height~ size)))
+                 (sc (cast <fl> (if scaled? scaling 1.)))
+                 (min-h (- (/ (cast <fl> (get-width~ display-size)) sc) (get-width~ size)))
+                 (min-v (- (/ (cast <fl> (get-height~ display-size)) sc) (get-height~ size)))
                  (max-h 0)
                  (max-v 0)
                  (h (fxround (min (max (get-h~ dest) min-h) max-h)))
@@ -1322,7 +1322,7 @@
                     ;; convert to-fix scroll-view bugs when used from thumb-track
                     (invalidate-view~ scroller)
                   (let ((rect (get-bounds~ display))
-                        (clip-rect (acquire~ display self (get-clipper))))
+                        (clip-rect (acquire~ display self (get-view-clipper))))
                     (scroll-view~ display dh dv rect clip-rect: clip-rect))))))))))
   
   
@@ -1333,9 +1333,9 @@
         (let* ((size (get-size))
                (display (get-display))
                (display-size (get-size~ display))
-               (sc (if scaled? scaling 1.0))
-               (min-h (- (/ (get-width~ display-size) sc) (get-width~ size)))
-               (min-v (- (/ (get-height~ display-size) sc) (get-height~ size)))
+               (sc (cast <fl> (if scaled? scaling 1.)))
+               (min-h (- (/ (cast <fl> (get-width~ display-size)) sc) (get-width~ size)))
+               (min-v (- (/ (cast <fl> (get-height~ display-size)) sc) (get-height~ size)))
                (max-h 0)
                (max-v 0)
                (h (fxround (min (max (get-h~ dest) min-h) max-h)))
@@ -1371,8 +1371,8 @@
           (display (get-display)))
       (when (and player (view-visible?))
         (let ((acquired (acquire~ root self rect))
-              (clip-rect (acquire~ root self (or clip-rect (get-clipper)))))
-          (receive (h v sc) (get-lie-parent 0.0 0.0 1.0)
+              (clip-rect (acquire~ root self (or clip-rect (get-view-clipper)))))
+          (receive (h v sc) (get-lie-parent 0. 0. 1.)
             (scroll-window~ player (fxround (* dh sc)) (fxround (* dv sc)) acquired clip-rect))))))
   
   
@@ -1382,12 +1382,12 @@
           (root (get-root)))
       (when player
         (let ((acquired (acquire~ root self rect))
-              (clip-rect (acquire~ root self (or clip-rect (get-clipper)))))
+              (clip-rect (acquire~ root self (or clip-rect (get-view-clipper)))))
           (scroll-offscreen~ root dh dv acquired clip-rect)))))
   
   
   (method (scroll-offscreen dh dv src-rect clip-rect)
-    (with ((surface (get-surface)))
+    (with ((surface (get-view-surface)))
       (let* ((src-rect (rect-intersection src-rect clip-rect))
              (dst-rect (offset-rect src-rect dh dv))
              (modified-rect (rect-intersection (rect-union src-rect dst-rect) clip-rect))
@@ -1442,7 +1442,7 @@
              ((horz) (get-width~ parent)))))
       (if (not scaled?)
           size
-        (fxround (/ size scaling)))))
+        (fxround/ size scaling))))
   
   
   (method public (with-scrollee-locked proc)
@@ -1527,8 +1527,8 @@
           (if (not scaled?)
               pos
             (new Point
-              (fxround (/ (get-h~ pos) scaling))
-              (fxround (/ (get-v~ pos) scaling)))))
+              (fxround/ (get-h~ pos) scaling)
+              (fxround/ (get-v~ pos) scaling))))
       {Point 0 0}))
     
   
@@ -1545,7 +1545,7 @@
         (let ((size <Dimension> (get-size~ parent)))
           (if (not scaled?)
               size
-            (new Dimension (fxround (/ (get-width~ size) scaling)) (fxround (/ (get-height~ size) scaling)))))
+            (new Dimension (fxround/ (get-width~ size) scaling) (fxround/ (get-height~ size) scaling))))
       (get-size)))
     
   
@@ -1571,7 +1571,7 @@
     (if scroller
         (if (not scaled?)
             (+ pos position)
-          (new Point (fxround (+ (get-h~ pos) (/ (get-h~ position) scaling))) (fxround (+ (get-v~ pos) (/ (get-v~ position) scaling)))))
+          (new Point (fxround (+ (get-h~ pos) (/ (cast <fl> (get-h~ position)) scaling))) (fxround (+ (get-v~ pos) (/ (cast <fl> (get-v~ position)) scaling)))))
       pos))
 
   
@@ -2387,7 +2387,7 @@
     
     (cancel-hovering)
     (let ((start (mouse-position))
-          (period (/ time Hovering-Steps)))
+          (period (/ (cast <fl> time) Hovering-Steps)))
       (set! hover-history '())
       (set! hover-pulse (new Pulse 'hovering period (lambda () (check-hovering start)) delay: 0))))
   
@@ -3280,10 +3280,10 @@
         (nextmethod child h v)
       (let ((p (get-translated-clipper (- (* h scaling) (get-h~ (get-position~ child))) (- (* v scaling) (get-v~ (get-position~ child)))))
             (c (offset-rect (get-bounds~ child) (fxround h) (fxround v))))
-        (set-left~ p (fxround (/ (get-left~ p) scaling)))
-        (set-top~ p (fxround (/ (get-top~ p) scaling)))
-        (set-right~ p (fxround (/ (get-right~ p) scaling)))
-        (set-bottom~ p (fxround (/ (get-bottom~ p) scaling)))
+        (set-left~ p (fxround/ (get-left~ p) scaling))
+        (set-top~ p (fxround/ (get-top~ p) scaling))
+        (set-right~ p (fxround/ (get-right~ p) scaling))
+        (set-bottom~ p (fxround/ (get-bottom~ p) scaling))
         (rect-intersection p c))))
   
   
@@ -3292,11 +3292,10 @@
   ;;;
 
 
-  (method public (get-surface)
+  (method public (get-view-surface)
     (let ((surface (new Surface (get-window-surface (get-player))))
           (lie (get-lie)))
-      (set-transform~ surface (get-h~ lie) (get-v~ lie) (get-width) (get-height) 0 0 1.0 #f)
-      (set-clipper~ surface (get-bounds))
+      (set-transform~ surface (get-h~ lie) (get-v~ lie) (get-width) (get-height) (get-scaling) (get-scaled?))
       surface))
 
 
@@ -3312,7 +3311,7 @@
   
   (method public (invalidate-rect rect)
     (when (view-visible?)
-      (let ((acquired (acquire~ (get-root) self (rect-intersection rect (get-clipper)))))
+      (let ((acquired (acquire~ (get-root) self (rect-intersection rect (get-view-clipper)))))
         (invalidate-rect~ player acquired))))
   
   
@@ -3322,7 +3321,7 @@
       (let ((root (cast <View> (get-root))))
         (let ((delta (- (get-lie) (get-lie~ root))))
           (offset!~ region (get-h~ delta) (get-v~ delta))
-          (with ((clipper (new Region (acquire~ root self (get-clipper)))))
+          (with ((clipper (new Region (acquire~ root self (get-view-clipper)))))
             (combine!~ region clipper 'and))
           (invalidate-region~ player region)))))
   
@@ -3332,17 +3331,17 @@
       (when player
         (let ((root (get-root)))
           (cond (rect
-                  (let ((acquired (acquire~ root self (rect-intersection rect (get-clipper)))))
+                  (let ((acquired (acquire~ root self (rect-intersection rect (get-view-clipper)))))
                     (redraw-window~ player rect: acquired)))
                 ;; todo: not using acquire is a potentiel scaling bug...
                 (region
                   (let ((delta (- (get-lie) (get-lie~ root))))
                     (offset!~ region (get-h~ delta) (get-v~ delta))
-                    (with ((clipper (new Region (acquire~ root self (get-clipper)))))
+                    (with ((clipper (new Region (acquire~ root self (get-view-clipper)))))
                       (combine!~ region clipper 'and))
                     (redraw-window~ player region: region)))
                 (else
-                 (let ((acquired (acquire~ root self (rect-intersection (get-bounds) (get-clipper)))))
+                 (let ((acquired (acquire~ root self (rect-intersection (get-bounds) (get-view-clipper)))))
                    (redraw-window~ player rect: acquired))))))))
   
 

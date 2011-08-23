@@ -152,7 +152,7 @@
   ;;;
 
 
-  (method override (render drawing surface draw-self? nodes context lh lv sh sv sc sc?)
+  (method override (render drawing surface draw-self? nodes context)
     (define (default-render)
       (let ((content? (get-show-content?~ editor)))
         (when (eq? client (get-client~ editor)) @w (is? (get-parent~ client) View-Workbench)
@@ -160,9 +160,9 @@
         (when content?
           (draw-background~ drawing surface context))
         (when content?
-          (draw-content~ drawing surface context lh lv))
+          (draw-content~ drawing surface context))
         (when (or content? (is-not? drawing Outline-View))
-          (draw-children~ drawing surface nodes context lh lv sh sv sc sc?))))
+          (draw-children~ drawing surface nodes context))))
     
     (default-render)
     (draw surface))
@@ -326,6 +326,7 @@
   ;; even tough we use the surrogate-view actions because they
   ;; are the ones that are checked in update-component-menu
   (method virtual (focus-update-actions)
+    (set-action-enabled? {Action components-tree rename} (can-rename?))
     (set-action-enabled? {Action components-tree new} #f)
     (set-action-enabled? {Action components-tree open} #t)
     (set-action-enabled? {Action components-tree add} #f))
@@ -644,16 +645,8 @@
   (method public virtual (get-context-menu)
     (let ((components (get-selection))
           (menu (new (context-menu-class))))
-      (define (categorized-addable-classes)
-        (let ((component (car components)))
-          (if (is? component Component)
-              (or (component-categorized-toolbox-addable-classes component)
-                  (component-categorized-addable-classes component (get-parent~ component)))
-            '())))
-      
-      (update-component-menu menu (get-selection) (categorized-addable-classes)
-        (lambda (model)
-          (add-new (resolve-runtime-reference model) {Point 0 0} centered?: #f)))
+      ;; Add submenu is too long to generate and not useful
+      (update-component-menu menu (get-selection) '() (lambda (_) #f))
       menu))
   
   
@@ -803,7 +796,7 @@
   
   
   (method public virtual (can-cut?)
-    (can-cut-component?~ client))
+    (can-cut-selection?~ editor))
   
   
   (method public virtual (can-copy?)
@@ -819,11 +812,11 @@
   
   
   (method public virtual (can-delete?)
-    (can-delete-component?~ client))
+    (can-delete-selection?~ editor))
   
   
   (method public virtual (can-rename?)
-    (can-rename-component?~ client))
+    (can-rename-selection?~ editor))
   
   
   (method public virtual (can-select-all?)

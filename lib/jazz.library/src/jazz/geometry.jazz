@@ -159,17 +159,23 @@
   (offset-rect rect (- (get-left~ rect)) (- (get-top~ rect))))
 
 
-(definition public (fit-rects src dst mode)
-  (let* ((dw (rect-width dst))
-         (dh (rect-height dst))
-         (sw (rect-width src))
-         (sh (rect-height src))
-         (rw (/ dw sw))
-         (rh (/ dh sh)))
+(definition public (fit-dimensions src dst mode)
+  (let* ((dw (get-width~ dst))
+         (dh (get-height~ dst))
+         (sw (get-width~ src))
+         (sh (get-height~ src))
+         (rw (/ (cast <fl> dw) sw))
+         (rh (/ (cast <fl> dh) sh)))
     (case mode
+      ((fill) (max rw rh))
+      ((fit) (min rw rh))
       ((width) rw)
       ((height) rh)
       ((both) (if (> rw rh) rh rw)))))
+
+
+(definition public (fit-rects src dst mode)
+  (fit-dimensions (rect-size src) (rect-size dst) mode))
 
 
 (definition public (fit-within outer rect (minimum-size: minimum-size {Dimension 0 0}) (padding: padding 0))
@@ -364,8 +370,8 @@
     (if (= divider 0)
         #f
       (abs
-        (/ (scalar-product (new Point (- (get-h~ point) (get-h~ start)) (- (get-v~ point) (get-v~ start)))
-                           (new Point (- (get-v~ end) (get-v~ start)) (- (get-h~ start) (get-h~ end))))
+        (/ (cast <fl> (scalar-product (new Point (- (get-h~ point) (get-h~ start)) (- (get-v~ point) (get-v~ start)))
+                                      (new Point (- (get-v~ end) (get-v~ start)) (- (get-h~ start) (get-h~ end)))))
            divider)))))
 
 
@@ -393,7 +399,7 @@
 
 
 (definition public (scale shape sc)
-  (let ((sc (exact->inexact sc)))
+  (let ((sc (cast <fl> sc)))
     (typecase shape
       ((Point)
        (let ((h <fx> (get-h~ shape))

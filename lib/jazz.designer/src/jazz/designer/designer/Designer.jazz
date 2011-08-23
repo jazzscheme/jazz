@@ -160,22 +160,6 @@
       (save-content destination)))
   
   
-  (method (call-with-saved-text file func)
-    (call-with-text file
-      (lambda (text)
-        (let ((result (func text)))
-          (save~ text)
-          result))))
-  
-  
-  (method (call-with-text file func)
-    (let* ((frame (edit-document~ (get-application) file force-new?: #t class: Jazz-Text-View visible?: #f))
-           (text (get-guest~ frame))
-           (result (func text)))
-      (close~ frame)
-      result))
-  
-  
   (method (evaluate-at-caret text)
     (apply evaluate-expressions~ (get-local-process) (prepare-expressions~ text (current-declaration-range~ text))))
   
@@ -217,19 +201,6 @@
         (evaluate-at-caret text)
         (module-ref module-name class-name)))
     
-    (define (super-class-name)
-      (or (get-model~ form)
-          (receive (unit names) (split-locator (get-name~ (class-ascendant (get-origin~ form))))
-            (car names))))
-    
-    (define (super-class-import super-class-name)
-      (and (not (get-model~ form))
-           (receive (unit _) (split-locator (get-name~ (get-origin~ form)))
-             (let ((ser (serialize-runtime-reference (evaluate-in-unit unit `(reference ,super-class-name) eval))))
-               (if (eq? (first ser) 'module-private)
-                   (origin-import form)
-                 (second ser))))))
-    
     (define (insert-class text class-name super-class-name)
       (let ((explorer (new Jazz-Explorer (get-model~ text))))
         (forward-namespace~ explorer)
@@ -239,12 +210,6 @@
         (let ((class-string (format "{%}{%}{%}(class {a} extends {a})" class-name super-class-name)))
           (insert-string~ text class-string))))
     
-    (define (imports-to-insert super-class-name module-name)
-      (let ((super-class-import (super-class-import super-class-name)))
-        (remove module-name (remove-duplicates (append (default-designer-imports~ (get-application))
-                                                       (if super-class-import (list super-class-import) '())
-                                                       (form-imports form (and (get-origin~ form) (origin-import form))))))))
-    
     (let* ((modules (apply union test: eq? (map get-module-names~ toolbox-managers)))
            (result (get-modal Save-Chooser modules: modules)))
       (if (is? result File)
@@ -253,15 +218,37 @@
           (with-safe-design
             (lambda ()
               (let ((class-name (parse-class-name class-string))
-                    (super-class-name (super-class-name)))
+                    (super-class-name (super-class-name form)))
                 (validate-module-name module-name)
                 (validate-class-name module-name class-name)
                 (call-with-saved-text (find-unit-source module-name)
                   (lambda (text)
-                    (insert-imports text (imports-to-insert super-class-name module-name))
+                    (insert-imports text (imports-to-insert form super-class-name module-name))
                     (evaluate-imports text)
                     (insert-class text class-name super-class-name)
                     (evaluate-class text module-name class-name))))))))))
+  
+    
+  (method (super-class-name form)
+    (or (get-model~ form)
+        (receive (unit names) (split-locator (get-name~ (class-ascendant (get-origin~ form))))
+          (car names))))
+  
+  
+  (method (imports-to-insert form super-class-name module-name)
+    (define (super-class-import)
+      (and (eq? 'install (get-action~ form))
+           (receive (unit _) (split-locator (get-name~ (get-origin~ form)))
+             (let ((ser (serialize-runtime-reference (evaluate-in-unit unit `(reference ,super-class-name) eval))))
+               (if (eq? (first ser) 'module-private)
+                   (origin-import form)
+                 (second ser))))))
+    
+    (let* ((super-class-import (super-class-import))
+           (modules (remove-duplicates (append (default-designer-imports~ (get-application))
+                                               (if super-class-import (list super-class-import) '())
+                                               (form-imports form (and (is? (get-origin~ form) Class) (origin-import form)))))))
+      (if module-name (remove module-name modules) modules)))
   
   
   (method (save-content destination)
@@ -300,7 +287,7 @@
           (unless form-exists? (evaluate-form text))))
       
       (define (save-to-new-class text)
-        (let ((adjusted-form (new Form textual?: #f action: 'new model: 'install properties: (get-properties~ form) children: (get-children~ form)))
+        (let ((adjusted-form (new Form textual?: #f action: 'install properties: (get-properties~ form) children: (get-children~ form)))
               (origin (get-origin~ form)))
           (save-form text adjusted-form #f)
           (tabulate-form text)
@@ -352,25 +339,29 @@
         (message-box (format "Unable to save to read-only file: {s}" file))
       (call-with-output-file (path-settings file char-encoding: 'UTF-8)
         (lambda (output)
-          (let ((data (get-data~ form)))
-            (output-header (get-model~ form) output)
+          (let ((data (get-data~ form))
+                (adjusted-form (copy-object~ form #t)))
+            (set-origin~ adjusted-form file)
+            (set-action~ adjusted-form 'new)
+            (set-model~ adjusted-form (super-class-name form))
+            (output-header (get-model~ adjusted-form) output)
             (format output "{%}{%}")
-            (format output "(data {a}{%}" (get-dialect~ data))
+            (format output "(data {a}{%}" (if data (get-dialect~ data) 'jazz))
             (format output "{%}{%}")
-            (let ((imports (get-imports~ data)))
-              (when imports
-                (format output "(import ")
-                (let ((first? #t))
-                  (for-each (lambda (import)
-                              (if first?
-                                  (set! first? #f)
-                                (format output "{%}"))
-                              (format output "{s}" import))
-                            imports)
-                  (format output "){%}"))
-                (format output "{%}{%}")))
-            (print-to 1 output)
-            (format output "){%}"))))))
+            (let ((imports (if data
+                               (get-imports~ data)
+                             (imports-to-insert form (super-class-name form) #f))))
+              (when (and imports (not-null? imports))
+                (format output "(import {s}" (car imports))
+                (for-each (lambda (import)
+                            (format output "{%}        {s}" import))
+                          (cdr imports))
+                (format output  "){%}{%}{%}")))
+            (print-file-form adjusted-form 1 output)
+            (format output "){%}")
+            (for-each (lambda (designer)
+                        (set-form~ designer adjusted-form))
+                      (get-designers~ reference)))))))
 
 
   (method public (saved-form . rest)
@@ -778,9 +769,9 @@
                               (if (null? forms) (list (owned-form form (component-ancestry component reference))) forms))))
         (if (not original-forms)
             (designer-error "Unable to find owner for {t}" component)
-          (let* ((forms (cons (replace-master (car original-forms) component)
-                              (map modify->install (cdr original-forms))))
-                 (imports (map listify (apply union (map form-imports forms)))))
+          (let* ((imports (map listify (apply union (map form-imports original-forms))))
+                 (forms (cons (replace-master (car original-forms) component)
+                              (map modify->install (cdr original-forms)))))
             (new Component-Parcel (current-process-id) (object->serial component) imports forms)))))
     
     (map package-component components))
@@ -1016,6 +1007,10 @@
   ;;;
   ;;;; Owner
   ;;;
+  
+  
+  (method public virtual (component-owned-by-reference? component)
+    (component-owned? component form reference))
   
   
   (method public (find-owner component (property #f))

@@ -116,7 +116,7 @@
   (if (is-window-HIView? window)
       (create-HIView-handle window rest)
     (let* ((window-handle (create-window-handle window rest))
-	   (handle (HIViewGetContent window-handle)))
+           (handle (HIViewGetContent window-handle)))
       (InstallControlEventHandler handle)
       handle)))
 
@@ -186,7 +186,7 @@
     (RunApplicationEventLoop))
   
   (new-thread process 'message-pump))
-  
+
 
 (definition package (show-window handle)
   ;; We must fix this.
@@ -228,11 +228,11 @@
 (definition package (minimize-window handle)
   (unimplemented 'minimize-window))
 
- 
+
 (definition package (maximize-window handle)
   (unimplemented 'maximize-window))
 
- 
+
 (definition package (restore-window handle)
   (unimplemented 'restore-window))
 
@@ -292,7 +292,7 @@
                        (win (get-window view)))
                   (if win
                       (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
-                        (mouse-move~ win (inexact->exact x) (inexact->exact y))
+                        (mouse-move~ win (flonum->fixnum x) (flonum->fixnum y))
                         noErr)
                     eventNotHandledErr))))))
          ((= type kEventMouseUp)
@@ -302,7 +302,7 @@
                      (win (get-window view)))
                 (if win
                     (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
-                      (mouse-up~ win (inexact->exact x) (inexact->exact y))
+                      (mouse-up~ win (flonum->fixnum x) (flonum->fixnum y))
                       noErr)
                   eventNotHandledErr)))))
          ((= type kEventMouseDown)
@@ -312,7 +312,7 @@
                      (win (get-window view)))
                 (if win
                     (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
-                      (mouse-down~ win (inexact->exact x) (inexact->exact y))
+                      (mouse-down~ win (flonum->fixnum x) (flonum->fixnum y))
                       noErr)
                   eventNotHandledErr)))))
          (else eventNotHandledErr)))
@@ -350,9 +350,10 @@
            noErr)
           ((= type kEventControlBoundsChanged)
            (receive (left top width height) (HIViewGetBounds handle)
-             (if (is? (get-window handle) Docked-Host) (show-window handle))
-             (call-size-change~ (get-window handle) 'restored (inexact->exact width) (inexact->exact height))
-             (call-position-change~ (get-window handle) (inexact->exact left) (inexact->exact top)))
+             (when (is? (get-window handle) Docked-Host)
+               (show-window handle))
+             (call-size-change~ (get-window handle) 'restored (flonum->fixnum width) (flonum->fixnum height))
+             (call-position-change~ (get-window handle) (flonum->fixnum left) (flonum->fixnum top)))
            noErr)
           (else
            eventNotHandledErr))))
@@ -467,8 +468,8 @@
 (definition public (acquire-point to-handle from-handle shape)
   (let ((x (get-h~ shape))
         (y (get-v~ shape)))
-    (receive (x y) (convertCoordinates from-handle to-handle (exact->inexact x) (exact->inexact y))
-      (new Point (inexact->exact x) (inexact->exact y)))))
+    (receive (x y) (convertCoordinates from-handle to-handle (fixnum->flonum x) (fixnum->flonum y))
+      (new Point (flonum->fixnum x) (flonum->fixnum y)))))
 
 
 (definition public (acquire-rect to-handle from-handle shape)
@@ -487,26 +488,26 @@
   (let* ((window (HIViewGetWindow handle))
          (root   (HIViewGetRoot window)))
     (receive (x y) (convertCoordinates handle root 0.0 0.0)
-       (receive (l t w h) (WindowGetBounds window kWindowContentRgn)
-          (new Point (inexact->exact (+ l x)) (inexact->exact (+ t y)))))))
+      (receive (l t w h) (WindowGetBounds window kWindowContentRgn)
+        (new Point (flonum->fixnum (+ l x)) (flonum->fixnum (+ t y)))))))
 
 (definition package (platform-get-position handle parent-handle)
   (receive (left top width height) (platform-get-system-rect handle)
-    (new Point (inexact->exact left) (inexact->exact top))))
+    (new Point (flonum->fixnum left) (flonum->fixnum top))))
 
 
 (definition package (platform-set-position handle pos)
   (receive (left top width height) (platform-get-system-rect handle)
-     (let ((left (get-h~ pos))
-	   (top (get-v~ pos)))
-       (if (is-window-HIView? (get-window handle))
-	   (HIViewSetFrame handle (exact->inexact left) (exact->inexact top) (exact->inexact width) (exact->inexact height))
-	 (WindowSetBounds (HIViewGetWindow handle) kWindowContentRgn left top width height)))))
-  
+    (let ((left (get-h~ pos))
+          (top (get-v~ pos)))
+      (if (is-window-HIView? (get-window handle))
+          (HIViewSetFrame handle (fixnum->flonum left) (fixnum->flonum top) (fixnum->flonum width) (fixnum->flonum height))
+        (WindowSetBounds (HIViewGetWindow handle) kWindowContentRgn left top width height)))))
+
 
 (definition package (platform-get-size handle)
   (receive (left top width height) (platform-get-system-rect handle)
-    (new Dimension (inexact->exact width) (inexact->exact height))))
+    (new Dimension (flonum->fixnum width) (flonum->fixnum height))))
 
 
 (definition package (platform-get-window-size handle)
@@ -515,18 +516,18 @@
 
 (definition package (platform-get-system-rect handle)
   (cond ((is-window-HIView? (get-window handle))
-	 (HIViewGetFrame handle))
-	(else
-	 (WindowGetBounds (HIViewGetWindow handle) kWindowContentRgn))))
+         (HIViewGetFrame handle))
+        (else
+         (WindowGetBounds (HIViewGetWindow handle) kWindowContentRgn))))
 
 
 (definition package (platform-set-window-size handle size)
   (receive (left top width height) (platform-get-system-rect handle)
-     (let ((width (get-width~ size))
-	   (height (get-height~ size)))
-       (if (is-window-HIView? (get-window handle))
-	   (HIViewSetFrame handle (exact->inexact left) (exact->inexact top) (exact->inexact width) (exact->inexact height))
-	 (WindowSetBounds (HIViewGetWindow handle) kWindowContentRgn left top width height)))))
+    (let ((width (get-width~ size))
+          (height (get-height~ size)))
+      (if (is-window-HIView? (get-window handle))
+          (HIViewSetFrame handle (fixnum->flonum left) (fixnum->flonum top) (fixnum->flonum width) (fixnum->flonum height))
+        (WindowSetBounds (HIViewGetWindow handle) kWindowContentRgn left top width height)))))
 
 
 (definition package (platform-set-position-size handle pos size)
@@ -607,25 +608,25 @@
 
 (definition package (platform-scroll-window handle dh dv rect clip-rect)
   (platform-invalidate-rect handle clip-rect)
-  @w(platform-update-window handle))
+  @w (platform-update-window handle))
 
 
 ;; Correct this to really invalidate the rect
 (definition package (platform-invalidate-rect handle rect)
-  (if rect
-  (let ((left (exact->inexact (get-left~ rect)))
-	(top (exact->inexact (get-top~ rect)))
-	(right (exact->inexact (get-right~ rect)))
-	(bottom (exact->inexact (get-bottom~ rect))))
-    (unless (and (= 0 left) (= 0 top) (= 0 right) (= 0 bottom))
-    (HIViewSetNeedsDisplayInRect handle left top (- right left) (- bottom top))))))
+  (when rect
+    (let ((left (fixnum->flonum (get-left~ rect)))
+          (top (fixnum->flonum (get-top~ rect)))
+          (right (fixnum->flonum (get-right~ rect)))
+          (bottom (fixnum->flonum (get-bottom~ rect))))
+      (unless (and (= 0 left) (= 0 top) (= 0 right) (= 0 bottom))
+        (HIViewSetNeedsDisplayInRect handle left top (- right left) (- bottom top))))))
 
 
 ;; Correct this to really invalidate the region
 (definition package (platform-invalidate-region handle region)
   (for-each (lambda (rect)
-               (platform-invalidate-rect handle rect))
-	    (get-rectangles~ region)))
+              (platform-invalidate-rect handle rect))
+            (get-rectangles~ region)))
 
 
 (definition package (platform-invalidate-window handle)
@@ -674,8 +675,8 @@
     (let* ((size (platform-get-size handle))
            (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
       (platform-invalidate-rect handle rct))))
-  
-  
+
+
 (definition package (platform-show-noactivate handle)
   (show-window handle))
 
@@ -822,9 +823,9 @@
   #f
   @unimp
   (unless #f @to-fix-this-doesnt-work-when-switching-overlapped-windows! (= cursor Current-Cursor)
-          (set! Current-Cursor cursor)
-          (let ((cursor (if (symbol? cursor) (get-named-cursor cursor) cursor)))
-            (SetCursor (load-cursor cursor)))))
+    (set! Current-Cursor cursor)
+    (let ((cursor (if (symbol? cursor) (get-named-cursor cursor) cursor)))
+      (SetCursor (load-cursor cursor)))))
 
 
 (definition public (hide-cursor)

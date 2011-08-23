@@ -2089,7 +2089,7 @@
             (nextmethod context)))))
   
   
-  (method override (draw-children surface nodes context lh lv sh sv sc sc?)
+  (method override (draw-children surface nodes context)
     (define (draw-highlights)
       (let ((focus? (has-focus?))
             (tabs (get-tabs~ model)))
@@ -2111,44 +2111,32 @@
                           (draw-style~ style surface '() target (get-h~ pos) (get-v~ pos) height tabs left enabled?)))))
                   highlights)))
     
+    (define (draw-caret)
+      (when (and caret-visible? (empty-selection?) (or (not mouse-down?) (not (alt-down?))))
+        (let ((rect <Rect> (caret-rect (get-caret) 0)))
+          (set-color~ surface (or (get-caret-color~ (get-look)) {Color Black}))
+          (set-line-width~ surface 1)
+          (line~ surface (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-bottom~ rect)))))
+    
     (let ((top #f)
           (bottom #f)
           (printing? (getf context printing?:)))
       (unless printing?
         (draw-selection surface top bottom))
-      (nextmethod surface nodes context lh lv sh sv sc sc?)
+      (nextmethod surface nodes context)
       (draw-highlights)
       (unless printing?
-        (draw-caret surface sc sc?))))
+        (draw-caret))))
   
   
   (method protected (draw-selection surface top bottom)
     (when (and (or (has-focus?) show-unfocused-selection?) selectable?)
-      (with ((region (text-selection-region 0.0 0.0 1.0 top bottom)))
+      (with ((region (text-selection-region 0. 0. 1. top bottom)))
         (when region
           (fill-region~ surface region
             (if (has-focus?)
                 (get-selection-color)
               (get-inactive-selection-color)))))))
-  
-  
-  (method protected (draw-caret surface sc <fl> sc? <bool>)
-    (when (and caret-visible? (empty-selection?) (or (not mouse-down?) (not (alt-down?))))
-      (let ((proc
-             (lambda (rect)
-               (set-color~ surface (or (get-caret-color~ (get-look)) {Color Black}))
-               (set-line-width~ surface 1)
-               (line~ surface (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-bottom~ rect)))))
-        (let ((rect <Rect> (caret-rect (get-caret) 0)))
-          (if (not sc?)
-              (proc rect)
-            ;; this could use some improvements!
-            (let ((scaled (new Rect
-                            (fxround (if sc? (* (get-left~ rect) sc) (get-left~ rect)))
-                            (fxround (if sc? (* (get-top~ rect) sc) (get-top~ rect)))
-                            (fxround (if sc? (* (get-right~ rect) sc) (get-right~ rect)))
-                            (fxround (if sc? (* (get-bottom~ rect) sc) (get-bottom~ rect))))))
-              (proc scaled)))))))
   
   
   ;;;

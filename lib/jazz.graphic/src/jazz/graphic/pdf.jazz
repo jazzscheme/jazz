@@ -48,23 +48,22 @@
   1.25)
 
 
-(definition public (document->pdf filename view)
-  (let* ((surface (new PDF-Surface #f (new Dimension (* 17/2 72) (* 11 72)) filename))
-         (page-setup (get-page-setup-for~ view 'printer)))
-    (with-update-locked~ view
-      (lambda ()
-        (let ((descendants (collect-descendants~ view View))
-              (backgrounds (make-table test: eq?)))
-          (for-each (lambda (view)
-                      (table-set! backgrounds view (get-background~ view))
-                      (set-background~ view #f))
-                    descendants)
-          (let ((job (new PDF-Job surface view page-setup 60 zoom: pdf-zoom)))
-            (print-job~ job))
-          (destroy~ surface)
-          (for-each (lambda (view)
-                      (set-background~ view (table-ref backgrounds view)))
-                    descendants))))))
+(definition public (document->pdf view filename)
+  (with ((surface (new PDF-Surface #f (new Dimension (* 17/2 72) (* 11 72)) filename)))
+    (let ((page-setup (new Page-Setup) @w (get-page-setup-for~ view 'printer)))
+      (with-update-locked~ view
+        (lambda ()
+          (let ((descendants (collect-descendants~ view View))
+                (backgrounds (make-table test: eq?)))
+            (for-each (lambda (view)
+                        (table-set! backgrounds view (get-background~ view))
+                        (set-background~ view #f))
+                      descendants)
+            (let ((job (new PDF-Job surface view page-setup 60 zoom: pdf-zoom)))
+              (print-job~ job))
+            (for-each (lambda (view)
+                        (set-background~ view (table-ref backgrounds view)))
+                      descendants)))))))
 
 
 ;;;
@@ -91,7 +90,7 @@
   
   
   (method override (initialize _ size filename)
-    (let ((surface (cairo_pdf_surface_create filename (exact->inexact (get-width~ size)) (exact->inexact (get-height~ size)))))
+    (let ((surface (cairo_pdf_surface_create filename (fixnum->flonum (get-width~ size)) (fixnum->flonum (get-height~ size)))))
       (nextmethod surface)
       (set! size~self size)))
   

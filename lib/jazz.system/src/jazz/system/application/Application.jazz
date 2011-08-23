@@ -71,11 +71,6 @@
 
 
   (slot toplevel                 initialize #f)
-  (slot profile-name             initialize #f)
-  (slot profile-unit             initialize #f)
-  (slot profile-class            initialize #f)
-  (slot profile-bindings         initialize #f)
-  (slot profile                  initialize #f                        getter generate)
   (slot focus-listeners          initialize '())
   (slot application-listeners    initialize (make-table test: eq?))
   (slot selected-owner           initialize #f                        getter generate)
@@ -106,6 +101,10 @@
 
   (method override (get-toplevel)
     toplevel)
+  
+  
+  (method override (is-application?)
+    #t)
 
 
   ;;;
@@ -127,7 +126,6 @@
     (initialize-windowing get-setting)
     (initialize-system)
     (prepare-skins)
-    (prepare-profile)
     (prepare-colors)
     (prepare-fonts)
     (prepare-formats)
@@ -219,10 +217,7 @@
     (when toplevel
       (close~ toplevel)
       (set! toplevel #f)
-      (set! profile-name #f)
-      (set! profile-unit #f)
       (set! profile-class #f)
-      (set! profile-bindings #f)
       (set! profile #f)))
 
 
@@ -446,53 +441,38 @@
   ;;;
   
   
-  (method protected virtual (prepare-profile)
-    (when (use-profile?)
-      (install-profiles)
-      (log-profile)))
-  
-  
-  (method protected virtual (use-profile?)
-    #f)
-  
-  
   (method protected virtual (use-profile-logging?)
     #f)
   
   
-  (method protected virtual (install-profiles)
-    )
-  
-  
-  (method (log-profile)
-    (define (install-profile)
+  (method override (log-profile)
+    (define (install-profile name unit bindings)
       (let ((source (find-unit-source profile-class)))
         (when (not source)
-          (install-new-profile)
+          (install-new-profile name unit bindings)
           (set! source (find-unit-source profile-class)))
         (register-alias 'Profile (get-list~ (get-parent~ source)))))
     
-    (define (install-new-profile)
+    (define (install-new-profile name unit bindings)
       (let ((associations (list (cons 'jazz-settings-version (present-version jazz-settings-version))
                                 (cons 'settings-version (present-version (settings-version)))
-                                (cons 'profile profile-name)
-                                (cons 'profile-lowercase (downcase (symbol->string profile-name)))
-                                (cons 'profile-unit profile-unit)
-                                (cons 'profile-bindings (or profile-bindings 'jazz))
+                                (cons 'profile name)
+                                (cons 'profile-lowercase (downcase (symbol->string name)))
+                                (cons 'profile-unit unit)
+                                (cons 'profile-bindings (or bindings 'jazz))
                                 (cons 'active-skin (case kernel-windowing ((carbon) 'mac) ((x11) 'x11) (else 'jazz))))))
         (copy-template (new-directory~ (templates-directory) "profile")
                        {Directory Home}
                        associations
                        non-expanded-nodes: '("catalogs")))
       (let ((repository (find-repository 'Profiles)))
-        (let ((package-name profile-unit)
-              (package-path (concatenate (repository-library-directory repository) (format "{a}/.package" profile-unit))))
+        (let ((package-name unit)
+              (package-path (concatenate (repository-library-directory repository) (format "{a}/.package" unit))))
           (repository-add-package repository (load-package repository #f package-name package-path)))))
     
     (define (login-profile)
       (receive (name unit bindings always-use?) (choose-profile-login)
         (let ((one-shoot? (shift-down?)))
-          (set! profile-bindings bindings)
           (when settings
             (unless one-shoot?
               (set-setting~ settings 'profile (if always-use? (->string name) #f)))
@@ -502,15 +482,16 @@
                                    name))
               (set-setting~ settings 'profile-warned? #t))
             (save-content~ settings))
-          (values name unit))))
+          (values name unit bindings))))
     
     (define (standard-profile title)
       (let ((name (string->symbol title))
-            (unit-name (string->symbol (format "profile.{a}" (downcase title)))))
-        (values name unit-name)))
+            (unit-name (string->symbol (format "profile.{a}" (downcase title))))
+            (bindings 'jazz))
+        (values name unit-name bindings)))
     
     (define (system-profile)
-      (values 'Me 'jazz.profile)
+      (values 'Me 'jazz.profile 'jazz)
       @convert
       (standard-profile (get-system-user-name)))
     
@@ -526,13 +507,11 @@
     
     (let ((use-logging? (use-profile-logging?)))
       (let ((profile-arg (and (or (not use-logging?) (not (shift-down?))) (or (jazz-profile) (profile-parameter)))))
-        (receive (name unit) (cond (profile-arg (standard-profile (->string profile-arg)))
-                                   (use-logging? (login-profile))
-                                   (else (system-profile)))
-          (set! profile-name name)
-          (set! profile-unit unit)
+        (receive (name unit bindings) (cond (profile-arg (standard-profile (->string profile-arg)))
+                                            (use-logging? (login-profile))
+                                            (else (system-profile)))
           (set! profile-class (compose-identifier unit name))
-          (install-profile)
+          (install-profile name unit bindings)
           (load-profile-jazzini)))))
   
   
@@ -1195,11 +1174,6 @@
   ;;;
   
   
-  (method (prepare-skins)
-    (let ((skins (default-skins)))
-      (set-skin (child~ skins (default-skin)))))
-  
-  
   (method (install-skins)
     (with-safe-execution "loading the skins"
       (lambda ()
@@ -1213,10 +1187,6 @@
           (set-skin (child~ skins (default-skin)))))))
   
   
-  (method protected virtual (default-skin)
-    (get-setting 'jazz.ui.skin 'jazz))
-  
-  
   (method protected virtual (skins-file)
     {File Profile "settings" "Skins.jml"})
   
@@ -1226,15 +1196,6 @@
       (if (and (is-alias? 'Profile) (exists?~ file))
           (instantiate~ (read-form file))
         (default-skins))))
-  
-  
-  (method protected virtual (default-skins)
-    (instantiate~
-      (<form>
-        (<Skins>
-          (<Default-Skin> name: default)
-          (<Jazz-Skin>    name: jazz)
-          (<Windows-Skin> name: windows)))))
   
   
   (method protected (set-skins-designer skins)
@@ -1405,7 +1366,6 @@
       ((:focus)       (get-focus))
       ((:focus-host)  (focused-host))
       ((:focus-guest) (focused-guest))
-      ((:profile)     (get-profile))
       ((:images)      (get-images-portfolio))
       ((:bindings)    (get-bindings))
       (else (cond ((and (pair? name) (eq? (car name) :menu)) (find-menu (cadr name)))
@@ -2387,7 +2347,7 @@
       (if (not view)
           (bell)
         (let ((scaling (get-scaling~ view)))
-          (scale-view view (- scaling 0.25) #t)))))
+          (scale-view view (- scaling 0.25))))))
   
   
   (method (on-zoom-in evt)
@@ -2395,14 +2355,14 @@
       (if (not view)
           (bell)
         (let ((scaling (get-scaling~ view)))
-          (scale-view view (+ scaling 0.25) #t)))))
+          (scale-view view (+ scaling 0.25))))))
   
   
   (method (on-unzoom evt)
     (let ((view (scaled-view (get-property~ evt what:))))
       (if (not view)
           (bell)
-        (scale-view view 1.0 #f))))
+        (scale-view view 1.))))
   
   
   (method (scaled-view what)
@@ -2411,10 +2371,9 @@
       ((mouse-view) (mouse-view))))
   
   
-  (method (scale-view view scaling scaled?)
+  (method (scale-view view scaling)
     (user-message "Scaling set to {a}" scaling)
-    (set-scaling~ view scaling)
-    (set-scaled?~ view scaled?))
+    (set-scaling~ view scaling))
 
 
   ;;;

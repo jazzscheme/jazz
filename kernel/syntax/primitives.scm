@@ -382,6 +382,11 @@
          `(flonum? ,obj)
        `(##flonum? ,obj)))
    
+   (jazz:define-macro (%%flonum->fixnum x)
+     (if jazz:debug-core?
+         `(flonum->fixnum ,x)
+       `(##flonum->fixnum ,x)))
+   
    (jazz:define-macro (%%fl= x y)
      (if jazz:debug-core?
          `(= ,x ,y)

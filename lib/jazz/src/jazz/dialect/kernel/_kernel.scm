@@ -370,6 +370,8 @@
 (native list->u8vector)
 (native u8vector->object)
 (native object->u8vector)
+(native u8vector-shrink!)
+(native append-u8vectors)
 
 ;; s16
 (native s16vector)

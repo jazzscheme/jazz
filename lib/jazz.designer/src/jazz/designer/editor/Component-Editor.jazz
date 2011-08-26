@@ -436,10 +436,14 @@
   
   (method public (save-patch thunk)
     (process-saving)
-    (thunk)
-    (if (not (get-modified?))
-        (update-status)
-      (set-modified? #f)))
+    (let ((destination (thunk)))
+      (if (not (get-modified?))
+          (update-status)
+        (set-modified? #f))
+      (set-client
+        (typecase destination
+          ((File) (instantiate~ (read-form destination)))
+          ((Class) (new destination))))))
   
   
   (method public (save-content-patch)
@@ -543,6 +547,7 @@
   
   (method public (set-client clt)
     (when (neq? clt client)
+      (set-selection '())
       (let ((old client))
         (when old
           (remove-surrogate~ old))

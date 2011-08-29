@@ -44,13 +44,13 @@
         (jazz.ui.print))
 
 
-(definition pdf-zoom
-  1.25)
+(definition pdf-dpi
+  72)
 
 
-(definition public (document->pdf view filename)
-  (with ((surface (new PDF-Surface #f (new Dimension (* 17/2 72) (* 11 72)) filename)))
-    (let ((page-setup (new Page-Setup) @w (get-page-setup-for~ view 'printer)))
+(definition public (document->pdf view filename (page-setup: page-setup #f) (scaling: scaling #f))
+  (with ((surface (new PDF-Surface #f (new Dimension (* 17/2 pdf-dpi) (* 11 pdf-dpi)) filename)))
+    (let ((page-setup (or page-setup (new Page-Setup))))
       (with-update-locked~ view
         (lambda ()
           (let ((descendants (collect-descendants~ view View))
@@ -59,7 +59,7 @@
                         (table-set! backgrounds view (get-background~ view))
                         (set-background~ view #f))
                       descendants)
-            (let ((job (new PDF-Job surface view page-setup 60 zoom: pdf-zoom)))
+            (let ((job (new PDF-Job surface view page-setup default-resolution scaling: scaling)))
               (print-job~ job))
             (for-each (lambda (view)
                         (set-background~ view (table-ref backgrounds view)))

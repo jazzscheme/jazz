@@ -429,11 +429,14 @@
                     (designer-error "Unable to modify an explicit trait using a component having a different branch creator"))))
               (receive (form restore) (find-form component branch restore?: #t)
                 (receive (next-form next-restore) (find-next-branch branch component property)
-                  (set-property~ form property value)
-                  (register-undo~ undoer
-                    (let ((old-value (read-property component property)))
+                  (let ((old-value (read-property component property))
+                        (remove?   (not (has-property?~ form property))))
+                    (set-property~ form property value)
+                    (register-undo~ undoer
                       (lambda ()
-                        (set-property component/path property old-value))))
+                        (if remove?
+                            (remove-property component/path property old-value)
+                          (set-property component/path property old-value)))))
                   (when installed?
                     (if (not next-form)
                         (let ((old-value (read-property component property)))
@@ -464,6 +467,7 @@
       (receive (form restore) (find-form component branch restore?: #t)
         (receive (next-form next-restore) (find-next-branch branch component property)
           (when (has-property?~ form property)
+            (remove-property~ form property)
             (let ((value (if (not restore) default-value (get-property~ restore property))))
               (when installed?
                 (if (not next-form)
@@ -472,7 +476,6 @@
                       (when design-events?
                         (fire-property-change branch component property value undoable?)))
                   (set-property~ next-restore property value))))
-            (remove-property~ form property)
             (when restore
               (remove-property~ restore property))
             (set-modified? #t))))))

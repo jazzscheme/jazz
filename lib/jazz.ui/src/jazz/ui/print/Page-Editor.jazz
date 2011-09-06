@@ -38,9 +38,11 @@
 (module protected jazz.ui.print.Page-Editor jazz
 
 
-(import (jazz.geometry)
+(import (jazz.designer)
+        (jazz.geometry)
         (jazz.graphic)
         (jazz.jml)
+        (jazz.library)
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
@@ -52,6 +54,10 @@
   
 
   (property client initialize #f accessors explicit)
+  
+  
+  (slot client-designer)
+  (slot designer)
 
   
   (form
@@ -94,31 +100,22 @@
     (page-setup))
   
   
-  (method (on-layout evt)
-    (let ((layout (get-property~ evt layout:))
-          (page-setup (find-page-setup)))
-      (save-header/footer)
-      (set-active-trait~ page-setup (child~ page-setup layout))
-      (update-page)))
-  
-  
   (method (on-fit evt)
     (let ((fit (get-property~ evt fit:)))
       (set-fit fit)))
   
   
   (method (set-fit fit)
-    (let ((page-setup (find-page-setup))
-          (designer (get-page-setup-designer~ client)))
+    (let ((page-setup (find-page-setup)))
       (set-property~ designer page-setup 'fit fit)))
 
   
   (method (on-close evt)
-    (close-workspace))
+    (close-workspace #t))
   
   
   (method override (escape-press key)
-    (close-workspace))
+    (close-workspace #f))
 
   
   ;;;
@@ -127,38 +124,10 @@
   
   
   (method protected (activate-page)
-    @would-take-a-tree-to-be-really-nice
-    (define (setup-traits)
-      (let ((page-setup (find-page-setup))
-            (designer (get-page-setup-designer~ client)))
-        (setup-trait page-setup designer 'printer)
-        (setup-trait page-setup designer 'file)
-        (when (not (get-active-branch~ page-setup))
-          (set-active-trait~ page-setup (child~ page-setup 'printer)))))
-    
-    @would-take-a-tree-to-be-really-nice
-    (define (setup-trait page-setup designer name)
-      (when (not (find-component~ page-setup name))
-        (let ((trait (new Trait parent: page-setup)))
-          (add-child~ designer trait page-setup trait: #f)
-          (set-name~ designer trait name trait: #f)
-          (set-property~ designer trait client-form: (new Form textual?: #f action: 'install) trait: #f))))
-    
-    ;; todo
-    (define (setup-defaults)
-      )
-    
-    @would-take-a-tree-to-be-really-nice
-    (setup-traits)
-    (setup-defaults)
     (update-page))
   
   
   (method (update-page)
-    (define (update-branch toolbar page-setup)
-      (let ((name (get-active-trait-name~ page-setup)))
-        (set-selected?~ (locate~ toolbar name) #t)))
-    
     (define (update-fit toolbar page-setup)
       (let ((fit (get-fit~ page-setup)))
         (set-selected?~ (locate~ toolbar fit) #t)))
@@ -171,8 +140,6 @@
     (let* ((toplevel (get-toplevel))
            (toolbar (find-docked~ toplevel Page-Toolbar))
            (page-setup (find-page-setup)))
-      @would-take-a-tree-to-be-really-nice
-      (update-branch toolbar page-setup)
       (update-fit toolbar page-setup)
       (update-border page-setup)))
 
@@ -182,13 +149,20 @@
   ;;;
   
   
-  (method (close-workspace)
+  (method (close-workspace save?)
     (let ((frame (get-host))
           (workspace (selected-workspace)))
       (save-header/footer)
-      (restore-client)
+      (when save?
+        (let ((form (get-client-form~ (get-trait~ (get-active-branch)))))
+          (let ((border-form (find-child~ form 'border)))
+            (when border-form
+              (let ((page-setup-form (find-child~ border-form 'page-setup)))
+                (when page-setup-form
+                  (apply-page-setup~ client client-designer page-setup-form)))))))
       (close~ frame)
-      (apply-preferences~ (get-previous~ workspace))))
+      (apply-preferences~ (get-previous~ workspace))
+      (invalidate-window~ (get-toplevel))))
 
   
   ;;;
@@ -202,15 +176,18 @@
 
   (method public (set-client value)
     (set! client value)
-    (let ((border (locate 'border))
-          (page-setup (get-page-setup-for~ client 'printer)))
-      (set-size~ border (nu+ (get-size~ page-setup) {Dimension 4 4}))
-      (set-parent~ page-setup border)))
-  
-  
-  (method protected (restore-client)
-    (let ((page-setup (find-page-setup)))
-      (set-parent~ page-setup #f)))
+    (set! client-designer (get-page-setup-designer~ client))
+    (let ((border (locate 'border)))
+      (set! designer (new Designer form: (<form> (<Page-Editor>)) reference: self))
+      (let ((parcel (get-page-setup-parcel~ client client-designer)))
+        (let ((page-setup (instantiate-parcel~ designer parcel border)))
+          (set-name~ page-setup 'page-setup)
+          (set-visible?~ page-setup #t)
+          (set-size~ border (nu+ (get-size~ page-setup) {Dimension 4 4}))))
+      (let ((trait (new Trait parent: self)))
+        (add-child~ designer trait self trait: #f)
+        (set-property~ designer trait client-form: (new Form textual?: #f action: 'install context: (get-form~ designer)) trait: #f)
+        (set-active-trait trait))))
 
   
   ;;;
@@ -232,8 +209,7 @@
                (min-margins (get-layout-insets~ page-setup))
                (margins (get-layout-insets~ printable))
                (dialog-ratio (/ (cast <fl> page-setup-resolution) default-resolution))
-               (setup-ratio (/ (cast <fl> default-resolution) page-setup-resolution))
-               (designer (get-page-setup-designer~ client)))
+               (setup-ratio (/ (cast <fl> default-resolution) page-setup-resolution)))
           (receive (size min-margins margins orientation paper-size paper-source) (page-setup-dialog margins: (scale (add-rects min-margins margins) dialog-ratio) orientation: (numerize-orientation orientation) paper-size: paper-size paper-source: paper-source)
             (set-property~ designer page-setup 'size (scale size setup-ratio))
             (set-property~ designer page-setup 'layout-insets (scale min-margins setup-ratio))
@@ -275,10 +251,11 @@
   
   
   (method (save-header/footer)
-    (let ((page-setup (find-page-setup))
-          (designer (get-page-setup-designer~ client)))
+    (let ((page-setup (find-page-setup)))
       (when designer
-        (let ((header (get-header~ page-setup))
-              (footer (get-footer~ page-setup)))
-          (set-property~ designer header text-content: (get-content~ (get-model~ header)))
-          (set-property~ designer footer text-content: (get-content~ (get-model~ footer)))))))))
+        (let ((header (get-header~ page-setup)))
+          (when (get-modified?~ header)
+            (set-property~ designer header text-content: (get-content~ (get-model~ header)))))
+        (let ((footer (get-footer~ page-setup)))
+          (when (get-modified?~ footer)
+            (set-property~ designer footer text-content: (get-content~ (get-model~ footer))))))))))

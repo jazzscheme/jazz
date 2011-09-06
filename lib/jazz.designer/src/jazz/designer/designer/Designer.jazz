@@ -537,6 +537,12 @@
     (with-atomic-undo~ undoer
       (lambda ()
         (instantiate-form name #f form parent trait design-events? descendant? imports: imports))))
+  
+  
+  (method public virtual (apply-form form component (trait: trait #t) (design-events?: design-events? #t))
+    (with-atomic-undo~ undoer
+      (lambda ()
+        (instantiate-content form component trait design-events?))))
 
   
   (method public virtual (remove-child child (trait: trait #t) (design-events?: design-events? #t))
@@ -741,7 +747,11 @@
   ;;;
   
   
-  (method (package-components components (trait: trait #f))
+  (method public (package-component component (trait: trait #f))
+    (car (package-components (list component) trait: trait)))
+  
+  
+  (method public (package-components components (trait: trait #f))
     ;; Allows copying the reference component
     (define (replace-master old-master component)
       (if (eq? (get-action~ old-master) 'install)
@@ -834,9 +844,13 @@
   (method public virtual (instantiate-form name name-resolution form parent trait design-events? descendant? (imports: imports '()))
     (let ((component (instantiate-component name name-resolution form parent trait design-events? descendant? imports: imports)))
       (when component
-        (instantiate-properties component (get-properties~ form) trait design-events?)
-        (instantiate-children component (get-children~ form) trait design-events?)
-        component)))
+        (instantiate-content form component trait design-events?))))
+  
+  
+  (method public virtual (instantiate-content form component trait design-events?)
+    (instantiate-properties component (get-properties~ form) trait design-events?)
+    (instantiate-children component (get-children~ form) trait design-events?)
+    component)
 
   
   (method public virtual (instantiate-component name name-resolution form parent trait design-events? descendant? (imports: imports '()))

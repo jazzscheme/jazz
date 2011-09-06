@@ -43,12 +43,12 @@
 ;;;
 
 
-(jazz:define-class jazz:Time-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz:Class () ())
-(jazz:define-class jazz:Time       jazz:Object () jazz:Time-Class () ())
+(jazz:define-class time:Time-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz:Class () ())
+(jazz:define-class time:Time       jazz:Object () time:Time-Class () ())
 
 
-(jazz:define-class jazz:Date-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz:Class () ())
-(jazz:define-class jazz:Date       jazz:Object () jazz:Date-Class () ())
+(jazz:define-class time:Date-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz:Class () ())
+(jazz:define-class time:Date       jazz:Object () time:Date-Class () ())
 
 
 ;;;
@@ -56,34 +56,34 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Time-Class)
+(jazz:define-class-runtime time:Time-Class)
 
 
-(jazz:define-method (jazz:of-type? (jazz:Time-Class class) object)
+(jazz:define-method (jazz:of-type? (time:Time-Class class) object)
   (time? object))
 
 
-(jazz:define-method (jazz:emit-specifier (jazz:Time-Class class))
+(jazz:define-method (jazz:emit-specifier (time:Time-Class class))
   'time)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Time-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (time:Time-Class type) value source-declaration environment)
   `(time? ,value))
 
 
-(jazz:encapsulate-class jazz:Time-Class)
+(jazz:encapsulate-class time:Time-Class)
 
 
-(jazz:define-class-runtime jazz:Time)
+(jazz:define-class-runtime time:Time)
 
 
-(jazz:encapsulate-class jazz:Time)
+(jazz:encapsulate-class time:Time)
 
 
-(%%table-set! jazz:primitive-types 'time jazz:Time)
-(%%table-set! jazz:primitive-declarations jazz:Time 'Time)
-(%%table-set! jazz:type-tests 'time? jazz:Time)
-(jazz:register-structure-type time? jazz:Time)
+(%%table-set! jazz:primitive-types 'time time:Time)
+(%%table-set! jazz:primitive-declarations time:Time 'Time)
+(%%table-set! jazz:type-tests 'time? time:Time)
+(jazz:register-structure-type time? time:Time)
 
 
 ;;;
@@ -91,31 +91,31 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Date-Class)
+(jazz:define-class-runtime time:Date-Class)
 
 
-(jazz:define-method (jazz:of-type? (jazz:Date-Class class) object)
+(jazz:define-method (jazz:of-type? (time:Date-Class class) object)
   (date? object))
 
 
-(jazz:define-method (jazz:emit-specifier (jazz:Date-Class class))
+(jazz:define-method (jazz:emit-specifier (time:Date-Class class))
   'date)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Date-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (time:Date-Class type) value source-declaration environment)
   `(date? ,value))
 
 
-(jazz:encapsulate-class jazz:Date-Class)
+(jazz:encapsulate-class time:Date-Class)
 
 
-(jazz:define-class-runtime jazz:Date)
+(jazz:define-class-runtime time:Date)
 
 
-(jazz:encapsulate-class jazz:Date)
+(jazz:encapsulate-class time:Date)
 
 
-(%%table-set! jazz:primitive-types 'date jazz:Date)
-(%%table-set! jazz:primitive-declarations jazz:Date 'Date)
-(%%table-set! jazz:type-tests 'date? jazz:Date)
-(jazz:register-structure-type date? jazz:Date))
+(%%table-set! jazz:primitive-types 'date time:Date)
+(%%table-set! jazz:primitive-declarations time:Date 'Date)
+(%%table-set! jazz:type-tests 'date? time:Date)
+(jazz:register-structure-type date? time:Date))

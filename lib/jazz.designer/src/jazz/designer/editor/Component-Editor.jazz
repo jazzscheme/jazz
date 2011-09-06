@@ -436,10 +436,17 @@
   
   (method public (save-patch thunk)
     (process-saving)
-    (thunk)
-    (if (not (get-modified?))
-        (update-status)
-      (set-modified? #f)))
+    (let ((origin (get-origin~ (get-form~ designer)))
+          (destination (thunk)))
+      (if (not (get-modified?))
+          (update-status)
+        (set-modified? #f))
+      (when (not (or (and (file? origin) (file? destination) (pathname=? origin destination))
+                     (eq? origin destination)))
+        (set-client
+          (typecase destination
+            ((File) (instantiate~ (read-form destination)))
+            ((Class) (new destination)))))))
   
   
   (method public (save-content-patch)
@@ -498,6 +505,15 @@
          (can-rename-component?~ (car selection))))
   
   
+  (method public (can-send-selection-to-back?)
+    (and (not (memq? client selection))
+         (every? (~ component-owned-by-reference? designer) selection)))
+  
+  
+  (method public (can-bring-selection-to-front?)
+    (and (not (memq? client selection))
+         (every? (~ component-owned-by-reference? designer) selection)))
+  
   ;;;
   ;;;; Editor
   ;;;
@@ -534,6 +550,7 @@
   
   (method public (set-client clt)
     (when (neq? clt client)
+      (set-selection '())
       (let ((old client))
         (when old
           (remove-surrogate~ old))

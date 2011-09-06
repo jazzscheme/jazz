@@ -40,7 +40,8 @@
 
 (import (jazz.geometry)
         (jazz.graphic)
-        (jazz.ui))
+        (jazz.ui)
+        jazz.platform.cairo)
 
 
 (class undocumented Print-Job extends Object
@@ -60,12 +61,12 @@
   
   
   (method override (initialize surface client page-setup resolution
-                      (scaling: scaling #f)
-                      (zoom: zoom #f)
-                      (selection?: selection? #f)
-                      (from: from #f)
-                      (to: to #f)
-                      (nb-copies: nb-copies 1))
+                     (scaling: scaling #f)
+                     (zoom: zoom #f)
+                     (selection?: selection? #f)
+                     (from: from #f)
+                     (to: to #f)
+                     (nb-copies: nb-copies 1))
     (nextmethod)
     (set! surface~self surface)
     (set! selection?~self selection?)
@@ -115,21 +116,6 @@
                         (if to to (length pages)))))
   
   
-  (method (with-orientation surface page clipper proc)
-    (let ((landscape? (print-landscape?)))
-      (define (clip-proc)
-        (with-clip~ surface (if landscape? (inverse-rect clipper) clipper)
-          (lambda ()
-            (proc))))
-      
-      (if (not landscape?)
-          (clip-proc)
-        (let ((orientation 'counterclockwise)
-              (page-size (rect-size page)))
-          (with-landscape~ surface
-            orientation page-size clip-proc)))))
-  
-  
   (method public (print-page surface page no)
     (define (print-context no)
       (list
@@ -151,36 +137,60 @@
             (when moniker
               (get-name~ moniker))))))
     
-    (let* ((context (print-context no))
-           (zoom (or zoom 1.))
-           (ratio (* (/ (cast <fl> resolution) 60) zoom))
-           (scaling (* scaling zoom))
-           (printed (printed-page))
-           (printed-bounds (get-bounds~ printed))
-           (printed-rect (offset-rect (scale printed-bounds ratio) 0 0 @lh lv)))
+    (let ((context (print-context no)))
       (wrap-header/footer~ page-setup context)
-      (;with-orientation surface printed-bounds printed-rect
+      (with-orientation surface page-setup
         (lambda ()
-          (with-matrix~ surface
-            (lambda ()
-              (scale~ surface ratio ratio)
-              (paint-drawing~ printed surface context)))))
-      (let* ((offset (acquire~ page-setup printed {Point 0 0}))
-             (content-rect (scale (offset-rect (get-content-rect~ page-setup) (- (get-h~ offset)) (- (get-v~ offset))) ratio))
-             (left (get-left~ content-rect))
-             (top (get-top~ content-rect))
-             (page-left (- (get-left~ page)))
-             (page-top (- (get-top~ page))))
-        (;with-orientation surface page clipper
-          (lambda ()
-            (with-matrix~ surface
+          (let ((zoom (or zoom 1.)))
+            (scale~ surface zoom zoom))
+          (let ((ratio (/ (cast <fl> resolution) default-resolution))
+                (printed (printed-page)))
+            (scale~ surface ratio ratio)
+            (paint-drawing~ printed surface context))))
+      (with-page-setup surface page-setup
+        (lambda ()
+          (let ((page-left (- (get-left~ page)))
+                (page-top (- (get-top~ page))))
+            (scale~ surface scaling scaling)
+            (translate~ surface page-left page-top)
+            (with-clip~ surface page
               (lambda ()
-                (translate~ surface left top)
-                (scale~ surface scaling scaling)
-                (translate~ surface page-left page-top)
-                (with-clip~ surface page
-                  (lambda ()
-                    (paint-drawing~ client surface context))))))))))
+                (paint-drawing~ client surface context))))))))
+  
+  
+  (method (with-page-setup surface page-setup proc)
+    (with-orientation surface page-setup
+      (lambda ()
+        (let ((zoom (or zoom 1.)))
+          (scale~ surface zoom zoom))
+        (let* ((ratio (/ (cast <fl> resolution) default-resolution))
+               (content-rect (scale (get-content-rect~ page-setup) ratio))
+               (left (get-left~ content-rect))
+               (top (get-top~ content-rect)))
+          (translate~ surface left top))
+        (proc))))
+  
+  
+  (method (with-orientation surface page-setup proc)
+    (with-matrix~ surface
+      (lambda ()
+        (let ((orientation (get-orientation~ page-setup))
+              (size (get-size~ page-setup)))
+          (case orientation
+            ((landscape)
+             (let ((height (get-height~ size)))
+               (translate~ surface 0 height)
+               (rotate~ surface (- PI/2))))
+            ((reverse-landscape)
+             (let ((width (get-width~ size)))
+               (translate~ surface width 0)
+               (rotate~ surface PI/2)))
+            ((reverse-portrait)
+             (let ((width (get-width~ size))
+                   (height (get-height~ size)))
+               (translate~ surface width height)
+               (rotate~ surface PI)))))
+        (proc))))
   
   
   (method protected virtual (printed-page)
@@ -200,8 +210,8 @@
     (let* ((content (get-content~ page-setup))
            (width (get-width~ content))
            (height (get-height~ content))
-           (paginate-width (fxceiling/ (/ (cast <fl> (* width resolution)) 60) scaling))
-           (paginate-height (fxceiling/ (/ (cast <fl> (* height resolution)) 60) scaling)))
+           (paginate-width (fxceiling (/ (/ (cast <fl> (* width resolution)) default-resolution) scaling)))
+           (paginate-height (fxceiling (/ (/ (cast <fl> (* height resolution)) default-resolution) scaling))))
       (paginate~ client paginate-width paginate-height)))
   
   

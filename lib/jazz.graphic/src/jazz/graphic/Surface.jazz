@@ -56,7 +56,7 @@
 (class Surface extends Object
   
   
-  (slot surface                                       getter generate)
+  (slot handle                                        getter generate)
   (slot context                                       getter generate)
   (slot font                            initialize #f)
   (slot glyph-array                     initialize #f)
@@ -66,10 +66,10 @@
   (slot landscape-page     <Dimension+> initialize #f)
 
   
-  (method override (initialize surface . rest)
+  (method override (initialize handle . rest)
     (nextmethod)
-    (set! surface~self surface)
-    (set! context~self (cairo_create surface))
+    (set! handle~self handle)
+    (set! context~self (cairo_create handle))
     (destroy-mandatory))
 
 
@@ -87,13 +87,13 @@
   
   
   (method (destroy-surface)
-    (when surface
-      (cairo_surface_destroy surface)
+    (when handle
+      (cairo_surface_destroy handle)
       @wait
       (let ((err (cairo-surface-status)))
         (when (/= err 0)
           (error "Cairo surface error: {t}" (cairo_status_to_string err))))
-      (set! surface #f)))
+      (set! handle #f)))
   
   
   (method (destroy-context)
@@ -107,7 +107,7 @@
   
   
   (method public (cairo-finish)
-    (cairo_surface_finish surface))
+    (cairo_surface_finish handle))
   
   
   ;;;
@@ -214,6 +214,17 @@
     (let ((preserved-matrix (cairo_get_matrix_raw context)))
       (thunk)
       (cairo_set_matrix_raw context preserved-matrix)))
+  
+  
+  (method public (debug-matrix)
+    (let ((matrix (cairo_get_matrix_raw context)))
+      (debug
+        (cairo_matrix_t-xx-ref matrix)
+        (cairo_matrix_t-yx-ref matrix)
+        (cairo_matrix_t-xy-ref matrix)
+        (cairo_matrix_t-yy-ref matrix)
+        (cairo_matrix_t-x0-ref matrix)
+        (cairo_matrix_t-y0-ref matrix))))
 
   
   ;;;
@@ -653,10 +664,10 @@
   ;;;
   
   
-  (method public (set-source-surface surface x <fl> y <fl>)
-    (cairo_set_source_surface context (if (is? surface Surface)
-                                          (get-surface~ surface)
-                                        surface)
+  (method public (set-source-surface surface/handle x <fl> y <fl>)
+    (cairo_set_source_surface context (if (is? surface/handle Surface)
+                                          (get-handle~ surface/handle)
+                                        surface/handle)
       x y))
   
   
@@ -862,19 +873,19 @@
   (cond-expand
     (windows
       (method public (start-doc rec)
-        (StartDoc (cairo_win32_surface_get_dc surface) rec))
+        (StartDoc (cairo_win32_surface_get_dc handle) rec))
   
   
       (method public (end-doc)
-        (EndDoc (cairo_win32_surface_get_dc surface)))
+        (EndDoc (cairo_win32_surface_get_dc handle)))
   
   
       (method public (start-page)
-        (StartPage (cairo_win32_surface_get_dc surface)))
+        (StartPage (cairo_win32_surface_get_dc handle)))
   
   
       (method public (end-page)
-        (EndPage (cairo_win32_surface_get_dc surface))))
+        (EndPage (cairo_win32_surface_get_dc handle))))
     (else))
   
   
@@ -1134,7 +1145,7 @@
   
   
   (method public (export-to-png file)
-    (cairo_surface_write_to_png surface (parse~ file)))
+    (cairo_surface_write_to_png handle (parse~ file)))
   
 
   (method public (cairo-status)
@@ -1142,7 +1153,7 @@
   
   
   (method public (cairo-surface-status)
-    (cairo_surface_status surface))
+    (cairo_surface_status handle))
   
   
   (proclaim (not warn optimizations))))

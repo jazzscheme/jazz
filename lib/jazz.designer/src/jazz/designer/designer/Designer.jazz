@@ -96,8 +96,6 @@
     ;; to the copy.
     (define (setup-class-form frm)
       (set! form~self frm)
-      (unless (get-data~ frm)
-        (set-data~ frm (new Data 'jazz '() #f)))
       (set! form-copy (copy-object~ frm #t)))
     
     (define (setup-file-form frm)
@@ -156,7 +154,7 @@
     (let* ((toolbox-managers (get-toolbox-managers))
            (destination (if (null? toolbox-managers)
                             (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))
-                          (choose-new-origin toolbox-managers))))
+                          (choose-new-destination toolbox-managers))))
       (save-content destination)))
   
   
@@ -164,7 +162,7 @@
     (apply evaluate-expressions~ (get-local-process) (prepare-expressions~ text (current-declaration-range~ text))))
   
   
-  (method (choose-new-origin toolbox-managers)
+  (method (choose-new-destination toolbox-managers)
     (define (parse-class-name class-string)
       (let ((content (with-exception-catcher
                        (lambda (err) #f)
@@ -255,7 +253,8 @@
     (if (file? destination)
         (save-to-file destination)
       (save-to-class destination))
-    (set-modified? #f))
+    (set-modified? #f)
+    destination)
   
   
   (method (evaluate-imports text)
@@ -267,10 +266,15 @@
   
   
   (method (origin-import form)
-    (let ((locator (get-name~ (get-origin~ form)))
-          (toolbox-models (apply union (map get-toolbox-models~ (get-toolbox-managers)))))
-      (receive (_ models) (split-locator locator)
-        (get-unit~ (find-in toolbox-models (car models) key: get-model~)))))
+    (let ((origin (get-origin~ form)))
+      (and origin 
+           (is? origin Class)
+           (let ((toolbox-models (apply union (map get-toolbox-models~ (get-toolbox-managers)))))
+             (receive (module models) (split-locator (get-name~ origin))
+               (let ((toolbox-model (find-in toolbox-models (car models) key: get-model~)))
+                 (if toolbox-model
+                     (get-unit~ toolbox-model)
+                   module)))))))
   
   
   (method (save-to-class class)
@@ -294,11 +298,7 @@
           ;; If we are saving in a new class from an old class
           (when origin
             (revert))
-          (evaluate-form text)
-          (set-object-slot reference 0 class)
-          (for-each (lambda (designer)
-                      (process-property-change~ designer #f reference (category-field class 'class-info) (get-class-presentation~ class) #f)) 
-                    (get-designers~ reference))))
+          (evaluate-form text)))
       
       (define (tabulate-form text)
         (let ((explorer (new Jazz-Explorer (get-model~ text))))
@@ -320,12 +320,7 @@
           (set-end~ explorer (get-start~ explorer))
           (enter-list~ explorer)
           (set-caret~ text (get-end~ explorer))
-          (evaluate-at-caret text)
-          (let ((new-form (get-class-form~ class)))
-            (set-data~ new-form (get-data~ form))
-            (for-each (lambda (designer)
-                        (set-form~ designer new-form))
-                      (get-designers~ reference)))))
+          (evaluate-at-caret text)))
       
       (call-with-saved-text (find-unit-source module-name)
         (lambda (text)
@@ -335,15 +330,21 @@
   
   
   (method (save-to-file file)
+    (define (adjust-form form)
+      (if (is? (get-origin~ form) Class)
+          (let ((adjusted-form (copy-object~ form #f)))
+            (set-action~ adjusted-form 'new)
+            (set-model~ adjusted-form (super-class-name form))
+            adjusted-form)
+        form))
+    
     (if (and (exists?~ file) (read-only?~ file))
         (message-box (format "Unable to save to read-only file: {s}" file))
       (call-with-output-file (path-settings file char-encoding: 'UTF-8)
         (lambda (output)
           (let ((data (get-data~ form))
-                (adjusted-form (copy-object~ form #t)))
-            (set-origin~ adjusted-form file)
-            (set-action~ adjusted-form 'new)
-            (set-model~ adjusted-form (super-class-name form))
+                (origin (get-origin~ form))
+                (adjusted-form (adjust-form form)))
             (output-header (get-model~ adjusted-form) output)
             (format output "{%}{%}")
             (format output "(data {a}{%}" (if data (get-dialect~ data) 'jazz))
@@ -359,9 +360,8 @@
                 (format output  "){%}{%}{%}")))
             (print-file-form adjusted-form 1 output)
             (format output "){%}")
-            (for-each (lambda (designer)
-                        (set-form~ designer adjusted-form))
-                      (get-designers~ reference)))))))
+            (when origin
+              (revert)))))))
 
 
   (method public (saved-form . rest)
@@ -431,11 +431,14 @@
                     (designer-error "Unable to modify an explicit trait using a component having a different branch creator"))))
               (receive (form restore) (find-form component branch restore?: #t)
                 (receive (next-form next-restore) (find-next-branch branch component property)
-                  (set-property~ form property value)
-                  (register-undo~ undoer
-                    (let ((old-value (read-property component property)))
+                  (let ((old-value (read-property component property))
+                        (remove?   (not (has-property?~ form property))))
+                    (set-property~ form property value)
+                    (register-undo~ undoer
                       (lambda ()
-                        (set-property component/path property old-value))))
+                        (if remove?
+                            (remove-property component/path property old-value)
+                          (set-property component/path property old-value)))))
                   (when installed?
                     (if (not next-form)
                         (let ((old-value (read-property component property)))
@@ -466,6 +469,7 @@
       (receive (form restore) (find-form component branch restore?: #t)
         (receive (next-form next-restore) (find-next-branch branch component property)
           (when (has-property?~ form property)
+            (remove-property~ form property)
             (let ((value (if (not restore) default-value (get-property~ restore property))))
               (when installed?
                 (if (not next-form)
@@ -474,7 +478,6 @@
                       (when design-events?
                         (fire-property-change branch component property value undoable?)))
                   (set-property~ next-restore property value))))
-            (remove-property~ form property)
             (when restore
               (remove-property~ restore property))
             (set-modified? #t))))))
@@ -613,15 +616,16 @@
   
   
   (method public virtual (send-before child target (trait: trait #t))
-    (let* ((branch (target-branch trait))
-           (parent (get-parent~ child))
-           (parent-form (find-form parent branch))
-           (child-form (find-form child branch))
-           (target-form (and target (find-form target branch))))
-      (send-before~ child target)
-      (send-child-before~ parent-form child-form target-form)
-      (fire-send-before child parent target)
-      (set-modified? #t)))
+    (unless (eq? child target)
+      (let* ((branch (target-branch trait))
+             (parent (get-parent~ child))
+             (parent-form (find-form parent branch))
+             (child-form (find-form child branch))
+             (target-form (and target (find-form target branch))))
+        (send-before~ child target)
+        (send-child-before~ parent-form child-form target-form)
+        (fire-send-before child parent target)
+        (set-modified? #t))))
   
   
   (method public (send-to-back child (trait: trait #t))
@@ -769,7 +773,8 @@
                               (if (null? forms) (list (owned-form form (component-ancestry component reference))) forms))))
         (if (not original-forms)
             (designer-error "Unable to find owner for {t}" component)
-          (let* ((imports (map listify (apply union (map form-imports original-forms))))
+          (let* ((origin-import (origin-import (car original-forms)))
+                 (imports (map listify (apply union (map (lambda (form) (form-imports form origin-import)) original-forms))))
                  (forms (cons (replace-master (car original-forms) component)
                               (map modify->install (cdr original-forms)))))
             (new Component-Parcel (current-process-id) (object->serial component) imports forms)))))
@@ -983,7 +988,7 @@
     
     (define (embed-new-form form name)
       (let ((subform (new Form action: 'modify context: (get-context~ form) name: name)))
-        (add-child~ form subform)
+        (set-parent~ subform form)
         subform))
     
     (let* ((ancestry (component-ancestry component reference))

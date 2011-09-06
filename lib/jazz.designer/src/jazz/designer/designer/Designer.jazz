@@ -410,7 +410,7 @@
           (set-modified? #t)))))
   
   
-  (method public virtual (set-property component/path property value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #f))
+  (method public virtual (set-property component/path property value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t))
     (let ((branch (target-branch trait)))
       ;; Quick fix for the special case of setting a property of the active trait
       (if (eq? component/path trait)
@@ -434,11 +434,12 @@
                   (let ((old-value (read-property component property))
                         (remove?   (not (has-property?~ form property))))
                     (set-property~ form property value)
-                    (register-undo~ undoer
-                      (lambda ()
-                        (if remove?
-                            (remove-property component/path property old-value)
-                          (set-property component/path property old-value)))))
+                    (when undoable?
+                      (register-undo~ undoer
+                        (lambda ()
+                          (if remove?
+                              (remove-property component/path property old-value)
+                            (set-property component/path property old-value))))))
                   (when installed?
                     (if (not next-form)
                         (let ((old-value (read-property component property)))
@@ -459,7 +460,7 @@
   
   
   ;; This works well really only with branches because else we don't have restore information
-  (method public virtual (remove-property component/path property default-value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #f))
+  (method public virtual (remove-property component/path property default-value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t))
     (let* ((branch (target-branch trait))
            (installed? (or (not branch) (is? branch Branch)))
            (path? (is? component/path Path))
@@ -470,6 +471,11 @@
         (receive (next-form next-restore) (find-next-branch branch component property)
           (when (has-property?~ form property)
             (remove-property~ form property)
+            (let ((old-value (read-property component property)))
+              (when undoable?
+                (register-undo~ undoer
+                  (lambda ()
+                    (set-property component/path property old-value)))))
             (let ((value (if (not restore) default-value (get-property~ restore property))))
               (when installed?
                 (if (not next-form)
@@ -483,27 +489,30 @@
             (set-modified? #t))))))
   
   
-  (method public virtual (add-child child parent (trait: trait #t) (name: name #f) (properties: properties '()) (tag-reference: tag-reference #f) (import: import '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
-    (let ((data (get-data~ form))
-          (branch (target-branch trait)))
+  (method public virtual (add-child child parent (undoable?: undoable? #t) (form: form #f) (trait: trait #t) (name: name #f) (properties: properties '()) (tag-reference: tag-reference #f) (import: import '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
+    (define (make-new-child-form parent-form)
+      (let* ((child-origin-form (get-form~ child))
+             (child-is-form? (and child-origin-form (is? (get-origin~ child-origin-form) File))))
+        (new Form
+          textual?: #f
+          context: (get-context~ parent-form)
+          action: (if tag-reference 'instantiate 'new)
+          model: (cond (tag-reference #f)
+                       (child-is-form? (get-name~ child-origin-form))
+                       (else (category-name (class-of child))))
+          tag-reference: tag-reference)))
+    
+    (let ((branch (target-branch trait)))
       (unless (eq? (get-parent~ child) parent)
         (set-parent~ child parent))
-      (receive (form restore) (find-form parent branch restore?: #t)
-        (let* ((child-origin-form (get-form~ child))
-               (child-is-form? (and child-origin-form (is? (get-origin~ child-origin-form) File)))
-               (child-form (new Form
-                             textual?: #f
-                             context: (get-context~ form)
-                             action: (if tag-reference 'instantiate 'new)
-                             model: (cond (tag-reference #f)
-                                          (child-is-form? (get-name~ child-origin-form))
-                                          (else (category-name (class-of child))))
-                             tag-reference: tag-reference)))
+      (receive (parent-form restore) (find-form parent branch restore?: #t)
+        (let ((child-form (or form (make-new-child-form parent-form))))
           (set-form~ child child-form)
-          (add-form~ parent form child-form)
-          (register-undo~ undoer
-            (lambda ()
-              (remove-child child))))
+          (add-form~ parent parent-form child-form)
+          (when undoable?
+            (register-undo~ undoer
+              (lambda ()
+                (remove-child child)))))
         (when restore
           (remember-creation~ restore self child))
         (when name
@@ -513,18 +522,19 @@
         (when properties
           (for-each-property (lambda (property value)
                                (set-property child property value trait: trait design-events?: design-events?))
-            properties))
+                             properties))
         (when import
-          (let ((imports (map listify (listify import))))
+          (let ((imports (map listify (listify import)))
+                (origin-form (get-form)))
             (when (not-null? imports)
-              (let* ((form (get-form))
-                     (old-locator (get-locator~ form)))
-                (set-locator~ form (let ((new-locator (imports-locator imports)))
-                                     (lambda (symbol)
-                                       (or (new-locator symbol)
-                                           (old-locator symbol)))))))
-            (when data
-              (for-each (lambda (import) (add-import~ data import)) imports))))
+              (let ((old-locator (get-locator~ origin-form)))
+                (set-locator~ origin-form (let ((new-locator (imports-locator imports)))
+                                            (lambda (symbol)
+                                              (or (new-locator symbol)
+                                                  (old-locator symbol)))))))
+            (let ((data (get-data~ origin-form)))
+              (when data
+                (for-each (lambda (import) (add-import~ data import)) imports)))))
         ;; the two sexpr where toggled so that the
         ;; event occurs after the properties are set
         (when design-events?
@@ -536,7 +546,12 @@
   (method public virtual (add-form form parent (trait: trait #t) (name: name #f) (imports: imports '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
     (with-atomic-undo~ undoer
       (lambda ()
-        (instantiate-form name #f form parent trait design-events? descendant? imports: imports))))
+        (instantiate-form name #f form parent trait design-events? descendant? imports: imports)
+        (let ((child (instantiate-form name #f form parent trait design-events? descendant? imports: imports)))
+          (register-undo~ undoer
+            (lambda ()
+              (remove-child child)))
+          child))))
   
   
   (method public virtual (apply-form form component (trait: trait #t) (design-events?: design-events? #t))
@@ -578,7 +593,11 @@
               (for-each-trait~ (if (is? effective Branch) (get-trait~ effective) effective)
                 (lambda (trait)
                   (purge-references (get-client-form~ trait))))
-              (close~ child)
+              
+              (register-undo~ undoer
+                (lambda ()
+                  (add-child child parent form: form)))
+              (set-parent~ child #f)
               (remove-child~ parent-form form)
               (when design-events?
                 (fire-child-remove child parent))
@@ -864,7 +883,7 @@
   
   (method public virtual (instantiate-new-component name form parent trait design-events? descendant? (imports: imports '()))
     (let ((component (instantiate-component~ form parent: parent)))
-      (add-child component parent trait: trait name: name design-events?: design-events? descendant?: descendant? import: imports)
+      (add-child component parent trait: trait name: name design-events?: design-events? descendant?: descendant? import: imports undoable?: #f)
       component))
   
   

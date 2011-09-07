@@ -2343,14 +2343,15 @@
 (class package Search-Context extends Object
   
   
-  (slot target           <Sequence>   accessors generate)
-  (slot whole-words?     <bool>       accessors generate)
-  (slot ignore-case?     <bool>       accessors generate)
-  (slot regexp?          <bool>       accessors generate)
-  (slot match-test       <procedure+> accessors generate)
-  (slot constituent-test <procedure+> accessors generate)
-  (slot regexp           <any>        accessors generate)
-  (slot user-data        <any>        accessors generate)
+  (slot target            <Sequence>   accessors generate)
+  (slot whole-words?      <bool>       accessors generate)
+  (slot ignore-case?      <bool>       accessors generate)
+  (slot ignore-diacritic? <bool>       accessors generate)
+  (slot regexp?           <bool>       accessors generate)
+  (slot match-test        <procedure+> accessors generate)
+  (slot constituent-test  <procedure+> accessors generate)
+  (slot regexp            <any>        accessors generate)
+  (slot user-data         <any>        accessors generate)
   
   
   (method override (print output detail)
@@ -2375,14 +2376,15 @@
 (definition public (make-search-context target
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
+                     (ignore-diacritic?: ignore-diacritic? #f)
                      (regexp?: regexp? #f)
                      (match-test: match-test #f)
                      (constituent-test: constituent-test #f)
                      (user-data: user-data #f))
-  (construct-search-context target whole-words? ignore-case? regexp? match-test constituent-test user-data))
+  (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test user-data))
 
-(definition inline (construct-search-context target whole-words? ignore-case? regexp? match-test constituent-test user-data)
-  (construct Search-Context target whole-words? ignore-case? regexp? match-test constituent-test #f user-data))
+(definition inline (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test user-data)
+  (construct Search-Context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test #f user-data))
 
 
 (definition public (->search-set obj)
@@ -2399,11 +2401,26 @@
   (construct Search-Set regexp contexts))
 
 
+(definition (->diacritic-ignoring-sre string)
+  (let ((char-list (string->list string)))
+    (cons 'seq (map (lambda (c)
+                      (let ((equivalent (table-ref Diacritic-Table c #f)))
+                        (if equivalent
+                            (cons 'or (assq equivalent Diacritic-Equivalences))
+                          c)))
+                    char-list))))
+
+
 (definition (search-context->sre context <Search-Context>)
-  (list (if (get-ignore-case?~ context) 'w/nocase 'seq)
-        (if (get-regexp?~ context)
-            `(posix-string ,(get-target~ context))
-          (get-target~ context))))
+  (let ((seq (let ((target (get-target~ context)))
+               (cond ((get-regexp?~ context)
+                      `(posix-string ,target))
+                     ((get-ignore-diacritic?~ context)
+                      (->diacritic-ignoring-sre target))
+                     (else target)))))
+    (if (get-ignore-case?~ context)
+        (list 'w/nocase seq)
+      seq)))
 
 (definition public (search-context-regexp context <Search-Context>)
   (or (get-regexp~ context)
@@ -2477,11 +2494,12 @@
                      (reversed?: reversed? #f)
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
+                     (ignore-diacritic?: ignore-diacritic? #f)
                      (regexp?: regexp? #f)
                      (match-test: match-test #f)
                      (constituent-test: constituent-test #f)) <int+>
   (let ((search-set (->search-set (if (string? target)
-                                      (construct-search-context target whole-words? ignore-case? regexp? #f #f #f)
+                                      (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
                                     target))))
     (let ((found (regular-search-impl seq search-set match-test constituent-test start end reversed?)))
       (if found
@@ -2495,11 +2513,12 @@
                      (reversed?: reversed? #f)
                      (whole-words?: whole-words? #f)
                      (ignore-case?: ignore-case? #f)
+                     (ignore-diacritic?: ignore-diacritic? #f)
                      (regexp?: regexp? #f)
                      (match-test: match-test #f)
                      (constituent-test: constituent-test #f)) <list>
   (let ((search-set (->search-set (if (string? target)
-                                      (construct-search-context target whole-words? ignore-case? regexp? #f #f #f)
+                                      (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
                                     target))))
     (map car (regular-search-all seq search-set
                start: start

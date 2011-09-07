@@ -137,11 +137,11 @@
         (set-size~ border (nu+ (get-size~ page-setup) {Dimension 4 4}))
         (layout-view)))
     
-    (let* ((toplevel (get-toplevel))
-           (toolbar (find-docked~ toplevel Page-Toolbar))
-           (page-setup (find-page-setup)))
+    (let ((toolbar (find-docked~ (get-toplevel) Page-Toolbar))
+          (page-setup (find-page-setup)))
       (update-fit toolbar page-setup)
-      (update-border page-setup)))
+      (update-border page-setup)
+      (invalidate-view)))
 
   
   ;;;
@@ -150,16 +150,17 @@
   
   
   (method (close-workspace save?)
+    (define (find-page-setup-form)
+      (let ((form (get-client-form~ (get-trait~ (get-active-branch)))))
+        (let ((border-form (find-child~ form 'border)))
+          (when border-form
+            (find-child~ border-form 'page-setup)))))
+    
     (let ((frame (get-host))
           (workspace (selected-workspace)))
       (when save?
         (save-header/footer)
-        (let ((form (get-client-form~ (get-trait~ (get-active-branch)))))
-          (let ((border-form (find-child~ form 'border)))
-            (when border-form
-              (let ((page-setup-form (find-child~ border-form 'page-setup)))
-                (when page-setup-form
-                  (apply-page-setup~ client client-designer page-setup-form)))))))
+        (apply-page-setup~ client client-designer (find-page-setup-form) (find-page-setup)))
       (close~ frame)
       (apply-preferences~ (get-previous~ workspace))
       (invalidate-window~ (get-toplevel))))
@@ -210,7 +211,6 @@
                 (paper-size (get-paper-size~ page-setup))
                 (paper-source (get-paper-source~ page-setup)))
             (receive (size min-margins margins orientation paper-size paper-source) (page-setup-dialog margins: margins orientation: orientation paper-size: paper-size paper-source: paper-source)
-              (debug min-margins margins)
               (set-property~ designer page-setup 'size (scale size setup-ratio))
               (set-property~ designer page-setup 'min-margins (scale min-margins setup-ratio))
               (set-property~ designer page-setup 'layout-insets (scale margins setup-ratio))

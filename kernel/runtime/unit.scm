@@ -1953,6 +1953,10 @@
     (jazz:error "Unit name expected: {a}" unit-name)))
 
 
+(define jazz:script-arguments
+  (make-parameter '()))
+
+
 (define (jazz:load-script path)
   (parameterize ((jazz:walk-for 'interpret)
                  (jazz:generate-symbol-for "&")

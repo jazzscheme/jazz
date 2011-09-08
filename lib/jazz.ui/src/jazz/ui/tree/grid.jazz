@@ -38,7 +38,8 @@
 (module jazz.ui.tree.grid jazz
 
 
-(import (jazz.graphic)
+(import (jazz.designer)
+        (jazz.graphic)
         (jazz.jml)
         (jazz.library)
         (jazz.system)
@@ -60,7 +61,9 @@
   (method public virtual abstract (get-domain row-data column-data))
   (method public virtual abstract (get-data row-data column-data fail succeed))
   (method public virtual abstract (set-data row-data column-data value))
-  (method public virtual abstract (read-only? row-data column-data)))
+  (method public virtual abstract (read-only? row-data column-data))
+  (method public virtual abstract (get-violation row-data column-data fail succeed))
+  (method public virtual abstract (set-violation row-data column-data violation)))
 
 
 (class Provider-Data extends Component
@@ -68,6 +71,14 @@
   
   (method override (default-name)
     'provider-data))
+
+
+
+(class Provider-Violation extends Component
+
+  
+  (property violation initialize #f accessors generate)
+  (property presentation initialize #f accessors generate))
 
 
 ;;;
@@ -348,8 +359,17 @@
                        (after-end (lambda (cell)
                                     (receive (row-data column-data) (cell-data-values cell)
                                       (when (get-modified?~ entry)
-                                        (set-data~ provider row-data column-data (get-value~ entry)))))))
-                  (set-value~ entry value)
+                                        (let* ((text (and (is? domain Text-Domain) (get-presentation~ entry)))
+                                               (violation (and text (validate-text~ domain text))))
+                                          (set-violation~ provider row-data column-data (and violation (new Provider-Violation violation: violation presentation: text)))
+                                          (if violation
+                                              (update-cell cell)
+                                            (set-data~ provider row-data column-data (get-value~ entry)))))))))
+                  (get-violation~ provider row-data column-data
+                    (lambda ()
+                      (set-value~ entry value))
+                    (lambda (provider-violation)
+                      (set-presentation~ entry (get-presentation~ provider-violation))))
                   (edit-cell cell editor: editor close-editor?: #f after-end: after-end)
                   (prepare-and-focus-entry entry)))))))))
   
@@ -384,6 +404,7 @@
   
       
   (method virtual (update-editor-highlight tree-data cell)
+    (update-cell-highlight (get-preserved-data~ child) cell)
     (let ((border (get-editor-widget (get-editor~ tree-data))))
       (receive (row-data column-data) (cell-data-values cell)
         (let ((current-color (get-border-color~ border))
@@ -392,7 +413,7 @@
             (set-border-color~ border color))))))
   
   
-  (method (update-cells-hightlight)
+  (method (update-cells-highlight)
     (for-each-visible-row
       (lambda (row line)
         (for-each-column
@@ -409,7 +430,7 @@
   
   (method (update-highlight)
     (update-frame-highlight)
-    (update-cells-hightlight))
+    (update-cells-highlight))
   
   
   ;;;
@@ -431,11 +452,18 @@
     (for-each-column merge-column-cells))
   
   
-  (method (update-cell cell update)
-    (let ((label (if (and edited-cell (cell=? cell edited-cell)) (get-preserved-data~ cell-editor) (get-cell-data cell))))
+  (method (update-cell cell)
+    (let* ((editor (and edited-cell (cell=? cell edited-cell) cell-editor))
+           (label (if editor (get-preserved-data~ cell-editor) (get-cell-data cell))))
       (receive (row column) (cell-values cell)
-        (update row column label)
-        (invalidate-cell cell)))))
+        (call-with-row/column-data row column
+          (lambda (rd cd)
+            (update-label~ (get-controller) rd cd label)
+            (update-cell-highlight label cell)
+            (when editor
+              (update-editor~ (get-controller) rd cd editor)
+              (update-editor-highlight editor cell))
+            (invalidate-cell cell)))))))
 
 
 (class Grid-Tree-Widget extends Border-View

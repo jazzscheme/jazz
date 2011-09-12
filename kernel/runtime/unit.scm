@@ -1184,6 +1184,9 @@
 (jazz:define-variable jazz:process-title
   #f)
 
+(jazz:define-variable jazz:process-trait
+  #f)
+
 (jazz:define-variable jazz:process-icon
   #f)
 
@@ -1202,6 +1205,12 @@
 
 (define (jazz:current-process-title-set! title)
   (set! jazz:process-title title))
+
+(define (jazz:current-process-trait)
+  jazz:process-trait)
+
+(define (jazz:current-process-trait-set! trait)
+  (set! jazz:process-trait trait))
 
 (define (jazz:current-process-icon)
   jazz:process-icon)

@@ -105,18 +105,20 @@
 
 
   (method public (set-client clt)
-    (define (collect-groups client)
+    (define (collect-outers client)
       (let ((reference (get-reference~ editor)))
-        (let ((outers (map (lambda (component)
-                             (outer-component~ component reference))
-                           client)))
-          (let ((inners (map collect-inner outers)))
+        (map (lambda (component)
+               (outer-component~ component reference))
+             client)))
+    
+    (define (collect-groups outers)
+      (let ((inners (map collect-inner outers)))
             (when (uniform inners key: length)
               (let ((groups (apply zip inners)))
                 (when (every? (lambda (group)
                                 (uniform group key: class-of))
                               groups)
-                  groups)))))))
+                  groups)))))
     
     (define (collect-inner outer)
       (let ((queue (new-queue)))
@@ -139,23 +141,28 @@
         (when (= (length selected) 1)
           (car selected))))
     
-    (define (selector selection)
-      (lambda (event)
-        (set-selection~ editor selection origin: self)))
+    (define (setup-tool tool)
+      (set-action-handler~ tool (new Event-Handler execute: (selector tool))))
     
-    (unless (equal? clt client)
-      (set! client clt)
-      (close-children)
-      (when (and client (not-null? client))
-        (let ((groups (collect-groups client)))
-          (cond (groups
-                 (let ((selected (selected-group groups client)))
-                   (for-each (lambda (group)
-                               (new Containment-Tool parent: self resource: (get-component-image~ (car group)) portfolio: :images selected?: (eq? group selected) selection: group uniform?: #t action-handler: (new Event-Handler execute: (selector group))))
-                             groups)))
-                (else
-                 (new Containment-Tool parent: self resource: {Image-Resource "All"} portfolio: :images selected?: #t selection: client uniform?: #f action-handler: (new Event-Handler execute: (selector client))))))
-        (layout-view)))))
+    (define (selector tool)
+      (lambda (event)
+        (set-selection~ editor (get-selection~ tool) origin: self focus?: #f)
+        (acquire-focus~ tool)))
+    
+    (let ((outers (collect-outers clt)))
+      (unless (equal? outers (collect-outers client))
+        (set! client clt)
+        (close-children)
+        (when (and client (not-null? client))
+          (let ((groups (collect-groups outers)))
+            (cond (groups
+                    (let ((selected (selected-group groups client)))
+                      (for-each (lambda (group)
+                                  (setup-tool (new Containment-Tool parent: self resource: (get-component-image~ (car group)) portfolio: :images selected?: (eq? group selected) selection: group uniform?: #t)))
+                                groups)))
+                  (else
+                   (setup-tool (new Containment-Tool parent: self resource: {Image-Resource "All"} portfolio: :images selected?: #t selection: client uniform?: #f)))))
+          (layout-view))))))
 
 
 ;;;

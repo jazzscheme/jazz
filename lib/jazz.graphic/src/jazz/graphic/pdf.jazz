@@ -49,21 +49,23 @@
 
 
 (definition public (document->pdf view filename (page-setup: page-setup #f) (scaling: scaling #f))
-  (with ((surface (new PDF-Surface #f (new Dimension (* 17/2 pdf-dpi) (* 11 pdf-dpi)) filename)))
-    (let ((page-setup (or page-setup (new Page-Setup))))
-      (with-update-locked~ view
-        (lambda ()
-          (let ((descendants (collect-descendants~ view View))
-                (backgrounds (make-table test: eq?)))
-            (for-each (lambda (view)
-                        (table-set! backgrounds view (get-background~ view))
-                        (set-background~ view #f))
-                      descendants)
-            (let ((job (new PDF-Job surface view page-setup pdf-dpi scaling: scaling)))
-              (print-job~ job))
-            (for-each (lambda (view)
-                        (set-background~ view (table-ref backgrounds view)))
-                      descendants)))))))
+  (let ((page-setup (or page-setup (new Page-Setup))))
+    (let ((width (* (/ (get-width~ page-setup) default-resolution) pdf-dpi))
+          (height (* (/ (get-height~ page-setup) default-resolution) pdf-dpi)))
+      (with ((surface (new PDF-Surface #f (new Dimension width height) filename)))
+        (with-update-locked~ view
+          (lambda ()
+            (let ((descendants (collect-descendants~ view View))
+                  (backgrounds (make-table test: eq?)))
+              (for-each (lambda (view)
+                          (table-set! backgrounds view (get-background~ view))
+                          (set-background~ view #f))
+                        descendants)
+              (let ((job (new PDF-Job surface view page-setup pdf-dpi scaling: scaling)))
+                (print-job~ job))
+              (for-each (lambda (view)
+                          (set-background~ view (table-ref backgrounds view)))
+                        descendants))))))))
 
 
 ;;;
@@ -75,7 +77,11 @@
   
   
   (method override (end-page no)
-    (show-page~ surface)))
+    (show-page~ surface))
+  
+  
+  (method override (print-orientation)
+    'portrait))
 
 
 ;;;

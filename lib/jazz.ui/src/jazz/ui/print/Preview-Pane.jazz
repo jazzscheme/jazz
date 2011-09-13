@@ -41,6 +41,7 @@
 (import (jazz.geometry)
         (jazz.graphic)
         (jazz.jml)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.workspace))
 
@@ -117,19 +118,20 @@
   
   
   (method (on-close evt)
-    (close-workspace))
+    (close-workspace #t))
   
   
   (method override (escape-press key)
-    (close-workspace))
+    (close-workspace #f))
   
   
-  (method (close-workspace)
+  (method (close-workspace save?)
     (let ((frame (get-host))
           (workspace (selected-workspace)))
       (restore-client)
       (close~ frame)
-      (apply-preferences~ (get-previous~ workspace))))
+      (apply-preferences~ (get-previous~ workspace))
+      (invalidate-window~ (get-toplevel))))
 
   
   ;;;
@@ -147,7 +149,7 @@
   
   
   (method protected (restore-client)
-    (wrap-header/footer~ (get-page-setup-for~ client 'printer) '())
+    (wrap-header/footer~ (get-page-setup~ client) '())
     (restore-printing~ client preserved))
   
   
@@ -180,7 +182,7 @@
     (let* ((scrollee (locate 'scrollee))
            (centered (locate 'centered))
            (print-area (get-print-area~ client '()))
-           (page-setup (get-page-setup-for~ client 'printer))
+           (page-setup (get-page-setup~ client))
            (scaling (scale-content~ page-setup client default-resolution))
            (zoom (/ (cast <fl> Zoom) scaling))
            (display-size (get-size))

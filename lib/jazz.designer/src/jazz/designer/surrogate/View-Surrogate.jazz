@@ -319,7 +319,7 @@
     (some? (lambda (component)
              (and (is? component View)
                   (is-focused?~ component)))
-           (get-selection~ editor)))
+           (outer-selection~ editor)))
   
   
   ;; This is an ugly hack. We enable the components tree actions
@@ -350,7 +350,7 @@
          (set-cursor :cross))
         (else
          (let ((outer (outer-client~ (get-surrogate~ client))))
-           (let ((part (and (memq? outer (get-selection))
+           (let ((part (and (selected?~ editor outer)
                             (or (not (memq? state '(tolerance process))) current-part)
                             (or current-part (if (size-client?~ (get-surrogate~ outer))
                                                  (let ((part (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t)))
@@ -427,7 +427,7 @@
   
   
   (method public virtual (select-in-editor)
-    (select~ editor (outer-client)))
+    (select~ editor (inner-widget~ (outer-client))))
   
   
   (method protected virtual (move-client?)
@@ -461,7 +461,7 @@
             (previous-selection (get-selection)))
         (select)
         (when (and (move-client?~ (get-surrogate~ outer)) (some-movable? (get-selection~ editor)))
-          (let ((part (if (and (memq? outer previous-selection) (size-client?~ (get-surrogate~ outer))) (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t) #f)))
+          (let ((part (if (and (in-selection?~ editor outer previous-selection) (size-client?~ (get-surrogate~ outer))) (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t) #f)))
             (when (or (neq? outer (get-client~ editor))
                       (member? part '((1 . 0) (0 . 1) (1 . 1))))
               (let ((selection (get-selection)))
@@ -750,9 +750,11 @@
            (single? (and shift? control?))
            (quantum (move-quantum shift?))
            (selection (get-selection)))
-      (for-each (lambda (view)
-                  (move-client~ (get-surrogate~ view) (* dh quantum) (* dv quantum)))
-                (if single? (list (car selection)) selection))))
+      (with-atomic-undo~ (get-undoer)
+        (lambda ()
+          (for-each (lambda (view)
+                      (move-client~ (get-surrogate~ view) (* dh quantum) (* dv quantum)))
+                    (if single? (list (car selection)) selection))))))
   
 
   ;;;

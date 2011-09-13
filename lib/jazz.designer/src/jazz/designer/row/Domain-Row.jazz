@@ -50,6 +50,7 @@
   
   
   (property domain initialize #f accessors generate)
+  (property violation initialize #f accessors generate)
 
 
   ;;;
@@ -105,6 +106,21 @@
   ;;;
   
   
+  (method override (save-edition)
+    (when (get-edited-modified?)
+      (let* ((string (and (is? domain Text-Domain)
+                          (get-string-content~ (tab-view~ (get-entry)))))
+             (violation (and string (validate-text~ domain string))))
+        (let ((label (get-preserved-data~ (get-cell-editor~ (get-parent)))))
+          (set! violation~self (and violation (cons string violation)))
+          (set-frame-color~ label (and violation {Color Red}))
+          (if violation
+              (set-title~ label string)
+            (enter-edited-value))
+          (set-edited-modified? #f)
+          (invalidate-cell~ (get-parent) (new Cell (row->line~ parent self) 1))))))
+  
+  
   (method override (new-editor)
     (let ((editor (new Domain-Editor value-row: self)))
       (setup-entry~ domain editor #f)
@@ -115,8 +131,14 @@
     (get-value~ (get-entry)))
   
   
+  (method (set-edited-violation)
+    (set-string-content~ (tab-view~ (get-entry)) (car violation)))
+  
+  
   (method override (set-edited-value value)
-    (set-value~ (get-entry) value))
+    (if violation
+        (set-edited-violation)
+      (set-value~ (get-entry) value)))
   
   
   (method override (get-edited-modified?)

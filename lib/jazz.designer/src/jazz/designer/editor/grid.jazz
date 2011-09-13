@@ -49,8 +49,9 @@
 
 
 (definition (column-data-component-property row-data column-data fail succeed)
-  (let* ((component (element row-data (get-parent-offset~ column-data)))
-         (property (and component (category-field (class-of component) (get-identifier~ column-data)))))
+  (let* ((component (element (get-hierarchy~ row-data) (get-parent-offset~ column-data)))
+         (field (and component (category-field (class-of component) (get-identifier~ column-data))))
+         (property (and (is? field Property) field)))
     (if property
         (succeed component property)
       (fail))))
@@ -65,6 +66,13 @@
   (new Enumeration-Domain choices: (zip class-references
                                         (map get-class-presentation~
                                              (map resolve-reference~ class-references)))))
+
+
+(class Component-Row-Data extends Component
+  
+  
+  (property hierarchy initialize #f accessors generate)
+  (property violations initialize #f accessors generate))
 
 
 (class Component-Provider-Data extends Provider-Data
@@ -102,7 +110,7 @@
   
   
   (method (column-data-component-class-references row-data column-data fail succeed)
-    (let ((component (element row-data (get-parent-offset~ column-data))))
+    (let ((component (element (get-hierarchy~ row-data) (get-parent-offset~ column-data))))
       (if component
           (let ((component-column-data (get-provider-data~ (element (get-selection-columns) (get-parent-offset~ column-data)))))
             (succeed component (get-class-references~ component-column-data)))
@@ -175,7 +183,20 @@
              (column-data-component-class-references row-data column-data
                (lambda args #t)
                (lambda (component _)
-                 (not (component-owned? component (get-form~ designer) (get-reference~ designer)))))))))
+                 (not (component-owned? component (get-form~ designer) (get-reference~ designer))))))))
+  
+  
+  (method override (get-violation row-data column-data fail succeed)
+    (let* ((index (find (get-columns~ (get-grid)) column-data key: get-provider-data~ test: eq?))
+           (violation (element (get-violations~ row-data) index)))
+      (if violation
+          (succeed violation)
+        (fail))))
+  
+  
+  (method override (set-violation row-data column-data violation)
+    (let ((index (find (get-columns~ (get-grid)) column-data key: get-provider-data~ test: eq?)))
+      (list-set! (get-violations~ row-data) index violation))))
 
 
 (class Component-Controller-Actions extends Actions
@@ -239,7 +260,7 @@
         ((Component-Provider-Selection-Data)
          (let ((parent-offset (get-parent-offset~ column-data)))
            (cond ((not parent-offset) {Color White})
-                 ((element row-data (get-parent-offset~ column-data)) {Color White})
+                 ((element (get-hierarchy~ row-data) (get-parent-offset~ column-data)) {Color White})
                  (else {Color Gray}))))
         (else
          {Color Gray})))
@@ -249,8 +270,12 @@
       (set-background~ label (inactive-cell-background)))
     
     (define (update-active-element val domain)
-      (set-title~ label (present~ domain val))
-      (set-background~ label {Color Tree-Background}))
+      (set-background~ label {Color Tree-Background})
+      (get-violation~ (get-provider) row-data column-data
+        (lambda ()
+          (set-title~ label (present~ domain val)))
+        (lambda (violation)
+          (set-title~ label (get-presentation~ violation)))))
     
     (if (is? column-data Component-Provider-Selection-Data)
         (update-inactive-element)
@@ -261,16 +286,35 @@
             (update-active-element val domain))))))
   
   
+  (method public (update-editor row-data column-data editor)
+    (let ((entry (first-child~ (get-editor~ editor))))
+      (unless (get-modified?~ entry)
+        (get-violation~ (get-provider) row-data column-data
+          (lambda ()
+            (get-data~ (get-provider) row-data column-data
+              (const #f)
+              (~ set-value entry)))
+          (const #f)))))
+  
+  
   (method public (get-frame-color)
     #f)
   
   
   (method public (get-cell-color row-data column-data)
-    #f)
+    (get-violation~ (get-provider) row-data column-data
+      (lambda ()
+        #f)
+      (lambda (violation)
+        {Color Red})))
   
   
   (method public (get-editor-color row-data column-data)
-    {Color Black})
+    (get-violation~ (get-provider) row-data column-data
+      (lambda ()
+        {Color Black})
+      (lambda (violation)
+        {Color Red})))
   
   
   (method override (selection-cell? row column)
@@ -304,7 +348,7 @@
            (let ((row-data (car rows-data))
                  (column-data (car columns-data)))
              (and (is? column-data Component-Provider-Selection-Data)
-                  (let ((component (element row-data (get-component-offset~ column-data))))
+                  (let ((component (element (get-hierarchy~ row-data) (get-component-offset~ column-data))))
                     (and component
                          (not (get-identifier~ column-data))
                          (component-owned-by-reference?~ designer component))))))))
@@ -317,7 +361,7 @@
                  (column-data (car columns-data)))
              (and (is? column-data Component-Provider-Selection-Data)
                   (or (not (get-identifier~ column-data))
-                      (not (element row-data (get-component-offset~ column-data)))))))))
+                      (not (element (get-hierarchy~ row-data) (get-component-offset~ column-data)))))))))
   
   
   (method override (focus-update-actions)
@@ -336,9 +380,10 @@
         (assert (if (> (length columns-data) 1)
                     (every? (lambda (data) (is? data Component-Provider-Selection-Data)) columns-data)
                   #t))
-        (if (is? (car columns-data) Component-Provider-Selection-Data)
-            (map element rows-data (map get-component-offset~ columns-data))
-          (map element rows-data (map get-parent-offset~ columns-data))))))
+        (let ((get-offset (if (is? (car columns-data) Component-Provider-Selection-Data)
+                              get-component-offset~
+                            get-parent-offset~)))
+          (remove-false (map element (map get-hierarchy~ rows-data) (map get-offset columns-data)))))))
   
   
   (method public (on-rename-component evt)
@@ -353,7 +398,7 @@
             (column-data (car columns-data)))
         (let ((runtime-reference (get-runtime-reference~ (car (get-class-references~ column-data))))
               (parent (let ((parent-offset (get-parent-offset~ column-data)))
-                        (if parent-offset (element row-data parent-offset) client))))
+                        (if parent-offset (element (get-hierarchy~ row-data) parent-offset) client))))
           (let* ((brothers (get-children~ parent))
                  (class (resolve-runtime-reference runtime-reference))
                  (name (or (get-identifier~ column-data) (request-component-presentation class brothers)))
@@ -421,17 +466,13 @@
     (for-each-row~ (get-grid)
       (lambda (row row-rank)
         (let ((row-data (get-user-data~ row)))
-          (when (memq? component row-data)
+          (when (memq? component (get-hierarchy~ row-data))
             (for-each-column~ (get-grid)
               (lambda (column column-rank)
                 (let ((column-data (get-provider-data~ column)))
                   (when (and (eq? (get-name~ property) (get-identifier~ column-data))
-                             (eq? component (element row-data (get-parent-offset~ column-data))))
-                    (update-cell~ (get-grid) (new Cell row-rank column-rank)
-                      (lambda (row column label)
-                        (call-with-row/column-data row column
-                          (lambda (rd cd)
-                            (update-label rd cd label))))))))))))))
+                             (eq? component (element (get-hierarchy~ row-data) (get-parent-offset~ column-data))))
+                    (update-cell~ (get-grid) (new Cell row-rank column-rank)))))))))))
   
   
   (method (name-change component new-name old-name)
@@ -447,26 +488,26 @@
   
   (method override (merge? row1-data row2-data column-data)
     (let ((component-offset (if (is? column-data Component-Provider-Selection-Data) (get-component-offset~ column-data) (get-parent-offset~ column-data))))
-      (let ((c1 (element row1-data component-offset))
-            (c2 (element row2-data component-offset)))
+      (let ((c1 (element (get-hierarchy~ row1-data) component-offset))
+            (c2 (element (get-hierarchy~ row2-data) component-offset)))
         (and c1 c2 (eq? c1 c2)))))
   
   
   (method protected virtual (insert-client component)
-    (define (make-rows-data component selection-columns)
+    (define (make-rows-components-lists component selection-columns)
       (if (null? selection-columns)
           '()
         (let* ((column-data (get-provider-data~ (car selection-columns)))
                (identifier (get-identifier~ column-data)))
           (if identifier
-              (list (cons (find-child~ component identifier) (make-rows-data component (cdr selection-columns))))
+              (list (cons (find-child~ component identifier) (make-rows-components-lists component (cdr selection-columns))))
             (let ((addable-children (collect-if (lambda (class) (addable-class?~ component class))
                                                 (get-components~ component)
                                                 key: class-of)))
               (if (null? addable-children)
                   (list (make-list (length selection-columns) #f))
                 (append-map (lambda (child)
-                              (let ((rest (make-rows-data child (cdr selection-columns))))
+                              (let ((rest (make-rows-components-lists child (cdr selection-columns))))
                                 (if (null? rest)
                                     (list (list child))
                                   (map (lambda (row-data) (cons child row-data)) rest))))
@@ -482,13 +523,16 @@
              (make-row-label row-data (get-provider-data~ column)))
            (get-columns~ (get-grid))))
     
-    (let ((rows-data (make-rows-data component (collect-type Component-Provider-Selection-Data
-                                                             (get-columns~ (get-grid))
-                                                             key: get-provider-data~))))
+    (let* ((rows-components-lists (make-rows-components-lists component (collect-type Component-Provider-Selection-Data
+                                                                                     (get-columns~ (get-grid))
+                                                                                     key: get-provider-data~)))
+           (rows-datas (map (lambda (components)
+                              (new Component-Row-Data hierarchy: components violations: (make-list (length (get-columns~ (get-grid))) #f)))
+                            rows-components-lists)))
       (for-each (lambda (row-data row-labels)
                   (add-row~ (get-grid) children: row-labels user-data: row-data))
-                rows-data
-                (map make-row-labels rows-data)))))
+                rows-datas
+                (map make-row-labels rows-datas)))))
 
 
 (class Grid-Tree-Editor extends Grid-Tree-Widget
@@ -737,7 +781,7 @@
           (receive (client selected) (determine-client component)
             (set-client client)
             (if selected
-                (let ((row (user-data-row~ (get-grid) selected test: (lambda (target val) (eq? target (car val))))))
+                (let ((row (user-data-row~ (get-grid) selected test: (lambda (target val) (eq? target (car (get-hierarchy~ val)))))))
                   (when row
                     (set-selection~ (get-grid) (list (new Cell (row->line~ (get-grid) row) 0)) generate-event?: #f)))
               (set-selection~ (get-grid) '() generate-event?: #f))))))))

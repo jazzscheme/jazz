@@ -39,7 +39,8 @@
 
 
 (import (jazz.library)
-        (jazz.locale))
+        (jazz.locale)
+        (jazz.designer))
 
 
 (class Domain extends Component
@@ -64,13 +65,39 @@
     )
   
   
+  (method virtual (get-violation-message exception)
+    #f)
+  
+  
+  (method (validate-nil)
+    (unless (get-nullable?)
+      (new Property-Violation message: "This field is not nullable.")))
+  
+  
   (method public virtual (validate-text text)
-    )
+    (if (parse-nil? text)
+        (validate-nil)
+      (with-exception-filter
+        (lambda (exception)
+          #t)
+        (lambda (exception)
+          (new Property-Violation message: (get-violation-message exception)))
+        (lambda ()
+          (parse text)
+          #f))))
   
   
   ;;;
   ;;;; Presentation
   ;;;
+  
+  
+  (method virtual (get-nil-presentation)
+    "")
+  
+  
+  (method (parse-nil? text)
+    (and (get-nullable?) (string=? text (get-nil-presentation))))
   
   
   (method public virtual (present value)

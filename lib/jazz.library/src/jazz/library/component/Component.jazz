@@ -66,8 +66,10 @@
   
   (slot name                         initialize #f)
   (slot parent                       initialize #f)
-  (slot traits                       initialize #f)
+  (slot base-traits                  initialize #f)
+  (slot default-trait                initialize #f)
   (slot branch                       initialize #f)   ;; the immediatly installed branch
+  (slot base-branch                  initialize #f)   ;; the branch set by base-traits and used when replacing the default-trait
   (slot form                         initialize #f)   ;; the form that created the component
   (slot creator                      initialize #f)   ;; the root component of the class form (used for indexing and as inner class instantiation context)
   (slot creator-branch               initialize #f)   ;; the branch that created the component (#f if none)
@@ -336,17 +338,24 @@
     (install-component))
   
   
-  (method (install-traits properties)
-    (let ((traits (or (getf properties 'traits) (getf properties traits:))))
+  (method (install-base-traits properties)
+    (let ((traits (or (getf properties 'base-traits) (getf properties base-traits:))))
       (when traits
-        (set-active-traits (listify traits)))))
+        (set-base-traits (listify traits)))))
+  
+  
+  (method (install-default-trait properties)
+    (let ((trait (or (getf properties 'default-trait) (getf properties default-trait:))))
+      (when trait
+        (set-default-trait trait))))
   
   
   (method public (install-form form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
     (when form
-      (install-traits (get-properties~ form))
+      (install-base-traits (get-properties~ form))
       (install-properties (get-properties~ form) restore-form)
-      (install-children (get-children~ form) creator creator-branch restore-form)))
+      (install-children (get-children~ form) creator creator-branch restore-form)
+      (install-default-trait (get-properties~ form))))
   
   
   (method protected virtual (install-children children <Object> creator <Object> creator-branch <Object> restore-form <Object>)
@@ -425,9 +434,8 @@
         ;; setting the creator to #t is a service for Form instantiate
         (if (neq? creator #t)
             (install-form form creator #f #f)
-          (install-form form self #f #f)
-          (set! creator~self self)))
-      (install-traits initargs)
+          (set! creator~self self)
+          (install-form form self #f #f)))
       (write-properties initargs)))
   
   
@@ -553,7 +561,8 @@
     (list->table
       '((name . #t)
         (parent . #t)
-        (traits . #t)
+        (base-traits . #t)
+        (default-trait . #t)
         (form . #t)
         (creator . #t)
         (creator-branch . #t))))
@@ -741,6 +750,13 @@
               (when process
                 (process-alias~ process name))))))
 
+  
+  (method public (find-path path)
+    (if (null? path)
+        self
+      (let ((child (find-child (car path))))
+        (and child (find-path~ child (cdr path))))))
+  
 
   (method public (find-child name <Object>)
     (find-if (lambda (child)
@@ -901,6 +917,10 @@
     #f)
   
   
+  (method public virtual (inner-widget)
+    self)
+  
+  
   ;;;
   ;;;; Form
   ;;;
@@ -950,6 +970,18 @@
                    (locate-component~ sub next))))))
           (else
            (and index (table-ref index name #f)))))
+
+
+  ;;;
+  ;;;; Clone
+  ;;;
+  
+  
+  (method public (clone-component . rest)
+    (let ((tag-reference (get-tag-reference~ form)))
+      (if tag-reference
+          (apply instantiate-file tag-reference rest)
+        (apply instantiate~ form rest))))
 
 
   ;;;
@@ -1033,26 +1065,8 @@
   ;;;
   
   
-  (method public (get-traits)
-    traits)
-  
-  
-  (method public (set-traits value)
-    (set! traits (listify value))
-    (set-active-traits traits))
-  
-  
-  (method public (child-traits)
-    (collect-type Trait children))
-
-
-  ;;;
-  ;;;; Branches
-  ;;;
-  
-  
   (method public (branch-installed?)
-    branch)
+    (boolean branch))
   
   
   (method public (get-active-branch)
@@ -1062,6 +1076,16 @@
         (if (get-branch~ branch)
             (iterate (get-branch~ branch))
           branch))))
+  
+  
+  (method public (get-active-trait)
+    (let ((branch (get-active-branch)))
+      (when branch
+        (get-trait~ branch))))
+  
+  
+  (method public (set-active-trait trait)
+    (replace-traits #f (if trait (list trait) '())))
   
   
   (method public (get-active-trait-name)
@@ -1077,34 +1101,30 @@
         (get-presentation-property~ trait))))
   
   
-  (method public (get-active-trait)
-    (let ((branch (get-active-branch)))
-      (when branch
-        (get-trait~ branch))))
+  (method public (set-base-traits traits)
+    (set! base-traits traits)
+    (let ((preserve (and base-branch (get-active-trait))))
+      (replace-traits #f (listify traits))
+      (set! base-branch (get-active-branch))
+      (when preserve
+        (push-trait preserve))))
   
   
-  (method public (set-active-trait trait)
-    (set-active-traits (if trait (list trait) '())))
-  
-  
-  (method public (set-active-traits traits)
-    (replace-traits #f traits))
+  (method public (set-default-trait trait)
+    (set! default-trait trait)
+    (replace-active-trait (and trait (child trait))))
   
   
   (method public (push-trait trait)
-    (replace-traits (get-active-branch) (list trait)))
+    (replace-traits base-branch (list trait)))
   
   
   (method public (pop-trait)
-    (let ((active (get-active-branch)))
-      (assert active)
-      (let ((traits (compute-effective-traits~ (get-trait~ active))))
-        (for-each-reversed (lambda (trait)
-                             (if (and (neq? active self) (eq? trait (get-trait~ active)))
-                                 (set! active (get-parent~ active))
-                               (error "Cannot pop trait")))
-                           traits)
-        (replace-traits active '()))))
+    (replace-traits base-branch '()))
+  
+  
+  (method public (replace-active-trait trait)
+    (replace-traits base-branch (if trait (list trait) '())))
   
   
   (method public (replace-traits target-branch traits)
@@ -1192,6 +1212,10 @@
     (if (eq? self creator)
         form
       (get-class-form~ (class-of self))))
+  
+  
+  (method public (child-traits)
+    (collect-type Trait children))
   
 
   ;;;

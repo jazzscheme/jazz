@@ -112,6 +112,24 @@
   (method override (current-history-item));;abstract
   
   
+  (method override (get-page-setup)
+    (get-page-setup~ client))
+  
+  
+  (method override (get-page-setup-designer)
+    (if (custom-page-setup?~ client)
+        designer
+      (get-page-setup-designer~ client)))
+  
+  
+  (method override (get-page-setup-parcel designer)
+    (get-page-setup-parcel~ client designer))
+  
+  
+  (method override (apply-page-setup designer form page-setup)
+    (apply-page-setup~ client designer form page-setup))
+  
+  
   ;;;
   ;;;; Controller
   ;;;
@@ -333,10 +351,14 @@
   
   
   (method protected (outer-selection)
+    (outer-components selection))
+  
+  
+  (method protected (outer-components components)
     (let ((reference (get-reference)))
       (map (lambda (component)
              (outer-component~ component reference))
-           selection)))
+           components)))
   
   
   (method (close-application-selected)
@@ -354,12 +376,20 @@
   
   (method public (select component (focus?: focus? #t))
     (if (or (control-down?) (shift-down?))
-        (if (memq? component selection)
+        (if (selected? component)
             (set-selection (remove component selection) origin: self focus?: focus?)
           (set-selection (append selection (list component)) origin: self focus?: focus?))
-      (if (memq? component selection)
+      (if (selected? component)
           (set-selection (cons component (remove component selection)) origin: self focus?: focus?)
         (set-selection (list component) origin: self focus?: focus?))))
+  
+  
+  (method public (selected? component)
+    (memq? (outer-component~ component (get-reference)) (outer-selection)))
+  
+  
+  (method public (in-selection? component selection)
+    (memq? (outer-component~ component (get-reference)) (outer-components selection)))
   
   
   (method protected virtual (selection-changed old new origin force-parent? focus?)
@@ -393,10 +423,7 @@
     (let ((components (outer-selection)))
       (when (confirm-close)
         (let ((parent (components-parent components)))
-          (for-each (lambda (component)
-                      (let ((surrogate (get-surrogate~ component)))
-                        (remove-child~ (get-designer~ (get-editor~ surrogate)) (get-client~ surrogate))))
-                    components)
+          (remove-components~ designer components)
           (set-selection (if parent (list parent) '()) origin: self)))))
   
   
@@ -642,7 +669,11 @@
       (case kind
         ((:property-change)
          (set-controller-modified? #t))
-        ((:child-add :child-remove :send-before)
+        ((:child-remove)
+         (let ((child (get-property~ evt child:)))
+           (set-selection (remove child selection test: eq?))
+           (set-controller-modified? #t)))
+        ((:child-add :send-before)
          (set-controller-modified? #t)))))
   
   

@@ -541,7 +541,6 @@
     (close-all-no-confirm)
     (save-bindings)
     (save-workspaces)
-    @wait
     (save-page-setup)
     (nextmethod))
   
@@ -1151,7 +1150,7 @@
           (let ((active (or (get-active-bindings~ (get-preferences #f)) 'jazz)))
             (let ((trait (locate-component~ bindings active)))
               (when (is? trait Trait)
-                (set-active-trait~ bindings trait))))))
+                (set-base-traits~ bindings (list trait)))))))
       continue-handler:
       (lambda (err)
         (set-bindings/designer (default-bindings)))))
@@ -2290,38 +2289,46 @@
   (definition Default-Page-Setup
     #f)
   
-  (definition Default-Page-Setup-Designer
+  (definition Default-Page-Setup-Form
     #f)
   
-  (definition Default-Page-Setup-Form
-    (<form>
-      (<Page-Setup>)))
+  (definition Default-Page-Setup-Designer
+    #f)
   
   (definition Default-Page-Setup-File
     {File Profile "settings" "PageSetup.jml"})
   
   
-  (method public undocumented (set-default-page-setup page-setup)
-    (set! Default-Page-Setup page-setup))
-  
-  
-  (method public undocumented (default-page-setup)
+  (method public (default-page-setup)
     (when (not Default-Page-Setup)
       (setup-page-setup))
     Default-Page-Setup)
   
   
-  (method public undocumented (default-page-setup-designer)
+  (method public (default-page-setup-designer)
     (when (not Default-Page-Setup-Designer)
       (setup-page-setup))
     Default-Page-Setup-Designer)
   
   
+  (method public (default-page-setup-parcel designer)
+    (when (not Default-Page-Setup)
+      (setup-page-setup))
+    (package-component~ designer (default-page-setup)))
+  
+  
+  (method public (default-apply-page-setup designer form page-setup)
+    (when form
+      (apply-form~ designer form (default-page-setup))))
+  
+  
   (method virtual (setup-page-setup)
     (let* ((file Default-Page-Setup-File)
-           (form (if (and (is-alias? 'Profile) (exists?~ file)) (read-form file) Default-Page-Setup-Form)))
-      (set! Default-Page-Setup (instantiate~ form))
-      (set! Default-Page-Setup-Designer (new Designer form: (get-form~ Default-Page-Setup) reference: Default-Page-Setup))))
+           (form (if (and (is-alias? 'Profile) (exists?~ file)) (read-form file) (<form> (<Page-Setup>))))
+           (reference (instantiate~ form)))
+      (set! Default-Page-Setup reference)
+      (set! Default-Page-Setup-Form form)
+      (set! Default-Page-Setup-Designer (new Designer form: form reference: reference))))
   
   
   (method virtual (save-page-setup)
@@ -2475,12 +2482,14 @@
   
   (method package virtual (on-next-frame evt)
     (let ((first (first-frame)))
+      (send-frame-to-back first)
       (send-to-back~ first)
       (focus-host~ (front-frame))))
   
   
   (method package virtual (on-previous-frame evt)
     (let ((last (last-frame)))
+      (bring-frame-to-front last)
       (bring-to-front~ last)
       (focus-host~ (front-frame))))
   

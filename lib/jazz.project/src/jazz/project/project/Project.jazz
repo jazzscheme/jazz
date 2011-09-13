@@ -38,7 +38,8 @@
 (module protected jazz.project.project.Project jazz
 
 
-(import (jazz.designer)
+(import (jazz.debugger)
+        (jazz.designer)
         (jazz.ide)
         (jazz.io)
         (jazz.jml)
@@ -250,6 +251,45 @@
 
 
   ;;;
+  ;;;; Projects
+  ;;;
+  
+  
+  (method public (find-project name (include-inactives?: include-inactives? #f) (error?: error? #t))
+    (define (find project path)
+      (cond ((not project)
+             (when error?
+               (error "Unable to find project: {s}" name)))
+            ((null? path)
+             project)
+            ((symbol? path)
+             (find-name project path))
+            ((pair? path)
+             (find (find project (car path)) (cdr path)))
+            (else
+             #f)))
+    
+    (define (find-name project name)
+      (continuation-capture
+        (lambda (return)
+          (for-each-project~ project
+            (lambda (project)
+              (when (eq? (get-name~ project) name)
+                (continuation-return return project)))
+            include-inactives?: include-inactives?
+            stop-test: (lambda (descendant)
+                         (is? descendant Project)))
+          #f)))
+    
+    (find self (split-symbol name #\:)))
+  
+  
+  (method public (require-project name)
+    (or (find-project name)
+        (error "Unable to find project: {a}" name)))
+
+
+  ;;;
   ;;;; Files
   ;;;
   
@@ -408,7 +448,7 @@
   
   
   (method override (component-get-presentation component)
-    (project-title~ component))
+    (present-process-title/trait (project-title~ component) (get-active-trait-name~ component)))
   
   
   (method override (component-set-presentation component designer presentation)

@@ -133,9 +133,12 @@
 
 (definition package (update-debuggee-arguments)
   (let ((title-arg (command-argument "process-title"))
+        (trait-arg (command-argument "process-trait"))
         (icon-arg (command-argument "process-icon")))
     (when title-arg
       (current-process-title-set! title-arg))
+    (when trait-arg
+      (current-process-trait-set! trait-arg))
     (when icon-arg
       (current-process-icon-set! icon-arg))))
 
@@ -543,15 +546,18 @@
       (let ((console (current-console)))
         (let ((context (console-context console)))
           (receive (cmd arguments) (parse-unquote-command expr)
-            (if cmd
-                (let ((command (registered-console-command cmd)))
-                  (command cmd arguments console console-read console-eval console-print))
+            (define (context-eval context expr)
               (let ((frame (current-frame)))
                 (let ((evaluator (frame-evaluator frame)))
                   (catch (Walk-Problems problems
                            (display-exception problems)
                            (unspecified))
-                    (eval-in-context context frame evaluator expr)))))))))
+                    (eval-in-context context frame evaluator expr)))))
+            
+            (if cmd
+                (let ((command (registered-console-command cmd)))
+                  (command cmd arguments console console-read console-eval console-print context-eval))
+              (context-eval context expr))))))
     
     (define (console-print result)
       (when (and (thread-call-result? result)
@@ -659,14 +665,16 @@
       (error "Unknown console command: {s}" cmd)))
 
 
-(define (in-command cmd arguments console read eval print)
-  (let ((context (console-context console)))
-    (if (or (not arguments) (null? arguments))
-        context
-      (let ((ctx (car arguments)))
-        (let ((new-context (or (context-alias ctx) (eval ctx))))
-          (when (symbol? new-context)
-            (load-unit new-context))
+(define (in-command cmd arguments console read eval print context-eval)
+  (if (or (not arguments) (null? arguments))
+      (console-context console)
+    (let ((ctx (car arguments)))
+      (let ((new-context (or (context-alias ctx) (eval ctx))))
+        (when (symbol? new-context)
+          (load-unit new-context))
+        (if (not-null? (cdr arguments))
+            (let ((expr (cadr arguments)))
+              (context-eval new-context expr))
           (when console
             (set-context~ console new-context)
             (set-readtable~ console (if (not new-context) #f jazz-readtable)))
@@ -674,6 +682,14 @@
 
 
 (register-console-command 'in in-command)
+
+
+(define (scheme-command cmd arguments console read eval print context-eval)
+  (let ((expr (car arguments)))
+    (context-eval #f expr)))
+
+
+(register-console-command 'scheme scheme-command)
 
 
 ;;;

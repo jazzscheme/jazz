@@ -1184,6 +1184,9 @@
 (jazz:define-variable jazz:process-title
   #f)
 
+(jazz:define-variable jazz:process-trait
+  #f)
+
 (jazz:define-variable jazz:process-icon
   #f)
 
@@ -1202,6 +1205,12 @@
 
 (define (jazz:current-process-title-set! title)
   (set! jazz:process-title title))
+
+(define (jazz:current-process-trait)
+  jazz:process-trait)
+
+(define (jazz:current-process-trait-set! trait)
+  (set! jazz:process-trait trait))
 
 (define (jazz:current-process-icon)
   jazz:process-icon)
@@ -1951,6 +1960,10 @@
                              (if (%%eq? (jazz:get-environment-unit unit-name) jazz:Loading-State)
                                  (jazz:set-environment-unit unit-name jazz:Unloaded-State)))))))))))
     (jazz:error "Unit name expected: {a}" unit-name)))
+
+
+(define jazz:script-arguments
+  (make-parameter '()))
 
 
 (define (jazz:load-script path)

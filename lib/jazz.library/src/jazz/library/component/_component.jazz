@@ -64,14 +64,15 @@
 
 
 (definition public (read-form file)
-  (call-with-input-file (path-settings file char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
-    (lambda (input)
-      (let ((expr (read input)))
-        (if (eof-object? expr)
-            (error "No expression found in form file: {a}" (parse~ file))
-          (let ((form (parse-form expr file)))
-            (set-origin~ form file)
-            form))))))
+  (parameterize ((walk-for #f))
+    (call-with-input-file (path-settings file char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
+      (lambda (input)
+        (let ((expr (read input)))
+          (if (eof-object? expr)
+              (error "No expression found in form file: {a}" (parse~ file))
+            (let ((form (parse-form expr file)))
+              (set-origin~ form file)
+              form)))))))
 
 
 (definition public (parse-form expr (file #f))
@@ -218,11 +219,12 @@
 
 
 (definition public (component-ancestry component ancestor)
-  (let ((end? (lambda (scan)
-                (if scan
-                    (eq? scan ancestor)
-                  (error "{t} is not a descendant of the reference component {t}" component ancestor)))))
-    (unfold-right end? identity get-parent-component~ component)))
+  (define (end? scan)
+    (if scan
+        (eq? scan ancestor)
+      (error "{t} is not a descendant of the reference component {t}" component ancestor)))
+  
+  (unfold-right end? identity get-parent-component~ component))
 
 
 (definition public (owned-form form ancestry)

@@ -124,7 +124,8 @@
                 visibilities))
     
     (define (show-frames visibilities)
-      (let ((active-stages (get-active-stages)))
+      (let ((active-stages (get-active-stages))
+            (current #f))
         (for-each (lambda (info)
                     (bind (frame . visible?) info
                       (when visible?
@@ -139,8 +140,10 @@
                           (set-visible?~ frame #t))
                         @wait-bug-fix-on-x11
                         (unless maximized?
-                          (ensure-displayed~ frame)))))
-                  visibilities)))
+                          (ensure-displayed~ frame))
+                        (set! current frame))))
+                  visibilities)
+        current))
     
     (define (process-activation)
       (let ((frames (all-internal-frames)))
@@ -185,16 +188,18 @@
               (set-placement~ toplevel position size)
             (when (get-visible?~ toplevel)
               (restore-state~ toplevel)))
-          (show-frames visibilities)
-          (update-windowing-actions~ appl)
-          (update-menubar-buttons~ appl)
-          (process-application-event~ appl 'workspace 'activate self workspace: self)
-          (process-activation)
-          (when (and stage (in-player?~ stage))
-            (set-current-stage stage))
-          (if (and restore-focus? focus (in-player?~ focus))
-              (acquire-focus~ focus)
-            (focus-stage))))))
+          (let ((current-frame (show-frames visibilities)))
+            (update-windowing-actions~ appl)
+            (update-menubar-buttons~ appl)
+            (process-application-event~ appl 'workspace 'activate self workspace: self)
+            (process-activation)
+            (when (and stage (in-player?~ stage))
+              (set-current-stage stage))
+            (if (and restore-focus? focus (in-player?~ focus))
+                (acquire-focus~ focus)
+              (if (and current-frame (is? current-frame Focus-Container))
+                  (focus-host~ current-frame)
+                (focus-stage))))))))
   
   
   (method (deactivate)

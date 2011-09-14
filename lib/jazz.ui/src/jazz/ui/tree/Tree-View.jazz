@@ -728,27 +728,23 @@
   
   
   (method override (drag-up view (dragging? #f))
-    (mouse-up~ selection-manager (shift-down?) (control-down?) (alt-down?))
-    (let ((cell (view->tree (or (unless dragging? (get-mouse-down-view~ selection-manager)) view)))
-          (shift? (shift-down?))
-          (control? (control-down?)))
-      (unless (or dragging? cell)
-        (set-selection '()))
-      ;; the idea is there to do the selection only at mouse-up when the cell is already
-      ;; selected (necessary for dnd) but this code is a not very elegant quick solution
-      (when (and cell (not dragging?))
-        (let ((pos (cell-coordinates cell view))
-              (row (get-row (get-line~ cell)))
-              (column (get-column (get-col~ cell))))
-          (unless (mouse-down-part-control?~ selection-manager)
-            (complete-mouse-down~ column cell pos shift? control?)
-            (when auto-expand/collapse?
-              (auto-select~ row))
-            (focus-delegate)
-            (drag-up~ column cell pos)))))
-    (release-capture)
-    (process-action self)
-    (reset~ selection-manager))
+    (let ((shift? (shift-down?))
+          (control? (control-down?))
+          (alt? (alt-down?)))
+      (mouse-up~ selection-manager shift? control? alt?)
+      (let ((pos (get-mouse-down-view~ selection-manager)))
+        (let ((cell (view->tree pos)))
+          (when (and cell (not (mouse-down-part-control?~ selection-manager)))
+            (let ((row (get-row (get-line~ cell)))
+                  (column (get-column (get-col~ cell))))
+              (when auto-expand/collapse?
+                (auto-expand/collapse row)
+                (auto-select~ row))
+              (focus-delegate)
+              (drag-up~ column cell pos))))
+        (release-capture)
+        (process-action self)
+        (reset~ selection-manager))))
   
   
   (method override (call-double-click view)

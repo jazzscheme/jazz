@@ -170,12 +170,19 @@
   
   (method public virtual (draw surface)
     (let ((reference (get-reference~ editor))
-          (selection (get-selection~ editor)))
+          (selection (get-selection~ editor))
+          (outer-selection (outer-selection~ editor)))
       (define (draw-selected-background surface)
+        (define (some-selection-focused?)
+          (some? (lambda (component)
+                   (and (is? component View)
+                        (is-focused?~ component)))
+                 outer-selection))
+        
         (when (and (neq? client reference)
-                   (memq client selection)
+                   (memq client outer-selection)
                    (not (editing?)))
-          (let ((color (if (selection-focused?) Focused-Background Unfocused-Background)))
+          (let ((color (if (some-selection-focused?) Focused-Background Unfocused-Background)))
             (fill-rect~ surface (get-bounds~ client) color))))
       
       (define (draw-surrogate-frame surface)
@@ -313,13 +320,6 @@
   (method override (focus-actions)
     (cons (find-actions 'view-surrogate)
           (focus-actions~ client)))
-  
-  
-  (method (selection-focused?)
-    (some? (lambda (component)
-             (and (is? component View)
-                  (is-focused?~ component)))
-           (outer-selection~ editor)))
   
   
   ;; This is an ugly hack. We enable the components tree actions
@@ -910,12 +910,12 @@
     ;; commented as this creates flicker because it uses update-view internaly
     ;; (user-message "{a} selected" client)
     (invalidate-border)
-    (invalidate-view~ client))
+    (invalidate-view~ (outer-client)))
   
   
   (method override (unselect)
     (invalidate-border)
-    (invalidate-view~ client))
+    (invalidate-view~ (outer-client)))
   
   
   (method (invalidate-selection)

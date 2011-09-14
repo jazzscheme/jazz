@@ -295,9 +295,10 @@
         'debugger-console-pump)))
   
   (let ((manager (get-console-manager)))
-    (let ((text (register-console~ manager (present-process-title process-proxy thread-proxy) select?)))
-      (setup-debugger-console-ports text process-proxy thread-proxy)
-      text)))
+    (bind (title trait thread) (process-information process-proxy thread-proxy)
+      (let ((text (register-console~ manager (present-process-title/trait/thread title trait thread) select? process-title: title process-trait: trait process-thread: thread)))
+        (setup-debugger-console-ports text process-proxy thread-proxy)
+        text))))
 
 
 (definition public (unregister-debugger-console text)
@@ -318,16 +319,34 @@
 
 
 (definition public (present-process-title process-proxy thread-proxy)
-  (let ((title (present-process-title/trait (get-title~ process-proxy) (get-trait~ process-proxy))))
-    (if (not thread-proxy)
+  (bind (title trait thread) (process-information process-proxy thread-proxy)
+    (present-process-title/trait/thread title trait thread)))
+
+
+(definition public (present-process-title/trait/thread title trait thread)
+  (let ((title (present-process-title/trait title trait)))
+    (if (not thread)
         title
-      (format "{a} {a}" title (present-thread-name (get-name~ thread-proxy))))))
+      (format "{a} {a}" title (present-thread-name thread)))))
 
 
 (definition public (present-process-title/trait title trait)
   (if trait
       (format "{a}<{a}>" title trait)
     title))
+
+
+(definition public (process-information process-proxy thread-proxy)
+  (list (get-title~ process-proxy)
+        (get-trait~ process-proxy)
+        (and thread-proxy (get-name~ thread-proxy))))
+
+
+(definition public (console-title title trait thread)
+  (let ((title (present-process-title/trait title @wait-smarter-space-management trait #f)))
+    (if (or (not thread) (eq? thread 'primordial))
+        title
+      (format "{a} {a}" title (present-thread-name thread)))))
 
 
 ;;;

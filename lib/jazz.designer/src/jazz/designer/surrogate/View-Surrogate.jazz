@@ -523,7 +523,7 @@
   
   
   (method public virtual (drag-up pos)
-    ;; a temporary solution until this validation is done live while dragging
+    ;; temporary solution until this validation is done live while dragging
     (define (verify-position/size)
       (let ((outer (outer-client)))
         (let ((min-size (minimal-size~ outer)))
@@ -535,6 +535,16 @@
                 (set-property~ designer outer 'size new-size)
                 (set-property~ designer outer 'position new-position)))))))
     
+    (define (set-client-parent)
+      (let* ((editor-pos (acquire~ editor client pos))
+             (view (find-drawing~ editor editor-pos ignore: (list client)))
+             (view-pos (and view (acquire~ view editor editor-pos))))
+        (when (neq? (get-parent~ client) view)
+          (let ((designer (get-designer~ editor)))
+            (let ((new-position (acquire~ view client {Point 0 0})))
+              (move-components~ designer (list client) view)
+              (set-property~ designer client 'position new-position))))))
+    
     (case state
       ((scroll)
        (release-capture~ client)
@@ -544,6 +554,7 @@
        (release-capture~ client)
        (set! current-part #f)
        (set! state #f)
+       (set-client-parent)
        (verify-position/size)
        (end-atomic-undo~ (get-undoer) atomic-preserved))))
   

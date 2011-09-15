@@ -614,18 +614,25 @@
               (get-children~ parent)))
   
   
-  (method public (move-component component destination (trait: trait #t))
-    (move-components (list component) destination trait: trait))
+  (method public (move-component component destination (trait: trait #t) (design-events?: design-events? #t))
+    (move-components (list component) destination trait: trait design-events?: design-events?))
   
   
-  (method public virtual (move-components components destination (trait: trait #t))
+  (method public virtual (move-components components destination (trait: trait #t) (design-events?: design-events? #t))
     (assert (eq? (get-form~ (get-creator~ destination)) form))
     (let ((destination-form (get-form~ destination)))
       (for-each (lambda (component)
                   (assert (eq? (get-form~ (get-creator~ component)) form))
-                  (set-parent~ component destination)
-                  (let ((component-form (get-form~ component)))
-                    (set-parent~ component-form destination-form)))
+                  (let ((parent (get-parent~ component)))
+                    (register-undo~ undoer
+                      (lambda ()
+                        (move-component component parent)))
+                    (set-parent~ component destination)
+                    (let ((component-form (get-form~ component)))
+                      (set-parent~ component-form destination-form))
+                    (when design-events?
+                      (fire-child-remove component parent)
+                      (fire-child-add component destination #f))))
                 components)
       (set-modified? #t)))
   

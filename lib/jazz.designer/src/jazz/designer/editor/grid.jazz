@@ -68,6 +68,17 @@
                                              (map resolve-reference~ class-references)))))
 
 
+(definition public (classes-properties/presentations classes)
+  (remove-duplicates
+    (append-map (lambda (class)
+                  (map (lambda (property)
+                         (list (get-name~ property) (property-presentation~ class property)))
+                       (class-properties class)))
+                classes)
+    key: second
+    test: string=?))
+
+
 (class Component-Row-Data extends Component
   
   
@@ -186,12 +197,9 @@
                  (not (component-owned? component (get-form~ designer) (get-reference~ designer))))))))
   
   
-  (method override (get-violation row-data column-data fail succeed)
-    (let* ((index (find (get-columns~ (get-grid)) column-data key: get-provider-data~ test: eq?))
-           (violation (element (get-violations~ row-data) index)))
-      (if violation
-          (succeed violation)
-        (fail))))
+  (method override (get-violation row-data column-data)
+    (let ((index (find (get-columns~ (get-grid)) column-data key: get-provider-data~ test: eq?)))
+      (element (get-violations~ row-data) index)))
   
   
   (method override (set-violation row-data column-data violation)
@@ -254,67 +262,34 @@
                   (collect-visible-rows~ grid))))
   
   
-  (method public (update-label row-data column-data label)
-    (define (inactive-cell-background)
-      (typecase column-data
-        ((Component-Provider-Selection-Data)
-         (let ((parent-offset (get-parent-offset~ column-data)))
-           (cond ((not parent-offset) {Color White})
-                 ((element (get-hierarchy~ row-data) (get-parent-offset~ column-data)) {Color White})
-                 (else {Color Gray}))))
-        (else
-         {Color Gray})))
-    
-    (define (update-inactive-element)
-      (set-title~ label "")
-      (set-background~ label (inactive-cell-background)))
-    
-    (define (update-active-element val domain)
-      (set-background~ label {Color Tree-Background})
-      (get-violation~ (get-provider) row-data column-data
-        (lambda ()
-          (set-title~ label (present~ domain val)))
-        (lambda (violation)
-          (set-title~ label (get-presentation~ violation)))))
-    
-    (if (is? column-data Component-Provider-Selection-Data)
-        (update-inactive-element)
-      (get-data~ (get-provider) row-data column-data
-        update-inactive-element
-        (lambda (val)
-          (let ((domain (get-domain~ (get-provider) row-data column-data)))
-            (update-active-element val domain))))))
+  (method override (inactive-background row-data column-data)
+    (typecase column-data
+      ((Component-Provider-Selection-Data)
+       (let ((parent-offset (get-parent-offset~ column-data)))
+         (cond ((not parent-offset) {Color White})
+               ((element (get-hierarchy~ row-data) (get-parent-offset~ column-data)) {Color White})
+               (else {Color Gray}))))
+      (else
+       {Color Gray})))
   
   
-  (method public (update-editor row-data column-data editor)
-    (let ((entry (first-child~ (get-editor~ editor))))
-      (unless (get-modified?~ entry)
-        (get-violation~ (get-provider) row-data column-data
-          (lambda ()
-            (get-data~ (get-provider) row-data column-data
-              (const #f)
-              (~ set-value entry)))
-          (const #f)))))
+  (method override (active-background row-data column-data)
+    {Color Tree-Background})
   
   
-  (method public (get-frame-color)
+  (method override (get-frame-color)
     #f)
   
   
   (method public (get-cell-color row-data column-data)
-    (get-violation~ (get-provider) row-data column-data
-      (lambda ()
-        #f)
-      (lambda (violation)
-        {Color Red})))
+    (and (get-violation~ (get-provider) row-data column-data)
+         {Color Red}))
   
   
   (method public (get-editor-color row-data column-data)
-    (get-violation~ (get-provider) row-data column-data
-      (lambda ()
-        {Color Black})
-      (lambda (violation)
-        {Color Red})))
+    (if (get-violation~ (get-provider) row-data column-data)
+        {Color Red}
+      {Color Black}))
   
   
   (method override (selection-cell? row column)
@@ -455,11 +430,11 @@
   
   
   (method (child-add child parent)
-    (grid-populate))
+    (populate~ (get-grid)))
   
   
   (method (child-remove child parent)
-    (grid-populate))
+    (populate~ (get-grid)))
   
   
   (method (property-change component property)
@@ -476,14 +451,7 @@
   
   
   (method (name-change component new-name old-name)
-    (grid-populate))
-  
-  
-  (method override (grid-populate)
-    (populate~ (get-grid)
-      (lambda ()
-        (when (and client (not-null? (component-addable-classes client)))
-          (insert-client client)))))
+    (populate~ (get-grid)))
   
   
   (method override (merge? row1-data row2-data column-data)
@@ -493,7 +461,7 @@
         (and c1 c2 (eq? c1 c2)))))
   
   
-  (method protected virtual (insert-client component)
+  (method override (client-rows-datas)
     (define (make-rows-components-lists component selection-columns)
       (if (null? selection-columns)
           '()
@@ -513,26 +481,12 @@
                                   (map (lambda (row-data) (cons child row-data)) rest))))
                             addable-children)))))))
     
-    (define (make-row-label row-data column-data)
-      (let ((label (new Tree-Label)))
-        (update-label row-data column-data label)
-        label))
-    
-    (define (make-row-labels row-data)
-      (map (lambda (column)
-             (make-row-label row-data (get-provider-data~ column)))
-           (get-columns~ (get-grid))))
-    
-    (let* ((rows-components-lists (make-rows-components-lists component (collect-type Component-Provider-Selection-Data
-                                                                                     (get-columns~ (get-grid))
-                                                                                     key: get-provider-data~)))
-           (rows-datas (map (lambda (components)
-                              (new Component-Row-Data hierarchy: components violations: (make-list (length (get-columns~ (get-grid))) #f)))
-                            rows-components-lists)))
-      (for-each (lambda (row-data row-labels)
-                  (add-row~ (get-grid) children: row-labels user-data: row-data))
-                rows-datas
-                (map make-row-labels rows-datas)))))
+    (let ((rows-components-lists (make-rows-components-lists client (collect-type Component-Provider-Selection-Data
+                                                                                  (get-columns~ (get-grid))
+                                                                                  key: get-provider-data~))))
+      (map (lambda (components)
+             (new Component-Row-Data hierarchy: components violations: (make-list (length (get-columns~ (get-grid))) #f)))
+           rows-components-lists))))
 
 
 (class Grid-Tree-Editor extends Grid-Tree-Widget
@@ -548,11 +502,9 @@
   
   (form
     (<install>
-      (<Layout-View>              name: tools)
-      (<Grid-Tree-Widget>         name: widget
-        (<grid~>
-          (<Component-Provider>   name: provider)
-          (<Component-Controller> name: controller)))))
+      (<grid~>
+        (<Component-Provider>   name: provider)
+        (<Component-Controller> name: controller))))
   
   
   (definition Default-Class-Width 150)
@@ -572,7 +524,7 @@
   
   
   (method (get-grid)
-    (locate '(widget grid)))
+    (locate 'grid))
   
   
   (method (get-provider)
@@ -633,7 +585,7 @@
       (lambda ()
         (when generate-columns?
           (setup-columns))
-        (grid-populate~ (get-controller)))))
+        (populate~ (get-grid)))))
   
   
   (method (add-selection-column identifier component-offset parent-offset class-references)
@@ -658,16 +610,9 @@
     
     (define (setup-property-columns class-references component-offset)
       (for-each (lambda (x)
-                  (bind (property presentation) x
-                    (add-property-column component-offset (get-name~ property) presentation)))
-                (remove-duplicates
-                  (append-map (lambda (class)
-                                (map (lambda (property)
-                                       (list property (property-presentation~ class property)))
-                                     (class-properties class)))
-                              (map resolve-reference~ class-references))
-                  key: second
-                  test: string=?)))
+                  (bind (name presentation) x
+                    (add-property-column component-offset name presentation)))
+                (classes-properties/presentations (map resolve-reference~ class-references))))
     
     (define (runtime-reference->reference runtime-reference)
       (let* ((ref (new Reference #f)))

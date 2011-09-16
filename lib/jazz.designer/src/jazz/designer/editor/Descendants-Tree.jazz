@@ -288,7 +288,7 @@
   
   (method override (get-draggable?)
     (let ((component (selected-component)))
-      (and component (is? component Component) (can-move-component?~ component))))
+      (and component (is? component Component) (can-relocate-component?~ component))))
 
   
   ;;;
@@ -301,6 +301,7 @@
       ((:presentation-change) (presentation-change (get-property~ evt component:) (get-property~ evt presentation:)))
       ((:child-add) (child-add (get-property~ evt child:) (get-property~ evt parent:) (get-property~ evt descendant?:)))
       ((:child-remove) (child-remove (get-property~ evt child:)))
+      ((:child-move) (child-move (get-property~ evt child:) (get-property~ evt parent:) (get-property~ evt target:)))
       ((:send-before) (send-before-target (get-property~ evt child:) (get-property~ evt parent:) (get-property~ evt target:)))
       ((:refresh) (refresh (get-property~ evt component:) (get-property~ evt what:)))))
   
@@ -344,12 +345,20 @@
               (remove-row row)))))))
   
   
+  (method (child-move child parent destination)
+    (let ((child-row (find-row child))
+          (destination-row (find-row (parent-relocation destination))))
+      (with-update-locked
+        (lambda ()
+          (relocate-component-row child-row destination-row)))))
+  
+  
   (method (send-before-target child parent target)
     (let ((child-row (find-row child))
           (parent-row (find-row (parent-relocation parent))))
       (with-update-locked
         (lambda ()
-          (move-component-row child-row parent-row
+          (relocate-component-row child-row parent-row
             position: (lambda ()
                         (find-component-insertion parent-row child target))))))))
 

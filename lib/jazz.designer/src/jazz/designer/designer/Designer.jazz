@@ -614,11 +614,11 @@
               (get-children~ parent)))
   
   
-  (method public (move-component component destination (trait: trait #t) (design-events?: design-events? #t))
-    (move-components (list component) destination trait: trait design-events?: design-events?))
+  (method public (relocate-component component destination (trait: trait #t) (design-events?: design-events? #t))
+    (relocate-components (list component) destination trait: trait design-events?: design-events?))
   
   
-  (method public virtual (move-components components destination (trait: trait #t) (design-events?: design-events? #t))
+  (method public virtual (relocate-components components destination (trait: trait #t) (design-events?: design-events? #t))
     (assert (eq? (get-form~ (get-creator~ destination)) form))
     (let ((destination-form (get-form~ destination)))
       (for-each (lambda (component)
@@ -626,18 +626,17 @@
                   (let ((parent (get-parent~ component)))
                     (register-undo~ undoer
                       (lambda ()
-                        (move-component component parent)))
+                        (relocate-component component parent)))
                     (set-parent~ component destination)
                     (let ((component-form (get-form~ component)))
                       (set-parent~ component-form destination-form))
                     (when design-events?
-                      (fire-child-remove component parent)
-                      (fire-child-add component destination #f))))
+                      (fire-child-move component parent destination))))
                 components)
       (set-modified? #t)))
   
   
-  (method public (can-move-component? component destination)
+  (method public (can-relocate-component? component destination)
     (and (eq? (get-form~ (get-creator~ component)) form)
          (eq? (get-form~ (get-creator~ destination)) form)))
   
@@ -1181,6 +1180,12 @@
               (get-designers~ child)))
   
   
+  (definition (fire-child-move child parent destination)
+    (for-each (lambda (designer)
+                (process-child-move~ designer child parent destination))
+              (get-designers~ child)))
+  
+  
   (definition (fire-send-before child parent target)
     (for-each (lambda (designer)
                 (process-send-before~ designer child parent target))
@@ -1235,6 +1240,14 @@
   (method (process-child-remove child parent)
     (when (not-null? listeners)
       (let ((evt (new Designer-Event :child-remove self child: child parent: parent)))
+        (for-each (lambda (listener)
+                    (invoke~ listener self evt))
+                  listeners))))
+  
+  
+  (method (process-child-move child parent destination)
+    (when (not-null? listeners)
+      (let ((evt (new Designer-Event :child-move self child: child parent: parent target: destination)))
         (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))

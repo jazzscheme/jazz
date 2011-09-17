@@ -156,7 +156,7 @@
     (define (default-render)
       (let ((content? (get-show-content?~ editor)))
         (when (eq? client (get-client~ editor)) @w (is? (get-parent~ client) View-Workbench)
-          (fill-rect~ surface (get-bounds~ client) {Color White} @w {Color Medium}))
+          (fill-rect~ surface (get-bounds~ client) {Color White}))
         (when content?
           (draw-background~ drawing surface context))
         (when content?
@@ -171,33 +171,27 @@
   (method public virtual (draw surface)
     (let ((reference (get-reference~ editor))
           (selection (get-selection~ editor))
-          (outer-selection (outer-selection~ editor)))
+          (outer? (eq? client (outer-client))))
       (define (draw-selected-background surface)
         (define (some-selection-focused?)
           (some? (lambda (component)
                    (and (is? component View)
                         (is-focused?~ component)))
-                 outer-selection))
+                 selection))
         
         (when (and (neq? client reference)
-                   (memq client outer-selection)
+                   (memq client selection)
                    (not (editing?)))
           (let ((color (if (some-selection-focused?) Focused-Background Unfocused-Background)))
             (fill-rect~ surface (get-bounds~ client) color))))
       
       (define (draw-surrogate-frame surface)
-        (define (outer-component view)
-          (outer-client~ (get-surrogate~ view)))
-        
         (when (get-show-frames?~ editor)
-          (let ((rank (find selection client key: outer-component))
+          (let ((rank (find selection client))
                 (outside (get-bounds~ client)))
             (define (draw-frame)
               (set-style~ surface 'solid)
-              (if (not rank)
-                  (when (eq? (outer-client) client)
-                    (frame-rect~ surface outside Unselected-Color))
-                (frame-rect~ surface outside (selected-color rank))))
+              (frame-rect~ surface outside (selected-color rank)))
             
             (define (draw-handles)
               ;; todo
@@ -228,10 +222,12 @@
                 (set-text-color~ surface {Color Medium-Gray})
                 (draw-text~ surface (get-h~ pos) (get-v~ pos) text #t))))))
       
-      (draw-showed-property surface)
+      (when outer?
+        (draw-showed-property surface))
       (draw-selected-background surface)
-      (draw-surrogate-frame surface)
-      (draw-information surface)))
+      (when outer?
+        (draw-surrogate-frame surface)
+        (draw-information surface))))
   
   
   (method public (draw-showed-property surface)
@@ -349,7 +345,7 @@
         ((rect)
          (set-cursor :cross))
         (else
-         (let ((outer (outer-client~ (get-surrogate~ client))))
+         (let ((outer (outer-client)))
            (let ((part (and (selected?~ editor outer)
                             (or (not (memq? state '(tolerance process))) current-part)
                             (or current-part (if (size-client?~ (get-surrogate~ outer))
@@ -427,7 +423,7 @@
   
   
   (method public virtual (select-in-editor)
-    (select~ editor (inner-widget~ (outer-client))))
+    (select~ editor (outer-client)))
   
   
   (method protected virtual (move-client?)
@@ -461,7 +457,7 @@
             (previous-selection (get-selection)))
         (select)
         (when (and (move-client?~ (get-surrogate~ outer)) (some-movable? (get-selection~ editor)))
-          (let ((part (if (and (in-selection?~ editor outer previous-selection) (size-client?~ (get-surrogate~ outer))) (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t) #f)))
+          (let ((part (if (and (memq? outer previous-selection) (size-client?~ (get-surrogate~ outer))) (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t) #f)))
             (when (or (neq? outer (get-client~ editor))
                       (member? part '((1 . 0) (0 . 1) (1 . 1))))
               (let ((selection (get-selection)))
@@ -536,19 +532,19 @@
                 (set-property~ designer outer 'position new-position)))))))
     
     (define (relocate-selection)
-      (let ((outer-selection (outer-selection~ editor)))
-        (let ((uniform-outer-parent (uniform (map get-parent~ outer-selection))))
+      (let ((selection (get-selection~ editor)))
+        (let ((uniform-outer-parent (uniform (map get-parent~ selection))))
           (when uniform-outer-parent
             (let* ((outer (outer-client))
                    (editor-pos (acquire~ editor outer pos))
                    (destination (find-drawing~ editor editor-pos ignore: (list outer)))
                    (designer (get-designer~ editor)))
               (when (and (neq? destination uniform-outer-parent)
-                         (not (memq? (outer-client~ (get-surrogate~ destination)) outer-selection))
-                         (can-relocate-components?~ designer outer-selection destination))
+                         (not (memq? (outer-client~ (get-surrogate~ destination)) selection))
+                         (can-relocate-components?~ designer selection destination))
                 (for-each (lambda (selected)
                             (relocate-component~ designer selected destination))
-                          outer-selection)))))))
+                          selection)))))))
     
     (case state
       ((scroll)
@@ -665,7 +661,7 @@
   (method public virtual (get-context-menu)
     (let ((menu (new (context-menu-class))))
       ;; Add submenu is too long to generate and not useful
-      (update-component-menu menu (outer-selection~ editor) '() (lambda (_) #f))
+      (update-component-menu menu (get-selection~ editor) '() (lambda (_) #f))
       menu))
   
   
@@ -686,7 +682,7 @@
     (when (or (/= dh 0) (/= dv 0))
       (let ((selection (get-selection~ editor))
             (designer (get-designer~ editor))
-            (outer (outer-client~ (get-surrogate~ client))))
+            (outer (outer-client)))
         (when (move-client?~ (get-surrogate~ outer))
           (let ((pos (get-position~ outer)))
             (safe-set-property~ designer outer position: (new Point (+ (get-h~ pos) dh) (+ (get-v~ pos) dv))))
@@ -863,7 +859,7 @@
   
   
   (method public virtual (cut-selection)
-    (let ((selection (outer-selection~ editor))
+    (let ((selection (get-selection~ editor))
           (designer (get-designer~ editor)))
       (let ((parent (components-parent~ editor selection)))
         (cut-components~ designer selection)
@@ -871,7 +867,7 @@
   
   
   (method public virtual (copy-selection)
-    (let ((selection (outer-selection~ editor))
+    (let ((selection (get-selection~ editor))
           (designer (get-designer~ editor)))
       (copy-components~ designer selection)))
   
@@ -919,13 +915,8 @@
   (method override (select rank focus?)
     (when (= rank 0)
       (let ((outer (outer-client)))
-        @i-am-not-so-sure-about-this
-        (bring-to-front~ outer)
         (when focus?
           (acquire-focus~ outer))))
-    ;; temp for client apps
-    ;; commented as this creates flicker because it uses update-view internaly
-    ;; (user-message "{a} selected" client)
     (invalidate-border)
     (invalidate-view~ (outer-client)))
   

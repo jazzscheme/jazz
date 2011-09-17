@@ -350,17 +350,6 @@
         (update-focus-actions~ appl))))
   
   
-  (method protected (outer-selection)
-    (outer-components selection))
-  
-  
-  (method protected (outer-components components)
-    (let ((reference (get-reference)))
-      (map (lambda (component)
-             (outer-component~ component reference))
-           components)))
-  
-  
   (method (close-application-selected)
     (let ((appl (get-application)))
       (close-selected~ appl self)))
@@ -385,11 +374,7 @@
   
   
   (method public (selected? component)
-    (memq? (outer-component~ component (get-reference)) (outer-selection)))
-  
-  
-  (method public (in-selection? component selection)
-    (memq? (outer-component~ component (get-reference)) (outer-components selection)))
+    (memq? component selection))
   
   
   (method protected virtual (selection-changed old new origin force-parent? focus?)
@@ -420,11 +405,10 @@
           ((no) #f)
           ((cancel) (throw-cancel)))))
     
-    (let ((components (outer-selection)))
-      (when (confirm-close)
-        (let ((parent (components-parent components)))
-          (remove-components~ designer components)
-          (set-selection (if parent (list parent) '()) origin: self)))))
+    (when (confirm-close)
+      (let ((parent (components-parent selection)))
+        (remove-components~ designer selection)
+        (set-selection (if parent (list parent) '()) origin: self))))
   
   
   (method package (components-parent components)
@@ -512,37 +496,34 @@
   ;;;
   
   
-  (method (can-modify? pred selection)
+  (method (can-modify? pred)
     (and (every? (lambda (component) (neq? component client)) selection)
          (every? (~ component-owned-by-reference? designer) selection)
          (pred selection)))
   
   
   (method public (can-delete-selection?)
-    (can-modify? can-delete-components? (outer-selection)))
+    (can-modify? can-delete-components?))
   
   
   (method public (can-cut-selection?)
-    (can-modify? can-cut-components? (outer-selection)))
+    (can-modify? can-cut-components?))
   
   
   (method public (can-rename-selection?)
-    (let ((selection (outer-selection)))
-      (and (= (length selection) 1)
-           (component-owned-by-reference?~ designer (car selection))
-           (can-rename-component?~ (car selection)))))
+    (and (= (length selection) 1)
+         (component-owned-by-reference?~ designer (car selection))
+         (can-rename-component?~ (car selection))))
   
   
   (method public (can-send-selection-to-back?)
-    (let ((selection (outer-selection)))
-      (and (not (memq? client selection))
-           (every? (~ component-owned-by-reference? designer) selection))))
+    (and (not (memq? client selection))
+         (every? (~ component-owned-by-reference? designer) selection)))
   
   
   (method public (can-bring-selection-to-front?)
-    (let ((selection (outer-selection)))
-      (and (not (memq? client selection))
-           (every? (~ component-owned-by-reference? designer) selection))))
+    (and (not (memq? client selection))
+         (every? (~ component-owned-by-reference? designer) selection)))
   
   ;;;
   ;;;; Editor

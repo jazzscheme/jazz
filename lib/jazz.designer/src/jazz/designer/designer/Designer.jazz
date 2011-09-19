@@ -619,17 +619,14 @@
   
   
   (method public virtual (relocate-components components destination (trait: trait #t) (design-events?: design-events? #t))
-    (assert (eq? (get-form~ (get-creator~ destination)) form))
     (let ((destination-form (get-form~ destination)))
       (for-each (lambda (component)
-                  (assert (eq? (get-form~ (get-creator~ component)) form))
                   (let ((parent (get-parent~ component)))
                     (register-undo~ undoer
                       (lambda ()
                         (relocate-component component parent)))
-                    (set-parent~ component destination)
-                    (let ((component-form (get-form~ component)))
-                      (set-parent~ component-form destination-form))
+                    (remove-child component trait: trait design-events?: #f)
+                    (add-child component destination trait: trait design-events?: #f)
                     (when design-events?
                       (fire-child-move component parent destination))))
                 components)
@@ -637,8 +634,7 @@
   
   
   (method public (can-relocate-component? component destination)
-    (and (eq? (get-form~ (get-creator~ component)) form)
-         (eq? (get-form~ (get-creator~ destination)) form)))
+    (component-owned-by-reference? component))
   
   
   (method public (can-relocate-components? components destination)

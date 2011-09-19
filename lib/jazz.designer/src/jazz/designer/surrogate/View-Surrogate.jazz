@@ -336,7 +336,8 @@
 
 
   (method (on-cursor-update evt)
-    (cursor-update (get-position~ evt)))
+    (receive (outer-surrogate outer-pos) (outer-surrogate (get-position~ evt))
+      (cursor-update~ outer-surrogate outer-pos)))
   
   
   (method public virtual (cursor-update pos)
@@ -345,21 +346,20 @@
         ((rect)
          (set-cursor :cross))
         (else
-         (let ((outer (outer-client)))
-           (let ((part (and (selected?~ editor outer)
-                            (or (not (memq? state '(tolerance process))) current-part)
-                            (or current-part (if (size-client?~ (get-surrogate~ outer))
-                                                 (let ((part (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t)))
-                                                   (and (or (neq? outer (get-client~ editor))
-                                                            (member? part '((1 . 0) (0 . 1) (1 . 1))))
-                                                        part))
-                                               #f)))))
-             (cond (part
-                    (set-cursor (get-resize-cursor part)))
-                   ((and (move-client?) (neq? outer (get-client~ editor)))
-                    (set-cursor :opened-hand))
-                   (else
-                    (set-cursor :arrow)))))))))
+         (let ((part (and (selected?~ editor client)
+                          (or (not (memq? state '(tolerance process))) current-part)
+                          (or current-part (if (size-client?)
+                                               (let ((part (find-resize-part pos (get-size~ client) full?: #t)))
+                                                 (and (or (neq? client (get-client~ editor))
+                                                          (member? part '((1 . 0) (0 . 1) (1 . 1))))
+                                                      part))
+                                             #f)))))
+           (cond (part
+                   (set-cursor (get-resize-cursor part)))
+                 ((and (move-client?) (neq? client (get-client~ editor)))
+                  (set-cursor :opened-hand))
+                 (else
+                  (set-cursor :arrow))))))))
 
 
   ;;;
@@ -376,54 +376,58 @@
           (pos (get-position~ evt)))
       (if (or (eq? mode 'rect) (control-down?))
           (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))
-        (if #t @wait (neq? client (get-client~ editor))
-            (mouse-down pos)
-          (when (select?)
-            (select-in-editor))
-          (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))))))
+        (receive (outer-surrogate outer-pos) (outer-surrogate pos)
+          (mouse-down~ outer-surrogate outer-pos)))))
 
   
   (method (on-mouse-up evt)
-    (let ((pos (get-position~ evt)))
-      (mouse-up pos)))
+    (receive (outer-surrogate outer-pos) (outer-surrogate (get-position~ evt))
+      (mouse-up~ outer-surrogate outer-pos)))
   
   
   (method (on-drag-move evt)
     (let ((pos (get-position~ evt)))
       (if (get-rubber-band?~ editor)
           (process-rubber-band~ editor (acquire~ (get-client~ editor) client pos))
-        (drag-move pos))))
+        (receive (outer-surrogate outer-pos) (outer-surrogate pos)
+          (drag-move~ outer-surrogate outer-pos)))))
   
   
   (method (on-drag-up evt)
     (let ((pos (get-position~ evt)))
       (if (get-rubber-band?~ editor)
           (end-rubber-band~ editor (acquire~ (get-client~ editor) client pos))
-        (drag-up pos))))
+        (receive (outer-surrogate outer-pos) (outer-surrogate pos)
+          (drag-up~ outer-surrogate outer-pos)))))
   
   
   (method (on-double-click evt)
-    (double-click (get-position~ evt)))
+    (receive (outer-surrogate outer-pos) (outer-surrogate (get-position~ evt))
+      (double-click~ outer-surrogate outer-pos)))
 
 
   (method (on-current-drop evt)
-    (current-drop (get-position~ evt) (get-drag-drop~ evt)))
+    (receive (outer-surrogate outer-pos) (outer-surrogate (get-position~ evt))
+      (current-drop~ outer-surrogate outer-pos (get-drag-drop~ evt))))
 
 
   (method (on-receive-drop evt)
-    (receive-drop (get-position~ evt) (get-sender~ evt) (get-drag-drop~ evt)))
+    (receive (outer-surrogate outer-pos) (outer-surrogate (get-position~ evt))
+      (receive-drop~ outer-surrogate outer-pos (get-sender~ evt) (get-drag-drop~ evt))))
 
 
   (method (on-context-menu evt)
-    (context-menu (get-position~ evt)))
+    (receive (outer-surrogate outer-pos) (outer-surrogate (get-position~ evt))
+      (context-menu~ outer-surrogate outer-pos)))
+  
+  
+  (method (outer-surrogate pos)
+    (let ((outer (outer-client)))
+      (values (get-surrogate~ outer) (acquire~ outer client pos))))
   
   
   (method protected virtual (select?)
     #t)
-  
-  
-  (method public virtual (select-in-editor)
-    (select~ editor (outer-client)))
   
   
   (method protected virtual (move-client?)
@@ -442,7 +446,7 @@
     
     (define (select)
       (when (select?)
-        (select-in-editor)))
+        (select~ editor client)))
     
     (if #f @until-fully-debugged (alt-down?)
         (begin
@@ -453,23 +457,22 @@
         (set! state 'scroll)
         (set! start-position pos)
         (acquire-capture~ client))
-      (let ((outer (outer-client))
-            (previous-selection (get-selection)))
+      (let ((previous-selection (get-selection)))
         (select)
-        (when (and (move-client?~ (get-surrogate~ outer)) (some-movable? (get-selection~ editor)))
-          (let ((part (if (and (memq? outer previous-selection) (size-client?~ (get-surrogate~ outer))) (find-resize-part (acquire~ outer client pos) (get-size~ outer) full?: #t) #f)))
-            (when (or (neq? outer (get-client~ editor))
+        (when (and (move-client?) (some-movable? (get-selection~ editor)))
+          (let ((part (if (and (memq? client previous-selection) (size-client?)) (find-resize-part pos (get-size~ client) full?: #t) #f)))
+            (when (or (neq? client (get-client~ editor))
                       (member? part '((1 . 0) (0 . 1) (1 . 1))))
               (let ((selection (get-selection)))
                 (set! state 'tolerance)
                 (set! current-part part)
-                (set! start-mouse (to-desktop~ outer pos))
-                (set! start-positions (map (lambda (view) (get-position~ (outer-client~ (get-surrogate~ view)))) selection))
-                (set! start-position (get-position~ outer))
-                (set! start-size (get-size~ outer))
+                (set! start-mouse (to-desktop~ client pos))
+                (set! start-positions (map get-position~ selection))
+                (set! start-position (get-position~ client))
+                (set! start-size (get-size~ client))
                 (set! atomic-preserved (start-atomic-undo~ (get-undoer)))
                 (acquire-capture~ client)))))))
-    (acquire-focus~ (outer-client)))
+    (acquire-focus~ client))
   
   
   (method public virtual (mouse-up pos)
@@ -482,64 +485,59 @@
        (let ((delta (nu- pos start-position)))
          (scroll~ client delta)))
       ((tolerance process)
-       (let ((outer (outer-client)))
-         (let ((desktop-pos (to-desktop~ outer pos)))
-           (when (or current-part (not start-position) (eq? state 'process) (>= (distance desktop-pos start-mouse) Drag-Tolerance))
-             (set! state 'process)
-             (let* ((start (from-desktop~ outer start-mouse))
-                    (delta (nu- pos start))
-                    (dh (get-h~ delta))
-                    (dv (get-v~ delta))
-                    (selection (get-selection)))
-               (if (not current-part)
-                   (for-each (lambda (view start-position)
-                               (let ((outer-view (outer-client~ (get-surrogate~ view))))
-                                 (let ((actual-delta (nu- (nu+ start-position delta) (get-position~ outer-view))))
-                                   (move-client~ (get-surrogate~ view) (get-h~ actual-delta) (get-v~ actual-delta)))))
-                             selection
-                             start-positions)
-                 (resize-client dh dv current-part
-                   (lambda (dh dv dwidth dheight)
-                     (let ((max-position (nu+ start-position (nu- start-size {Dimension 16 16})))
-                           (new-position (nu+ start-position (new Dimension dh dv)))
-                           (new-size (nu+ start-size (new Dimension dwidth dheight))))
-                       (let ((effective-position (new Point
-                                                   (min (get-h~ new-position) (get-h~ max-position))
-                                                   (min (get-v~ new-position) (get-v~ max-position))))
-                             (effective-size (new Dimension
-                                               (max (get-width~ new-size) 16)
-                                               (max (get-height~ new-size) 16))))
-                         (let ((actual-delta (nu- effective-position (get-position~ outer))))
-                           (move-client (get-h~ actual-delta) (get-v~ actual-delta)))
-                         (let ((actual-delta (nu- effective-size (get-size~ outer))))
-                           (size-client (get-width~ actual-delta) (get-height~ actual-delta)))))))
-                 (let ((parent (get-parent~ outer)))
-                   (unless (adjust?~ parent)
-                     (layout-view~ parent)))))))))))
+       (let ((desktop-pos (to-desktop~ client pos)))
+         (when (or current-part (not start-position) (eq? state 'process) (>= (distance desktop-pos start-mouse) Drag-Tolerance))
+           (set! state 'process)
+           (let* ((start (from-desktop~ client start-mouse))
+                  (delta (nu- pos start))
+                  (dh (get-h~ delta))
+                  (dv (get-v~ delta))
+                  (selection (get-selection)))
+             (if (not current-part)
+                 (for-each (lambda (view start-position)
+                             (let ((actual-delta (nu- (nu+ start-position delta) (get-position~ view))))
+                               (move-client~ (get-surrogate~ view) (get-h~ actual-delta) (get-v~ actual-delta))))
+                           selection
+                           start-positions)
+               (resize-client dh dv current-part
+                 (lambda (dh dv dwidth dheight)
+                   (let ((max-position (nu+ start-position (nu- start-size {Dimension 16 16})))
+                         (new-position (nu+ start-position (new Dimension dh dv)))
+                         (new-size (nu+ start-size (new Dimension dwidth dheight))))
+                     (let ((effective-position (new Point
+                                                 (min (get-h~ new-position) (get-h~ max-position))
+                                                 (min (get-v~ new-position) (get-v~ max-position))))
+                           (effective-size (new Dimension
+                                             (max (get-width~ new-size) 16)
+                                             (max (get-height~ new-size) 16))))
+                       (let ((actual-delta (nu- effective-position (get-position~ client))))
+                         (move-client (get-h~ actual-delta) (get-v~ actual-delta)))
+                       (let ((actual-delta (nu- effective-size (get-size~ client))))
+                         (size-client (get-width~ actual-delta) (get-height~ actual-delta)))))))
+               (let ((parent (get-parent~ client)))
+                 (unless (adjust?~ parent)
+                   (layout-view~ parent))))))))))
   
   
   (method public virtual (drag-up pos)
     ;; temporary solution until this validation is done live while dragging
     (define (verify-position/size)
-      (let ((outer (outer-client)))
-        (let ((min-size (minimal-size~ outer)))
-          (when min-size
-            (let ((rect (get-rect~ outer))
-                  (outer (get-size~ (get-parent~ outer)))
-                  (designer (get-designer~ editor)))
-              (receive (new-position new-size) (fit-within outer rect minimum-size: min-size)
-                (set-property~ designer outer 'size new-size)
-                (set-property~ designer outer 'position new-position)))))))
+      (let ((min-size (minimal-size~ client)))
+        (when min-size
+          (let ((rect (get-rect~ client))
+                (parent-rect (get-rect~ (get-parent~ client)))
+                (designer (get-designer~ editor)))
+            (receive (new-position new-size) (fit-within parent-rect rect minimum-size: min-size)
+              (set-property~ designer client 'size new-size)
+              (set-property~ designer client 'position new-position))))))
     
     (define (relocate-selection)
       (let ((selection (get-selection~ editor)))
-        (let ((uniform-outer-parent (uniform (map get-parent~ selection))))
-          (when uniform-outer-parent
-            (let* ((outer (outer-client))
-                   (editor-pos (acquire~ editor outer pos))
-                   (destination (find-drawing~ editor editor-pos ignore: (list outer)))
-                   (designer (get-designer~ editor)))
-              (when (and (neq? destination uniform-outer-parent)
+        (let ((uniform-parent (uniform (map get-parent~ selection))))
+          (when uniform-parent
+            (let ((destination (find-drawing~ editor (acquire~ editor client pos) ignore: (list client)))
+                  (designer (get-designer~ editor)))
+              (when (and (neq? destination uniform-parent)
                          (not (memq? (outer-client~ (get-surrogate~ destination)) selection))
                          (can-relocate-components?~ designer selection destination))
                 (for-each (lambda (selected)
@@ -648,9 +646,9 @@
 
   (method public virtual (context-menu pos)
     (when (select?)
-      (select-in-editor))
+      (select~ editor client))
     ;; the select should do the acquire-focus... this is a quick fix
-    (acquire-focus~ (outer-client))
+    (acquire-focus~ client)
     (let ((menu (get-context-menu)))
       (when menu
         (update-context-menu menu)
@@ -681,24 +679,22 @@
   (method (move-client dh dv)
     (when (or (/= dh 0) (/= dv 0))
       (let ((selection (get-selection~ editor))
-            (designer (get-designer~ editor))
-            (outer (outer-client)))
-        (when (move-client?~ (get-surrogate~ outer))
-          (let ((pos (get-position~ outer)))
-            (safe-set-property~ designer outer position: (new Point (+ (get-h~ pos) dh) (+ (get-v~ pos) dv))))
+            (designer (get-designer~ editor)))
+        (when (move-client?)
+          (let ((pos (get-position~ client)))
+            (safe-set-property~ designer client position: (new Point (+ (get-h~ pos) dh) (+ (get-v~ pos) dv))))
           (update-focus-actions~ (get-application))))))
 
 
   (method (size-client dwidth dheight)
     (when (or (/= dwidth 0) (/= dheight 0))
-      (let* ((outer (outer-client))
-             (size (get-size~ outer))
+      (let* ((size (get-size~ client))
              (new-size (new Dimension (+ (get-width~ size) dwidth) (+ (get-height~ size) dheight))))
         (with ((region (border-region)))
-          (safe-set-property~ (get-designer~ editor) outer size: new-size)
-          (invalidate-region~ outer region))
+          (safe-set-property~ (get-designer~ editor) client size: new-size)
+          (invalidate-region~ client region))
         (with ((region (border-region)))
-          (invalidate-region~ outer region))
+          (invalidate-region~ client region))
         (when (eq? client (get-reference~ editor))
           (update-scrollbars~ client)))
       (update-focus-actions~ (get-application))))
@@ -722,7 +718,7 @@
   
   
   (method (on-arrow-press evt)
-    (unless (eq? (outer-client) (get-client~ editor))
+    (unless (eq? client (get-client~ editor))
       (let ((modifiers (get-modifiers~ evt)))
         (case (get-property~ evt direction:)
           ((left)  (move-selection -1  0 modifiers))
@@ -914,16 +910,15 @@
   
   (method override (select rank focus?)
     (when (= rank 0)
-      (let ((outer (outer-client)))
-        (when focus?
-          (acquire-focus~ outer))))
+      (when focus?
+        (acquire-focus~ client)))
     (invalidate-border)
-    (invalidate-view~ (outer-client)))
+    (invalidate-view~ client))
   
   
   (method override (unselect)
     (invalidate-border)
-    (invalidate-view~ (outer-client)))
+    (invalidate-view~ client))
   
   
   (method (invalidate-selection)

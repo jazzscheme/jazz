@@ -200,32 +200,31 @@
   ;;;
   
   
-  (method (refresh component what)
-    (define (refresh-component component)
-      (let* ((row (component-row component))
-             (line (row->line row)))
-        ;; rank will be #f if row is not visible for instance inside a collapsed row
-        (when line
-          (let ((cell (new Cell line 0))
+  (method (refresh-component component)
+    (let* ((row (component-row component))
+           (line (row->line row)))
+      ;; rank will be #f if row is not visible for instance inside a collapsed row
+      (when line
+        (let ((cell (new Cell line 0)))
+          (let ((data (get-cell-data cell))
+                (color (component-color component))
                 (title (get-presentation-property~ component)))
-            (set-title~ (get-cell-data cell) title)
-            (invalidate-cell cell)))))
-    
-    (define (refresh-descendants component)
-      (let ((row (component-row component)))
-        (when row
-          (with-update-locked
-            (lambda ()
-              (let ((state (get-state~ row))
-                    (level (+ (get-level~ row) 1)))
-                (remove-every-son~ row)
-                (insert-components row component #f #t level)
-                (when (eq? state 'expanded)
-                  (expand row))))))))
-    
-    (case what
-      ((component) (refresh-component component))
-      ((descendants) (refresh-descendants component))))
+            (set-color~ data color)
+            (set-title~ data title)
+            (invalidate-cell cell))))))
+  
+  
+  (method (refresh-descendants component)
+    (let ((row (component-row component)))
+      (when row
+        (with-update-locked
+          (lambda ()
+            (let ((state (get-state~ row))
+                  (level (+ (get-level~ row) 1)))
+              (remove-every-son~ row)
+              (insert-components row component #f #t level)
+              (when (eq? state 'expanded)
+                (expand row))))))))
   
   
   ;;;
@@ -303,7 +302,11 @@
       ((:child-remove) (child-remove (get-property~ evt child:)))
       ((:child-relocate) (child-relocate (get-property~ evt child:) (get-property~ evt parent:) (get-property~ evt target:)))
       ((:send-before) (send-before-target (get-property~ evt child:) (get-property~ evt parent:) (get-property~ evt target:)))
-      ((:refresh) (refresh (get-property~ evt component:) (get-property~ evt what:)))))
+      ((:refresh)
+       (let ((component (get-property~ evt component:)))
+         (case (get-property~ evt what:)
+           ((component) (refresh-component component))
+           ((descendants) (refresh-descendants component)))))))
   
   
   (method (presentation-change component presentation)

@@ -40,7 +40,9 @@
 
 (import (jazz.designer)
         (jazz.designer.view)
+        (jazz.graphic)
         (jazz.library)
+        (jazz.library.component)
         (jazz.ui)
         (jazz.ui.view))
 
@@ -50,6 +52,39 @@
   
   (slot preserved-states initialize (make-table test: eq? weak-keys: #t))
   
+  
+  (method (component-owned-form? component)
+    (and designer
+         (boolean
+           (component-owned-form component (get-form~ designer) (get-reference~ designer)))))
+  
+  
+  (method (owned-color)
+    {Color Dark-Green})
+  
+  
+  (method override (component-color component)
+    (and (component-owned-form? component) (owned-color)))
+  
+  
+  (method override (component-state component)
+    (if (some? component-owned-form? (get-children~ component))
+        'expanded
+      'collapsed))
+  
+  
+  (method override (on-designer evt)
+    (if (eq? (get-kind~ evt) ':property-change)
+        (refresh-colors (get-property~ evt component:))
+      (nextmethod evt)))
+  
+  
+  (method (refresh-colors component)
+    (let* ((row (component-row component))
+           (data (get-child~ row 0)))
+      (unless (get-color~ data)
+        (for-each refresh-component (component-ancestry component (get-reference~ designer))))))
+
 
   ;;;
   ;;;; Classes

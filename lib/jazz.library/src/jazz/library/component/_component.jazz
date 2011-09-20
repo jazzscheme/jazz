@@ -215,7 +215,7 @@
 
 
 (definition public (component-owned? component form ancestor)
-  (let ((form (owned-form form (component-ancestry component ancestor))))
+  (let ((form (component-owned-form component form ancestor)))
     (and form (eq? (get-action~ form) 'new))))
 
 
@@ -228,25 +228,25 @@
   (unfold-right end? identity get-parent-component~ component))
 
 
+
+(definition public (component-owned-form component form ancestor)
+  (owned-form form (component-ancestry component ancestor)))
+
+
 (definition public (owned-form form ancestry)
-  (continuation-capture
-    (lambda (return)
-      (for-each (lambda (cpn)
-                  (let ((children (get-children~ form))
-                        (cpn-form (get-form~ cpn)))
-                    (if (not cpn-form)
-                        (continuation-return return #f)
-                      (if (memq? cpn-form children)
-                          (set! form cpn-form)
-                        (let ((name (get-name~ cpn)))
-                          (if (not name)
-                              (continuation-return return #f)
-                            (let ((subform (find-in children name key: get-name~ test: equal?)))
-                              (if (not subform)
-                                  (continuation-return return #f)
-                                (set! form subform)))))))))
-                ancestry)
-      form)))
+  (if (null? ancestry)
+      form
+    (let ((cpn (car ancestry)))
+      (let ((subforms (get-children~ form))
+            (cpn-form (get-form~ cpn))
+            (name (get-name~ cpn)))
+        (cond ((not cpn-form) #f)
+              ((memq? cpn-form subforms)
+               (owned-form cpn-form (cdr ancestry)))
+              ((not name) #f)
+              (else
+               (let ((subform (find-in subforms name key: get-name~ test: equal?)))
+                 (and subform (owned-form subform (cdr ancestry))))))))))
 
 
 (definition public (first-ancestry-owned-form component ascendant form)

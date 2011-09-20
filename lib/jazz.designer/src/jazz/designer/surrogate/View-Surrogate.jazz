@@ -76,15 +76,15 @@
   (slot protected client-return-press-handler    initialize #f)
   
   
-  (slot state            initialize #f)
-  (slot current-part     initialize #f)
-  (slot start-mouse      initialize #f)
-  (slot start-positions  initialize #f)
-  (slot move-effective-client initialize #f)
-  (slot move-effective-selection initialize #f)
-  (slot start-position   initialize #f)
-  (slot start-size       initialize #f)
-  (slot atomic-preserved initialize #f)
+  (slot state               initialize #f)
+  (slot current-part        initialize #f)
+  (slot start-mouse         initialize #f)
+  (slot start-positions     initialize #f)
+  (slot start-position      initialize #f)
+  (slot start-size          initialize #f)
+  (slot effective-client    initialize #f)
+  (slot effective-selection initialize #f)
+  (slot atomic-preserved    initialize #f)
 
 
   ;;;
@@ -470,15 +470,15 @@
                 (set! state 'tolerance)
                 (set! current-part part)
                 (set! start-mouse (to-desktop~ client pos))
-                ;; move-effective-selection contains only the "oldest" member of every ancestry that is part of the selection
-                (set! move-effective-selection (collect-if (lambda (view)
-                                                             (let ((ancestry (component-ancestry (get-parent~ view) (get-reference~ (get-designer~ editor)))))
-                                                               (every? (lambda (ancestor)
-                                                                         (not (memq? ancestor selection)))
-                                                                       ancestry)))
-                                                           (get-selection)))
-                (set! move-effective-client (or (find move-effective-selection client test: has-parent?~ return: 'item) client))
-                (set! start-positions (map (lambda (view) (get-position~ (outer-client~ (get-surrogate~ view)))) move-effective-selection))
+                ;; effective-selection contains only the "oldest" member of every ancestry that is part of the selection
+                (set! effective-selection (collect-if (lambda (view)
+                                                        (let ((ancestry (component-ancestry (get-parent~ view) (get-reference~ (get-designer~ editor)))))
+                                                          (every? (lambda (ancestor)
+                                                                    (not (memq? ancestor selection)))
+                                                                  ancestry)))
+                                                      (get-selection)))
+                (set! effective-client (or (find effective-selection client test: has-parent?~ return: 'item) client))
+                (set! start-positions (map (lambda (view) (get-position~ (outer-client~ (get-surrogate~ view)))) effective-selection))
                 (set! start-position (get-position~ client))
                 (set! start-size (get-size~ client))
                 (set! atomic-preserved (start-atomic-undo~ (get-undoer)))
@@ -508,7 +508,7 @@
                  (for-each (lambda (view start-position)
                              (let ((actual-delta (nu- (nu+ start-position delta) (get-position~ view))))
                                (move-client~ (get-surrogate~ view) (get-h~ actual-delta) (get-v~ actual-delta))))
-                           move-effective-selection
+                           effective-selection
                            start-positions)
                (resize-client dh dv current-part
                  (lambda (dh dv dwidth dheight)
@@ -543,17 +543,17 @@
               (set-property~ designer client 'position new-position))))))
     
     (define (relocate-selection)
-      (let* ((editor-pos (acquire~ editor move-effective-client pos))
-             (view (find-drawing~ editor editor-pos ignore: (list move-effective-client)))
+      (let* ((editor-pos (acquire~ editor effective-client pos))
+             (view (find-drawing~ editor editor-pos ignore: (list effective-client)))
              (view-pos (and view (acquire~ view editor editor-pos))))
         (let ((designer (get-designer~ editor)))
           (for-each (lambda (selected)
                       (when (and (neq? (get-parent~ selected) view)
                                  (can-relocate-component?~ designer selected view))
                         (let ((new-position (acquire~ view selected {Point 0 0})))
-                          (relocate-components~ designer (list selected) view)
+                          (relocate-component~ designer selected view)
                           (set-property~ designer selected 'position new-position))))
-                    move-effective-selection))))
+                    effective-selection))))
     
     (case state
       ((scroll)

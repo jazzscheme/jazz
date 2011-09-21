@@ -563,14 +563,18 @@
       (let* ((editor-pos (acquire~ editor effective-client pos))
              (view (find-drawing~ editor editor-pos ignore: (list effective-client)))
              (view-pos (and view (acquire~ view editor editor-pos))))
-        (let ((designer (get-designer~ editor)))
+        (let ((designer (get-designer~ editor))
+              (selection (get-selection)))
+          ;; It is required to nullify the selection because some parent could be removed while their children are in the selection
+          (set-selection~ (get-editor) '())
           (for-each (lambda (selected)
                       (when (and (neq? (get-parent~ selected) view)
                                  (can-relocate-component?~ designer selected view))
                         (let ((new-position (acquire~ view selected {Point 0 0})))
                           (relocate-component~ designer selected view)
                           (set-property~ designer selected 'position new-position))))
-                    effective-selection))))
+                    effective-selection)
+          (set-selection~ (get-editor) selection))))
     
     (case state
       ((scroll)

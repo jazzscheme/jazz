@@ -198,14 +198,20 @@
       (define (draw-surrogate-frame surface)
         (when (get-show-frames?~ editor)
           (let ((rank (find selection client))
-                (outside (get-bounds~ client)))
+                (outer (get-bounds~ client)))
+            (define (determine-colors)
+              (cond (rank
+                      (values (selected-color rank) (selected-inner-color rank)))
+                    ((component-owned-form? client)
+                     (values Unselected-Owned-Color Unselected-Owned-Inner-Color))
+                    (else
+                     (values (selected-color #f) (selected-inner-color #f)))))
+            
             (define (draw-frame)
               (set-style~ surface 'solid)
-              (let ((color (cond (rank (selected-color rank))
-                                 ((component-owned-form? client)
-                                  {Color Dark-Green})
-                                 (else (selected-color #f)))))
-                (frame-rect~ surface outside color)))
+              (receive (outer-color inner-color) (determine-colors)
+                (frame-rect~ surface outer outer-color)
+                (frame-rect~ surface (inflate-rect outer -1 -1) inner-color)))
             
             (define (draw-handles)
               ;; todo

@@ -608,6 +608,7 @@
 (native jazz:run-product)
 (native jazz:update-product)
 (native jazz:build-product)
+(native jazz:install-product)
 (native jazz:descendant-unit?)
 (native jazz:find-pathname-unit)
 (native jazz:find-unit-src)

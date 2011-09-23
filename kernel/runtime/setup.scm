@@ -232,7 +232,7 @@
         (%%string->symbol arg)
       arg))
   
-  (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
+  (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "install" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
     (lambda (options remaining)
       (let ((nosource? (jazz:get-option "nosource" options))
             (debug? (jazz:get-option "debug" options))
@@ -252,6 +252,7 @@
             (update (jazz:get-option "update" options))
             (make (jazz:get-option "make" options))
             (build (jazz:get-option "build" options))
+            (install (jazz:get-option "install" options))
             (compile (jazz:get-option "compile" options))
             (debugger (jazz:get-option "debugger" options))
             (link (symbol-argument (jazz:get-option "link" options)))
@@ -299,6 +300,9 @@
           (if dry?
               (jazz:dry-run? #t)))
         
+        (define (setup-install)
+          (setup-build))
+        
         (define (run-scripts lst)
           (jazz:load-foundation)
           (for-each (lambda (path)
@@ -336,6 +340,9 @@
               (build
                (setup-build)
                (jazz:build-product (%%string->symbol build)))
+              (install
+               (setup-install)
+               (jazz:install-product (%%string->symbol install)))
               ((%%not (%%null? remaining))
                (setup-runtime)
                (run-scripts remaining))

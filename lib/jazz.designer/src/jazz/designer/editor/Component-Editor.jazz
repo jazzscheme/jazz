@@ -406,8 +406,10 @@
           ((cancel) (throw-cancel)))))
     
     (when (confirm-close)
-      (let ((parent (components-parent selection)))
-        (remove-components~ designer selection)
+      (let ((parent (components-parent selection))
+            (selection (get-selection)))
+        (set-selection '() origin: self)
+        (remove-components~ designer (collect-oldest-ancestors selection client))
         (set-selection (if parent (list parent) '()) origin: self))))
   
   
@@ -497,9 +499,10 @@
   
   
   (method (can-modify? pred)
-    (and (every? (lambda (component) (neq? component client)) selection)
-         (every? (~ component-owned-by-reference? designer) selection)
-         (pred selection)))
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (and (every? (lambda (component) (neq? component client)) selection)
+           (every? (~ component-owned-by-reference? designer) selection)
+           (pred selection))))
   
   
   (method public (can-delete-selection?)
@@ -517,13 +520,11 @@
   
   
   (method public (can-send-selection-to-back?)
-    (and (not (memq? client selection))
-         (every? (~ component-owned-by-reference? designer) selection)))
+    (can-modify? (const #t)))
   
   
   (method public (can-bring-selection-to-front?)
-    (and (not (memq? client selection))
-         (every? (~ component-owned-by-reference? designer) selection)))
+    (can-modify? (const #t)))
   
   ;;;
   ;;;; Editor

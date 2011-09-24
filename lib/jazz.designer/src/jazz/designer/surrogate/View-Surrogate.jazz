@@ -487,15 +487,7 @@
                 (set! state 'tolerance)
                 (set! current-part part)
                 (set! start-mouse (to-desktop~ client pos))
-                ;; effective-selection contains only the "oldest" member of every ancestry that is part of the selection
-                (set! effective-selection (collect-if (lambda (view)
-                                                        (let ((reference (get-reference~ (get-designer~ editor))))
-                                                          (or (eq? view reference)
-                                                              (let ((ancestry (component-ancestry (get-parent~ view) reference)))
-                                                                (every? (lambda (ancestor)
-                                                                          (not (memq? ancestor selection)))
-                                                                        ancestry)))))
-                                                      (get-selection)))
+                (set! effective-selection (collect-oldest-ancestors (get-selection) (get-client~ editor)))
                 (set! effective-client (or (find effective-selection client test: has-parent?~ return: 'item) client))
                 (set! start-positions (map (lambda (view) (get-position~ (outer-client~ (get-surrogate~ view)))) effective-selection))
                 (set! start-position (get-position~ client))
@@ -889,15 +881,17 @@
   
   
   (method public virtual (cut-selection)
-    (let ((selection (get-selection~ editor))
+    (let ((selection (collect-oldest-ancestors (get-selection~ editor) (get-client~ editor)))
           (designer (get-designer~ editor)))
-      (let ((parent (components-parent~ editor selection)))
+      (let ((parent (components-parent~ editor selection))
+            (selection (get-selection)))
+        (set-selection '())
         (cut-components~ designer selection)
         (set-selection (if parent (list parent) '())))))
   
   
   (method public virtual (copy-selection)
-    (let ((selection (get-selection~ editor))
+    (let ((selection (collect-oldest-ancestors (get-selection~ editor) (get-client~ editor)))
           (designer (get-designer~ editor)))
       (copy-components~ designer selection)))
   

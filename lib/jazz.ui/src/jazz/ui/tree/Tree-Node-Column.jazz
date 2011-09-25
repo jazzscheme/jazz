@@ -199,7 +199,7 @@
   
   
   (method override (draw-background surface context row data width height)
-    (let ((background (or (get-cell-background~ parent) (get-background~ (get-look~ parent)) {Color Tree-Background})))
+    (let ((background (or (get-cell-background~ parent) (get-background~ (get-look~ parent)) (or (get-background~ row) {Color Tree-Background}))))
       (let ((cell-rect (new Rect 0 0 width height)))
         (fill-rect~ surface cell-rect (if (debug-paint?) (cycle-debug-color!) background))
         (let ((selected? (getf context selected?:)))
@@ -212,9 +212,10 @@
                     (fill-rect~ surface rect (selection-color~ parent)))))
             (let ((background (get-background~ data)))
               (when background
-                (if (pair? background)
-                    (apply (~ gradient-fill surface) cell-rect background)
-                  (fill-rect~ surface cell-rect background)))))))
+                (let ((rect (text-rect row data width height #t)))
+                  (if (pair? background)
+                      (apply (~ gradient-fill surface) rect background)
+                    (fill-rect~ surface rect background))))))))
       (let ((frame-color (get-frame-color~ data)))
         (when frame-color
           (let ((rect (text-rect row data width height #t)))

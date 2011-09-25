@@ -103,8 +103,7 @@
   
   (slot protected columns                       initialize '()  getter generate)
   (slot protected node-column                   initialize #f   getter generate)
-  (slot protected sorted-column                 initialize #f   getter generate)
-  (slot protected sort-ascending?               initialize #t   getter generate)
+  (slot protected sorted-columns                initialize '()  getter generate)
   (slot protected selection-pivot               initialize #f)
   (slot protected highlighted                   initialize '())
   (slot protected indentation                   initialize 16   getter generate)
@@ -831,8 +830,20 @@
 
   
   (method public virtual (header-click column)
-    (sort-column (column->col column))
+    (sort-column column)
     (ensure-displayed))
+  
+  
+  (method public (sorted-column)
+    (and (not-null? sorted-columns)
+         (caar sorted-columns)))
+  
+  
+  (method public (column-sorting column)
+    (let ((pair (assq column sorted-columns)))
+      (if pair
+          (cdr pair)
+        #f)))
   
 
   (method public (selector-click row)
@@ -866,49 +877,60 @@
              (set-selection select-list)))))))
 
   
-  (method (set-sorted column ascending?)
-    (let ((header (get-header))
-          (same? (eqv? column sorted-column)))
-      (when (and sorted-column (not same?))
-        (invalidate-column-header~ header (get-column sorted-column)))
-      (set! sort-ascending? ascending?)
-      (set! sorted-column column)
-      (when sorted-column
-        (invalidate-column-header~ header (get-column sorted-column)))))
+  (method (set-sorted column direction)
+    (let ((header (get-header)))
+      (let ((sorted (sorted-column)))
+        (when (and sorted (not (eqv? column sorted)))
+          (invalidate-column-header~ header sorted)))
+      (set! sorted-columns (list (cons column direction)))
+      (let ((sorted (sorted-column)))
+        (when sorted
+          (invalidate-column-header~ header sorted)))))
   
   
-  (method public (sort-column col)
-    (define (sort-rows rows equal direction)
-      (let ((dual? (/= col 0)))
-        (define (get-node row children n)
-          (let ((data (element children n)))
-            (or (sort-value~ (get-column n) row data) "")))
-        
-        (sort (lambda (rx ry)
-                (let* ((cx (get-children~ rx))
-                       (cy (get-children~ ry))
-                       (nx (localize (get-node rx cx col)))
-                       (ny (localize (get-node ry cy col))))
-                  (or (direction nx ny)
-                      (and dual?
-                           (equal nx ny)
-                           (direction (localize (get-node rx cx 0)) (localize (get-node ry cy 0)))))))
-              rows)))
-    
-    (set-sorted col (or (not sorted-column) (/= col sorted-column) (not sort-ascending?)))
-    (receive (equal smaller greater) (sort-predicates)
-      (let ((direction (if sort-ascending? smaller greater)))
-        (define (iter row)
-          (let ((sorted (sort-rows (get-sons~ row) equal direction)))
-            (reorder-sons~ row sorted)
-            (iterate (get-sons~ row) iter)))
-        
-        (with-preserved-selection
-          (lambda ()
-            (with-update-locked
+  (method public (sort-column column)
+    (let ((col (column->col column)))
+      (define (sort-rows rows equal direction)
+        (let ((dual? (/= col 0)))
+          (define (get-node row children n)
+            (let ((data (element children n)))
+              (or (sort-value~ (get-column n) row data) "")))
+          
+          (sort (lambda (rx ry)
+                  (let* ((cx (get-children~ rx))
+                         (cy (get-children~ ry))
+                         (nx (localize (get-node rx cx col)))
+                         (ny (localize (get-node ry cy col))))
+                    (or (direction nx ny)
+                        (and dual?
+                             (equal nx ny)
+                             (direction (localize (get-node rx cx 0)) (localize (get-node ry cy 0)))))))
+                rows)))
+      
+      (define (reverse-direction direction)
+        (if (eq? direction 'ascending)
+            'descending
+          'ascending))
+      
+      (let ((sorted (sorted-column)))
+        (set-sorted column (if (or (not sorted) (neq? column sorted))
+                               'ascending
+                             (reverse-direction (column-sorting column))))
+        (receive (equal smaller greater) (sort-predicates)
+          (let ((direction (case (column-sorting column)
+                             ((ascending) smaller)
+                             ((descending) greater))))
+            (define (iter row)
+              (let ((sorted (sort-rows (get-sons~ row) equal direction)))
+                (reorder-sons~ row sorted)
+                (iterate (get-sons~ row) iter)))
+            
+            (with-preserved-selection
               (lambda ()
-                (iter root-row))))
-          ensure-displayed?: #f))))
+                (with-update-locked
+                  (lambda ()
+                    (iter root-row))))
+              ensure-displayed?: #f))))))
   
   
   ;;;

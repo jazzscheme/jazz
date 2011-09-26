@@ -134,8 +134,10 @@
 
 
 (define (jazz:library-main)
-  (jazz:setup-settings)
-  (jazz:process-jazzini #t)
+  (if jazz:kernel-source-access?
+      (begin
+        (jazz:setup-settings)
+        (jazz:process-jazzini #t)))
   (jazz:prepare-repositories)
   (jazz:setup-repositories))
 
@@ -265,15 +267,17 @@
                     (##set-gambcdir! gambcdir))))
           (set! ##allow-inner-global-define? #t)
           (set! jazz:debugger debugger)
-          (jazz:setup-settings)
-          (jazz:process-jazzini #t))
+          (if nosource?
+              (set! jazz:kernel-source-access? #f))
+          (if jazz:kernel-source-access?
+              (begin
+                (jazz:setup-settings)
+                (jazz:process-jazzini #t))))
         
         (define (setup-repositories)
           (if build-repository (jazz:build-repository build-repository))
           (if jazz-repository (jazz:jazz-repository jazz-repository))
           (if repositories (jazz:repositories repositories))
-          (if nosource?
-              (set! jazz:kernel-source-access? #f))
           (jazz:prepare-repositories)
           (jazz:setup-repositories))
           

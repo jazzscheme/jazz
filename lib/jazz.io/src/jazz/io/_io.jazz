@@ -1176,7 +1176,7 @@
     pathname)
 
 
-  (method public (copy-directory dst (copier: copier #f) (feedback: feedback #f) (touch-files?: touch-files? #f) (copy?: copy? #t))
+  (method public (copy-directory dst (copier: copier #f) (feedback: feedback #f) (touch-files?: touch-files? #f) (copy?: copy? #t) (use-modification-time?: use-modification-time? #f))
     (when feedback
       (feedback self))
     (create-directories~ dst)
@@ -1188,13 +1188,16 @@
           (when (or (eq? copy? #t) (copy? path))
             (if (is? path File)
                 (let ((dest (new File (destination path))))
-                  (if copier
-                      (copier path dest)
-                    (copy-file~ path dest))
-                  @convert
-                  (when touch-files?
-                    (touch~ dest)))
-              (copy-directory~ path (new Directory (destination path)) feedback: feedback touch-files?: touch-files? copy?: copy?))))
+                  (when (or (not use-modification-time?)
+                            (not (exists?~ dest))
+                            (/= (time->seconds (get-modification-time~ path)) (time->seconds (get-modification-time~ dest))))
+                    (if copier
+                        (copier path dest)
+                      (copy-file~ path dest))
+                    @convert
+                    (when touch-files?
+                      (touch~ dest))))
+              (copy-directory~ path (new Directory (destination path)) feedback: feedback touch-files?: touch-files? copy?: copy? use-modification-time?: use-modification-time?))))
         files?: #t
         directories?: #t
         recursive?: #f)))

@@ -394,6 +394,25 @@
               (naturals 0 (length selection))))
   
   
+  (method (with-common-parent-reselect proc)
+    (let ((parent (components-parent selection)))
+      (set-selection '() origin: self)
+      (proc)
+      (set-selection (if parent (list parent) '()) origin: self)))
+  
+  
+  (method override (copy-selection)
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (copy-components~ designer selection)))
+  
+  
+  (method override (cut-selection)
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (with-common-parent-reselect
+        (lambda ()
+          (cut-components~ designer selection)))))
+  
+  
   (method override (delete-selection)
     (define (confirm-close)
       (confirm-action "Delete selected objects?"))
@@ -406,11 +425,10 @@
           ((cancel) (throw-cancel)))))
     
     (when (confirm-close)
-      (let ((parent (components-parent selection))
-            (selection (get-selection)))
-        (set-selection '() origin: self)
-        (remove-components~ designer (collect-oldest-ancestors selection client))
-        (set-selection (if parent (list parent) '()) origin: self))))
+      (let ((selection (collect-oldest-ancestors selection client)))
+        (with-common-parent-reselect
+          (lambda ()
+            (remove-components~ designer selection))))))
   
   
   (method package (components-parent components)
@@ -511,6 +529,12 @@
   
   (method public (can-cut-selection?)
     (can-modify? can-cut-components?))
+  
+  
+  (method public (can-copy-selection?)
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (and (every? (lambda (component) (neq? component client)) selection)
+           (can-copy-components? selection))))
   
   
   (method public (can-rename-selection?)

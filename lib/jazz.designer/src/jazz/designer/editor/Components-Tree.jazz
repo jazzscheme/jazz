@@ -224,7 +224,7 @@
   
   
   (method override (can-copy?)
-    (can-copy-components? (selected-components)))
+    (and editor (can-copy-selection?~ editor)))
   
   
   (method override (can-paste?)
@@ -258,26 +258,11 @@
   
   
   (method override (cut-selection)
-    (let ((components (selected-components)))
-      (if (null? components)
-          (bell)
-        (with-update-locked
-          (lambda ()
-            (with-deleted-selection (get-selection)
-              (lambda ()
-                (cut-components~ designer components))
-              can-survive?: #t))))))
+    (cut-selection~ editor))
   
   
   (method override (copy-selection)
-    (let ((components (selected-components)))
-      (if (null? components)
-          (bell)
-        (with-cursor :wait
-          (lambda ()
-            (copy-components~ designer components)
-            (update-focus-actions~ (get-application)))
-          duration: .150))))
+    (copy-selection~ editor))
   
   
   ;; This is a simplification from the old version see commit : e073f6cb308d78d5f3458eecda045e6076430745
@@ -296,26 +281,7 @@
   
   
   (method override (delete-selection)
-    (let ((selection (get-selection)))
-      (when (not-null? selection)
-        (let ((components (get-selected-data)))
-          (when (confirm-close)
-            (with-deleted-selection selection
-              (lambda ()
-                (delete-components~ designer components))
-              can-survive?: #t))))))
-  
-  
-  (method override (confirm-close (components '()))
-    (confirm-action "Delete selected objects?"))
-  
-  
-  (method protected (confirm-action text)
-    (let ((code (message-box (localize text) type: 'confirmation)))
-      (case code
-        ((yes) #t)
-        ((no) #f)
-        ((cancel) (throw-cancel)))))
+    (delete-selection~ editor))
     
 
   

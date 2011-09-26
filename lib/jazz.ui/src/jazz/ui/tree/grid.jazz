@@ -109,7 +109,9 @@
   (method public virtual abstract (get-frame-color))
   (method public virtual abstract (cell-editable? row column))
   (method public virtual abstract (merge? master-row-data row-data column-data))
-  (method public virtual abstract (client-rows-datas)))
+  (method public virtual abstract (client-rows-datas))
+  (method public virtual abstract (drop? source cell))
+  (method public virtual abstract (receive-drop sender pos drag-drop)))
   
 
 ;;;
@@ -320,6 +322,25 @@
   ;;;
   
   
+  (method override (highlight-drop drag-drop pos)
+    )
+  
+  
+  (method override (get-tree-target drag-drop pos)
+    (call-with-view->tree pos
+      (lambda (cell v height)
+        (let ((row (and cell (get-row (get-line~ cell))))
+              (col (and cell (get-col~ cell)))
+              (source (get-source~ drag-drop))
+              (current (get-target~ drag-drop)))
+          (when (or (neq? (get-view~ source) self) (neq? (get-row~ source) row) (not (equal? (get-col~ source) col)))
+            (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (equal? col (get-col~ current)))
+                current
+              (and (drop?~ (get-controller) source cell) (new Tree-Drop-Target view: self row: row col: col))))))))
+  
+  
+  (method override (receive-drop sender pos drag-drop)
+    (receive-drop~ (get-controller) sender pos drag-drop))
   
   
   ;;;

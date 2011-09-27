@@ -464,7 +464,7 @@
   (collect-if (lambda (frame)
                 (let ((guest (get-guest~ frame)))
                   (or (is-not? guest Document)
-                      (not (get-tool?~ (get-controller~ guest))))))
+                      (not (get-tool?~ (get-document-controller~ guest))))))
               (all-frames)))
 
 
@@ -556,11 +556,11 @@
               destroyed-stages))
   
   (let ((parent (get-parent~ splitter)))
-    (if (or (not (can-move-component?~ designer stage parent))
+    (if (or (not (can-relocate-component?~ designer stage parent))
             (not (only-stages? splitter)))
         (bell)
       (set-property~ designer stage 'location (get-location~ splitter))
-      (move-component~ designer stage parent)
+      (relocate-component~ designer stage parent)
       (remove-child~ designer splitter)
       (let ((border-view (get-border~ stage-view)))
         (let ((parent-view (get-parent~ splitter-view))
@@ -605,7 +605,7 @@
               (new-splitter (new Splitter-Preferences))
               (new-stage (new Stage-Preferences)))
           (add-child~ designer new-splitter parent)
-          (move-component~ designer stage new-splitter)
+          (relocate-component~ designer stage new-splitter)
           (add-child~ designer new-stage new-splitter)
           (set-property~ designer new-splitter 'location (get-location~ stage))
           (set-property~ designer new-splitter 'orientation direction)
@@ -783,9 +783,13 @@
 ;;;
 
 
+(define-setting default-frame-kind
+  'internal)
+
+
 (definition public (new-frame guest-class . rest)
   (bind-keywords ((kind #f) . others) rest
-    (case (or kind 'internal)
+    (case (or kind (default-frame-kind))
       ((internal) (apply new-internal-frame guest-class others))
       ((external) (apply new-external-frame guest-class others)))))
 
@@ -1168,7 +1172,7 @@
           (parse-string~ Date string))))))
 
 
-(definition public (request-list content (class: class List-Request) (title: title #f) (invite: invite #f) (present: present #f) (selected: selected #f))
+(definition public (request-list content (class: class List-Request) (title: title #f) (invite: invite #f) (present: present #f) (selected: selected #f) (multiple-selection?: multiple-selection? #f))
   (receive (process? host) (new-dialog class)
     (let ((view (get-guest~ host))
           (player (get-player~ host)))
@@ -1178,8 +1182,10 @@
         (set-invite~ view invite))
       (when present
         (set-present~ view present))
+      (set-multiple-selection?~ view multiple-selection?)
       (set-content~ view content)
-      (set-selected~ view selected)
+      (when selected
+        (set-selected~ view selected))
       (process-modal~ host))))
 
 

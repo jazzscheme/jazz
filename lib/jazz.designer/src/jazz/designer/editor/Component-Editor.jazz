@@ -59,11 +59,11 @@
   (property client initialize #f accessors explicit)
   
   
-  (slot designer   initialize #f getter generate)
-  (slot listeners  initialize '())
-  (slot selection  initialize '())
-  (slot controller initialize #f)
-  (slot rights     initialize #f accessors generate)
+  (slot designer            initialize #f getter generate)
+  (slot listeners           initialize '())
+  (slot selection           initialize '())
+  (slot document-controller initialize #f)
+  (slot rights              initialize #f accessors generate)
   
   
   (method override (get-component-editor)
@@ -85,7 +85,7 @@
   
   (method override (install-in-host host)
     (nextmethod host)
-    (update-status~ (get-controller)))
+    (update-status~ (get-document-controller)))
   
   
   (method (install-scroller)
@@ -135,26 +135,26 @@
   ;;;
 
 
-  (method override (get-controller)
-    (unless controller
-      (set! controller (new-controller)))
-    controller)
+  (method override (get-document-controller)
+    (unless document-controller
+      (set! document-controller (new-document-controller)))
+    document-controller)
 
 
-  (method override (new-controller)
+  (method override (new-document-controller)
     (new Component-Editor-Controller self))
   
   
   (method override (save)
-    (save~ (get-controller)))
+    (save~ (get-document-controller)))
   
   
   (method override (save-as)
-    (save-as~ (get-controller)))
+    (save-as~ (get-document-controller)))
   
   
   (method public virtual (save-all)
-    (save-all~ (get-controller)))
+    (save-all~ (get-document-controller)))
   
   
   (method override (install-scroller?)
@@ -162,11 +162,11 @@
 
 
   (method (get-moniker)
-    (get-moniker~ (get-controller)))
+    (get-moniker~ (get-document-controller)))
 
 
   (method (set-moniker moniker)
-    (set-moniker~ (get-controller) moniker))
+    (set-moniker~ (get-document-controller) moniker))
 
 
   (method override (load-content moniker)
@@ -184,27 +184,27 @@
 
 
   (method override (get-modified?)
-    (get-modified?~ (get-controller)))
+    (get-modified?~ (get-document-controller)))
 
 
   (method override (set-modified? state)
-    (set-modified?~ (get-controller) state))
+    (set-modified?~ (get-document-controller) state))
   
   
-  (method protected virtual (set-controller-modified? state)
-    (set-modified?~ (get-controller) state))
+  (method protected virtual (set-document-controller-modified? state)
+    (set-modified?~ (get-document-controller) state))
   
   
   (method (update-status)
-    (update-status~ (get-controller)))
+    (update-status~ (get-document-controller)))
   
   
   (method (update-moniker-time moniker)
-    (update-moniker-time~ (get-controller) moniker))
+    (update-moniker-time~ (get-document-controller) moniker))
   
   
   (method override (confirm-close . rest)
-    (confirm-close~ (get-controller)))
+    (confirm-close~ (get-document-controller)))
   
   
   (method override (compare-moniker moniker)
@@ -343,22 +343,11 @@
   (method public (set-selection new (origin: origin #f) (force-parent?: force-parent? #f) (force?: force? #f) (focus?: focus? #t))
     (let ((appl (get-application))
           (old selection))
-      (unless (equal? old new)
+      (unless (and (equal? old new) (eq? (get-selected-owner~ appl) self))
         (process-selection-changing old new origin force-parent? force? focus?)
         (process-selection-changed old new origin force-parent? force? focus?)
         (set-selected~ appl self new force?: force?)
         (update-focus-actions~ appl))))
-  
-  
-  (method protected (outer-selection)
-    (outer-components selection))
-  
-  
-  (method protected (outer-components components)
-    (let ((reference (get-reference)))
-      (map (lambda (component)
-             (outer-component~ component reference))
-           components)))
   
   
   (method (close-application-selected)
@@ -385,11 +374,7 @@
   
   
   (method public (selected? component)
-    (memq? (outer-component~ component (get-reference)) (outer-selection)))
-  
-  
-  (method public (in-selection? component selection)
-    (memq? (outer-component~ component (get-reference)) (outer-components selection)))
+    (memq? component selection))
   
   
   (method protected virtual (selection-changed old new origin force-parent? focus?)
@@ -409,22 +394,38 @@
               (naturals 0 (length selection))))
   
   
-  (method override (delete-selection)
+  (method (with-common-parent-reselect proc)
+    (let ((parent (components-parent selection)))
+      (set-selection '() origin: self)
+      (proc)
+      (set-selection (if parent (list parent) '()) origin: self)))
+  
+  
+  (method override (copy-selection)
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (copy-components~ designer selection)))
+  
+  
+  (method override (cut-selection)
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (with-common-parent-reselect
+        (lambda ()
+          (cut-components~ designer selection)))))
+  
+  
+  (method override (delete-selection (message: message "Delete selected objects?"))
     (define (confirm-close)
-      (confirm-action "Delete selected objects?"))
-    
-    (define (confirm-action text)
-      (let ((code (message-box (localize text) type: 'confirmation)))
+      (let ((code (message-box (localize message) type: 'confirmation)))
         (case code
           ((yes) #t)
           ((no) #f)
           ((cancel) (throw-cancel)))))
     
-    (let ((components (outer-selection)))
-      (when (confirm-close)
-        (let ((parent (components-parent components)))
-          (remove-components~ designer components)
-          (set-selection (if parent (list parent) '()) origin: self)))))
+    (when (confirm-close)
+      (let ((selection (collect-oldest-ancestors selection client)))
+        (with-common-parent-reselect
+          (lambda ()
+            (remove-components~ designer selection))))))
   
   
   (method package (components-parent components)
@@ -513,9 +514,10 @@
   
   
   (method (can-modify? pred)
-    (and (every? (lambda (component) (neq? component client)) selection)
-         (every? (~ component-owned-by-reference? designer) selection)
-         (pred selection)))
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (and (every? (lambda (component) (neq? component client)) selection)
+           (every? (~ component-owned-by-reference? designer) selection)
+           (pred selection))))
   
   
   (method public (can-delete-selection?)
@@ -526,6 +528,12 @@
     (can-modify? can-cut-components?))
   
   
+  (method public (can-copy-selection?)
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (and (every? (lambda (component) (neq? component client)) selection)
+           (can-copy-components? selection))))
+  
+  
   (method public (can-rename-selection?)
     (and (= (length selection) 1)
          (component-owned-by-reference?~ designer (car selection))
@@ -533,13 +541,11 @@
   
   
   (method public (can-send-selection-to-back?)
-    (and (not (memq? client selection))
-         (every? (~ component-owned-by-reference? designer) selection)))
+    (can-modify? (const #t)))
   
   
   (method public (can-bring-selection-to-front?)
-    (and (not (memq? client selection))
-         (every? (~ component-owned-by-reference? designer) selection)))
+    (can-modify? (const #t)))
   
   ;;;
   ;;;; Editor
@@ -668,13 +674,13 @@
     (let ((kind (get-kind~ evt)))
       (case kind
         ((:property-change)
-         (set-controller-modified? #t))
+         (set-document-controller-modified? #t))
         ((:child-remove)
          (let ((child (get-property~ evt child:)))
            (set-selection (remove child selection test: eq?))
-           (set-controller-modified? #t)))
-        ((:child-add :send-before)
-         (set-controller-modified? #t)))))
+           (set-document-controller-modified? #t)))
+        ((:child-add :child-relocate :send-before)
+         (set-document-controller-modified? #t)))))
   
   
   ;;;

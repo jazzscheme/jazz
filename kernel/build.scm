@@ -734,11 +734,28 @@
 
 
 ;;;
-;;;; Make
+;;;; Symbol
 ;;;
 
 
-(define (jazz:make-symbols symbols local?)
+(define (jazz:parse-symbols symbols local? proc)
+  (let iter ((scan symbols)
+             (syms '())
+             (options '()))
+       (if (null? scan)
+           (proc (reverse syms) options)
+         (let ((obj (car scan)))
+           (cond ((not (or (symbol? obj) (keyword? obj)))
+                  (jazz:error "Invalid make target: {s}" obj))
+                 ((or (keyword? obj) (and (symbol? obj) (eqv? #\- (string-ref (symbol->string obj) 0))))
+                  (if (not (pair? (cdr scan)))
+                      (jazz:error "Missing value for make option: {s}" obj)
+                    (iter (cddr scan) syms (cons (cons obj (cadr scan)) options))))
+                 (else
+                  (iter (cdr scan) (cons obj syms) options)))))))
+
+
+(define (jazz:parse-symbol symbol link jobs local? proc)
   (define (parse-target/configuration/image str proc)
     (let ((colon (jazz:string-find str #\:)))
       (if (not colon)
@@ -772,27 +789,20 @@
           ((memv image '(exe executable)) 'executable)
           (else (jazz:error "Unknown image type: {s}" image))))
   
-  (define (parse-symbols proc)
-    (let iter ((scan symbols)
-               (syms '())
-               (options '()))
-         (if (null? scan)
-             (proc (reverse syms) options)
-           (let ((obj (car scan)))
-             (cond ((not (or (symbol? obj) (keyword? obj)))
-                    (jazz:error "Invalid make target: {s}" obj))
-                   ((or (keyword? obj) (and (symbol? obj) (eqv? #\- (string-ref (symbol->string obj) 0))))
-                    (if (not (pair? (cdr scan)))
-                        (jazz:error "Missing value for make option: {s}" obj)
-                      (iter (cddr scan) syms (cons (cons obj (cadr scan)) options))))
-                   (else
-                    (iter (cdr scan) (cons obj syms) options)))))))
-  
+  (let ((name (symbol->string symbol)))
+    (parse-target/configuration/image name
+      (lambda (target configuration image)
+        (proc target configuration image link jobs local?)))))
+
+
+;;;
+;;;; Make
+;;;
+
+
+(define (jazz:make-symbols symbols local?)
   (define (make-symbol symbol link jobs)
-    (let ((name (symbol->string symbol)))
-      (parse-target/configuration/image name
-        (lambda (target configuration image)
-          (make-target target configuration image link jobs local?)))))
+    (jazz:parse-symbol symbol link jobs local? make-target))
   
   (define (make-target target configuration image link jobs local?)
     (case target
@@ -804,7 +814,7 @@
       ((install) (jazz:make-install configuration))
       (else (jazz:make-product target configuration link jobs))))
   
-  (parse-symbols
+  (jazz:parse-symbols symbols local?
     (lambda (symbols options)
       (let ((link #f)
             (jobs #f))
@@ -836,6 +846,32 @@
 
 (define (jazz:make symbol)
   (jazz:make-symbols (list symbol) #t))
+
+
+;;;
+;;;; Install
+;;;
+
+
+(define (jazz:install-symbols symbols local?)
+  (define (install-symbol symbol)
+    (jazz:parse-symbol symbol #f #f local? install-target))
+  
+  (define (install-target target configuration image link jobs local?)
+    (jazz:install-product target configuration))
+  
+  (jazz:parse-symbols symbols local?
+    (lambda (symbols options)
+      (let iter ((scan (if (null? symbols)
+                           (list (jazz:default-target))
+                         symbols)))
+           (if (not (null? scan))
+               (let ((symbol (car scan)))
+                 (install-symbol symbol)
+                 (let ((tail (cdr scan)))
+                   (if (not (null? tail))
+                       (newline (console-port)))
+                   (iter tail))))))))
 
 
 ;;;
@@ -1087,6 +1123,14 @@
                     ,@(if jobs `("-jobs" ,(number->string jobs)) '())))))
 
 
+(define (jazz:install-product product configuration)
+  (jazz:call-process
+     (list
+       path: (string-append (jazz:configuration-directory configuration) "kernel")
+       arguments: `("-install"
+                    ,(symbol->string product)))))
+
+
 ;;;
 ;;;; Output
 ;;;
@@ -1276,6 +1320,7 @@
                     ((delete) (delete-command arguments output))
                     ((configure) (configure-command arguments output))
                     ((make) (make-command arguments output))
+                    ((install) (install-command arguments output))
                     ((help ?) (help-command arguments output))
                     ((quit) (quit-command arguments output))
                     (else (jazz:error "Unknown command: {s}" command))))
@@ -1296,10 +1341,15 @@
     (jazz:setup-kernel-build)
     (jazz:make-symbols arguments #f))
   
+  (define (install-command arguments output)
+    (jazz:setup-kernel-install)
+    (jazz:install-symbols arguments #f))
+  
   (define (help-command arguments output)
     (jazz:print "Commands:" output)
     (jazz:print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [mutable-bindings?:] [kernel-interpret?:] [destination:]" output)
     (jazz:print "  make [target | clean | cleankernel | cleanobject | cleanlibrary]@[configuration]:[image]" output)
+    (jazz:print "  install [target]" output)
     (jazz:print "  list" output)
     (jazz:print "  delete [configuration]" output)
     (jazz:print "  help or ?" output)
@@ -1424,6 +1474,10 @@
                (jazz:setup-kernel-build)
                (jazz:make-symbols (map read-argument arguments) #t)
                (exit))
+              ((equal? action "install")
+               (jazz:setup-kernel-install)
+               (jazz:install-symbols (map read-argument arguments) #t)
+               (exit))
               ((or (equal? action "help") (equal? action "?"))
                (let ((console (console-port)))
                  (jazz:print "Usage:" console)
@@ -1506,6 +1560,10 @@
             (jazz:load-kernel-build)
             (jazz:process-buildini #f)
             (set! kernel-build-setup? #t))))))
+
+
+(define (jazz:setup-kernel-install)
+  (jazz:setup-kernel-build))
 
 
 (define (jazz:process-jamini)

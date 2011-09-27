@@ -40,7 +40,9 @@
 
 (import (jazz.designer)
         (jazz.designer.view)
+        (jazz.graphic)
         (jazz.library)
+        (jazz.library.component)
         (jazz.ui)
         (jazz.ui.view))
 
@@ -49,7 +51,7 @@
   
   
   (slot preserved-states initialize (make-table test: eq? weak-keys: #t))
-  
+
 
   ;;;
   ;;;; Classes
@@ -59,6 +61,24 @@
   (method override (categorized-addable-classes component)
     (or (component-categorized-toolbox-addable-classes component)
         (nextmethod component)))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method (refresh-colors component)
+    (let* ((row (component-row component))
+           (data (and row (get-child~ row 0))))
+      (unless (or (not data) (get-color~ data))
+        (for-each refresh-component (component-ancestry component (get-reference~ designer))))))
+  
+  
+  (method override (on-designer evt)
+    (if (eq? (get-kind~ evt) ':property-change)
+        (refresh-colors (get-property~ evt component:))
+      (nextmethod evt)))
   
   
   ;;;
@@ -88,4 +108,29 @@
   
   
   (method override (preserve-state client)
-    (table-set! preserved-states client (get-expand-state)))))
+    (table-set! preserved-states client (get-expand-state)))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (owned-color)
+    {Color Dark-Green})
+  
+  
+  (method (unowned-color)
+    {Color Dark-Gray})
+  
+  
+  (method override (component-color component)
+    (if (client-owned? component)
+        (owned-color)
+      (unowned-color)))
+  
+  
+  (method override (component-state component)
+    (if (some? client-owned? (get-children~ component))
+        'expanded
+      'collapsed))))

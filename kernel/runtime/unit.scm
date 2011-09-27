@@ -1184,7 +1184,7 @@
 (jazz:define-variable jazz:process-title
   #f)
 
-(jazz:define-variable jazz:process-trait
+(jazz:define-variable jazz:process-traits
   #f)
 
 (jazz:define-variable jazz:process-icon
@@ -1206,11 +1206,11 @@
 (define (jazz:current-process-title-set! title)
   (set! jazz:process-title title))
 
-(define (jazz:current-process-trait)
-  jazz:process-trait)
+(define (jazz:current-process-traits)
+  jazz:process-traits)
 
-(define (jazz:current-process-trait-set! trait)
-  (set! jazz:process-trait trait))
+(define (jazz:current-process-traits-set! traits)
+  (set! jazz:process-traits traits))
 
 (define (jazz:current-process-icon)
   jazz:process-icon)
@@ -1233,9 +1233,9 @@
           #f))))
 
 
-(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (library #f))
+(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (build-library #f) (install #f))
   (receive (package descriptor) (jazz:find-product-descriptor name)
-    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build library package descriptor))))
+    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build build-library install package descriptor))))
 
 
 (define (jazz:get-product-descriptor name)
@@ -1265,6 +1265,7 @@
             jazz:update-product-descriptor
             jazz:build-product-descriptor
             jazz:build-library-descriptor
+            #f
             package
             descriptor))))))
 
@@ -1411,6 +1412,23 @@
     (if library
         (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: library)
       (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor))))
+
+
+(define (jazz:install-product name)
+  (let ((product (jazz:setup-product name)))
+    (let ((install (%%product-install product)))
+      (if install
+          (let ((descriptor (%%product-descriptor product)))
+            (jazz:feedback "install {a}" name)
+            (jazz:load-install)
+            (install descriptor))))))
+
+
+(define (jazz:install-directory path)
+  (let ((root (jazz:install-root)))
+    (if (%%not root)
+        (jazz:error "Undefined mandatory setting: (jazz:install-root)")
+      (%%append root path))))
 
 
 (define (jazz:make-product name)
@@ -1788,6 +1806,10 @@
 (define (jazz:load-build)
   (jazz:load-foundation)
   (jazz:load-unit 'core.unit.builder))
+
+
+(define (jazz:load-install)
+  (jazz:load-build))
 
 
 ;;;

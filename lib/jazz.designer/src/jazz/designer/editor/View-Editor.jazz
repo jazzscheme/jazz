@@ -44,6 +44,7 @@
         (jazz.graphic)
         (jazz.jml)
         (jazz.library)
+        (jazz.library.component)
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
@@ -106,17 +107,15 @@
   
   
   (method (on-bring-to-front evt)
-    (let ((selection (outer-selection)))
-      (for-each (lambda (component)
-                  (bring-to-front~ designer component))
-                selection)))
+    (for-each (lambda (component)
+                (bring-to-front~ designer component))
+              (collect-oldest-ancestors selection client)))
   
   
   (method (on-send-to-back evt)
-    (let ((selection (outer-selection)))
-      (for-each (lambda (component)
-                  (send-to-back~ designer component))
-                selection)))
+    (for-each (lambda (component)
+                (send-to-back~ designer component))
+              (collect-oldest-ancestors selection client)))
   
   
   (method (on-delete-selection evt)
@@ -124,21 +123,19 @@
   
   
   (method (on-rename-selected evt)
-    (let ((selection (outer-selection)))
-      (if (/= (length selection) 1)
-          (bell)
-        (let ((component (car selection))
-              (designer (get-designer)))
-          (let ((presentation (request-component-presentation (class-of component) (get-brothers~ component) initial-value: (get-presentation-property~ component))))
-            (set-presentation-property~ component designer presentation))))))
+    (if (/= (length selection) 1)
+        (bell)
+      (let ((component (car selection))
+            (designer (get-designer)))
+        (let ((presentation (request-component-presentation (class-of component) (get-brothers~ component) initial-value: (get-presentation-property~ component))))
+          (set-presentation-property~ component designer presentation)))))
   
   
   (method (on-select-all-children evt)
-    (let ((selection (outer-selection)))
-      (if (/= (length selection) 1)
-          (bell)
-        (let ((component (car selection)))
-          (select-all~ (get-surrogate~ component))))))
+    (if (/= (length selection) 1)
+        (bell)
+      (let ((component (car selection)))
+        (select-all~ (get-surrogate~ component)))))
   
   
   (method (on-properties evt)
@@ -272,9 +269,8 @@
     (nextmethod surface draw-self? nodes context)
     (for-each (lambda (view rank)
                 (when (is? view View)
-                  (let* ((surrogate (get-surrogate~ view))
-                         (outer (outer-client~ surrogate)))
-                    (draw-selected~ (get-surrogate~ outer) surface rank))))
+                  (let ((surrogate (get-surrogate~ view)))
+                    (draw-selected~ surrogate surface rank))))
               selection
               (naturals 0 (length selection))))
 
@@ -317,7 +313,7 @@
             (let* ((b (get-bounds~ view))
                    (r (acquire~ client view b)))
               (when (rects-intersect? r p s)
-                (put~ selection (inner-widget~ view)))))))
+                (put~ selection view))))))
       (let ((lst (get-output~ selection)))
         (set-selection lst origin: self))))
   
@@ -356,11 +352,10 @@
         (bell)
       (with-alignment
         (lambda ()
-          (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+          (let* ((reference (car selection))
                  (h (lie-left reference)))
             (for-each (lambda (view)
-                        (let* ((view (outer-client~ (get-surrogate~ view)))
-                               (lie (get-lie~ view)))
+                        (let ((lie (get-lie~ view)))
                           (set-view-lie view (new Point h (get-v~ lie)))))
                       (cdr selection)))))))
   
@@ -370,11 +365,10 @@
         (bell)
       (with-alignment
         (lambda ()
-          (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+          (let* ((reference (car selection))
                  (v (lie-top reference)))
             (for-each (lambda (view)
-                        (let* ((view (outer-client~ (get-surrogate~ view)))
-                               (lie (get-lie~ view)))
+                        (let ((lie (get-lie~ view)))
                           (set-view-lie view (new Point (get-h~ lie) v))))
                       (cdr selection)))))))
   
@@ -384,12 +378,11 @@
         (bell)
       (with-alignment
         (lambda ()
-          (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+          (let* ((reference (car selection))
                  (h (lie-right reference)))
             (for-each (lambda (view)
-                        (let* ((view (outer-client~ (get-surrogate~ view)))
-                               (lie (get-lie~ view))
-                               (h (- h (get-width~ view))))
+                        (let ((lie (get-lie~ view))
+                              (h (- h (get-width~ view))))
                           (set-view-lie view (new Point h (get-v~ lie)))))
                       (cdr selection)))))))
   
@@ -399,12 +392,11 @@
         (bell)
       (with-alignment
         (lambda ()
-          (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+          (let* ((reference (car selection))
                  (v (lie-bottom reference)))
             (for-each (lambda (view)
-                        (let* ((view (outer-client~ (get-surrogate~ view)))
-                               (lie (get-lie~ view))
-                               (v (- v (get-height~ view))))
+                        (let ((lie (get-lie~ view))
+                              (v (- v (get-height~ view))))
                           (set-view-lie view (new Point (get-h~ lie) v))))
                       (cdr selection)))))))
   
@@ -414,13 +406,12 @@
         (bell)
       (with-alignment
         (lambda ()
-          (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+          (let* ((reference (car selection))
                  (h (lie-left reference))
                  (width (get-width~ reference)))
             (for-each (lambda (view)
-                        (let* ((view (outer-client~ (get-surrogate~ view)))
-                               (lie (get-lie~ view))
-                               (h (+ h (fxround/ (- width (get-width~ view)) 2))))
+                        (let ((lie (get-lie~ view))
+                              (h (+ h (fxround/ (- width (get-width~ view)) 2))))
                           (set-view-lie view (new Point h (get-v~ lie)))))
                       (cdr selection)))))))
   
@@ -430,13 +421,12 @@
         (bell)
       (with-alignment
         (lambda ()
-          (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+          (let* ((reference (car selection))
                  (v (lie-top reference))
                  (height (get-height~ reference)))
             (for-each (lambda (view)
-                        (let* ((view (outer-client~ (get-surrogate~ view)))
-                               (lie (get-lie~ view))
-                               (v (+ v (fxround/ (- height (get-height~ view)) 2))))
+                        (let ((lie (get-lie~ view))
+                              (v (+ v (fxround/ (- height (get-height~ view)) 2))))
                           (set-view-lie view (new Point (get-h~ lie) v))))
                       (cdr selection)))))))
   
@@ -446,13 +436,12 @@
         (bell)
       (with-alignment
         (lambda ()
-          (let* ((first (outer-client~ (get-surrogate~ (first selection))))
-                 (second (outer-client~ (get-surrogate~ (second selection))))
+          (let* ((first (first selection))
+                 (second (second selection))
                  (dh (- (lie-left second) (lie-right first)))
                  (h (+ (lie-right second) dh)))
             (for-each (lambda (view)
-                        (let* ((view (outer-client~ (get-surrogate~ view)))
-                               (lie (get-lie~ view)))
+                        (let ((lie (get-lie~ view)))
                           (set-view-lie view (new Point h (get-v~ lie))))
                         (increase! h (+ (get-width~ view) dh)))
                       (cddr selection)))))))
@@ -463,13 +452,12 @@
         (bell)
       (with-alignment
         (lambda ()
-          (let* ((first (outer-client~ (get-surrogate~ (first selection))))
-                 (second (outer-client~ (get-surrogate~ (second selection))))
+          (let* ((first (first selection))
+                 (second (second selection))
                  (dv (- (lie-top second) (lie-bottom first)))
                  (v (+ (lie-bottom second) dv)))
             (for-each (lambda (view)
-                        (let* ((view (outer-client~ (get-surrogate~ view)))
-                               (lie (get-lie~ view)))
+                        (let ((lie (get-lie~ view)))
                           (set-view-lie view (new Point (get-h~ lie) v)))
                         (increase! v (+ (get-height~ view) dv)))
                       (cddr selection)))))))
@@ -480,11 +468,10 @@
         (bell)
       (with-alignment
         (lambda ()
-          (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+          (let* ((reference (car selection))
                  (width (get-width~ reference)))
             (for-each (lambda (view)
-                        (let* ((view (outer-client~ (get-surrogate~ view)))
-                               (size (get-size~ view)))
+                        (let ((size (get-size~ view)))
                           (safe-set-property~ designer view 'size (new Dimension width (get-height~ size)))))
                       (cdr selection)))))))
   
@@ -494,11 +481,10 @@
         (bell)
       (with-alignment
         (lambda ()
-          (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+          (let* ((reference (car selection))
                  (height (get-height~ reference)))
             (for-each (lambda (view)
-                        (let* ((view (outer-client~ (get-surrogate~ view)))
-                               (size (get-size~ view)))
+                        (let ((size (get-size~ view)))
                           (safe-set-property~ designer view 'size (new Dimension (get-width~ size) height))))
                       (cdr selection)))))))
   
@@ -508,11 +494,10 @@
         (bell)
       (with-alignment
         (lambda ()
-          (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+          (let* ((reference (car selection))
                  (size (get-size~ reference)))
             (for-each (lambda (view)
-                        (let ((view (outer-client~ (get-surrogate~ view))))
-                          (safe-set-property~ designer view 'size size)))
+                        (safe-set-property~ designer view 'size size))
                       (cdr selection)))))))
   
   

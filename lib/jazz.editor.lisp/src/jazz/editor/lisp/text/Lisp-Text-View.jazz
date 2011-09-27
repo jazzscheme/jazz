@@ -146,6 +146,19 @@
         (with-atomic-undo~ (get-undoer~ model)
           (lambda ()
             (tabulate))))))
+  
+  
+  ;;;
+  ;;;; Mouse Copy
+  ;;;
+  
+  
+  (method override (mouse-insert copy)
+    (with-atomic-undo~ (get-undoer~ model)
+      (lambda ()
+        (let ((start (get-start)))
+          (nextmethod copy)
+          (tabulate-range (new-range start (get-end)))))))
 
   
   ;;;
@@ -185,15 +198,19 @@
 
 
   (method override (tabulate)
-    (let ((start (get-start))
-          (end (get-end)))
+    (tabulate-range (get-selection)))
+  
+  
+  (method protected (tabulate-range range)
+    (let ((start (get-start~ range))
+          (end (get-end~ range)))
       (with-update-locked
         (lambda ()
           (with-safe-explore
             (lambda ()
-              (set-caret (get-start))
+              (set-caret start)
               (receive (modified? last-delta <fx>) (tabulate-lines (get-line~ start) (get-line~ end))
-                (set-caret (+ end last-delta))
+                (set-caret (nu+ end last-delta))
                 (when modified?
                   (set-modified? #t))))
             action: 'ignore)))))

@@ -1529,6 +1529,7 @@
               (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
                 (%%when (%%eq? expansion 'inline)
                   (let ((new-environment (%%cons effective-declaration environment)))
+                    (%%set-definition-declaration-signature effective-declaration signature)
                     (%%set-definition-declaration-value effective-declaration
                                                         (jazz:walk walker resume effective-declaration new-environment value))))
                 effective-declaration))))))))

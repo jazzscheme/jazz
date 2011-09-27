@@ -295,9 +295,10 @@
         'debugger-console-pump)))
   
   (let ((manager (get-console-manager)))
-    (let ((text (register-console~ manager (present-process-title process-proxy thread-proxy) select?)))
-      (setup-debugger-console-ports text process-proxy thread-proxy)
-      text)))
+    (bind (title traits thread) (process-information process-proxy thread-proxy)
+      (let ((text (register-console~ manager (present-process-title/traits/thread title traits thread) select? process-title: title process-traits: traits process-thread: thread)))
+        (setup-debugger-console-ports text process-proxy thread-proxy)
+        text))))
 
 
 (definition public (unregister-debugger-console text)
@@ -318,16 +319,40 @@
 
 
 (definition public (present-process-title process-proxy thread-proxy)
-  (let ((title (present-process-title/trait (get-title~ process-proxy) (get-trait~ process-proxy))))
-    (if (not thread-proxy)
+  (bind (title traits thread) (process-information process-proxy thread-proxy)
+    (present-process-title/traits/thread title traits thread)))
+
+
+(definition public (present-process-title/traits/thread title traits thread)
+  (let ((title (present-process-title/traits title traits)))
+    (if (not thread)
         title
-      (format "{a} {a}" title (present-thread-name (get-name~ thread-proxy))))))
+      (format "{a} {a}" title (present-thread-name thread)))))
 
 
-(definition public (present-process-title/trait title trait)
-  (if trait
-      (format "{a}<{a}>" title trait)
+(definition public (present-process-title/traits title traits)
+  (if traits
+      (format "{a}{a}" title traits)
     title))
+
+
+(definition public (present-process-traits traits)
+  (apply string-append (map (lambda (trait)
+                              (format "<{a}>" trait))
+                            traits)))
+
+
+(definition public (process-information process-proxy thread-proxy)
+  (list (get-title~ process-proxy)
+        (get-traits~ process-proxy)
+        (and thread-proxy (get-name~ thread-proxy))))
+
+
+(definition public (console-title title traits thread)
+  (let ((title (present-process-title/traits title @wait-smarter-space-management traits #f)))
+    (if (or (not thread) (eq? thread 'primordial))
+        title
+      (format "{a} {a}" title (present-thread-name thread)))))
 
 
 ;;;

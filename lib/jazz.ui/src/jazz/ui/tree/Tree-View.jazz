@@ -96,14 +96,14 @@
   (property protected empty-background          initialize #f   accessors explicit)
   (property protected filled-column             initialize #t   accessors generate)
   (property protected column-spacing            initialize 0    accessors explicit)
+  (property protected column-frequency          initialize 1    accessors explicit)
   (property protected reorderable?              initialize #f   accessors generate)
   (property protected content                   initialize #f   accessors explicit)
   
   
   (slot protected columns                       initialize '()  getter generate)
   (slot protected node-column                   initialize #f   getter generate)
-  (slot protected sorted-column                 initialize #f   getter generate)
-  (slot protected sort-ascending?               initialize #t   getter generate)
+  (slot protected sorted-columns                initialize '()  getter generate)
   (slot protected selection-pivot               initialize #f)
   (slot protected highlighted                   initialize '())
   (slot protected indentation                   initialize 16   getter generate)
@@ -263,6 +263,15 @@
     (invalidate-view))
 
 
+  (method public (get-column-frequency)
+    column-frequency)
+
+
+  (method public (set-column-frequency frequency)
+    (set! column-frequency frequency)
+    (invalidate-view))
+
+
   ;;;
   ;;;; Focus
   ;;;
@@ -366,6 +375,10 @@
     (let ((header (get-header)))
       (when header
         (invalidate-view~ header))))
+  
+  
+  (method public virtual (header-menu column pos)
+    )
   
   
   ;;;
@@ -672,14 +685,18 @@
   
   (method override (remove-every-row)
     (close-auto-expanded-row)
-    (set-sorted #f #t)
+    (set-sorted-column #f #f)
     (set! highlighted '())
     (set! selection-pivot #f)
-    (set! merge-cell-list '())
-    (empty-table merge-cell-table)
+    (clear-all-merge-cells)
     (nextmethod))
   
-
+  
+  (method public (clear-all-merge-cells)
+    (set! merge-cell-list '())
+    (empty-table merge-cell-table))
+  
+  
   ;;;
   ;;;; Cursor
   ;;;
@@ -728,27 +745,24 @@
   
   
   (method override (drag-up view (dragging? #f))
-    (mouse-up~ selection-manager (shift-down?) (control-down?) (alt-down?))
-    (let ((cell (view->tree (or (unless dragging? (get-mouse-down-view~ selection-manager)) view)))
-          (shift? (shift-down?))
-          (control? (control-down?)))
-      (unless (or dragging? cell)
-        (set-selection '()))
-      ;; the idea is there to do the selection only at mouse-up when the cell is already
-      ;; selected (necessary for dnd) but this code is a not very elegant quick solution
-      (when (and cell (not dragging?))
-        (let ((pos (cell-coordinates cell view))
-              (row (get-row (get-line~ cell)))
-              (column (get-column (get-col~ cell))))
-          (unless (mouse-down-part-control?~ selection-manager)
-            (complete-mouse-down~ column cell pos shift? control?)
-            (when auto-expand/collapse?
-              (auto-select~ row))
-            (focus-delegate)
-            (drag-up~ column cell pos)))))
-    (release-capture)
-    (process-action self)
-    (reset~ selection-manager))
+    (let ((shift? (shift-down?))
+          (control? (control-down?))
+          (alt? (alt-down?)))
+      (mouse-up~ selection-manager shift? control? alt?)
+      (let ((pos (get-mouse-down-view~ selection-manager)))
+        (when pos
+          (let ((cell (view->tree pos)))
+            (when (and cell (not (mouse-down-part-control?~ selection-manager)))
+              (let ((row (get-row (get-line~ cell)))
+                    (column (get-column (get-col~ cell))))
+                (when auto-expand/collapse?
+                  (auto-expand/collapse row)
+                  (auto-select~ row))
+                (focus-delegate)
+                (drag-up~ column cell pos)))))
+        (release-capture)
+        (process-action self)
+        (reset~ selection-manager))))
   
   
   (method override (call-double-click view)
@@ -824,8 +838,83 @@
 
   
   (method public virtual (header-click column)
-    (sort-column (column->col column))
+    (sort-column column)
     (ensure-displayed))
+  
+  
+  (method public virtual (set-sorted-column column direction)
+    (if (not column)
+        (set! sorted-columns '())
+      (set! sorted-columns (list (cons column direction))))
+    (invalidate-header))
+  
+  
+  (method public virtual (column-sorting column)
+    (let ((pair (assq column sorted-columns)))
+      (if pair
+          (cdr pair)
+        #f)))
+  
+  
+  (method protected virtual (sort-rows column direction)
+    (define (call-sort rows equal predicate)
+      (let ((col (column->col column)))
+        (let ((dual? (/= col 0)))
+          (define (get-node row children n)
+            (let ((data (element children n)))
+              (or (sort-value~ (get-column n) row data) "")))
+          
+          (sort (lambda (rx ry)
+                  (let* ((cx (get-children~ rx))
+                         (cy (get-children~ ry))
+                         (nx (localize (get-node rx cx col)))
+                         (ny (localize (get-node ry cy col))))
+                    (or (predicate nx ny)
+                        (and dual?
+                             (equal nx ny)
+                             (predicate (localize (get-node rx cx 0)) (localize (get-node ry cy 0)))))))
+                rows))))
+    
+    (receive (equal smaller greater) (sort-predicates)
+      (let ((predicate (case (column-sorting column)
+                         ((ascending) smaller)
+                         ((descending) greater))))
+        (define (iter row)
+          (let ((sorted (call-sort (get-sons~ row) equal predicate)))
+            (reorder-sons~ row sorted)
+            (iterate (get-sons~ row) iter)))
+        
+        (with-preserved-selection
+          (lambda ()
+            (with-update-locked
+              (lambda ()
+                (iter root-row))))
+          ensure-displayed?: #f))))
+  
+  
+  (method protected (sort-column column)
+    (define (determine-direction)
+      (let ((actual (column-sorting column)))
+        (if (not actual)
+            'ascending
+          (reverse-direction actual))))
+    
+    (define (reverse-direction direction)
+      (if (eq? direction 'ascending)
+          'descending
+        'ascending))
+    
+    (sort-column/direction column (determine-direction)))
+  
+  
+  (method public virtual (sort-column/direction column direction)
+    (set-sorted-column column direction)
+    (sort-rows column direction))
+  
+  
+  ;;;
+  ;;;; Selector
+  ;;;
   
 
   (method public (selector-click row)
@@ -857,51 +946,6 @@
                    (loop (for line from from-line to to-line)
                          (collect line))))
              (set-selection select-list)))))))
-
-  
-  (method (set-sorted column ascending?)
-    (let ((header (get-header))
-          (same? (eqv? column sorted-column)))
-      (when (and sorted-column (not same?))
-        (invalidate-column-header~ header (get-column sorted-column)))
-      (set! sort-ascending? ascending?)
-      (set! sorted-column column)
-      (when sorted-column
-        (invalidate-column-header~ header (get-column sorted-column)))))
-  
-  
-  (method public (sort-column col)
-    (define (sort-rows rows equal direction)
-      (let ((dual? (/= col 0)))
-        (define (get-node row children n)
-          (let ((data (element children n)))
-            (or (sort-value~ (get-column n) row data) "")))
-        
-        (sort (lambda (rx ry)
-                (let* ((cx (get-children~ rx))
-                       (cy (get-children~ ry))
-                       (nx (localize (get-node rx cx col)))
-                       (ny (localize (get-node ry cy col))))
-                  (or (direction nx ny)
-                      (and dual?
-                           (equal nx ny)
-                           (direction (localize (get-node rx cx 0)) (localize (get-node ry cy 0)))))))
-              rows)))
-    
-    (set-sorted col (or (not sorted-column) (/= col sorted-column) (not sort-ascending?)))
-    (receive (equal smaller greater) (sort-predicates)
-      (let ((direction (if sort-ascending? smaller greater)))
-        (define (iter row)
-          (let ((sorted (sort-rows (get-sons~ row) equal direction)))
-            (reorder-sons~ row sorted)
-            (iterate (get-sons~ row) iter)))
-        
-        (with-preserved-selection
-          (lambda ()
-            (with-update-locked
-              (lambda ()
-                (iter root-row))))
-          ensure-displayed?: #f))))
   
   
   ;;;
@@ -1545,14 +1589,19 @@
   (method protected (invalidate-borders)
     (let ((left 0))
       (set! columns-borders
-            (map (lambda (column)
+            (map (lambda (column rank)
                    (let* ((width (get-width~ column))
                           (right (+ left width)))
                      (prog1 (cons left right)
                        (when (get-visible?~ column)
-                         (set! left (+ right column-spacing))))))
-                 columns))
+                         (set! left (+ right (if (space-column? column rank) column-spacing 0)))))))
+                 columns
+                 (naturals 0 (length columns))))
       (set! columns-right (borders-right (last columns-borders)))))
+  
+  
+  (method protected virtual (space-column? column rank)
+    (= (modulo (+ rank 1) column-frequency) 0))
     
   
   (method public (get-columns-count)

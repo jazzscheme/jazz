@@ -67,9 +67,9 @@
   (slot name                         initialize #f)
   (slot parent                       initialize #f)
   (slot base-traits                  initialize #f)
-  (slot default-trait                initialize #f)
+  (slot default-traits               initialize #f)
   (slot branch                       initialize #f)   ;; the immediatly installed branch
-  (slot base-branch                  initialize #f)   ;; the branch set by base-traits and used when replacing the default-trait
+  (slot base-branch                  initialize #f)   ;; the branch set by base-traits and used when replacing the default-traits
   (slot form                         initialize #f)   ;; the form that created the component
   (slot creator                      initialize #f)   ;; the root component of the class form (used for indexing and as inner class instantiation context)
   (slot creator-branch               initialize #f)   ;; the branch that created the component (#f if none)
@@ -341,21 +341,23 @@
   (method (install-base-traits properties)
     (let ((traits (or (getf properties 'base-traits) (getf properties base-traits:))))
       (when traits
-        (set-base-traits (listify traits)))))
+        (set-base-traits traits))))
   
   
-  (method (install-default-trait properties)
-    (let ((trait (or (getf properties 'default-trait) (getf properties default-trait:))))
-      (when trait
-        (set-default-trait trait))))
+  (method (install-default-traits properties)
+    (let ((traits (or (getf properties 'default-traits) (getf properties default-traits:))))
+      (when traits
+        (set-default-traits traits))))
   
   
   (method public (install-form form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
     (when form
-      (install-base-traits (get-properties~ form))
-      (install-properties (get-properties~ form) restore-form)
-      (install-children (get-children~ form) creator creator-branch restore-form)
-      (install-default-trait (get-properties~ form))))
+      (let ((properties (get-properties~ form))
+            (children (get-children~ form)))
+        (install-base-traits properties)
+        (install-properties properties restore-form)
+        (install-children children creator creator-branch restore-form)
+        (install-default-traits properties))))
   
   
   (method protected virtual (install-children children <Object> creator <Object> creator-branch <Object> restore-form <Object>)
@@ -562,7 +564,7 @@
       '((name . #t)
         (parent . #t)
         (base-traits . #t)
-        (default-trait . #t)
+        (default-traits . #t)
         (form . #t)
         (creator . #t)
         (creator-branch . #t))))
@@ -1101,18 +1103,28 @@
         (get-presentation-property~ trait))))
   
   
+  (method public (get-base-traits)
+    base-traits)
+  
+  
   (method public (set-base-traits traits)
-    (set! base-traits traits)
-    (let ((preserve (and base-branch (get-active-trait))))
-      (replace-traits #f (listify traits))
-      (set! base-branch (get-active-branch))
-      (when preserve
-        (push-trait preserve))))
+    (let ((traits (listify traits)))
+      (set! base-traits traits)
+      (let ((preserve (and base-branch (get-active-trait))))
+        (replace-traits #f traits)
+        (set! base-branch (get-active-branch))
+        (when preserve
+          (push-trait preserve)))))
   
   
-  (method public (set-default-trait trait)
-    (set! default-trait trait)
-    (replace-active-trait (and trait (child trait))))
+  (method public (get-default-traits)
+    default-traits)
+  
+  
+  (method public (set-default-traits traits)
+    (let ((traits (listify traits)))
+      (set! default-traits traits)
+      (replace-traits base-branch (map child traits))))
   
   
   (method public (push-trait trait)
@@ -1382,6 +1394,15 @@
 
 
   ;;;
+  ;;;; Toolbox
+  ;;;
+
+
+  (method meta public virtual (show-in-toolbox?)
+    #t)
+
+
+  ;;;
   ;;;; Descriptor
   ;;;
 
@@ -1502,8 +1523,8 @@
     (component-can-delete-component?~ (get-descriptor (class-of self)) self))
   
   
-  (method public (can-move-component?)
-    (component-can-move-component?~ (get-descriptor (class-of self)) self))
+  (method public (can-relocate-component?)
+    (component-can-relocate-component?~ (get-descriptor (class-of self)) self))
   
   
   (method public (can-view-properties?)

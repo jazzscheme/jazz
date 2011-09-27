@@ -220,11 +220,11 @@
   
   
   (method override (can-cut?)
-    (can-cut-selection?~ editor))
+    (and editor (can-cut-selection?~ editor)))
   
   
   (method override (can-copy?)
-    (can-copy-components? (selected-components)))
+    (and editor (can-copy-selection?~ editor)))
   
   
   (method override (can-paste?)
@@ -246,11 +246,11 @@
   
   
   (method override (can-delete?)
-    (can-delete-selection?~ editor))
+    (and editor (can-delete-selection?~ editor)))
   
   
   (method override (can-rename?)
-    (can-rename-selection?~ editor))
+    (and editor (can-rename-selection?~ editor)))
   
   
   (method override (can-select-all?)
@@ -258,26 +258,11 @@
   
   
   (method override (cut-selection)
-    (let ((components (selected-components)))
-      (if (null? components)
-          (bell)
-        (with-update-locked
-          (lambda ()
-            (with-deleted-selection (get-selection)
-              (lambda ()
-                (cut-components~ designer components))
-              can-survive?: #t))))))
+    (cut-selection~ editor))
   
   
   (method override (copy-selection)
-    (let ((components (selected-components)))
-      (if (null? components)
-          (bell)
-        (with-cursor :wait
-          (lambda ()
-            (copy-components~ designer components)
-            (update-focus-actions~ (get-application)))
-          duration: .150))))
+    (copy-selection~ editor))
   
   
   ;; This is a simplification from the old version see commit : e073f6cb308d78d5f3458eecda045e6076430745
@@ -296,26 +281,7 @@
   
   
   (method override (delete-selection)
-    (let ((selection (get-selection)))
-      (when (not-null? selection)
-        (let ((components (get-selected-data)))
-          (when (confirm-close)
-            (with-deleted-selection selection
-              (lambda ()
-                (delete-components~ designer components))
-              can-survive?: #t))))))
-  
-  
-  (method override (confirm-close (components '()))
-    (confirm-action "Delete selected objects?"))
-  
-  
-  (method protected (confirm-action text)
-    (let ((code (message-box (localize text) type: 'confirmation)))
-      (case code
-        ((yes) #t)
-        ((no) #f)
-        ((cancel) (throw-cancel)))))
+    (delete-selection~ editor))
     
 
   
@@ -429,11 +395,11 @@
     
 
   ;;;
-  ;;;; Move
+  ;;;; Relocate
   ;;;
   
   
-  (method (move-components source target)
+  (method (relocate-components source target)
     (let* ((designer (get-designer))
            (components (get-selected-data~ (get-view~ source)))
            (dst (get-row~ target))
@@ -459,7 +425,7 @@
             (select-components components))))))
   
   
-  (method (move-component-row row father (position: position #f))
+  (method (relocate-component-row row father (position: position #f))
     (unless (and (eq? (get-father~ row) father) (= 1 (cardinality (get-sons~ father))))
       (let* ((source (get-user-data~ row))
              (destination (or (get-user-data~ father) client))
@@ -474,7 +440,7 @@
   (method public (reorder-component component)
     (let ((row (find-row component)))
       (when row
-        (move-component-row row (get-father~ row)))))
+        (relocate-component-row row (get-father~ row)))))
   
   
   (method protected virtual (find-component-position component row father)
@@ -548,7 +514,7 @@
     (let ((source (get-source~ drag-drop))
           (target (get-target~ drag-drop)))
       (if (eq? sender self)
-          (move-components source target)
+          (relocate-components source target)
         (typecase sender
           ((Toolbox-Tree)
            (receive-model target))))))
@@ -586,7 +552,8 @@
   
   
   (method public virtual (show-properties)
-    (show-properties~ editor))
+    (when editor
+      (show-properties~ editor)))
 
   
   ;;;
@@ -596,7 +563,7 @@
   
   (method virtual (on-selection-change evt)
     (when (and editor (eq? editor (get-selected-owner~ (get-application))))
-      (set-selection~ editor (map inner-widget~ (selected-components)) origin: self focus?: #f)))
+      (set-selection~ editor (selected-components) origin: self focus?: #f)))
   
   
   (method public (select-component component)

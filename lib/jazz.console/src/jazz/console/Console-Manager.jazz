@@ -118,8 +118,8 @@
   ;;;
   
   
-  (method (register-console title select? (view-class: view-class #f) (console-button?: console-button? #t))
-    (let ((tool (and console-button? (new Console-Button title: title auto-size?: #t location: 'head resource: {Image-Resource "Process"} portfolio: :images))))
+  (method (register-console presentation select? (view-class: view-class #f) (console-button?: console-button? #t) (process-title: process-title #f) (process-traits: process-traits #f) (process-thread: process-thread #f))
+    (let ((tool (and console-button? (new Console-Button title: (console-title process-title process-traits process-thread) process-title: process-title process-traits: process-traits process-thread: process-thread auto-size?: #t location: 'head resource: {Image-Resource "Process"} portfolio: :images tooltip-text: presentation tooltip?: #t))))
       (when tool
         (add-tool~ (get-host) tool))
       (let ((pad (get-pad))
@@ -194,7 +194,13 @@
                           (let ((button (get-button~ (get-console~ reference)))
                                 (process (get-reference~ (get-process~ resource)))
                                 (thread (get-reference~ (get-thread~ resource))))
-                            (set-title~ button (present-process-title process thread))))))
+                            (bind (title traits thread) (process-information process thread)
+                              (set-process-title~ button title)
+                              (set-process-traits~ button traits)
+                              (set-process-thread~ button thread)
+                              (update-title~ button)
+                              (let ((presented (present-process-title/traits/thread title traits thread)))
+                                (set-tooltip-text~ button presented)))))))
                     (get-debugger-resources process))))
       (refresh-tools~ (get-host))))
   
@@ -237,6 +243,15 @@
 
 
 (class Console-Button extends Radio-Tool
+  
+  
+  (property process-title  initialize #f accessors generate)
+  (property process-traits initialize #f accessors generate)
+  (property process-thread initialize #f accessors generate)
+  
+  
+  (method public (update-title)
+    (set-title (console-title process-title process-traits process-thread)))
   
   
   (method override (draw-background surface context)

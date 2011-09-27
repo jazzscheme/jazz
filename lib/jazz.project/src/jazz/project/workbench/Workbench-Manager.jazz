@@ -130,7 +130,7 @@
   ;;;
 
 
-  (method override (new-controller)
+  (method override (new-document-controller)
     (new Workbench-Manager-Controller self))
 
   
@@ -279,7 +279,7 @@
     (let ((guest (current-document)))
       (if (is-not? guest Document)
           (bell)
-        (let* ((controller (get-controller~ guest))
+        (let* ((controller (get-document-controller~ guest))
                (moniker (get-moniker~ controller)))
           (if (not moniker)
               (bell)
@@ -870,10 +870,10 @@
   
   (method public (configure-current)
     (let ((project (current-project)))
-      (let ((active (get-active-trait~ project))
-            (traits (collect-type Trait (get-children~ project))))
-        (let ((trait (request-list (sort string<? traits key: get-presentation-property~) title: "Choose Configuration" invite: (format "Select a configuration for {a}" (project-title~ project)) present: get-presentation-property~ selected: active)))
-          (set-active-trait~ project trait)
+      (let ((default (get-default-traits~ project))
+            (all (map get-name~ (collect-type Trait (get-children~ project)))))
+        (let ((traits (request-list all title: "Choose Configurations" invite: (format "Select configurations for {a}" (project-title~ project)) selected: default multiple-selection?: #t)))
+          (set-default-traits~ project traits)
           (let ((tree (get-tree)))
             (let ((row (user-data-row~ tree project)))
               (when row
@@ -978,7 +978,7 @@
       (when (and guest (is? guest Document))
         (when (get-modified?~ guest)
           (save~ guest))
-        (let ((moniker (get-moniker~ (get-controller~ guest))))
+        (let ((moniker (get-moniker~ (get-document-controller~ guest))))
           (compile-moniker moniker)))))
   
   
@@ -1024,7 +1024,7 @@
       (when (and guest (is? guest Document))
         (when (get-modified?~ guest)
           (save~ guest))
-        (let* ((moniker (get-moniker~ (get-controller~ guest)))
+        (let* ((moniker (get-moniker~ (get-document-controller~ guest)))
                (workbench (get-workbench))
                (file (find-source~ workbench moniker)))
           (if (not file)

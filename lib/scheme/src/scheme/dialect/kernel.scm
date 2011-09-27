@@ -404,7 +404,10 @@
 
 (native table?)
 (native make-table)
+(native table-copy)
 (native table-for-each)
+(native table-merge)
+(native table-merge!)
 (native table-ref)
 (native table-set!)
 (native table->list)

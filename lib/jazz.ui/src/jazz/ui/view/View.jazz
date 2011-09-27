@@ -1331,9 +1331,8 @@
                 (if scaled?
                     ;; convert to-fix scroll-view bugs when used from thumb-track
                     (invalidate-view~ scroller)
-                  (let ((rect (get-bounds~ display))
-                        (clip-rect (acquire~ display self (get-view-clipper))))
-                    (scroll-view~ display dh dv rect clip-rect: clip-rect))))))))))
+                  (let ((rect (get-bounds~ display)))
+                    (scroll-view~ display dh dv rect))))))))))
   
   
   (method public (scroll-to2 dest <Point> (redraw?: redraw? #f))
@@ -2294,10 +2293,13 @@
   
   
   (method public virtual (mouse-wheel pos delta)
-    (when (get-scroller)
-      (if (shift-down?)
-          (scroll (new Point (quotient delta 3) 0))
-        (scroll (new Point 0 (quotient delta 3))))))
+    (let ((scroller (find-ascendant Scroller-View)))
+      (when scroller
+        (let ((client (get-client~ scroller)))
+          (when client
+            (if (shift-down?)
+                (scroll~ client (new Point (quotient delta 3) 0))
+              (scroll~ client (new Point 0 (quotient delta 3)))))))))
 
   
   (method public virtual (mouse-enter)
@@ -3554,10 +3556,11 @@
           (<Handler-Domain>    name: domain)))))
   
   
+  (method override (component-get-categorized-addable-classes component)
+    (list
+      (list
+        (reference View))))
+  
+  
   (method override (component-surrogate-class component)
-    View-Surrogate)
-  
-  
-  (method override (component-addable-class? component class)
-    (or (subtype? class View)
-        (nextmethod component class))))))
+    View-Surrogate))))

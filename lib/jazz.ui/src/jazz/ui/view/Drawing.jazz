@@ -378,10 +378,15 @@
   
   
   (method public (find-drawing pos <Point> (ignore: ignore #f))
-    (when (in-drawing? pos size)
-      (or (find-subdrawing pos ignore)
-          (unless (get-transparent?)
-            self))))
+    (find-in-drawing pos ignore))
+  
+  
+  (method public (find-in-drawing pos <Point> ignore)
+    (unless (and ignore (memq? self ignore))
+      (when (in-drawing? pos size)
+        (or (find-subdrawing pos ignore)
+            (unless (get-transparent?)
+              self)))))
   
   
   (method protected virtual (in-drawing? pos <Point> size <Dimension>)
@@ -394,15 +399,14 @@
         (for-each-view-reversed
           (lambda (view <View>)
             (let ((delta <Point> (- pos (get-position~ view))))
-              (let* ((scaled? (get-scaled?~ view))
-                     (found (if (not scaled?)
-                                (find-drawing~ view delta)
-                              (let ((scaling <fl> (get-scaling~ view)))
-                                (let ((scaled (new Point
-                                                (fxround/ (get-h~ delta) scaling)
-                                                (fxround/ (get-v~ delta) scaling))))
-                                  (find-drawing~ view scaled))))))
-                (when (and found (or (not ignore) (not (memq? found ignore))))
+              (let ((found (if (not (get-scaled?~ view))
+                               (find-in-drawing~ view delta ignore)
+                             (let ((scaling <fl> (get-scaling~ view)))
+                               (let ((scaled (new Point
+                                               (fxround/ (get-h~ delta) scaling)
+                                               (fxround/ (get-v~ delta) scaling))))
+                                 (find-in-drawing~ view scaled ignore))))))
+                (when found
                   (continuation-return return found))))))
         #f)))
 

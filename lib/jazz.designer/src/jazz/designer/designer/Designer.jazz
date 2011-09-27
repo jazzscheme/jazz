@@ -76,7 +76,7 @@
       (if (not frm)
           (begin
             (set! form~self (new Form textual?: #f origin: (class-of reference) action: 'new model: 'install))
-            (set-data~ form~self (new Data 'jazz '() #f)))
+            (set-data~ form~self (new Data #f 'jazz '() #f)))
         (let ((origin (get-origin~ frm)))
           (if (file? origin)
               (setup-file-form frm)
@@ -546,7 +546,6 @@
   (method public virtual (add-form form parent (trait: trait #t) (name: name #f) (imports: imports '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
     (with-atomic-undo~ undoer
       (lambda ()
-        (instantiate-form name #f form parent trait design-events? descendant? imports: imports)
         (let ((child (instantiate-form name #f form parent trait design-events? descendant? imports: imports)))
           (register-undo~ undoer
             (lambda ()
@@ -615,25 +614,30 @@
               (get-children~ parent)))
   
   
-  (method public (move-component component destination (trait: trait #t))
-    (move-components (list component) destination trait: trait))
+  (method public (relocate-component component destination (trait: trait #t) (design-events?: design-events? #t))
+    (relocate-components (list component) destination trait: trait design-events?: design-events?))
   
   
-  (method public virtual (move-components components destination (trait: trait #t))
-    (assert (eq? (get-form~ (get-creator~ destination)) form))
+  (method public virtual (relocate-components components destination (trait: trait #t) (design-events?: design-events? #t))
     (let ((destination-form (get-form~ destination)))
       (for-each (lambda (component)
-                  (assert (eq? (get-form~ (get-creator~ component)) form))
-                  (set-parent~ component destination)
-                  (let ((component-form (get-form~ component)))
-                    (set-parent~ component-form destination-form)))
+                  (let ((parent (get-parent~ component))
+                        (form (get-form~ component)))
+                    (remove-child component trait: trait)
+                    (add-child component destination form: form trait: trait)))
                 components)
       (set-modified? #t)))
   
   
-  (method public (can-move-component? component destination)
-    (and (eq? (get-form~ (get-creator~ component)) form)
-         (eq? (get-form~ (get-creator~ destination)) form)))
+  (method public (can-relocate-component? component destination)
+    (and (addable-class?~ destination (class-of component))
+         (component-owned-by-reference? component)))
+  
+  
+  (method public (can-relocate-components? components destination)
+    (every? (lambda (component)
+              (can-relocate-component? component destination))
+            components))
   
   
   (method public virtual (transfer-components components destination (trait: trait #t))
@@ -888,7 +892,7 @@
   
   (method public virtual (instantiate-new-component name form parent trait design-events? descendant? (imports: imports '()))
     (let ((component (instantiate-component~ form parent: parent)))
-      (add-child component parent trait: trait name: name design-events?: design-events? descendant?: descendant? import: imports undoable?: #f)
+      (add-child component parent trait: trait name: name design-events?: design-events? descendant?: descendant? import: imports)
       component))
   
   
@@ -1175,6 +1179,12 @@
               (get-designers~ child)))
   
   
+  (definition (fire-child-relocate child parent destination)
+    (for-each (lambda (designer)
+                (process-child-relocate~ designer child parent destination))
+              (get-designers~ child)))
+  
+  
   (definition (fire-send-before child parent target)
     (for-each (lambda (designer)
                 (process-send-before~ designer child parent target))
@@ -1229,6 +1239,14 @@
   (method (process-child-remove child parent)
     (when (not-null? listeners)
       (let ((evt (new Designer-Event :child-remove self child: child parent: parent)))
+        (for-each (lambda (listener)
+                    (invoke~ listener self evt))
+                  listeners))))
+  
+  
+  (method (process-child-relocate child parent destination)
+    (when (not-null? listeners)
+      (let ((evt (new Designer-Event :child-relocate self child: child parent: parent target: destination)))
         (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))

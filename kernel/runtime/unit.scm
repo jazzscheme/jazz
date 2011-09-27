@@ -1424,6 +1424,13 @@
             (install descriptor))))))
 
 
+(define (jazz:install-directory path)
+  (let ((root (jazz:install-root)))
+    (if (%%not root)
+        (jazz:error "Undefined mandatory setting: (jazz:install-root)")
+      (%%append root path))))
+
+
 (define (jazz:make-product name)
   (let ((subproduct-table (make-table))
         (subproduct-table-mutex (make-mutex 'subproduct-table-mutex))

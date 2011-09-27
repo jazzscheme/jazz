@@ -136,18 +136,57 @@
   ;;;
   
   
+  (method (partition-range from to n)
+    (let ((size (- to from)))
+      (map (lambda (i)
+             (+ (round (* (/ i n) size)) from))
+           (naturals 0 (+ n 1)))))
+  
+  
+  (method (layout-fill-horizontal fill-position fill-size)
+    (let ((width (get-width~ fill-size))
+          (h (get-h~ fill-position))
+          (views (get-views)))
+      (unless (= 0 (length views))
+        (let ((vs (let ((v (get-v~ fill-position))
+                        (height (get-height~ fill-size)))
+                    (partition-range v (+ v height) (length views)))))
+          (for-each (lambda (view v next-v)
+                      (set-position~ view (new Point h v))
+                      (set-size~ view (new Dimension width (- next-v v))))
+                    views
+                    (butlast vs)
+                    (cdr vs))))))
+  
+  
+  (method (layout-fill-vertical fill-position fill-size)
+    (let ((height (get-height~ fill-size))
+          (v (get-v~ fill-position))
+          (hs (let ((h (get-h~ fill-position))
+                    (width (get-width~ fill-size)))
+                (partition-range h (+ h width) (length (get-views))))))
+      (for-each (lambda (view h next-h)
+                  (set-position~ view (new Point h v))
+                  (set-size~ view (new Dimension (- next-h h) height)))
+                (get-views)
+                (butlast hs)
+                (cdr hs))))
+  
+  
   (method override (layout)
     (case layout-type
       ((#f))
       ((gravity)) ;; done in resize
       ((fill)
-       (let ((position (fill-position))
-             (size (fill-size)))
-         (for-each (lambda (child)
-                     (when (is? child View)
-                       (set-position~ child position)
-                       (set-size~ child size)))
-                   children)))
+       (for-each (lambda (child)
+                   (when (is? child View)
+                     (set-position~ child (fill-position))
+                     (set-size~ child (fill-size))))
+                 children))
+      ((fill-h)
+       (layout-fill-horizontal (fill-position) (fill-size)))
+      ((fill-v)
+       (layout-fill-vertical (fill-position) (fill-size)))
       ((fit)
        (let ((ly (new Fit-Layout insets: layout-insets)))
          (layout~ ly self)))
@@ -340,6 +379,8 @@
   (definition Choices
     '((#f "None")
       (fill "Fill")
+      (fill-h "Fill Horizontal")
+      (fill-v "Fill Vertical")
       (fit "Fit")
       (center "Center")
       (justify "Justify")

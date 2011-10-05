@@ -116,7 +116,7 @@
 
   (method override (install rest)
     (nextmethod rest)
-    (update-threads))
+    (update))
 
   
   ;;;
@@ -130,7 +130,7 @@
 
   (method public (set-process value)
     (set! process value)
-    (update-threads))
+    (update))
   
   
   (method (show-detailed?)
@@ -139,7 +139,7 @@
   
   (method public (process-changed new-process)
     (set! process new-process)
-    (update-threads))
+    (update))
 
   
   ;;;
@@ -168,7 +168,7 @@
   
   
   (method (on-toggle-detailed evt)
-    (update-threads))
+    (update))
 
 
   (method (on-select-thread evt)
@@ -189,7 +189,7 @@
   
   
   (method (on-update evt)
-    (update-threads user-origin: #t))
+    (update user-origin: #t))
   
   
   (method (with-thread-refresh thread thunk)
@@ -199,8 +199,7 @@
           (sleep .1)
           (execute-event
             (lambda ()
-              (update-threads)
-              (update-tools))))))
+              (update))))))
     (thunk))
   
   
@@ -251,23 +250,30 @@
   
   
   (method (update-tools)
-    (define (enable restart break continue)
-      (set-enabled?~ (locate 'restart) restart)
-      (set-enabled?~ (locate 'break) break)
-      (set-enabled?~ (locate 'continue) continue))
-    
+    (receive (restart? break? continue?) (tools-state)
+      (set-enabled?~ (locate 'restart) restart?)
+      (set-enabled?~ (locate 'break) break?)
+      (set-enabled?~ (locate 'continue) continue?)))
+  
+  
+  (method (tools-state)
     (let ((thread (selected-thread)))
       (if (not thread)
-          (enable #f #f #f)
+          (values #f #f #f)
         (let ((stop (get-active-stop~ thread)))
           (if (not stop)
-              (enable #f #t #f)
-            (enable #f #f (eq? (get-kind~ stop) 'break)))))))
+              (values #f #t #f)
+            (values #f #f (eq? (get-kind~ stop) 'break)))))))
   
   
   ;;;
   ;;;; Update
   ;;;
+  
+  
+  (method protected (update (user-origin: user-origin #f))
+    (update-threads user-origin: user-origin)
+    (update-tools))
   
   
   (method protected (update-threads (user-origin: user-origin #f))
@@ -395,21 +401,23 @@
                      proc))))
     
     (define (new-thread-menu thread)
-      (let ((menu (new Thread-Menu))
-            (stop (get-active-stop~ thread)))
-        (if (not stop)
-            (new Label-Item parent: menu title: "Break" icon: {Image-Resource "Break"} action-handler: (make-handler (lambda () (break-thread))))
-          (for-each (lambda (restart)
-                      (let ((title (get-message~ restart))
-                            (icon {Image-Resource "Restart"}))
-                        (new Label-Item parent: menu title: title icon: icon action-handler: (make-handler (lambda () (restart-stop restart))))))
-                    (get-restarts~ stop))
-          (when (eq? (get-kind~ stop) 'break)
-            (new Separator-Item parent: menu)
-            (new Label-Item parent: menu title: "Continue" icon: {Image-Resource "Continue"} action-handler: (make-handler (lambda () (continue-stop))))))
-        (cleanup-separators~ menu)
-        (layout-menu~ menu)
-        menu))
+      (receive (restart? break? continue?) (tools-state)
+        (let ((menu (new Thread-Menu))
+              (stop (get-active-stop~ thread)))
+          (if break?
+              (new Label-Item parent: menu title: "Break" icon: {Image-Resource "Break"} action-handler: (make-handler (lambda () (break-thread))))
+            (debug stop (get-restarts~ stop))
+            (for-each (lambda (restart)
+                        (let ((title (get-message~ restart))
+                              (icon {Image-Resource "Restart"}))
+                          (new Label-Item parent: menu title: title icon: icon action-handler: (make-handler (lambda () (restart-stop restart))))))
+                      (get-restarts~ stop))
+            (when continue?
+              (new Separator-Item parent: menu)
+              (new Label-Item parent: menu title: "Continue" icon: {Image-Resource "Continue"} action-handler: (make-handler (lambda () (continue-stop))))))
+          (cleanup-separators~ menu)
+          (layout-menu~ menu)
+          menu)))
     
     (typecase object
       ((Debugged-Thread)

@@ -281,11 +281,13 @@
 
 (define (jazz:join-strings strings separator)
   (let ((output (open-output-string)))
-    (display (%%car strings) output)
-    (for-each (lambda (string)
-                (display separator output)
-                (display string output))
-              (%%cdr strings))
+    (if (%%pair? strings)
+        (begin
+          (display (%%car strings) output)
+          (for-each (lambda (string)
+                      (display separator output)
+                      (display string output))
+                    (%%cdr strings))))
     (get-output-string output)))
 
 

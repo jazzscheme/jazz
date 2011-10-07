@@ -88,7 +88,7 @@
   
   
   (method (complex->view r i)
-    (new Point (round (+ ch (* r scale))) (round (+ cv (* i scale)))))
+    (new Point (fxround (+ ch (* r scale))) (fxround (+ cv (* i scale)))))
   
   
   (method (view->complex h v . rest)
@@ -108,34 +108,35 @@
           {Color Black}
         (element Colors (modulo n (length Colors)))))
     
-    (with ((surface (get-view-surface)))
-      (set-color~ surface {Color Dark-Red})
-      (set-line-width~ surface 1)
-      (let ((z 0)
-            (pixel #f)
-            (outside? #f))
-        (loop (for n from 0 below iterations)
-              (do (unless outside?
-                    (let ((next (+ (* z z) c)))
-                      (when (not dragging?)
-                        (line surface (real-part z) (imag-part z) (real-part next) (imag-part next))
-                        (sleep .1))
-                      (let ((norm (norm next)))
-                        (if (> norm 2)
-                            (begin
-                              (set! pixel (new Pixel c (complex->view (real-part c) (imag-part c)) n (iteration-color n)))
-                              (set! outside? #t))
-                          (set! z next)))))))
-        (when (not outside?)
-          (set! pixel (new Pixel c (complex->view (real-part c) (imag-part c)) #f (iteration-color #f))))
-        (put~ pixels pixel)
-        (if dragging?
-            (draw-pixel surface pixel)
-          (loop (for radius from 1 to Pixel-Radius)
-                (do (draw-pixel surface pixel radius)
-                    (sleep .05)))))
-      (when (not dragging?)
-        (sleep .25))))
+    (with-view-surface
+      (lambda (surface)
+        (set-color~ surface {Color Dark-Red})
+        (set-line-width~ surface 1)
+        (let ((z 0)
+              (pixel #f)
+              (outside? #f))
+          (loop (for n from 0 below iterations)
+                (do (unless outside?
+                      (let ((next (+ (* z z) c)))
+                        (when (not dragging?)
+                          (line surface (real-part z) (imag-part z) (real-part next) (imag-part next))
+                          (sleep .1))
+                        (let ((norm (norm next)))
+                          (if (> norm 2)
+                              (begin
+                                (set! pixel (new Pixel c (complex->view (real-part c) (imag-part c)) n (iteration-color n)))
+                                (set! outside? #t))
+                            (set! z next)))))))
+          (when (not outside?)
+            (set! pixel (new Pixel c (complex->view (real-part c) (imag-part c)) #f (iteration-color #f))))
+          (put~ pixels pixel)
+          (if dragging?
+              (draw-pixel surface pixel)
+            (loop (for radius from 1 to Pixel-Radius)
+                  (do (draw-pixel surface pixel radius)
+                      (sleep .05)))))
+        (when (not dragging?)
+          (sleep .25)))))
   
   
   (method (change-iterations)
@@ -195,6 +196,7 @@
       (line surface 0 -2 0 2)
       (let ((lt (complex->view -2 -2))
             (rb (complex->view 2 2)))
+        (frame-rect~ surface (new Rect (get-h~ lt) (get-v~ lt) (get-h~ rb) (get-v~ rb)) {Color Red})
         (ellipse~ surface (new Rect (get-h~ lt) (get-v~ lt) (get-h~ rb) (get-v~ rb)) Radius-Color #f))
       (for-each (lambda (pixel)
                   (draw-pixel surface pixel))

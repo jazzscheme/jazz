@@ -860,16 +860,16 @@
       (when (and pos #t @parameterized-fix-me (/= pos previous-position))
         (let* ((range (selection-range pos))
                (parts (range-difference range (get-selection)))
-               (player (get-player))
-               (root (get-root)))
-          (receive (dh dv sc) (get-delta~ root self)
-            (change-selection pos)
-            (with ((region (multi-part-region parts dh dv sc)))
-              (when region
-                (if final?
-                    (invalidate-region~ player region)
-                  (redraw-window~ player region: region)
-                  (set! previous-position pos)))))))))
+               (player (get-player)))
+          (with-transformation-surface
+            (lambda (surface)
+              (change-selection pos)
+              (with ((region (multi-part-region parts (lambda (rect) (logical->device~ surface rect)))))
+                (when region
+                  (if final?
+                      (invalidate-region~ player region)
+                    (redraw-window~ player region: region)
+                    (set! previous-position pos))))))))))
   
   
   (method override (double-click view)
@@ -1001,12 +1001,12 @@
                  (get-output~ parts)))))))
   
   
-  (method (multi-part-region parts dh dv sc)
+  (method (multi-part-region parts transformer)
     (case (length parts)
       ((0) #f)
-      ((1) (range-region (car parts) dh dv sc))
-      ((2) (with ((region (range-region (first parts) dh dv sc)))
-             (let ((union (range-region (second parts) dh dv sc)))
+      ((1) (range-region (car parts) transformer))
+      ((2) (with ((region (range-region (first parts) transformer)))
+             (let ((union (range-region (second parts) transformer)))
                (when (and region union)
                  (combine!~ union region 'or)
                  union))))))
@@ -1014,7 +1014,7 @@
   
   (method (calculate-autoscroll-amount view)
     (let* ((display (view->display view))
-           (size (get-display-size))
+           (size (get-size~ (get-display)))
            (h (get-h~ display))
            (v (get-v~ display))
            (height (get-default-height))
@@ -1375,19 +1375,17 @@
   ;;;
   
   
-  (method (range-region range <Range$Cell$> dh dv sc (top: top #f) (bottom: bottom #f))
+  (method (range-region range <Range$Cell$> transformer (top: top #f) (bottom: bottom #f))
     (let ((root (get-root))
           (region (new Region))
           (width (and scroller (get-display-width))))
       (keep-rectangles~ region)
       (for-each-logical-range range
         (lambda (line paragraph start end)
-          (with ((sub (range-region~ paragraph left-padding start end dh dv sc width)))
+          (with ((sub (range-region~ paragraph left-padding start end transformer width)))
             (combine!~ region sub 'or))))
-      (let ((root-clipper (get-root-clipper)))
-        (when root-clipper
-          (with ((clipper (new Region root-clipper)))
-            (combine!~ region clipper 'and))))
+      (with ((clipper (new Region (transformer (get-view-clipper)))))
+        (combine!~ region clipper 'and))
       region))
   
   
@@ -1402,19 +1400,19 @@
   
   (method (invalidate-range range <Range$Cell$>)
     (when (view-visible?)
-      (let ((root (get-root)))
-        (receive (dh dv sc) (get-delta~ root self)
-          (with ((region (range-region range dh dv sc)))
+      (with-transformation-surface
+        (lambda (surface)
+          (with ((region (range-region range (lambda (rect) (logical->device~ surface rect)))))
             (invalidate-region~ player region))))))
   
   
   ;; this should be unified with selection-region
-  (method (text-selection-region dh dv sc top bottom)
-    (range-region (get-selection) dh dv sc top: top bottom: bottom))
+  (method (text-selection-region transformer top bottom)
+    (range-region (get-selection) transformer top: top bottom: bottom))
   
   
-  (method (selection-region-all dh dv sc)
-    (text-selection-region dh dv sc 0 (get-display-height)))
+  (method (selection-region-all transformer)
+    (text-selection-region transformer 0 (get-display-height)))
   
   
   (method protected virtual (get-selection-color)
@@ -1662,19 +1660,20 @@
   (method public (update-selection range <Range$Cell$>)
     (if (not (view-visible?))
         (set-range~ selection range)
-      (let ((root (get-root)))
-        (receive (dh dv sc) (get-delta~ root self)
-          (with ((old (selection-region-all dh dv sc)))
-            (set-range~ selection range)
-            (with ((new (selection-region-all dh dv sc)))
-              (if (and old new)
-                  (begin
-                    (combine!~ new old 'xor)
-                    (invalidate-region~ player new))
-                (when old
-                  (invalidate-region~ player old))
-                (when new
-                  (invalidate-region~ player new)))))))))
+      (with-transformation-surface
+        (lambda (surface)
+          (let ((transformer (lambda (rect) (logical->device~ surface rect))))
+            (with ((old (selection-region-all transformer)))
+              (set-range~ selection range)
+              (with ((new (selection-region-all transformer)))
+                (if (and old new)
+                    (begin
+                      (combine!~ new old 'xor)
+                      (invalidate-region~ player new))
+                  (when old
+                    (invalidate-region~ player old))
+                  (when new
+                    (invalidate-region~ player new))))))))))
   
   
   (method public (reset-caret pos <Cell> (force?: force? #f))
@@ -1783,8 +1782,8 @@
     (invalidate-range sel))
   
   
-  (method override (selection-region sel dh dv sc)
-    (range-region self dh dv sc))
+  (method override (selection-region sel transformer)
+    (range-region self transformer))
   
   
   (method public (get-char pos <Cell>) <char>
@@ -2131,7 +2130,7 @@
   
   (method protected (draw-selection surface top bottom)
     (when (and (or (is-focused?) show-unfocused-selection?) selectable?)
-      (with ((region (text-selection-region 0. 0. 1. top bottom)))
+      (with ((region (text-selection-region identity top bottom)))
         (when region
           (fill-region~ surface region
             (if (is-focused?)
@@ -2179,7 +2178,7 @@
         (let* ((size (get-display-width))
                (context (cdr (get-scroll-context)))
                (context (if context (fxround (* size context)) 0))
-               (tail (+ (get-display-h) size))
+               (tail (+ (get-scrolled-distance-h) size))
                (end (get-h~ (text->view (get-end)))))
           (when (< end (- tail context))
             (scroll (new Point (- tail context end) 0)))))))

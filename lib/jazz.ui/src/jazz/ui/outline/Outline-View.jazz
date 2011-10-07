@@ -172,11 +172,11 @@
   ;;;
   
   
-  (method override (find-subdrawing pos <Point> ignore)
+  (method override (find-subdrawing surface <Surface> device-pos <Point> pos <Point> ignore)
     (let ((line (v->line (get-v~ pos))))
       (when line
         (let ((row (cast <Outline-Row> (get-row line))))
-          (find-drawing~ row (- pos (get-position~ row)))))))
+          (find-in-drawing~ row surface device-pos ignore)))))
   
 
   ;;;
@@ -250,7 +250,7 @@
   
   
   (method override (draw-children surface nodes context)
-    (draw-outline~ model surface context outline (- (get-v~ (get-scrolled-position)))))
+    (draw-outline~ model surface context outline (get-scrolled-distance-v)))
 
   
   ;;;
@@ -301,8 +301,8 @@
       ((horz) 8)))
   
   
-  (method override (scroll-invalidate dh dv)
-    (follow (- dv)))
+  (method override (scroll-invalidate delta)
+    (follow (- (get-y~ delta))))
 
   
   ;;;
@@ -321,7 +321,7 @@
       (added-update-selection line 1)
       (layout-scrollee)
       (when (< top (- display-height height))
-        (scroll-view~ display 0 height (new Rect 0 top display-width (- display-height height))))))
+        (scroll-view~ display (new Distance 0 height) (new Rect 0 top display-width (- display-height height))))))
   
   
   (method protected (remove-row-scroll)
@@ -332,7 +332,7 @@
            (display-height (get-height~ display-size)))
       (layout-scrollee)
       (when (and top (< (+ top height) display-height))
-        (scroll-view~ display 0 (- height) (new Rect 0 (+ top height) display-width display-height)))))
+        (scroll-view~ display (new Distance 0 (- height)) (new Rect 0 (+ top height) display-width display-height)))))
   
   
   (method protected (remove-every-row)
@@ -341,8 +341,7 @@
     (when scroller
       (set-position {Point 0 0})
       (set-size {Dimension 0 0})
-      (set-scroll-pos 'vert 0)
-      (set-scroll-pos 'horz 0))
+      (set-scroll-pos {Point 0 0}))
     (unless update-locked?
       (update-displayed)
       (layout-scrollee)
@@ -358,7 +357,7 @@
   
   
   (method override (update-displayed)
-    (update-displayed~ outline (get-display-v)))
+    (update-displayed~ outline (get-scrolled-distance-v)))
   
   
   (method protected (update-displayed-from line)
@@ -417,18 +416,18 @@
   
   (method public virtual (invalidate-selection sel)
     (when (view-visible?)
-      (let ((root (get-root)))
-        (receive (dh dv sc) (get-delta~ root self)
-          (with ((region (selection-region sel dh dv sc)))
+      (with-transformation-surface
+        (lambda (surface)
+          (with ((region (selection-region sel (lambda (rect) (logical->device~ surface rect)))))
             (invalidate-region~ player region))))))
   
   
-  (method protected virtual (selection-region sel dh dv sc)
-    (selection-row-region sel dh dv sc))
+  (method protected virtual (selection-region sel transformer)
+    (selection-row-region sel transformer))
   
   
-  (method protected (selection-row-region line dh dv sc)
-    (new Region (acquire-delta dh dv sc (selection-row-rect line))))
+  (method protected (selection-row-region line transformer)
+    (new Region (transformer (selection-row-rect line))))
     
   
   (method protected virtual (selection-row-rect line)
@@ -467,11 +466,12 @@
   
   
   (method (follow v)
-    (follow~ outline (get-display-v) v))
+    (follow~ outline (get-scrolled-distance-v) v))
 
 
   (method public virtual (ensure-displayed . rest)
     (when (not-null? selection)
+      (debug 'yo)
       (ensure-row-displayed selection)))
   
   

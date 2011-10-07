@@ -183,30 +183,29 @@
     (when hscroll (set-pos~ hscroll (get-h~ pos) redraw?: redraw?)))
     
   
-  (method override (set-scroll-info part min max page)
+  (method override (set-scroll-info part min max line page)
     (case part
-      ((vert) (when vscroll (set-info~ vscroll min max page)))
-      ((horz) (when hscroll (set-info~ hscroll min max page)))))
+      ((vert) (when vscroll (set-info~ vscroll min max line page)))
+      ((horz) (when hscroll (set-info~ hscroll min max line page)))))
 
 
-  (method override (on-vscroll code thumb-pos orientation)
+  (method override (scroll-action action line page thumb-pos orientation)
+    (define (scroll amount)
+      (scroll~ client (case orientation
+                        ((vert) (new Point 0 amount))
+                        ((horz) (new Point amount 0)))
+        redraw?: #t))
+    
     (when client
-      (case code
-        ((line-up)     (scroll~ client (new Point 0    (get-line-size~ client orientation)) redraw?: #t))
-        ((line-down)   (scroll~ client (new Point 0 (- (get-line-size~ client orientation))) redraw?: #t))
-        ((page-up)     (scroll~ client (new Point 0    (get-page-size~ client orientation)) redraw?: #t))
-        ((page-down)   (scroll~ client (new Point 0 (- (get-page-size~ client orientation))) redraw?: #t))
-        ((thumb-track) (scroll~ client (new Point 0 (- (get-scrolled-distance-v~ client) thumb-pos)) redraw?: #t)))))
-
-
-  (method override (on-hscroll code thumb-pos orientation)
-    (when client
-      (case code
-        ((line-up)     (scroll~ client (new Point    (get-line-size~ client orientation)  0) redraw?: #t))
-        ((line-down)   (scroll~ client (new Point (- (get-line-size~ client orientation)) 0) redraw?: #t))
-        ((page-up)     (scroll~ client (new Point    (get-page-size~ client orientation)  0) redraw?: #t))
-        ((page-down)   (scroll~ client (new Point (- (get-page-size~ client orientation)) 0) redraw?: #t))
-        ((thumb-track) (scroll~ client (new Point (- (get-scrolled-distance-h~ client) thumb-pos) 0) redraw?: #t)))))
+      (case action
+        ((line-up)     (scroll    line))
+        ((line-down)   (scroll (- line)))
+        ((page-up)     (scroll    page))
+        ((page-down)   (scroll (- page)))
+        ((thumb-track) (scroll (- (case orientation
+                                    ((vert) (get-scrolled-distance-v~ client))
+                                    ((horz) (get-scrolled-distance-h~ client)))
+                                  thumb-pos))))))
 
 
   ;;;

@@ -1222,24 +1222,27 @@
       (set-scroll-pos~ scroller pos redraw?: redraw?)))
     
   
-  (method public virtual (set-scroll-info part min max page)
+  (method public virtual (set-scroll-info part min max line page)
     (when scroller
-      (set-scroll-info~ scroller part min max page)))
+      (set-scroll-info~ scroller part min max line page)))
   
   
   (method public (compute-scroll-info)
     (let ((vmin #f)
           (vmax #f)
+          (vline #f)
           (vpage #f)
           (vscroll? #f)
           (hmin #f)
           (hmax #f)
+          (hline #f)
           (hpage #f)
           (hscroll? #f))
       (define (vupdate)
         (let ((adjust (if hscroll? scrollbar-size 0)))
           (set! vmin  0)
           (set! vmax  (- (get-height) adjust))
+          (set! vline (get-line-size 'vert))
           (set! vpage (- (get-page-size 'vert) adjust))
           (set! vscroll? (> vmax vpage))))
       
@@ -1247,6 +1250,7 @@
         (let ((adjust (if vscroll? scrollbar-size 0)))
           (set! hmin  0)
           (set! hmax  (- (get-width) adjust))
+          (set! hline (get-line-size 'horz))
           (set! hpage (- (get-page-size 'horz) adjust))
           (set! hscroll? (> hmax hpage))))
       
@@ -1254,27 +1258,27 @@
       (hupdate)
       (vupdate)
       (hupdate)
-      (values vmin vmax vpage hmin hmax hpage)))
+      (values vmin vmax vline vpage hmin hmax hline hpage)))
   
   
   (method public (update-scrollbars)
     (when (and scroller (not update-locked?))
-      (receive (vmin vmax vpage hmin hmax hpage) (compute-scroll-info)
+      (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info)
         (set-vscroll-needed?~ scroller (> vmax vpage))
         (when (get-vscroll?~ scroller)
-          (set-scroll-info 'vert vmin vmax vpage))
+          (set-scroll-info 'vert vmin vmax vline vpage))
         (set-hscroll-needed?~ scroller (> hmax hpage))
         (when (get-hscroll?~ scroller)
-          (set-scroll-info 'horz hmin hmax hpage)))))
+          (set-scroll-info 'horz hmin hmax hline hpage)))))
   
   
   (method public (vscroll-needed?)
-    (receive (vmin vmax vpage hmin hmax hpage) (compute-scroll-info)
+    (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info)
       (> vmax vpage)))
   
   
   (method public (hscroll-needed?)
-    (receive (vmin vmax vpage hmin hmax hpage) (compute-scroll-info)
+    (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info)
       (> hmax hpage)))
   
   
@@ -1436,13 +1440,6 @@
         ((horz) (get-width~ size)))))
   
   
-  (method public virtual (get-display-page-size orientation) <fx>
-    (let ((size (get-size~ (get-display))))
-      (case orientation
-        ((vert) (get-height~ size))
-        ((horz) (get-width~ size)))))
-  
-  
   (method public (with-scrollee-locked proc)
     (if scrollee-locked?
         (proc)
@@ -1493,11 +1490,7 @@
     )
 
 
-  (method package virtual (on-vscroll code thumb-pos orientation)
-    )
-
-
-  (method package virtual (on-hscroll code thumb-pos orientation)
+  (method package virtual (scroll-action action line page thumb-pos orientation)
     )
 
 

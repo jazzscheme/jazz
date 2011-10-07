@@ -152,15 +152,8 @@
   
   
   (method override (destroy-component)
-    (let ((mouse-in (get-mouse-in)))
-      (when (and mouse-in (has-ascendant?~ mouse-in self))
-        (reset-mouse-in)
-        (call-mouse-leave~ mouse-in)))
-    (let ((focus (get-focus)))
-      (when (and focus (has-ascendant?~ focus self))
-        (let ((window-focus (get-window-focus)))
-          (when (eq? player window-focus)
-            (reset-focus~ window-focus)))))
+    (detach-mouse-in)
+    (detach-view-focus)
     (nextmethod))
 
 
@@ -178,6 +171,27 @@
         (set! transformation #f))
       (when (is? parent View)
         (invalidate-rect~ parent rect))))
+  
+  
+  ;;;
+  ;;;; Reset
+  ;;;
+  
+  
+  (method protected (detach-mouse-in)
+    (let ((mouse-in (get-mouse-in)))
+      (when (and mouse-in (has-ascendant?~ mouse-in self))
+        (reset-mouse-in)
+        (call-mouse-leave~ mouse-in))))
+  
+  
+  (method protected (detach-view-focus)
+    (let ((focus (get-focus)))
+      (when (and focus (has-ascendant?~ focus self))
+        (let ((window-focus (get-window-focus)))
+          (when (eq? player window-focus)
+            (reset-focus~ window-focus)
+            focus)))))
   
   
   ;;;
@@ -204,30 +218,13 @@
   
   
   (method override (set-player plr)
-    (define (own-focus)
-      (let ((focus (get-focus)))
-        (when (eq? focus self)
-          focus)))
-    
-    (define (own-mouse)
-      (let ((mouse (get-mouse-in)))
-        (when (eq? mouse self)
-          mouse)))
-    
     (when (neq? player plr)
-      (let ((focus (own-focus))
-            (mouse (own-mouse)))
-        (when focus
-          (let ((window-focus (get-window-focus)))
-            (when (eq? player window-focus)
-              (reset-focus~ window-focus))))
-        (when (and mouse (not plr))
-          (reset-mouse-in)
-          (call-mouse-leave))
+      (detach-mouse-in)
+      (let ((own-focus (detach-view-focus)))
         (set! player plr)
         (nextmethod plr)
-        (when (and player focus)
-          (acquire-focus~ focus)))))
+        (when (and player own-focus)
+          (acquire-focus~ own-focus)))))
   
   
   (method public (in-player?)

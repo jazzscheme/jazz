@@ -277,15 +277,16 @@
                           (width (get-width~ column))
                           (merge-cell (get-merge-cell~ tree (row/column->site~ tree self column))))
                       (unless merge-cell
-                        (let ((view? (is? data View)))
-                          (with-clipping-transform~ surface h v width height (and view? (get-transformation~ data))
+                        (if (is-not? data View)
+                            (with-clipping-transform~ surface h v width height #f
+                              (lambda ()
+                                (draw-data~ column surface context self data width height)))
+                          (when node?
+                            (draw-level~ column surface self data width height)
+                            (draw-control~ column surface self data width height))
+                          (with-self-transform~ data surface
                             (lambda ()
-                              (if (not view?)
-                                  (draw-data~ column surface context self data width height)
-                                (when node?
-                                  (draw-level~ column surface self data width height)
-                                  (draw-control~ column surface self data width height))
-                                (render-drawing~ data surface context))))))
+                              (render-drawing~ data surface context)))))
                       (increase! h (+ width (if (space-column?~ tree column rank) cs 0)))
                       (increase! rank))))
                 (get-columns~ tree)

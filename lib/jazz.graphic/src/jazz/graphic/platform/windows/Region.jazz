@@ -49,19 +49,19 @@
   (slot handle getter generate)
   
   
-  (method override (initialize . rest)
-    (nextmethod #f rest)
-    (if (null? rest)
-        (set! handle (CreateRectRgn 0 0 0 0))
-      (let ((first (car rest)))
-        (cond ((foreign? first)
-               (set! handle first))
-              ((rect? first)
-               (set! handle (CreateRectRgn (get-left~ first) (get-top~ first) (get-right~ first) (get-bottom~ first))))
-              ((fixnum? first)
-               (bind (top right bottom) (cdr rest)
-                 (set! handle (CreateRectRgn first top right bottom)))))))
+  (method override (initialize (keep-rectangles?: keep-rectangles? (needs-rectangles?)) (handle: handle #f) (rect: rect #f))
+    (nextmethod keep-rectangles?: keep-rectangles? rect: rect)
+    (cond (handle
+           (set! handle~self handle))
+          (rect
+           (set! handle~self (CreateRectRgn (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-bottom~ rect))))
+          (else
+           (set! handle~self (CreateRectRgn 0 0 0 0))))
     (destroy-mandatory))
+  
+  
+  (method override (needs-rectangles?)
+    #f)
 
   
   (method override (destroy)
@@ -92,7 +92,7 @@
   
   
   (method override (intersects-rect? rect) <bool>
-    (with ((region (new Region rect)))
+    (with ((region (new Region rect: rect)))
       (combine!~ region self 'and)
       (not (empty?~ region))))
 

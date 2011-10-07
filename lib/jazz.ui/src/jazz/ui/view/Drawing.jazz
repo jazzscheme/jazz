@@ -95,11 +95,12 @@
 
   (method public (acquire origin <Drawing> shape)
     (define (common-ancestor l1 l2)
-      (assert (eq? (car l1) (car l2)))
-      (let (iter (ancestor (car l1)) (s1 (cdr l1)) (s2 (cdr l2)))
-        (if (and (not-null? s1) (not-null? s2) (eq? (car s1) (car s2)))
-            (iter (car s1) (cdr s1) (cdr s2))
-          ancestor)))
+      (if (eq? (car l1) (car l2))
+          (let (iter (ancestor (car l1)) (s1 (cdr l1)) (s2 (cdr l2)))
+            (if (and (not-null? s1) (not-null? s2) (eq? (car s1) (car s2)))
+                (iter (car s1) (cdr s1) (cdr s2))
+              ancestor))
+        (error "Unable to find common ancestor in acquire")))
     
     (if (eq? origin self)
         shape
@@ -314,7 +315,7 @@
   
   (method public (with-transformation-surface proc)
     (let ((surface (transformation-surface)))
-      (with-view-transform surface #f
+      (with-view-transform surface (get-root)
         (lambda ()
           (proc surface)))))
   
@@ -485,12 +486,11 @@
   ;;;
   
   
-  (method protected (with-view-transform surface ancestor thunk)
-    (if (if ancestor (eq? self ancestor) (not parent))
+  (method protected (with-view-transform surface root thunk)
+    (if (eq? self root)
         (with-reset-transform~ surface
           thunk)
-      (assert parent)
-      (with-view-transform~ parent surface ancestor
+      (with-view-transform~ parent surface root
         (lambda ()
           (with-self-transform surface
             thunk)))))

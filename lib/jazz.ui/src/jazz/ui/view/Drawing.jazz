@@ -334,7 +334,7 @@
   
   (method public (find-in-drawing surface <Surface> device-pos <Point> ignore)
     (unless (and ignore (memq? self ignore))
-      (with-clipping-transform~ surface (get-h~ position) (get-v~ position) (get-width~ size) (get-height~ size) (get-transformation)
+      (with-self-transform surface
         (lambda ()
           (let ((pos (device->logical~ surface device-pos)))
             (when (in-drawing? pos size)
@@ -379,9 +379,15 @@
   
   
   (method public (paint-drawing surface <Surface> context <list>) <void>
-    (with ((region (new Region (get-clipper~ surface))))
+    (with ((region (new Region (logical->device~ surface (get-clipper~ surface)))))
       (bind (view draw-self? . nodes) (painting-tree surface region)
         (paint surface draw-self? nodes context))))
+  
+  
+  (method public (render-drawing surface <Surface> context <list>) <void>
+    (with ((region (new Region (logical->device~ surface (get-clipper~ surface)))))
+      (bind (view draw-self? . nodes) (painting-tree surface region)
+        (render surface draw-self? nodes context))))
   
   
   (method public (painting-tree surface region <Region>)
@@ -432,7 +438,7 @@
   
   
   (method public (paint-content surface <Surface> draw-self? <bool> nodes <list> context <list>) <void>
-    (with-clipping-transform~ surface (get-h~ position) (get-v~ position) (get-width~ size) (get-height~ size) (get-transformation)
+    (with-self-transform surface
       (lambda ()
         (render surface draw-self? nodes context))))
 

@@ -569,12 +569,12 @@
   
   (method override (draw-children surface <Surface> nodes context)
     (define (paint-data context column row h v width height data)
-      (if (is-not? data View)
-          (paint-data~ column surface context h v width height row data)
-        (with-preserved-matrix~ surface
+      (let ((view? (is? data View)))
+        (with-clipping-transform~ surface h v width height (and view? (get-transformation~ data))
           (lambda ()
-            (translate~ surface 0 v)
-            (paint-drawing~ data surface context)))))
+            (if (not view?)
+                (draw-data~ column surface context row data width height)
+              (render-drawing~ data surface context))))))
     
     (define (merge-geometry top-left bottom-right)
       (let ((top-left-rect (unmerged-site-rect top-left))

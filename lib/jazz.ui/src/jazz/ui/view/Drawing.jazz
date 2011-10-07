@@ -95,23 +95,27 @@
 
   (method public (acquire origin <Drawing> shape)
     (define (common-ancestor l1 l2)
-      (if (eq? (car l1) (car l2))
-          (let (iter (ancestor (car l1)) (s1 (cdr l1)) (s2 (cdr l2)))
-            (if (and (not-null? s1) (not-null? s2) (eq? (car s1) (car s2)))
-                (iter (car s1) (cdr s1) (cdr s2))
-              ancestor))
-        (error "Unable to find common ancestor in acquire")))
+      (let (iter (ancestor #f) (s1 l1) (s2 l2))
+        (if (and (not-null? s1) (not-null? s2) (eq? (car s1) (car s2)))
+            (iter (car s1) (cdr s1) (cdr s2))
+          ancestor)))
     
     (if (eq? origin self)
         shape
-      (let ((surface (transformation-surface))
-            (ancestor (common-ancestor (get-ancestry) (get-ancestry~ origin))))
-        (let ((device-shape (with-view-transform~ origin surface ancestor
-                              (lambda ()
-                                (logical->device~ surface shape)))))
-          (with-view-transform surface ancestor
-            (lambda ()
-              (device->logical~ surface device-shape)))))))
+      (let ((player (get-player))
+            (origin-player (get-player~ origin)))
+        (if (eq? player origin-player)
+            (let ((surface (transformation-surface))
+                  (ancestor (common-ancestor (get-ancestry) (get-ancestry~ origin))))
+              (if ancestor
+                  (let ((device-shape (with-view-transform~ origin surface ancestor
+                                        (lambda ()
+                                          (logical->device~ surface shape)))))
+                    (with-view-transform surface ancestor
+                      (lambda ()
+                        (device->logical~ surface device-shape))))
+                (error "Unable to find common ancestor in acquire")))
+          (acquire~ self (get-root) (acquire~ player origin-player (acquire~ (get-root~ origin) origin shape)))))))
   
   
   (method public (view->device shape)

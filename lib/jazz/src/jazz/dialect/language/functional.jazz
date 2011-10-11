@@ -4743,8 +4743,27 @@
           (queue-list queue))))))
 
 
+(definition public (read-lines-chunked input chunk-size proc)
+  (declare (proper-tail-calls))
+  (let (iterate (count 0) (queue (new-queue)) (last-proper? #t))
+    (receive (line proper?) (read-proper-line input)
+      (if line
+          (begin
+            (enqueue queue line)
+            (let ((count (+ count 1)))
+              (if (or (not chunk-size) (< count chunk-size))
+                  (iterate count queue proper?)
+                (proc (queue-list queue))
+                (iterate 0 (new-queue) proper?))))
+        (when last-proper?
+          (enqueue queue ""))
+        (when (or (> count 0) last-proper?)
+          (proc (queue-list queue)))
+        (unspecified)))))
+
+
 (definition public (read-content-string input)
-  ;; passing #f to gambit's read-line make's it never see an actual
+  ;; passing #f to gambit's read-line makes it never see an actual
   ;; end-of-line so that it will read the whole content as a string
   (let ((line (read-line input #f)))
     (if (eof-object? line)

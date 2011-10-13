@@ -64,6 +64,7 @@
   (slot selection           initialize '())
   (slot document-controller initialize #f)
   (slot rights              initialize #f accessors generate)
+  (slot selection-locked?   initialize #f accessors generate)
   
   
   (method override (get-component-editor)
@@ -364,13 +365,14 @@
   
   
   (method public (select component (focus?: focus? #t))
-    (if (or (control-down?) (shift-down?))
+    (unless selection-locked?
+      (if (or (control-down?) (shift-down?))
+          (if (selected? component)
+              (set-selection (remove component selection) origin: self focus?: focus?)
+            (set-selection (append selection (list component)) origin: self focus?: focus?))
         (if (selected? component)
-            (set-selection (remove component selection) origin: self focus?: focus?)
-          (set-selection (append selection (list component)) origin: self focus?: focus?))
-      (if (selected? component)
-          (set-selection (cons component (remove component selection)) origin: self focus?: focus?)
-        (set-selection (list component) origin: self focus?: focus?))))
+            (set-selection (cons component (remove component selection)) origin: self focus?: focus?)
+          (set-selection (list component) origin: self focus?: focus?)))))
   
   
   (method public (selected? component)
@@ -441,6 +443,10 @@
       (set-selection (collect-if (lambda (component)
                                    (not (destroyed?~ component)))
                                  selection))))
+  
+  
+  (method public (toggle-lock-selection)
+    (set! selection-locked? (not selection-locked?)))
   
   
   ;;;

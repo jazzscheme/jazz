@@ -86,6 +86,16 @@
     (let ((player (get-player)))
       (when player
         (get-root~ player))))
+  
+  
+  (method public (get-rootmost) <View>
+    (define (rootmost view)
+      (let ((parent (get-parent~ view)))
+        (if (not parent)
+            view
+          (rootmost parent))))
+    
+    (or (get-root) (rootmost self)))
 
   
   ;;;
@@ -102,26 +112,27 @@
     
     (if (eq? origin self)
         shape
-      (let ((player (get-player))
-            (origin-player (get-player~ origin)))
-        (if (eq? player origin-player)
+      (let ((root (get-rootmost))
+            (origin-root (get-rootmost~ origin)))
+        (if (eq? root origin-root)
             (let ((surface (transformation-surface))
                   (ancestor (common-ancestor (get-ancestry) (get-ancestry~ origin))))
-              (if ancestor
-                  (let ((device-shape (with-view-transform~ origin surface ancestor
-                                        (lambda ()
-                                          (logical->device~ surface shape)))))
-                    (with-view-transform surface ancestor
-                      (lambda ()
-                        (device->logical~ surface device-shape))))
-                (error "Unable to find common ancestor in acquire")))
-          ;; quick hack that needs to be fixed for some regressions like mouse-move or mouse-up
-          ;; that can occur when they get called playerless because their window was closed for
-          ;; example when double-clicking a found binding in the View Shortcut Bindings tree
-          (if (or (not player)
-                  (not origin-player))
+              (let ((device-shape (with-view-transform~ origin surface ancestor
+                                    (lambda ()
+                                      (logical->device~ surface shape)))))
+                (with-view-transform surface ancestor
+                  (lambda ()
+                    (device->logical~ surface device-shape)))))
+          (let ((player (get-player))
+                (origin-player (get-player~ origin)))
+            (if (and player origin-player)
+                (acquire~ self (get-root) (acquire~ player origin-player (acquire~ (get-root~ origin) origin shape)))
+              ;; quick hack that needs to be fixed for some regressions like mouse-move or mouse-up
+              ;; that can occur when they get called playerless because their window was closed for
+              ;; example when double-clicking a found binding in the View Shortcut Bindings tree
               shape
-            (acquire~ self (get-root) (acquire~ player origin-player (acquire~ (get-root~ origin) origin shape))))))))
+              @quick-hack
+              (error "Unable to acquire {s}" shape)))))))
   
   
   (method public (view->device shape)

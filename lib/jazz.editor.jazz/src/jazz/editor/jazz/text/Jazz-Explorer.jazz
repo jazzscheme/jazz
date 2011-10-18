@@ -392,6 +392,7 @@
       ((:c-external)      walk-c-external)
       ((:com-external)    walk-com-external)
       ((:datacontainer)   walk-datacontainer)
+      ((:define-handler)  walk-define-handler)
       (else               (nextmethod name))))
   
   
@@ -687,4 +688,27 @@
       (when (forward-expr)
         (set! entry (declaration context 'datacontainer symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (walk-expressions entry expression)
+      entry))
+  
+  
+  (method (walk-define-handler context symbol form declaration keyword expression doc)
+    (let ((entry context))
+      (keyword context start end)
+      (walk-modifiers context declaration keyword (get-modifiers~ form))
+      (forward-whites)
+      (forward-expr)
+      (keyword context start end)
+      (walk-expression context expression 'code #f)
+      (forward-whites)
+      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+        (cond ((not list?)
+               (when (and (forward-expr) (eq? kind 'symbol))
+                 (set! entry (declaration context 'definition symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
+              (else
+               (enter-list)
+               (when (and (forward-expr) (eq? kind 'symbol))
+                 (set! entry (declaration context 'definition symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+               (walk-parameters entry declaration keyword expression doc)
+               (exit-list))))
+      (walk-expressions entry expression 'code #f)
       entry))))

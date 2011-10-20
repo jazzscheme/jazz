@@ -477,23 +477,26 @@
   
   
   (method override (client-rows-datas)
+    (define (make-child-lists child rest)
+      (if (null? rest)
+          (list (list child))
+        (map (lambda (row-data) (cons child row-data)) rest)))
+    
     (define (make-rows-components-lists component selection-columns)
       (if (null? selection-columns)
           '()
         (let* ((column-data (get-provider-data~ (car selection-columns)))
                (identifier (get-identifier~ column-data)))
           (if identifier
-              (list (cons (find-child~ component identifier) (make-rows-components-lists component (cdr selection-columns))))
+              (make-child-lists (find-child~ component identifier)
+                                (make-rows-components-lists component (cdr selection-columns)))
             (let ((addable-children (collect-if (lambda (class) (addable-class?~ component class))
                                                 (get-components~ component)
                                                 key: class-of)))
               (if (null? addable-children)
                   (list (make-list (length selection-columns) #f))
                 (append-map (lambda (child)
-                              (let ((rest (make-rows-components-lists child (cdr selection-columns))))
-                                (if (null? rest)
-                                    (list (list child))
-                                  (map (lambda (row-data) (cons child row-data)) rest))))
+                              (make-child-lists child (make-rows-components-lists child (cdr selection-columns))))
                             addable-children)))))))
     
     (let ((rows-components-lists (make-rows-components-lists client (collect-type Component-Provider-Selection-Data

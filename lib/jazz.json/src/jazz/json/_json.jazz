@@ -121,15 +121,29 @@
       (get-output-string printer)))
   
   (define (print obj depth)
+    (define (standardize-real obj)
+      (let ((str (number->string obj)))
+        (if (eqv? (string-ref str 0) #\.)
+            (string-append "0" str)
+          str)))
+    
     (cond ((eq? obj #f) (display "false" port))
           ((eq? obj #t) (display "true" port))
           ((null? obj) (display "null" port))
           ((string? obj) (format port "\"{a}\"" (escape-double-quotes obj)))
-          ((number? obj) (if (and (inexact? obj) (integer? obj))
-                             (write (inexact->exact obj) port)
-                           (write obj port)))
+          ((number? obj) (cond ((integer? obj)
+                                (if (exact? obj)
+                                    (write obj port)
+                                  (write (inexact->exact obj) port)))
+                               ((rational? obj)
+                                (display (standardize-real (exact->inexact obj)) port))
+                               ((real? obj)
+                                (display (standardize-real obj) port))
+                               (else
+                                (display obj port))))
           ((pair? obj) (print-array obj depth))
           ((table? obj) (print-object obj depth))
+          ;; this code from VS is wrong. cases should be explicit and else should error
           (else (format port "\"{s}\"" obj))))
   
   (define (print-array obj depth)

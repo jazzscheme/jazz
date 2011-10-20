@@ -109,7 +109,7 @@
 (definition public (process-events)
   (define (process-events-single-threaded)
     (declare (proper-tail-calls))
-    (let (loop)
+    (let (restart-loop)
       (with-restart-catcher 'resume-loop (present-event-loop-restart)
         (lambda ()
           (catch Cancel-Signal
@@ -121,7 +121,7 @@
                       (with-exception-debugger (get-exception-debugger)
                         thunk)
                       (loop)))))))))
-      (loop)))
+      (restart-loop)))
   
   (define (process-events-multi-threaded)
     (declare (proper-tail-calls))
@@ -130,14 +130,16 @@
         (thread-start-loop pump)
         (thread-start! pump))
       (unwind-protect
-          (let (loop)
+          (let (restart-loop)
             (with-restart-catcher 'resume-loop (present-event-loop-restart)
               (lambda ()
                 (catch Cancel-Signal
-                  (let ((thunk (thread-read)))
-                    (with-exception-debugger (get-exception-debugger)
-                      thunk)))))
-            (loop))
+                  (let (loop)
+                    (let ((thunk (thread-read)))
+                      (with-exception-debugger (get-exception-debugger)
+                        thunk))
+                    (loop)))))
+            (restart-loop))
         (when pump
           (thread-stop-loop pump)))))
   

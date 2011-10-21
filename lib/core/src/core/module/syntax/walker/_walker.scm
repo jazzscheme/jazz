@@ -4182,6 +4182,8 @@
   (let ((form (jazz:source-code form-src)))
     (cond ((identifier? form)
            (jazz:walk-symbol walker resume declaration environment form-src))
+          ((%%null? form)
+           (jazz:walk-error walker resume declaration form-src "Ill-formed expression: ()"))
           ((%%pair? form)
            (jazz:walk-form walker resume declaration environment form-src))
           ((syntactic-closure? form)

@@ -44,6 +44,7 @@
         (jazz.debugger)
         (jazz.jml)
         (jazz.library)
+        (jazz.system)
         (jazz.ui))
 
 
@@ -73,7 +74,7 @@
   (method public (set-client clt)
     (when (neq? clt client)
       (set! client clt)
-      (present-client client)))
+      (inspect-client client)))
   
   
   ;;;
@@ -82,10 +83,10 @@
   
   
   (method override (update-row row)
-    (bind (serial . kind) (get-user-data~ row)
+    (bind (name serial class presentation more? mutable? kind) (get-user-data~ row)
       (with-jrm-exception-handler
         (lambda ()
-          (present row (inspect-serial~ process serial))))))
+          (inspect-content row (inspect-serial~ process serial))))))
   
   
   ;;;
@@ -93,16 +94,16 @@
   ;;;
   
   
-  (method (present-client client)
+  (method (inspect-client client)
     (remove-every-row)
     (with-update-locked
       (lambda ()
         (when client
           (bind (data . kind) client
-            (present root-row (inspect data kind)))))))
+            (inspect-content root-row (inspect data kind)))))))
   
   
-  (method (present row values)
+  (method (inspect-content row values)
     (with-update-locked
       (lambda ()
         (for-each (lambda (info)
@@ -110,7 +111,7 @@
                       (let ((state (if more? 'dynamic 'collapsed)))
                         (add-row father: row state: state
                           children: (list (new Tree-Node title: name image: {Image-Resource "Variable"}) (new Tree-Label title: presentation))
-                          user-data: (cons serial kind)))))
+                          user-data: info))))
                   values))))
   
   
@@ -131,7 +132,13 @@
               (track-popup-menu menu acquired)))))))
   
   
-  (method (on-reset evt)
+  (method (on-open evt)
+    (let ((info (get-single-selected-data)))
+      (when info
+        (inspect-info~ (get-local-debugger~ (get-application)) process (cdr info)))))
+  
+  
+  (method (on-refresh evt)
     (let ((row (get-selected-row)))
       (when row
         (collapse row)
@@ -166,4 +173,6 @@
   
   (form
     (<install>
-      (<Label-Item> name: delete title: "Reset" action-handler: {Event-Handler (:form :client) on-reset})))))
+      (<Label-Item>     name: open    title: "Open in new window" icon: {Image-Resource "Window"} action-handler: {Event-Handler (:form :client) on-open})
+      (<Separator-Item>)
+      (<Label-Item>     name: refresh title: "Refresh" icon: {Image-Resource "Refresh"} action-handler: {Event-Handler (:form :client) on-refresh})))))

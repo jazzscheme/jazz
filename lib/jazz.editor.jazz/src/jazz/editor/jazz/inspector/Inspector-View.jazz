@@ -38,8 +38,11 @@
 (module protected jazz.editor.jazz.inspector.Inspector-View jazz
 
 
-(import (jazz.editor.jazz)
+(import (jazz.debugger)
+        (jazz.editor.jazz)
+        (jazz.graphic)
         (jazz.jml)
+        (jazz.library)
         (jazz.ui))
 
 
@@ -51,14 +54,24 @@
   
   
   (form
-    (<install>                                    layout-type: fill
-      (<Scroller-View>                            vscroll?: #t hscroll?: #t style: tool
-        (<!>               name: content          layout-type: fill
-          (<Tree-Header>                          style: tool
-            (<!>           name: content
-              (<Inspector> name: inspector        selection-mode: row
-                (<!>       name: name             width: 170)
-                (<!>       name: value            width: 261))))))))
+    (<install>                                         layout-type: border
+      (<Layout-View>                name: toolbar      size: {Dimension 300 25} location: north layout-type: flow layout-insets: {Rect 0 1 0 0}
+        (<Separator>                                   size: {Dimension 2 0})
+        (<Label-View>               name: filter-label justification: (head -2) title: "Filter:" size: {Dimension 31 20} font: {Font Label})
+        (<Separator>                                   size: {Dimension 4 0})
+        (<Border-View>                                 size: {Dimension 170 21} border-type: fill border-insets: {Rect 0 2 0 0}
+          (<Border-View>                               border-type: edge style: entry
+            (<Scroller-View>                           hscroll?: #f vscroll?: #f
+              (<!>                  name: content      layout-type: fill
+                (<Filter-Text-View> name: filter-text  target-name: actions content-change-handler: {Event-Handler :form on-filter-text-change})))))
+        (<Toggle-Tool>                                 location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Order by Class" resource: {Image-Resource "PageFilename"} portfolio: :images action-handler: {Event-Handler :form on-toggle-class}))
+      (<Scroller-View>              name: scroller     location: center vscroll?: #t hscroll?: #t style: tool
+        (<!>                        name: content      layout-type: fill
+          (<Tree-Header>            name: header       style: tool
+            (<!>                    name: content
+              (<Inspector>          name: inspector    selection-mode: row return-press-handler: {Event-Handler :form on-drill-down} double-click-handler: {Event-Handler :form on-drill-down}
+                (<!>                name: name         width: 170)
+                (<!>                name: value        width: 261))))))))
   
   
   ;;;
@@ -70,10 +83,6 @@
     "Inspector")
   
   
-  (method meta override (host-position)
-    {Point 378 60})
-  
-  
   (method meta override (host-size)
     {Dimension 446 641})
   
@@ -83,21 +92,53 @@
   ;;;
   
   
+  (method public (get-inspector)
+    (locate 'inspector))
+  
+  
   (method public (get-process)
-    (get-process~ (locate 'inspector)))
+    (get-process~ (get-inspector)))
   
   
   (method public (set-process process)
-    (set-process~ (locate 'inspector) process))
+    (set-process~ (get-inspector) process))
   
   
   (method public (get-client)
-    (get-client~ (locate 'inspector)))
+    (get-client~ (get-inspector)))
   
   
   (method public (set-client client)
     (update-title client)
-    (set-client~ (locate 'inspector) client))
+    (set-client~ (get-inspector) client))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-filter-text-change evt)
+    @w
+    (filter-target~ (get-filter-text)))
+  
+  
+  (method (on-toggle-class evt)
+    )
+  
+  
+  (method (on-drill-down evt)
+    (let ((tree (get-sender~ evt)))
+      (set-client (cons (cdr (get-single-selected-data~ tree)) :remote))))
+  
+  
+  ;;;
+  ;;;; Filter
+  ;;;
+  
+  
+  (method (get-filter-text)
+    (locate 'filter-text))
   
   
   ;;;

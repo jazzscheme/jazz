@@ -41,6 +41,7 @@
 (import (jazz.debugger)
         (jazz.editor.jazz)
         (jazz.editor.jazz.inspector)
+        (jazz.graphic)
         (jazz.jml)
         (jazz.library)
         (jazz.system)
@@ -55,16 +56,17 @@
   
   
   (form
-    (<install>                                       layout-type: border
-      (<Layout-View>                 name: tools
-        (<Toggle-Tool>               name: dynamic   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show Dynamic Environment" resource: {Image-Resource "All"} portfolio: :images action-handler: {Event-Handler :guest on-toggle-dynamic}))
-      (<Scroller-View>               name: scroller  location: center vscroll?: #t hscroll?: #t style: tool
-        (<!>                         name: content   layout-type: fill
-          (<Tree-Header>                             style: tool
-            (<!>                     name: content
-              (<Variables-Inspector> name: variables multiple-selection?: #f selection-mode: row
-                (<!>                 name: name      width: 130)
-                (<!>                 name: value     width: 303))))))))
+    (<install>                                    layout-type: border
+      (<Layout-View>              name: tools
+        (<Toggle-Tool>            name: dynamic   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show Dynamic Environment" resource: {Image-Resource "All"} portfolio: :images action-handler: {Event-Handler :guest on-toggle-dynamic}))
+      (<Variables-Inspector-View> name: variables background: {Color Medium}
+        (<!>                      name: scroller
+          (<!>                    name: content
+            (<!>                  name: header
+              (<!>                name: content
+                (<!>              name: inspector multiple-selection?: #f selection-mode: row
+                  (<!>            name: name      width: 130)
+                  (<!>            name: value     width: 303)))))))))
   
   
   (method meta override (external-name . rest)
@@ -94,7 +96,7 @@
   
   
   (method override (focus-default)
-    (let ((tree (locate 'variables)))
+    (let ((tree (get-inspector)))
       (acquire-focus~ tree)))
   
   
@@ -103,12 +105,16 @@
   ;;;
   
   
+  (method public (get-inspector)
+    (get-inspector~ (locate 'variables)))
+  
+  
   (method public (get-process)
-    (get-process~ (locate 'variables)))
+    (get-process~ (get-inspector)))
   
   
   (method public (set-process process)
-    (set-process~ (locate 'variables) process))
+    (set-process~ (get-inspector) process))
   
   
   (method public (get-continuation-frame)
@@ -117,7 +123,7 @@
   
   (method public (set-continuation-frame frm)
     (set! continuation-frame frm)
-    (set-client~ (locate 'variables) (determine-frame-client)))
+    (set-client~ (get-inspector) (determine-frame-client)))
   
   
   (method public (frame-changed new-frame)
@@ -141,7 +147,7 @@
   
   (method override (resize dh dv)
     (nextmethod dh dv)
-    (size-figure~ (locate 'scroller) dh dv))
+    (size-figure~ (locate 'variables) dh dv))
   
   
   (method package (on-frame-change evt)
@@ -161,7 +167,21 @@
   
   (method (on-toggle-dynamic evt)
     (when continuation-frame
-      (set-client~ (locate 'variables) (determine-frame-client)))))
+      (set-client~ (get-inspector) (determine-frame-client)))))
+
+
+;;;
+;;;; Inspector-View
+;;;
+
+
+(class Variables-Inspector-View extends Inspector-View
+  
+  
+  (method override (form-model form)
+    (case (get-name~ form)
+      ((inspector) Variables-Inspector)
+      (else (nextmethod form)))))
 
 
 ;;;

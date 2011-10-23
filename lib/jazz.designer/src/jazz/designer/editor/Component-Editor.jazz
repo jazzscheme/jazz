@@ -64,6 +64,7 @@
   (slot selection           initialize '())
   (slot document-controller initialize #f)
   (slot rights              initialize #f accessors generate)
+  (slot selection-locked?   initialize #f accessors generate)
   
   
   (method override (get-component-editor)
@@ -364,13 +365,14 @@
   
   
   (method public (select component (focus?: focus? #t))
-    (if (or (control-down?) (shift-down?))
+    (unless selection-locked?
+      (if (or (control-down?) (shift-down?))
+          (if (selected? component)
+              (set-selection (remove component selection) origin: self focus?: focus?)
+            (set-selection (append selection (list component)) origin: self focus?: focus?))
         (if (selected? component)
-            (set-selection (remove component selection) origin: self focus?: focus?)
-          (set-selection (append selection (list component)) origin: self focus?: focus?))
-      (if (selected? component)
-          (set-selection (cons component (remove component selection)) origin: self focus?: focus?)
-        (set-selection (list component) origin: self focus?: focus?))))
+            (set-selection (cons component (remove component selection)) origin: self focus?: focus?)
+          (set-selection (list component) origin: self focus?: focus?)))))
   
   
   (method public (selected? component)
@@ -443,6 +445,10 @@
                                  selection))))
   
   
+  (method public (toggle-lock-selection)
+    (set! selection-locked? (not selection-locked?)))
+  
+  
   ;;;
   ;;;; Save
   ;;;
@@ -459,22 +465,39 @@
     (process-saved))
   
   
-  ;; temp patch to make saving in the view designer work
+  (method (refresh)
+    (define (confirm-refresh)
+      (or (not (get-modified?))
+          (let ((code (message-box "You must save before refreshing. Save changes?"
+                                   type: 'confirmation)))
+            (case code
+              ((yes) #t)
+              ((no) (throw-cancel))
+              ((cancel) (throw-cancel))))))
+    
+    (when (confirm-refresh)
+      (let ((destination (designer-save)))
+        (set-modified? #f)
+        (reset-client destination))))
+  
+  
+  (method public (reset-client target)
+    (set-client
+      (typecase target
+        ((File) (instantiate~ (read-form target)))
+        ((Class) (new target)))))
   
   
   (method public (save-patch thunk)
     (process-saving)
-    (let ((origin (get-origin~ (get-form~ designer)))
-          (destination (thunk)))
+    (let* ((origin (get-origin~ (get-form~ designer)))
+           (destination (thunk)))
       (if (not (get-modified?))
           (update-status)
         (set-modified? #f))
       (when (not (or (and (file? origin) (file? destination) (pathname=? origin destination))
                      (eq? origin destination)))
-        (set-client
-          (typecase destination
-            ((File) (instantiate~ (read-form destination)))
-            ((Class) (new destination)))))))
+        (reset-client destination))))
   
   
   (method public (save-content-patch)

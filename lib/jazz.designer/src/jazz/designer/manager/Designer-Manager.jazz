@@ -55,23 +55,25 @@
 
 
   (form
-    (<install>                            layout-type: flow layout-insets: {Rect 4 5 0 0} background: {Color Medium}
-      (<Radio-Tool>     name: select      size: {Dimension 22 22} resource: {Image-Resource "ModeSelect"} portfolio: :images selected?: #t tooltip?: #t tooltip-text: "Select" action-handler: {Event-Handler :form on-mode mode: select})
-      (<Separator>                        size: {Dimension 2 0})
-      (<Radio-Tool>     name: rect        size: {Dimension 22 22} resource: {Image-Resource "ModeRect"} portfolio: :images tooltip?: #t tooltip-text: "Rectangle" action-handler: {Event-Handler :form on-mode mode: rect})
+    (<install>                                layout-type: flow layout-insets: {Rect 4 5 0 0} background: {Color Medium}
+      (<Radio-Tool>     name: select          size: {Dimension 22 22} resource: {Image-Resource "ModeSelect"} portfolio: :images selected?: #t tooltip?: #t tooltip-text: "Select" action-handler: {Event-Handler :form on-mode mode: select})
+      (<Separator>                            size: {Dimension 2 0})
+      (<Radio-Tool>     name: rect            size: {Dimension 22 22} resource: {Image-Resource "ModeRect"} portfolio: :images tooltip?: #t tooltip-text: "Rectangle" action-handler: {Event-Handler :form on-mode mode: rect})
       (<Separator>)
-      (<Toggle-Tool>    name: switch-mode size: {Dimension 22 22} tooltip?: #t tooltip-text: "Switch Mode" resource: {Image-Resource "DesignTables"} portfolio: :images action-handler: {Event-Handler :form on-switch-mode})
+      (<Toggle-Tool>    name: switch-mode     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Switch Mode" resource: {Image-Resource "DesignTables"} portfolio: :images action-handler: {Event-Handler :form on-switch-mode})
       (<Separator>)
-      (<Toggle-Tool>    name: frames      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Frames?" resource: {Image-Resource "Fill"} portfolio: :images selected?: #t action-handler: {Event-Handler :form on-toggle-frames})
-      (<Toggle-Tool>    name: content     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Content?" resource: {Image-Resource "View"} portfolio: :images selected?: #t action-handler: {Event-Handler :form on-toggle-content})
+      (<Toggle-Tool>    name: frames          size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Frames?" resource: {Image-Resource "Fill"} portfolio: :images selected?: #t action-handler: {Event-Handler :form on-toggle-frames})
+      (<Toggle-Tool>    name: content         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Content?" resource: {Image-Resource "View"} portfolio: :images selected?: #t action-handler: {Event-Handler :form on-toggle-content})
       (<Separator>)
-      (<Toggle-Tool>    name: try-out     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Try Out" resource: {Image-Resource "Trait"} portfolio: :images action-handler: {Event-Handler :form on-toggle-try-out})
+      (<Toggle-Tool>    name: lock-selection  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Lock Selection?" resource: {Image-Resource "DesignRelation"} portfolio: :images selected?: #f action-handler: {Event-Handler :form on-toggle-lock-selection})
+      (<Push-Tool>      name: refresh         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-refresh})
+      (<Toggle-Tool>    name: try-out         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Try Out" resource: {Image-Resource "Trait"} portfolio: :images action-handler: {Event-Handler :form on-toggle-try-out})
       (<Separator>)
-      (<Push-Tool>      name: edit-form   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit Source" resource: {Image-Resource "Script"} portfolio: :images action-handler: {Event-Handler :form on-edit-form})
+      (<Push-Tool>      name: edit-form       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit Source" resource: {Image-Resource "Script"} portfolio: :images action-handler: {Event-Handler :form on-edit-form})
       (<Separator>)
-      (<Layout-View>    name: zoom-layout size: {Dimension 80 22} layout-type: fill layout-insets: {Rect 2 2 2 1}
-        (<Border-View>                    border-color: {Color Dark}
-          (<Zoom-Combo> name: zoom        content-change-handler: {Event-Handler :form on-zoom-change})))))
+      (<Layout-View>    name: zoom-layout     size: {Dimension 80 22} layout-type: fill layout-insets: {Rect 2 2 2 1}
+        (<Border-View>                        border-color: {Color Dark}
+          (<Zoom-Combo> name: zoom            content-change-handler: {Event-Handler :form on-zoom-change})))))
   
   
   (method meta override (external-name . rest)
@@ -127,6 +129,14 @@
     (toggle-content~ client))
   
   
+  (method (on-toggle-lock-selection evt)
+    (toggle-lock-selection~ client))
+  
+  
+  (method (on-refresh evt)
+    (refresh~ client))
+  
+  
   (method (on-toggle-try-out evt)
     (let ((component (get-client~ client)))
       (when (or (is-not? component View)
@@ -152,10 +162,9 @@
   
   
   (method (on-zoom-change evt)
-    (let ((value (get-value~ (get-sender~ evt)))
+    (let ((value (get-zoom~ (get-sender~ evt)))
           (view (get-client~ client)))
-      (set-scaling~ view value)
-      (set-scaled?~ view #t)))
+      (set-scaling~ view value)))
   
   
   ;;;
@@ -192,17 +201,24 @@
       (let ((frames-button (locate 'frames))
             (content-button (locate 'content))
             (try-out-button (locate 'try-out))
+            (refresh-button (locate 'refresh))
+            (lock-button (locate 'lock-selection))
             (switch-mode-button (locate 'switch-mode))
             (zoom-layout (locate 'zoom-layout))
             (zoom (locate 'zoom)))
         (set-enabled?~ frames-button view-editor?)
         (set-enabled?~ content-button view-editor?)
         (set-enabled?~ try-out-button view-editor?)
+        (set-enabled?~ refresh-button view-editor?)
+        (set-enabled?~ lock-button view-editor?)
         (set-enabled?~ switch-mode-button view?)
         (set-enabled?~ zoom-layout view-editor?)
         (set-enabled?~ zoom view-editor?)
+        (when view?
+          (set-zoom~ zoom (effective-scaling~ (get-client~ client))))
         (set-selected?~ frames-button (and view-editor? (get-show-frames?~ client)))
         (set-selected?~ content-button (and view-editor? (get-show-content?~ client)))
+        (set-selected?~ lock-button (and view-editor? (get-selection-locked?~ client)))
         (set-selected?~ try-out-button (and view-editor? (trying-out?~ client)))
         (set-selected?~ switch-mode-button (and client (not view-editor?))))
       (set-enabled?~ (locate 'edit-form) client)))

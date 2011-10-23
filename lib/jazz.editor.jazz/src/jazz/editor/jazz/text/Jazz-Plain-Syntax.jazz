@@ -47,8 +47,41 @@
   
   
   ;;;
+  ;;;; Comment
+  ;;;
+  
+  
+  (definition Comment
+    (make-string 1 #\semi-colon))
+  
+  
+  (definition Title-Comment
+    (string-append (make-string 4 #\semi-colon) " "))
+  
+  
+  (method override (comment-string)
+    Comment)
+  
+  
+  (method override (title-comment-string)
+    Title-Comment)
+  
+  
+  ;;;
   ;;;; Coloring
   ;;;
+  
+  
+  (method override (colorize-syntax (recoloring?: recoloring? #f))
+    (define (colorize proc)
+      (let ((expl <Text-Explorer> (new (explorer-class) model start: (text-beginning~ model) end: (text-beginning~ model)))
+            (colorizer (and (not recoloring?) (new-colorizer~ model))))
+        (proc expl colorizer)
+        (when colorizer
+          (finish-current~ colorizer))))
+    
+    (nextmethod)
+    (colorize colorize-comments))
 
   
   (method override (colorize-comments . rest)
@@ -69,11 +102,13 @@
     (define (recolorize-comments line)
       (let* ((str (paragraph-string~ model line))
              (len (cardinality str))
-             (comment-string (comment-string~ syntax))
-             (comment (and comment-string (search str (comment-string~ syntax)))))
+             (title-comment-str (title-comment-string))
+             (title-comment-size (string-length title-comment-str))
+             (comment-str (comment-string))
+             (comment (search str comment-str)))
         (when (and comment (<= comment 20))
-          (let ((title-end (+ comment 4)))
-            (if (and (< title-end len) (= (subseq str comment title-end) (title-comment-string~ syntax)))
+          (let ((title-end (+ comment title-comment-size)))
+            (if (and (< title-end len) (nu=? (subseq str comment title-end) title-comment-str))
                 (begin
                   (stylize~ model 'Comment (new Cell line comment) (new Cell line title-end))
                   (stylize~ model 'Title (new Cell line title-end)))

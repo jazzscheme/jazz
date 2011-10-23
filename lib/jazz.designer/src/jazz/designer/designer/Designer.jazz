@@ -50,6 +50,7 @@
         (jazz.platform)
         (jazz.runtime)
         (jazz.system)
+        (jazz.ui)
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
         (jazz.ui.view))
@@ -75,7 +76,8 @@
     (define (setup-form frm)
       (if (not frm)
           (begin
-            (set! form~self (new Form textual?: #f origin: (class-of reference) action: 'new model: 'install))
+            (set! form~self (new Form textual?: #f origin: (class-of reference) action: 'install))
+            (set-context~ form~self form~self)
             (set-data~ form~self (new Data #f 'jazz '() #f)))
         (let ((origin (get-origin~ frm)))
           (if (file? origin)
@@ -158,10 +160,6 @@
       (save-content destination)))
   
   
-  (method (evaluate-at-caret text)
-    (apply evaluate-expressions~ (get-local-process) (prepare-expressions~ text (current-declaration-range~ text))))
-  
-  
   (method (choose-new-destination toolbox-managers)
     (define (parse-class-name class-string)
       (let ((content (with-exception-catcher
@@ -190,14 +188,10 @@
               (require-module module-name)))
         (designer-error "Empty module")))
     
-    (define (evaluate-class text module-name class-name)
-      (let ((explorer (new Jazz-Explorer (get-model~ text))))
-        (forward-location~ explorer (list class-name))
-        (set-end~ explorer (get-start~ explorer))
-        (enter-list~ explorer)
-        (set-caret~ text (get-end~ explorer))
-        (evaluate-at-caret text)
-        (module-ref module-name class-name)))
+    (define (evaluate-class module-name class-name super-class-name imports)
+      (evaluate-in-unit module-name `(import ,@imports) eval)
+      (evaluate-in-unit module-name `(class ,class-name extends ,super-class-name) eval)
+      (module-ref module-name class-name))
     
     (define (insert-class text class-name super-class-name)
       (let ((explorer (new Jazz-Explorer (get-model~ text))))
@@ -221,21 +215,21 @@
                 (validate-class-name module-name class-name)
                 (call-with-saved-text (find-unit-source module-name)
                   (lambda (text)
-                    (insert-imports text (imports-to-insert form super-class-name module-name))
-                    (evaluate-imports text)
-                    (insert-class text class-name super-class-name)
-                    (evaluate-class text module-name class-name))))))))))
+                    (let ((imports (imports-to-insert form super-class-name module-name)))
+                      (insert-imports text imports)
+                      (insert-class text class-name super-class-name)
+                      (evaluate-class module-name class-name super-class-name imports)))))))))))
   
     
   (method (super-class-name form)
     (or (get-model~ form)
-        (receive (unit names) (split-locator (get-name~ (class-ascendant (get-origin~ form))))
-          (car names))))
+        (category-name (class-ascendant (get-origin~ form)))))
   
   
   (method (imports-to-insert form super-class-name module-name)
     (define (super-class-import)
-      (and (eq? 'install (get-action~ form))
+      (and super-class-name
+           (eq? 'install (get-action~ form))
            (receive (unit _) (split-locator (get-name~ (get-origin~ form)))
              (let ((ser (serialize-runtime-reference (evaluate-in-unit unit `(reference ,super-class-name) eval))))
                (if (eq? (first ser) 'module-private)
@@ -257,14 +251,6 @@
     destination)
   
   
-  (method (evaluate-imports text)
-    (let ((explorer (new Jazz-Explorer (get-model~ text))))
-      (forward-namespace~ explorer)
-      (enter-import~ explorer)
-      (set-caret~ text (get-end~ explorer))
-      (evaluate-at-caret text)))
-  
-  
   (method (origin-import form)
     (let ((origin (get-origin~ form)))
       (and origin 
@@ -282,13 +268,12 @@
           (module-name (category-unit class)))
       
       (define (save-to-existing-class text)
-        (let ((form-exists? (eq? form (get-class-form~ class))))
-          (insert-imports text (remove module-name (append (default-designer-imports~ (get-application))
-                                                           (form-imports form (origin-import form)))))
-          (evaluate-imports text)
+        (let ((form-exists? (eq? form (get-class-form~ class)))
+              (imports (imports-to-insert form #f module-name)))
+          (insert-imports text imports)
           (save-form text form form-exists?)
           (tabulate-form text)
-          (unless form-exists? (evaluate-form text))))
+          (unless form-exists? (evaluate-form form imports))))
       
       (define (save-to-new-class text)
         (let ((adjusted-form (new Form textual?: #f action: 'install properties: (get-properties~ form) children: (get-children~ form)))
@@ -296,9 +281,8 @@
           (save-form text adjusted-form #f)
           (tabulate-form text)
           ;; If we are saving in a new class from an old class
-          (when origin
-            (revert))
-          (evaluate-form text)))
+          (when origin (revert))
+          (evaluate-form adjusted-form #f)))
       
       (define (tabulate-form text)
         (let ((explorer (new Jazz-Explorer (get-model~ text))))
@@ -314,13 +298,21 @@
           (set-selection~ text (get-range~ explorer))
           (insert-string~ text (format (if form-exists? "{a}" "{%}{%}{%}{a}") str))))
       
-      (define (evaluate-form text)
-        (let ((explorer (new Jazz-Explorer (get-model~ text))))
-          (forward-location~ explorer (list class-name :form))
-          (set-end~ explorer (get-start~ explorer))
-          (enter-list~ explorer)
-          (set-caret~ text (get-end~ explorer))
-          (evaluate-at-caret text)))
+      (define (evaluate-form form imports)
+        (let ((super-class-name (category-name (class-ascendant class)))
+              (form-expr (parameterize ((walk-for 'eval))
+                           (with-jazz-readtable
+                             (lambda ()
+                               (read-string-element
+                                 (->string (->jml~ (form->node form)))))))))
+          (when imports
+            (evaluate-in-unit module-name `(import ,@imports) eval))
+          (evaluate-in-unit
+            module-name
+            `(class ,class-name extends ,super-class-name
+               (form
+                 ,form-expr))
+            eval)))
       
       (call-with-saved-text (find-unit-source module-name)
         (lambda (text)
@@ -997,6 +989,13 @@
           (when visible?
             (set-visible?~ child #t))
           (set-modified? #t)))))
+  
+  
+  (method public (cascade-view-position view initial)
+    (when (is? view View)
+      (let* ((positions (map get-position~ (remove view (get-views~ (get-parent~ view)))))
+             (pos (cascade-position initial {Distance 10 10} positions)))
+        (safe-set-property view 'position pos))))
   
   
   ;;;

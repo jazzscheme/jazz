@@ -246,11 +246,11 @@
   ;;;
   
   
-  (method override (find-subdrawing pos <Point> ignore)
+  (method override (find-subdrawing surface <Surface> device-pos <Point> pos <Point> ignore)
     (let ((line (v->line (get-v~ pos))))
       (when line
         (let ((row (cast <Outline-Row> (get-row line))))
-          (find-drawing~ row (- pos (get-position~ row)))))))
+          (find-in-drawing~ row surface device-pos ignore)))))
   
 
   ;;;
@@ -346,7 +346,7 @@
                                (get-drawing-background context)))))
         (when background
           (fill-rect~ surface clipper background)))
-      (draw-outline surface context clipper (- (get-v~ (get-scrolled-position))))))
+      (draw-outline surface context clipper (get-scrolled-distance-v))))
   
   
   (method protected virtual (draw-outline surface context clipper scrolled-v)
@@ -406,8 +406,8 @@
       ((horz) 8)))
   
   
-  (method override (scroll-invalidate dh dv)
-    (follow (- dv)))
+  (method override (scroll-invalidate delta)
+    (follow (- (get-y~ delta))))
 
   
   ;;;
@@ -444,7 +444,7 @@
                 (added-update-selection line 1)
                 (layout-scrollee)
                 (when (< top (- display-height height))
-                  (scroll-view~ display 0 height (new Rect 0 top display-width (- display-height height))))))))
+                  (scroll-view~ display (new Distance 0 height) (new Rect 0 top display-width (- display-height height))))))))
         (update-father-control father)
         row)))
   
@@ -479,7 +479,7 @@
                  (display-height (get-height~ display-size)))
             (layout-scrollee)
             (when (and top (< (+ top height) display-height))
-              (scroll-view~ display 0 (- height) (new Rect 0 (+ top height) display-width display-height)))))
+              (scroll-view~ display (new Distance 0 (- height)) (new Rect 0 (+ top height) display-width display-height)))))
         (detach-descendants~ row)
         (update-father-control father))))
   
@@ -508,8 +508,7 @@
     (when scroller
       (set-position {Point 0 0})
       (set-size {Dimension 0 0})
-      (set-scroll-pos 'vert 0)
-      (set-scroll-pos 'horz 0))
+      (set-scroll-pos {Point 0 0}))
     (unless update-locked?
       (update-displayed)
       (layout-scrollee)
@@ -521,7 +520,7 @@
   
   
   (method override (update-displayed)
-    (update-displayed~ outline (get-display-v)))
+    (update-displayed~ outline (get-scrolled-distance-v)))
   
   
   (method public (first-row)
@@ -672,18 +671,18 @@
   
   (method public virtual (invalidate-selection sel)
     (when (view-visible?)
-      (let ((root (get-root)))
-        (receive (dh dv sc) (get-delta~ root self)
-          (with ((region (selection-region sel dh dv sc)))
+      (with-transformation-surface
+        (lambda (surface)
+          (with ((region (selection-region sel (lambda (rect) (logical->device~ surface rect)))))
             (invalidate-region~ player region))))))
   
   
-  (method protected virtual (selection-region sel dh dv sc)
-    (selection-row-region sel dh dv sc))
+  (method protected virtual (selection-region sel transformer)
+    (selection-row-region sel transformer))
   
   
-  (method protected (selection-row-region line dh dv sc)
-    (new Region (acquire-delta dh dv sc (selection-row-rect line))))
+  (method protected (selection-row-region line transformer)
+    (new Region rect: (transformer (selection-row-rect line))))
     
   
   (method protected virtual (selection-row-rect line)
@@ -972,7 +971,7 @@
           (when (< (+ top (get-scrolled-v)) display-height)
             (when in-expand?
               (invalidate-expand previous top dynamic?))
-            (scroll-view~ display 0 height (new Rect 0 opens display-width display-height)))
+            (scroll-view~ display (new Distance 0 height) (new Rect 0 opens display-width display-height)))
           (layout-scrollee)
           (when (> count 0)
             (ensure-row-range-displayed (+ line 1) (+ line count)))))))
@@ -1004,7 +1003,7 @@
             @buggy
             (when (< top display-height)
               (invalidate-collapse line first top removed)
-              (scroll-view~ display 0 (- height) (new Rect 0 (+ opens height) display-width (+ display-height height)))))
+              (scroll-view~ display (new Distance 0 (- height)) (new Rect 0 (+ opens height) display-width (+ display-height height)))))
           (layout-scrollee)))))
   
   
@@ -1030,7 +1029,7 @@
   
   
   (method (follow v)
-    (follow~ outline (get-display-v) v))
+    (follow~ outline (get-scrolled-distance-v) v))
 
 
   (method public virtual (ensure-displayed . rest)
@@ -1086,7 +1085,7 @@
   
   
   (method (row-region line)
-    (new Region (get-bounds~ (get-row line))))
+    (new Region rect: (get-bounds~ (get-row line))))
   
   
   (method protected (line->v l)

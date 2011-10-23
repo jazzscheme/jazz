@@ -742,7 +742,9 @@
 (definition protected (break-internal (reason: reason #f))
   (continuation-capture
     (lambda (continuation)
-      (invoke-debugger 'break reason #f #f continuation))))
+      (with-restart-catcher 'continue "Continue"
+        (lambda ()
+          (invoke-debugger 'break reason #f #f continuation))))))
 
 
 (definition protected (start-repl-internal (reason: reason #f) (select?: select? #t))
@@ -1042,19 +1044,21 @@
                           (process-debuggee-loop~ process))))))
                 (lambda ()
                   (unregister-stop stop)
-                  (when controller-debugger ;; #f when quit while in error
+                  (when controller-debugger
                     (unregister-stop~ controller-debugger local-process thread-proxy stop-proxy))))))))
       step?: (boolean stepper))))
 
 
 (definition package (debuggee-loop)
-  (let (loop)
-    (with-restart-catcher 'resume-loop (present-current-loop-restart) #f
+  (let (restart-loop)
+    (with-restart-catcher 'resume-loop (present-current-loop-restart)
       (lambda ()
-        (let ((thunk (thread-read)))
-          (with-jazz-exception-debugger
-            thunk))))
-    (loop)))
+        (let (loop)
+          (let ((thunk (thread-read)))
+            (with-jazz-exception-debugger
+              thunk))
+          (loop))))
+    (restart-loop)))
 
 
 (definition package (present-current-loop-restart)

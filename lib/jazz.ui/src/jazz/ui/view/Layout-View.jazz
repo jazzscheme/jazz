@@ -42,7 +42,8 @@
         (jazz.geometry)
         (jazz.jml)
         (jazz.library)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.layout))
 
 
 (class Layout-View extends View
@@ -136,18 +137,20 @@
   ;;;
   
   
+  (method (fill-layout)
+    (let ((op (case layout-justification
+                ((horizontal) layout-fill-horizontal)
+                ((vertical) layout-fill-vertical)
+                (else layout-fill))))
+      (op (get-views) (fill-position) (fill-size))))
+  
+  
   (method override (layout)
     (case layout-type
       ((#f))
       ((gravity)) ;; done in resize
       ((fill)
-       (let ((position (fill-position))
-             (size (fill-size)))
-         (for-each (lambda (child)
-                     (when (is? child View)
-                       (set-position~ child position)
-                       (set-size~ child size)))
-                   children)))
+       (fill-layout))
       ((fit)
        (let ((ly (new Fit-Layout insets: layout-insets)))
          (layout~ ly self)))
@@ -170,7 +173,7 @@
                          (set-position~ child pos))))
                    children)))
       ((border)
-       (let ((ly (new Border-Layout insets: layout-insets padding: layout-padding fit: layout-fit)))
+       (let ((ly (new Border-Layout insets: layout-insets padding: layout-padding fit: layout-fit justification: layout-justification)))
          (layout~ ly children (get-width) (get-height))))
       ((snap)
        (let ((ly (new Snap-Layout insets: layout-insets justification: layout-justification padding: layout-padding)))
@@ -367,6 +370,8 @@
       (head "Head")
       (center "Center")
       (tail "Tail")
+      (horizontal "Horizontal")
+      (vertical "Vertical")
       ((head head) "Head Head")
       ((head center) "Head Center")
       ((head tail) "Head Tail")

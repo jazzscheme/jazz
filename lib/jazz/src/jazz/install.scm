@@ -44,6 +44,7 @@
 
 
 (jazz:define-literal Point            jazz.literals:construct-point)
+(jazz:define-literal Distance         jazz.literals:construct-distance)
 (jazz:define-literal Dimension        jazz.literals:construct-dimension)
 (jazz:define-literal Cell             jazz.literals:construct-cell)
 (jazz:define-literal Rect             jazz.literals:construct-rect)

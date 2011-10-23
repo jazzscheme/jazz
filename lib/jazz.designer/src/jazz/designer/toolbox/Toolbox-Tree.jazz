@@ -157,12 +157,15 @@
     (let ((addable (selected-addable))
           (editor (current-document)))
       (if (and addable (is? editor View-Editor))
-          (let ((surrogate (get-surrogate~ (get-client~ editor))))
-            (typecase addable
-              ((Toolbox-Model)
-               (add-new~ surrogate (get-class~ addable) {Point 0 0} centered?: #f import: (get-unit~ addable)))
-              ((Toolbox-Form)
-               (add-new-form~ surrogate (locate-form~ addable) {Point 0 0} centered?: #f imports: (get-imports~ addable)))))
+          (with-atomic-undo~ (get-undoer~ (get-designer~ editor))
+            (lambda ()
+              (let* ((surrogate (get-surrogate~ (get-client~ editor)))
+                     (component (typecase addable
+                                  ((Toolbox-Model)
+                                   (add-new~ surrogate (get-class~ addable) {Point 0 0} centered?: #f import: (get-unit~ addable)))
+                                  ((Toolbox-Form)
+                                   (add-new-form~ surrogate (locate-form~ addable) {Point 0 0} centered?: #f imports: (get-imports~ addable))))))
+                (cascade-view-position~ (get-designer~ editor) component {Point 0 0}))))
         (bell))))
   
   

@@ -278,11 +278,15 @@
                           (merge-cell (get-merge-cell~ tree (row/column->site~ tree self column))))
                       (unless merge-cell
                         (if (is-not? data View)
-                            (paint-data~ column surface context h v width height self data)
+                            (with-clipping-transform~ surface h v width height #f
+                              (lambda ()
+                                (draw-data~ column surface context self data width height)))
                           (when node?
                             (draw-level~ column surface self data width height)
                             (draw-control~ column surface self data width height))
-                          (paint-drawing~ data surface context)))
+                          (with-self-transform~ data surface
+                            (lambda ()
+                              (render-drawing~ data surface context)))))
                       (increase! h (+ width (if (space-column?~ tree column rank) cs 0)))
                       (increase! rank))))
                 (get-columns~ tree)
@@ -324,13 +328,9 @@
   ;;;
   
   
-  (method override (get-parent/child-clipper child h v)
-    (let ((tree (get-tree)))
-      (let ((merge-cell (find-merged-view~ tree child)))
-        (if (not merge-cell)
-            (nextmethod child h v)
-          ;; skip row clipping
-          (nextmethod child (- h (get-h~ position)) (- v (get-v~ position)))))))
+  (method override (with-self-transform surface thunk)
+    (with-transform~ surface (get-h~ position) (get-v~ position) (get-transformation)
+      thunk))
   
   
   ;;;

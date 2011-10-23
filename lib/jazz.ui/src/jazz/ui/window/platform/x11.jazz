@@ -509,7 +509,7 @@
           (top  (XExposeEvent-y-ref msg)))
       (let ((right (+ left (XExposeEvent-width-ref msg)))
             (bottom (+ top (XExposeEvent-height-ref msg))))
-        (let ((region (new Region (new Rect left top right bottom)))
+        (let ((region (new Region rect: (new Rect left top right bottom)))
               (old-region (table-ref expose-store window #f)))
           (unless (nu=? (get-box~ region) {Rect 0 0 0 0})
             (if old-region
@@ -906,16 +906,6 @@
     (corners->rect left-top right-bottom)))
 
 
-(definition package (platform-translate-to-root handle pt)
-  (receive (x y) (XTranslateCoordinates x11-default-display handle (XRootWindow x11-default-display (XDefaultScreen x11-default-display)) (get-h~ pt) (get-v~ pt))
-    (new Point x y)))
-
-
-(definition package (platform-get-position-in-root handle)
-  (let ((pt (platform-get-position handle #f)))
-    (platform-translate-to-root handle pt)))
-
-
 (definition package (platform-get-position handle parent-handle)
   (define (top-parent)
     (let ((root (XQueryTree-root x11-default-display handle)))
@@ -1031,7 +1021,7 @@
       (new Rect 0 0 width height))))
 
 
-(definition (scroll-invalidate handle dh dv src-rect clip-rect)
+(definition (platform-scroll-invalidate handle dh dv src-rect clip-rect)
   (let* ((src-rect (rect-intersection src-rect clip-rect))
          (dst-rect (offset-rect src-rect dh dv))
          (modified-rect (rect-intersection (rect-union src-rect dst-rect) clip-rect)))
@@ -1050,7 +1040,7 @@
         (platform-invalidate-rect handle (rect-intersection clip-rect (new Rect ml mt mr (+ mt dv))))))))
 
 
-(definition package (platform-scroll-window handle dh dv rect clip-rect)
+(definition package (platform-scroll-window handle delta rect clip-rect)
   (platform-invalidate-rect handle clip-rect)
   @buggy
   (let ((gc (XCreateGC x11-default-display handle 0 #f))
@@ -1063,7 +1053,7 @@
     (XCopyArea x11-default-display handle handle gc (get-left~ rect) (get-top~ rect) (- (get-right~ rect) (get-left~ rect)) (- (get-bottom~ rect) (get-top~ rect)) (+ (get-left~ rect) dh) (+ (get-top~ rect) dv))
     (XFreeGC x11-default-display gc)
     (XRectangle-free xrect)
-    (scroll-invalidate handle dh dv rect clip-rect)
+    (platform-scroll-invalidate handle (get-x~ delta) (get-y~ delta) rect clip-rect)
     (platform-update-window handle)))
 
 
@@ -1132,7 +1122,7 @@
 (definition package (platform-redraw-window handle rect region)
   (if region
       (paint~ (get-window handle) region)
-    (paint~ (get-window handle) (new Region rect))))
+    (paint~ (get-window handle) (new Region rect: rect))))
 
 
 (definition package (platform-get-update-rect handle)
@@ -1164,7 +1154,7 @@
   (let ((rect (table-ref inval-rects handle #f)))
     (when rect
       (table-set! inval-rects handle)
-      (paint~ (get-window handle) (new Region rect)))))
+      (paint~ (get-window handle) (new Region rect: rect)))))
   
   
 (definition package (platform-show-noactivate handle)

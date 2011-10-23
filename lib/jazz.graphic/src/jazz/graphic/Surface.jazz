@@ -49,21 +49,14 @@
         (jazz.platform.cairo))
 
 
-;; origin  -> origin used by the view painting algorithm
-;; clipper -> clip rectangle used by the view painting algorithm
-
-
 (class Surface extends Object
   
   
-  (slot handle                                        getter generate)
-  (slot context                                       getter generate)
-  (slot font                            initialize #f)
-  (slot glyph-array                     initialize #f)
-  (slot glyph-array-length <fx>         initialize 0)
-  (slot landscape?         <bool>       initialize #f)
-  (slot landscape-rotation <symbol+>    initialize #f)
-  (slot landscape-page     <Dimension+> initialize #f)
+  (slot handle                                getter generate)
+  (slot context                               getter generate)
+  (slot font                    initialize #f)
+  (slot glyph-array             initialize #f)
+  (slot glyph-array-length <fx> initialize 0)
 
   
   (method override (initialize handle . rest)
@@ -126,21 +119,88 @@
   (method public (logical->device shape <Object>)
     (typecase shape
       ((Point)
-       (cairo_user_to_device context shape))
+       (receive (h v) (cairo_user_to_device context (get-h~ shape) (get-v~ shape))
+         (new Point (fxfloor h) (fxfloor v))))
+      ((Dimension)
+       (receive (width height) (cairo_user_to_device_distance context (get-width~ shape) (get-height~ shape))
+         (new Dimension (fxfloor width) (fxfloor height))))
+      ((Distance)
+       (receive (x y) (cairo_user_to_device_distance context (get-x~ shape) (get-y~ shape))
+         (new Distance (fxfloor x) (fxfloor y))))
       ((Rect)
-       (let ((lt (cairo_user_to_device context (new Point (get-left~ shape) (get-top~ shape))))
-             (rb (cairo_user_to_device context (new Point (get-right~ shape) (get-bottom~ shape)))))
-         (new Rect (get-h~ lt) (get-v~ lt) (get-h~ rb) (get-v~ rb))))))
+       (receive (left top) (cairo_user_to_device context (get-left~ shape) (get-top~ shape))
+         (receive (right bottom) (cairo_user_to_device context (get-right~ shape) (get-bottom~ shape))
+           (new Rect (fxfloor left) (fxfloor top) (fxfloor right) (fxfloor bottom)))))))
   
   
   (method public (device->logical shape <Object>)
     (typecase shape
       ((Point)
-       (cairo_device_to_user context shape))
+       (receive (h v) (cairo_device_to_user context (get-h~ shape) (get-v~ shape))
+         (new Point (fxfloor h) (fxfloor v))))
+      ((Dimension)
+       (receive (width height) (cairo_device_to_user_distance context (get-width~ shape) (get-height~ shape))
+         (new Dimension (fxfloor width) (fxfloor height))))
+      ((Distance)
+       (receive (x y) (cairo_device_to_user_distance context (get-x~ shape) (get-y~ shape))
+         (new Distance (fxfloor x) (fxfloor y))))
       ((Rect)
-       (let ((lt (cairo_device_to_user context (new Point (get-left~ shape) (get-top~ shape))))
-             (rb (cairo_device_to_user context (new Point (get-right~ shape) (get-bottom~ shape)))))
-         (new Rect (get-h~ lt) (get-v~ lt) (get-h~ rb) (get-v~ rb))))))
+       (receive (left top) (cairo_device_to_user context (get-left~ shape) (get-top~ shape))
+         (receive (right bottom) (cairo_device_to_user context (get-right~ shape) (get-bottom~ shape))
+           (new Rect (fxfloor left) (fxfloor top) (fxfloor right) (fxfloor bottom)))))))
+  
+  
+  ;;;
+  ;;;; Matrix
+  ;;;
+  
+  
+  (method public (with-preserved-matrix thunk <procedure>)
+    (let ((preserved-matrix (cairo_get_matrix_raw context)))
+      (prog1 (thunk)
+        (cairo_set_matrix_raw context preserved-matrix))))
+  
+  
+  (method public (debug-matrix)
+    (let ((matrix (cairo_get_matrix_raw context)))
+      (debug
+        (cairo_matrix_t-xx-ref matrix)
+        (cairo_matrix_t-yx-ref matrix)
+        (cairo_matrix_t-xy-ref matrix)
+        (cairo_matrix_t-yy-ref matrix)
+        (cairo_matrix_t-x0-ref matrix)
+        (cairo_matrix_t-y0-ref matrix))))
+  
+  
+  ;;;
+  ;;;; Transform
+  ;;;
+  
+  
+  (method public (with-transform h <fx> v <fx> transformation <foreign+> thunk <procedure>)
+    (with-preserved-matrix
+      (lambda ()
+        (cairo_translate context (cast <fl> h) (cast <fl> v))
+        (when transformation
+          (cairo_transform context transformation))
+        (thunk))))
+  
+  
+  (method public (with-clipping-transform h <fx> v <fx> width <fx> height <fx> transformation <foreign+> thunk <procedure>)
+    (with-transform h v transformation
+      (lambda ()
+        (with-clip (new Rect 0 0 width height)
+          thunk))))
+  
+  
+  (method public (with-pristine-transform thunk <procedure>)
+    (with-preserved-matrix
+      (lambda ()
+        (cairo_identity_matrix context)
+        (with-preserved-clipper
+          (lambda ()
+            (cairo_reset_clip context)
+            (thunk))))))
   
   
   ;;;
@@ -162,69 +222,17 @@
     (cairo_clip context))
   
   
+  (method public (with-preserved-clipper thunk <procedure>)
+    (let ((preserved-clipper (cairo_get_clipper_raw context)))
+      (prog1 (thunk)
+        (cairo_set_clipper_raw context preserved-clipper))))
+  
+  
   (method public (with-clip clip-rect <Rect> thunk <procedure>)
-    (let ((preserved-clipper (cairo_get_clipper_raw context))
-          (selected? #f))
-      (unwind-protect
-          (begin
-            (clip clip-rect)
-            (set! selected? #t)
-            (thunk))
-        (when selected?
-          (cairo_set_clipper_raw context preserved-clipper)))))
-  
-  
-  ;;;
-  ;;;; Landscape
-  ;;;
-  
-  
-  (method public (with-landscape rotation <symbol> page <Dimension> thunk <procedure>)
-    (let ((preserved landscape?))
-      (unwind-protect
-          (begin
-            (set! landscape? #t)
-            (set! landscape-rotation rotation)
-            (set! landscape-page page)
-            (thunk))
-        (set! landscape? preserved))))
-  
-  
-  ;;;
-  ;;;; Transform
-  ;;;
-  
-  
-  (method (set-transform h v width height scaling)
-    (cairo_translate context (cast <fl> h) (cast <fl> v))
-    (cairo_scale context scaling scaling)
-    (clip (new Rect 0 0 width height)))
-  
-  
-  (method public (with-transform h <fx> v <fx> width <fx> height <fx> scaling <fl> thunk <procedure>)
-    (let ((preserved-matrix (cairo_get_matrix_raw context))
-          (preserved-clipper (cairo_get_clipper_raw context)))
-      (set-transform h v width height scaling)
-      (thunk)
-      (cairo_set_matrix_raw context preserved-matrix)
-      (cairo_set_clipper_raw context preserved-clipper)))
-  
-  
-  (method public (with-matrix thunk)
-    (let ((preserved-matrix (cairo_get_matrix_raw context)))
-      (thunk)
-      (cairo_set_matrix_raw context preserved-matrix)))
-  
-  
-  (method public (debug-matrix)
-    (let ((matrix (cairo_get_matrix_raw context)))
-      (debug
-        (cairo_matrix_t-xx-ref matrix)
-        (cairo_matrix_t-yx-ref matrix)
-        (cairo_matrix_t-xy-ref matrix)
-        (cairo_matrix_t-yy-ref matrix)
-        (cairo_matrix_t-x0-ref matrix)
-        (cairo_matrix_t-y0-ref matrix))))
+    (with-preserved-clipper
+      (lambda ()
+        (clip clip-rect)
+        (thunk))))
 
   
   ;;;

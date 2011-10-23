@@ -308,7 +308,7 @@
   
   
   (method public virtual (focused?)
-    (or (has-focus?)
+    (or (is-focused?)
         (and focused-on-descendants?
              (let ((focus (get-focus)))
                (and focus (has-parent?~ focus self))))))
@@ -386,7 +386,7 @@
   ;;;
   
   
-  (method override (find-subdrawing pos <Point> ignore)
+  (method override (find-subdrawing surface <Surface> device-pos <Point> pos <Point> ignore)
     (or (continuation-capture
           (lambda (return)
             (for-each (lambda (merge-cell)
@@ -394,10 +394,16 @@
                           (when (is? data View)
                             (let ((rect (merge-cell-rect merge-cell)))
                               (when (in-rect? pos rect)
-                                (continuation-return return (find-drawing~ data (acquire~ data self pos))))))))
+                                (let ((row (get-parent~ data)))
+                                  (let ((position (get-position~ row))
+                                        (size (get-size~ row)))
+                                    ;; bypassing the row's find-in-drawing as the merge-cell can exceed the row's bounds
+                                    (with-clipping-transform~ surface (get-h~ position) (get-v~ position) (get-width~ size) (get-height~ size) (get-transformation~ row)
+                                      (lambda ()
+                                        (continuation-return return (find-in-drawing~ data surface device-pos ignore)))))))))))
                       merge-cell-list)
             #f))
-        (nextmethod pos ignore)))
+        (nextmethod surface device-pos pos ignore)))
 
 
   ;;;
@@ -481,8 +487,8 @@
     (update-visible-width))
   
   
-  (method override (scroll-invalidate dh dv)
-    (nextmethod dh dv)
+  (method override (scroll-invalidate delta)
+    (nextmethod delta)
     (invalidate-header))
 
 
@@ -563,12 +569,12 @@
   
   (method override (draw-children surface <Surface> nodes context)
     (define (paint-data context column row h v width height data)
-      (if (is-not? data View)
-          (paint-data~ column surface context h v width height row data)
-        (with-matrix~ surface
+      (let ((view? (is? data View)))
+        (with-clipping-transform~ surface h v width height (and view? (get-transformation~ data))
           (lambda ()
-            (translate~ surface 0 v)
-            (paint-drawing~ data surface context)))))
+            (if (not view?)
+                (draw-data~ column surface context row data width height)
+              (render-drawing~ data surface context))))))
     
     (define (merge-geometry top-left bottom-right)
       (let ((top-left-rect (unmerged-site-rect top-left))
@@ -750,19 +756,19 @@
           (alt? (alt-down?)))
       (mouse-up~ selection-manager shift? control? alt?)
       (let ((pos (get-mouse-down-view~ selection-manager)))
-        (when pos
+        (when (and pos (not (mouse-down-part-control?~ selection-manager)))
           (let ((cell (view->tree pos)))
-            (when (and cell (not (mouse-down-part-control?~ selection-manager)))
+            (when cell
               (let ((row (get-row (get-line~ cell)))
                     (column (get-column (get-col~ cell))))
                 (when auto-expand/collapse?
                   (auto-expand/collapse row)
                   (auto-select~ row))
                 (focus-delegate)
-                (drag-up~ column cell pos)))))
-        (release-capture)
-        (process-action self)
-        (reset~ selection-manager))))
+                (drag-up~ column cell pos))))
+          (process-action self))))
+    (release-capture)
+    (reset~ selection-manager))
   
   
   (method override (call-double-click view)
@@ -1791,9 +1797,9 @@
   
   (method public (invalidate-merge-cell merge-cell)
     (when (view-visible?)
-      (let ((root (get-root)))
-        (receive (dh dv sc) (get-delta~ root self)
-          (with ((region (new Region (acquire-delta dh dv sc (rect-intersection (merge-cell-rect merge-cell) (get-view-clipper))))))
+      (with-transformation-surface
+        (lambda (surface)
+          (with ((region (new Region rect: (logical->device~ surface (rect-intersection (merge-cell-rect merge-cell) (get-view-clipper))))))
             (invalidate-region~ player region))))))
   
   
@@ -1874,10 +1880,11 @@
       (get-output~ fact)))
   
   
-  (method public (select-user-data-row data (include-invisibles?: include-invisibles? #f))
+  (method public (select-user-data-row data (include-invisibles?: include-invisibles? #f) (error?: error? #t))
     (let ((row (user-data-row data include-invisibles?: include-invisibles?)))
       (if (not row)
-          (error "Unable to select user-data: {t}" data)
+          (when error?
+            (error "Unable to select user-data: {t}" data))
         (set-single-selection (row->line row)))))
 
   
@@ -2265,8 +2272,10 @@
   
   
   (method (selection-position selection)
-    (with ((region (selection-region selection 0 0 1.)))
-      (rect-position (get-box~ region))))
+    (with-transformation-surface
+      (lambda (surface)
+        (with ((region (selection-region selection identity)))
+          (rect-position (get-box~ region))))))
   
   
   (method public (with-preserved-selection thunk (use: use 'row) (test: test eqv?) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
@@ -2307,7 +2316,7 @@
   
   
   (method public (get-selected-rows)
-    (map (selected-row-proc) selection))
+    (map (selected-row-proc) (sort < selection)))
   
   
   (method public (get-selected-data)
@@ -2416,24 +2425,22 @@
         removed)))
 
   
-  (method override (selection-region sel dh dv sc)
+  (method override (selection-region sel transformer)
     (define (element-region element)
       (case selection-mode
-        ((cell) (new Region (acquire-delta dh dv sc (cell-rect element))))
-        (else (selection-row-region element dh dv sc))))
+        ((cell) (new Region rect: (transformer (cell-rect element))))
+        (else (selection-row-region element transformer))))
     
     (let ((region (new Region)))
       (loop (for element in sel)
             (let ((merge-cell (safe-get-merge-cell (cell->site element))))
               (if merge-cell
-                  (with ((row-region (new Region (acquire-delta dh dv sc (merge-cell-rect merge-cell)))))
+                  (with ((row-region (new Region rect: (transformer (merge-cell-rect merge-cell)))))
                     (combine!~ region row-region 'or))
                 (with ((row-region (element-region element)))
                   (combine!~ region row-region 'or)))))
-      (let ((root-clipper (get-root-clipper)))
-        (when root-clipper
-          (with ((clipper (new Region root-clipper)))
-            (combine!~ region clipper 'and))))
+      (with ((clipper (new Region rect: (transformer (get-view-clipper)))))
+        (combine!~ region clipper 'and))
       region))
   
   
@@ -2552,7 +2559,7 @@
   
   
   (method public (cell-region cell <Cell>) <Region>
-    (new Region (cell-rect cell)))
+    (new Region rect: (cell-rect cell)))
   
   
   (method (cell-content-rect cell <Cell>) <Rect>

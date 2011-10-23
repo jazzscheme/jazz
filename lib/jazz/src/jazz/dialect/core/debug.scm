@@ -53,5 +53,5 @@
 ;; resume the message loop
 (define (resume)
   (let ((get-process (jazz:global-ref 'jazz.system.access:get-process))
-        (resume-loop (jazz:global-ref 'jazz.system.process.Process:Process:resume-loop)))
-    (resume-loop (get-process)))))
+        (invoke-resume-loop (jazz:global-ref 'jazz.system.process.Process:Process:invoke-resume-loop)))
+    (invoke-resume-loop (get-process)))))

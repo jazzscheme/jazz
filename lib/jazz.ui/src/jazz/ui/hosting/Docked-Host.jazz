@@ -378,18 +378,38 @@
   
   
   (method override (double-click pos)
+    (define (toggle-zoom splitter target)
+      (with-locked-update
+        (lambda ()
+          (if (eq? (get-state~ splitter) 'split)
+              (zoom~ splitter target)
+            (unzoom~ splitter)))))
+    
+    (define (opposite-orientation orientation)
+      (case orientation
+        ((horz) 'vert)
+        ((vert) 'horz)))
+    
+    (define (find-orientation view child orientation)
+      (if (and (is? view Splitter-View) (eq? (get-orientation~ view) orientation))
+          (cons view child)
+        (let ((parent (get-parent~ view)))
+          (and parent (find-orientation parent view orientation)))))
+    
     (when zoomable?
       (let* ((parent (get-parent))
              (target (if (is? parent Pad-View) parent self)))
-        (if (shift-down?)
+        (if (alt-down?)
             (toggle-full-screen~ (get-application) target)
           (let ((splitter (if (is? parent Pad-View) (get-parent~ parent) parent)))
             (when (is? splitter Splitter-View)
-              (with-locked-update
-                (lambda ()
-                  (if (eq? (get-state~ splitter) 'split)
-                      (zoom~ splitter target)
-                    (unzoom~ splitter))))))))))
+              (if (shift-down?)
+                  (let ((found (find-orientation splitter target (opposite-orientation (get-orientation~ splitter)))))
+                    (if found
+                        (bind (splitter . target) found
+                          (toggle-zoom splitter target))
+                      (bell)))
+                (toggle-zoom splitter target))))))))
 
 
   ;;;

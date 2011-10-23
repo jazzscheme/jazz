@@ -73,9 +73,11 @@
                     (typecase obj
                       ((Rect) obj)
                       ((View) (acquire~ (get-root~ obj) obj (rect-intersection (or rect (get-bounds~ obj)) (get-view-clipper~ obj))))))))
-      (with ((region (new Region update)))
-        (pretty-print (painting-tree~ root region 0 0))
-        (unspecified)))))
+      (with-transformation-surface~ root
+        (lambda (surface)
+          (with ((region (new Region rect: update)))
+            (pretty-print (painting-tree~ root surface region))
+            (unspecified)))))))
 
 
 ;;;
@@ -143,13 +145,10 @@
       (lambda (view level)
         (when (is? view View)
           (let ((type (category-identifier (class-of view)))
-                (lie (get-lie~ view))
                 (position (get-position~ view))
                 (size (get-size~ view)))
             (output~ classes type level)
             (output~ properties (format "~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Dimension {a width: 4 justify: :right} {a width: 4 justify: :right}}"
-                                        (get-h~ lie)
-                                        (get-v~ lie)
                                         (get-h~ position)
                                         (get-v~ position)
                                         (get-width~ size)
@@ -214,6 +213,7 @@
 (specific (view-debug (<Text-View> view) pos)
   (nextmethod view pos)
   (let* ((model (get-model~ view))
+         (syntax (get-syntax~ view))
          (start (get-start~ view))
          (end (get-end~ view))
          (moniker (get-moniker~ view))
@@ -228,6 +228,7 @@
     (set-%s start)
     (set-%e end)
     (set-%m model)
+    (set-%x syntax)
     (set-%p paragraph)
     (set-%f (get-format~ paragraph))
     (set-%n (get-line-at~ paragraph (get-col~ end)))

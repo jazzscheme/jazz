@@ -256,11 +256,6 @@
   (method override (start-loop)
     (setup-events)
     (process-events))
-  
-  
-  (method override (resume-loop-action)
-    (when toplevel
-      (select-foreground~ toplevel)))
 
 
   ;;;
@@ -2354,37 +2349,26 @@
   
   
   (method (on-zoom-out evt)
-    (let ((view (scaled-view (get-property~ evt what:))))
-      (if (not view)
-          (bell)
-        (let ((scaling (get-scaling~ view)))
-          (scale-view view (- scaling 0.25))))))
+    (scale-view (get-property~ evt what:) 0.75))
   
   
   (method (on-zoom-in evt)
-    (let ((view (scaled-view (get-property~ evt what:))))
-      (if (not view)
-          (bell)
-        (let ((scaling (get-scaling~ view)))
-          (scale-view view (+ scaling 0.25))))))
+    (scale-view (get-property~ evt what:) 1.25))
   
   
   (method (on-unzoom evt)
-    (let ((view (scaled-view (get-property~ evt what:))))
-      (if (not view)
-          (bell)
-        (scale-view view 1.))))
+    (scale-view (get-property~ evt what:) #f))
   
   
-  (method (scaled-view what)
-    (case what
-      ((document) (current-document))
-      ((mouse-view) (mouse-view))))
-  
-  
-  (method (scale-view view scaling)
-    (user-message "Scaling set to {a}" scaling)
-    (set-scaling~ view scaling))
+  (method (scale-view what factor)
+    (define (scaled-view what)
+      (case what
+        ((document) (current-document))
+        ((mouse-view) (mouse-view))))
+    
+    (let ((view (scaled-view what)))
+      (scale-view~ view factor)
+      (user-message "Scaling set to {a}" (get-scaling~ view))))
 
 
   ;;;

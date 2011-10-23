@@ -2240,15 +2240,24 @@
           (iterate (- n 1) (cons obj trailer)))))))
 
 
-(definition public (remove-trailing target <Object> list <Object> (test: test eqv?))
-  (let ((result '())
-        (trailing? #t))
-    (for-each (lambda (element)
-                (unless (and trailing? (apply-test test target element))
-                  (set! result (cons element result))
-                  (set! trailing? #f)))
-              (reverse list))
-    result))
+(definition public (remove-leading target <Object> seq <Object> (test: test eqv?))
+  (let* ((start 0)
+         (end (cardinality seq))
+         (head start)
+         (tail end))
+    (while (and (< head end) (apply-test test (element seq head) target))
+      (increase! head))
+    (subseq seq head tail)))
+
+
+(definition public (remove-trailing target <Object> seq <Object> (test: test eqv?))
+  (let* ((start 0)
+         (end (cardinality seq))
+         (head start)
+         (tail end))
+    (while (and (> tail head) (apply-test test (element seq (- tail 1)) target))
+      (decrease! tail))
+    (subseq seq head tail)))
 
 
 (definition public (remove-enclosing target <Object> seq <Object> (test: test eqv?))
@@ -4734,8 +4743,27 @@
           (queue-list queue))))))
 
 
+(definition public (read-lines-chunked input chunk-size proc)
+  (declare (proper-tail-calls))
+  (let (iterate (count 0) (queue (new-queue)) (last-proper? #t))
+    (receive (line proper?) (read-proper-line input)
+      (if line
+          (begin
+            (enqueue queue line)
+            (let ((count (+ count 1)))
+              (if (or (not chunk-size) (< count chunk-size))
+                  (iterate count queue proper?)
+                (proc (queue-list queue))
+                (iterate 0 (new-queue) proper?))))
+        (when last-proper?
+          (enqueue queue ""))
+        (when (or (> count 0) last-proper?)
+          (proc (queue-list queue)))
+        (unspecified)))))
+
+
 (definition public (read-content-string input)
-  ;; passing #f to gambit's read-line make's it never see an actual
+  ;; passing #f to gambit's read-line makes it never see an actual
   ;; end-of-line so that it will read the whole content as a string
   (let ((line (read-line input #f)))
     (if (eof-object? line)

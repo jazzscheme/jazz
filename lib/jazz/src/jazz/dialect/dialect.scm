@@ -2619,7 +2619,7 @@
     ((jazz.platform.windows.com:VARIANT_BOOL) (error "cotype VARIANT_BOOL has no default value"))
     ((jazz.platform.windows.com:VARIANT_BOOL*) #f)
     ((jazz.platform.windows.com:VARIANT) (error "cotype VARIANT has no default value"))
-    ((jazz.platform.windows.com:VARIANT*) '())
+    ((jazz.platform.windows.com:VARIANT*) ''())
     ((jazz.platform.windows.com:IUnknown*) (error "cotype IUnknown* has no default value"))
     ((jazz.platform.windows.com:IUnknown**) #f)
     ((jazz.platform.windows.WinTypes:INT*) 0)

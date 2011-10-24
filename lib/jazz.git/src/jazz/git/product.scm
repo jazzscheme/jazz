@@ -46,7 +46,7 @@
   (windows
     (define jazz:git-units
       (let ((git-include-path (jazz:quote-jazz-pathname "foreign/libgit2")))
-        `((jazz.git.foreign.git)))))
+        `((jazz.git.foreign)))))
   (else
    (define jazz:git-units
      '())))

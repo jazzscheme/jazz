@@ -43,6 +43,7 @@
         (jazz.graphic)
         (jazz.jml)
         (jazz.library)
+        (jazz.system)
         (jazz.ui))
 
 
@@ -70,7 +71,7 @@
         (<Push-Tool>                name: backward     location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Backward" resource: {Image-Resource "Backward"} portfolio: :images action-handler: {Event-Handler :form on-backward})
         (<Push-Tool>                name: forward      location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Forward" resource: {Image-Resource "Forward"} portfolio: :images action-handler: {Event-Handler :form on-forward})
         (<Separator>                                   location: tail size: {Dimension 8 0})
-        (<Toggle-Tool>                                 location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Order by Class" resource: {Image-Resource "PageFilename"} portfolio: :images action-handler: {Event-Handler :form on-toggle-class}))
+        (<Toggle-Tool>              name: ordering     location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Natural Order" resource: {Image-Resource "PageFilename"} portfolio: :images action-handler: {Event-Handler :form on-natural-order}))
       (<Scroller-View>              name: scroller     location: center vscroll?: #t hscroll?: #t style: tool
         (<!>                        name: content      layout-type: fill
           (<Tree-Header>            name: header       style: tool
@@ -78,6 +79,17 @@
               (<Inspector>          name: inspector    selection-mode: row return-press-handler: {Event-Handler :form on-drill-down} double-click-handler: {Event-Handler :form on-drill-down}
                 (<!>                name: name         width: 170)
                 (<!>                name: value        width: 261))))))))
+  
+  
+  (method override (install rest)
+    (define (setup-ordering)
+      (let ((ordering (get-ordering~ (get-preferences 'inspector))))
+        (when ordering
+          (set-selected?~ (locate 'ordering) (eq? ordering 'natural))
+          (update-ordering))))
+    
+    (nextmethod rest)
+    (setup-ordering))
   
   
   ;;;
@@ -145,8 +157,8 @@
     (change-client client))
   
   
-  (method public (change-client client)
-    (set-client~ (get-inspector) client)
+  (method public (change-client client (force?: force? #f))
+    (set-client~ (get-inspector) client force?: force?)
     (update-title)
     (update-history))
   
@@ -173,14 +185,18 @@
     (filter-target~ (get-filter-text)))
   
   
-  (method (on-toggle-class evt)
-    )
+  (method (on-natural-order evt)
+    (update-ordering)
+    (change-client (get-client) force?: #t))
   
   
   (method (on-drill-down evt)
     (add-to-history)
     (let ((tree (get-sender~ evt)))
-      (change-client (cons (cdr (get-single-selected-data~ tree)) :remote))))
+      (let ((info (get-single-selected-data~ tree)))
+        (if (not info)
+            (bell)
+          (change-client (cons (cdr info) :remote))))))
   
   
   ;;;
@@ -190,6 +206,19 @@
   
   (method (get-filter-text)
     (locate 'filter-text))
+    
+  
+  ;;;
+  ;;;; Ordering
+  ;;;
+
+  
+  (method (update-ordering)
+    (let ((natural? (get-selected?~ (locate 'ordering))))
+      (set-ordering~ (get-inspector)
+        (if natural?
+            'natural
+          'alphabetic))))
   
   
   ;;;

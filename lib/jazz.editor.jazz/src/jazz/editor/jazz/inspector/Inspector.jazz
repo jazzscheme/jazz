@@ -48,6 +48,10 @@
         (jazz.ui))
 
 
+(constant inspector-max-content
+  256)
+
+
 (class Inspector extends Tree-View
   
   
@@ -104,7 +108,7 @@
   
   (method override (update-row row)
     (bind (name serial class presentation more? mutable? kind) (get-user-data~ row)
-      (inspect-content row (safe-inspect-serial serial))))
+      (inspect-content row (safe-inspect-serial serial inspector-max-content))))
   
   
   ;;;
@@ -118,7 +122,7 @@
       (lambda ()
         (when client
           (bind (data . kind) client
-            (inspect-content root-row (inspect data kind)))))))
+            (inspect-content #f (inspect data kind inspector-max-content)))))))
   
   
   (method (inspect-content row values)
@@ -177,9 +181,20 @@
            (acquired (acquire sender pos)))
       (with-context-click~ sender pos
         (lambda ()
-          (let ((menu (and cell (new Inspector-Menu client: self))))
-            (when menu
-              (track-popup-menu menu acquired)))))))
+          (when cell
+            (let ((info (get-single-selected-data)))
+              (when info
+                (bind (key serial class presentation more? mutable? kind) info
+                  (bind (category name rank) key
+                    (if (not name)
+                        (let ((menu (new Missing-Menu client: self)))
+                          (track-popup-menu menu acquired))
+                      (let ((menu (new Value-Menu client: self)))
+                        (when (not more?)
+                          (set-visible?~ (locate~ menu 'refresh) #f))
+                        (cleanup-separators~ menu)
+                        (layout-menu~ menu)
+                        (track-popup-menu menu acquired))))))))))))
   
   
   (method (on-open evt)
@@ -201,33 +216,63 @@
             (expand/collapse row))))))
   
   
+  (method (on-retrieve-all evt)
+    (define (determine-father)
+      (let ((father (get-father~ (get-selected-row))))
+        (if (eq? father root-row)
+            #f
+          father)))
+    
+    (let ((father (determine-father)))
+      (if (not father)
+          (begin
+            (remove-every-row)
+            (bind (data . kind) client
+              (inspect-content #f (inspect data kind #f))))
+        (remove-every-son~ father)
+        (bind (name serial class presentation more? mutable? kind) (get-user-data~ father)
+          (inspect-content father (safe-inspect-serial serial #f))))))
+  
+  
   ;;;
   ;;;; Inspect
   ;;;
   
   
-  (method public virtual (inspect data kind)
+  (method public virtual (inspect data kind max-content)
     (case kind
       ((:value)
        (inspect-value data))
       ((:remote)
        (bind (serial class presentation more? mutable? kind) data
          (if more?
-             (safe-inspect-serial serial)
+             (safe-inspect-serial serial max-content)
            '())))))
   
   
-  (method (safe-inspect-serial serial)
+  (method (safe-inspect-serial serial max-content)
     (with-jrm-exception-handler
       (lambda ()
-        (inspect-serial~ process serial)))))
+        (inspect-serial~ process serial max-content)))))
 
 ;;;
-;;;; Inspector-Menu
+;;;; Missing-Menu
 ;;;
 
 
-(class Inspector-Menu extends Context-Menu
+(class Missing-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: retrieve-all title: "Retrieve All" icon: {Image-Resource "Import"} action-handler: {Event-Handler (:form :client) on-retrieve-all}))))
+
+;;;
+;;;; Value-Menu
+;;;
+
+
+(class Value-Menu extends Context-Menu
   
   
   (form

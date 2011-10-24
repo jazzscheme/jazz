@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Toolbox Module
+;;;; Toolbox Objects Module
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,75 +35,24 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.toolbox.Toolbox-Module jazz
+(module protected jazz.designer.toolbox.Toolbox-Objects-Module jazz
 
 
 (import (jazz.designer)
-        (jazz.designer.view)
-        (jazz.jml)
         (jazz.library))
 
 
-(class undocumented Toolbox-Module extends Toolbox-Group
+(class Toolbox-Objects-Module extends Toolbox-Module
   
   
-  (property module-name initialize #f accessors generate)
+  (property models initialize #f accessors generate)
   
   
-  ;;;
-  ;;;; Classes
-  ;;;
-  
-  
-  (method virtual (collect-valid-names names)
-    (collect-if (lambda (name)
-                  (let ((object (module-ref module-name name)))
-                    (and (class? object)
-                         (subclass? object Component))))
-                names))
-  
-  
-  (method public (get-module-elements)
-    (if module-name
-        (let* ((module (with-exception-catcher
-                         (lambda (exc)
-                           (designer-error "Module {a} does not exist" module-name))
-                         (lambda ()
-                           (require-module module-name))))
-               (names (table-keys (get-exports~ module))))
-          (sort string<? (collect-valid-names names) key: symbol->string))
-      '()))
-  
-  
-  ;;;
-  ;;;; Descriptor
-  ;;;
-  
-  
-  (method meta override (get-class-descriptor)
-    (new Toolbox-Module-Descriptor)))
-
-
-;;;
-;;;; Design
-;;;
-
-
-(submodule design
-
-
-(import (jazz.designer))
-
-
-(class Toolbox-Module-Descriptor extends Toolbox-Group-Descriptor
-  
-  
-  (form
-    (<install>                 title: "Module" image: {Image-Resource "Library"}
-      (<properties~>           categorized: (class-info name-info module-name)
-        (<Property-Descriptor> name: module-name))))
-  
-  
-  (method override (component-get-categorized-addable-classes component)
-    '()))))
-
+  (method override (collect-valid-names names)
+    (if models
+        (let ((classes (map resolve-reference~ models)))
+          (collect-if (lambda (name)
+                        (let ((object (module-ref module-name name)))
+                          (member? object classes test: is?)))
+                      names))
+      '()))))

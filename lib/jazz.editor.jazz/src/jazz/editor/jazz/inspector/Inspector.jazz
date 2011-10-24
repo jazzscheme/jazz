@@ -53,6 +53,7 @@
   
   (property process  initialize #f          accessors generate)
   (property client   initialize #f          accessors explicit)
+  (property filter   initialize #f          accessors explicit)
   (property ordering initialize 'alphabetic accessors generate)
   
   
@@ -63,7 +64,7 @@
   
   
   ;;;
-  ;;;; Access
+  ;;;; Client
   ;;;
   
   
@@ -78,15 +79,32 @@
   
   
   ;;;
+  ;;;; Filter
+  ;;;
+  
+  
+  (method public (get-filter)
+    filter)
+  
+  
+  (method public (set-filter flt)
+    (set! filter flt)
+    (filter-update))
+  
+  
+  (method protected (filter-update)
+    (when filter
+      (filter-rows filter)))
+  
+  
+  ;;;
   ;;;; Tree
   ;;;
   
   
   (method override (update-row row)
     (bind (name serial class presentation more? mutable? kind) (get-user-data~ row)
-      (with-jrm-exception-handler
-        (lambda ()
-          (inspect-content row (inspect-serial~ process serial))))))
+      (inspect-content row (safe-inspect-serial serial))))
   
   
   ;;;
@@ -133,7 +151,8 @@
                                            (insert-info father info))
                                          elements))))
                          partition
-                         (naturals 0 (length partition))))))))))
+                         (naturals 0 (length partition)))))))
+        (filter-update))))
   
   
   ;;;
@@ -194,10 +213,14 @@
       ((:remote)
        (bind (serial class presentation more? mutable? kind) data
          (if more?
-             (with-jrm-exception-handler
-               (lambda ()
-                 (inspect-serial~ process serial)))
-           '()))))))
+             (safe-inspect-serial serial)
+           '())))))
+  
+  
+  (method (safe-inspect-serial serial)
+    (with-jrm-exception-handler
+      (lambda ()
+        (inspect-serial~ process serial)))))
 
 ;;;
 ;;;; Inspector-Menu

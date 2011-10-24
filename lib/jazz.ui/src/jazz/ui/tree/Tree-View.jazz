@@ -1058,6 +1058,36 @@
                (unless (get-visible?~ son)
                  (set-visible?~ son #t)))))
   
+  
+  ;;;
+  ;;;; Filter
+  ;;;
+  
+  
+  (method public (filter-rows filter-search)
+    (define (determine-visible? row)
+      (some? (lambda (cell)
+               (let ((title (get-title~ cell)))
+                 (and title
+                      (search title filter-search))))
+             (get-children~ row)))
+  
+    (define (make-row-visible row visible?)
+      (set-visible?~ row visible?)
+      (when visible?
+        (let loop ((node (get-father~ row)))
+             (when node
+               (set-visible?~ node #t)
+               (loop (get-father~ node))))))
+    
+    ;; quicky
+    (set-selection '())
+    (with-update-locked
+      (lambda ()
+        (for-each-row
+          (lambda (row rank)
+            (make-row-visible row (determine-visible? row)))))))
+  
 
   ;;;
   ;;;; Tooltip

@@ -105,34 +105,34 @@
            (cached-kind-fields kind))))
   
   (define (inspect-list lst)
-    (let (iter (scan lst)
-               (rank 0))
-      (cond ((>= rank max-content)
-             (list (inspect-limit (length lst) rank (+ rank (proper-length scan)))))
-            ((pair? scan)
-             (cons (cons (list #f rank rank) (packager (car scan)))
-                   (iter (cdr scan) (+ rank 1))))
-            ((not (null? scan))
-             (list (cons (list #f 'rest rank) (packager scan))))
-            (else
-             '()))))
+    (define (proper-length l n)
+      (cond ((null? l) n)
+            ((pair? l) (proper-length (cdr l) (+ n 1)))
+            (else (+ n 1))))
+    
+    (let ((total (proper-length lst 0))
+          (content (let (iter (scan lst)
+                              (rank 0))
+                     (cond ((or (null? scan) (>= rank max-content))
+                            '())
+                           ((pair? scan)
+                            (cons (cons (list #f rank rank) (packager (car scan)))
+                                  (iter (cdr scan) (+ rank 1))))
+                           (else
+                            (list (cons (list #f 'rest rank) (packager scan))))))))
+      (add-missing total content)))
   
   (define (inspect-table table)
-    (let ((limit? (> (table-length table) max-content)))
-      (let ((elements (let ((lst (table->list table)))
-                        (if limit?
-                            (subseq lst 0 max-content)
-                          lst))))
-        (let ((content (map (lambda (pair rank)
-                              (bind (key . value) pair
-                                (cons (list #f (safe-present-object key max-width) rank)
-                                      (packager value))))
-                            elements
-                            (naturals 0 (length elements)))))
-          (let ((sorted (sort string<? content key: (lambda (info) (second (car info))))))
-            (if limit?
-                (append sorted (list (inspect-limit (table-length table) max-content (table-length table))))
-              sorted))))))
+    (let ((total (table-length table))
+          (content (let (iter (scan (table->list table))
+                              (rank 0))
+                     (if (or (null? scan) (>= rank max-content))
+                         '()
+                       (bind (key . value) (car scan)
+                         (cons (cons (list #f (safe-present-object key max-width) rank) (packager value))
+                               (iter (cdr scan) (+ rank 1))))))))
+      (let ((sorted (sort string<? content key: (lambda (info) (second (car info))))))
+        (add-missing total sorted))))
   
   (define (inspect-object object)
     (define (class-slot-info class)
@@ -155,9 +155,11 @@
            slot-infos
            (naturals 0 (length slot-infos)))))
   
-  (define (inspect-limit rank displayed total)
-    (let ((missing (- total displayed)))
-      (cons (list #f "..." rank) (packager (format "{a} missing of {a}" missing total) kind: :raw))))
+  (define (add-missing total content)
+    (let ((missing (- total (length content))))
+      (if (> missing 0)
+          (cons (cons (list #f #f -1) (packager (format "{a} missing of {a}" missing total) kind: :raw)) content)
+        content)))
   
   (cond ((null/pair? value) (inspect-list value))
         ((table? value) (inspect-table value))

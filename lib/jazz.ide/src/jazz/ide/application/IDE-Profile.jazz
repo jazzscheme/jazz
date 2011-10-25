@@ -46,6 +46,7 @@
         (jazz.jml)
         (jazz.library)
         (jazz.profile)
+        (jazz.project)
         (jazz.runtime)
         (jazz.system)
         (jazz.tie)
@@ -435,13 +436,14 @@
   ;;;
   
   
-  (method (determine-dead-code (catalog-names #f))
+  (method (determine-dead-code project-names)
     (define (collect-potentials)
-      (let ((cataloguer (get-cataloguer~ (get-application)))
+      (let ((workbench (get-workbench))
+            (cataloguer (get-cataloguer~ (get-application)))
             (potentials '()))
-        (define (process-catalog catalog-name)
-          (user-feedback "Processing {a}..." catalog-name)
-          (let ((catalog (get-catalog~ cataloguer catalog-name)))
+        (define (process-project project-name)
+          (user-feedback "Processing {a}..." project-name)
+          (let ((catalog (get-catalog~ (require-project~ workbench project-name))))
             (iterate-definitions~ catalog
               (lambda (name entries)
                 (let ((references (get-references~ cataloguer name)))
@@ -460,9 +462,10 @@
                  (and declaration
                       (or (is? declaration Define-Declaration)
                           (is? declaration Definition-Declaration)
-                          (is? declaration Method-Declaration))))))
+                          (is? declaration Method-Declaration)
+                          (is? declaration Category-Declaration))))))
         
-        (for-each process-catalog (or catalog-names (map get-name~ (get-catalogs~ cataloguer))))
+        (for-each process-project project-names)
         potentials))
     
     (define (output-potentials potentials)
@@ -497,7 +500,9 @@
     (let ((potentials (collect-potentials)))
       (output-potentials potentials)
       (let ((count (length potentials)))
-        (user-feedback "Found {a} potential dead code" count))))
+        (user-feedback "Found {a} potential dead code" count)
+        (when (> count 0)
+          (edit-document~ (get-application) {File Home "potentials.jazz"})))))
 
   
   ;;;

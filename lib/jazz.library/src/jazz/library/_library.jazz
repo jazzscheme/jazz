@@ -206,40 +206,16 @@
 ;;;
 
 
-(define *traits*
-  (make-table test: eq?))
+(definition public (instantiate-trait type form)
+  (let ((trait (instantiate~ form)))
+    (setup-client-type~ trait type)
+    trait))
 
 
-(definition public (register-trait name class trait)
-  (table-set! *traits* name (cons class trait)))
-
-(definition public (unregister-trait name)
-  (table-clear *traits* name))
-
-(definition public (registered-trait name)
-  (table-ref *traits* name #f))
-
-(definition public (require-trait name)
-  (or (registered-trait name)
-      (error "Unable to find trait: {s}" name)))
-
-
-(definition public (resolve-trait context name/trait)
-  (cond ((is? name/trait Trait)
-         name/trait)
-        ((enumerator? name/trait)
-         (let ((name (enumerator->symbol name/trait)))
-           (if context
-               (child~ (get-creator~ context) name)
-             (error "Unable to find trait: {s}" name))))
-        (else
-         (bind (name . path) (split-symbol name/trait #\:)
-           (bind (class . trait) (require-trait name)
-             (when context
-               (assert (is? context class)))
-             (if (null? path)
-                 trait
-               (child~ trait path)))))))
+(definition public (resolve-trait trait/reference)
+  (if (is? trait/reference Trait)
+      trait/reference
+    (resolve-parameters~ trait/reference)))
 
 
 ;;;

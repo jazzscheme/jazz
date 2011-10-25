@@ -402,7 +402,7 @@
           (set-modified? #t)))))
   
   
-  (method public virtual (set-property component/path property value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t))
+  (method public virtual (set-property component/path property value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t) (import: import #f))
     (let ((branch (target-branch trait)))
       ;; Quick fix for the special case of setting a property of the active trait
       (if (eq? component/path trait)
@@ -432,6 +432,10 @@
                           (if remove?
                               (remove-property component/path property old-value)
                             (set-property component/path property old-value))))))
+                  (when import
+                    (add-import import))
+                  (when (is? value Reference)
+                    (setup-context~ value form))
                   (when installed?
                     (if (not next-form)
                         (let ((old-value (read-property component property)))
@@ -481,6 +485,21 @@
             (set-modified? #t))))))
   
   
+  ;; tofix
+  (method public virtual (add-import import)
+    (let ((imports (map listify (listify import)))
+          (origin-form (get-form)))
+      (when (not-null? imports)
+        (let ((old-locator (get-locator~ origin-form)))
+          (set-locator~ origin-form (let ((new-locator (imports-locator imports)))
+                                      (lambda (symbol)
+                                        (or (new-locator symbol)
+                                            (old-locator symbol)))))))
+      (let ((data (get-data~ origin-form)))
+        (when data
+          (for-each (lambda (import) (add-import~ data import)) imports)))))
+  
+  
   (method public virtual (add-child child parent (undoable?: undoable? #t) (form: form #f) (trait: trait #t) (name: name #f) (properties: properties '()) (tag-reference: tag-reference #f) (import: import '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
     (define (make-new-child-form parent-form)
       (let* ((child-origin-form (get-form~ child))
@@ -516,17 +535,7 @@
                                (set-property child property value trait: trait design-events?: design-events?))
                              properties))
         (when import
-          (let ((imports (map listify (listify import)))
-                (origin-form (get-form)))
-            (when (not-null? imports)
-              (let ((old-locator (get-locator~ origin-form)))
-                (set-locator~ origin-form (let ((new-locator (imports-locator imports)))
-                                            (lambda (symbol)
-                                              (or (new-locator symbol)
-                                                  (old-locator symbol)))))))
-            (let ((data (get-data~ origin-form)))
-              (when data
-                (for-each (lambda (import) (add-import~ data import)) imports)))))
+          (add-import import))
         ;; the two sexpr where toggled so that the
         ;; event occurs after the properties are set
         (when design-events?

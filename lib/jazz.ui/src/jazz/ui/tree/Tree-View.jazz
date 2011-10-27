@@ -389,7 +389,7 @@
     (or (continuation-capture
           (lambda (return)
             (for-each (lambda (merge-cell)
-                        (let ((data (get-cell-data (get-master-cell~ merge-cell))))
+                        (let ((data (get-site-data (get-first-site~ merge-cell))))
                           (when (is? data View)
                             (let ((rect (merge-cell-rect merge-cell)))
                               (when (in-rect? pos rect)
@@ -585,7 +585,7 @@
                   (top (get-top~ rect))
                   (right (get-right~ rect))
                   (bottom (get-bottom~ rect))
-                  (data (get-cell-data (get-master-cell~ merge-cell)))
+                  (data (get-site-data (get-first-site~ merge-cell)))
                   (selected? (merge-cell-selected? merge-cell)))
               (let ((new-context `(selected?: ,selected? line: ,(row->line top-row) ,@context)))
                 (paint-data new-context left-column top-row left top (- right left) (- bottom top) data)))))))
@@ -1843,7 +1843,7 @@
     (continuation-capture
       (lambda (return)
         (for-each (lambda (merge-cell)
-                    (let ((data (get-cell-data (get-master-cell~ merge-cell))))
+                    (let ((data (get-site-data (get-first-site~ merge-cell))))
                       (when (eq? data view)
                         (continuation-return return merge-cell))))
                   merge-cell-list)
@@ -1920,6 +1920,12 @@
             (get-column (get-col~ cell))))
   
   
+  (method public (get-site-data site)
+    (let ((row (get-row~ site))
+          (col (column->col (get-column~ site))))
+      (get-child~ row col)))
+  
+  
   (method public (get-cell-data cell)
     (let ((row (get-row (get-line~ cell))))
       (when row
@@ -1959,6 +1965,10 @@
       (when data
         (set-data-title data title))))
 
+  
+  (method public (invalidate-site site)
+    (invalidate-rect (site-rect site)))
+  
   
   (method public (invalidate-cell cell)
     (invalidate-rect (cell-rect cell)))
@@ -2559,11 +2569,15 @@
       (new Point (get-left~ rect) (get-top~ rect))))
   
   
-  (method public (cell-rect cell <Cell>) <Rect>
-    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
+  (method public (site-rect site <Site>) <Rect>
+    (let ((merge-cell (safe-get-merge-cell site)))
       (if merge-cell
           (merge-cell-rect merge-cell)
         (unmerged-cell-rect cell))))
+  
+  
+  (method public (cell-rect cell <Cell>) <Rect>
+    (site-rect (cell->site cell)))
 
   
   (method public (unmerged-site-rect site <Site>) <Rect>
@@ -2604,8 +2618,8 @@
            (data  (get-cell-data cell))
            (width (column-width (get-node-column-index))))
       (offset-rect (text-rect~ (get-column col) row data width (get-height~ row) #f) 0 top)))
-
-
+  
+  
   (method public (view->tree pos <Point> (any?: any? #f) (uniform-height?: uniform-height? #f))
     (define (visible-cell cell)
       (if any?
@@ -2613,13 +2627,12 @@
         (when (cell-visible? cell)
           cell)))
     
-    (let ((merge-cell (find-merged-cell pos)))
-      (if merge-cell
-          (visible-cell (get-first-cell~ merge-cell))
-        (let ((line (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->line (get-v~ pos))))
-              (col (h->col (get-h~ pos))))
-          (when (and line col (>= line 0))
-            (visible-cell (new Cell line col)))))))
+    (let ((line (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->line (get-v~ pos))))
+          (col (h->col (get-h~ pos))))
+      (when (and line col (>= line 0))
+        (let ((cell (new Cell line col)))
+          (let ((merge-cell (get-merge-cell (cell->site cell))))
+            (visible-cell (if merge-cell (get-first-cell~ merge-cell) cell)))))))
 
 
   (method public (call-with-view->tree pos <Point> proc)

@@ -40,8 +40,6 @@
 
 (import (jazz.designer)
         (jazz.editor.jazz)
-        (jazz.graphic)
-        (jazz.ide)
         (jazz.io)
         (jazz.jml)
         (jazz.library)
@@ -49,7 +47,6 @@
         (jazz.project)
         (jazz.runtime)
         (jazz.system)
-        (jazz.tie)
         (jazz.ui)
         (jazz.ui.activity)
         (jazz.ui.view)
@@ -57,6 +54,75 @@
 
 
 (class IDE-Profile extends Profile
+  
+  
+  ;;;
+  ;;;; Imports
+  ;;;
+  
+  
+  (method (add-missing-imports import)
+    (let ((units (call-with-input-file "~/unresolved.jazz"
+                   (lambda (port)
+                     (read port)
+                     (read port))))
+          (cataloguer (get-cataloguer~ (get-application))))
+      (for-each (lambda (unit)
+                  (let ((definitions (get-definitions~ cataloguer unit)))
+                    (if (> (length definitions) 1)
+                        (debug 'ambiguous unit)
+                      (let ((text (get-guest~ (edit~ (car definitions)))))
+                        (let ((expl (new (explorer-class~ text) text)))
+                          (insert-import-invoice~ expl import))))))
+                units)))
+  
+  
+  (method (save-unreferenced-imports)
+    (define (collect-unreferenced-imports unit-name)
+      (let ((declaration (parameterize ((analysis-mode? #t))
+                           (walk-unit unit-name))))
+        (when (is? declaration Module-Declaration)
+          (collect (lambda (import)
+                     (when (not (get-hit?~ import))
+                       (get-name~ import)))
+                   (get-imports~ declaration)))))
+    
+    (let ((all '()))
+      (iterate-units
+        (lambda (unit-name)
+          (user-feedback "Walking {a}..." unit-name)
+          (let ((unreferenced (collect-unreferenced-imports unit-name)))
+            (when (and unreferenced (not (null? unreferenced)))
+              (set! all (cons (cons unit-name unreferenced) all))))))
+      (call-with-output-file (list path: "~/unreferenced.jazz" eol-encoding: (get-eol-encoding))
+        (lambda (port)
+          (pretty-print (sort string<? all key: (lambda (info) (symbol->string (car info))))
+                        port)))
+      (user-feedback "Done")))
+  
+  
+  (method (remove-unreferenced-imports (targets #f))
+    (let ((cataloguer (get-cataloguer~ (get-application))))
+      (define (remove-import unit import)
+        (let ((definitions (get-definitions~ cataloguer unit)))
+          (case (length definitions)
+            ((0)
+             (debug 'cant 'find unit))
+            ((1)
+             (let ((text (get-guest~ (edit~ (car definitions)))))
+               (let ((expl (new (explorer-class~ text) (get-model~ text))))
+                 (remove-import-invoice~ expl import))))
+            (else
+             (debug 'ambiguous unit)))))
+      
+      (let ((all (call-with-input-file "~/unreferenced.jazz" read)))
+        (for-each (lambda (info)
+                    (bind (unit-name . unreferenced) info
+                      (for-each (lambda (import)
+                                  (when (or (not targets) (memq? import targets))
+                                    (remove-import unit-name import)))
+                                unreferenced)))
+                  all))))
   
   
   ;;;

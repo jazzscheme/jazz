@@ -575,6 +575,7 @@
                 (draw-data~ column surface context row data width height)
               (render-drawing~ data surface context))))))
     
+    @old
     (define (merge-geometry top-left bottom-right)
       (let ((top-left-rect (unmerged-site-rect top-left))
             (bottom-right-rect (unmerged-site-rect bottom-right)))
@@ -584,6 +585,7 @@
               (bottom (get-bottom~ bottom-right-rect)))
           (values left top (- right left) (- bottom top)))))
     
+    @old
     (define (paint-merge-cell-data merge-cell)
       (receive (top-left bottom-right) (merge-corner-site merge-cell)
         (when (and top-left bottom-right)
@@ -595,8 +597,25 @@
               (let ((new-context (cons selected?: (cons selected? (cons line: (cons (row->line top-row) context))))))
                 (paint-data new-context left-column top-row left top width height data)))))))
     
+    (define (fast-paint-merge-cell-data merge-cell)
+      (let ((rect (merge-cell-rect merge-cell)))
+        (when rect
+          (let ((clipper (get-clipper~ surface)))
+            (when (rect-intersect? rect clipper)
+              (receive (top-left bottom-right) (merge-corner-site merge-cell)
+                (let ((left-column (get-column~ top-left))
+                      (top-row (get-row~ top-left))
+                      (left (get-left~ rect))
+                      (top (get-top~ rect))
+                      (right (get-right~ rect))
+                      (bottom (get-bottom~ rect))
+                      (data (get-cell-data (get-master-cell~ merge-cell)))
+                      (selected? (merge-cell-selected? merge-cell)))
+                  (let ((new-context `(selected?: ,selected? line: ,(row->line top-row) ,@context)))
+                    (paint-data new-context left-column top-row left top (- right left) (- bottom top) data)))))))))
+    
     (nextmethod surface nodes context)
-    (for-each paint-merge-cell-data merge-cell-list))
+    (for-each fast-paint-merge-cell-data merge-cell-list))
   
   
   ;;;
@@ -1714,32 +1733,27 @@
                         (cell-col (get-col~ cell)))
                     (if (and (< (+ cell-line nbline -1) (get-row-count))
                              (< (+ cell-col nbcol -1) (get-columns-count)))
-                        (let ((new-rows (new-queue))
-                              (new-columns (new-queue))
-                              (new-sites (new-queue)))
-                          (loop (for r from cell-line below (+ cell-line nbline))
-                                (loop (for c from cell-col below (+ cell-col nbcol))
-                                      (let ((merged-cell (new Cell r c)))
-                                        (if #t @creates-problems-with-edited-cells (equal? title (get-cell-title merged-cell))
-                                            (let ((new-row (get-row r))
-                                                  (new-column (get-column c))
-                                                  (new-site (new Site (get-row r) (get-column c))))
-                                              (enqueue new-rows new-row)
-                                              (enqueue new-columns new-column)
-                                              (enqueue new-sites new-site))
-                                          (error "Merged cells title must be identical")))))
-                          (let ((new-merge-cell (new Merge-Cell cell (queue-list new-rows) (queue-list new-columns) self)))
-                            (set! merge-cell-list (cons new-merge-cell merge-cell-list))
-                            (for-each (lambda (merged-site)
-                                        (set-merge-cell! merged-site new-merge-cell))
-                                      (queue-list new-sites))
-                            (let ((rect (merge-cell-rect new-merge-cell)))
+                        (let ((merge-rows (let ((queue (new-queue)))
+                                            (loop (for r from cell-line below (+ cell-line nbline))
+                                                  (enqueue queue (get-row r)))
+                                            (queue-list queue)))
+                              (merge-columns (let ((queue (new-queue)))
+                                               (loop (for c from cell-col below (+ cell-col nbcol))
+                                                     (enqueue queue (get-column c)))
+                                               (queue-list queue))))
+                          (let ((merge-cell (let ((merge-cell (new Merge-Cell cell merge-rows merge-columns self)))
+                                              (set! merge-cell-list (cons merge-cell merge-cell-list))
+                                              (loop (for row in merge-rows)
+                                                    (loop (for column in merge-columns)
+                                                          (set-merge-cell! (new Site row column) merge-cell)))
+                                              merge-cell)))
+                            (let ((rect (merge-cell-rect merge-cell)))
                               (when rect
                                 (when (is? cell-data View)
                                   (set-rect~ cell-data (acquire~ (get-parent~ cell-data) self rect)))
                                 (invalidate-rect rect)))))
                       (error "Merge cell out of tree bounds")))))
-            (error "First cell has no data")))
+            (error "First cell is empty")))
       (error "Invalid merge-cells")))
   
   
@@ -2614,9 +2628,6 @@
 
 
   (method public (view->tree pos <Point> (any?: any? #f) (uniform-height?: uniform-height? #f))
-    (define (top-cell line col)
-      (visible-cell (get-top-cell (new Cell line col))))
-    
     (define (visible-cell cell)
       (if any?
           cell
@@ -2625,7 +2636,7 @@
     
     (let ((merge-cell (find-merged-cell pos)))
       (if merge-cell
-          (top-cell (get-first-line~ merge-cell) (get-first-col~ merge-cell))
+          (visible-cell (get-first-cell~ merge-cell))
         (let ((line (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->line (get-v~ pos))))
               (col (h->col (get-h~ pos))))
           (when (and line col (>= line 0))

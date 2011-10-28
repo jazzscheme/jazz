@@ -38,37 +38,6 @@
 (unit protected core.class.syntax.object
 
 
-;; should be turned automatically off in production level
-(define jazz:instances-statistics?
-  #t)
-
-
-(define jazz:instances-statistics
-  (if jazz:instances-statistics?
-      (%%make-table test: eq?)
-    #f))
-
-
-(define (jazz:register-instance class obj)
-  (let ((keep (jazz:keep-instances-statistics)))
-    (if keep
-        (let ((name (if class (##vector-ref class 1) #f)))
-          (case keep
-            ((count)
-             (%%table-set! jazz:instances-statistics name
-               (%%fx+ (%%table-ref jazz:instances-statistics name 0)
-                      1)))
-            ((list)
-             (%%table-set! jazz:instances-statistics name
-               (%%cons obj (%%table-ref jazz:instances-statistics name '())))))))))
-
-
-(jazz:define-macro (%%register-instance class obj)
-  (if jazz:instances-statistics?
-      `(jazz:register-instance ,class ,obj)
-    #f))
-
-
 (cond-expand
   (gambit
     (define %%object-content
@@ -101,12 +70,7 @@
     (jazz:define-macro (%%object class . rest)
       (jazz:with-uniqueness class
         (lambda (cls)
-          (if jazz:instances-statistics?
-              (let ((obj (jazz:generate-symbol "obj")))
-                `(let ((,obj (##subtype-set! (##vector ,cls ,@rest) (%%subtype-jazz))))
-                   (%%register-instance ,cls ,obj)
-                   ,obj))
-            `(##subtype-set! (##vector ,cls ,@rest) (%%subtype-jazz))))))
+          `(##subtype-set! (##vector ,cls ,@rest) (%%subtype-jazz)))))
     
     (jazz:define-macro (%%make-object class size)
       (jazz:with-uniqueness class
@@ -114,7 +78,6 @@
           (let ((obj (jazz:generate-symbol "obj")))
             `(let ((,obj (##subtype-set! (%%make-vector ,size (%%unspecified)) (%%subtype-jazz))))
                (%%set-object-class ,obj ,cls)
-               (%%register-instance ,cls ,obj)
                ,obj)))))
     
     (jazz:define-macro (%%object-length object)

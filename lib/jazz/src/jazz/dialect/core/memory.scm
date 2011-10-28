@@ -131,28 +131,6 @@
 
 
 ;;;
-;;;; Instances
-;;;
-
-
-(define (jazz:class-instances-count class)
-  (let ((count 0))
-    (let iter ((class class))
-      (set! count (%%fx+ count (%%table-ref jazz:instances-statistics (%%get-category-identifier class) 0)))
-      (for-each iter (%%get-category-descendants class)))
-    count))
-
-
-(define (jazz:class-instances-size class)
-  (let ((size 0))
-    (let iter ((class class))
-      (set! size (%%fx+ size (%%fx* (%%table-ref jazz:instances-statistics (%%get-category-identifier class) 0)
-                                    (%%get-class-instance-size class))))
-      (for-each iter (%%get-category-descendants class)))
-    size))
-
-
-;;;
 ;;;; Sizes
 ;;;
 

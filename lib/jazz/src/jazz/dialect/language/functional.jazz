@@ -3062,8 +3062,8 @@
     (setup-context~ (cdr self) context)))
 
 
-(specialize inline (element list <list> n <int>) <any>
-  (list-ref list n))
+(specialize inline (element list <list> n) <any>
+  (list-ref list (cast <int> n)))
 
 
 (specialize inline (cardinality list <list>) <int>
@@ -3805,27 +3805,27 @@
   (string=? s1 s2))
 
 
-(specialize inline (element string <string> n <int>) <char>
-  (string-ref string n))
+(specialize inline (element string <string> n) <char>
+  (string-ref string (cast <int> n)))
 
 
-(specialize inline (set-element! string <string> n <int> c <char>) <void>
-  (string-set! string n c))
+(specialize inline (set-element! string <string> n c) <void>
+  (string-set! string (cast <int> n) (cast <char> c)))
 
 
 (specialize inline (cardinality string <string>) <int>
   (string-length string))
 
 
-(specialize inline (subseq string <string> start <int> end <int>) <string>
-  (substring string start end))
+(specialize inline (subseq string <string> start end) <string>
+  (substring string (cast <int> start) (cast <int> end)))
 
 
-(specialize (replace-subseq! string <string> start <int> end <int> replacement <string>) <string>
+(specialize (replace-subseq! string <string> start end replacement) <string>
   ;; should become append! when append! is a specialized definition
-  (string-append (subseq string 0 start)
-                 replacement
-                 (subseq string end (cardinality string))))
+  (string-append (subseq string 0 (cast <int> start))
+                 (cast <string> replacement)
+                 (subseq string (cast <int> end) (cardinality string))))
 
 
 (instantiate-for-each string-for-each <string>)
@@ -4272,12 +4272,12 @@
     (list->vector (butlast (vector->list self)))))
 
 
-(specialize inline (element vector <vector> n <int>) <object>
-  (vector-ref vector n))
+(specialize inline (element vector <vector> n) <object>
+  (vector-ref vector (cast <int> n)))
 
 
-(specialize inline (set-element! vector <vector> n <int> obj <object>) <void>
-  (vector-set! vector n obj))
+(specialize inline (set-element! vector <vector> n obj) <void>
+  (vector-set! vector (cast <int> n) obj))
 
 
 (specialize inline (cardinality vector <vector>) <int>
@@ -4342,64 +4342,69 @@
   (coerce rest Axis))
 
 
-(specialize inline (element axis <Axis> n <fx>) <any>
-  (vector-ref (get-content~ axis) n))
+(specialize inline (element axis <Axis> n) <any>
+  (vector-ref (get-content~ axis) (cast <fx> n)))
 
 
-(specialize inline (set-element! axis <Axis> n <fx> obj <any>) <void>
-  (vector-set! (get-content~ axis) n obj))
+(specialize inline (set-element! axis <Axis> n obj) <void>
+  (vector-set! (get-content~ axis) (cast <fx> n) obj))
 
 
 (specialize inline (cardinality axis <Axis>) <fx>
   (get-size~ axis))
 
 
-(specialize (tail axis <Axis> n <fx>) <Axis>
-  (let ((new-axis (new Axis n))
-        (offset (- (get-size~ axis) n)))
-    (let (iter (i 0))
-      (if (>= i n)
-          new-axis
-        (set-element! new-axis i (element axis (+ i offset)))
-        (iter (+ i 1))))))
+(specialize (tail axis <Axis> n) <Axis>
+  (let ((n (cast <fx> n)))
+    (let ((new-axis (new Axis n))
+          (offset (- (get-size~ axis) n)))
+      (let (iter (i 0))
+        (if (>= i n)
+            new-axis
+          (set-element! new-axis i (element axis (+ i offset)))
+          (iter (+ i 1)))))))
 
 
 (specialize (last axis <Axis>) <any>
   (element axis (- (get-size~ axis) 1)))
 
 
-(specialize (insert! axis <Axis> pos <fx> obj <any>) <Axis>
-  (replace-subseq! axis pos pos (list obj)))
+(specialize (insert! axis <Axis> pos obj) <Axis>
+  (let ((pos (cast <fx> pos)))
+    (replace-subseq! axis pos pos (list obj))))
 
 
-(specialize (replace-subseq! axis <Axis> start <fx> end <fx> replacement <list>) <Axis>
-  (let* ((before (- end start))
-         (after (cardinality replacement))
-         (delta (- after before))
-         (old-size (get-size~ axis))
-         (new-size (+ old-size delta)))
-    (cond ((< after before)
-           (let (iter (n (- old-size end))
-                      (src end)
-                      (dst (+ end delta)))
-             (when (> n 0)
-               (set-element! axis dst (element axis src))
-               (set-element! axis src #f)
-               (iter (- n 1) (+ src 1) (+ dst 1))))
-           (axis-grow axis new-size))
-          ((> after before)
-           (axis-grow axis new-size)
-           (let (iter (n (- old-size end))
-                      (src (- old-size 1))
-                      (dst (+ (- old-size 1) delta)))
-             (when (> n 0)
-               (set-element! axis dst (element axis src))
-               (iter (- n 1) (- src 1) (- dst 1))))))
-    (let (iter (n 0) (dst start))
-      (when (< n after)
-        (set-element! axis dst (element replacement n))
-        (iter (+ n 1) (+ dst 1))))
-    axis))
+(specialize (replace-subseq! axis <Axis> start end replacement) <Axis>
+  (let ((start (cast <fx> start))
+        (end (cast <fx> end))
+        (replacement (cast <list> replacement)))
+    (let* ((before (- end start))
+           (after (cardinality replacement))
+           (delta (- after before))
+           (old-size (get-size~ axis))
+           (new-size (+ old-size delta)))
+      (cond ((< after before)
+             (let (iter (n (- old-size end))
+                        (src end)
+                        (dst (+ end delta)))
+               (when (> n 0)
+                 (set-element! axis dst (element axis src))
+                 (set-element! axis src #f)
+                 (iter (- n 1) (+ src 1) (+ dst 1))))
+             (axis-grow axis new-size))
+            ((> after before)
+             (axis-grow axis new-size)
+             (let (iter (n (- old-size end))
+                        (src (- old-size 1))
+                        (dst (+ (- old-size 1) delta)))
+               (when (> n 0)
+                 (set-element! axis dst (element axis src))
+                 (iter (- n 1) (- src 1) (- dst 1))))))
+      (let (iter (n 0) (dst start))
+        (when (< n after)
+          (set-element! axis dst (element replacement n))
+          (iter (+ n 1) (+ dst 1))))
+      axis)))
 
 
 (definition public (axis-remove! axis <Axis> element <any>) <void>
@@ -4441,16 +4446,16 @@
   (new-axis size))
 
 
-(specialize (allocate class <category<Axis>> size <fx>) <Axis>
+(specialize (allocate class <category<Axis>> size) <Axis>
   (new-axis size))
 
 
-(specialize inline as axis-ref (element axis <Axis> n <fx>) <object>
-  (vector-ref (get-content~ axis) n))
+(specialize inline as axis-ref (element axis <Axis> n) <object>
+  (vector-ref (get-content~ axis) (cast <fx> n)))
 
 
-(specialize inline as axis-set! (set-element! axis <Axis> n <fx> obj <object>) <void>
-  (vector-set! (get-content~ axis) n obj))
+(specialize inline as axis-set! (set-element! axis <Axis> n obj) <void>
+  (vector-set! (get-content~ axis) (cast <fx> n) obj))
 
 
 (specialize inline as axis-cardinality (cardinality axis <Axis>) <int>
@@ -4971,12 +4976,12 @@
   (set-size~ subseq (+ (get-size~ subseq) n)))
 
 
-(specialize inline as subseq-ref (element subseq <Subseq> n <fx>) <object>
-  (element (get-sequence~ subseq) (+ (get-start~ subseq) n)))
+(specialize inline as subseq-ref (element subseq <Subseq> n) <object>
+  (element (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n))))
 
 
-(specialize inline as subseq-set! (set-element! subseq <Subseq> n <fx> obj <object>) <void>
-  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) n) obj))
+(specialize inline as subseq-set! (set-element! subseq <Subseq> n obj) <void>
+  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n)) obj))
 
 
 (specialize inline as subseq-cardinality (cardinality subseq <Subseq>) <int>
@@ -5044,29 +5049,33 @@
   (new-subseq$string$ sequence start size))
 
 
-(specialize inline (element subseq <Subseq$string$> n <fx>) <char>
-  (element (get-sequence~ subseq) (+ (get-start~ subseq) n)))
+(specialize inline (element subseq <Subseq$string$> n) <char>
+  (element (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n))))
 
 
-(specialize inline (set-element! subseq <Subseq$string$> n <fx> obj <char>) <void>
-  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) n) obj))
+(specialize inline (set-element! subseq <Subseq$string$> n obj) <void>
+  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n)) (cast <char> obj)))
 
 
 (specialize inline (cardinality subseq <Subseq$string$>) <fx>
   (get-size~ subseq))
 
 
-(specialize (subseq! seq <string> s <fx> e <fx>) <Subseq$string$>
-  (new Subseq$string$ seq s (- e s)))
+(specialize (subseq! seq <string> s e) <Subseq$string$>
+  (let ((s (cast <fx> s))
+        (e (cast <fx> e)))
+    (new Subseq$string$ seq s (- e s))))
 
 
-(specialize (subseq! subseq <Subseq$string$> s <fx> e <fx>) <Subseq$string$>
-  (new Subseq$string$ (get-sequence~ subseq) (+ (get-start~ subseq) s) (- e s)))
+(specialize (subseq! subseq <Subseq$string$> s e) <Subseq$string$>
+  (let ((s (cast <fx> s))
+        (e (cast <fx> e)))
+    (new Subseq$string$ (get-sequence~ subseq) (+ (get-start~ subseq) s) (- e s))))
 
 
-(specialize (offset-subseq! subseq <Subseq$string$> offset <fx>) <void>
-  (set-start~ subseq (+ (get-start~ subseq) offset)))
+(specialize (offset-subseq! subseq <Subseq$string$> offset) <void>
+  (set-start~ subseq (+ (get-start~ subseq) (cast <fx> offset))))
 
 
-(specialize (grow-subseq! subseq <Subseq$string$> n <fx>) <void>
-  (set-size~ subseq (+ (get-size~ subseq) n))))
+(specialize (grow-subseq! subseq <Subseq$string$> n) <void>
+  (set-size~ subseq (+ (get-size~ subseq) (cast <fx> n)))))

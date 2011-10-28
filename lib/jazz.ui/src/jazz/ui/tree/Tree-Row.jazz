@@ -265,32 +265,45 @@
   
   
   (method override (draw-children surface nodes context)
-    (let* ((h 0)
-           (v 0)
-           (tree (get-tree))
-           (cs (get-column-spacing~ tree))
-           (height (get-height))
-           (rank 0))
-      (for-each (lambda (column data)
-                  (when (get-visible?~ column)
-                    (let ((node? (is? column Tree-Node-Column))
-                          (width (get-width~ column))
-                          (merge-cell (get-merge-cell~ tree (row/column->site~ tree self column))))
-                      (unless merge-cell
-                        (if (is-not? data View)
-                            (with-clipping-transform~ surface h v width height #f
-                              (lambda ()
-                                (draw-data~ column surface context self data width height)))
-                          (when node?
-                            (draw-level~ column surface self data width height)
-                            (draw-control~ column surface self data width height))
-                          (with-self-transform~ data surface
-                            (lambda ()
-                              (render-drawing~ data surface context)))))
-                      (increase! h (+ width (if (space-column?~ tree column rank) cs 0)))
-                      (increase! rank))))
-                (get-columns~ tree)
-                children)))
+    (let ((tree (get-tree))
+          (clipper (get-clipper~ surface)))
+      (let ((height (get-height))
+            (cs (get-column-spacing~ tree))
+            (left-clip (get-left~ clipper))
+            (right-clip (get-right~ clipper)))
+        (let (iter (columns (get-columns~ tree))
+                   (children children)
+                   (h 0)
+                   (rank 0))
+          (when (not-null? children)
+            (let ((column (car columns))
+                  (data (car children)))
+              (if (get-visible?~ column)
+                  (let ((node? (is? column Tree-Node-Column))
+                        (width (get-width~ column))
+                        (merge-cell (get-merge-cell~ tree (row/column->site~ tree self column))))
+                    (let ((right (+ h width (if (space-column?~ tree column rank) cs 0))))
+                      (when (< h right-clip)
+                        (when (> right left-clip)
+                          (unless merge-cell
+                            (if (is-not? data View)
+                                (with-clipping-transform~ surface h 0 width height #f
+                                  (lambda ()
+                                    (draw-data~ column surface context self data width height)))
+                              (when node?
+                                (draw-level~ column surface self data width height)
+                                (draw-control~ column surface self data width height))
+                              (with-self-transform~ data surface
+                                (lambda ()
+                                  (render-drawing~ data surface context))))))
+                        (iter (cdr columns)
+                              (cdr children)
+                              right
+                              (+ rank 1)))))
+                (iter (cdr columns)
+                      (cdr children)
+                      h
+                      rank))))))))
   
   
   (method override (draw-selection surface)

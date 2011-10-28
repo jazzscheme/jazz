@@ -119,15 +119,6 @@
     (cdr borders))
   
   
-  (method public (get-borders col)
-    (element (get-columns-borders) col))
-  
-  
-  (method public (column-width col)
-    (bind (left . right) (get-borders col)
-      (- right left)))
-  
-  
   ;;;
   ;;;; Header
   ;;;
@@ -139,18 +130,10 @@
   
   (method (get-columns-count)
     (get-columns-count~ (get-client)))
-  
-  
-  (method (get-columns-borders)
-    (get-columns-borders~ (get-client)))
 
   
   (method (invalidate-columns)
     (invalidate-columns~ (get-client)))
-
-  
-  (method (invalidate-borders)
-    (invalidate-borders~ (get-client)))
 
   
   (method (layout-column column)
@@ -331,7 +314,7 @@
             (let ((col (h->col h)))
               (when col
                 (let ((column (get-column col)))
-                  (header-menu~ client column (header-coordinates col pos))))))))))
+                  (header-menu~ client column (header-coordinates column pos))))))))))
 
 
   ;;;
@@ -350,7 +333,7 @@
               (let ((col (h->col h)))
                 (when col
                   (let ((column (get-column col)))
-                    (header-down~ column (header-coordinates col pos)))))
+                    (header-down~ column (header-coordinates column pos)))))
             (set! resizing? #t)
             (set! resized-column (get-column col))
             (set! resized-column-ref col)
@@ -373,7 +356,7 @@
             (let ((col (h->col h)))
               (when col
                 (let ((column (get-column col)))
-                  (header-move~ column (header-coordinates col pos)))))
+                  (header-move~ column (header-coordinates column pos)))))
           (let ((delta (- h resize-start-h)))
             (let ((width (max (+ resize-start-width delta) min-column-width)))
               (resize-column resized-column width))))
@@ -395,7 +378,7 @@
               (let ((col (h->col h)))
                 (when col
                   (let ((column (get-column col)))
-                    (header-up~ column (header-coordinates col pos)))))
+                    (header-up~ column (header-coordinates column pos)))))
               @wait-buggy-when-resizing-a-column-and-scrolled-vertically
               (when initial-line
                 (let ((tree client))
@@ -419,17 +402,16 @@
             (let ((col (h->col h)))
               (when col
                 (let ((column (get-column col)))
-                  (header-double-click~ column (header-coordinates col pos))))))))))
+                  (header-double-click~ column (header-coordinates column pos))))))))))
   
   
   (method (resize-column column width)
     (when (>= width 0)
       (let ((delta (- width (get-width~ column)))
-            (left (+ (borders-right (get-borders (column->col~ (get-client) column))) (get-hscroll-amount))))
+            (left (+ (borders-right (get-borders~ column)) (get-hscroll-amount))))
         (set-filled-column~ client #f)
         (set-width~ column width)
         (invalidate-columns)
-        (invalidate-borders)
         (layout-column column)
         (layout-scrollee~ client)
         (invalidate-view)
@@ -457,16 +439,16 @@
         (resize-column column (max max-width min-column-width)))))
   
   
-  (method (header-coordinates col pos)
-    (point- pos (header-position col)))
+  (method (header-coordinates column pos)
+    (point- pos (header-position column)))
   
   
   (method (resized-col h)
     (continuation-capture
       (lambda (return)
-        (loop (for borders in (get-columns-borders))
-              (for col from 0 below (get-columns-count))
-              (bind (left . right) borders
+        (loop (for col from 0 below (get-columns-count))
+              (for column in (get-columns))
+              (bind (left . right) (get-borders~ column)
                 (when (near? h right 4)
                   (continuation-return return col))))
         #f)))
@@ -484,7 +466,7 @@
   
   
   (method public (header-rect column)
-    (bind (left . right) (get-borders (column->col column))
+    (bind (left . right) (get-borders~ column)
       (new Rect left 0 right (get-height))))
   
 
@@ -493,16 +475,16 @@
   ;;;
   
   
-  (method (header-position col)
-    (new Point (borders-left (get-borders col)) 0))
+  (method (header-position column)
+    (new Point (borders-left (get-borders~ column)) 0))
 
 
   (method (h->col h)
     (continuation-capture
       (lambda (return)
-        (loop (for borders in (get-columns-borders))
-              (for n from 0 below (get-columns-count))
-              (bind (left . right) borders
+        (loop (for n from 0 below (get-columns-count))
+              (for column in (get-columns))
+              (bind (left . right) (get-borders~ column)
                 (when (and (>= h left) (<= h right))
                   (continuation-return return n))))
         #f)))))

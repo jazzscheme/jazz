@@ -106,7 +106,6 @@
   (slot protected selection-pivot               initialize #f)
   (slot protected highlighted                   initialize '())
   (slot protected indentation                   initialize 16   getter generate)
-  (slot protected columns-borders               initialize '()  getter generate)
   (slot protected columns-right            <fx> initialize 0    getter generate)
   (slot protected edited-cell                   initialize #f   getter generate)
   (slot protected cell-editor                   initialize #f   getter generate)
@@ -132,10 +131,10 @@
     (set! selection '()))
   
   
-  (method override (conclude rest)
+  (method override (finish rest)
     (nextmethod rest)
-    (fill-column)
     (invalidate-columns)
+    (fill-column)
     (invalidate-header))
   
   
@@ -153,10 +152,9 @@
     (nextmethod child)
     (when (is? child Tree-Column)
       (set! columns (append! columns (list child)))
-      (when (initialized?)
-        (fill-column)
-        (invalidate-columns)
-        (invalidate-header))))
+      (invalidate-columns)
+      (fill-column)
+      (invalidate-header)))
   
   
   (method override (remove-child child)
@@ -479,7 +477,7 @@
                     (set! width w)))))
             (set! visible-width width)
             (set! columns-right width)
-            (set! columns-borders (list (cons 0 width)))
+            (set-borders~ node-column (cons 0 width))
             (set-width~ node-column width)))))
     
     (update-visible-height)
@@ -691,11 +689,11 @@
     (set-sorted-column #f #f)
     (set! highlighted '())
     (set! selection-pivot #f)
-    (clear-all-merge-cells)
+    (unmerge-all-cells)
     (nextmethod))
   
   
-  (method public (clear-all-merge-cells)
+  (method public (unmerge-all-cells)
     (set! merge-cell-list '())
     (empty-table merge-cell-table))
   
@@ -1114,7 +1112,7 @@
                 (column (get-column (get-col~ cell)))
                 (text (localize (get-cell-tooltip cell))))
             (when text
-              (let* ((width (column-width (get-col~ cell)))
+              (let* ((width (get-width~ column))
                      (height (get-height~ row))
                      (content-rect (content-rect~ column row cell width height))
                      (formatted? (get-formatted-tooltip?))
@@ -1190,7 +1188,7 @@
            (data (get-cell-data (new Cell line 0)))
            (image (get-image~ data))
            (title (get-title~ data))
-           (width (column-width (get-node-column-index)))
+           (width (get-width~ node-column))
            (height (get-height~ row))
            (bitmap (unspecified))
            (mask (unspecified)))
@@ -1547,21 +1545,21 @@
                              (eq? (get-name~ column) name))
                            columns))))
     
-    (when (and filled-column (not-null? columns-borders))
+    (when (and filled-column (not-null? columns))
       (let ((column (find-filled-column filled-column)))
         (when column
           (let ((col (column->col column)))
-            (when (< col (length columns-borders))
-              (let* ((filled-borders (element columns-borders col))
+            (when (< col (length columns))
+              (let* ((filled-borders (get-borders~ column))
                      (space-after (- columns-right (borders-right filled-borders)))
                      (size (get-display-size))
                      (delta (max (- (borders-width filled-borders)) (- (get-width~ size) space-after (borders-right filled-borders))))
                      (old-right (cdr filled-borders))
                      (new-right (+ old-right delta)))
-                (for-each (lambda (pair)
-                            (set-car! pair (+ (car pair) delta))
-                            (set-cdr! pair (+ (cdr pair) delta)))
-                          (tail columns-borders (+ col 1)))
+                (for-each (lambda (column)
+                            (bind (left . right) (get-borders~ column)
+                              (set-borders~ column (cons (+ left delta) (+ right delta)))))
+                          (tail columns (+ col 1)))
                 (set-cdr! filled-borders new-right)
                 (increase! columns-right delta)
                 (set-width~ column (max (+ (get-width~ column) delta) min-column-width))
@@ -1597,7 +1595,6 @@
       (remove-every-row)
       (set-children '())
       (set! columns '())
-      (set! columns-borders '())
       (set! columns-right 0)
       (set! node-column #f)
       (invalidate-header))
@@ -1608,29 +1605,29 @@
 
   
   (method override (invalidate-columns)
+    (define (update-node-column)
+      (set! node-column (find-if (lambda (column)
+                                   (is? column Tree-Node-Column))
+                                 columns)))
+    
+    (define (update-columns)
+      (let ((left 0)
+            (last-right #f))
+        (for-each (lambda (column rank)
+                    (set-rank~ column rank)
+                    (let* ((width (get-width~ column))
+                           (right (+ left width)))
+                      (set-borders~ column (cons left right))
+                      (when (get-visible?~ column)
+                        (set! left (+ right (if (space-column? column rank) column-spacing 0))))
+                      (set! last-right right)))
+                  columns
+                  (naturals 0 (length columns)))
+        (set! columns-right last-right)))
+    
     (when (not-null? columns)
-      (invalidate-node-column)
-      (invalidate-borders)))
-  
-  
-  (method (invalidate-node-column)
-    (set! node-column (find-if (lambda (column)
-                                 (is? column Tree-Node-Column))
-                               columns)))
-
-  
-  (method protected (invalidate-borders)
-    (let ((left 0))
-      (set! columns-borders
-            (map (lambda (column rank)
-                   (let* ((width (get-width~ column))
-                          (right (+ left width)))
-                     (prog1 (cons left right)
-                       (when (get-visible?~ column)
-                         (set! left (+ right (if (space-column? column rank) column-spacing 0)))))))
-                 columns
-                 (naturals 0 (length columns))))
-      (set! columns-right (borders-right (last columns-borders)))))
+      (update-node-column)
+      (update-columns)))
   
   
   (method protected virtual (space-column? column rank)
@@ -1654,7 +1651,7 @@
   
   
   (method public (column->col column)
-    (find columns column))
+    (get-rank~ column))
 
   
   ;;;
@@ -2479,13 +2476,13 @@
   (method override (selection-row-rect line)
     (define (left-with-node row)
       (let* ((node-left (row-text-left~ node-column row))
-             (columns-left (if (> (length columns-borders) 1)
-                               (car (second columns-borders))
+             (columns-left (if (> (length columns) 1)
+                               (borders-left (get-borders~ (second columns)))
                              node-left)))
         (min node-left columns-left)))
     
     (define (left-without-node)
-      (car (first columns-borders)))
+      (borders-left (get-borders~ (first columns))))
     
     (let ((row (get-row line)))
       (let ((left   (if node-column (left-with-node row) (left-without-node)))
@@ -2540,15 +2537,6 @@
   (definition (borders-width borders)
     (- (borders-right borders) (borders-left borders)))
   
-  
-  (method public (get-borders col)
-    (element columns-borders col))
-  
-  
-  (method public (column-width col)
-    (bind (left . right) (get-borders col)
-      (- right left)))
-  
 
   ;;;
   ;;;; Coordinates
@@ -2558,7 +2546,7 @@
   ;; temp patch to be virtual...
   (method override (line-rect line <fx>) <Rect>
     (let* ((row   (get-row line))
-           (left  (borders-left (car columns-borders)))
+           (left  (borders-left (get-borders~ (car columns))))
            (top   (get-v~ (get-position~ row)))
            (right columns-right))
       (new Rect left top right (+ top (get-height~ row)))))
@@ -2573,7 +2561,7 @@
     (let ((merge-cell (safe-get-merge-cell site)))
       (if merge-cell
           (merge-cell-rect merge-cell)
-        (unmerged-cell-rect (site->cell site)))))
+        (unmerged-site-rect site))))
   
   
   (method public (cell-rect cell <Cell>) <Rect>
@@ -2581,15 +2569,8 @@
 
   
   (method public (unmerged-site-rect site <Site>) <Rect>
-    (let* ((borders (get-borders (column->col (get-column~ site))))
+    (let* ((borders (get-borders~ (get-column~ site)))
            (row (get-row~ site))
-           (top (get-v~ (get-position~ row))))
-      (new Rect (borders-left borders) top (borders-right borders) (+ top (get-height~ row)))))
-
-  
-  (method public (unmerged-cell-rect cell <Cell>) <Rect>
-    (let* ((borders (get-borders (get-col~ cell)))
-           (row (get-row (get-line~ cell)))
            (top (get-v~ (get-position~ row))))
       (new Rect (borders-left borders) top (borders-right borders) (+ top (get-height~ row)))))
   
@@ -2602,12 +2583,13 @@
     (let* ((line    (get-line~ cell))
            (col     (get-col~ cell))
            (row     (get-row line))
+           (column  (get-column col))
            (top     (get-v~ (get-position~ row)))
            (data    (get-cell-data cell))
-           (width   (column-width col))
-           (borders (get-borders col))
+           (width   (get-width~ column))
+           (borders (get-borders~ column))
            (left    (borders-left borders)))
-      (offset-rect (content-rect~ (get-column col) row data width (get-height~ row)) left top)))
+      (offset-rect (content-rect~ column row data width (get-height~ row)) left top)))
     
   
   (method (cell-text-rect cell <Cell>) <Rect>
@@ -2616,7 +2598,7 @@
            (row   (get-row line))
            (top   (get-v~ (get-position~ row)))
            (data  (get-cell-data cell))
-           (width (column-width (get-node-column-index))))
+           (width (get-width~ node-column)))
       (offset-rect (text-rect~ (get-column col) row data width (get-height~ row) #f) 0 top)))
   
   
@@ -2647,27 +2629,17 @@
                       (proc #f #f #f)))
                 (proc #f #f #f)))
           (proc #f #f #f)))))
-
-
-  (method public (tree->view cell)
-    (new Point
-      (col->h (get-col~ cell))
-      (line->v (get-line~ cell))))
   
 
   (method public (h->col h)
     (continuation-capture
       (lambda (return)
-        (loop (for borders in columns-borders)
-              (for col from 0 below (get-columns-count))
-              (bind (left . right) borders
+        (loop (for col from 0 below (get-columns-count))
+              (for column in columns)
+              (bind (left . right) (get-borders~ column)
                 (when (and (>= h left) (<= h right) (/= left right))
                   (continuation-return return col))))
         #f)))
-
-
-  (method (col->h col)
-    (borders-left (get-borders col)))
 
 
   (method public (find-merged-cell pos)
@@ -2772,8 +2744,8 @@
                (column  (get-column col))
                (top     (get-v~ (get-position~ row)))
                (cell    (get-cell-data cell))
-               (width   (if show-header? (column-width col) (get-width)))
-               (borders (get-borders col))
+               (width   (if show-header? (get-width~ column) (get-width)))
+               (borders (get-borders~ column))
                (left    (borders-left borders))
                (h       (text-h~ column (get-level~ row)))
                (rect    (content-rect~ column row cell width (get-height~ row))))

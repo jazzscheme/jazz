@@ -113,7 +113,6 @@
   (slot protected auto-expanded-row             initialize #f   setter generate)
   (slot protected locator                       initialize (new Tree-Locator self))
   (slot protected selection-manager             initialize (new Selection-Manager self))
-  (slot protected merge-cell-list               initialize '()  getter generate)
   (slot protected merge-cell-table              initialize (make-table test: site=? hash: site-hash) getter generate)
   
   
@@ -690,7 +689,6 @@
   
   
   (method public (unmerge-all-cells)
-    (set! merge-cell-list '())
     (empty-table merge-cell-table))
   
   
@@ -1714,7 +1712,6 @@
                                                      (enqueue queue (get-column c)))
                                                (queue-list queue))))
                           (let ((merge-cell (let ((merge-cell (new Merge-Cell cell merge-rows merge-columns self)))
-                                              (set! merge-cell-list (cons merge-cell merge-cell-list))
                                               (loop (for row in merge-rows)
                                                     (loop (for column in merge-columns)
                                                           (set-merge-cell! (new Site row column) merge-cell)))
@@ -1733,7 +1730,6 @@
     (let ((merge-cell-to-remove (get-merge-cell (cell->site cell))))
       (when merge-cell-to-remove
         (let ((rect (merge-cell-rect merge-cell-to-remove)))
-          (set! merge-cell-list (remove! merge-cell-to-remove merge-cell-list))
           (for-each-cell~ merge-cell-to-remove
             (lambda (row column)
               (let ((site (row/column->site row column)))
@@ -1830,17 +1826,6 @@
       (if merge-cell
           (get-first-cell~ merge-cell)
         cell)))
-  
-  
-  (method package (find-merged-view view)
-    (continuation-capture
-      (lambda (return)
-        (for-each (lambda (merge-cell)
-                    (let ((data (get-site-data (get-first-site~ merge-cell))))
-                      (when (eq? data view)
-                        (continuation-return return merge-cell))))
-                  merge-cell-list)
-        #f)))
   
 
   ;;;
@@ -2635,16 +2620,6 @@
               (bind (left . right) (get-borders~ column)
                 (when (and (>= h left) (<= h right) (/= left right))
                   (continuation-return return col))))
-        #f)))
-
-
-  (method public (find-merged-cell pos)
-    (continuation-capture
-      (lambda (return)
-        (loop (for merge-cell in merge-cell-list)
-              (let ((rect (merge-cell-rect merge-cell)))
-                (when (in-rect? pos rect)
-                  (continuation-return return merge-cell))))
         #f)))
   
   

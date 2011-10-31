@@ -1368,16 +1368,19 @@
   
   
   ;; an attempt at a platform-independant scroll-view
+  @wait
   (method public (scroll-view2 dh dv rect (clip-rect: clip-rect #f))
     (let ((player (get-player))
           (root (get-root)))
-      (when player
-        (let ((acquired (acquire~ root self rect))
-              (clip-rect (acquire~ root self (or clip-rect (get-view-clipper)))))
-          (scroll-offscreen2~ root dh dv acquired clip-rect)))))
+      (when (and player (view-visible?))
+        (let ((delta (device->logical~ surface delta))
+              (acquired (logical->device~ surface rect))
+              (clip-rect (logical->device~ surface (or clip-rect (get-clipper~ surface)))))
+          (scroll-offscreen2~ root delta acquired clip-rect)))))
   
   
-  (method (scroll-offscreen2 dh dv src-rect clip-rect)
+  @wait
+  (method (scroll-offscreen2 delta src-rect clip-rect)
     (with-view-surface
       (lambda (surface)
         (let* ((src-rect (rect-intersection src-rect clip-rect))
@@ -3240,38 +3243,49 @@
   
   (method public (invalidate-rect rect)
     (when (view-visible?)
-      (let ((acquired (acquire~ (get-root) self (rect-intersection rect (get-view-clipper)))))
+      (let ((acquired
+              (with-transformation-surface
+                (lambda (surface)
+                  (logical->device~ surface (rect-intersection rect (get-clipper~ surface)))))))
         (invalidate-rect~ player acquired))))
   
   
   ;; todo: not using acquire is a potentiel scaling bug...
   (method public (invalidate-region region)
     (when (view-visible?)
-      (let ((root (cast <View> (get-root))))
-        (let ((delta (- (get-lie) (get-lie~ root))))
-          (offset!~ region (get-h~ delta) (get-v~ delta))
-          (with ((clipper (new Region rect: (acquire~ root self (get-view-clipper)))))
-            (combine!~ region clipper 'and))
-          (invalidate-region~ player region)))))
+      (with-transformation-surface
+        (lambda (surface)
+          (let ((delta (logical->device~ surface {Point 0 0})))
+            (offset!~ region (get-h~ delta) (get-v~ delta))
+            (with ((clipper (new Region rect: (logical->device~ surface (get-clipper~ surface)))))
+              (combine!~ region clipper 'and)))))
+      (invalidate-region~ player region)))
   
   
   (method public (redraw-view (rect: rect #f) (region: region #f))
     (let ((player (get-player)))
       (when player
-        (let ((root (get-root)))
-          (cond (rect
-                  (let ((acquired (acquire~ root self (rect-intersection rect (get-view-clipper)))))
-                    (redraw-window~ player rect: acquired)))
-                ;; todo: not using acquire is a potentiel scaling bug...
-                (region
-                  (let ((delta (- (get-lie) (get-lie~ root))))
-                    (offset!~ region (get-h~ delta) (get-v~ delta))
-                    (with ((clipper (new Region rect: (acquire~ root self (get-view-clipper)))))
-                      (combine!~ region clipper 'and))
-                    (redraw-window~ player region: region)))
-                (else
-                 (let ((acquired (acquire~ root self (rect-intersection (get-bounds) (get-view-clipper)))))
-                   (redraw-window~ player rect: acquired))))))))
+        (cond (rect
+               (let ((acquired
+                       (with-transformation-surface
+                         (lambda (surface)
+                           (logical->device~ surface (rect-intersection rect (get-clipper~ surface)))))))
+                 (redraw-window~ player rect: acquired)))
+              ;; todo: not using acquire is a potentiel scaling bug...
+              (region
+               (with-transformation-surface
+                 (lambda (surface)
+                   (let ((delta (logical->device~ surface {Point 0 0})))
+                     (offset!~ region (get-h~ delta) (get-v~ delta))
+                     (with ((clipper (new Region rect: (logical->device~ surface (get-clipper~ surface)))))
+                       (combine!~ region clipper 'and)))))
+               (redraw-window~ player region: region))
+              (else
+               (let ((acquired
+                       (with-transformation-surface
+                         (lambda (surface)
+                           (logical->device~ surface (rect-intersection (get-bounds) (get-clipper~ surface)))))))
+                 (redraw-window~ player rect: acquired)))))))
   
 
   ;; Mainly used by the scrollbar to only redraw itself when scrolling
@@ -3291,10 +3305,12 @@
   
   (method public (view-invalidater)
     (when player
-      (let ((rect (acquire~ (get-root) self (get-bounds)))
-            (player player))
-        (lambda ()
-          (invalidate-rect~ player rect)))))
+      (with-transformation-surface
+        (lambda (surface)
+          (let ((player player)
+                (rect (logical->device~ surface (get-clipper~ surface))))
+            (lambda ()
+              (invalidate-rect~ player rect)))))))
 
   
   ;;;

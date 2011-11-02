@@ -43,7 +43,9 @@
         (jazz.graphic)
         (jazz.library)
         (jazz.library.component)
-        (jazz.ui))
+        (jazz.system.access)
+        (jazz.ui)
+        (jazz.ui.view))
 
 
 (class undocumented Descendants-Manager-Tree extends Descendants-Tree
@@ -81,6 +83,31 @@
   
   
   ;;;
+  ;;;; Default Traits
+  ;;;
+  
+  
+  (method (on-set-default-traits evt)
+    (define (initialize host manager)
+      (set-client~ manager (make-traits-toolbox~ (get-application) (class-of (selected-component))))
+      (on-synchronize~ manager #f)
+      (let ((references (get-default-traits~ (selected-component))))
+        (when references
+          (if (every? (lambda (obj) (is? obj Trait-Reference)) references)
+              (setup-traits~ manager (map make-locator references) (map get-reference-import references))
+            (designer-error "Some traits are not of the Trait-Reference class")))))
+    
+    (define (make-locator reference)
+      (cons (get-symbol~ reference) (get-parameters~ reference)))
+    
+    (define (make-reference locator)
+      (new Trait-Reference (car locator) (cdr locator)))
+    
+    (bind (locators imports) (get-modal Traits-Dialog application-select?: #f initialize: initialize)
+      (set-default-traits~ designer (selected-component) (map make-reference locators) imports: (remove-duplicates imports))))
+  
+  
+  ;;;
   ;;;; Focus
   ;;;
   
@@ -88,7 +115,8 @@
   (method override (focus-update-actions)
     (nextmethod)
     (when (is? (get-single-selected-data) Component)
-      (set-action-enabled? {Action components-tree open} #t)))
+      (set-action-enabled? {Action components-tree open} #t)
+      (set-action-enabled? {Action components-tree set-default-traits} #t)))
 
 
   ;;;

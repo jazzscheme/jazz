@@ -373,6 +373,22 @@
   ;;;
   
   
+  (method public virtual (set-default-traits component traits-references (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t) (imports: imports #f))
+    (let* ((owner (find-owner component)))
+      (if (neq? owner reference)
+          (designer-error "Default traits cannot be changed in non owner root {a}" (get-presentation-property~ reference))
+        (when imports
+          (add-import imports))
+        (for-each (lambda (ref)
+                    (setup-context~ ref form))
+                  traits-references)
+        (set-default-traits~ component traits-references)
+        (set-property~ form default-traits: traits-references)
+        (when design-events?
+          (fire-refresh component 'all))
+        (set-modified? #t))))
+  
+  
   (method public virtual (set-name component name (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t))
     (let* ((branch (target-branch trait))
            (owner (find-owner component))
@@ -435,7 +451,7 @@
                   (when import
                     (add-import import))
                   (when (is? value Reference)
-                    (setup-context~ value form))
+                    (setup-context~ value (get-form)))
                   (when installed?
                     (if (not next-form)
                         (let ((old-value (read-property component property)))

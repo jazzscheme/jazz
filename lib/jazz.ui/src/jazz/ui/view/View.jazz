@@ -593,6 +593,7 @@
 
   (method override (show)
     (nextmethod)
+    (call-layout)
     (invalidate-view))
 
 
@@ -814,7 +815,7 @@
     )
   
   
-  (method (invaled-size sz)
+  (method (invalidated-size sz)
     (when (and player (is? parent View))
       (let ((old (get-bounds))
             (new (size-rect sz)))
@@ -823,23 +824,23 @@
 
   (method override (set-size sz <Dimension>)
     (when (/= sz size)
-      (let ((invaled-size (invaled-size sz)))
+      (let ((invalidated-size (invalidated-size sz)))
         (set! size sz)
         (size-change size)
         (unless scroller
           (content-size-change size))
         (when parent
           (adjust-fit~ parent))
-        (when invaled-size
-          (invalidate-rect~ parent invaled-size)))))
+        (when invalidated-size
+          (invalidate-rect~ parent invalidated-size)))))
   
   
   (method override (set-size-noevent sz <Dimension>)
     (when (/= sz size)
-      (let ((invaled-size (invaled-size sz)))
+      (let ((invalidated-size (invalidated-size sz)))
         (set! size sz)
-        (when invaled-size
-          (invalidate-rect~ parent invaled-size)))))
+        (when invalidated-size
+          (invalidate-rect~ parent invalidated-size)))))
   
   
   (method public (set-preferred-size)
@@ -3242,7 +3243,7 @@
   
   
   (method public (invalidate-rect rect)
-    (when (view-visible?)
+    (when (and (not (inhibit-invalidates?)) (view-visible?))
       (let ((acquired
               (with-transformation-surface
                 (lambda (surface)
@@ -3252,7 +3253,7 @@
   
   ;; todo: not using acquire is a potentiel scaling bug...
   (method public (invalidate-region region)
-    (when (view-visible?)
+    (when (and (not (inhibit-invalidates?)) (view-visible?))
       (with-transformation-surface
         (lambda (surface)
           (let ((delta (logical->device~ surface {Point 0 0})))

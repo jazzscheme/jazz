@@ -1551,11 +1551,11 @@
     (acquire~ self (get-display) shape))
   
   
-  (method public (scroll-needed start end context (force-vertical: force-vertical #f) (force-horizontal: force-horizontal #f) (reposition?: reposition? #f) (center?: center? #f)) <Point>
+  (method public (scroll-needed start end context (force-vertical: force-vertical #f) (force-horizontal: force-horizontal #f) (reposition: reposition #f) (center?: center? #f)) <Point>
     (let ((distance (get-scrolled-distance))
           (display-size (get-display-size))
           (needed
-            (lambda (start end context pos size force-direction center?)
+            (lambda (start end context pos size force-direction reposition? center?)
               (let* ((start-offset (- pos start))
                      (end-offset (- (+ pos size) end))
                      (big-range? (> (- end start) size))
@@ -1563,14 +1563,14 @@
                              (let ((context (if context (fxround (* size context)) 0)))
                                (if use-head? (+ start-offset context) (- end-offset context))))))
                 (cond
-                  (center? (if (and (< start-offset 0) (> end-offset 0)) 0 (quotient (+ start-offset end-offset) 2)))
                   (reposition? (proc (neq? force-direction 'tail)))
+                  (center? (if (and (< start-offset 0) (> end-offset 0)) 0 (quotient (+ start-offset end-offset) 2)))
                   ((and (> start-offset 0) (> end-offset 0)) (proc (if (not force-direction) (not big-range?) (eq? force-direction 'head))))
                   ((and (< start-offset 0) (< end-offset 0)) (proc (if (not force-direction) big-range? (eq? force-direction 'head))))
                   (else 0))))))
       (new Point
-        (needed (get-h~ start) (get-h~ end) (and context (car context)) (get-x~ distance) (get-width~ display-size) force-horizontal #f)
-        (needed (get-v~ start) (get-v~ end) (and context (cdr context)) (get-y~ distance) (get-height~ display-size) force-vertical center?))))
+        (needed (get-h~ start) (get-h~ end) (and context (car context)) (get-x~ distance) (get-width~ display-size) force-horizontal (eq? reposition 'horizontal) #f)
+        (needed (get-v~ start) (get-v~ end) (and context (cdr context)) (get-y~ distance) (get-height~ display-size) force-vertical (eq? reposition 'vertical) center?))))
   
   
   (method public (horizontal-scroll-needed target direction) <fx>

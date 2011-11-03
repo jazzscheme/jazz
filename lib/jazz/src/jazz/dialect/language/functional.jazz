@@ -1589,6 +1589,15 @@
 ;;;
 
 
+(definition (coerce-sequence seq class)
+  (let ((len (cardinality seq)))
+    (let ((new-sequence (allocate-sequence~ class len)))
+      (loop (for n from 0 below len)
+            (for elem in-sequence seq)
+            (set-element! new-sequence n elem))
+      new-sequence)))
+
+
 (class Sequence-Class extends Class
   
   
@@ -1596,14 +1605,14 @@
   
   
   (method override (coerce-object seq)
-    (let ((len (cardinality seq)))
-      (let ((new-sequence (allocate-sequence len)))
-        (loop (for n from 0 below len)
-              (set-element! new-sequence n (element seq n)))
-        new-sequence))))
+    (coerce-sequence seq self)))
 
 
 (class primitive Sequence metaclass Sequence-Class extends Object
+  
+  
+  (method override (coerce-string)
+    (coerce-sequence self String))
 
   
   (method override (compare-object seq)
@@ -3738,9 +3747,7 @@
   
   
   (method override (coerce-object obj <Object>)
-    (if (sequence? obj)
-        (nextmethod obj)
-      (coerce-string~ obj))))
+    (coerce-string~ obj)))
 
 
 (class primitive String metaclass String-Class extends Sequence
@@ -3748,6 +3755,10 @@
   
   (method override (initialize . rest)
     (native-class "strings"))
+  
+  
+  (method override (coerce-string)
+    self)
 
 
   (method override (compare-object obj)
@@ -3842,9 +3853,11 @@
 
 
 (definition public (->string expr (detail :human))
-  (let ((output (open-output-string)))
-    (print expr output detail)
-    (get-output-string output)))
+  (if (and (string? expr) (eq? detail :human))
+      expr
+    (let ((output (open-output-string)))
+      (print expr output detail)
+      (get-output-string output))))
 
 
 (definition public (remove-trailing-char string c)

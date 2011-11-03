@@ -13,7 +13,7 @@
 (class Style-Editor extends Layout-View
   
   
-  (slot client)
+  (slot client accessors generate)
   (slot selection)
   
   
@@ -90,9 +90,17 @@
       (set-color~ component color)))
   
   
+  (method virtual (get-effective-view)
+    (and (is? selection View) selection))
+  
+  
+  (method virtual (get-effective-style view)
+    (get-style~ view))
+  
+  
   (method (selection-update)
-    (let* ((view (and (is? selection View) selection))
-           (style (and view (get-style~ view)))
+    (let* ((view (get-effective-view))
+           (style (and view (get-effective-style view)))
            (valid-style? (or (not style) (is? style Style)))
            (font (and style valid-style? (get-font~ style))))
       (enable-combo 'style view (and view valid-style?))
@@ -150,9 +158,9 @@
       (let ((client (and (is? guest View-Editor) guest)))
         (set! client~self client)
         (when client
-          (set-editor~ (locate 'font) client)
-          (set-editor~ (locate 'size) client)
-          (set-editor~ (locate 'style) client)
+          (set-editor~ (locate 'font) self)
+          (set-editor~ (locate 'size) self)
+          (set-editor~ (locate 'style) self)
           (add-editor-listener~ client (new Event-Handler target: self method-name: 'on-editor))
           (add-designer-listener~ (get-designer~ client) (new Event-Handler target: self method-name: 'on-designer))))))
   
@@ -179,7 +187,7 @@
   
   
   (method override (selection-change)
-    (let* ((style (and client (get-style~ client)))
+    (let* ((style (and client (get-effective-style~ editor client)))
            (base (and (is? style Text-Style) (get-base~ style)))
            (name (and base (not-null? base) (last base))))
       (set-content (and name (->string name)))))
@@ -187,7 +195,7 @@
   
   (method override (combo-choice)
     (let ((val (get-value)))
-      (on-style~ editor val))))
+      (on-style~ (get-client~ editor) val))))
 
 
 (class Font-Combo extends Text-Font-Combo
@@ -197,7 +205,7 @@
   
   
   (method override (selection-change)
-    (let* ((style (and client (get-style~ client)))
+    (let* ((style (and client (get-effective-style~ editor client)))
            (font (and (is? style Text-Style) (get-font~ style))))
       (if font
           (set-value (get-font-name~ font))
@@ -206,7 +214,7 @@
   
   (method override (combo-choice)
     (let ((val (get-value)))
-      (on-font-name~ editor val))))
+      (on-font-name~ (get-client~ editor) val))))
 
 
 (class Size-Combo extends Text-Size-Combo
@@ -216,7 +224,7 @@
   
   
   (method override (selection-change)
-    (let* ((style (and client (get-style~ client)))
+    (let* ((style (and client (get-effective-style~ editor client)))
            (font (and (is? style Text-Style) (get-font~ style))))
         (if font
             (set-value (get-point-size~ font))
@@ -225,7 +233,7 @@
   
   (method override (combo-choice)
     (let ((val (get-value)))
-      (on-font-size~ editor val))))
+      (on-font-size~ (get-client~ editor) val))))
 
 
 (class Color-Chooser extends Push-Tool

@@ -220,6 +220,18 @@
   (find-profile (get-selected-profile)))
 
 
+(define (find/new-profile label . rest)
+  (or (find-profile label)
+      (let ((profile (apply new-profile label: label rest)))
+        (register-profile profile)
+        profile)))
+
+
+(define (with-profile label thunk . rest)
+  (with-profiling (apply find/new-profile label rest)
+    thunk))
+
+
 (define (register-profile profile)
   (%%table-set! *profiles* (profile-label profile) profile))
 

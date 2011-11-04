@@ -1262,20 +1262,20 @@
 
 
 ;;;
-;;;; Construct
+;;;; Allocate
 ;;;
 
 
-(jazz:define-class-runtime jazz:Construct)
+(jazz:define-class-runtime jazz:Allocate)
 
 
-(define (jazz:new-construct class values)
-  (jazz:allocate-construct jazz:Construct #f #f class values))
+(define (jazz:new-allocate class values)
+  (jazz:allocate-allocate jazz:Allocate #f #f class values))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Construct expression) declaration environment)
-  (let ((class (%%get-construct-class expression))
-        (values (%%get-construct-values expression)))
+(jazz:define-method (jazz:emit-expression (jazz:Allocate expression) declaration environment)
+  (let ((class (%%get-allocate-class expression))
+        (values (%%get-allocate-values expression)))
     (jazz:new-code
       `(%%object ,(jazz:sourcified-form (jazz:emit-expression class declaration environment))
          ,@(jazz:codes-forms (jazz:emit-expressions values declaration environment)))
@@ -1283,13 +1283,13 @@
       #f)))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Construct expression) f k s)
+(jazz:define-method (jazz:fold-expression (jazz:Allocate expression) f k s)
   (f expression
-     (k (jazz:fold-expression (%%get-construct-class expression) f k s)
-        (jazz:fold-expressions (%%get-construct-values expression) f k s s))))
+     (k (jazz:fold-expression (%%get-allocate-class expression) f k s)
+        (jazz:fold-expressions (%%get-allocate-values expression) f k s s))))
 
 
-(jazz:encapsulate-class jazz:Construct)
+(jazz:encapsulate-class jazz:Allocate)
 
 
 ;;;
@@ -2227,16 +2227,16 @@
 
 
 ;;;
-;;;; Construct
+;;;; Allocate
 ;;;
 
 
-(define (jazz:walk-construct walker resume declaration environment form-src)
+(define (jazz:walk-allocate walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (let ((class (%%cadr form))
           (values (%%cddr form)))
-      (jazz:new-construct (jazz:walk walker resume declaration environment class)
-                          (jazz:walk-list walker resume declaration environment values)))))
+      (jazz:new-allocate (jazz:walk walker resume declaration environment class)
+                         (jazz:walk-list walker resume declaration environment values)))))
 
 
 ;;;
@@ -3221,7 +3221,7 @@
 (jazz:define-walker-special with-dynamic-self    jazz jazz:walk-with-dynamic-self)
 (jazz:define-walker-special with-local-variables jazz jazz:walk-with-local-variables)
 (jazz:define-walker-special cast                 jazz jazz:walk-cast)
-(jazz:define-walker-special construct            jazz jazz:walk-construct)
+(jazz:define-walker-special allocate             jazz jazz:walk-allocate)
 (jazz:define-walker-special time                 jazz jazz:walk-time)
 (jazz:define-walker-macro   remotable-stub       jazz jazz:expand-remotable-stub)
 (jazz:define-walker-syntax  assert               jazz jazz:expand-assert)

@@ -187,13 +187,13 @@
 
 
 ;;;
-;;;; Construct
+;;;; Allocate
 ;;;
 
 
-(jazz:define-class jazz:Construct jazz:Expression (type source) jazz:Object-Class jazz:allocate-construct
-  ((class  %%get-construct-class  ())
-   (values %%get-construct-values ())))
+(jazz:define-class jazz:Allocate jazz:Expression (type source) jazz:Object-Class jazz:allocate-allocate
+  ((class  %%get-allocate-class  ())
+   (values %%get-allocate-values ())))
 
 
 ;;;

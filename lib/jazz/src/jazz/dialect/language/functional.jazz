@@ -265,10 +265,6 @@
     (coerce-object~ class object)))
 
 
-(definition public (allocate class <Class> size <int>)
-  (call-into-abstract))
-
-
 ;;;
 ;;;; Interface
 ;;;
@@ -2399,24 +2395,24 @@
                      (match-test: match-test #f)
                      (constituent-test: constituent-test #f)
                      (user-data: user-data #f))
-  (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test user-data))
+  (allocate-search-context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test user-data))
 
-(definition inline (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test user-data)
-  (construct Search-Context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test #f user-data))
+(definition inline (allocate-search-context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test user-data)
+  (allocate Search-Context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test #f user-data))
 
 
 (definition public (->search-set obj)
   (cond ((is? obj Search-Set) obj)
-        ((is? obj Search-Context) (make-search-set (search-context-regexp obj) (list obj)))
+        ((is? obj Search-Context) (allocate-search-set (search-context-regexp obj) (list obj)))
         ((string? obj) (->search-set (->search-context obj)))
         ((list? obj) (let ((contexts (map ->search-context obj)))
-                       (make-search-set
+                       (allocate-search-set
                          (sre->irregex (cons 'or (map search-context->sre contexts)))
                          contexts)))
         (else (error "Unable to make a search set out of {s}" obj))))
 
-(definition public (make-search-set regexp contexts)
-  (construct Search-Set regexp contexts))
+(definition public (allocate-search-set regexp contexts)
+  (allocate Search-Set regexp contexts))
 
 
 (definition (->diacritic-ignoring-sre string)
@@ -2517,7 +2513,7 @@
                      (match-test: match-test #f)
                      (constituent-test: constituent-test #f)) <int+>
   (let ((search-set (->search-set (if (string? target)
-                                      (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
+                                      (allocate-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
                                     target))))
     (let ((found (regular-search-impl seq search-set match-test constituent-test start end reversed?)))
       (if found
@@ -2536,7 +2532,7 @@
                      (match-test: match-test #f)
                      (constituent-test: constituent-test #f)) <list>
   (let ((search-set (->search-set (if (string? target)
-                                      (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
+                                      (allocate-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
                                     target))))
     (map car (regular-search-all seq search-set
                start: start
@@ -4452,15 +4448,11 @@
     (set-element! axis size obj)))
 
 
-(definition public inline (new-axis size <fx>)
-  (construct Axis size (make-vector size #f)))
+(definition public inline (allocate-axis size <fx>)
+  (allocate Axis size (make-vector size #f)))
 
 (specialize inline (new class <category<Axis>> size) <Axis>
-  (new-axis size))
-
-
-(specialize (allocate class <category<Axis>> size) <Axis>
-  (new-axis size))
+  (allocate-axis size))
 
 
 (specialize inline as axis-ref (element axis <Axis> n) <object>
@@ -4974,11 +4966,11 @@
       (new Subseq sequence (+ start s) (- (if (= e -1) (cardinality self) e) s)))))
 
 
-(definition public inline (new-subseq sequence <string> start <fx> size <fx>)
-  (construct Subseq sequence start size))
+(definition public inline (allocate-subseq sequence <string> start <fx> size <fx>)
+  (allocate Subseq sequence start size))
 
 (specialize inline (new class <category<Subseq>> sequence start size) <Subseq>
-  (new-subseq sequence start size))
+  (allocate-subseq sequence start size))
 
 
 (definition public (offset-subseq! subseq <Subseq> offset <fx>) <void>
@@ -5055,11 +5047,11 @@
       (new Subseq$string$ sequence (+ start s) (- (if (= e -1) (cardinality self) e) s)))))
 
 
-(definition public inline (new-subseq$string$ sequence <string> start <fx>  size <fx> )
-  (construct Subseq$string$ sequence start size))
+(definition public inline (allocate-subseq$string$ sequence <string> start <fx>  size <fx> )
+  (allocate Subseq$string$ sequence start size))
 
 (specialize inline (new class <category<Subseq$string$>> sequence start size) <Subseq$string$>
-  (new-subseq$string$ sequence start size))
+  (allocate-subseq$string$ sequence start size))
 
 
 (specialize inline (element subseq <Subseq$string$> n) <char>

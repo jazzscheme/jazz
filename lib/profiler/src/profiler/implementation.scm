@@ -118,12 +118,13 @@
 
 
 (define (make-profile label profiler depth)
-  (let ((count 0)
-        (duration 0)
+  (let ((frame-count #f)
+        (calls-count 0)
+        (calls-duration 0)
         (start-info #f)
         (stop-info #f)
         (calls (%%make-table test: equal?)))
-    (%%vector 'profile label profiler depth count duration start-info stop-info calls)))
+    (%%vector 'profile label profiler depth frame-count calls-count calls-duration start-info stop-info calls)))
 
 
 (define (profile-label profile)
@@ -141,35 +142,41 @@
 (define (profile-depth-set! profile depth)
   (%%vector-set! profile 3 depth))
 
-(define (profile-calls-count profile)
+(define (profile-frame-count profile)
   (%%vector-ref profile 4))
 
-(define (profile-calls-count-set! profile total)
-  (%%vector-set! profile 4 total))
+(define (profile-frame-count-set! profile count)
+  (%%vector-set! profile 4 count))
 
-(define (profile-calls-duration profile)
+(define (profile-calls-count profile)
   (%%vector-ref profile 5))
 
-(define (profile-calls-duration-set! profile total)
+(define (profile-calls-count-set! profile total)
   (%%vector-set! profile 5 total))
 
-(define (profile-process-start-info profile)
+(define (profile-calls-duration profile)
   (%%vector-ref profile 6))
 
-(define (profile-process-start-info-set! profile time)
-  (%%vector-set! profile 6 time))
+(define (profile-calls-duration-set! profile total)
+  (%%vector-set! profile 6 total))
 
-(define (profile-process-stop-info profile)
+(define (profile-process-start-info profile)
   (%%vector-ref profile 7))
 
-(define (profile-process-stop-info-set! profile time)
+(define (profile-process-start-info-set! profile time)
   (%%vector-set! profile 7 time))
 
-(define (profile-calls profile)
+(define (profile-process-stop-info profile)
   (%%vector-ref profile 8))
 
+(define (profile-process-stop-info-set! profile time)
+  (%%vector-set! profile 8 time))
+
+(define (profile-calls profile)
+  (%%vector-ref profile 9))
+
 (define (profile-calls-set! profile calls)
-  (%%vector-set! profile 8 calls))
+  (%%vector-set! profile 9 calls))
 
 
 (define (new-profile #!key (label #f) (profiler #f) (depth #f))
@@ -277,6 +284,14 @@
         (%%table-set! calls key
           (list (+ 1 (car call)) (+ (cadr call) duration)))
       (%%table-set! calls key (list 1 duration)))))
+
+
+(define (frame-profile profile)
+  (profile-frame-count-set! profile (+ (or (profile-frame-count profile) 0) 1)))
+
+
+(define (profile-frames profile)
+  (or (profile-frame-count profile) 1))
 
 
 (define (profiler-real-time)

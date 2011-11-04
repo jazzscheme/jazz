@@ -240,7 +240,7 @@
         (let ((profile (profiler-profile~ (require-focused-process~ (get-debugger-manager))))
               (tree (get-tree)))
           (when profile
-            (bind (label profiler depth calls-count calls-duration process-info calls) profile
+            (bind (label profiler depth frame-count calls-count calls-duration process-info calls) profile
               (define (make-children frame count duration total-duration)
                 (let ((duration (unless (and duration (not (eqv? duration 0))) (if count (* count (/ (cast <fl> total-duration) calls-count)) #f)))
                       (total-duration (max total-duration 1)))
@@ -259,13 +259,20 @@
                         (present-reference name)
                       "(interaction)"))))
               
+              (define (calculate-fps)
+                (format "{?{a} ms~}{?, {a} fps~}"
+                        (and (/= frame-count 0) (seconds->milliseconds (/ calls-duration frame-count)))
+                        (and (/= calls-duration 0) (truncate (/ frame-count calls-duration)))))
+              
               (set-value~ (locate 'profiler) profiler)
               (set-value~ (locate 'depth) depth)
               (remove-every-row~ tree)
               (unless (empty? calls)
                 (bind (user-time sys-time gc-time bytes-allocated) process-info
-                  (set-title~ (locate 'profile)
-                    (format "{?{a}~} Program: {a}ms Kernel: {a}ms GC: {a}ms Allocation: {a}KiB" label user-time sys-time gc-time (fxfloor/ bytes-allocated 1024)))
+                  (let ((alloc (fxfloor/ bytes-allocated 1024))
+                        (fps (calculate-fps)))
+                    (set-title~ (locate 'profile)
+                      (format "{?{a}~} Program: {a}ms Kernel: {a}ms GC: {a}ms Allocation: {a}KiB{? {a}~}" label user-time sys-time gc-time alloc fps)))
                   (let ((locator-table (make-table test: eq?))
                         (null-stack "(interaction)"))
                     (for-each (lambda (call)

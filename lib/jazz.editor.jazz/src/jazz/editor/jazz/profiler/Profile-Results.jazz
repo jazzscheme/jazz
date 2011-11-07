@@ -240,7 +240,7 @@
         (let ((profile (profiler-profile~ (require-focused-process~ (get-debugger-manager))))
               (tree (get-tree)))
           (when profile
-            (bind (label profiler depth frame-count calls-count calls-duration process-info calls) profile
+            (bind (label profiler depth frames-count frames-duration calls-count calls-duration process-info calls) profile
               (define (make-children frame count duration total-duration)
                 (let ((duration (unless (and duration (not (eqv? duration 0))) (if count (* count (/ (cast <fl> total-duration) calls-count)) #f)))
                       (total-duration (max total-duration 1)))
@@ -260,49 +260,49 @@
                       "(interaction)"))))
               
               (define (calculate-fps)
-                (format "{?{a} ms~}{?, {a} fps~}"
-                        (and (/= frame-count 0) (seconds->milliseconds (/ calls-duration frame-count)))
-                        (and (/= calls-duration 0) (truncate (/ frame-count calls-duration)))))
+                (format ", count: {a}{?, average: {a} ms~}{?, fps: {a}~}"
+                        frames-count
+                        (and (/= frames-count 0) (inexact->exact (truncate (exact->inexact (/ frames-duration frames-count)))))
+                        (and (/= frames-duration 0) (inexact->exact (truncate (/ frames-count (milliseconds->seconds frames-duration)))))))
               
               (set-value~ (locate 'profiler) profiler)
               (set-value~ (locate 'depth) depth)
               (remove-every-row~ tree)
-              (unless (empty? calls)
-                (bind (user-time sys-time gc-time bytes-allocated) process-info
-                  (let ((alloc (fxfloor/ bytes-allocated 1024))
-                        (fps (calculate-fps)))
-                    (set-title~ (locate 'profile)
-                      (format "{?{a}~} Program: {a}ms Kernel: {a}ms GC: {a}ms Allocation: {a}KiB{? {a}~}" label user-time sys-time gc-time alloc fps)))
-                  (let ((locator-table (make-table test: eq?))
-                        (null-stack "(interaction)"))
-                    (for-each (lambda (call)
-                                (bind (stack count duration) call
-                                  (if (null? stack)
-                                      (bind (total-count calls) (table-ref locator-table null-stack '(0 ()))
-                                        (table-set! locator-table null-stack (list (+ total-count count) (cons call calls))))
-                                    (for-each (lambda (frame)
-                                                (let ((locator (car frame)))
-                                                  (bind (total-count calls) (table-ref locator-table locator '(0 ()))
-                                                    (table-set! locator-table locator (list (+ total-count count) (cons call calls))))))
-                                              stack))))
-                              calls)
-                    (with-update-locked~ tree
-                      (lambda ()
-                        (for-each (lambda (kv)
-                                    (bind (locator total-count calls) kv
-                                      (let ((locator-name (if (string? locator) locator (list locator))))
-                                        (let ((father (add-row~ tree children: (make-children locator-name total-count #f user-time) user-data: #f)))
-                                          (for-each (lambda (call)
-                                                      (bind (stack count duration) call
-                                                        (if (null? stack)
-                                                            (add-row~ tree father: father children: (make-children "(interaction)" count duration user-time) user-data: #f)
-                                                          (bind (head-frame . frames) stack
-                                                            (let ((row (add-row~ tree father: father children: (make-children head-frame count duration user-time) user-data: head-frame)))
-                                                              (for-each (lambda (frame)
-                                                                          (add-row~ tree father: row children: (make-children frame #f #f user-time) user-data: frame))
-                                                                        frames))))))
-                                                    (sort > calls key: second))))))
-                                  (sort > (table->list locator-table) key: second))))))))))))))
+              (bind (user-time sys-time real-time gc-time bytes-allocated) process-info
+                (let ((alloc (fxfloor/ bytes-allocated 1024))
+                      (fps (calculate-fps)))
+                  (set-title~ (locate 'profile)
+                    (format "{?{a}~}: program: {a} ms, kernel: {a} ms, gc: {a} ms, allocation: {a} kb{? {a}~}" label user-time sys-time gc-time alloc fps)))
+                (let ((locator-table (make-table test: eq?))
+                      (null-stack "(interaction)"))
+                  (for-each (lambda (call)
+                              (bind (stack count duration) call
+                                (if (null? stack)
+                                    (bind (total-count calls) (table-ref locator-table null-stack '(0 ()))
+                                      (table-set! locator-table null-stack (list (+ total-count count) (cons call calls))))
+                                  (for-each (lambda (frame)
+                                              (let ((locator (car frame)))
+                                                (bind (total-count calls) (table-ref locator-table locator '(0 ()))
+                                                  (table-set! locator-table locator (list (+ total-count count) (cons call calls))))))
+                                            stack))))
+                            calls)
+                  (with-update-locked~ tree
+                    (lambda ()
+                      (for-each (lambda (kv)
+                                  (bind (locator total-count calls) kv
+                                    (let ((locator-name (if (string? locator) locator (list locator))))
+                                      (let ((father (add-row~ tree children: (make-children locator-name total-count #f user-time) user-data: #f)))
+                                        (for-each (lambda (call)
+                                                    (bind (stack count duration) call
+                                                      (if (null? stack)
+                                                          (add-row~ tree father: father children: (make-children "(interaction)" count duration user-time) user-data: #f)
+                                                        (bind (head-frame . frames) stack
+                                                          (let ((row (add-row~ tree father: father children: (make-children head-frame count duration user-time) user-data: head-frame)))
+                                                            (for-each (lambda (frame)
+                                                                        (add-row~ tree father: row children: (make-children frame #f #f user-time) user-data: frame))
+                                                                      frames))))))
+                                                  (sort > calls key: second))))))
+                                (sort > (table->list locator-table) key: second)))))))))))))
 
 
 ;;;

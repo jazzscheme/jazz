@@ -98,10 +98,11 @@
     (nextmethod)
     (let ((data (get-single-selected-data)))
       (when (is? data Toolbox-Addable)
-        (let ((model? (is? data Toolbox-Model)))
-          (set-action-enabled? {Action components-tree new} #t)
+        (let ((model? (is? data Toolbox-Model))
+              (trait? (is? data Toolbox-Trait)))
+          (set-action-enabled? {Action components-tree new} (not trait?))
           (set-action-enabled? {Action components-tree open} model?)
-          (set-action-enabled? {Action components-tree add} #t)))))
+          (set-action-enabled? {Action components-tree add} (not trait?))))))
   
   
   (method (on-double-click evt)
@@ -119,8 +120,30 @@
   (method override (on-open evt)
     (when (or (eq? (get-kind~ (selected-toolbox)) 'user)
               (eq? (message-box "Are you sure you want to open this non-user class?" type: 'question) 'yes))
-      (let ((class (selected-class)))
-        (and class (open-class class)))))
+      (let ((model (selected-addable)))
+        (typecase model
+          ((Toolbox-Trait)
+           (open-trait (get-unit~ model) (get-model~ model)))
+          ((Toolbox-Model)
+           (let ((class (selected-class)))
+             (and class (open-class class))))))))
+  
+  
+  (method (open-trait unit sym)
+    (let ((trait (module-get unit sym)))
+      (when trait
+        (let* ((trait-type (get-client-type~ trait))
+               (type-name (category-name trait-type))
+               (trait-form (get-form~ trait))
+               (new-form (new Form action: 'new model: type-name children: (list trait-form))))
+          (let ((trait-locator (get-locator~ trait-form)))
+            (set-locator~ trait-form (lambda (sym)
+                                       (if (eq? sym type-name)
+                                           (deserialize-runtime-reference `(module-public ,(category-unit trait-type) ,type-name))
+                                         (trait-locator sym)))))
+          (set-context~ new-form trait-form)
+          (set-origin~ new-form (deserialize-runtime-reference `(module-public ,unit ,sym)))
+          (open-component new-form)))))
   
   
   (method (new-addable addable)

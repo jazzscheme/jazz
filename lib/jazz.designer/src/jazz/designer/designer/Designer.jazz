@@ -244,9 +244,11 @@
   
   
   (method (save-content destination)
-    (if (file? destination)
-        (save-to-file destination)
-      (save-to-class destination))
+    (typecase destination
+      ((File) (save-to-file destination))
+      ((Class) (save-to-class destination))
+      ((Runtime-Reference) (save-to-reference destination))
+      (else (error "unsupported destination")))
     (set-modified? #f)
     destination)
   
@@ -261,6 +263,33 @@
                  (if toolbox-model
                      (get-unit~ toolbox-model)
                    module)))))))
+  
+  
+  (method (save-to-trait unit symbol)
+    (define (select-trait text)
+      (let ((explorer (new Jazz-Explorer (get-model~ text))))
+        (forward-location~ explorer (list symbol) toplevel-location: (list unit))
+        (set-selection~ text (get-range~ explorer))))
+    
+    (let ((imports (imports-to-insert form #f unit))
+          (trait-form (first (get-children~ form)))
+          (class-sym (get-model~ form)))
+      (call-with-saved-text (find-unit-source unit)
+        (lambda (text)
+          (insert-imports text imports)
+          (select-trait text)
+          (insert-string~ text (format "(define-trait {a} {a}{%}{a})" symbol class-sym (form->string trait-form 2 include-form?: #f)))
+          (select-trait text)
+          (tabulate~ text)))))
+  
+  
+  (method (save-to-reference reference)
+    (bind (_ unit symbol) (serialize-runtime-reference reference)
+      (typecase (module-ref unit symbol)
+        ((Trait)
+         (save-to-trait unit symbol))
+        (else
+         (error "Unknown save target")))))
   
   
   (method (save-to-class class)
@@ -504,7 +533,7 @@
   ;; tofix
   (method public virtual (add-import import)
     (let ((imports (map listify (listify import)))
-          (origin-form (get-form)))
+          (origin-form (get-context~ (get-form))))
       (when (not-null? imports)
         (let ((old-locator (get-locator~ origin-form)))
           (set-locator~ origin-form (let ((new-locator (imports-locator imports)))

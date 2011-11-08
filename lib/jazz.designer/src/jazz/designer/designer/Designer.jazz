@@ -80,9 +80,11 @@
             (set-context~ form~self form~self)
             (set-data~ form~self (new Data #f 'jazz '() #f)))
         (let ((origin (get-origin~ frm)))
-          (if (file? origin)
-              (setup-file-form frm)
-            (setup-class-form frm)))))
+          (set! form~self frm)
+          (cond ((class? origin)
+                 (setup-class-form frm))
+                ((designing-trait?)
+                 (setup-trait-form frm))))))
     
     ;; Setting form to a copy until saving is a tempting approach,
     ;; but fails because we absolutly need pointer equality as a test
@@ -97,11 +99,15 @@
     ;; (lazy approach) and if we need to rollback, set the original form
     ;; to the copy.
     (define (setup-class-form frm)
-      (set! form~self frm)
       (set! form-copy (copy-object~ frm #t)))
     
-    (define (setup-file-form frm)
-      (set! form~self frm))
+    (define (setup-client-forms form-copy)
+      (set-property~ form-copy client-form: (copy-object~ (get-property~ form-copy client-form:) #t))
+      (for-each setup-client-forms (get-children~ form-copy)))
+    
+    (define (setup-trait-form frm)
+      (set! form-copy (copy-object~ frm #t))
+      (setup-client-forms (first-child~ form-copy)))
     
     (define (setup-undoer)
       (set! undoer (new Undoer reset-modified: reset-modified?)))
@@ -119,10 +125,29 @@
   
   (method public (revert)
     (let ((origin (get-origin~ form)))
-      (when (class? origin)
-        (set-class-form~ origin form-copy))))
+      (cond
+        ((class? origin)
+         (set-class-form~ origin form-copy))
+        ((designing-trait?)
+         (revert-trait origin)))))
   
-
+  
+  (method public (revert-trait reference)
+    (define (revert-form trait form)
+      (set-form~ trait form)
+      (set-client-form~ trait (get-property~ form client-form:))
+      (for-each (lambda (child)
+                  (let* ((name (get-name~ child))
+                         (child-form (find-child~ form name)))
+                    (if child-form
+                        (revert-form child child-form)
+                      (remove-child~ trait child))))
+                (get-children~ trait)))
+    
+    (let ((trait (resolve-runtime-reference reference)))
+      (revert-form trait (first-child~ form-copy))))
+  
+  
   ;;;
   ;;;; Save
   ;;;

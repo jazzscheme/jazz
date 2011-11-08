@@ -66,9 +66,17 @@
 
 
 (definition package (component-addable-classes component)
+  (define (private->public reference)
+    (let ((serialized (serialize-runtime-reference reference)))
+      (if (eq? (first serialized) 'module-private)
+          (let ((sym (second serialized)))
+            (deserialize-runtime-reference `(module-public ,(reference-unit sym) ,(reference-name sym))))
+        reference)))
+  
   (remove-duplicates
-    (flatten
-      (or (component-categorized-toolbox-addable-classes component) '()))
+    (map private->public
+         (flatten
+           (or (component-categorized-toolbox-addable-classes component) '())))
     key: serialize-runtime-reference
     test: equal?))
 

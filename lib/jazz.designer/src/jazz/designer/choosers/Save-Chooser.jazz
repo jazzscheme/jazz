@@ -69,7 +69,8 @@
         (<box~>                                  content-change-handler: {Event-Handler :form on-content-change}))
       (<Horizontal-Line>                         position: {Point 0 170} size: {Dimension 400 8})
       (<Label-View>       name: class-name-label title: "Class Name:" position: {Point 136 114} visible?: #f size: {Dimension 60 16})
-      (<Entry-Widget>     name: class-name-entry position: {Point 202 112} visible?: #f size: {Dimension 172 19})
+      (<Entry-Widget>     name: class-name-entry position: {Point 202 112} visible?: #f size: {Dimension 172 19}
+        (<text~>                                 content-change-handler: {Event-Handler :form on-content-change}))
       (<Push-Button>      name: ok               title: "Ok" position: {Point 225 182} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
       (<Push-Button>      name: cancel           title: "Cancel" position: {Point 311 182} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
       (<Trait>            name: class
@@ -112,9 +113,8 @@
   
   
   (method (setup-modules)
-    (set-choices~ (get-module-combo) 
-      (zip (cons #f modules) 
-           (cons "" (map symbol->string modules)))))
+    (set-choices~ (get-module-combo)
+      (zip modules (map symbol->string modules))))
   
   
   ;;;
@@ -125,9 +125,12 @@
   (method override (get-modal-result)
     (case (get-active-trait-name)
       ((class)
-       (let ((module-name (get-value~ (get-module-combo)))
+       (let ((module-name (catch (Parse-Error err #f)
+                            (get-value~ (get-module-combo))))
              (class-string (get-string-content~ (get-class-name-text))))
-         (list module-name class-string)))
+         (and module-name
+              (not (empty-string? class-string))
+              (list module-name class-string))))
       ((file)
        (get-value~ (get-file-entry)))))
   

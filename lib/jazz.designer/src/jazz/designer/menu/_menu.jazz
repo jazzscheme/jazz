@@ -46,20 +46,21 @@
 
 (definition package (update-component-menu menu components reference-categories add)
   (define (add-components add-menu)
-    (with-update-locked~ add-menu
-      (lambda ()
-        (and (not-null? reference-categories)
-             (let ((add-label 
-                     (lambda (reference)
-                       (let ((class (resolve-runtime-reference reference)))
-                         (let ((icon (get-class-image~ class))
-                               (title (format "{a}..." (localize (get-class-presentation~ class)))))
-                           (new Label-Item parent: add-menu icon: icon title: title action-handler: (new Event-Handler execute: (lambda (evt) (add reference)))))))))
-               (for-each add-label (car reference-categories))
-               (for-each (lambda (category)
-                           (new Separator-Item parent: add-menu)
-                           (for-each add-label category))
-                         (cdr reference-categories)))))))
+    (define (add-label  reference)
+      (let ((class (resolve-runtime-reference reference)))
+        (let ((icon (get-class-image~ class))
+              (title (format "{a}..." (localize (get-class-presentation~ class)))))
+          (new Label-Item parent: add-menu icon: icon title: title action-handler: (new Event-Handler execute: (lambda (evt) (add reference)))))))
+    
+    (and (not-null? reference-categories)
+         (with-update-locked~ add-menu
+           (lambda ()
+             (for-each add-label (car reference-categories))
+             (for-each (lambda (category)
+                         (new Separator-Item parent: add-menu)
+                         (for-each add-label category))
+                       (cdr reference-categories))
+             #t))))
   
   (define (setup-addable addable)
     (let ((kind (get-kind~ (find-ascendant~ addable Toolbox))))
@@ -82,7 +83,7 @@
          (empty-add? #f))
     (let ((add-menu (locate-component~ menu 'add-menu))
           (add-item (locate-component~ menu 'add-item)))
-      (if (and (= count 1) add-menu (not-null? (add-components add-menu)))
+      (if (and (= count 1) add-menu (add-components add-menu))
           (let ((children (collect-type Label-Item (get-children~ add-menu))))
             (if (null? children)
                 (begin

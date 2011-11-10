@@ -41,6 +41,7 @@
 (import (jazz.designer)
         (jazz.designer.view)
         (jazz.io)
+        (jazz.graphic)
         (jazz.jml)
         (jazz.library)
         (jazz.library.component)
@@ -241,6 +242,85 @@
                         (add-module-elements~ module (lambda (class properties)
                                                        (install-new-component~ (get-tree) designer (new class) module #f '() properties descendant?: #t))))
                       (get-toolbox-modules))))))))
+
+
+;;;
+;;;; Dialog
+;;;
+
+
+(class Dialog-Toolbox-Manager extends Toolbox-Manager
+  
+  
+  (property toolbox-title initialize #f accessors generate)
+  (slot model)
+  
+  
+  (form
+    (<install> application-select?: #f size: {Dimension 500 500}
+      (<!>             name: tools    visible?: #f)
+      (<Layout-View>   name: south    location: south layout-type: border size: {Dimension 500 30} background: {Color White}
+        (<View>                       location: south size: {Dimension 500 30}
+          (<Push-Button> name: ok       title: "OK" size: {Dimension 80 24} action-handler: {Event-Handler :form on-ok} default?: #t position: {Point 9 3})
+          (<Push-Button> name: cancel   title: "Cancel" size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel} position: {Point 97 3})))))
+  
+  
+  (method override (form-model form)
+    (case (get-name~ form)
+      ((descendants) Dialog-Toolbox-Editor)
+      (else (nextmethod form))))
+  
+  
+  (method virtual (on-ok evt)
+    (catch Cancel-Signal
+      (set! model (selected-addable~ (get-tree)))
+      (unless model
+        (designer-error "Select a valid model"))
+      (on-ok~ (get-host) evt)))
+  
+  
+  (method public virtual (filter-model model)
+    #t)
+  
+  
+  (method override (get-modal-result)
+    (list (get-model~ model) (get-unit~ model)))
+  
+  
+  ;; This might be flaky. We need to ignore the designer.
+  (method (filter-toolbox toolbox)
+    (for-each filter-toolbox (get-children~ toolbox))
+    (unless (or (and (is? toolbox Toolbox-Model)
+                     (filter-model toolbox))
+                (> (length (get-children~ toolbox)) 0)
+                (is? toolbox Toolbox))
+      (child-remove~ (get-tree) toolbox)
+      (set-parent~ toolbox #f)))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (let* ((forms (map (lambda (manager)
+                         (copy-object~ (get-form~ (get-designer~ manager)) #t))
+                       (get-toolbox-managers)))
+           (locators (map get-locator~ forms)))
+      (let ((new-form (parse-form
+                        `(data jazz.ide.data.toolbox
+                         (form
+                           (<Toolbox> title: ,(or toolbox-title "")))))))
+        (set-children~ new-form forms)
+        (let ((old-locator (get-locator~ new-form)))
+          (set-locator~ new-form (lambda (sym)
+                                   (let (loop (locators (cons old-locator locators)))
+                                     (and (not-null? locators)
+                                          (or ((car locators) sym)
+                                              (loop (cdr locators))))))))
+        (setup-context~ new-form new-form)
+        (let ((toolbox (instantiate~ new-form)))
+          (set-client toolbox)
+          (filter-toolbox toolbox))))
+    (let ((tree (get-tree)))
+      (expand-all~ tree (get-root-row~ tree)))))
 
 
 ;;;

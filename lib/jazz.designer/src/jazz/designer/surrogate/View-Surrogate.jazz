@@ -169,13 +169,6 @@
     (draw surface))
   
   
-  (method (component-owned-form? component)
-    (let ((designer (get-designer~ (get-editor))))
-      (and designer
-           (boolean
-             (component-owned-form component (get-form~ designer) (get-reference~ designer))))))
-  
-  
   (method public virtual (draw surface)
     (let ((reference (get-reference~ editor))
           (selection (get-selection~ editor))
@@ -198,12 +191,20 @@
           (let ((rank (find selection client))
                 (outer (get-bounds~ client)))
             (define (determine-colors)
-              (cond (rank
-                     (values (selected-color rank) (selected-inner-color rank)))
-                    ((component-owned-form? client)
-                     (values Unselected-Owned-Color Unselected-Owned-Inner-Color))
-                    (else
-                     (values (selected-color #f) (selected-inner-color #f)))))
+              (if rank
+                  (values (selected-color rank) (selected-inner-color rank))
+                (let ((owned-form (owned-form client)))
+                  (if owned-form
+                      (case (ownership-level owned-form)
+                        ((create) (values Unselected-Owned-Color Unselected-Owned-Inner-Color))
+                        ((modify) (values Unselected-Modify-Color Unselected-Modify-Inner-Color))
+                        ((traverse) (values (selected-color #f) (selected-inner-color #f))))
+                    (values (selected-color #f) (selected-inner-color #f))))))
+            
+            (define (owned-form component)
+              (let ((designer (get-designer~ (get-editor))))
+                (and designer
+                     (component-owned-form component (get-form~ designer) (get-reference~ designer)))))
             
             (define (draw-frame)
               (set-style~ surface 'solid)

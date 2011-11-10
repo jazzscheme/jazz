@@ -147,19 +147,28 @@
     {Color Dark-Green})
   
   
+  (method (modify-color)
+    {Color red: 1 green: 127 blue: 139})
+  
+  
   (method (unowned-color)
     {Color Dark-Gray})
   
   
-  (method override (component-font component owned?)
-    (if owned?
-        {Font Label-Bold}
+  (method override (component-font component owned-form)
+    (if owned-form
+        (case (ownership-level owned-form)
+          ((create modify) {Font Label-Bold})
+          ((traverse) #f))
       #f))
   
   
-  (method override (component-color component owned?)
-    (if owned?
-        (owned-color)
+  (method override (component-color component owned-form)
+    (if owned-form
+        (case (ownership-level owned-form)
+          ((create) (owned-color))
+          ((modify) (modify-color))
+          ((traverse) (unowned-color)))
       (unowned-color)))
   
   
@@ -170,6 +179,6 @@
   (method override (insert-component row component rights update? level (image: image #f) (state: state #f))
     (let ((subrow (nextmethod row component rights update? level image: image state: state)))
       (when subrow
-        (when (outer?~ component (get-reference~ designer))
+        (when (component-owned component)
           (ensure-expanded subrow))
         subrow)))))

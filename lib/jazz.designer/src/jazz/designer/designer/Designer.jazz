@@ -479,7 +479,7 @@
           (set-modified? #t)))))
   
   
-  (method public virtual (set-property component/path property value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t) (import: import #f))
+  (method public virtual (set-property component/path property value (old-value: old-value #f) (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t) (import: import #f))
     (let ((branch (target-branch trait)))
       ;; Quick fix for the special case of setting a property of the active trait
       (if (eq? component/path trait)
@@ -500,7 +500,7 @@
                     (designer-error "Unable to modify an explicit trait using a component having a different branch creator"))))
               (receive (form restore) (find-form component branch restore?: #t)
                 (receive (next-form next-restore) (find-next-branch branch component property)
-                  (let ((old-value (get-property~ form property))
+                  (let ((old-value (or old-value (read-property component property)))
                         (remove?   (not (has-property?~ form property))))
                     (set-property~ form property value)
                     (when undoable?
@@ -515,7 +515,7 @@
                     (setup-context~ value (get-form)))
                   (when installed?
                     (if (not next-form)
-                        (let ((old-value (read-property component property)))
+                        (let ((old-value (or old-value (read-property component property))))
                           (when (and restore (not (has-property?~ restore property)))
                             (set-property~ restore property old-value))
                           (let* ((fire-presentation? (and design-events? (presentation-property?~ component property)))

@@ -353,9 +353,16 @@
   
   (method public (effective-host-workspaces)
     (define (pref-workspace pref)
-      (let ((associations (get-associations~ pref))
-            (external (external-name~ (class-of self) error?: #f)))
-        (and external (assq external associations))))
+      (let ((associations (get-associations~ pref)))
+        (continuation-capture
+          (lambda (return)
+            (for-each (lambda (association)
+                        (bind (reference . workspace) association
+                          (let ((class (resolve-reference~ reference)))
+                            (when (is? self class)
+                              (continuation-return return workspace)))))
+                      associations)
+            #f))))
     
     (define (host-workspace)
       (get-workspace~ (get-host)))

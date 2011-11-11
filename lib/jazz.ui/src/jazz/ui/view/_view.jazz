@@ -639,14 +639,13 @@
 (definition public (move-frame)
   (let ((frame (current-frame)))
     (let ((stage (if frame (get-stage~ frame) (current-stage))))
-      (let ((next-stage (next-stage stage)))
+      (let ((next-stage (navigate-next-stage)))
         (if (not next-stage)
             (bell)
           (when frame
             (set-parent~ frame next-stage)
             (maximize/restore~ frame)
-            (remember-workspace-stage~ frame))
-          (set-current-stage next-stage))))))
+            (remember-workspace-stage~ frame)))))))
 
 
 (definition public (clone-frame)
@@ -654,7 +653,7 @@
     (if (is-not? frame Host-View)
         (bell)
       (let ((stage (get-stage~ frame)))
-        (let ((next-stage (next-stage stage)))
+        (let ((next-stage (navigate-next-stage)))
           (if (not next-stage)
               (bell)
             (let ((brother (find-frame-brother next-stage frame)))
@@ -665,8 +664,7 @@
                       (bell)
                     (set-parent~ splitted next-stage)
                     (maximize/restore~ splitted)
-                    (remember-workspace-stage~ splitted)
-                    (set-current-stage next-stage)))))))))))
+                    (remember-workspace-stage~ splitted)))))))))))
 
 
 (definition public (tie-frame-model)
@@ -707,11 +705,11 @@
     (set! *stages* (cons stage (remove! stage *stages*))))
   
   (let ((stages (get-active-stages)))
-    (if (< (length stages) 2)
-        (bell)
+    (when (>= (length stages) 2)
       (let ((stage (last-stage)))
         (bring-stage-to-front stage)
-        (activate-stage stage)))))
+        (activate-stage stage)
+        stage))))
 
 
 (definition public (navigate-previous-stage)
@@ -719,11 +717,12 @@
     (set! *stages* (append (remove! stage *stages*) (list stage))))
   
   (let ((stages (get-active-stages)))
-    (if (< (length stages) 2)
-        (bell)
+    (when (>= (length stages) 2)
       (let ((stage (first-stage)))
         (send-stage-to-back stage)
-        (activate-stage (first-stage))))))
+        (let ((stage (first-stage)))
+          (activate-stage stage)
+          stage)))))
 
 
 (define (activate-stage stage)

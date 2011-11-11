@@ -2103,13 +2103,17 @@
       (if (not (exists?~ moniker))
           (error "Unable to locate document: {t}" moniker)
         (let ((file moniker))
-          (let* ((frame (if force-new? #f (find-document file class: class)))
-                 (result (lambda (frame new?) (if return-new? (values frame new?) frame))))
+          (let ((frame (if force-new? #f (find-document file class: class))))
+            (define (return frame new?)
+              (if return-new?
+                  (values frame new?)
+                frame))
+            
             (if (not frame)
                 (let ((class (or class (file-frame-class file))))
                   (with-cursor :wait
                     (lambda ()
-                      (result (new-frame class
+                      (return (new-frame class
                                          kind: kind
                                          host-workspace: workspace
                                          host-visible?: visible?
@@ -2137,7 +2141,7 @@
               (when (and visible? activate-focus?)
                 (focus-host~ frame))
               (verify-reload~ (get-document-controller~ (get-guest~ frame)))
-              (result frame #f)))))))
+              (return frame #f)))))))
   
   
   (method public (edit-help-document moniker)

@@ -352,20 +352,23 @@
   
   
   (method public (effective-host-workspaces)
+    (define (pref-workspace pref)
+      (let ((associations (get-associations~ pref))
+            (external (external-name~ (class-of self) error?: #f)))
+        (and external (assq external associations))))
+    
+    (define (host-workspace)
+      (get-workspace~ (get-host)))
+      
     (define (filter-inexistant-workspaces pref workspaces)
       (let ((names (map get-name~ (get-children~ pref))))
         (collect-if (lambda (name)
-                      (memq? name names))
+                      (and name (memq? name names)))
                     workspaces)))
     
-    (host-workspaces)
-    @convert-external-name
-    (let* ((pref (get-workspaces-preferences))
-           (associations (get-associations~ pref))
-           (external (external-name error?: #f)))
+    (let ((pref (get-workspaces-preferences)))
       (filter-inexistant-workspaces pref
-                                    (or (and external (assq external associations))
-                                        (host-workspaces)))))
+        (cons (pref-workspace pref) (cons (host-workspace) (host-workspaces))))))
   
   
   (method public (for-each-view-docked proc)

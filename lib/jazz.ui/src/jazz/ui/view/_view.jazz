@@ -669,6 +669,25 @@
                     (set-current-stage next-stage)))))))))))
 
 
+(definition public (tie-frame-model)
+  (let ((frame (current-frame)))
+    (if (is-not? frame Host-View)
+        (bell)
+      (let ((guest (get-guest~ frame))
+            (stage (get-figure-preferences~ (current-stage)))
+            (designer (get-workspaces-designer~ (get-application))))
+        (let ((guest-model (category-name (class-of guest))))
+          (set-property~ designer stage 'guest-model (new Reference guest-model))
+          (user-message "Stage tied to {s}" guest-model))))))
+
+
+(definition public (untie-stage)
+  (let ((stage (get-figure-preferences~ (current-stage)))
+        (designer (get-workspaces-designer~ (get-application))))
+    (set-property~ designer stage 'guest-model #f)
+    (user-message "Stage untied")))
+
+
 (definition public (next-stage stage)
   (let ((stages (get-active-stages)))
     (let ((count (length stages)))
@@ -826,9 +845,19 @@
 
 
 (definition public (new-internal-frame guest-class . rest)
+  (define (determine-stage)
+    (continuation-capture
+      (lambda (return)
+        (for-each (lambda (stage)
+                    (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
+                      (when (and guest-model (subtype? guest-class (resolve-reference~ guest-model)))
+                        (continuation-return return stage))))
+                  (get-active-stages))
+        (current-stage))))
+  
   (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (guest #f) (initialize #f) . others) rest
     (let ((guest (or guest (new-guest guest-class others))))
-      (let ((host (new Internal-Frame-Host parent: (current-stage) visible?: #f)))
+      (let ((host (new Internal-Frame-Host parent: (determine-stage) visible?: #f)))
         (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
         (set-position~ host (or host-position (cascade-frame-position host guest)))
         (set-size~ host (or host-size (nu+ (get-size~ guest) {Dimension 8 28})))

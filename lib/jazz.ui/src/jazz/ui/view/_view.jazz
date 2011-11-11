@@ -846,14 +846,23 @@
 
 (definition public (new-internal-frame guest-class . rest)
   (define (determine-stage)
-    (continuation-capture
-      (lambda (return)
-        (for-each (lambda (stage)
-                    (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
-                      (when (and guest-model (subtype? guest-class (resolve-reference~ guest-model)))
-                        (continuation-return return stage))))
-                  (get-active-stages))
-        (current-stage))))
+    (let ((stages (get-active-stages)))
+      (continuation-capture
+        (lambda (return)
+          ;; find a tie match
+          (for-each (lambda (stage)
+                      (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
+                        (when (and guest-model (subtype? guest-class (resolve-reference~ guest-model)))
+                          (continuation-return return stage))))
+                    stages)
+          ;; prefer untied stages
+          (for-each (lambda (stage)
+                      (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
+                        (when (not guest-model)
+                          (continuation-return return stage))))
+                    stages)
+          ;; else
+          (current-stage)))))
   
   (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (guest #f) (initialize #f) . others) rest
     (let ((guest (or guest (new-guest guest-class others))))

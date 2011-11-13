@@ -85,16 +85,17 @@
   
   
   (form
-    (<install>                            layout-type: border
-      (<Layout-View>    name: tools
-        (<Push-Tool>    name: synchronize size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Synchronize" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-synchronize}))
-      (<Toolbox-Editor> name: descendants location: center
-        (<!>            name: scroller    style: tool
-          (<!>          name: content
-            (<!>        name: header
-              (<!>      name: content
-                (<!>    name: tree        highlight-edited?: #f auto-expand/collapse?: #t double-click-handler: {Event-Handler :self on-double-click}
-                  (<!>  name: descendant  title: "Model" width: 291)))))))))
+    (<install>                             layout-type: border
+      (<Layout-View>     name: tools
+        (<Push-Tool>     name: synchronize size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Synchronize" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-synchronize}))
+      (<Toolbox-Editor>  name: descendants location: center
+        (<!>             name: border
+          (<!>           name: scroller    style: tool
+            (<!>         name: content
+              (<!>       name: header
+                (<!>     name: content
+                  (<!>   name: tree        highlight-edited?: #f auto-expand/collapse?: #t double-click-handler: {Event-Handler :self on-double-click}
+                    (<!> name: descendant  title: "Model" width: 291))))))))))
   
   
   (method override (finish rest)
@@ -253,16 +254,17 @@
   
   
   (property toolbox-title initialize #f accessors generate)
-  (slot model)
   
   
   (form
-    (<install> application-select?: #f size: {Dimension 500 500}
-      (<!>             name: tools    visible?: #f)
-      (<Layout-View>   name: south    location: south layout-type: border size: {Dimension 500 30} background: {Color White}
-        (<View>                       location: south size: {Dimension 500 30}
-          (<Push-Button> name: ok       title: "OK" size: {Dimension 80 24} action-handler: {Event-Handler :form on-ok} default?: #t position: {Point 9 3})
-          (<Push-Button> name: cancel   title: "Cancel" size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel} position: {Point 97 3})))))
+    (<install>                        application-select?: #f size: {Dimension 500 500}
+      (<!>               name: tools  visible?: #f)
+      (<Layout-View>     name: south  location: south layout-type: border size: {Dimension 500 30}
+        (<Layout-View>                location: south size: {Dimension 500 30} layout-type: flow
+          (<Push-Button> name: ok     title: "OK" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :form on-ok} default?: #t position: {Point 9 3})
+          (<Separator>                location: tail size: {Dimension 3 0} location: tail)
+          (<Push-Button> name: cancel title: "Cancel" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel} position: {Point 97 3})
+          (<Separator>                size: {Dimension 5 0} location: tail)))))
   
   
   (method override (form-model form)
@@ -271,20 +273,8 @@
       (else (nextmethod form))))
   
   
-  (method virtual (on-ok evt)
-    (catch Cancel-Signal
-      (set! model (selected-addable~ (get-tree)))
-      (unless model
-        (designer-error "Select a valid model"))
-      (on-ok~ (get-host) evt)))
-  
-  
   (method public virtual (filter-model model)
     #t)
-  
-  
-  (method override (get-modal-result)
-    (list (get-model~ model) (get-unit~ model)))
   
   
   ;; This might be flaky. We need to ignore the designer.
@@ -320,7 +310,19 @@
           (set-client toolbox)
           (filter-toolbox toolbox))))
     (let ((tree (get-tree)))
-      (expand-all~ tree (get-root-row~ tree)))))
+      (expand-all~ tree (get-root-row~ tree))))
+  
+  
+  ;;;
+  ;;;; Result
+  ;;;
+  
+  
+  (method override (get-modal-result)
+    (let ((model (selected-addable~ (get-tree))))
+      (if (not model)
+          (designer-error "Select a valid model")
+        (list (get-model~ model) (get-unit~ model))))))
 
 
 ;;;

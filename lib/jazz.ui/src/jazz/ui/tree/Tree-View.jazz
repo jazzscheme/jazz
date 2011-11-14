@@ -2237,49 +2237,54 @@
             saved-edited)))
   
   
-  (method public (set-selection-state state (test: test eqv?) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
+  (method public (set-selection-state state (test: test eqv?) (ensure-expanded?: ensure-expanded? #f) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
     (bind (use saved-selection saved-position saved-pivot saved-edited) state
-      (define (restore-selection saved-selection)
-        (remove-false
-          (case selection-mode
-            ((cell) (map restore-cell saved-selection))
-            (else (map restore-row saved-selection)))))
-      
-      (define (restore-cell saved)
-        (bind (row . col) saved
-          (let ((line (restore-row row)))
-            (when line
-              (new Cell line col)))))
-      
-      (define (restore-row saved)
-        (case use
-          ((row) (row->line saved))
-          ((rank) saved)
-          ((text) (text->line saved))
-          ((data) (user-data-index saved test: test))))
-      
-      (define (text->line text)
-        (let (iter (row root-row) (text text))
-          (if (null? text)
-              (row->line row)
-            (let ((subrow (find-by-title~ row (car text))))
-              (when subrow
-                (iter subrow (cdr text)))))))
-      
-      (when saved-pivot
-        (let ((pivot (restore-selection saved-pivot)))
-          (set! selection-pivot (cond ((not-null? pivot) (car pivot))
-                                      ((null? selection) #f)
-                                      (else (car selection))))))
-      (when saved-edited
-        (let ((edited (restore-cell saved-edited)))
-          (if (not edited)
-              (kill-edition)
-            (set! edited-cell (get-master-cell edited))
-            (replace-cell edited-cell cell-editor))))
-      (let ((selection (restore-selection saved-selection)))
-        (scroll-to (nu- saved-position (selection-position selection)))
-        (set-selection selection ensure-displayed?: ensure-displayed? generate-event?: generate-event? auto-expand?: #f))))
+      (let ((row->line (if ensure-expanded?
+                           (lambda (row)
+                             (ensure-expanded row)
+                             (row->line row))
+                         row->line)))
+        (define (restore-selection saved-selection)
+          (remove-false
+            (case selection-mode
+              ((cell) (map restore-cell saved-selection))
+              (else (map restore-row saved-selection)))))
+        
+        (define (restore-cell saved)
+          (bind (row . col) saved
+            (let ((line (restore-row row)))
+              (when line
+                (new Cell line col)))))
+        
+        (define (restore-row saved)
+          (case use
+            ((row) (row->line saved))
+            ((rank) saved)
+            ((text) (text->line saved))
+            ((data) (user-data-index saved test: test))))
+        
+        (define (text->line text)
+          (let (iter (row root-row) (text text))
+            (if (null? text)
+                (row->line row)
+              (let ((subrow (find-by-title~ row (car text))))
+                (when subrow
+                  (iter subrow (cdr text)))))))
+        
+        (when saved-pivot
+          (let ((pivot (restore-selection saved-pivot)))
+            (set! selection-pivot (cond ((not-null? pivot) (car pivot))
+                                        ((null? selection) #f)
+                                        (else (car selection))))))
+        (when saved-edited
+          (let ((edited (restore-cell saved-edited)))
+            (if (not edited)
+                (kill-edition)
+              (set! edited-cell (get-master-cell edited))
+              (replace-cell edited-cell cell-editor))))
+        (let ((selection (restore-selection saved-selection)))
+          (scroll-to (nu- saved-position (selection-position selection)))
+          (set-selection selection ensure-displayed?: ensure-displayed? generate-event?: generate-event? auto-expand?: #f)))))
   
   
   (method (selection-position selection)
@@ -2289,10 +2294,10 @@
           (rect-position (get-box~ region))))))
   
   
-  (method public (with-preserved-selection thunk (use: use 'row) (test: test eqv?) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
+  (method public (with-preserved-selection thunk (use: use 'row) (test: test eqv?) (ensure-expanded?: ensure-expanded? #f) (ensure-displayed?: ensure-displayed? #t) (generate-event?: generate-event? #f))
     (let ((saved-state (get-selection-state use: use)))
       (thunk)
-      (set-selection-state saved-state test: test ensure-displayed?: ensure-displayed? generate-event?: generate-event?)))
+      (set-selection-state saved-state test: test ensure-expanded?: ensure-expanded? ensure-displayed?: ensure-displayed? generate-event?: generate-event?)))
   
   
   (method public (get-single-selection)

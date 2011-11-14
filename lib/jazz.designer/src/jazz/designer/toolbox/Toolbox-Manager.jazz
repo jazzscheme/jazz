@@ -234,15 +234,26 @@
   
   
   (method (on-synchronize evt)
-    (with-safe-design
-      (lambda ()
-        (with-update-locked
-          (lambda ()
-            (for-each (lambda (module)
-                        (for-each (~ remove-child designer) (get-children~ module))
-                        (add-module-elements~ module (lambda (class properties)
-                                                       (install-new-component~ (get-tree) designer (new class) module #f '() properties descendant?: #t))))
-                      (get-toolbox-modules))))))))
+    (let ((tree (get-tree)))
+      (with-cursor :wait
+        (lambda ()
+          (;with-preserved-expand-state~ tree ; wait bug fix
+            (lambda ()
+              (with-preserved-selection~ tree
+                (lambda ()
+                  (with-safe-design
+                    (lambda ()
+                      (with-update-locked
+                        (lambda ()
+                          (with-design-locked client
+                            (lambda ()
+                              (for-each (lambda (module)
+                                          (for-each (~ remove-child designer) (get-children~ module))
+                                          (add-module-elements~ module (lambda (class properties)
+                                                                         (install-new-component~ tree designer (new class) module #f '() properties descendant?: #t))))
+                                        (get-toolbox-modules)))))))))
+                use: 'text
+                ensure-expanded?: #t))))))))
 
 
 ;;;

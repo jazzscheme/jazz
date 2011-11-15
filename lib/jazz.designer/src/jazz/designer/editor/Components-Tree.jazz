@@ -41,6 +41,7 @@
 (import (jazz.designer)
         (jazz.designer.view)
         (jazz.library)
+        (jazz.runtime)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.view)
@@ -328,18 +329,18 @@
     (let* ((selected (selected-component))
            (class (resolve-runtime-reference reference))
            (parent (or parent (relocation-parent selected class) selected client))
-           (extra-properties properties)
-           (import (second (serialize-runtime-reference reference))))
-      ;; To support the new feature that it is now possible to
-      ;; insert a parent's child directly from the child itself
-      @creates-problems
-      (when (not (memq? class (map resolve-runtime-reference (addable-classes parent))))
-        (set! parent (get-parent~ parent)))
-      (let* ((creation-info (if presentation (values presentation '()) (add-component-request class parent)))
-             (child (create-new-component class parent import creation-info extra-properties)))
-        (when select?
-          (select-component child))
-        child)))
+           (extra-properties properties))
+      (bind (import _) (parse-runtime-reference reference)
+        ;; To support the new feature that it is now possible to
+        ;; insert a parent's child directly from the child itself
+        @creates-problems
+        (when (not (memq? class (map resolve-runtime-reference (addable-classes parent))))
+          (set! parent (get-parent~ parent)))
+        (let* ((creation-info (if presentation (values presentation '()) (add-component-request class parent)))
+               (child (create-new-component class parent import creation-info extra-properties)))
+          (when select?
+            (select-component child))
+          child))))
   
   
   (method protected virtual (add-component-request class parent)

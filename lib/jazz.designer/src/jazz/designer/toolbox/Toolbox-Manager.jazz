@@ -261,67 +261,75 @@
 ;;;
 
 
-(class Dialog-Toolbox-Manager extends Toolbox-Manager
+(class Dialog-Toolbox-Manager extends Layout-View
   
   
   (property toolbox-title initialize #f accessors generate)
+  (slot toolboxes initialize #f)
   
   
   (form
-    (<install>                        application-select?: #f size: {Dimension 500 500}
-      (<!>               name: tools  visible?: #f)
-      (<Layout-View>     name: south  location: south layout-type: border size: {Dimension 500 30}
-        (<Layout-View>                location: south size: {Dimension 500 30} layout-type: flow
-          (<Push-Button> name: ok     title: "OK" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t position: {Point 9 3})
-          (<Separator>                location: tail size: {Dimension 3 0} location: tail)
-          (<Push-Button> name: cancel title: "Cancel" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel} position: {Point 97 3})
-          (<Separator>                size: {Dimension 5 0} location: tail)))))
-  
-  
-  (method override (form-model form)
-    (case (get-name~ form)
-      ((descendants) Dialog-Toolbox-Editor)
-      (else (nextmethod form))))
+    (<install>                                          layout-type: border size: {Dimension 500 500}
+      (<Border-View>                  name: border      location: center border-type: none
+        (<Scroller-View>              name: scroller    style: document hscroll?: #t vscroll?: #t
+          (<!>                        name: content     layout-type: fill
+            (<Tree-Header>            name: header      style: document shown?: #f
+              (<!>                    name: content
+                (<Tree-View>          name: tree        portfolio: :images show-header?: #f
+                  (<Tree-Node-Column> name: descendants)))))))
+      (<Layout-View>                  name: south       location: south layout-type: border size: {Dimension 500 30}
+        (<Layout-View>                                  location: south size: {Dimension 500 30} layout-type: flow
+          (<Push-Button>              name: ok          title: "OK" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t position: {Point 9 3})
+          (<Separator>                                  location: tail size: {Dimension 3 0} location: tail)
+          (<Push-Button>              name: cancel      title: "Cancel" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel} position: {Point 97 3})
+          (<Separator>                                  size: {Dimension 5 0} location: tail)))))
   
   
   (method public virtual (filter-model model)
     #t)
   
   
-  ;; This might be flaky. We need to ignore the designer.
-  (method (filter-toolbox toolbox)
-    (for-each filter-toolbox (get-children~ toolbox))
-    (unless (or (and (is? toolbox Toolbox-Model)
-                     (filter-model toolbox))
-                (> (length (get-children~ toolbox)) 0)
-                (is? toolbox Toolbox))
-      (child-remove~ (get-tree) toolbox)
-      (set-parent~ toolbox #f)))
+  (method (get-tree)
+    (locate 'tree))
+  
+  
+  (method (insert-component row component)
+    (let* ((components (get-components~ component))
+           (title      (get-presentation-property~ component))
+           (image      (get-component-image~ component))
+           (state      (if (null? components) 'collapsed 'expanded))
+           (subrow     (add-row~ (locate 'tree) father: row state: state children: (list (new Tree-Node title: title image: image)) user-data: component)))
+      (for-each (lambda (component) (insert-component subrow component)) components)
+      subrow))
+  
+  
+  (method (build-toolbox-element element)
+    (let ((children (collect build-toolbox-element (get-children~ element))))
+      (and (typecase element
+             ((Toolbox-Model) (filter-model element))
+             (else (not-null? children)))
+           (let ((new-element (copy-object~ element #f)))
+             (set-children~ new-element children)
+             new-element))))
+
+
+  (method (build-toolboxes)
+    (map (lambda (toolbox)
+           (let ((new-toolbox (new Toolbox title: (get-title~ toolbox) icon: (get-icon~ toolbox))))
+             (set-children~ new-toolbox (collect build-toolbox-element (get-children~ toolbox)))
+             new-toolbox))
+         (map get-client~ (get-toolbox-managers))))
   
   
   (method override (finish rest)
     (nextmethod rest)
-    (let* ((forms (map (lambda (manager)
-                         (copy-object~ (get-form~ (get-designer~ manager)) #t))
-                       (get-toolbox-managers)))
-           (locators (map get-locator~ forms)))
-      (let ((new-form (parse-form
-                        `(data jazz.ide.data.toolbox
-                         (form
-                           (<Toolbox> title: ,(or toolbox-title "")))))))
-        (set-children~ new-form forms)
-        (let ((old-locator (get-locator~ new-form)))
-          (set-locator~ new-form (lambda (sym)
-                                   (let (loop (locators (cons old-locator locators)))
-                                     (and (not-null? locators)
-                                          (or ((car locators) sym)
-                                              (loop (cdr locators))))))))
-        (setup-context~ new-form new-form)
-        (let ((toolbox (instantiate~ new-form)))
-          (set-client toolbox)
-          (filter-toolbox toolbox))))
-    (let ((tree (get-tree)))
-      (expand-all~ tree (get-root-row~ tree))))
+    (let ((toolboxes (build-toolboxes)))
+      (set! toolboxes~self toolboxes)
+      (with-update-locked~ (get-tree)
+        (lambda ()
+          (for-each (lambda (toolbox)
+                      (insert-component #f toolbox))
+                    toolboxes)))))
   
   
   ;;;
@@ -330,9 +338,12 @@
   
   
   (method (select-tool import symbol)
-    (let ((model (find-model~ client symbol import)))
-      (when model
-        (select model))))
+    (let (loop (toolboxes toolboxes))
+      (when (not-null? toolboxes)
+        (let ((model (find-model~ (car toolboxes) symbol import)))
+          (if model
+              (select-user-data-row~ (locate 'tree) model)
+            (loop (cdr toolboxes)))))))
   
   
   (method virtual public (setup import symbol . rest)
@@ -344,11 +355,16 @@
   ;;;
   
   
+  (method (selected-model)
+    (let ((obj (get-single-selected-data~ (get-tree))))
+      (and (is? obj Toolbox-Model) obj)))
+  
+  
   (method override (get-modal-result)
-    (let ((model (selected-addable~ (get-tree))))
-      (if (not model)
-          (designer-error "Select a valid model")
-        (list (get-model~ model) (get-unit~ model))))))
+    (let ((obj (selected-model)))
+      (if obj
+          (list (get-model~ obj) (get-unit~ obj))
+        (designer-error "Select a valid model")))))
 
 
 ;;;

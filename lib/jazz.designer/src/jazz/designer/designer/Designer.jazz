@@ -185,6 +185,30 @@
       (save-content destination)))
   
   
+  (method (set-class-destination module-name class-name)
+    (define (evaluate-class module-name class-name super-class-name imports)
+      (evaluate-in-unit module-name `(import ,@imports) eval)
+      (evaluate-in-unit module-name `(class ,class-name extends ,super-class-name) eval)
+      (module-ref module-name class-name))
+    
+    (define (insert-class text class-name super-class-name)
+      (let ((explorer (new Jazz-Explorer (get-model~ text))))
+        (forward-namespace~ explorer)
+        ;; We suppose the import form exist
+        (forward-expr~ explorer)
+        (set-caret~ text (get-end~ explorer))
+        (let ((class-string (format "{%}{%}{%}(class {a} extends {a})" class-name super-class-name)))
+          (insert-string~ text class-string))))
+    
+    (call-with-saved-text (find-unit-source module-name)
+      (lambda (text)
+        (let ((super-class-name (super-class-name form))
+              (imports (imports-to-insert form super-class-name module-name)))
+          (insert-imports text imports)
+          (insert-class text class-name super-class-name)
+          (evaluate-class module-name class-name super-class-name imports)))))
+  
+  
   (method (choose-new-destination toolbox-managers)
     (define (parse-class-name class-string)
       (let ((content (with-exception-catcher
@@ -213,20 +237,6 @@
               (require-module module-name)))
         (designer-error "Empty module")))
     
-    (define (evaluate-class module-name class-name super-class-name imports)
-      (evaluate-in-unit module-name `(import ,@imports) eval)
-      (evaluate-in-unit module-name `(class ,class-name extends ,super-class-name) eval)
-      (module-ref module-name class-name))
-    
-    (define (insert-class text class-name super-class-name)
-      (let ((explorer (new Jazz-Explorer (get-model~ text))))
-        (forward-namespace~ explorer)
-        ;; We suppose the import form exist
-        (forward-expr~ explorer)
-        (set-caret~ text (get-end~ explorer))
-        (let ((class-string (format "{%}{%}{%}(class {a} extends {a})" class-name super-class-name)))
-          (insert-string~ text class-string))))
-    
     (let* ((modules (apply union test: eq? (map get-module-names~ toolbox-managers)))
            (result (get-modal Save-Chooser modules: modules)))
       (if (is? result File)
@@ -234,16 +244,10 @@
         (bind (module-name class-string) result
           (with-safe-design
             (lambda ()
-              (let ((class-name (parse-class-name class-string))
-                    (super-class-name (super-class-name form)))
+              (let ((class-name (parse-class-name class-string)))
                 (validate-module-name module-name)
                 (validate-class-name module-name class-name)
-                (call-with-saved-text (find-unit-source module-name)
-                  (lambda (text)
-                    (let ((imports (imports-to-insert form super-class-name module-name)))
-                      (insert-imports text imports)
-                      (insert-class text class-name super-class-name)
-                      (evaluate-class module-name class-name super-class-name imports)))))))))))
+                (set-class-destination module-name class-name))))))))
   
     
   (method (super-class-name form)

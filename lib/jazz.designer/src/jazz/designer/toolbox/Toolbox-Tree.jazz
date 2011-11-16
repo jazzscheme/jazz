@@ -43,6 +43,7 @@
         (jazz.library)
         (jazz.library.component)
         (jazz.jml)
+        (jazz.runtime)
         (jazz.ui)
         (jazz.ui.view))
 
@@ -52,6 +53,20 @@
   
   (form
     (<install> portfolio: :images draggable?: #t reorderable?: #t multiple-selection?: #f selection-mode: row))
+  
+  
+  (method override (add-component-class ref)
+    (let ((parent (selected-component)))
+      (if (is? parent Toolbox-Module)
+          (bind (unit model) (parse-runtime-reference ref)
+            (let* ((name (request-name))
+                   (editor (new-class model unit))
+                   (designer (get-designer~ editor))
+                   (destination (set-class-destination~ designer (get-module-name~ parent) name)))
+              (save-to-class~ designer destination)
+              (reset-client~ editor destination)
+              (nextmethod (reference Toolbox-Model) presentation: (symbol->string name) properties: (list unit: (get-module-name~ parent) model: name))))
+          (nextmethod ref))))
   
   
   (method public (call-with-selected-addable func)

@@ -45,6 +45,7 @@
         (jazz.jml)
         (jazz.runtime)
         (jazz.ui)
+        (jazz.ui.clipboard)
         (jazz.ui.view))
 
 
@@ -105,6 +106,32 @@
     (call-with-selected-addable (lambda (addable) (find-ascendant~ addable Toolbox))))
   
   
+  (method virtual (paste-tool tool parent)
+    (when (is? tool Toolbox-Trait)
+      (error "unimplemented"))
+    (let* ((name (request-name accepts-empty?: #f))
+           (editor (open-model tool))
+           (designer (get-designer~ editor))
+           (destination (set-class-destination~ designer (get-module-name~ parent) name)))
+      (save-to-class~ designer destination)
+      (reset-client~ editor destination)
+      (add-child~ (get-designer) (new Toolbox-Model) parent properties: (list title: (symbol->string name) model: name unit: (get-module-name~ parent)))))
+  
+  
+  (method override (paste-clipboard)
+    (let ((parent (or (selected-component) client))
+          (parcels (get-jazz-parcels)))
+      (if (is? parent Toolbox-Module)
+          (for-each (lambda (parcel)
+                      (let ((form (car (get-content~ parcel))))
+                        (set-locator~ form (imports-locator (get-imports~ parcel)))
+                        (setup-context~ form form)
+                        (let ((tool (instantiate~ form)))
+                          (paste-tool tool parent))))
+                    parcels)
+        (nextmethod))))
+  
+  
   (method override (update-selection expand-state selected-components)
     )
   
@@ -137,7 +164,7 @@
       ((Toolbox-Trait)
        (open-trait (get-unit~ model) (get-model~ model)))
       ((Toolbox-Model)
-       (let ((class (selected-class)))
+       (let ((class (get-class~ model)))
          (and class (open-class class))))
       (else
        #f)))

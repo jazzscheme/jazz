@@ -107,15 +107,18 @@
   
   
   (method virtual (paste-tool tool parent)
-    (when (is? tool Toolbox-Trait)
-      (error "unimplemented"))
     (let* ((name (request-name accepts-empty?: #f))
            (editor (open-model tool))
            (designer (get-designer~ editor))
-           (destination (set-class-destination~ designer (get-module-name~ parent) name)))
-      (save-to-class~ designer destination)
+           (module-name (get-module-name~ parent))
+           (destination (if (is? tool Toolbox-Trait)
+                            (deserialize-runtime-reference `(module-public ,module-name ,name))
+                          (set-class-destination~ designer (get-module-name~ parent) name))))
+      (if (is? tool Toolbox-Trait)
+          (save-to-trait~ designer module-name name #t)
+        (save-to-class~ designer destination))
       (reset-client~ editor destination)
-      (add-child~ (get-designer) (new Toolbox-Model) parent properties: (list title: (symbol->string name) model: name unit: (get-module-name~ parent)))))
+      (add-child~ (get-designer) (new (class-of tool)) parent properties: (list title: (symbol->string name) model: name unit: (get-module-name~ parent)))))
   
   
   (method override (paste-clipboard)
@@ -178,20 +181,9 @@
   
   
   (method (open-trait unit sym)
-    (let ((trait (module-get unit sym)))
-      (when trait
-        (let* ((trait-type (get-client-type~ trait))
-               (type-name (category-name trait-type))
-               (trait-form (get-form~ trait))
-               (new-form (new Form action: 'new model: type-name children: (list trait-form))))
-          (let ((trait-locator (get-locator~ trait-form)))
-            (set-locator~ trait-form (lambda (sym)
-                                       (if (eq? sym type-name)
-                                           (deserialize-runtime-reference `(module-public ,(category-unit trait-type) ,type-name))
-                                         (trait-locator sym)))))
-          (set-context~ new-form trait-form)
-          (set-origin~ new-form (deserialize-runtime-reference `(module-public ,unit ,sym)))
-          (open-component new-form)))))
+    (let ((form (make-trait-edition-form unit sym)))
+      (when form
+        (open-component form))))
   
   
   (method (new-addable addable)

@@ -301,22 +301,37 @@
              (is? obj Trait)))))
   
   
-  (method (save-to-trait unit symbol)
+  (method (save-to-trait unit symbol (new? #f))
     (define (select-trait text)
       (let ((explorer (new Jazz-Explorer (get-model~ text))))
         (forward-location~ explorer (list symbol) toplevel-location: (list unit))
         (set-selection~ text (get-range~ explorer))))
+    
+    (define (insert-new-trait text string)
+      (let ((explorer (new Jazz-Explorer (get-model~ text))))
+        (forward-namespace~ explorer)
+        ;; We suppose the import form exist
+        (forward-expr~ explorer)
+        (set-caret~ text (get-end~ explorer))
+        (insert-string~ text "\n\n\n")
+        (insert-string~ text string)))
     
     (let ((imports (imports-to-insert form #f unit))
           (trait-form (first (get-children~ form)))
           (class-sym (get-model~ form)))
       (call-with-saved-text (find-unit-source unit)
         (lambda (text)
+          (when new?
+            (evaluate-in-unit unit `(import ,@imports) eval)
+            (evaluate-in-unit unit `(define-trait ,symbol ,class-sym ,(form->eval-expr trait-form)) eval))
           (insert-imports text imports)
-          (select-trait text)
-          (insert-string~ text (format "(define-trait {a} {a}{%}{a})" symbol class-sym (form->string trait-form 2 include-form?: #f)))
-          (select-trait text)
-          (tabulate~ text)))))
+          (let ((trait-string (format "(define-trait {a} {a}{%}{a})" symbol class-sym (form->string trait-form 2 include-form?: #f))))
+            (if new?
+                (insert-new-trait text trait-string)
+              (select-trait text)
+              (insert-string~ text trait-string))
+            (select-trait text)
+            (tabulate~ text))))))
   
   
   (method (save-to-reference reference)
@@ -364,19 +379,14 @@
           (insert-string~ text (format (if form-exists? "{a}" "{%}{%}{%}{a}") str))))
       
       (define (evaluate-form form imports)
-        (let ((super-class-name (category-name (class-ascendant class)))
-              (form-expr (parameterize ((walk-for 'eval))
-                           (with-jazz-readtable
-                             (lambda ()
-                               (read-string-element
-                                 (format "{s}" (->jml~ (form->node form)))))))))
+        (let ((super-class-name (category-name (class-ascendant class))))
           (when imports
             (evaluate-in-unit module-name `(import ,@imports) eval))
           (evaluate-in-unit
             module-name
             `(class ,class-name extends ,super-class-name
                (form
-                 ,form-expr))
+                 ,(form->eval-expr form)))
             eval)))
       
       (call-with-saved-text (find-unit-source module-name)

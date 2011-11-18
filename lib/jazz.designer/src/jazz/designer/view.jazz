@@ -146,6 +146,22 @@
 ;;;
 
 
+(definition public (make-trait-edition-form unit sym)
+  (let ((trait (module-get unit sym)))
+    (and trait (let* ((trait-type (get-client-type~ trait))
+                      (type-name (category-name trait-type))
+                      (trait-form (get-form~ trait))
+                      (new-form (new Form action: 'new model: type-name children: (list trait-form))))
+                 (let ((trait-locator (get-locator~ trait-form)))
+                   (set-locator~ trait-form (lambda (sym)
+                                              (if (eq? sym type-name)
+                                                  (deserialize-runtime-reference `(module-public ,(category-unit trait-type) ,type-name))
+                                                (trait-locator sym)))))
+                 (set-context~ new-form trait-form)
+                 (set-origin~ new-form (deserialize-runtime-reference `(module-public ,unit ,sym)))
+                 new-form))))
+
+
 (definition public (open-class class)
   (define (find-editor)
     (find-frame-if-guest

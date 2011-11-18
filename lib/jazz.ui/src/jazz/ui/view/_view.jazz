@@ -805,11 +805,11 @@
   'internal)
 
 
-(definition public (new-frame guest-class . rest)
+(definition public (new-frame guest/class . rest)
   (bind-keywords ((kind #f) . others) rest
     (case (or kind (default-frame-kind))
-      ((internal) (apply new-internal-frame guest-class others))
-      ((external) (apply new-external-frame guest-class others)))))
+      ((internal) (apply new-internal-frame guest/class others))
+      ((external) (apply new-external-frame guest/class others)))))
 
 
 ;;;
@@ -843,47 +843,49 @@
                     (collect-frames-positions host guest)))
 
 
-(definition public (new-internal-frame guest-class . rest)
-  (define (determine-stage)
-    (let ((stages (get-active-stages)))
-      (continuation-capture
-        (lambda (return)
-          ;; find a tie match
-          (for-each (lambda (stage)
-                      (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
-                        (when (and guest-model (subtype? guest-class (resolve-reference~ guest-model)))
-                          (continuation-return return stage))))
-                    stages)
-          ;; prefer untied stages
-          (for-each (lambda (stage)
-                      (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
-                        (when (not guest-model)
-                          (continuation-return return stage))))
-                    stages)
-          ;; else
-          (current-stage)))))
-  
-  (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (guest #f) (initialize #f) . others) rest
-    (let ((guest (or guest (new-guest guest-class others))))
-      (let ((host (new Internal-Frame-Host parent: (determine-stage) visible?: #f)))
-        (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
-        (set-position~ host (or host-position (cascade-frame-position host guest)))
-        (set-size~ host (or host-size (nu+ (get-size~ guest) {Dimension 8 28})))
-        (when host-workspace
-          (set-workspace~ host host-workspace))
-        (set-guest~ host guest)
-        ;; Should initialisations done here generate errors, at least
-        ;; parent install is still not done at this point
-        (when initialize
-          (initialize host guest))
-        (when host-visible?
-          (ensure-displayed~ host)
-          (bring-to-front~ host)
-          (set-visible?~ host #t)
-          (remember-workspace-stage~ host)
-          (when host-focus?
-            (focus-host~ host)))
-        host))))
+(definition public (new-internal-frame guest/class . rest)
+  (let ((guest-class (if (class? guest/class) guest/class (class-of guest/class)))
+        (guest (if (class? guest/class) #f guest/class)))
+    (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (initialize #f) . others) rest
+      (define (determine-stage)
+        (let ((stages (get-active-stages)))
+          (continuation-capture
+            (lambda (return)
+              ;; find a tie match
+              (for-each (lambda (stage)
+                          (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
+                            (when (and guest-model (subtype? guest-class (resolve-reference~ guest-model)))
+                              (continuation-return return stage))))
+                        stages)
+              ;; prefer untied stages
+              (for-each (lambda (stage)
+                          (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
+                            (when (not guest-model)
+                              (continuation-return return stage))))
+                        stages)
+              ;; else
+              (current-stage)))))
+      
+      (let ((guest (or guest (new-guest guest-class others))))
+        (let ((host (new Internal-Frame-Host parent: (determine-stage) visible?: #f)))
+          (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
+          (set-position~ host (or host-position (cascade-frame-position host guest)))
+          (set-size~ host (or host-size (nu+ (get-size~ guest) {Dimension 8 28})))
+          (when host-workspace
+            (set-workspace~ host host-workspace))
+          (set-guest~ host guest)
+          ;; Should initialisations done here generate errors, at least
+          ;; parent install is still not done at this point
+          (when initialize
+            (initialize host guest))
+          (when host-visible?
+            (ensure-displayed~ host)
+            (bring-to-front~ host)
+            (set-visible?~ host #t)
+            (remember-workspace-stage~ host)
+            (when host-focus?
+              (focus-host~ host)))
+          host)))))
 
 
 ;;;
@@ -903,30 +905,32 @@
 ;;;
 
 
-(definition public (new-external-frame guest-class . rest)
-  (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (guest #f) (initialize #f) . others) rest
-    (let* ((player (new External-Frame visible?: #f))
-           (host (get-root~ player)))
-      (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
-      (when host-position
-        (set-position~ player host-position))
-      (when host-size
-        (set-size~ player host-size))
-      ;; It is important to set the frame's size before installing the guest
-      ;; in order to minimize layouting by having the size right the first time!
-      (let ((guest (or guest (new-guest guest-class others))))
-        (set-guest~ host guest)
-        ;; Should initialisations done here generate errors, at least
-        ;; parent install is still not done at this point
-        (when initialize
-          (initialize host guest))
-        (layout-view~ host)
-        (when host-visible?
-          (fade-in~ player)
-          (when host-focus?
-            (focus-host~ host))
-          (activate-frame~ host))
-        host))))
+(definition public (new-external-frame guest/class . rest)
+  (let ((guest-class (if (class? guest/class) guest/class (class-of guest/class)))
+        (guest (if (class? guest/class) #f guest/class)))
+    (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (initialize #f) . others) rest
+      (let* ((player (new External-Frame visible?: #f))
+             (host (get-root~ player)))
+        (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
+        (when host-position
+          (set-position~ player host-position))
+        (when host-size
+          (set-size~ player host-size))
+        ;; It is important to set the frame's size before installing the guest
+        ;; in order to minimize layouting by having the size right the first time!
+        (let ((guest (or guest (new-guest guest-class others))))
+          (set-guest~ host guest)
+          ;; Should initialisations done here generate errors, at least
+          ;; parent install is still not done at this point
+          (when initialize
+            (initialize host guest))
+          (layout-view~ host)
+          (when host-visible?
+            (fade-in~ player)
+            (when host-focus?
+              (focus-host~ host))
+            (activate-frame~ host))
+          host)))))
 
 
 ;;;

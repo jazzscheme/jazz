@@ -91,18 +91,21 @@
 
 
 (definition public (determine-class-export class)
-  (let ((class-reference (get-name~ class)))
-    (let ((class-unit (reference-unit class-reference))
-          (class-name (reference-name class-reference)))
-      (let (iter (module-name class-unit))
-        (let ((module (require-module module-name)))
-          (if (and (eq? (get-access~ module) 'public)
-                   (table-ref (get-exports~ module) class-name #f))
-              module-name
-            (let ((path (butlast (split-identifier module-name))))
-              (if (null? path)
-                  #f
-                (iter (apply compose-identifier path))))))))))
+  (determine-locator-export (get-name~ class)))
+
+
+(definition public (determine-locator-export locator)
+  (let ((unit (reference-unit locator))
+        (name (reference-name locator)))
+    (let (iter (module-name unit))
+      (let ((module (require-module module-name)))
+        (if (and (eq? (get-access~ module) 'public)
+                 (table-ref (get-exports~ module) name #f))
+            module-name
+          (let ((path (butlast (split-identifier module-name))))
+            (if (null? path)
+                #f
+              (iter (apply compose-identifier path)))))))))
 
 
 ;;;
@@ -110,12 +113,17 @@
 ;;;
 
 
+(definition public (publicize-runtime-reference runtime-reference)
+  (let ((serialized (serialize-runtime-reference runtime-reference)))
+    (if (eq? (first serialized) 'module-public)
+        runtime-reference
+      (let* ((locator (second serialized))
+             (unit (determine-locator-export locator)))
+        (deserialize-runtime-reference `(module-public ,unit ,(reference-name locator)))))))
+
+
 (definition public (parse-runtime-reference runtime-reference)
-  (let ((ser (serialize-runtime-reference runtime-reference)))
-    (if (eq? (first ser) 'module-private)
-        (receive (unit rest) (split-locator (second ser))
-          (list unit (car rest)))
-      (cdr ser))))
+  (cdr (serialize-runtime-reference (publicize-runtime-reference runtime-reference))))
 
 
 ;;;

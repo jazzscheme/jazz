@@ -90,27 +90,28 @@
           (locate declaration declaration-path))))))
 
 
-(definition public (determine-class-export class)
-  (determine-locator-export (get-name~ class)))
-
-
-(definition public (determine-locator-export locator)
-  (let ((unit (reference-unit locator))
-        (name (reference-name locator)))
-    (let (iter (module-name unit))
-      (let ((module (require-module module-name)))
-        (if (and (eq? (get-access~ module) 'public)
-                 (table-ref (get-exports~ module) name #f))
-            module-name
-          (let ((path (butlast (split-identifier module-name))))
-            (if (null? path)
-                #f
-              (iter (apply compose-identifier path)))))))))
-
-
 ;;;
-;;;; Runtime references
+;;;; Runtime References
 ;;;
+
+
+(definition public (serialize-class class)
+  (let ((class-reference (get-name~ class)))
+    (let ((class-unit (reference-unit class-reference))
+          (class-name (reference-name class-reference)))
+      (let (iter (module-name class-unit))
+        (let ((module (require-module module-name)))
+          (if (and (eq? (get-access~ module) 'public)
+                   (table-ref (get-exports~ module) class-name #f))
+              (list 'module-public module-name class-name)
+            (let ((path (butlast (split-identifier module-name))))
+              (if (null? path)
+                  (error "Unable to serialize: {s}" class)
+                (iter (apply compose-identifier path))))))))))
+
+
+(definition public (runtime-class-reference class)
+  (deserialize-runtime-reference (serialize-class class)))
 
 
 (definition public (publicize-runtime-reference runtime-reference)

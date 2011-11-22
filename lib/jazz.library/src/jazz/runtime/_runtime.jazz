@@ -95,19 +95,22 @@
 ;;;
 
 
+(definition public (serialize-reference reference)
+  (let ((unit (reference-unit reference))
+        (name (reference-name reference)))
+    (let (iter (module-name unit))
+      (let ((module (require-module module-name)))
+        (if (and (eq? (get-access~ module) 'public)
+                 (table-ref (get-exports~ module) name #f))
+            (list 'module-public module-name name)
+          (let ((path (butlast (split-identifier module-name))))
+            (if (null? path)
+                (error "Unable to serialize: {s}" reference)
+              (iter (apply compose-identifier path)))))))))
+
+
 (definition public (serialize-class class)
-  (let ((class-reference (get-name~ class)))
-    (let ((class-unit (reference-unit class-reference))
-          (class-name (reference-name class-reference)))
-      (let (iter (module-name class-unit))
-        (let ((module (require-module module-name)))
-          (if (and (eq? (get-access~ module) 'public)
-                   (table-ref (get-exports~ module) class-name #f))
-              (list 'module-public module-name class-name)
-            (let ((path (butlast (split-identifier module-name))))
-              (if (null? path)
-                  (error "Unable to serialize: {s}" class)
-                (iter (apply compose-identifier path))))))))))
+  (serialize-reference (get-name~ class)))
 
 
 (definition public (runtime-class-reference class)
@@ -118,9 +121,8 @@
   (let ((serialized (serialize-runtime-reference runtime-reference)))
     (if (eq? (first serialized) 'module-public)
         runtime-reference
-      (let* ((locator (second serialized))
-             (unit (determine-locator-export locator)))
-        (deserialize-runtime-reference `(module-public ,unit ,(reference-name locator)))))))
+      (let ((reference (second serialized)))
+        (deserialize-runtime-reference (serialize-reference reference))))))
 
 
 (definition public (parse-runtime-reference runtime-reference)

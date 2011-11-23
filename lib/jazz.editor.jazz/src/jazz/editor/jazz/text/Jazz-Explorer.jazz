@@ -258,6 +258,29 @@
               #f)))))
 
 
+  (method (find-namespace-insertion-point)
+    (forward-namespace)
+    (let (loop)
+      (let* ((last-expression? (not (forward-expr)))
+             (composite? (and (not last-expression?)
+                              (enter-composite)))
+             (submodule? (and composite?
+                              (eq? (get-kind) 'list)
+                              (forward-expr)
+                              (eq? (read-marked) 'submodule))))
+        (when last-expression?
+          (backward-expr))
+        (when composite?
+          (exit-composite))
+        (when submodule?
+          (forward-expr)
+          (backward-expr)
+          (backward-expr))
+        (unless (or last-expression? submodule?)
+          (loop))))
+    (get-end))
+  
+  
   ;;;
   ;;;; Imports
   ;;;

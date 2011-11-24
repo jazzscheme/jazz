@@ -42,10 +42,11 @@
 ;;;; Build
 ;;;
 
+
 (cond-expand
   (windows
     (define jazz:git-units
-      (let ((git-include-path  (jazz:quote-jazz-pathname "foreign/libgit2/include"))
+      (let ((git-include-path  (jazz:quote-jazz-pathname "foreign/libgit2/include/git"))
             (zlib-include-path (jazz:quote-jazz-pathname "foreign/zlib/include")))
         `((jazz.git.foreign cc-options: ,(string-append "-I" git-include-path " -I" zlib-include-path))))))
   (else
@@ -53,8 +54,9 @@
      '())))
 
 
-
 (define (jazz:build-git descriptor . rest)
+  #f
+  #;
   (let ((unit-specs jazz:git-units))
     (apply jazz:custom-compile/build unit-specs rest)
 	(apply jazz:build-product-descriptor descriptor rest)))
@@ -63,6 +65,7 @@
 ;;;
 ;;;; Register
 ;;;
+
 
 (jazz:register-product 'jazz.git
   build: jazz:build-git))

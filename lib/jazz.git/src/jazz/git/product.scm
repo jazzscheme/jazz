@@ -55,8 +55,6 @@
 
 
 (define (jazz:build-git descriptor . rest)
-  #f
-  #;
   (let ((unit-specs jazz:git-units))
     (apply jazz:custom-compile/build unit-specs rest)
 	(apply jazz:build-product-descriptor descriptor rest)))

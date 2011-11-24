@@ -261,6 +261,10 @@
     (edit-selection))
   
   
+  (method (on-edit-descriptor evt)
+    (edit-descriptor))
+  
+  
   (method (on-activate evt)
     (activate-selection))
   
@@ -368,6 +372,12 @@
       (if (not file)
           (bell)
         (edit-document~ (get-application) file))))
+  
+  
+  (method (edit-descriptor)
+    (let ((project (selected-project)))
+      (let ((description-file (get-description-file~ project)))
+        (edit-document~ (get-application) description-file))))
 
   
   ;;;
@@ -1155,33 +1165,27 @@
           menu))
       
       (define (new-workbench-menu object)
-        (let ((menu (new Workbench-Menu client: (get-tree)))
-              (content? (has-content?~ object)))
+        (let ((menu (new Workbench-Menu client: (get-tree))))
           (update-component-menu menu (selected-components~ tree) '() #f)
-          (set-visible?~ (locate~ menu 'update-catalog) content?)
-          (set-visible?~ (locate~ menu 'search-project) content?)
+          (update-project-menu menu object)
           (update-group/project-menu menu)
           (cleanup-separators~ menu)
           (layout-menu~ menu)
           menu))
       
       (define (new-concrete-project-menu object)
-        (let ((menu (new Concrete-Project-Menu client: (get-tree)))
-              (content? (has-content?~ object)))
+        (let ((menu (new Concrete-Project-Menu client: (get-tree))))
           (update-component-menu menu (selected-components~ tree) '() #f)
-          (set-visible?~ (locate~ menu 'update-catalog) content?)
-          (set-visible?~ (locate~ menu 'search-project) content?)
+          (update-project-menu menu object)
           (update-group/project-menu menu)
           (cleanup-separators~ menu)
           (layout-menu~ menu)
           menu))
       
       (define (new-project-menu object)
-        (let ((menu (new Project-Menu client: (get-tree)))
-              (content? (has-content?~ object)))
+        (let ((menu (new Project-Menu client: (get-tree))))
           (update-component-menu menu (selected-components~ tree) '() #f)
-          (set-visible?~ (locate~ menu 'update-catalog) content?)
-          (set-visible?~ (locate~ menu 'search-project) content?)
+          (update-project-menu menu object)
           (update-group/project-menu menu)
           (cleanup-separators~ menu)
           (layout-menu~ menu)
@@ -1191,6 +1195,18 @@
         (let ((menu (new Element-Menu client: (get-tree))))
           (update-component-menu menu (selected-components~ tree) '() #f)
           menu))
+      
+      (define (update-project-menu menu object)
+        (let ((description-file (and (is? object Project) (get-description-file~ object))))
+          (set-visible?~ (locate~ menu 'edit-descriptor) description-file)
+          (when description-file
+            (let ((name (get-name~ description-file)))
+              (set-title~ (locate~ menu 'edit-descriptor)
+                (cond ((ci=? name ".repository") "Edit Repository")
+                      ((ci=? name ".package") "Edit Package"))))))
+        (let ((content? (has-content?~ object)))
+          (set-visible?~ (locate~ menu 'update-catalog) content?)
+          (set-visible?~ (locate~ menu 'search-project) content?)))
       
       (define (update-group/project-menu menu)
         (define (hide-item name)
@@ -1312,6 +1328,7 @@
   (form
     (<install>
       (<Label-Item>     name: edit-source         title: "Edit" before: add-item icon: {Image-Resource "Edit"} action-handler: {Action workbench-manager edit-source})
+      (<Label-Item>     name: edit-descriptor     title: "Edit Descriptor" before: add-item action-handler: {Action workbench-manager edit-descriptor})
       (<Separator-Item>                           before: add-item)
       (<Label-Item>     name: add-project         title: "New Project..." before: add-item action-handler: {Action workbench-manager add-project})
       (<Label-Item>     name: add-document        title: "New Document..." before: add-item icon: {Image-Resource "Add"} action-handler: {Action workbench-manager add-document})

@@ -62,7 +62,8 @@
   (form
     (<install>                                     size: {Dimension 650 400} layout-type: border
       (<Layout-View>      name: tools
-        (<Push-Tool>      name: highlight-document size: {Dimension 22 22} tooltip?: #t tooltip-text: "Highlight Document" resource: {Image-Resource "Synchronize"} portfolio: :images action-handler: {Event-Handler :guest on-highlight-document}))
+        (<Push-Tool>      name: highlight-document size: {Dimension 22 22} tooltip?: #t tooltip-text: "Highlight Document" resource: {Image-Resource "Synchronize"} portfolio: :images action-handler: {Event-Handler :guest on-highlight-document})
+        (<Push-Tool>      name: reload             size: {Dimension 22 22} tooltip?: #t tooltip-text: "Reload Workbench" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-reload-workbench}))
       (<Workbench-Editor> name: descendants        location: center
         (<!>              name: scroller           style: tool)
         (<!>              name: tree               show-header?: #f highlight-edited?: #f
@@ -186,6 +187,24 @@
   
   (method (on-highlight-document evt)
     (highlight-document))
+  
+  
+  (method (on-reload-workbench evt)
+    (let ((tree (get-tree)))
+      (with-cursor :wait
+        (lambda ()
+          (with-preserved-selection~ tree
+            (lambda ()
+              (with-preserved-expand-state~ tree
+                (lambda ()
+                  (with-update-locked
+                    (lambda ()
+                      (with-design-locked client
+                        (lambda ()
+                          (setup-workbench~ (get-application))
+                          (set-client (get-workbench)))))))))
+            use: 'text
+            ensure-expanded?: #t)))))
   
   
   (method (on-add-project evt)

@@ -40,6 +40,7 @@
 
 (import (jazz.designer)
         (jazz.designer.view)
+        (jazz.editor.jazz)
         (jazz.library)
         (jazz.library.component)
         (jazz.jml)
@@ -133,6 +134,35 @@
                           (paste-tool tool parent))))
                     parcels)
         (nextmethod))))
+  
+  
+  (method (remove-text-location unit symbol)
+    (call-with-saved-text (find-unit-source unit)
+      (lambda (text)
+        (let* ((range (location-range~ text (list symbol) toplevel-location: (list unit)))
+               (explorer (new Jazz-Explorer (get-model~ text) range: range)))
+          (backward-expr~ explorer)
+          (set-selection~ text (new Range$Cell$ (get-end~ explorer) (get-end~ range)))
+          (delete-selection~ text)))))
+  
+  
+  (method virtual (delete-tool tool parent)
+    (if (is? tool Toolbox-Model)
+        (let ((unit (get-unit~ tool))
+              (symbol (get-model~ tool)))
+          (remove-text-location (get-unit~ tool) (get-model~ tool))
+          (debug (require-module unit) symbol)
+          (table-set! (get-exports~ (require-module unit)) symbol)
+          (remove-child~ (get-designer) tool))
+      (bell)))
+  
+  
+  (method override (delete-selection)
+    (let* ((selected (selected-component))
+           (parent (and selected (get-parent~ selected))))
+      (if (is? parent Toolbox-Module)
+          (delete-tool selected parent)
+          (nextmethod))))
   
   
   (method override (update-selection expand-state selected-components)

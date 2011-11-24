@@ -307,14 +307,20 @@
       (propose-reload propose-reload?: propose-reload? cancel-edition?: cancel-edition?)))
   
   
-  (method public (needs-reload?)
+  (method public virtual (needs-reload?)
     (and moniker moniker-time
          (exists?~ moniker)
          (/= (time->seconds (get-modification-time~ moniker)) (time->seconds moniker-time))
          (not (equal? (digest-file (parse~ moniker) 'SHA-1) moniker-digest))))
 
   
-  (method public (propose-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
+  (method meta public virtual (propose-multiple-reloads)
+    (message-box (format "Files have been modified. Do you want to reload them?")
+                 title: "File Status"
+                 type: 'question))
+  
+  
+  (method public virtual (propose-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
     (let ((code (if (not propose-reload?)
                     'yes
                   (message-box (format "File {s} has been modified. Do you want to reload it?" (get-moniker))
@@ -323,7 +329,7 @@
       (propose-reload-action code cancel-edition?: cancel-edition?)))
   
   
-  (method protected (propose-reload-action code (cancel-edition?: cancel-edition? #f))
+  (method protected virtual (propose-reload-action code (cancel-edition?: cancel-edition? #f))
     (case code
       ((yes)
        (reload-moniker~ document moniker)

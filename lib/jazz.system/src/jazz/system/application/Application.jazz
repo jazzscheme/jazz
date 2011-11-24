@@ -695,12 +695,13 @@
     
     (let ((reloads (collect-reloads)))
       (when (not-null? reloads)
-        (let ((code (message-box (format "Files have been modified. Do you want to reload them?")
-                                 title: "File Status"
-                                 type: 'question)))
-          (for-each (lambda (controller)
-                      (propose-reload-action~ controller code))
-                    reloads)))))
+        (let ((partition (partition reloads key: class-of test: eq?)))
+          (for-each (lambda (category)
+                      (let ((code (propose-multiple-reloads~ (car category))))
+                        (for-each (lambda (controller)
+                                    (propose-reload-action~ controller code))
+                                  (cdr category))))
+                    partition)))))
   
   
   (method public (verify-reload moniker)

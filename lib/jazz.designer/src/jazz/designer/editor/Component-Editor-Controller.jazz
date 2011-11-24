@@ -59,6 +59,42 @@
     (revert-content~ document #f))
   
   
+  (method override (needs-reload?)
+    (let* ((designer (get-designer~ document))
+           (form (get-form~ designer))
+           (origin (get-origin~ form)))
+      (and origin
+           (is? origin Class)
+           (not (eq? form (get-class-form~ origin))))))
+  
+  
+  (method meta override (propose-multiple-reloads)
+    (message-box "Components have been modified elsewhere.{%}You can reload them, losing your designer changes, or overwrite them."
+                 title: "Components Status"
+                 type: 'question
+                 yes: "Reload"
+                 no: "Overwrite"))
+  
+  
+  (method override (propose-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
+    (let ((code (if (not propose-reload?)
+                    'yes
+                  (message-box (format "Component {s} has been modified elsewhere.{%}You can reload it, losing your designer changes, or overwrite it." (name-status))
+                               title: "Component Status"
+                               type: 'question
+                               yes: "Reload"
+                               no: "Overwrite"))))
+      (propose-reload-action code cancel-edition?: cancel-edition?)))
+  
+  
+  (method override (propose-reload-action code (cancel-edition?: cancel-edition? #f))
+    (let ((designer (get-designer~ document)))
+      (case code
+        ((no)
+         (save)))
+      (reset-client~ document (get-origin~ (get-form~ designer)))))
+  
+  
   (method override (name-status)
     (define (find-origin)
       (let ((designer (get-designer~ document)))

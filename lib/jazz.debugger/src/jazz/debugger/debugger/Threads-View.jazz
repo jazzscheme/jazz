@@ -170,8 +170,9 @@
 
 
   (method (on-select-thread evt)
-    (update-tools)
-    (thread-change))
+    (let ((user-origin (get-user-origin~ evt)))
+      (update-tools)
+      (thread-changed~ (get-debugger-manager) (selected-thread) user-origin: user-origin)))
   
   
   (method (on-restart evt)
@@ -313,21 +314,21 @@
                               (frame-color (get-stopped-frame-color~ manager thread))
                               (background (get-visited-highlight-color~ manager thread)))
                           (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))
-                      detailed?: (show-detailed?))))
-                (unless (selected-thread)
-                  (when (get-installed?)
-                    (continuation-capture
-                      (lambda (return)
-                        (for-each-thread~ manager
-                          (lambda (thread stop detailed?)
-                            (unless (debugged-visited?~ manager thread)
-                              ;; this will recursively call (get-threads-view) when called from (install)
-                              (set-selected-thread thread)
-                              (thread-change))
-                            (continuation-return return))))))))
+                      detailed?: (show-detailed?)))))
               use: 'data
               test: debugged=?
-              generate-event?: user-origin))))))
+              generate-event?: user-origin)
+            (unless (selected-thread)
+              (when (get-installed?)
+                (continuation-capture
+                  (lambda (return)
+                    (for-each-thread~ manager
+                      (lambda (thread stop detailed?)
+                        (unless (debugged-visited?~ manager thread)
+                          ;; this will recursively call (get-threads-view) when called from (install)
+                          (set-selected-thread thread)
+                          (thread-changed~ (get-debugger-manager) (selected-thread)))
+                        (continuation-return return))))))))))))
   
   
   (method public (update-highlight thread)
@@ -343,15 +344,6 @@
               (set-frame-color~ data (get-stopped-frame-color~ manager thread))
               (set-background~ data (get-visited-highlight-color~ manager thread)))
             (invalidate-cell~ tree cell))))))
-
-  
-  ;;;
-  ;;;; Edition
-  ;;;
-  
-  
-  (method (thread-change)
-    (thread-changed~ (get-debugger-manager) (selected-thread)))
   
   
   ;;;

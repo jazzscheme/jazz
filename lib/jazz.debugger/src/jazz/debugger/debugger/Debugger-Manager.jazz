@@ -54,6 +54,7 @@
   
   (slot active-stops    initialize (make-table test: debugged=? hash: debugged-hash))
   (slot unvisited-stops initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot unzoomed-stops  initialize (make-table test: debugged=? hash: debugged-hash))
   (slot focused-process initialize #f getter generate)
   
   (slot process         initialize #f getter generate)
@@ -65,6 +66,27 @@
     (/= 0 (table-length active-stops)))
   
   
+  (method public (selected-process)
+    (let ((processes-view (get-processes-view)))
+      (if processes-view
+          (selected-process~ processes-view)
+        process)))
+  
+  
+  (method public (selected-thread)
+    (let ((threads-view (get-threads-view)))
+      (if threads-view
+          (selected-thread~ threads-view)
+        thread)))
+  
+  
+  (method public (selected-frame)
+    (let ((frames-view (get-frames-view)))
+      (if frames-view
+          (selected-frame~ frames-view)
+        frame)))
+  
+  
   ;;;
   ;;;; Status
   ;;;
@@ -74,6 +96,12 @@
     (unless (debugged-visited? debugged)
       (table-set! unvisited-stops debugged)
       (update-status)
+      #t))
+  
+  
+  (method public (unzoom-debugged debugged)
+    (unless (debugged-zoomed? debugged)
+      (table-set! unzoomed-stops debugged)
       #t))
   
   
@@ -103,6 +131,10 @@
   
   (method (debugged-visited? debugged)
     (not (table-ref unvisited-stops debugged #f)))
+  
+  
+  (method (debugged-zoomed? debugged)
+    (not (table-ref unzoomed-stops debugged #f)))
   
   
   (method public (get-active-stops debugged)
@@ -257,14 +289,20 @@
                       (get-threads~ process)))))))
   
   
-  (method public (thread-changed new-thread)
+  (method public (thread-changed new-thread (user-origin: user-origin #f))
     (unless (debugged=? thread new-thread)
       (set! thread new-thread)
       (when (and (get-threads-view) (view-visible?~ (get-threads-view)))
         (when (visit-debugged thread)
           (update-threads-highlight thread)))
-      (when (get-frames-view)
-        (thread-changed~ (get-frames-view) thread))
+      (let ((frames-view (get-frames-view)))
+        (when frames-view
+          (thread-changed~ frames-view thread)
+          (when (and user-origin
+                     (view-visible?~ frames-view)
+                     (get-variables-view)
+                     (unzoom-debugged thread))
+            (ensure-unzoomed (get-host~ (get-variables-view))))))
       (when (get-restarts-view)
         (thread-changed~ (get-restarts-view) thread))
       (when (get-exception-view)
@@ -298,7 +336,10 @@
     (when (and (get-frames-view) (or (not frame) (view-visible?~ (get-frames-view))))
       (let ((variables-view (get-variables-view)))
         (when variables-view
-          (frame-changed~ variables-view frame)))
+          (frame-changed~ variables-view frame)
+          (when (and user-origin
+                     (unzoom-debugged thread))
+            (ensure-unzoomed (get-host~ variables-view)))))
       (when (or user-origin (not frame))
         (edit-frame frame)))
     (when (and thread (get-active-stop~ thread))
@@ -323,7 +364,7 @@
   
   (method public (register-stop process thread stop (step?: step? #f)) ;; to test the stepper
     (define (update-process)
-      (let ((empty? (not process~self))
+      (let ((empty? (not (selected-process)))
             (view (get-processes-view)))
         (when empty?
           (if view
@@ -332,21 +373,21 @@
         (update-processes-highlight process)))
     
     (define (update-thread)
-      (when (debugged=? process process~self)
-        (let ((empty? (not thread~self))
+      (when (debugged=? process (selected-process))
+        (let ((empty? (not (selected-thread)))
               (view (get-threads-view)))
           (when view
-            (process-changed~ view process~self))
+            (process-changed~ view (selected-process)))
           (when empty?
             (if view
                 (set-selected-thread~ view thread)
-              (thread-changed process)))
+              (thread-changed thread)))
           (when (and view (view-visible?~ view))
-            (when (visit-debugged thread)
+            (when (visit-debugged process)
               (update-threads-highlight thread))))))
     
     (define (update-others)
-      (when (debugged=? thread thread~self)
+      (when (debugged=? thread (selected-thread))
         (when (get-frames-view)
           (thread-changed~ (get-frames-view) thread))
         (when (get-restarts-view)
@@ -361,10 +402,14 @@
     (define (add-unvisited-stops debugged)
       (table-set! unvisited-stops debugged #t))
     
+    (define (add-unzoomed-stops debugged)
+      (table-set! unzoomed-stops debugged #t))
+    
     (add-active-stop process stop)
     (add-active-stop thread stop)
     (add-unvisited-stops process)
     (add-unvisited-stops thread)
+    (add-unzoomed-stops thread)
     (unless step?
       (error-sound))
     (update-process)
@@ -374,13 +419,17 @@
   
   (method public (unregister-stop process thread stop)
     (define (update-others)
-      (when (debugged=? thread thread~self)
+      (when (debugged=? thread (selected-thread))
         (when (get-frames-view)
           (thread-changed~ (get-frames-view) thread))
         (when (get-restarts-view)
           (thread-changed~ (get-restarts-view) thread))
         (when (get-exception-view)
           (thread-changed~ (get-exception-view) thread)))
+      (when (and (= (table-length unvisited-stops) 0)
+                 (get-variables-view))
+        @w
+        (debug 'zoom-variables-view))
       (update-status))
     
     (define (remove-active-stop debugged stop)
@@ -396,12 +445,16 @@
                           (table-ref active-stops debugged '())))
         (table-set! unvisited-stops debugged)))
     
+    (define (remove-unzoomed-stops debugged)
+      (table-set! unzoomed-stops debugged))
+    
     (remove-active-stop process stop)
     (remove-active-stop thread stop)
     (remove-unvisited-stops process)
     (remove-unvisited-stops thread)
+    (remove-unzoomed-stops thread)
     (update-processes-highlight process)
     (let ((view (get-threads-view)))
       (when view
-        (process-changed~ view process~self)))
+        (process-changed~ view (selected-process))))
     (update-others))))

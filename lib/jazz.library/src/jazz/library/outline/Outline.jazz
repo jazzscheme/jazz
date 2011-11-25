@@ -73,22 +73,21 @@
       (set! row (get-next~ row))
       (decrease! n))
     row)
+  
+  
+  (method protected (position-in-row v row line top)
+    (if (not row)
+        (values #f #f #f)
+      (let* ((height (get-height~ row))
+             (bottom (+ top height)))
+        (if (<= v bottom)
+            (values line (- v top) height)
+          (position-in-row v (get-next~ row) (+ line 1) (+ bottom row-spacing))))))
 
 
   (method public virtual (call-with-v->line v scrolled proc)
-    (let ((row (first-visible-row)))
-      (let ((line 0)
-            (top 0)
-            (bottom (+ (get-height~ row) row-spacing)))
-        (while (and row (or (< v top) (>= v bottom)))
-          (increase! line)
-          (set! row (get-next~ row))
-          (when row
-            (set! top bottom)
-            (set! bottom (+ top (get-height~ row) row-spacing))))
-        (if (and row (< v (- bottom row-spacing)))
-            (proc line (- v top) (- bottom top))
-          (proc #f #f #f)))))
+    (receive (line v height) (position-in-row v (first-visible-row) 0 0)
+      (proc line v height)))
   
   
   ;;;

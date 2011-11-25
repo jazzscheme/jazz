@@ -58,25 +58,15 @@
     (if (and first-displayed (>= n first-displayed-line))
         (get-row-from first-displayed (- n first-displayed-line))
       (nextmethod n)))
-
-
+  
+  
   (method override (call-with-v->line v scrolled proc)
     (if first-displayed
-        (let* ((displayed? (>= v (- scrolled)))
-               (v (if displayed? (+ v scrolled) v))
-               (row (if displayed? first-displayed (first-visible-row)))
-               (line (if displayed? first-displayed-line 0))
-               (top (if displayed? (- first-displayed-offset) 0))
-               (bottom (+ top (get-height~ row) row-spacing)))
-          (while (and row (or (< v top) (>= v bottom)))
-            (increase! line)
-            (set! row (get-next~ row))
-            (when row
-              (set! top bottom)
-              (set! bottom (+ top (get-height~ row) row-spacing))))
-          (if (and row (< v (- bottom row-spacing)))
-              (proc line (- v top) (- bottom top))
-            (proc #f #f #f)))
+        (let ((displayed? (>= v (- scrolled))))
+          (if displayed?
+              (receive (line v height) (position-in-row (+ v scrolled) first-displayed first-displayed-line (- first-displayed-offset))
+                (proc line v height))
+            (nextmethod v scrolled proc)))
       (proc #f #f #f)))
   
   

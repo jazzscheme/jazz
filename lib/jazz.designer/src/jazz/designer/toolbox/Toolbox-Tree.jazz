@@ -38,7 +38,8 @@
 (module protected jazz.designer.toolbox.Toolbox-Tree jazz
 
 
-(import (jazz.designer)
+(import (jazz.debuggee)
+        (jazz.designer)
         (jazz.designer.view)
         (jazz.editor.jazz)
         (jazz.library)
@@ -161,7 +162,41 @@
            (parent (and selected (get-parent~ selected))))
       (if (is? parent Toolbox-Module)
           (delete-tool selected parent)
-          (nextmethod))))
+        (nextmethod))))
+  
+  
+  (method virtual (find-name-location text tool)
+    (location-range~ text (list (get-model~ tool) 1) toplevel-location: (list (get-unit~ tool))))
+  
+  
+  (method (evaluate-at-caret text)
+    (apply evaluate-expressions~ (get-local-process) (prepare-expressions~ text (current-declaration-range~ text))))
+  
+  
+  (method virtual (rename-tool tool parent)
+    (if (is? tool Toolbox-Model)
+        (let ((name (request-name accepts-empty?: #f))
+              (unit (get-unit~ tool))
+              (symbol (get-model~ tool)))
+          (call-with-saved-text (find-unit-source unit)
+            (lambda (text)
+              (let ((range (find-name-location text tool)))
+                (set-selection~ text range)
+                (replace-selection~ text (list (symbol->string name)))
+                (set-caret~ text (get-end~ range))
+                (evaluate-at-caret text))))
+          (table-set! (get-exports~ (require-module unit)) symbol)
+          (set-property~ designer tool 'model name)
+          (set-property~ designer tool 'title (symbol->string name)))
+      (bell)))
+  
+  
+  (method override (rename-selection)
+    (let* ((selected (selected-component))
+           (parent (and selected (get-parent~ selected))))
+      (if (is? parent Toolbox-Module)
+          (rename-tool selected parent)
+        (nextmethod))))
   
   
   (method override (update-selection expand-state selected-components)

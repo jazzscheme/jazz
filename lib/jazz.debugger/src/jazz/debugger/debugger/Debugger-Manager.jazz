@@ -56,6 +56,7 @@
   (slot active-stops    initialize (make-table test: debugged=? hash: debugged-hash))
   (slot unvisited-stops initialize (make-table test: debugged=? hash: debugged-hash))
   (slot unzoomed-stops  initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot focused-mode?   initialize #f getter generate)
   (slot focused-process initialize #f getter generate)
   
   (slot process         initialize #f getter generate)
@@ -145,6 +146,10 @@
   ;;;
   ;;;; Focused
   ;;;
+  
+  
+  (method public (toggle-focused-mode)
+    (set! focused-mode? (not focused-mode?)))
   
   
   (method public (require-focused-process)
@@ -462,4 +467,21 @@
     (let ((view (get-threads-view)))
       (when view
         (process-changed~ view (selected-process))))
-    (update-others))))
+    (update-others))
+  
+  
+  ;;;
+  ;;;; Filenames
+  ;;;
+  
+  
+  (method public (determine-filename-processes filename)
+    (if focused-mode?
+        (if focused-process
+            (list focused-process)
+          '())
+      (let ((queue (new-queue)))
+        (for-each (lambda (debugger)
+                    (add-filename-processes~ debugger queue filename))
+                  (get-debuggers))
+        (queue-list queue))))))

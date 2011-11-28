@@ -52,18 +52,18 @@
   
 
   (form
-    (<install>                                   layout-type: border
+    (<install>                                     layout-type: border
       (<Layout-View>            name: tools
-        (<Push-Tool>            name: open       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open Snapshot" resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :guest on-open-snapshot})
-        (<Separator>                             size: {Dimension 6 0})
-        (<Push-Tool>            name: focus      size: {Dimension 22 22} enabled?: #f location: tail tooltip?: #t tooltip-text: "Focus" resource: {Image-Resource "Script"} portfolio: :images action-handler: {Event-Handler :guest on-focus})
-        (<Separator>                             size: {Dimension 2 0})
-        (<Push-Tool>            name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-update}))
-      (<Scroller-View>          name: scroller   location: center vscroll?: #t style: tool
-        (<!>                    name: content    layout-type: fill
-          (<Tree-Header>        name: header     shown?: #f
+        (<Push-Tool>            name: open         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open Snapshot" resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :guest on-open-snapshot})
+        (<Separator>                               size: {Dimension 6 0})
+        (<Toggle-Tool>          name: focused-mode size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Focused Mode" resource: {Image-Resource "Script"} portfolio: :images action-handler: {Event-Handler :guest on-focused-mode})
+        (<Separator>                               size: {Dimension 2 0})
+        (<Push-Tool>            name: update       size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-update}))
+      (<Scroller-View>          name: scroller     location: center vscroll?: #t style: tool
+        (<!>                    name: content      layout-type: fill
+          (<Tree-Header>        name: header       shown?: #f
             (<!>                name: content
-              (<Processes-Tree> name: processes  multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-process} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
+              (<Processes-Tree> name: processes    multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-process} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
 
   
   (method meta override (external-name . rest)
@@ -155,12 +155,11 @@
 
 
   (method (on-select-process evt)
-    (update-tools)
     (process-change))
   
   
-  (method (on-focus evt)
-    (focus-selected-process))
+  (method (on-focused-mode evt)
+    (toggle-focused-mode))
   
   
   (method (on-update evt)
@@ -171,11 +170,6 @@
   
   (method (process-change)
     (process-changed~ (get-debugger-manager) (selected-process)))
-  
-  
-  (method (update-tools)
-    (let ((process (selected-process)))
-      (set-enabled?~ (locate 'focus) (and process (focusable?~ process)))))
 
   
   ;;;
@@ -291,9 +285,8 @@
             (set-visible?~ (locate~ menu 'focus) #f))
           (when (and focusable? alive?)
             (set-title~ (locate~ menu 'exit) "Exit"))
-          @w
-          (unless alive?
-            (set-title~ (locate~ menu 'exit) "Close")))
+          (when (not alive?)
+            (set-title~ (locate~ menu 'exit) "Remove Process")))
         (cleanup-separators~ menu)
         (layout-menu~ menu)
         menu))
@@ -308,6 +301,10 @@
       (exit~ object)
       (let ((tree (locate 'processes)))
         (set-selection~ tree '()))))
+  
+  
+  (method (toggle-focused-mode)
+    (toggle-focused-mode~ (get-debugger-manager)))
   
   
   (method (focus-selected-process)

@@ -42,6 +42,7 @@
         (jazz.debuggee)
         (jazz.debugger)
         (jazz.editor.jazz)
+        (jazz.io)
         (jazz.jrm)
         (jazz.network)
         (jazz.system)
@@ -397,6 +398,7 @@
       (execute-event
         (lambda ()
           (set! processes (append! processes (list process)))
+          (transmit-runtime-filenames~ process)
           (attach-process~ (get-debugger-manager) (new Debugged-Process self process process) focus?)))))
   
   
@@ -426,6 +428,7 @@
       (execute-event
         (lambda ()
           (set! processes (remove! process processes test: process=?))
+          (table-clear process-filenames process)
           (detach-process~ (get-debugger-manager) (new Debugged-Process self process process))))))
   
   
@@ -436,6 +439,15 @@
   
   (method (receive-runtime-filenames process filenames)
     (table-set! process-filenames process filenames))
+  
+  
+  (method override (add-filename-processes queue filename)
+    (for-each (lambda (process)
+                (let ((filenames (table-ref process-filenames process #f)))
+                  (when (and filenames
+                             (member? filename filenames test: filename=?))
+                    (enqueue queue (new Debugged-Process self process process)))))
+              processes))
   
   
   ;;;

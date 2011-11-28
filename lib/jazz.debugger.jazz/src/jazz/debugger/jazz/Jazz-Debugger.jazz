@@ -52,7 +52,8 @@
 (class Jazz-Debugger extends Debugger
 
   
-  (slot processes initialize '())
+  (slot processes         initialize '())
+  (slot process-filenames initialize (make-table test: process=? hash: process-hash))
   
   
   ;;;
@@ -142,6 +143,12 @@
   
   (method override (process-focusable? process)
     #t)
+  
+  
+  (method override (transmit-runtime-filenames process)
+    (with-jrm-exception-handler
+      (lambda ()
+        (transmit-runtime-filenames~ process))))
   
   
   (method override (evaluate-expressions process syntax str container line col)
@@ -420,6 +427,15 @@
         (lambda ()
           (set! processes (remove! process processes test: process=?))
           (detach-process~ (get-debugger-manager) (new Debugged-Process self process process))))))
+  
+  
+  ;;;
+  ;;;; Runtime
+  ;;;
+  
+  
+  (method (receive-runtime-filenames process filenames)
+    (table-set! process-filenames process filenames))
   
   
   ;;;

@@ -419,6 +419,11 @@
   (set! jazz:Repositories (%%remove repository jazz:Repositories)))
 
 
+(define (jazz:require-repository name)
+  (or (jazz:find-repository name)
+      (jazz:error "Unknown repository: {s}" name)))
+
+
 (define (jazz:find-repository name)
   (let iter ((repositories jazz:Repositories))
     (if (%%null? repositories)

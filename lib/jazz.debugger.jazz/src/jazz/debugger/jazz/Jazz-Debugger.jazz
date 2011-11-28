@@ -442,12 +442,19 @@
   
   
   (method override (add-filename-processes queue filename)
+    (define (add-process process)
+      (enqueue queue (new Debugged-Process self process process)))
+    
     (for-each (lambda (process)
                 (let ((filenames (table-ref process-filenames process #f)))
                   (when (and filenames
                              (member? filename filenames test: filename=?))
-                    (enqueue queue (new Debugged-Process self process process)))))
-              processes))
+                    (add-process process))))
+              processes)
+    (when (get-local-debugger~ (get-process))
+      (let ((process (get-local-process)))
+        (unless (member? process (queue-list queue) test: process=?)
+          (add-process process)))))
   
   
   ;;;

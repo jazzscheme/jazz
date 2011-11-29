@@ -165,9 +165,13 @@
       (new-thread
         (lambda ()
           (let ((queue (new-queue)))
-            (iterate-units
-              (lambda (unit)
-                (enqueue queue (resource-pathname (find-unit-src unit #f)))))
+            (define (add-unit unit)
+              (let ((resource (find-unit-src unit #f)))
+                (when resource
+                  (enqueue queue (resource-pathname resource)))))
+            
+            (iterate-units add-unit)
+            (for-each add-unit (runtime-units~ (get-process)))
             (transmit-filenames (queue-list queue))))
         'runtime-filenames)))
   

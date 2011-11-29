@@ -69,7 +69,7 @@
               (save-to-class~ designer destination)
               (reset-client~ editor destination)
               (nextmethod (reference Toolbox-Model) presentation: (symbol->string name) properties: (list unit: (get-module-name~ parent) model: name))))
-          (nextmethod ref))))
+        (nextmethod ref))))
   
   
   (method public (call-with-selected-addable func)
@@ -108,19 +108,36 @@
     (call-with-selected-addable (lambda (addable) (find-ascendant~ addable Toolbox))))
   
   
+  (method (with-safe-toolbox tool thunk)
+    (with-safe-design
+      (lambda ()
+        (if (get-class~ tool)
+            (with-exception-filter
+              (lambda (obj)
+                (or (is? obj Location-Error)
+                    (is? obj Explore-Error)))
+              (lambda (err)
+                (designer-error "The code referred by this tool seems to be invalid : {s}" err))
+              thunk)
+            (thunk)
+          (designer-error "This tool is no longer valid, please synchronize your toolbox")))))
+  
+  
   (method virtual (paste-tool tool parent)
-    (let* ((name (request-name accepts-empty?: #f))
-           (editor (open-model tool))
-           (designer (get-designer~ editor))
-           (module-name (get-module-name~ parent))
-           (destination (if (is? tool Toolbox-Trait)
-                            (deserialize-runtime-reference `(module-public ,module-name ,name))
-                          (set-class-destination~ designer (get-module-name~ parent) name))))
-      (if (is? tool Toolbox-Trait)
-          (save-to-trait~ designer module-name name #t)
-        (save-to-class~ designer destination))
-      (reset-client~ editor destination)
-      (add-child~ (get-designer) (new (class-of tool)) parent properties: (list title: (symbol->string name) model: name unit: (get-module-name~ parent)))))
+    (with-safe-toolbox tool
+      (lambda ()
+        (let* ((name (request-name accepts-empty?: #f))
+               (editor (open-model tool))
+               (designer (get-designer~ editor))
+               (module-name (get-module-name~ parent))
+               (destination (if (is? tool Toolbox-Trait)
+                                (deserialize-runtime-reference `(module-public ,module-name ,name))
+                              (set-class-destination~ designer (get-module-name~ parent) name))))
+          (if (is? tool Toolbox-Trait)
+              (save-to-trait~ designer module-name name #t)
+            (save-to-class~ designer destination))
+          (reset-client~ editor destination)
+          (add-child~ (get-designer) (new (class-of tool)) parent properties: (list title: (symbol->string name) model: name unit: (get-module-name~ parent)))))))
   
   
   (method override (paste-clipboard)
@@ -149,11 +166,13 @@
   
   (method virtual (delete-tool tool parent)
     (if (is? tool Toolbox-Model)
-        (let ((unit (get-unit~ tool))
-              (symbol (get-model~ tool)))
-          (remove-text-location (get-unit~ tool) (get-model~ tool))
-          (table-set! (get-exports~ (require-module unit)) symbol)
-          (remove-child~ (get-designer) tool))
+        (with-safe-toolbox tool
+          (lambda ()
+            (let ((unit (get-unit~ tool))
+                  (symbol (get-model~ tool)))
+              (remove-text-location (get-unit~ tool) (get-model~ tool))
+              (table-set! (get-exports~ (require-module unit)) symbol)
+              (remove-child~ (get-designer) tool))))
       (bell)))
   
   
@@ -175,19 +194,21 @@
   
   (method virtual (rename-tool tool parent)
     (if (is? tool Toolbox-Model)
-        (let ((name (request-name accepts-empty?: #f))
-              (unit (get-unit~ tool))
-              (symbol (get-model~ tool)))
-          (call-with-saved-text (find-unit-source unit)
-            (lambda (text)
-              (let ((range (find-name-location text tool)))
-                (set-selection~ text range)
-                (replace-selection~ text (list (symbol->string name)))
-                (set-caret~ text (get-end~ range))
-                (evaluate-at-caret text))))
-          (table-set! (get-exports~ (require-module unit)) symbol)
-          (set-property~ designer tool 'model name)
-          (set-property~ designer tool 'title (symbol->string name)))
+        (with-safe-toolbox tool
+          (lambda ()
+            (let ((name (request-name accepts-empty?: #f))
+                  (unit (get-unit~ tool))
+                  (symbol (get-model~ tool)))
+              (call-with-saved-text (find-unit-source unit)
+                (lambda (text)
+                  (let ((range (find-name-location text tool)))
+                    (set-selection~ text range)
+                    (replace-selection~ text (list (symbol->string name)))
+                    (set-caret~ text (get-end~ range))
+                    (evaluate-at-caret text))))
+              (table-set! (get-exports~ (require-module unit)) symbol)
+              (set-property~ designer tool 'model name)
+              (set-property~ designer tool 'title (symbol->string name)))))
       (bell)))
   
   
@@ -227,14 +248,16 @@
   
   
   (method virtual (open-model model)
-    (typecase model
-      ((Toolbox-Trait)
-       (open-trait (get-unit~ model) (get-model~ model)))
-      ((Toolbox-Model)
-       (let ((class (get-class~ model)))
-         (and class (open-class class))))
-      (else
-       #f)))
+    (with-safe-toolbox model
+      (lambda ()
+        (typecase model
+          ((Toolbox-Trait)
+           (open-trait (get-unit~ model) (get-model~ model)))
+          ((Toolbox-Model)
+           (let ((class (get-class~ model)))
+             (and class (open-class class))))
+          (else
+           #f)))))
   
   
   (method override (on-open evt)
@@ -251,11 +274,13 @@
   
   
   (method (new-addable addable)
-    (typecase addable
-      ((Toolbox-Form)
-       (new-form (resolve-runtime-reference (get-reference~ addable))))
-      ((Toolbox-Model)
-       (new-class (get-model~ addable) (get-unit~ addable)))))
+    (with-safe-toolbox addable
+      (lambda ()
+        (typecase addable
+          ((Toolbox-Form)
+           (new-form (resolve-runtime-reference (get-reference~ addable))))
+          ((Toolbox-Model)
+           (new-class (get-model~ addable) (get-unit~ addable)))))))
   
   
   (method (new-class model unit (size: size #f))
@@ -285,17 +310,19 @@
   (method (on-add evt)
     (let ((addable (selected-addable))
           (editor (current-document)))
-      (if (and addable (is? editor View-Editor))
-          (with-atomic-undo~ (get-undoer~ (get-designer~ editor))
-            (lambda ()
-              (let* ((surrogate (get-surrogate~ (get-client~ editor)))
-                     (component (typecase addable
-                                  ((Toolbox-Model)
-                                   (add-new~ surrogate (get-class~ addable) {Point 0 0} centered?: #f import: (get-unit~ addable)))
-                                  ((Toolbox-Form)
-                                   (add-new-form~ surrogate (locate-form~ addable) {Point 0 0} centered?: #f imports: (get-imports~ addable))))))
-                (cascade-view-position~ (get-designer~ editor) component {Point 0 0}))))
-        (bell))))
+      (with-safe-toolbox addable
+        (lambda ()
+          (if (is? editor View-Editor)
+              (with-atomic-undo~ (get-undoer~ (get-designer~ editor))
+                (lambda ()
+                  (let* ((surrogate (get-surrogate~ (get-client~ editor)))
+                         (component (typecase addable
+                                      ((Toolbox-Model)
+                                       (add-new~ surrogate (get-class~ addable) {Point 0 0} centered?: #f import: (get-unit~ addable)))
+                                      ((Toolbox-Form)
+                                       (add-new-form~ surrogate (locate-form~ addable) {Point 0 0} centered?: #f imports: (get-imports~ addable))))))
+                    (cascade-view-position~ (get-designer~ editor) component {Point 0 0}))))
+            (bell))))))
   
   
   (method override (row-state component update? level)

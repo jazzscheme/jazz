@@ -165,14 +165,22 @@
   
   
   (method virtual (delete-tool tool parent)
+    (define (confirm-delete)
+      (let ((code (message-box "Delete selected object?" type: 'confirmation)))
+        (case code
+          ((yes) #t)
+          ((no) #f)
+          ((cancel) (throw-cancel)))))
+    
     (if (is? tool Toolbox-Model)
         (with-safe-toolbox tool
           (lambda ()
-            (let ((unit (get-unit~ tool))
-                  (symbol (get-model~ tool)))
-              (remove-text-location (get-unit~ tool) (get-model~ tool))
-              (table-set! (get-exports~ (require-module unit)) symbol)
-              (remove-child~ (get-designer) tool))))
+            (when (confirm-delete)
+              (let ((unit (get-unit~ tool))
+                    (symbol (get-model~ tool)))
+                (remove-text-location (get-unit~ tool) (get-model~ tool))
+                (table-set! (get-exports~ (require-module unit)) symbol)
+                (remove-child~ (get-designer) tool)))))
       (bell)))
   
   

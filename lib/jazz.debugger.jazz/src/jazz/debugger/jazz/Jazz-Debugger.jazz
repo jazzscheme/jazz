@@ -448,11 +448,18 @@
                    (member? filename filenames test: filename=?))
           (enqueue queue (new Debugged-Process self process process)))))
     
-    (for-each add-process processes)
-    (when (get-local-debugger~ (get-process))
-      (let ((process (get-local-process)))
-        (unless (member? process (queue-list queue) test: process=?)
-          (add-process process)))))
+    (for-each add-process processes))
+  
+  
+  (method (evaluate-expressions-to targets filename syntax str container line col)
+    (set-?t targets)
+    (let ((processes (map get-reference~ (determine-filename-processes~ (get-debugger-manager) filename))))
+      (set-?p processes)
+      (collect (lambda (process)
+                 (when (member? process targets test: proxy=?)
+                   (evaluate-expressions~ process syntax str container line col)
+                   process))
+               processes)))
   
   
   ;;;

@@ -50,6 +50,9 @@
 
 (class Processes-View extends Layout-View
   
+  
+  (property client initialize #f accessors explicit)
+  
 
   (form
     (<install>                                     layout-type: border
@@ -84,9 +87,17 @@
   
   
   (method override (client-activate)
+    (let ((guest (current-document)))
+      (if (is? guest Text-View)
+          (set-client guest)
+        (set-client #f)))
     (let ((selected-process (selected-process)))
       (when selected-process
         (update-highlight selected-process))))
+  
+  
+  (method override (client-deactivate)
+    (set-client #f))
   
   
   ;;;
@@ -170,6 +181,21 @@
   
   (method (process-change)
     (process-changed~ (get-debugger-manager) (selected-process)))
+  
+  
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method public (get-client)
+    client)
+
+ 
+  (method public (set-client clt)
+    (when (neq? clt client)
+      (set! client clt)
+      (update)))
 
   
   ;;;
@@ -178,11 +204,20 @@
   
   
   (method public (update (user-origin: user-origin #f))
-    (define (process-image process live? focused? focused-mode?)
+    (define (process-image process live? focused? focused-mode? manager)
       (cond ((not live?)
              {Image-Resource "ProcessDead"})
             ((not focused-mode?)
-             {Image-Resource "Process"})
+             (if (not client)
+                 {Image-Resource "Process"}
+               (let ((moniker (get-moniker~ client)))
+                 (if (not moniker)
+                     {Image-Resource "Process"}
+                   (let ((filename (parse~ moniker)))
+                     (let ((processes (determine-filename-processes~ manager filename)))
+                       (if (member? process processes test: debugged=?)
+                           {Image-Resource "Script"}
+                         {Image-Resource "Process"})))))))
             ((not focused?)
              (or (get-icon~ process) {Image-Resource "Process"}))
             (else
@@ -194,7 +229,7 @@
           (for-each-process~ manager
             (lambda (debugger process live? focused?)
               (let ((title (present~ process))
-                    (image (process-image process live? focused? focused-mode?))
+                    (image (process-image process live? focused? focused-mode? manager))
                     (frame-color (get-stopped-frame-color~ manager process))
                     (background (get-visited-highlight-color~ manager process)))
                 (set-alive?~ process live?)

@@ -58,17 +58,24 @@
     (<install> portfolio: :images draggable?: #t reorderable?: #t multiple-selection?: #f selection-mode: row))
   
   
+  (method (request-unique-name-in-module unit)
+    (let ((symbols (table-keys (get-exports~ (require-module unit)))))
+      (debug symbols)
+      (request-name accepts-empty?: #f unicity-domain: (map symbol->string symbols))))
+  
+  
   (method override (add-component-class ref)
     (let ((parent (selected-component)))
       (if (is? parent Toolbox-Module)
-          (bind (unit model) (parse-runtime-reference ref)
-            (let* ((name (request-name accepts-empty?: #f))
-                   (editor (new-class model unit))
-                   (designer (get-designer~ editor))
-                   (destination (set-class-destination~ designer (get-module-name~ parent) name)))
-              (save-to-class~ designer destination)
-              (reset-client~ editor destination)
-              (nextmethod (reference Toolbox-Model) presentation: (symbol->string name) properties: (list unit: (get-module-name~ parent) model: name))))
+          (let ((module-name (get-module-name~ parent)))
+            (bind (unit model) (parse-runtime-reference ref)
+              (let* ((name (request-unique-name-in-module module-name))
+                     (editor (new-class model unit))
+                     (designer (get-designer~ editor))
+                     (destination (set-class-destination~ designer module-name name)))
+                (save-to-class~ designer destination)
+                (reset-client~ editor destination)
+                (nextmethod (reference Toolbox-Model) presentation: (symbol->string name) properties: (list unit: module-name model: name)))))
         (nextmethod ref))))
   
   
@@ -126,10 +133,10 @@
   (method virtual (paste-tool tool parent)
     (with-safe-toolbox tool
       (lambda ()
-        (let* ((name (request-name accepts-empty?: #f))
+        (let* ((module-name (get-module-name~ parent))
+               (name (request-unique-name-in-module module-name))
                (editor (open-model tool))
                (designer (get-designer~ editor))
-               (module-name (get-module-name~ parent))
                (destination (if (is? tool Toolbox-Trait)
                                 (deserialize-runtime-reference `(module-public ,module-name ,name))
                               (set-class-destination~ designer (get-module-name~ parent) name))))
@@ -204,9 +211,9 @@
     (if (is? tool Toolbox-Model)
         (with-safe-toolbox tool
           (lambda ()
-            (let ((name (request-name accepts-empty?: #f))
-                  (unit (get-unit~ tool))
-                  (symbol (get-model~ tool)))
+            (let* ((unit (get-unit~ tool))
+                   (name (request-unique-name-in-module unit))
+                   (symbol (get-model~ tool)))
               (call-with-saved-text (find-unit-source unit)
                 (lambda (text)
                   (let ((range (find-name-location text tool)))

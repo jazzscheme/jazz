@@ -69,18 +69,6 @@
 
 
 ;;;
-;;;; Build
-;;;
-
-
-(native jazz:compile-unit)
-(native jazz:build-unit)
-(native jazz:build-image)
-(native jazz:for-each-subunit)
-(native jazz:load-manifest)
-
-
-;;;
 ;;;; Category
 ;;;
 
@@ -122,6 +110,18 @@
 (native jazz:continuation-creator)
 (native jazz:continuation-locat)
 (native jazz:continuation-next)
+
+
+;;;
+;;;; Core
+;;;
+
+
+(native jazz:compile-unit)
+(native jazz:build-unit)
+(native jazz:build-image)
+(native jazz:for-each-subunit)
+(native jazz:load-manifest)
 
 
 ;;;
@@ -660,6 +660,7 @@
 (native jazz:invoke-process)
 (native jazz:call-process)
 (native jazz:load-foundation)
+(native jazz:load-runtime)
 (native jazz:load-build)
 (native jazz:split-command-line)
 (native jazz:get-option)

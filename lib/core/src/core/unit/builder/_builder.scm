@@ -296,36 +296,4 @@
          (proc (lambda (unit-name declaration phase)
                  (set! sub-units (%%cons unit-name sub-units)))))
     (jazz:for-each-subunit parent-name proc)
-    sub-units))
-
-
-(define (jazz:for-each-subunit parent-name proc)
-  ;; temporary solution to the fact that exports can be present multiple times
-  ;; if the unit is loaded interpreted or if dynamic evaluations where done
-  (let ((subunits '()))
-    (let iter ((unit-name parent-name) (phase #f) (toplevel? #t))
-      (define (process-require require)
-        (jazz:parse-require require
-          (lambda (unit-name feature-requirement phase)
-            (iter unit-name phase #f))))
-      
-      (if (%%not (%%memq unit-name subunits))
-          (begin
-            (set! subunits (%%cons unit-name subunits))
-            (let ((declaration (jazz:outline-unit unit-name)))
-              (if (or toplevel? (%%eq? (%%get-declaration-access declaration) 'protected))
-                  (begin
-                    (if (and (%%not toplevel?) (%%not (jazz:descendant-unit? parent-name unit-name)))
-                        (jazz:error "Illegal access from {a} to protected unit {a}" parent-name unit-name))
-                    (proc unit-name declaration phase)
-                    (if (jazz:is? declaration jazz:Unit-Declaration)
-                        (for-each process-require (%%get-unit-declaration-requires declaration))
-                      (begin
-                        (for-each process-require (%%get-module-declaration-requires declaration))
-                        (for-each (lambda (export)
-                                    (let ((reference (%%get-module-invoice-module export)))
-                                      (if reference
-                                          (let ((name (%%get-declaration-reference-name reference))
-                                                (phase (%%get-module-invoice-phase export)))
-                                            (iter name phase #f)))))
-                                  (%%get-module-declaration-exports declaration)))))))))))))
+    sub-units)))

@@ -1808,8 +1808,14 @@
   (jazz:load-unit 'core.module))
 
 
+(define (jazz:load-runtime)
+  (jazz:load-foundation)
+  (jazz:load-unit 'core.unit.runtime))
+
+
 (define (jazz:load-build)
   (jazz:load-foundation)
+  (jazz:load-unit 'core.unit.runtime)
   (jazz:load-unit 'core.unit.builder))
 
 

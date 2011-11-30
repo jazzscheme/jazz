@@ -178,9 +178,11 @@
   
   
   (method public (update (user-origin: user-origin #f))
-    (define (process-image process live? focused?)
+    (define (process-image process live? focused? focused-mode?)
       (cond ((not live?)
              {Image-Resource "ProcessDead"})
+            ((not focused-mode?)
+             {Image-Resource "Process"})
             ((not focused?)
              (or (get-icon~ process) {Image-Resource "Process"}))
             (else
@@ -188,14 +190,15 @@
     
     (define (update-processes tree)
       (let ((manager (get-debugger-manager)))
-        (for-each-process~ manager
-          (lambda (debugger process live? focused?)
-            (let ((title (present~ process))
-                  (image (process-image process live? focused?))
-                  (frame-color (get-stopped-frame-color~ manager process))
-                  (background (get-visited-highlight-color~ manager process)))
-              (set-alive?~ process live?)
-              (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process))))))
+        (let ((focused-mode? (get-focused-mode?~ manager)))
+          (for-each-process~ manager
+            (lambda (debugger process live? focused?)
+              (let ((title (present~ process))
+                    (image (process-image process live? focused? focused-mode?))
+                    (frame-color (get-stopped-frame-color~ manager process))
+                    (background (get-visited-highlight-color~ manager process)))
+                (set-alive?~ process live?)
+                (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process)))))))
     
     (with-system-exception-debugger
       (lambda ()
@@ -209,6 +212,10 @@
             use: 'data
             test: debugged=?
             generate-event?: user-origin)))))
+  
+  
+  (method public (update-focused-mode focused-mode?)
+    (set-selected?~ (locate 'focused-mode) focused-mode?))
 
   
   ;;;
@@ -311,11 +318,6 @@
     (focus-process~ (get-debugger-manager) (selected-process)))
   
   
-  @convert/wait
-  (method (select-toplevel)
-    (select-foreground~ (get-toplevel)))
-  
-  
   (method public (open-snapshot file)
     (let ((snapshot (load-jml file)))
       (set-property~ snapshot 'file file)
@@ -351,20 +353,11 @@
     (<install>
       (<Label-Item>     name: focus title: "Focus" default?: #t icon: {Image-Resource "Script"} action-handler: {Event-Handler :form on-focus})
       (<Separator-Item>)
-      @wait
-      (<Label-Item>     name: select title: "Select" icon: {Image-Resource "Select"} action-handler: {Event-Handler :form on-select})
-      @wait
-      (<Separator-Item>)
       (<Label-Item>     name: exit   title: "Close" action-handler: {Event-Handler :form on-exit})))
   
   
   (method (on-focus evt)
     (focus-selected-process~ client))
-  
-  
-  @wait
-  (method (on-select evt)
-    (select-toplevel~ client))
   
   
   (method (on-exit evt)

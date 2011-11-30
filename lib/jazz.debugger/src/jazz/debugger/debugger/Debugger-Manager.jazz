@@ -149,7 +149,12 @@
   
   
   (method public (toggle-focused-mode)
-    (set! focused-mode? (not focused-mode?)))
+    (set! focused-mode? (not focused-mode?))
+    (let ((processes-view (get-processes-view)))
+      (when processes-view
+        (update-focused-mode~ processes-view focused-mode?)
+        (update~ processes-view)))
+    (focused-process-update))
   
   
   (method public (require-focused-process)
@@ -160,14 +165,21 @@
   
   
   (method public (focus-process process)
+    (set! focused-mode? #t)
     (unless (debugged=? focused-process process)
-      (set-focus-process process)
-      (when (get-processes-view)
-        (update~ (get-processes-view)))))
+      (set-focused-process process)
+      (let ((processes-view (get-processes-view)))
+        (when processes-view
+          (update-focused-mode~ processes-view focused-mode?)
+          (update~ processes-view)))))
   
   
-  (method (set-focus-process process)
+  (method (set-focused-process process)
     (set! focused-process process)
+    (focused-process-update))
+  
+  
+  (method (focused-process-update)
     (let ((focus-status-view (find-status-bar~ (get-application))))
       (when focus-status-view
         (update-focused-process~ focus-status-view))))
@@ -180,7 +192,7 @@
   
   (method public (attach-process process focus?)
     (when (and focus? (focusable?~ process))
-      (set-focus-process process))
+      (set-focused-process process))
     (when (get-processes-view)
       (update~ (get-processes-view))))
   
@@ -206,7 +218,7 @@
     (when (debugged=? focused-process process)
       (let ((best-process (best-process)))
         (unless (debugged=? best-process process)
-          (set-focus-process best-process))))
+          (set-focused-process best-process))))
     (close-process-debugger-resources process)
     (cleanup-stops active-stops)
     (cleanup-stops unvisited-stops)

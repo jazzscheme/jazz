@@ -469,18 +469,19 @@
   
   (method (refresh)
     (define (confirm-refresh)
-      (or (not (get-modified?))
-          (let ((code (message-box "You must save before refreshing. Save changes?"
-                                   type: 'confirmation)))
-            (case code
-              ((yes) #t)
-              ((no) (throw-cancel))
-              ((cancel) (throw-cancel))))))
+      (let ((code (message-box "You must save before refreshing. Save changes?"
+                               type: 'confirmation)))
+        (case code
+          ((yes) #t)
+          ((no) (throw-cancel))
+          ((cancel) (throw-cancel)))))
     
-    (when (confirm-refresh)
-      (let ((destination (designer-save)))
-        (set-modified? #f)
-        (reset-client destination))))
+    (let ((destination (if (get-modified?)
+                           (when (confirm-refresh)
+                             (designer-save))
+                         (get-origin~ (get-form~ designer)))))
+      (set-modified? #f)
+      (reset-client destination)))
   
   
   (method public (reset-client target)

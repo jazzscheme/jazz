@@ -59,12 +59,11 @@
 (class Designer extends Object
   
   
-  (slot form      initialize #f accessors generate)
-  (slot form-copy initialize #f accessors generate)
-  (slot reference initialize #f getter generate)
-  (slot listeners initialize '())
-  (slot modified? initialize #f accessors generate)
-  (slot undoer    initialize #f getter generate)
+  (slot form          initialize #f accessors generate)
+  (slot reference     initialize #f getter generate)
+  (slot listeners     initialize '())
+  (slot modified?     initialize #f accessors generate)
+  (slot undoer        initialize #f getter generate)
 
   
   ;;;
@@ -79,12 +78,7 @@
             (set! form~self (new Form textual?: #f origin: (class-of reference) action: 'install))
             (set-context~ form~self form~self)
             (set-data~ form~self (new Data #f 'jazz '() #f)))
-        (let ((origin (get-origin~ frm)))
-          (set! form~self frm)
-          (cond ((class? origin)
-                 (setup-class-form frm))
-                ((designing-trait?)
-                 (setup-trait-form frm))))))
+        (set! form~self frm)))
     
     ;; Setting form to a copy until saving is a tempting approach,
     ;; but fails because we absolutly need pointer equality as a test
@@ -98,16 +92,6 @@
     ;; Or maybe simply take a copy before the first modification is made
     ;; (lazy approach) and if we need to rollback, set the original form
     ;; to the copy.
-    (define (setup-class-form frm)
-      (set! form-copy (copy-object~ frm #t)))
-    
-    (define (setup-client-forms form-copy)
-      (set-property~ form-copy client-form: (copy-object~ (get-property~ form-copy client-form:) #t))
-      (for-each setup-client-forms (get-children~ form-copy)))
-    
-    (define (setup-trait-form frm)
-      (set! form-copy (copy-object~ frm #t))
-      (setup-client-forms (first-child~ form-copy)))
     
     (define (setup-undoer)
       (set! undoer (new Undoer reset-modified: reset-modified?)))
@@ -116,36 +100,6 @@
     (set! reference~self reference)
     (setup-form form)
     (setup-undoer))
-  
-  
-  ;;;
-  ;;;; Revert
-  ;;;
-  
-  
-  (method public (revert)
-    (let ((origin (get-origin~ form)))
-      (cond
-        ((class? origin)
-         (set-class-form~ origin form-copy))
-        ((designing-trait?)
-         (revert-trait origin)))))
-  
-  
-  (method public (revert-trait reference)
-    (define (revert-form trait form)
-      (set-form~ trait form)
-      (set-client-form~ trait (get-property~ form client-form:))
-      (for-each (lambda (child)
-                  (let* ((name (get-name~ child))
-                         (child-form (find-child~ form name)))
-                    (if child-form
-                        (revert-form child child-form)
-                      (remove-child~ trait child))))
-                (get-children~ trait)))
-    
-    (let ((trait (resolve-runtime-reference reference)))
-      (revert-form trait (first-child~ form-copy))))
   
   
   ;;;
@@ -194,8 +148,9 @@
     (define (insert-class text class-name super-class-name)
       (let ((explorer (new Jazz-Explorer (get-model~ text))))
         (set-caret~ text (find-namespace-insertion-point~ explorer))
-        (let ((class-string (format "{%}{%}{%}(class {a} extends {a})" class-name super-class-name)))
-          (insert-string~ text class-string))))
+        (let ((class-string (format "{%}{%}{%}(class {a} extends {a}{%}{%}{%}(form{%}(<install>)))" class-name super-class-name)))
+          (insert-string~ text class-string)
+          (tabulate-range~ text (location-range~ text (list class-name))))))
     
     (call-with-saved-text (find-unit-source module-name)
       (lambda (text)
@@ -301,9 +256,7 @@
   
   (method (save-to-trait unit symbol (new? #f))
     (define (select-trait text)
-      (let ((explorer (new Jazz-Explorer (get-model~ text))))
-        (forward-location~ explorer (list symbol) toplevel-location: (list unit))
-        (set-selection~ text (get-range~ explorer))))
+      (set-selection~ text (location-range~ text symbol)))
     
     (define (insert-new-trait text string)
       (let ((explorer (new Jazz-Explorer (get-model~ text))))
@@ -341,38 +294,12 @@
   (method (save-to-class class)
     (let ((class-name (category-name class))
           (module-name (category-unit class)))
-      
-      (define (save-to-existing-class text)
-        (let ((form-exists? (get-class-form~ class))
-              (evaluate? (not (eq? form (get-class-form~ class))))
-              (imports (imports-to-insert form #f module-name)))
-          (insert-imports text imports)
-          (save-form text form form-exists?)
-          (tabulate-form text)
-          (when evaluate? (evaluate-form form imports))))
-      
-      (define (save-to-new-class text)
-        (let ((adjusted-form (new Form textual?: #f action: 'install properties: (get-properties~ form) children: (get-children~ form)))
-              (origin (get-origin~ form)))
-          (save-form text adjusted-form #f)
-          (tabulate-form text)
-          ;; If we are saving in a new class from an old class
-          (when origin (revert))
-          (evaluate-form adjusted-form #f)))
-      
-      (define (tabulate-form text)
-        (let ((explorer (new Jazz-Explorer (get-model~ text))))
-          (forward-location~ explorer (list class-name :form))
-          (set-selection~ text (get-range~ explorer))
-          (tabulate~ text)))
-      
-      (define (save-form text form form-exists?)
-        (let ((explorer (new Jazz-Explorer (get-model~ text)))
-              (where (if form-exists? :form :new-form))
-              (str (form->string form 2)))
-          (forward-location~ explorer (list class-name where))
-          (set-selection~ text (get-range~ explorer))
-          (insert-string~ text (format (if form-exists? "{a}" "{%}{%}{%}{a}") str))))
+      (define (save-form text form)
+        (let* ((form-exists? (if (class-has-form? text class-name) :form :new-form))
+               (form-range (location-range~ text (list class-name (if form-exists? :form :new-form))))
+               (form-string (format (if form-exists? "{a}" "{%}{%}{%}{a}") (form->string form 2))))
+          (insert-string~ (get-model~ text) form-range form-string)
+          (tabulate-range~ text (location-range~ text (list class-name :form)))))
       
       (define (evaluate-form form imports)
         (let ((super-class-name (category-name (class-ascendant class))))
@@ -387,9 +314,11 @@
       
       (call-with-saved-text (find-unit-source module-name)
         (lambda (text)
-          (if (is? reference class)
-              (save-to-existing-class text)
-            (save-to-new-class text))))))
+          (let ((imports (imports-to-insert form #f module-name))
+                (adjusted-form (new Form textual?: #f action: 'install properties: (get-properties~ form) children: (get-children~ form))))
+            (insert-imports text imports)
+            (save-form text adjusted-form)
+            (evaluate-form adjusted-form imports))))))
   
   
   (method (save-to-file file)
@@ -422,9 +351,7 @@
                           (cdr imports))
                 (format output  "){%}{%}{%}")))
             (print-file-form adjusted-form 1 output)
-            (format output "){%}")
-            (when origin
-              (revert)))))))
+            (format output "){%}"))))))
 
 
   (method public (saved-form . rest)

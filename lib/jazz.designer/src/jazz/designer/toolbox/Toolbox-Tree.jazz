@@ -60,7 +60,6 @@
   
   (method (request-unique-name-in-module unit)
     (let ((symbols (table-keys (get-exports~ (require-module unit)))))
-      (debug symbols)
       (request-name accepts-empty?: #f unicity-domain: (map symbol->string symbols))))
   
   
@@ -126,7 +125,6 @@
               (lambda (err)
                 (designer-error "The code referred to by this tool is invalid: {s}" err))
               thunk)
-            (thunk)
           (designer-error "This tool is no longer valid, please synchronize your toolbox")))))
   
   
@@ -267,10 +265,10 @@
       (lambda ()
         (typecase model
           ((Toolbox-Trait)
-           (open-trait (get-unit~ model) (get-model~ model)))
+           (open-trait
+             (deserialize-runtime-reference `(module-public ,(get-unit~ model) ,(get-model~ model)))))
           ((Toolbox-Model)
-           (let ((class (get-class~ model)))
-             (and class (open-class class))))
+           (open-class (get-class~ model)))
           (else
            #f)))))
   
@@ -280,12 +278,6 @@
               (eq? (message-box "Are you sure you want to open this non-user class?" type: 'question) 'yes))
       (let ((model (selected-addable)))
         (open-model model))))
-  
-  
-  (method (open-trait unit sym)
-    (let ((form (make-trait-edition-form unit sym)))
-      (when form
-        (open-component form))))
   
   
   (method (new-addable addable)
@@ -299,7 +291,7 @@
   
   
   (method (new-class model unit (size: size #f))
-    (let* ((model-name (string->symbol (string-append "<" (symbol->string model) ">")))
+    (let* ((model-name (string->symbol (format "<{a}>" model)))
            (form-data (new Data #f 'jazz `((,unit)) #f))
            (form (construct-form
                    (list model-name)

@@ -39,12 +39,31 @@
 
 
 (import (jazz.io)
+        (jazz.library)
         (jazz.ui)
         (jazz.ui.view))
 
 
 (class undocumented Component-Editor-Controller extends Document-Controller
   
+  
+  (slot origin-form initialize #f)
+  
+  
+  (method override (initialize . rest)
+    (apply nextmethod rest)
+    (set! origin-form (get-origin-form)))
+  
+  
+  (method (get-origin-form)
+    (let* ((client (get-client~ document))
+           (origin (get-origin~ (get-form~ client))))
+      (and origin (typecase origin
+                    ((Class) (get-class-form~ origin))
+                    ((Runtime-Reference)
+                     (let ((trait (resolve-runtime-reference origin)))
+                       (and (is? trait Trait) (get-form~ trait))))
+                    (else #f)))))
   
   ;; this is a quick fix that I know will break some other code!!!
   (method override (save)
@@ -55,17 +74,9 @@
     (save-content-as-patch~ document))
   
   
-  (method (revert)
-    (revert-content~ document #f))
-  
-  
   (method override (needs-reload?)
-    (let* ((designer (get-designer~ document))
-           (form (get-form~ designer))
-           (origin (get-origin~ form)))
-      (and origin
-           (is? origin Class)
-           (not (eq? form (get-class-form~ origin))))))
+    (and origin-form
+         (not (eq? origin-form (get-origin-form)))))
   
   
   (method meta override (propose-multiple-reloads)
@@ -92,6 +103,7 @@
       (case code
         ((no)
          (save)))
+      (set! origin-form (get-origin-form))
       (reset-client~ document (get-origin~ (get-form~ designer)))))
   
   
@@ -121,7 +133,6 @@
                                type: 'confirmation)))
         (case code
           ((yes) (save-all))
-          ((no) (revert))
           ((cancel) (throw-cancel))))))
   
   

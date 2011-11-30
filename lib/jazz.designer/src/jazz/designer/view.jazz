@@ -43,6 +43,7 @@
         (jazz.library)
         (jazz.library.component)
         (jazz.locale)
+        (jazz.runtime)
         (jazz.system.access)
         (jazz.ui.picker)
         (jazz.ui)
@@ -146,59 +147,76 @@
 ;;;
 
 
-(definition public (make-trait-edition-form unit sym)
-  (let ((trait (module-get unit sym)))
-    (and trait (let* ((trait-type (get-client-type~ trait))
-                      (type-name (category-name trait-type))
-                      (trait-form (get-form~ trait))
-                      (new-form (new Form action: 'new model: type-name children: (list trait-form))))
-                 (let ((trait-locator (get-locator~ trait-form)))
-                   (set-locator~ trait-form (lambda (sym)
-                                              (if (eq? sym type-name)
-                                                  (deserialize-runtime-reference `(module-public ,(category-unit trait-type) ,type-name))
-                                                (trait-locator sym)))))
-                 (set-context~ new-form trait-form)
-                 (set-origin~ new-form (deserialize-runtime-reference `(module-public ,unit ,sym)))
-                 new-form))))
+(definition public (origin-equal? origin1 origin2)
+  (and (eq? (class-of origin1) (class-of origin2))
+       (typecase origin1
+         ((File) (pathname=? origin1 origin2))
+         ((Class) (eq? origin1 origin2))
+         ((Runtime-Reference) (eq? (resolve-runtime-reference origin1)
+                                   (resolve-runtime-reference origin2)))
+         (else
+          (error "Unknown origin type : {s}" (class-of origin1))))))
+
+
+(definition public (find-editor origin)
+  (find-frame-if-guest
+    (lambda (guest)
+      (and (is? guest Component-Editor)
+           (origin-equal? origin (get-origin~ (get-form~ (get-designer~ guest))))))))
+
+
+(definition public (make-trait-edition-instance reference)
+  (let* ((trait (resolve-runtime-reference reference))
+         (trait-type (get-client-type~ trait))
+         (type-name (category-name trait-type))
+         (trait-form (get-form~ trait))
+         (trait-edition-form (copy-object~ trait-form #t))
+         (edition-form (new Form action: 'new model: type-name children: (list trait-edition-form))))
+    (set-locator~ edition-form (let ((locator (get-locator~ trait-form))
+                                     (type-reference (runtime-class-reference trait-type)))
+                                 (lambda (symbol)
+                                   (if (eq? symbol type-name) type-reference (locator symbol)))))
+    (setup-context~ edition-form edition-form)
+    (set-origin~ edition-form reference)
+    (instantiate~ edition-form)))
+
+
+(definition public (open-trait reference)
+  (let ((resolved (resolve-runtime-reference reference)))
+    (if (is? resolved Trait)
+        (let ((frame (find-editor reference)))
+          (if frame
+              (focus-host~ frame)
+            (open-component (make-trait-edition-instance reference))))
+      (error "Target is not a trait: {s}" resolved))))
+
+
+(definition public (make-class-edition-instance class)
+  (let ((edition-form (copy-object~ (get-class-form~ class) #t)))
+    (setup-context~ edition-form edition-form)
+    (new class class-form: edition-form)))
 
 
 (definition public (open-class class)
-  (define (find-editor)
-    (find-frame-if-guest
-      (lambda (guest)
-        (and (is? guest Component-Editor)
-             (let ((client (get-client~ guest))
-                   (origin (get-origin~ (get-form~ (get-designer~ guest)))))
-               (and (eq? (class-of client) class)
-                    (eq? origin class)))))))
-  
   (if (class? class)
-      (let ((frame (find-editor)))
+      (let ((frame (find-editor class)))
         (if frame
             (focus-host~ frame)
-          (let* ((component (new class))
-                 (editor-class (typecase component
-                                 ((View) (view-editor-class~ (get-application)))
-                                 ((Component) (component-editor-class~ (get-application))))))
-            (open-component component editor-class: editor-class))))
-    (error "Unable to open: {s}" class)))
+          (open-component (make-class-edition-instance class))))
+    (error "Target is not a class: {s}" class)))
 
 
-(definition public (open-component target (editor-class: editor-class #f))
-  (let ((component (parameterize ((designing? #t))
-                     (cond ((class? target) (new target))
-                           ((is? target Form) (instantiate~ target))
-                           ((is? target Component) target)
-                           ((is? target File) (instantiate~ (read-form target)))
-                           (else (error "Unable to edit: {s}" target))))))
-    (let ((editor-class (or editor-class
-                            (typecase component
-                              ((View) (view-editor-class~ (get-application)))
-                              ((Component) (component-editor-class~ (get-application)))))))
-      (let ((frame (new-frame editor-class client: component)))
-        (let ((editor (get-guest~ frame)))
-          (set-selection~ editor (list component) origin: editor)
-          editor)))))
+(definition protected (open-component target (editor-class: editor-class #f))
+  (if (is? target Component)
+      (let ((editor-class (or editor-class
+                              (typecase target
+                                ((View) (view-editor-class~ (get-application)))
+                                ((Component) (component-editor-class~ (get-application)))))))
+        (let ((frame (new-frame editor-class client: target)))
+          (let ((editor (get-guest~ frame)))
+            (set-selection~ editor (list target) origin: editor)
+            editor)))
+    (error "Target is not a component: {s}" target)))
 
 
 ;;;

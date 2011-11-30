@@ -488,13 +488,12 @@
     (set-client
       (typecase target
         ((File) (instantiate~ (read-form target)))
-        ((Class) (new target))
+        ((Class) (make-class-edition-instance target))
         ((Runtime-Reference)
          (let ((obj (resolve-runtime-reference target)))
            (if (is? obj Trait)
-               (bind (unit symbol) (parse-runtime-reference target)
-                 (instantiate~ (make-trait-edition-form unit symbol)))
-               (error "Incompatible object"))))))
+               (make-trait-edition-instance target)
+             (error "Incompatible object"))))))
     (select client))
   
   
@@ -505,8 +504,7 @@
       (if (not (get-modified?))
           (update-status)
         (set-modified? #f))
-      (when (not (or (and (file? origin) (file? destination) (pathname=? origin destination))
-                     (eq? origin destination)))
+      (unless (origin-equal? origin destination)
         (reset-client destination))))
   
   
@@ -516,11 +514,6 @@
   
   (method public (save-content-as-patch)
     (save-patch designer-save-as))
-  
-  
-  (method (revert-content _)
-    (when designer
-      (revert~ designer)))
   
   
   (method protected virtual (designer-save)
@@ -668,20 +661,12 @@
   
   
   (method public (edit-component component (form: form #f))
-    (define (get-edited-form component)
-      (when component
-        (let ((component-form (get-form~ component)))
-          (if (and component-form (let ((origin (get-origin~ component-form)))
-                                    (not (class? origin))))
-              component-form
-            (get-class-form~ (class-of component))))))
-    
     (when (neq? component (get-reference))
-      (let ((old designer)
-            (form (or form (get-edited-form component))))
+      (let ((old designer))
         (uninstall-current-designer)
         (when component
-          (install-current-designer component form))
+          (let ((form (or form (get-form~ component))))
+            (install-current-designer component form)))
         (process-designer-change old designer)
         (update-status))))
   

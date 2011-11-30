@@ -316,7 +316,9 @@
       (let ((init-name (or (getf initargs name:) (default-name))))
         (when init-name
           (set-name init-name)))
-      (set-form (or (getf initargs form:) (get-class-form~ (class-of self))))
+      (set-form (or (getf initargs form:)
+                    (getf initargs class-form:)
+                    (get-class-form~ (class-of self))))
       (set-creator (getf initargs creator:))
       (set-creator-branch (getf initargs creator-branch:)))
     
@@ -326,7 +328,11 @@
 
   (method protected chained (install initargs <Object>)
     (define (install-component)
-      (install-inherited (get-class-forms~ (class-of self))))
+      (let ((alternative-class-form (getf initargs class-form:))
+            (class-forms (get-class-forms~ (class-of self))))
+        (install-inherited (if alternative-class-form
+                               (cons alternative-class-form (cdr class-forms))
+                             class-forms))))
     
     (define (install-inherited forms)
       (when (not-null? forms)
@@ -565,6 +571,7 @@
         (base-traits . #t)
         (default-traits . #t)
         (form . #t)
+        (class-form . #t)
         (creator . #t)
         (creator-branch . #t))))
   

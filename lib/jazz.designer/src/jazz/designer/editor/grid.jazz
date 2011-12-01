@@ -391,7 +391,7 @@
           (let* ((brothers (get-children~ parent))
                  (class (resolve-runtime-reference runtime-reference))
                  (name (or (get-identifier~ column-data) (request-component-presentation class brothers))))
-            (add-child~ designer (new class) parent name: name import: (second (serialize-runtime-reference runtime-reference))))))))
+            (set-selection~ editor (list (add-child~ designer (new class) parent name: name import: (second (serialize-runtime-reference runtime-reference))))))))))
   
   
   (method override (on-selection-change evt)
@@ -724,7 +724,8 @@
             ((eq? parent (get-client~ editor))
              (values parent #f))
             (else
-             (determine-client parent)))))
+             (receive (client selected) (determine-client parent)
+               (values client (and selected component)))))))
   
   
   (method (set-selection components)
@@ -732,19 +733,22 @@
   
   
   (method (selection-changed selection old origin force-parent? focus?)
-    (unless (or (not origin) (eq? origin self))
-      (if (null? selection)
-          (begin
-            (set-client (get-client~ editor))
-            (set-selection~ (get-grid) '() generate-event?: #f))
-        (let ((component (car selection)))
-          (receive (client selected) (determine-client component)
-            (set-client client)
-            (if selected
-                (let ((row (user-data-row~ (get-grid) selected test: (lambda (target val) (eq? target (car (get-hierarchy~ val)))))))
-                  (when row
-                    (set-selection~ (get-grid) (list (new Cell (row->line~ (get-grid) row) 0)) generate-event?: #f)))
-              (set-selection~ (get-grid) '() generate-event?: #f))))))))
+    (if (null? selection)
+        (begin
+          (set-client (get-client~ editor))
+          (set-selection~ (get-grid) '() generate-event?: #f))
+      (let ((component (car selection)))
+        (receive (client selected) (determine-client component)
+          (unless (eq? client (get-client))
+            (set-client client))
+          (if selected
+              (let* ((row (user-data-row~ (get-grid) selected test: (lambda (target val) (memq? target (get-hierarchy~ val)))))
+                     (column (and row (element (get-selection-columns~ (get-provider)) (find (get-hierarchy~ (get-user-data~ row)) selected))))
+                     (cell (and row (new Cell (row->line~ (get-grid) row) (column->col~ (get-grid) column)))))
+                (when row
+                  (unless (nu=? (get-selection~ (get-grid)) (list cell))
+                    (set-selection~ (get-grid) (list cell) generate-event?: #f))))
+            (set-selection~ (get-grid) '() generate-event?: #f)))))))
 
 
 (class Grid-Component-Editor extends Component-Editor

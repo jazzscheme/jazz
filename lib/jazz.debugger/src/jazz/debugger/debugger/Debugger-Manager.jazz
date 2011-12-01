@@ -241,6 +241,18 @@
               (get-debuggers)))
   
   
+  (method public (get-process-debugger target)
+    (continuation-capture
+      (lambda (return)
+        (for-each (lambda (debugger)
+                    (for-each (lambda (process)
+                                (when (eq? process target)
+                                  (continuation-return return debugger)))
+                              (get-processes~ debugger)))
+                  (get-debuggers))
+        #f)))
+  
+  
   (method public (find-live-process process)
     (continuation-capture
       (lambda (return)
@@ -500,4 +512,10 @@
       (for-each (lambda (debugger)
                   (add-filename-processes~ debugger queue filename))
                 (get-debuggers))
-      (queue-list queue)))))
+      (queue-list queue)))
+  
+  
+  (method public (process-received-filenames? process)
+    (let ((process (get-reference~ process)))
+      (let ((debugger (get-process-debugger process)))
+        (and debugger (received-runtime-filenames?~ debugger process)))))))

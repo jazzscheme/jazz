@@ -218,10 +218,13 @@
   
   
   (method (editor-arrow-press tab-view evt)
-    (let* ((text? (is? tab-view Text-View))
-           (next-move (dispatch (class-of tab-view) (if text? 'arrow-move 'arrow-press))))
-      (let ((direction (get-property~ evt direction:))
-            (internal? (if text? (not (get-property~ evt word?:)) (get-control?~ evt))))
+    (let ((text? (is? tab-view Text-View)))
+      (let ((next-move (dispatch (class-of tab-view) (if text? 'arrow-move 'arrow-press)))
+            (direction (get-property~ evt direction:))
+            (internal? (if text? (get-property~ evt word?:) (get-control?~ evt)))
+            (evt (if text?
+                     (new Action-Event (get-kind~ evt) (get-sender~ evt) word?: #f extend?: (get-property~ evt extend?:) direction: (get-property~ evt direction:))
+                   evt)))
         (case direction
           ((left)  (if internal? (next-move tab-view evt) (select-left edited-cell)))
           ((right) (if internal? (next-move tab-view evt) (select-right edited-cell)))

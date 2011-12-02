@@ -842,7 +842,19 @@
     (jazz:define-macro (%%readtable-char-class-set! readtable c delimiter? handler)
       (%%force-uniqueness (readtable c delimiter? handler)
         `(%%check-readtable ,readtable 1 (%%readtable-char-class-set! ,readtable ,c ,delimiter? ,handler)
-           (##readtable-char-class-set! ,readtable ,c ,delimiter? ,handler)))))
+           (##readtable-char-class-set! ,readtable ,c ,delimiter? ,handler))))
+    
+    ;; FIXME : Temporary until proper primitive exists
+    (jazz:define-macro (%%readtable-escaped-char-table readtable)
+      (%%force-uniqueness (readtable)
+        `(%%check-readtable ,readtable 1 (%%readtable-escaped-char-table ,readtable)
+           (##vector-ref ,readtable 3))))
+    
+    ;; FIXME : Temporary until proper primitive exists
+    (jazz:define-macro (%%readtable-escaped-char-table-set! readtable table)
+      (%%force-uniqueness (readtable table)
+        `(%%check-readtable ,readtable 1 (%%readtable-escaped-char-table-set! ,readtable ,table)
+           (##vector-set! ,readtable 3 ,table)))))
 
   (else))
 

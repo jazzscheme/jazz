@@ -455,17 +455,59 @@
           (enqueue queue (new Debugged-Process self process process)))))
     
     (for-each add-process processes))
+    
   
+  ;;;
+  ;;;; Evaluation
+  ;;;
+
   
   (method (evaluate-expressions-to targets filename syntax str container line col)
-    (set-?t targets)
     (let ((processes (map get-reference~ (determine-filename-processes~ (get-debugger-manager) filename))))
-      (set-?p processes)
       (collect (lambda (process)
                  (when (member? process targets test: proxy=?)
                    (evaluate-expressions~ process syntax str container line col)
                    process))
                processes)))
+  
+  
+  (method (report-walk-problems process detail)
+    (define (collect-problems)
+      (let ((queue (new-queue)))
+        (for-each-detail detail
+          (lambda (detail)
+            (when (null? (get-children~ detail))
+              (enqueue queue detail))))
+        (queue-list queue)))
+    
+    (define (for-each-detail detail proc)
+      (proc detail)
+      (for-each (lambda (child)
+                  (for-each-detail child proc))
+                (get-children~ detail)))
+    
+    (let ((problems-view (get-problems-view)))
+      (when problems-view
+        (let ((max 8)
+              (problems (collect-problems)))
+          (let ((effective-problems (if (> (length problems) max) (subseq problems 0 max) problems)))
+            (execute-event
+              (lambda ()
+                (let ((code (message-box `(("Walk problems encountered")
+                                           ,@(map (lambda (problem)
+                                                    (list :bulleted (->string (get-title~ problem))))
+                                                  effective-problems)
+                                           ,@(if (> (length problems) max)
+                                                 '(("..."))
+                                               '()))
+                                         type: 'question
+                                         title: "Problems"
+                                         yes: "Highlight"
+                                         no: "Ignore")))
+                  (case code
+                    ((yes)
+                     (report-problems~ problems-view detail highlight?: #t)
+                     (ensure-focusable~ problems-view)))))))))))
   
   
   ;;;

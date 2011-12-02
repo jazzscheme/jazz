@@ -48,16 +48,22 @@
 
 
 (class Problems-View extends Detail-View
-
-
-  (property process initialize #f accessors explicit)
   
 
   (form
-    (<install>                   layout-type: border
+    (<install>                      layout-type: border
       (<!>           name: tools
-        (<Push-Tool> name: edit  size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" resource: {Image-Resource "EditResult"} portfolio: :images action-handler: {Event-Handler :guest on-edit})
-        (<Push-Tool> name: pop   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Clear" resource: {Image-Resource "ClearResults"} portfolio: :images action-handler: {Event-Handler :guest on-clear}))))
+        (<Push-Tool> name: edit     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Resolved" resource: {Image-Resource "Done"} portfolio: :images action-handler: {Event-Handler :guest on-resolved})
+        (<Push-Tool> name: pop      size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Clear" resource: {Image-Resource "ClearResults"} portfolio: :images action-handler: {Event-Handler :guest on-clear}))
+      (<!>           name: scroller
+        (<!>         name: content
+          (<!>       name: header
+            (<!>     name: content
+              (<!>   name: detail
+                (<!> name: detail   toplevel-controls?: #t))))))))
+
+
+  (slot details initialize (make-table test: equal?))
 
   
   (method meta override (external-name . rest)
@@ -78,20 +84,80 @@
 
   
   ;;;
-  ;;;; Process
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'detail))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-resolved evt)
+    (let ((row (selected-row)))
+      (when row
+        (let ((tree (get-tree))
+              (top-row (car (get-spine~ row))))
+          (let ((location (->string (get-title~ (get-user-data~ top-row)))))
+            (table-clear details location))
+          (update)
+          (if (> (get-visible-count~ tree) 0)
+              (set-selection~ tree (list 0))
+            (set-selection~ tree '()))))))
+  
+  
+  (method (on-clear evt)
+    (empty-table details)
+    (update)
+    (set-selection~ (get-tree) '()))
+
+  
+  ;;;
+  ;;;; Problems
   ;;;
 
 
-  (method public (get-process)
-    process)
+  (method public (report-problems problems (highlight?: highlight? #f))
+    (define (add-detail detail)
+      (let ((location (->string (get-title~ detail))))
+        (table-set! details location detail)))
+    
+    (let ((children (get-children~ problems)))
+      (for-each add-detail children)
+      (update)
+      (when (and highlight? (not-null? children))
+        (let ((tree (get-tree))
+              (detail (car children)))
+          (let ((line (user-data-index~ tree detail)))
+            (when line
+              (set-single-selection~ tree line)))))))
 
+  
+  ;;;
+  ;;;; Update
+  ;;;
 
-  (method public (set-process value)
-    (set! process value)
-    (update))
   
-  
-  (method public (process-changed new-process)
-    (set! process new-process)
-    (update)
-    (edit-stop/detail))))
+  (method (update)
+    (define (insert-detail tree father detail)
+      (let ((title (get-title~ detail))
+            (icon (get-icon~ detail)))
+        (let ((image (if icon (new Image-Resource icon) #f)))
+          (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: detail)))
+            (for-each (lambda (subdetail)
+                        (insert-detail tree row subdetail))
+                      (get-children~ detail))))))
+    
+    (let ((tree (get-tree)))
+      (remove-every-row~ tree)
+      (with-update-locked~ tree
+        (lambda ()
+          (let ((pairs (table->list details)))
+            (for-each (lambda (pair)
+                        (let ((detail (cdr pair)))
+                          (insert-detail tree #f detail)))
+                      (sort string<? pairs key: car)))))))))

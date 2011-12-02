@@ -91,4 +91,56 @@
     (set! thread new-thread)
     (set! stop (and thread (get-active-stop~ thread)))
     (update)
-    (edit-stop/detail))))
+    (edit-stop/detail))
+
+  
+  ;;;
+  ;;;; Update
+  ;;;
+
+  
+  (method protected (update)
+    (define (stop-title stop)
+      (let ((reason (get-reason~ stop)))
+        (if (not reason)
+            "Break"
+          (let ((line (car (split reason "\n"))))
+            line))))
+    
+    (define (stop-image stop)
+      (case (get-kind~ stop)
+        ((exception) {Image-Resource "ErrorStop"})
+        (else {Image-Resource "BreakStop"})))
+    
+    (define (stop-reason-lines stop)
+      (let ((reason (or (get-reason~ stop) "Break")))
+        (split reason "\n")))
+    
+    (define (insert-detail tree father detail)
+      (let ((title (get-title~ detail))
+            (icon (get-icon~ detail)))
+        (let ((image (if icon (new Image-Resource icon) #f)))
+          (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: detail)))
+            (for-each (lambda (subdetail)
+                        (insert-detail tree row subdetail))
+                      (get-children~ detail))))))
+    
+    (with-system-exception-debugger
+      (lambda ()
+        (let ((tree (locate 'detail)))
+          (remove-every-row~ tree)
+          (with-update-locked~ tree
+            (lambda ()
+              (when (and stop (get-kind~ stop))
+                (let ((title (stop-title stop))
+                      (image (stop-image stop))
+                      (detail (get-detail~ stop)))
+                  (if detail
+                      (insert-detail tree #f detail)
+                    (let ((stop-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
+                      (for-each (lambda (line)
+                                  (when (not (empty-string? line))
+                                    (let ((title line)
+                                          (image {Image-Resource "Green"}))
+                                      (add-row~ tree father: stop-row children: (list (new Tree-Node title: title image: image))))))
+                                (cdr (stop-reason-lines stop)))))))))))))))

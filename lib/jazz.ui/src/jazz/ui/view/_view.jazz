@@ -982,9 +982,7 @@
 ;;;
 
 
-(definition (with-progress proc (threaded?: threaded? #t) (name: name #f) (progress-reporter: progress-reporter Progress-Reporter) (cancelable?: cancelable? #t) (abnormal-cleanup: abnormal-cleanup #f))
-  (unimplemented 'with-progress)
-  @convert-thread
+(definition public (with-progress proc (threaded?: threaded? #t) (name: name #f) (progress-reporter: progress-reporter Progress-Reporter) (cancelable?: cancelable? #t) (abnormal-cleanup: abnormal-cleanup #f))
   (if (not threaded?)
       (proc (new User-Reporter))
     (receive (process? dialog) (new-dialog progress-reporter host-closable?: cancelable?)
@@ -994,27 +992,11 @@
         (thread-start!
           (new-thread
             (lambda ()
-              (let* ((result)
-                     (resignal #f)
-                     (abnormal
-                       (lambda (sig)
-                         (when abnormal-cleanup
-                           (abnormal-cleanup))
-                         (set! resignal sig))))
-                (unwind-protect
-                    ;; Conceptually, the with-progress proc is executed in the same thread as the caller...
-                    ;; The fact that we are using a thread for user interface responsiveness should not affect
-                    ;; the semantics of proc which is why we resignal forwardable signals through the signal-modal
-                    ;; definition which will resignal them to the calling thread
-                    (catch (Signal sig
-                             (if (forwardable?~ sig)
-                                 (abnormal sig)
-                               (signal sig)))
-                      (set! result (proc reporter)))
-                  (if resignal
-                      (signal-modal~ dialog resignal)
+              (let ((result (proc reporter)))
+                (post-event
+                  (lambda ()
                     (end-modal~ dialog result)))))
-            'worker))
+            'progress))
         (process-modal~ dialog)))))
 
 

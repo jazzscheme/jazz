@@ -86,9 +86,11 @@
   
   (method public (add-module-elements add)
     (when module-name
-      (let* ((module (with-exception-catcher
-                       (lambda (exc)
-                         (designer-error "Module {a} does not exist" module-name))
+      (let* ((module (with-exception-filter
+                       (lambda (exception)
+                         (is? exception Error))
+                       (lambda (error)
+                         (designer-error (get-message~ error)))
                        (lambda ()
                          (require-module module-name))))
              (valid-names (collect-valid-names (table-keys (get-exports~ module))))

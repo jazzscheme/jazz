@@ -38,6 +38,9 @@
 (module protected jazz.library.integrity.Integrity-Manager jazz
 
 
+(import (jazz.library))
+
+
 (class undocumented Integrity-Manager extends Object
   
   
@@ -81,27 +84,27 @@
   ;;;
   
   
-  (method public (validate-integrity root (context: context #f) (reporter: reporter #f))
-    (clear-violations root)
-    (validate-all root context reporter))
+  (method public (validate-integrity root editor (context: context #f) (reporter: reporter #f))
+    (clear-violations editor)
+    (validate-all root editor context reporter))
   
   
-  (method protected virtual (validate-all root context reporter)
-    (validate-hierarchy root root root context reporter))
+  (method protected virtual (validate-all root editor context reporter)
+    (validate-hierarchy root root editor context reporter))
   
   
-  (method protected virtual (validate-hierarchy component root client context reporter)
+  (method protected virtual (validate-hierarchy component root editor context reporter)
     (when reporter
       (report-progress component root reporter))
-    (unless (eq? (validate component root client context) 'stop-descent)
+    (unless (eq? (validate component root editor context) 'stop-descent)
       (for-each (lambda (child)
-                  (validate-hierarchy child root client context reporter))
+                  (validate-hierarchy child root editor context reporter))
                 (get-children~ component))))
   
   
-  (method public (validate component root client context)
+  (method public (validate component root editor context)
     (let ((new-context (validation-context component root context)))
-      (if (eq? (validate-component~ component root client context self) 'stop-descent)
+      (if (eq? (validate-component~ component root editor context self) 'stop-descent)
           'stop-descent
         (continuation-capture
           (lambda (return)
@@ -109,7 +112,7 @@
                         (bind (constraint model root?) info
                           (when (and (or (null? model) (is? component model))
                                      (or root? (branch-installed?~ root)))
-                            (when (eq? (validate~ constraint component root client context self) 'stop-descent)
+                            (when (eq? (validate~ constraint component root editor context self) 'stop-descent)
                               (continuation-return return 'stop-descent)))))
                       constraints))))))
   
@@ -128,7 +131,7 @@
   ;;;
   
   
-  (method public virtual (add-violation violation component root client)
+  (method public virtual (add-violation violation component root editor)
     (let* ((trait (get-active-trait~ root))
            (trait-name (and trait (get-name~ trait)))
            (trait-presentation (and trait (get-presentation-property~ trait))))
@@ -137,8 +140,8 @@
         (set-trait-presentation~ violation trait-presentation)
         (set-path~ violation path)
         (set-path-presentation~ violation (if trait (cons trait-presentation presentation) presentation))
-        (add-violation~ client violation))))
+        (add-violation~ editor violation))))
   
   
-  (method public virtual (clear-violations root)
-    (clear-violations~ root))))
+  (method public virtual (clear-violations editor)
+    (clear-violations~ editor))))

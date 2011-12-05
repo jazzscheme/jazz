@@ -54,8 +54,9 @@
 (class undocumented Component-Editor extends Layout-View implements Document
 
   
-  (property client              initialize #f accessors explicit)
-  (property application-select? initialize #t accessors generate)
+  (property client              initialize #f  accessors explicit)
+  (property application-select? initialize #t  accessors generate)
+  (property violations          initialize '() accessors generate)
   
   
   (slot designer            initialize #f getter generate)
@@ -64,6 +65,7 @@
   (slot document-controller initialize #f)
   (slot rights              initialize #f accessors generate)
   (slot selection-locked?   initialize #f accessors generate)
+  (slot violations-factory  initialize (new List-Factory))
   
   
   (method override (get-component-editor)
@@ -715,6 +717,70 @@
          (set-document-controller-modified? #t))
         ((:refresh)
          (set-selection '())))))
+
+
+  ;;;
+  ;;;; Integrity
+  ;;;
+  
+  
+  (method override (get-integrity-manager)
+    (new Integrity-Manager))
+  
+  
+  (method public (validate-integrity (context: context #f) (reporter: reporter #f) (report?: report? #t))
+    (define (update-violations-manager violations)
+      (let ((manager (get-violations-manager)))
+        (update~ manager)))
+    
+    (let ((integrity-manager (get-integrity-manager)))
+      (reset~ violations-factory)
+      (validate-integrity~ integrity-manager client self context: context reporter: reporter)
+      (set! violations (get-output~ violations-factory))
+      (when report?
+        (when reporter
+          (user-message~ reporter "Displaying violations..."))
+        (let ((presentation (get-presentation-property)))
+          (update-violations-manager violations)
+          (if (null? violations)
+              (message-box (format "No integrity violation found in {a}" presentation))
+            (let ((count (length violations)))
+              (message-box (format "Found {a} integrity violation{a} in {a}" count (format-plural count) presentation) @convert icon: @convert IDI_ERROR)
+              (select-violations-manager)))))
+      violations))
+
+
+  (method (get-violations-manager)
+    (get-guest~ (singleton-docked (violations-manager-class) #f)))
+  
+  
+  (method public (select-violations-manager)
+    (let ((manager (get-violations-manager)))
+      (select-resultset~ manager)
+      (select-first~ manager))
+    (select-docked (violations-manager-class) workspace: (violations-manager-workspace) focus?: #t))
+  
+  
+  (method protected virtual (violations-manager-class)
+    Violations-Manager)
+  
+  
+  (method protected virtual (violations-manager-workspace)
+    #f)
+  
+  
+  ;;;
+  ;;;; Violations
+  ;;;
+  
+  
+  (method public (add-violation violation)
+    (put~ violations-factory violation))
+  
+  
+  (method public (clear-violations)
+    (reset~ violations-factory)
+    (set! violations '()))
   
   
   ;;;

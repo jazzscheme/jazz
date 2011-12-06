@@ -134,44 +134,41 @@
     "Text")
   
   
-  (method override (host-install)
-    (let ((appl (get-application)))
-      (add-focus-listener~ appl (new Event-Handler target: self method-name: 'on-focus-change))))
+  (method override (client-activate)
+    (let ((guest (current-document)))
+      (if (is? guest Formatted-Text-View)
+          (set-client guest)
+        (set-client #f))))
   
   
-  (method override (host-uninstall)
-    (let ((appl (get-application)))
-      (remove-focus-listener~ appl self)))
+  (method override (client-deactivate)
+    (set-client #f))
+  
+  
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method public (get-client)
+    client)
+
+ 
+  (method public (set-client clt)
+    (when (neq? clt client)
+      (set! client clt)
+      (when client
+        (set-client~ (locate 'format) client)
+        (set-client~ (locate 'style) client)
+        (set-client~ (locate 'font) client)
+        (set-client~ (locate 'size) client)
+        (selection-change))
+      (enable-buttons client)))
 
   
   ;;;
   ;;;; Events
   ;;;
-  
-  
-  (method (on-focus-change evt)
-    (let ((appl (get-application))
-          (focus (get-focus~ evt)))
-      @convert
-      (when (and (is? old-focus Formatted-Text-View)
-                 (text-listener?~ old-focus self))
-        (remove-text-listener~ old-focus self))
-      (when (and (is? focus Formatted-Text-View)
-                 (not (text-listener?~ focus self)))
-        (add-text-listener~ focus (new Event-Handler target: self method-name: 'on-text))
-        (activate-text focus))
-      (enable-buttons
-        (and focus
-             (or (and (is? focus Formatted-Text-View)
-                      (text-listener?~ focus self))
-                 (let ((host (get-host~ focus)))
-                   (and host
-                        (eq? (get-guest~ host) self))))))))
-  
-  
-  (method (on-text evt)
-    (case (get-kind~ evt)
-      ((:selection-change) (selection-change))))
 
 
   (method protected virtual (enable-buttons enabled?)
@@ -252,21 +249,6 @@
   
   (method (on-export-pdf evt)
     (document->pdf client (choose-new-file default-extension: "pdf" extensions: '(("PDF files" . "pdf")))))
-
-  
-  ;;;
-  ;;;; Text
-  ;;;
-  
-  
-  (method (activate-text text)
-    (when (neq? text client)
-      (set! client text)
-      (set-client~ (locate 'format) client)
-      (set-client~ (locate 'style) client)
-      (set-client~ (locate 'font) client)
-      (set-client~ (locate 'size) client)
-      (selection-change)))
 
   
   ;;;

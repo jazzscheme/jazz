@@ -44,17 +44,19 @@
 (class undocumented Integrity-Manager extends Object
   
   
-  (slot constraints initialize '())
+  (slot constraints     initialize '())
+  (slot violation-adder initialize #f)
   
   
-  (method override (initialize)
+  (method override (initialize (violation-adder: violation-adder #f))
     (define (setup-constraints)
       (set! constraints (new List-Factory))
       (register-constraints)
       (set! constraints (get-output~ constraints)))
     
     (nextmethod)
-    (setup-constraints))
+    (setup-constraints)
+    (set! violation-adder~self violation-adder))
   
   
   (method override (print output readably)
@@ -85,7 +87,6 @@
   
   
   (method public (validate-integrity root editor (context: context #f) (reporter: reporter #f))
-    (clear-violations editor)
     (validate-all root editor context reporter))
   
   
@@ -145,8 +146,6 @@
         (set-trait-presentation~ violation trait-presentation)
         (set-path~ violation path)
         (set-path-presentation~ violation (if trait (cons trait-presentation presentation) presentation))
-        (add-violation~ editor violation))))
-  
-  
-  (method public virtual (clear-violations editor)
-    (clear-violations~ editor))))
+        (if violation-adder
+            (violation-adder violation)
+          (add-violation~ editor violation)))))))

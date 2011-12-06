@@ -54,15 +54,16 @@
 (class Debugger-Manager extends Object
   
   
-  (slot active-stops    initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot unvisited-stops initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot unzoomed-stops  initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot focused-mode?   initialize #f getter generate)
-  (slot focused-process initialize #f getter generate)
+  (slot active-stops     initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot unvisited-stops  initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot unzoomed-stops   initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot liveliness-cache initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot focused-mode?    initialize #f getter generate)
+  (slot focused-process  initialize #f getter generate)
   
-  (slot process         initialize #f getter generate)
-  (slot thread          initialize #f getter generate)
-  (slot frame           initialize #f getter generate)
+  (slot process          initialize #f getter generate)
+  (slot thread           initialize #f getter generate)
+  (slot frame            initialize #f getter generate)
   
   
   (method override (initialize)
@@ -236,11 +237,11 @@
     (update-status))
   
   
-  (method public (for-each-process proc)
+  (method public (for-each-process proc (live-test?: live-test? #t))
     (for-each (lambda (debugger)
                 (for-each (lambda (process)
                             (let ((debugged-process (new Debugged-Process debugger process process)))
-                              (let ((live? (live?~ debugged-process))
+                              (let ((live? (if live-test? (live?~ debugged-process) (get-alive? debugged-process)))
                                     (focused? (debugged=? focused-process debugged-process)))
                                 (proc debugger debugged-process live? focused?))))
                           (get-processes~ debugger)))
@@ -270,7 +271,7 @@
   
   
   (method public (process-changed new-process)
-    (let ((new-process (when (and new-process (get-alive?~ new-process)) new-process)))
+    (let ((new-process (when (and new-process (get-alive? new-process)) new-process)))
       (unless (debugged=? process new-process)
         (catch (Cancel-Signal exc
                  (when (get-processes-view)
@@ -288,6 +289,19 @@
   (definition (update-processes-highlight process)
     (when (get-processes-view)
       (update-highlight~ (get-processes-view) process)))
+    
+  
+  ;;;
+  ;;;; Liveliness
+  ;;;
+
+  
+  (method public (get-alive? process)
+    (table-ref liveliness-cache process #t))
+
+  
+  (method public (set-alive? process alive?)
+    (table-set! liveliness-cache process alive?))
   
   
   ;;;

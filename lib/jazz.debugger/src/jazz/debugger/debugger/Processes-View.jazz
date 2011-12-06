@@ -240,8 +240,9 @@
                     (image (process-image process live? focused? focused-mode? manager))
                     (frame-color (get-stopped-frame-color~ manager process))
                     (background (get-visited-highlight-color~ manager process)))
-                (set-alive?~ process live?)
-                (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process)))))))
+                (set-alive?~ manager process live?)
+                (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process)))
+            live-test?: user-origin))))
     
     (with-system-exception-debugger
       (lambda ()
@@ -328,8 +329,9 @@
   
   (method (new-context-menu object)
     (define (new-process-menu)
-      (let ((menu (new Process-Menu client: self)))
-        (let ((alive? (get-alive?~ object))
+      (let ((manager (get-debugger-manager))
+            (menu (new Process-Menu client: self)))
+        (let ((alive? (get-alive?~ manager object))
               (focusable? (focusable?~ object)))
           (unless (and focusable? alive?)
             (set-visible?~ (locate~ menu 'focus) #f))
@@ -347,8 +349,11 @@
   
   
   (method (exit-selected-process)
-    (let ((object (selected-object)))
-      (exit~ object)
+    (let ((manager (get-debugger-manager))
+          (object (selected-object)))
+      (if (get-alive?~ manager object)
+          (exit~ object)
+        (detach~ object))
       (let ((tree (locate 'processes)))
         (set-selection~ tree '()))))
   

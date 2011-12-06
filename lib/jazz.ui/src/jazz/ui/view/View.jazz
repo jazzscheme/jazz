@@ -3262,7 +3262,9 @@
       (let ((acquired
               (with-transformation-surface
                 (lambda (surface)
-                  (logical->device~ surface (rect-intersection rect (get-clipper~ surface)))))))
+                  (logical->device~ surface (if (inhibit-clipping?)
+                                                rect
+                                              (rect-intersection rect (get-clipper~ surface))))))))
         (invalidate-rect~ player acquired))))
   
   
@@ -3273,8 +3275,9 @@
         (lambda (surface)
           (let ((delta (logical->device~ surface {Point 0 0})))
             (offset!~ region (get-h~ delta) (get-v~ delta))
-            (with ((clipper (new Region rect: (logical->device~ surface (get-clipper~ surface)))))
-              (combine!~ region clipper 'and)))))
+            (unless (inhibit-clipping?)
+              (with ((clipper (new Region rect: (logical->device~ surface (get-clipper~ surface)))))
+                (combine!~ region clipper 'and))))))
       (invalidate-region~ player region)))
   
   

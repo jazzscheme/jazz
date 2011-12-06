@@ -197,6 +197,10 @@
   
   (define (collect-symbols form)
     (let* ((nodes (collect-nodes form))
+           (client-forms (collect (lambda (node)
+                                    (get-property~ node client-form:))
+                                  nodes))
+           (nodes (append nodes (append-map collect-nodes client-forms)))
            (properties (append-map get-properties~ nodes))
            (new-nodes (collect-if (lambda (action) (eq? action 'new))
                                   nodes
@@ -209,11 +213,8 @@
         (map get-model~ new-nodes))))
   
   (define (symbol-import symbol)
-    (let* ((context (get-context~ form))
-           (ref (serialize-runtime-reference (get-reference~ context symbol))))
-      (if (eq? (car ref) 'module-public)
-          (second ref)
-        (reference-unit (second ref)))))
+    (let ((context (get-context~ form)))
+      (first (parse-runtime-reference (get-reference~ context symbol)))))
   
   (let ((symbols (collect-symbols form)))
     (remove-duplicates (collect symbol-import symbols))))

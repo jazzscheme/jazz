@@ -425,7 +425,7 @@
         (case code
           ((yes) #t)
           ((no) #f)
-          ((cancel) (throw-cancel)))))
+          ((cancel) (signal-cancel)))))
     
     (when (confirm-close)
       (let ((selection (collect-oldest-ancestors selection client)))
@@ -475,8 +475,8 @@
                                type: 'confirmation)))
         (case code
           ((yes) #t)
-          ((no) (throw-cancel))
-          ((cancel) (throw-cancel)))))
+          ((no) (signal-cancel))
+          ((cancel) (signal-cancel)))))
     
     (let ((destination (if (get-modified?)
                            (when (confirm-refresh)
@@ -729,10 +729,6 @@
   
   
   (method public (validate-integrity (context: context #f) (reporter: reporter #f) (report?: report? #t))
-    (define (update-violations-manager violations)
-      (let ((manager (get-violations-manager)))
-        (update~ manager)))
-    
     (let ((integrity-manager (get-integrity-manager)))
       (reset~ violations-factory)
       (validate-integrity~ integrity-manager client self context: context reporter: reporter)
@@ -741,7 +737,7 @@
         (when reporter
           (user-message~ reporter "Displaying violations..."))
         (let ((presentation (get-presentation-property~ client)))
-          (update-violations-manager violations)
+          (update~ (get-violations-manager))
           (if (null? violations)
               (message-box (format "No integrity violation found in {a}" presentation))
             (let ((count (length violations)))

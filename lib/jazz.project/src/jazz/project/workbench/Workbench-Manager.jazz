@@ -90,11 +90,15 @@
   (method override (install-in-host host)
     (define (setup-active-project)
       (let ((workbench (get-workbench))
-            (active (get-active-project~ (get-preferences 'workbench))))
-        (when (and workbench active)
-          (let ((project (find-project~ workbench active error?: #f)))
-            (when project
-              (activate-project project))))))
+            (preferences (get-preferences 'workbench)))
+        (let ((active-project (get-active-project~ preferences))
+              (active-traits (get-active-traits~ preferences)))
+          (when (and workbench active-project)
+            (let ((project (find-project~ workbench active-project error?: #f)))
+              (when project
+                (activate-project project traits: active-traits)
+                (when active-traits
+                  (update-project-title project))))))))
     
     (setup-active-project))
   
@@ -834,11 +838,13 @@
       (bell)))
   
   
-  (method (activate-project project)
+  (method (activate-project project (traits: traits #f))
     (unless (eq? project (get-active-project))
       (let ((tree (get-tree)))
         (when (get-active-project)
           (unhighlight-component~ tree (get-active-project)))
+        (when traits
+          (set-default-traits~ project traits))
         (set-active-project project)
         (when (get-active-project)
           (let ((row (user-data-row~ tree (get-active-project) include-invisibles?: #t)))
@@ -900,12 +906,21 @@
     (let ((project (current-project)))
       (let ((traits (get-modal Configuration-Selector project: project)))
         (set-default-traits~ project traits)
-        (let ((tree (get-tree)))
-          (let ((row (user-data-row~ tree project)))
-            (when row
-              (let ((cell (new Cell (row->line~ tree row) 0)))
-                (set-cell-title~ tree cell (get-presentation-property~ project))
-                (invalidate-cell~ tree cell))))))))
+        (update-project-title project))))
+    
+  
+  ;;;
+  ;;;; Update
+  ;;;
+
+  
+  (method (update-project-title project)
+    (let ((tree (get-tree)))
+      (let ((row (user-data-row~ tree project)))
+        (when row
+          (let ((cell (new Cell (row->line~ tree row) 0)))
+            (set-cell-title~ tree cell (get-presentation-property~ project))
+            (invalidate-cell~ tree cell))))))
   
   
   ;;;

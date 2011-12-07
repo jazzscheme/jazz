@@ -517,29 +517,37 @@
 
 
 (definition public (delete-other-stages)
-  (define (find-splitter splitter parent view)
-    (if (stage-splitter? parent)
-        (find-splitter parent (get-parent~ parent) (get-parent~ view))
-      (values splitter view)))
-  
-  (define (stage-splitter? splitter)
-    (and (is? splitter Splitter-Preferences)
-         (every? (lambda (pref)
-                    (or (is? pref Stage-Preferences)
-                        (stage-splitter? pref)))
-                  (get-children~ splitter))))
-  
   (let ((designer (get-workspaces-designer~ (get-application)))
         (current-stage (current-stage)))
     (let ((stage (get-figure-preferences~ current-stage)))
       (let ((splitter (get-parent~ stage)))
         (if (is-not? splitter Splitter-Preferences)
             (bell)
-          (receive (splitter splitter-view) (find-splitter splitter (get-parent~ splitter) (get-parent~ (get-border~ current-stage)))
-            (delete-stages designer stage splitter current-stage splitter-view)))))))
+          (receive (preference view) (find-top-stage current-stage)
+            (delete-stages designer stage preference current-stage view)))))))
 
 
-(definition (delete-stages designer stage splitter stage-view splitter-view)
+(definition public (find-top-stage stage)
+  (define (find-splitter preference view)
+    (let ((parent (get-parent~ preference)))
+      (if (stage-splitter? parent)
+          (find-splitter parent (get-parent~ view))
+        (values preference view))))
+  
+  (let ((preference (get-figure-preferences~ stage)))
+    (assert (is? (get-parent~ preference) Splitter-Preferences))
+    (find-splitter preference (get-border~ stage))))
+
+
+(definition public (stage-splitter? splitter)
+  (and (is? splitter Splitter-Preferences)
+       (every? (lambda (pref)
+                 (or (is? pref Stage-Preferences)
+                     (stage-splitter? pref)))
+               (get-children~ splitter))))
+
+
+(definition (delete-stages designer stage splitter stage-view closed-view)
   (define (only-stages? view)
     (or (is? view Stage-Preferences)
         (and (is? view Splitter-Preferences)
@@ -563,12 +571,12 @@
       (relocate-component~ designer stage parent)
       (remove-child~ designer splitter)
       (let ((border-view (get-border~ stage-view)))
-        (let ((parent-view (get-parent~ splitter-view))
-              (destroyed-stages (remove! stage-view (collect-descendants~ splitter-view Stage))))
+        (let ((parent-view (get-parent~ closed-view))
+              (destroyed-stages (remove! stage-view (collect-descendants~ closed-view Stage))))
           (move-frames destroyed-stages stage-view)
-          (set-location~ border-view (get-location~ splitter-view))
+          (set-location~ border-view (get-location~ closed-view))
           (set-parent~ border-view parent-view)
-          (close~ splitter-view)
+          (close~ closed-view)
           (layout-view~ parent-view)))
       (update-window-actions~ (get-application)))))
 

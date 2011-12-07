@@ -1602,7 +1602,20 @@
   
   
   (method package (on-full-stage evt)
-    )
+    (let ((stage (current-stage)))
+      (receive (preference view) (find-top-stage stage)
+        (if (is-not? preference Splitter-Preferences)
+            (bell)
+          (let ((zoom?  (eq? (get-state~ view) 'split)))
+            (continuation-capture
+              (lambda (return)
+                (for-each-splitter (get-border~ stage)
+                  (lambda (splitter host)
+                    (if zoom?
+                        (zoom~ splitter host)
+                      (unzoom~ splitter))
+                    (when (eq? splitter view)
+                      (continuation-return return #f)))))))))))
   
   
   (method package (on-full-screen evt)
@@ -1642,15 +1655,16 @@
             (set-fullscreen?~ toplevel fullscreen?)
             (when stage
               (set-fullscreen?~ stage fullscreen?))
-            (for-each-splitter host
-              (lambda (splitter host)
-                (let ((preferences (get-preferences~ splitter)))
-                  (when (and preferences (eq? (get-name~ preferences) 'top))
-                    (fix-top-splitter-insets splitter)))
-                (set-full?~ splitter fullscreen?)
-                (if fullscreen?
-                    (zoom~ splitter host)
-                  (unzoom~ splitter)))))))))
+            (receive (preference view) (find-top-stage stage)
+              (for-each-splitter view
+                (lambda (splitter host)
+                  (let ((preferences (get-preferences~ splitter)))
+                    (when (and preferences (eq? (get-name~ preferences) 'top))
+                      (fix-top-splitter-insets splitter)))
+                  (set-full?~ splitter fullscreen?)
+                  (if fullscreen?
+                      (zoom~ splitter host)
+                    (unzoom~ splitter))))))))))
   
   
   (method public (on-delete-stage evt)

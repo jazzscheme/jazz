@@ -141,9 +141,22 @@
   
   
   (method (on-toggle-try-out evt)
-    (let ((component (get-client~ client)))
-      (unless (and component (try-out~ (get-descriptor (class-of component)) component))
-        (toggle-try-out~ client))))
+    (define (confirm-save)
+      (case (message-box "You must save before trying out this class"
+                         title: "Save"
+                         yes: "Save"
+                         cancel: "Cancel")
+        ((yes) #t)
+        ((cancel) (signal-cancel))))
+    
+    (let* ((component (get-client~ client))
+           (descriptor (get-descriptor (class-of component))))
+      (when (can-try-out?~ descriptor component)
+        (confirm-save)
+        (save~ client))
+      (let ((component (get-client~ client)))
+        (unless (and component (try-out~ (get-descriptor (class-of component)) component))
+          (toggle-try-out~ client)))))
   
   
   (method (on-switch-mode evt)

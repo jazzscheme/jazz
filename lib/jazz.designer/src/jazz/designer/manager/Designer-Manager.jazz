@@ -185,15 +185,25 @@
   
   
   (method (on-validate-integrity evt)
-    (with-progress
-      (lambda (reporter)
-        (validate-integrity~ client reporter: reporter)
-        (user-message~ reporter "Done")
-        (set-done~ reporter))
-      threaded?: #f
-      name: "Validate Integrity"
-      progress-reporter: Validation-Reporter
-      cancelable?: #t))
+    (define (confirm-save)
+      (case (message-box "You must save before validating this class"
+                         title: "Save"
+                         yes: "Save"
+                         cancel: "Cancel")
+        ((yes) #t)
+        ((cancel) (signal-cancel))))
+    
+    (when (confirm-save)
+      (save~ client)
+      (with-progress
+        (lambda (reporter)
+          (validate-integrity~ client reporter: reporter)
+          (user-message~ reporter "Done")
+          (set-done~ reporter))
+        threaded?: #f
+        name: "Validate Integrity"
+        progress-reporter: Validation-Reporter
+        cancelable?: #t)))
   
   
   ;;;
@@ -257,7 +267,8 @@
           (set-selected?~ try-out-button (and view-editor? (trying-out?~ client)))
           (set-selected?~ switch-mode-button (and client (not view-editor?))))
         (set-enabled?~ (locate 'edit-form) client)
-        (set-enabled?~ (locate 'validate-integrity) client))))
+        (set-enabled?~ (locate 'validate-integrity)
+          (and client (can-validate?~ (get-descriptor (class-of component)) component))))))
   
   
   ;;;

@@ -40,23 +40,66 @@
 
 (import (jazz.library))
 
+;;;
+;;;; Validation-Context
+;;;
+
+
+(class undocumented Validation-Context extends Object
+  
+  
+  (slot manager   initialize #f getter generate)
+  (slot root      initialize #f getter generate)
+  (slot editor    initialize #f getter generate)
+  (slot context   initialize #f getter generate)
+  (slot component initialize #f getter generate)
+  (slot property  initialize #f getter generate)
+  
+  
+  (method override (initialize manager root editor context component property)
+    (set! manager~self manager)
+    (set! root~self root)
+    (set! editor~self editor)
+    (set! context~self context)
+    (set! component~self component)
+    (set! property~self property))
+  
+  
+  (method public (add-violation (message: message #f))
+    (let ((violation (new Integrity-Violation
+                       message: message
+                       component: component
+                       property: property)))
+      (add-violation~ manager violation component root editor)))
+  
+  
+  (method public (refine (property: property #f))
+    (new Validation-Context manager root editor context component property))
+  )
+
+
+
+
+
+;;;
+;;;; Integrity-Manager
+;;;
+
 
 (class undocumented Integrity-Manager extends Object
   
   
   (slot constraints     initialize '())
-  (slot violation-adder initialize #f)
   
   
-  (method override (initialize (violation-adder: violation-adder #f))
+  (method override (initialize)
     (define (setup-constraints)
       (set! constraints (new List-Factory))
       (register-constraints)
       (set! constraints (get-output~ constraints)))
     
     (nextmethod)
-    (setup-constraints)
-    (set! violation-adder~self violation-adder))
+    (setup-constraints))
   
   
   (method override (print output readably)
@@ -105,10 +148,7 @@
   
   (method public (validate component root editor context)
     (let ((new-context (validation-context component root context)))
-      (if (eq? (catch (Validate-Exception exc
-                        (add-violation (get-violation~ exc) component root editor)
-                        (get-stop-descent?~ exc))
-                 (validate-component~ component root editor context self))
+      (if (eq? (validate-component~ component (new Validation-Context self root editor context component #f))
                'stop-descent)
           'stop-descent
         (continuation-capture
@@ -146,6 +186,4 @@
         (set-trait-presentation~ violation trait-presentation)
         (set-path~ violation path)
         (set-path-presentation~ violation (if trait (cons trait-presentation presentation) presentation))
-        (if violation-adder
-            (violation-adder violation)
-          (add-violation~ editor violation)))))))
+        (add-violation~ editor violation))))))

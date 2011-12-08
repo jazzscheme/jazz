@@ -1176,12 +1176,25 @@
       '())))
 
 
+(define (jazz:cond-expanded-product-descriptor-update product-name product-descriptor)
+  (jazz:cond-expand-map (jazz:ill-formed-field-error "update" product-name)
+                        (jazz:product-descriptor-update product-descriptor)))
+
+
+(define (jazz:cond-expanded-product-descriptor-dependencies product-name product-descriptor)
+  (jazz:cond-expand-map (jazz:ill-formed-field-error "dependencies" product-name)
+                        (jazz:product-descriptor-dependencies product-descriptor)))
+
+
 (define jazz:Products-Table
   (%%make-table test: eq?))
 
 (define jazz:Products-Run-Table
   (%%make-table test: eq?))
 
+
+(jazz:define-variable jazz:process-product
+  #f)
 
 (jazz:define-variable jazz:process-name
   #f)
@@ -1198,6 +1211,9 @@
 (jazz:define-variable jazz:process-version
   #f)
 
+
+(define (jazz:current-process-product)
+  jazz:process-product)
 
 (define (jazz:current-process-name)
   jazz:process-name)
@@ -1278,6 +1294,7 @@
 (define (jazz:setup-product name)
   (let ((product (jazz:get-product name)))
     (let ((descriptor (%%product-descriptor product)))
+      (set! jazz:process-product name)
       (set! jazz:process-name name)
       (set! jazz:process-title (or (%%product-title product) (jazz:product-descriptor-title descriptor)))
       (set! jazz:process-icon (or (%%product-icon product) (jazz:product-descriptor-icon descriptor))))
@@ -1334,7 +1351,7 @@
     (jazz:error "ill-formed {a} field in product descriptor for product {a}" field-name product-name)))
 
 
-(define (jazz:cond-expand-each error-proc updates)
+(define (jazz:cond-expand-map error-proc updates)
   (define (apply-cond-expand exp)
     (cond ((and (%%pair? exp)
                 (%%pair? (%%car exp)))
@@ -1373,8 +1390,7 @@
 
 (define (jazz:update-product-descriptor descriptor)
   (let* ((name (jazz:product-descriptor-name descriptor))
-         (update (jazz:cond-expand-each (jazz:ill-formed-field-error "update" name)
-                                        (jazz:product-descriptor-update descriptor))))
+         (update (jazz:cond-expanded-product-descriptor-update name descriptor)))
     (for-each jazz:build-unit update)))
 
 
@@ -1385,7 +1401,7 @@
           (descriptor (%%product-descriptor product)))
       (jazz:feedback "make {a}" name)
       (jazz:load-build)
-            
+      
       (if build
           (build descriptor)
         (jazz:build-product-descriptor descriptor))
@@ -1545,8 +1561,7 @@
                         (make subname)
                         (%%table-set! subproduct-table subname #t))))
                 (receive (package descriptor) (jazz:get-product-descriptor name)
-                  (jazz:cond-expand-each (jazz:ill-formed-field-error "dependencies" name)
-                                         (jazz:product-descriptor-dependencies descriptor))))
+                  (jazz:cond-expanded-product-descriptor-dependencies name descriptor)))
       (jazz:build-product name))
     
     (define (remote-make name)
@@ -1561,8 +1576,7 @@
                          (mutex-unlock! subproduct-table-mutex)
                          thread))
                      (receive (package descriptor) (jazz:get-product-descriptor name)
-                       (jazz:cond-expand-each (jazz:ill-formed-field-error "dependencies" name)
-                                              (jazz:product-descriptor-dependencies descriptor)))))
+                       (jazz:cond-expanded-product-descriptor-dependencies name descriptor))))
       (build name))
     
     (define (make name)

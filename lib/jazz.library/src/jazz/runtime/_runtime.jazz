@@ -91,7 +91,7 @@
 
 
 ;;;
-;;;; Runtime References
+;;;; Reference
 ;;;
 
 
@@ -131,7 +131,7 @@
 
 
 ;;;
-;;;; Iteration
+;;;; Repository
 ;;;
 
 
@@ -193,6 +193,40 @@
 
 (definition public (load-all (feedback: feedback #f))
   (iterate-units load-unit feedback: feedback))
+
+
+;;;
+;;;; Product
+;;;
+
+
+(definition public (product-dependencies product-name)
+  (load-runtime)
+  (let ((queue (new-queue)))
+    (define (add name)
+      (unless (memq? name (queue-list queue))
+        (enqueue queue name)))
+    
+    (define (iter name)
+      (receive (package descriptor) (get-product-descriptor name)
+        (add descriptor)
+        (for-each iter (cond-expanded-product-descriptor-dependencies product-name descriptor))))
+    
+    (iter product-name)
+    (queue-list queue)))
+
+
+(definition public (product-units product-name)
+  (load-runtime)
+  (let ((queue (new-queue)))
+    (for-each (lambda (descriptor)
+                (for-each (lambda (unit-name)
+                            (for-each-subunit unit-name
+                              (lambda (unit-name declaration phase)
+                                (enqueue queue unit-name))))
+                          (cond-expanded-product-descriptor-update product-name descriptor)))
+              (product-dependencies product-name))
+    (queue-list queue)))
 
 
 ;;;

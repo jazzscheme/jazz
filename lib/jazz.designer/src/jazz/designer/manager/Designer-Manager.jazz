@@ -146,17 +146,17 @@
                          title: "Save"
                          yes: "Save"
                          cancel: "Cancel")
-        ((yes) #t)
+        ((yes) (save~ client) #t)
         ((cancel) (signal-cancel))))
     
     (let* ((component (get-client~ client))
            (descriptor (get-descriptor (class-of component))))
       (when (can-try-out?~ descriptor component)
-        (confirm-save)
-        (save~ client))
-      (let ((component (get-client~ client)))
-        (unless (and component (try-out~ (get-descriptor (class-of component)) component))
-          (toggle-try-out~ client)))))
+        (when (get-modified?~ client)
+          (confirm-save))
+        (let ((component (get-client~ client)))
+          (unless (and component (try-out~ (get-descriptor (class-of component)) component))
+            (toggle-try-out~ client))))))
   
   
   (method (on-switch-mode evt)
@@ -190,11 +190,11 @@
                          title: "Save"
                          yes: "Save"
                          cancel: "Cancel")
-        ((yes) #t)
+        ((yes) (save~ client) #t)
         ((cancel) (signal-cancel))))
     
-    (when (confirm-save)
-      (save~ client)
+    (when (or (not (get-modified?~ client))
+              (confirm-save))
       (with-progress
         (lambda (reporter)
           (validate-integrity~ client reporter: reporter)

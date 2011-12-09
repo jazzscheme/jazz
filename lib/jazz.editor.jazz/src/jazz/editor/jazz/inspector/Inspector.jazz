@@ -44,6 +44,7 @@
         (jazz.library)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.clipboard)
         (jazz.ui.view))
 
 
@@ -197,6 +198,23 @@
                         (track-popup-menu menu acquired))))))))))))
   
   
+  (method (on-copy-text evt)
+    (let ((row (get-selected-row)))
+      (let ((data (get-child~ row 1)))
+        (set-clipboard-text (get-title~ data))
+        (user-message "Text copied to clipboard"))))
+  
+  
+  (method (on-copy-content evt)
+    (let ((info (get-single-selected-data)))
+      (if (not (pair? info))
+          (bell)
+        (bind (key serial class presentation more? mutable? kind) info
+          (let ((presentation (present-serial~ process serial)))
+            (set-clipboard-text presentation)))
+        (user-message "Value copied to clipboard"))))
+  
+  
   (method (on-open evt)
     (let ((info (get-single-selected-data)))
       (if (not (pair? info))
@@ -283,6 +301,9 @@
   
   (form
     (<install>
-      (<Label-Item>     name: open    title: "Open in new window" icon: {Image-Resource "Window"} action-handler: {Event-Handler (:form :client) on-open})
+      (<Label-Item>     name: copy       title: "Copy" icon: {Image-Resource "Copy"} action-handler: {Event-Handler (:form :client) on-copy-text})
+      (<Label-Item>     name: copy-value title: "Copy Content" action-handler: {Event-Handler (:form :client) on-copy-content})
       (<Separator-Item>)
-      (<Label-Item>     name: refresh title: "Refresh" icon: {Image-Resource "Refresh"} action-handler: {Event-Handler (:form :client) on-refresh})))))
+      (<Label-Item>     name: open       title: "Open in New Window" icon: {Image-Resource "Window"} action-handler: {Event-Handler (:form :client) on-open})
+      (<Separator-Item>)
+      (<Label-Item>     name: refresh    title: "Refresh" icon: {Image-Resource "Refresh"} action-handler: {Event-Handler (:form :client) on-refresh})))))

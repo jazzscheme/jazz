@@ -114,6 +114,11 @@
     (call-with-selected-addable (lambda (addable) (find-ascendant~ addable Toolbox))))
   
   
+  (method (with-blocked-toolbox-operation tool thunk)
+    (if (find-editor (get-tool-origin tool))
+        (designer-error "This operation is forbidden while this object is opened")
+      (thunk)))
+  
   (method (with-safe-toolbox tool thunk)
     (with-safe-design
       (lambda ()
@@ -211,12 +216,16 @@
     (if (is? tool Toolbox-Model)
         (with-safe-toolbox tool
           (lambda ()
-            (when (or (not confirm?) (confirm-delete))
-              (let ((unit (get-unit~ tool))
-                    (symbol (get-model~ tool)))
-                (remove-text-location (get-unit~ tool) (get-model~ tool))
-                (table-set! (get-exports~ (require-module unit)) symbol)
-                (remove-child~ (get-designer) tool)))))
+            (with-blocked-toolbox-operation tool
+              (lambda ()
+                (if (find-editor (get-tool-origin tool))
+                    (message-box "Please close this object before deleting it." type: 'problem)
+                  (when (or (not confirm?) (confirm-delete))
+                    (let ((unit (get-unit~ tool))
+                          (symbol (get-model~ tool)))
+                      (remove-text-location (get-unit~ tool) (get-model~ tool))
+                      (table-set! (get-exports~ (require-module unit)) symbol)
+                      (remove-child~ (get-designer) tool))))))))
       (bell)))
   
   
@@ -240,19 +249,21 @@
     (if (is? tool Toolbox-Model)
         (with-safe-toolbox tool
           (lambda ()
-            (let* ((unit (get-unit~ tool))
-                   (name (request-unique-name-in-module unit))
-                   (symbol (get-model~ tool)))
-              (call-with-saved-text (find-unit-source unit)
-                (lambda (text)
-                  (let ((range (find-name-location text tool)))
-                    (set-selection~ text range)
-                    (replace-selection~ text (list (symbol->string name)))
-                    (set-caret~ text (get-end~ range))
-                    (evaluate-at-caret text))))
-              (table-set! (get-exports~ (require-module unit)) symbol)
-              (set-property~ designer tool 'model name)
-              (set-property~ designer tool 'title (symbol->string name)))))
+            (with-blocked-toolbox-operation tool
+              (lambda ()
+                (let* ((unit (get-unit~ tool))
+                       (name (request-unique-name-in-module unit))
+                       (symbol (get-model~ tool)))
+                  (call-with-saved-text (find-unit-source unit)
+                    (lambda (text)
+                      (let ((range (find-name-location text tool)))
+                        (set-selection~ text range)
+                        (replace-selection~ text (list (symbol->string name)))
+                        (set-caret~ text (get-end~ range))
+                        (evaluate-at-caret text))))
+                  (table-set! (get-exports~ (require-module unit)) symbol)
+                  (set-property~ designer tool 'model name)
+                  (set-property~ designer tool 'title (symbol->string name)))))))
       (bell)))
   
   
@@ -291,17 +302,25 @@
     (new-addable (selected-addable)))
   
   
+  (method virtual (get-tool-origin tool)
+    (typecase tool
+      ((Toolbox-Trait)
+       (deserialize-runtime-reference `(module-public ,(get-unit~ tool) ,(get-model~ tool))))
+      ((Toolbox-Model)
+       (get-class~ tool))
+      (else
+       (error "Unknown tool type"))))
+  
+  
   (method virtual (open-model model)
     (with-safe-toolbox model
       (lambda ()
-        (typecase model
-          ((Toolbox-Trait)
-           (open-trait
-             (deserialize-runtime-reference `(module-public ,(get-unit~ model) ,(get-model~ model)))))
-          ((Toolbox-Model)
-           (open-class (get-class~ model)))
-          (else
-           #f)))))
+        (let ((origin (get-tool-origin model)))
+          (typecase model
+            ((Toolbox-Trait)
+             (open-trait origin))
+            ((Toolbox-Model)
+             (open-class origin)))))))
   
   
   (method override (on-open evt)

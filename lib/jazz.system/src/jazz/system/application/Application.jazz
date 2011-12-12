@@ -1556,42 +1556,28 @@
   
   
   (method package (on-zoom-horizontally evt)
-    (with-locked-update
-      (lambda ()
-        (let ((started? #f))
-          (continuation-capture
-            (lambda (return)
-              (for-each-splitter (current-stage-border)
-                (lambda (splitter host)
-                  (if (eq? (get-orientation~ splitter) 'vert)
-                      (when started?
-                        (continuation-return return))
-                    (if (eq? (get-state~ splitter) 'split)
-                        (if (workspace-zoomable?~ splitter host)
-                            (zoom~ splitter host)
-                          (continuation-return return))
-                      (unzoom~ splitter))
-                    (set! started? #t))))))))))
+    (zoom-direction 'horz))
   
   
   (method package (on-zoom-vertically evt)
+    (zoom-direction 'vert))
+  
+  
+  (method package (zoom-direction direction)
     (with-locked-update
       (lambda ()
-        (let ((started? #f)
-              (border (current-stage-border)))
-          (continuation-capture
-            (lambda (return)
-              (for-each-splitter border
-                (lambda (splitter host)
-                  (if (eq? (get-orientation~ splitter) 'horz)
-                      (when started?
-                        (continuation-return return))
-                    (if (eq? (get-state~ splitter) 'split)
-                        (zoom~ splitter host)
-                      (unzoom~ splitter))
-                    (set! started? #t))
-                  (when (eq? host border)
-                    (continuation-return return))))))))))
+        (let ((stage (current-stage)))
+          (receive (preference view) (find-top-stage stage)
+            (continuation-capture
+              (lambda (return)
+                (for-each-splitter view
+                  (lambda (splitter host)
+                    (when (and (eq? (get-orientation~ splitter) direction)
+                               (get-zoomable?~ splitter))
+                      (if (eq? (get-state~ splitter) 'split)
+                          (zoom~ splitter host)
+                        (unzoom~ splitter))
+                      (continuation-return return)))))))))))
   
   
   (method package (on-maximize/restore evt)

@@ -1286,6 +1286,17 @@
   
   
   (method public virtual (validate-component validation-context)
+    (define (validate-child addable-classes child)
+      (unless (some? (lambda (addable-class)
+                       (is? child addable-class))
+                     addable-classes)
+        (let ((violation (new Integrity-Violation
+                           message: (format "Class {a} cannot have children of type {a}"
+                                            (category-name (class-of self))
+                                            (category-name (class-of child)))
+                           component: child)))
+          (add-violation~ (get-manager~ validation-context) violation child (get-root~ validation-context) (get-editor~ validation-context)))))
+    
     (for-each (lambda (symbol)
                 (let ((property (property-field (class-of self) symbol)))
                   (validate-property property
@@ -1293,7 +1304,11 @@
                                      (get-editor~ validation-context)
                                      (get-context~ validation-context)
                                      (get-manager~ validation-context))))
-              (get-filtered-properties)))
+              (get-filtered-properties))
+    (let ((addable-classes (map resolve-runtime-reference (flatten (get-categorized-addable-classes)))))
+      (for-each (lambda (child)
+                  (validate-child addable-classes child))
+                children)))
   
   
   (method public virtual (validate-property property root editor context manager)

@@ -1490,23 +1490,25 @@
           (scroll (new Point (- fit right) 0)))))
     
     (unless update-locked?
-      (when (dynamic-scrollee?)
-        (dynamic-set-scrollee-size))
-      (if (not scroller)
-          (layout-scrollee-content)
-        (let ((size (scrollee-size)))
-          (when size
-            (set-size size)
-            (scroll-to-fit)
-            ;; prevents multiple useless layouts that can occur when update scrollbars
-            ;; resizes a view that will call layout-scrollee in response (ex: tree header)
-            (unless scrollee-locked?
-              ;; it is important to update scrollbars first as this can change
-              ;; the scrollee size and we do not want to layout twice for nothing
-              (with-scrollee-locked
-                (lambda ()
-                  (update-scrollbars)))
-              (layout-scrollee-content)))))))
+      (let ((dynamic? (dynamic-scrollee?)))
+        (when dynamic?
+          (dynamic-set-scrollee-size))
+        (if (not scroller)
+            (layout-scrollee-content)
+          (let ((size (scrollee-size)))
+            (when size
+              (unless dynamic?
+                (set-size size))
+              (scroll-to-fit)
+              ;; prevents multiple useless layouts that can occur when update scrollbars
+              ;; resizes a view that will call layout-scrollee in response (ex: tree header)
+              (unless scrollee-locked?
+                ;; it is important to update scrollbars first as this can change
+                ;; the scrollee size and we do not want to layout twice for nothing
+                (with-scrollee-locked
+                  (lambda ()
+                    (update-scrollbars)))
+                (layout-scrollee-content))))))))
   
   
   ;; temp patch until update-displayed is 100% fixed

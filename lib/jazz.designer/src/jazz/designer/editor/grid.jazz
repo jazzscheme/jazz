@@ -48,7 +48,7 @@
 
 
 (definition (column-data-component-property row-data column-data fail succeed)
-  (let* ((component (element (get-hierarchy~ row-data) (get-parent-offset~ column-data)))
+  (let* ((component (element (get-hierarchy~ row-data) (get-component-offset~ column-data)))
          (field (and component (category-field (class-of component) (get-identifier~ column-data))))
          (property (and (is? field Property) field)))
     (if property
@@ -88,10 +88,11 @@
 (class Component-Provider-Data extends Provider-Data
   
   
-  (property component-name initialize #f accessors generate)
-  (property read-only?     initialize #f accessors generate)
-  (property identifier     initialize #f accessors generate)
-  (property parent-offset  initialize #f accessors generate)
+  (property component-name   initialize #f accessors generate)
+  (property read-only?       initialize #f accessors generate)
+  (property identifier       initialize #f accessors generate)
+  (property component-offset initialize #f accessors generate)
+  (property parent-offset    initialize #f accessors generate)
   
   
   (method (class-selection?)
@@ -100,9 +101,7 @@
 
 (class Component-Provider-Selection-Data extends Component-Provider-Data
   
-  
-  (property component-offset initialize #f accessors generate)
-  (property class-references       initialize '() accessors generate))
+  (property class-references initialize '() accessors generate))
 
 
 (class Component-Provider extends Component implements Data-Provider
@@ -121,9 +120,9 @@
   
   
   (method (column-data-component-class-references row-data column-data fail succeed)
-    (let ((component (element (get-hierarchy~ row-data) (get-parent-offset~ column-data))))
+    (let ((component (element (get-hierarchy~ row-data) (get-component-offset~ column-data))))
       (if component
-          (let ((component-column-data (get-provider-data~ (element (get-selection-columns) (get-parent-offset~ column-data)))))
+          (let ((component-column-data (get-provider-data~ (element (get-selection-columns) (get-component-offset~ column-data)))))
             (succeed component (get-class-references~ component-column-data)))
         (fail))))
   
@@ -370,10 +369,7 @@
         (assert (if (> (length columns-data) 1)
                     (every? (lambda (data) (is? data Component-Provider-Selection-Data)) columns-data)
                   #t))
-        (let ((get-offset (if (is? (car columns-data) Component-Provider-Selection-Data)
-                              get-component-offset~
-                            get-parent-offset~)))
-          (remove-false (map element (map get-hierarchy~ rows-data) (map get-offset columns-data)))))))
+        (remove-false (map element (map get-hierarchy~ rows-data) (map get-component-offset~ columns-data))))))
   
   
   (method public (on-rename-component evt)
@@ -460,7 +456,7 @@
               (lambda (column column-rank)
                 (let ((column-data (get-provider-data~ column)))
                   (when (and (eq? (get-name~ property) (get-identifier~ column-data))
-                             (eq? component (element (get-hierarchy~ row-data) (get-parent-offset~ column-data))))
+                             (eq? component (element (get-hierarchy~ row-data) (get-component-offset~ column-data))))
                     (update-cell~ (get-grid) (new Cell row-rank column-rank)))))))))))
   
   
@@ -469,7 +465,7 @@
   
   
   (method override (merge? row1-data row2-data column-data)
-    (let ((component-offset (if (is? column-data Component-Provider-Selection-Data) (get-component-offset~ column-data) (get-parent-offset~ column-data))))
+    (let ((component-offset (get-component-offset~ column-data)))
       (let ((c1 (element (get-hierarchy~ row1-data) component-offset))
             (c2 (element (get-hierarchy~ row2-data) component-offset)))
         (and c1 c2 (eq? c1 c2)))))
@@ -614,30 +610,30 @@
       column))
   
   
-  (method (new-class-column component-name parent-offset)
+  (method (new-class-column component-name component-offset parent-offset)
     (let ((column (new Grid-Tree-Column title: "Class" width: Default-Class-Width)))
-      (add-child~ column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: 'class-info parent-offset: parent-offset))
+      (add-child~ column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: 'class-info component-offset: component-offset parent-offset: parent-offset))
       column))
   
   
-  (method (new-property-column parent-offset component-name identifier title (read-only? #f))
+  (method (new-property-column component-name component-offset parent-offset identifier title (read-only? #f))
     (let ((column (new Grid-Tree-Column title: title width: Default-Property-Width)))
-      (add-child~ column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: identifier parent-offset: parent-offset read-only?: read-only?))
+      (add-child~ column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: identifier component-offset: component-offset parent-offset: parent-offset read-only?: read-only?))
       column))
   
   
   (method (make-all-columns)
-    (define (make-property-columns component-name class-references component-offset)
+    (define (make-property-columns component-name class-references component-offset parent-offset)
       (map (lambda (x)
              (bind (identifier presentation) x
-               (new-property-column component-offset component-name identifier presentation)))
+               (new-property-column component-name component-offset parent-offset identifier presentation)))
            (classes-properties/presentations (map resolve-runtime-reference class-references))))
     
     (define (make-component-columns component-name component-offset parent-offset class-references name-column?)
       (let ((selection-column (new-selection-column component-name component-offset parent-offset class-references))
-            (name-column (and name-column? (new-property-column component-offset component-name 'name-info "Name" #t)))
-            (class-column (and (> (length class-references) 1) (new-class-column component-name component-offset)))
-            (property-columns (make-property-columns component-name class-references component-offset)))
+            (name-column (and name-column? (new-property-column component-name component-offset parent-offset 'name-info "Name" #t)))
+            (class-column (and (> (length class-references) 1) (new-class-column component-name component-offset parent-offset)))
+            (property-columns (make-property-columns component-name class-references component-offset parent-offset)))
         (cons selection-column
               (append
                 (if name-column (list name-column) '())

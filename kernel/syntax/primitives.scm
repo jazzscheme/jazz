@@ -320,9 +320,7 @@
        `(##fixnum? ,obj)))
    
    (jazz:define-macro (%%fixnum->flonum x)
-     (if jazz:debug-core?
-         `(fixnum->flonum ,x)
-       `(##fixnum->flonum ,x)))
+     `(##fixnum->flonum ,x))
    
    (jazz:define-macro (%%fx= x y)
      (if jazz:debug-core?
@@ -383,9 +381,7 @@
        `(##flonum? ,obj)))
    
    (jazz:define-macro (%%flonum->fixnum x)
-     (if jazz:debug-core?
-         `(flonum->fixnum ,x)
-       `(##flonum->fixnum ,x)))
+     `(##flonum->fixnum ,x))
    
    (jazz:define-macro (%%fl= x y)
      (if jazz:debug-core?
@@ -995,7 +991,12 @@
    (jazz:define-macro (%%global-var-set! symbol value)
      (%%force-uniqueness (symbol)
        `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol ,value)
-          (##global-var-set! ,symbol ,value)))))
+          (##global-var-set! ,symbol ,value))))
+   
+   (jazz:define-macro (%%global-var-unbind! symbol)
+     (%%force-uniqueness (symbol)
+       `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol)
+          (##global-var-set! ,symbol #!unbound)))))
 
   (else))
 

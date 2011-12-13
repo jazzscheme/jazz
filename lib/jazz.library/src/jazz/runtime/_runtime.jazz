@@ -231,6 +231,47 @@
 
 
 ;;;
+;;;; Module
+;;;
+
+
+(definition public (module-undefine module-name name)
+  (let ((module-declaration (get-catalog-entry module-name)))
+    (define (clean-metaclass)
+      (let ((declaration (find-declaration-child module-declaration name)))
+        (when (is? declaration Class-Declaration)
+          (let ((metaclass-name (string->symbol (format "{a}~~Class" name))))
+            (clean-entry metaclass-name)))))
+    
+    (define (clean-entry name)
+      (define (clean-global)
+        (let ((declaration (find-declaration-child module-declaration name)))
+          (when declaration
+            (let ((locator (get-locator~ declaration)))
+              (when (global-bound? locator)
+                (global-unbind! locator))))))
+      
+      (define (clean-lookup)
+        (define (clean access)
+          (let ((lookup (%%get-access-lookup module-declaration access)))
+            (table-clear lookup name)))
+        
+        (clean jazz:private-access)
+        (clean jazz:public-access))
+      
+      (define (clean-children)
+        (remove-declaration-child module-declaration name))
+      
+      (clean-global)
+      (clean-lookup)
+      (clean-children))
+  
+    (assert module-declaration
+      (clean-metaclass)
+      (clean-entry name))))
+
+
+;;;
 ;;;; Statistics
 ;;;
 

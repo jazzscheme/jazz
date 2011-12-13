@@ -3630,7 +3630,7 @@
     ;; not 100% sure about this change
     ;; tests to try and implement redefine error
     #;
-    (let ((decl (jazz:find-child-declaration namespace-declaration name)))
+    (let ((decl (jazz:find-declaration-child namespace-declaration name)))
       (%%when (eq? (%%get-declaration-locator child) 'jazz.test.advise.abc)
         (continuation-capture
           (lambda (cont)
@@ -3639,10 +3639,10 @@
             (newline)
             (jazz:testing (append (or (jazz:testing) '()) (list cont)))))))
     #;
-    (let ((decl (jazz:find-child-declaration namespace-declaration name)))
+    (let ((decl (jazz:find-declaration-child namespace-declaration name)))
       (%%when decl
         (jazz:debug (%%get-declaration-locator decl))))
-    (%%when (%%not (jazz:find-child-declaration namespace-declaration name))
+    (%%when (%%not (jazz:find-declaration-child namespace-declaration name))
       (jazz:enqueue (%%get-namespace-declaration-children namespace-declaration) child))
     (%%table-set! (%%get-access-lookup namespace-declaration jazz:private-access) name child)
     ;; for now everything not private is considered public
@@ -3661,10 +3661,20 @@
   (%%table-ref (%%get-access-lookup namespace-declaration jazz:private-access) name #f))
 
 
-(define (jazz:find-child-declaration namespace-declaration name)
+(define (jazz:find-declaration-child namespace-declaration name)
   (jazz:find-if (lambda (decl)
                   (%%eq? (%%get-lexical-binding-name decl) name))
                 (jazz:queue-list (%%get-namespace-declaration-children namespace-declaration))))
+
+
+(define (jazz:remove-declaration-child namespace-declaration name)
+  (let ((declaration (jazz:find-declaration-child namespace-declaration name)))
+    (%%when declaration
+      (let ((queue (%%get-namespace-declaration-children namespace-declaration)))
+        (let ((lst (jazz:remove! declaration (jazz:queue-list queue))))
+          ;; this two-step process might be inefficient
+          (jazz:reset-queue queue)
+          (jazz:enqueue-list queue lst))))))
 
 
 (define (jazz:begin-form? form)
@@ -4818,7 +4828,7 @@
     (receive (name specifier access compatibility) (jazz:parse-native walker resume declaration (%%cdr form))
       (receive (name symbol) (jazz:parse-exported-symbol declaration name)
         (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any)))
-          (let ((new-declaration (or (jazz:find-child-declaration declaration name)
+          (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                      (jazz:new-export-declaration name type access compatibility '() declaration symbol))))
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
               effective-declaration)))))))
@@ -4858,7 +4868,7 @@
     (receive (name specifier access compatibility) (jazz:parse-native-syntax walker resume declaration (%%cdr form))
       (receive (name symbol) (jazz:parse-exported-symbol declaration name)
         (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any)))
-          (let ((new-declaration (or (jazz:find-child-declaration declaration name)
+          (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                      (jazz:new-export-syntax-declaration name type access compatibility '() declaration symbol))))
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
               effective-declaration)))))))
@@ -4894,7 +4904,7 @@
 (define (jazz:walk-macro-declaration walker resume declaration environment form-src)
   (receive (name type access compatibility parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let ((signature (jazz:walk-parameters walker resume declaration environment parameters #f #f)))
-      (let ((new-declaration (or (jazz:find-child-declaration declaration name)
+      (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                  (jazz:new-macro-declaration name type access compatibility '() declaration signature))))
         (%%set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -4924,7 +4934,7 @@
 (define (jazz:walk-local-macro-declaration walker resume declaration environment form-src)
   (receive (name type access compatibility parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
     (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #f #t)
-      (let* ((new-declaration (or (jazz:find-child-declaration declaration name)
+      (let* ((new-declaration (or (jazz:find-declaration-child declaration name)
                                   (jazz:new-local-macro-declaration name type access compatibility '() declaration signature)))
              (walked-body (jazz:walk-body walker resume new-declaration augmented-environment body)))
         (%%set-local-macro-declaration-signature new-declaration signature)
@@ -4968,7 +4978,7 @@
 (define (jazz:walk-syntax-declaration walker resume declaration environment form-src)
   (receive (name type access compatibility parameters body) (jazz:parse-syntax walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let ((signature (jazz:walk-parameters walker resume declaration environment parameters #f #f)))
-      (let ((new-declaration (or (jazz:find-child-declaration declaration name)
+      (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                  (jazz:new-syntax-declaration name type access compatibility '() declaration signature))))
         (%%set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -4995,7 +5005,7 @@
   (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (let ((name (jazz:source-code (%%car rest))))
       (let ((new-declaration
-             (or (jazz:find-child-declaration declaration name)
+             (or (jazz:find-declaration-child declaration name)
                  (jazz:new-define-syntax-declaration name jazz:Any access compatibility '() declaration '() #f))))
         (%%set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -5025,7 +5035,7 @@
     (let ((name (jazz:source-code (%%car rest)))
           (body (%%cdr rest)))
       (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment '() #f #t)
-        (let* ((new-declaration (or (jazz:find-child-declaration declaration name)
+        (let* ((new-declaration (or (jazz:find-declaration-child declaration name)
                                     (jazz:new-define-local-syntax-declaration name jazz:Any access compatibility '() declaration signature #f)))
                (walked-body (jazz:walk-body walker resume new-declaration augmented-environment body)))
           (%%set-syntax-declaration-body new-declaration walked-body)

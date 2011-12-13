@@ -315,7 +315,10 @@
       (%%global-var-ref symbol))
     
     (define (jazz:global-set! symbol value)
-      (%%global-var-set! symbol value)))
+      (%%global-var-set! symbol value))
+    
+    (define (jazz:global-unbind! symbol)
+      (%%global-var-unbind! symbol)))
   
   (else))
 

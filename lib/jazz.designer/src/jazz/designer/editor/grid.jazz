@@ -731,10 +731,18 @@
   
   
   (method (determine-client component)
+    (define (get-addable? component)
+      (let* ((descriptor (get-descriptor (class-of component)))
+             (structure (find-child~ descriptor 'children)))
+        (get-addable?~ structure)))
+    
     (let ((parent (get-parent~ component)))
-      (cond ((or (not parent) (not-null? (component-addable-classes component)))
+      (cond ((or (not parent)
+                 (and (not (get-addable? component))
+                      (not-null? (component-addable-classes component))))
              (values component #f))
-            ((not-null? (component-addable-classes parent))
+            ((and (not (get-addable? parent))
+                  (not-null? (component-addable-classes parent)))
              (values parent component))
             ((eq? parent (get-client~ editor))
              (values parent #f))

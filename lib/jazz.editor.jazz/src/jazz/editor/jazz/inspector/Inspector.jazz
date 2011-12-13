@@ -108,12 +108,23 @@
   
   (method override (update-row row)
     (bind (name serial class presentation more? mutable? kind) (get-user-data~ row)
-      (inspect-content row (safe-inspect-serial serial inspector-max-content))))
+      (inspect-content row (safe-inspect-serial serial inspector-max-content) (calculate-forced-ordering class))))
   
   
   ;;;
   ;;;; Present
   ;;;
+  
+  
+  (method protected (safe-calculate-forced-ordering data)
+    (when (pair? data)
+      (bind (serial class presentation more? mutable? kind) data
+        (calculate-forced-ordering class))))
+  
+  
+  (method protected (calculate-forced-ordering class-symbol)
+    (when (eq? class-symbol 'jazz:Pair)
+      'natural))
   
   
   (method protected (inspect-client client)
@@ -122,10 +133,10 @@
       (lambda ()
         (when client
           (bind (data . kind) client
-            (inspect-content #f (inspect data kind inspector-max-content)))))))
+            (inspect-content #f (inspect data kind inspector-max-content) (safe-calculate-forced-ordering data)))))))
   
   
-  (method (inspect-content row values)
+  (method (inspect-content row values forced-ordering)
     (define (insert-info father info)
       (bind (key serial class presentation more? mutable? kind) info
         (bind (category name rank) (backward-compatible-key key)
@@ -137,7 +148,7 @@
     
     (with-update-locked
       (lambda ()
-        (case ordering
+        (case (or forced-ordering ordering)
           ((alphabetic)
            (for-each (lambda (info)
                        (insert-info row info))
@@ -252,10 +263,10 @@
           (begin
             (remove-every-row)
             (bind (data . kind) client
-              (inspect-content #f (inspect data kind #f))))
+              (inspect-content #f (inspect data kind #f) (safe-calculate-forced-ordering data))))
         (remove-every-son~ father)
         (bind (name serial class presentation more? mutable? kind) (get-user-data~ father)
-          (inspect-content father (safe-inspect-serial serial #f))))))
+          (inspect-content father (safe-inspect-serial serial #f) (calculate-forced-ordering class))))))
   
   
   ;;;

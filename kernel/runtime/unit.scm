@@ -1818,6 +1818,12 @@
                (jazz:error "Unable to find unit: {s}" unit-name)))))))
 
 
+(define (jazz:unit-loadable? unit-name)
+  (jazz:with-unit-resources unit-name #f
+    (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+      (or lib-uptodate? bin-uptodate? src))))
+
+
 (define (jazz:load-foundation)
   (jazz:load-unit 'core.module))
 

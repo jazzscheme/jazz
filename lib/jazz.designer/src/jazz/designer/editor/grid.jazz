@@ -78,6 +78,14 @@
     test: string=?))
 
 
+(definition public (get-selection-columns grid)
+  (collect-type Component-Provider-Selection-Data (get-columns~ grid) key: get-provider-data~))
+
+
+(definition public (get-selection-datas grid)
+  (map get-provider-data~ (get-selection-columns grid)))
+
+
 (class Component-Row-Data extends Component
   
   
@@ -115,14 +123,10 @@
     (get-parent))
   
   
-  (method (get-selection-columns)
-    (collect-type Component-Provider-Selection-Data (get-columns~ (get-grid)) key: get-provider-data~))
-  
-  
   (method (column-data-component-class-references row-data column-data fail succeed)
     (let ((component (element (get-hierarchy~ row-data) (get-component-offset~ column-data))))
       (if component
-          (let ((component-column-data (get-provider-data~ (element (get-selection-columns) (get-component-offset~ column-data)))))
+          (let ((component-column-data (element (get-selection-datas (get-grid)) (get-component-offset~ column-data))))
             (succeed component (get-class-references~ component-column-data)))
         (fail))))
   
@@ -465,10 +469,15 @@
   
   
   (method override (merge? row1-data row2-data column-data)
-    (let ((component-offset (get-component-offset~ column-data)))
+    (let ((component-offset (get-component-offset~ column-data))
+          (parent-offset (get-parent-offset~ column-data)))
       (let ((c1 (element (get-hierarchy~ row1-data) component-offset))
             (c2 (element (get-hierarchy~ row2-data) component-offset)))
-        (and c1 c2 (eq? c1 c2)))))
+        (if (and (not c1) (not c2))
+            (and parent-offset
+                 (let ((selection-datas (get-selection-datas (get-grid))))
+                   (merge? row1-data row2-data (element selection-datas parent-offset))))
+          (eq? c1 c2)))))
   
   
   (method override (client-rows-datas)
@@ -477,26 +486,24 @@
           (list (list child))
         (map (lambda (row-data) (cons child row-data)) rest)))
     
-    (define (make-rows-components-lists component selection-columns)
-      (if (null? selection-columns)
+    (define (make-rows-components-lists component selection-datas)
+      (if (null? selection-datas)
           '()
-        (let* ((column-data (get-provider-data~ (car selection-columns)))
+        (let* ((column-data (car selection-datas))
                (name (get-component-name~ column-data)))
           (if name
               (make-child-lists (find-child~ component name)
-                                (make-rows-components-lists component (cdr selection-columns)))
+                                (make-rows-components-lists component (cdr selection-datas)))
             (let ((addable-children (collect-if (lambda (class) (addable-class?~ component class))
                                                 (get-components~ component)
                                                 key: class-of)))
               (if (null? addable-children)
-                  (list (make-list (length selection-columns) #f))
+                  (list (make-list (length selection-datas) #f))
                 (append-map (lambda (child)
-                              (make-child-lists child (make-rows-components-lists child (cdr selection-columns))))
+                              (make-child-lists child (make-rows-components-lists child (cdr selection-datas))))
                             addable-children)))))))
     
-    (let ((rows-components-lists (make-rows-components-lists client (collect-type Component-Provider-Selection-Data
-                                                                                  (get-columns~ (get-grid))
-                                                                                  key: get-provider-data~))))
+    (let ((rows-components-lists (make-rows-components-lists client (get-selection-datas (get-grid)))))
       (map (lambda (components)
              (new Component-Row-Data hierarchy: components violations: (make-list (length (get-columns~ (get-grid))) #f)))
            rows-components-lists))))
@@ -599,9 +606,6 @@
         (when generate-columns?
           (setup-columns))
         (populate~ (get-grid)))))
-  
-  
-  
   
   
   (method (new-selection-column component-name component-offset parent-offset class-references)
@@ -766,7 +770,7 @@
             (set-client client))
           (if selected
               (let* ((row (user-data-row~ (get-grid) selected test: (lambda (target val) (memq? target (get-hierarchy~ val)))))
-                     (column (and row (element (get-selection-columns~ (get-provider)) (find (get-hierarchy~ (get-user-data~ row)) selected))))
+                     (column (and row (element (get-selection-columns (get-grid)) (find (get-hierarchy~ (get-user-data~ row)) selected))))
                      (cell (and row (new Cell (row->line~ (get-grid) row) (column->col~ (get-grid) column)))))
                 (when row
                   (unless (nu=? (get-selection~ (get-grid)) (list cell))

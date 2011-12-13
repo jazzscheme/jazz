@@ -82,10 +82,6 @@
   (collect-type Component-Provider-Selection-Data (get-columns~ grid) key: get-provider-data~))
 
 
-(definition public (get-selection-datas grid)
-  (map get-provider-data~ (get-selection-columns grid)))
-
-
 (class Component-Row-Data extends Component
   
   
@@ -116,6 +112,7 @@
   
   
   (slot designer accessors generate)
+  (slot editor accessors generate)
   (slot client accessors generate)
   
   
@@ -126,7 +123,7 @@
   (method (column-data-component-class-references row-data column-data fail succeed)
     (let ((component (element (get-hierarchy~ row-data) (get-component-offset~ column-data))))
       (if component
-          (let ((component-column-data (element (get-selection-datas (get-grid)) (get-component-offset~ column-data))))
+          (let ((component-column-data (element (get-selection-structure~ editor) (get-component-offset~ column-data))))
             (succeed component (get-class-references~ component-column-data)))
         (fail))))
   
@@ -239,6 +236,12 @@
   (slot designer accessors generate)
   (slot editor accessors generate)
   (slot client accessors generate)
+  (slot components-lists)
+  
+  
+  (definition Default-Class-Width 150)
+  (definition Default-Property-Width 100)
+  (definition Default-Selection-Width 20)
   
   
   ;;;
@@ -474,13 +477,29 @@
       (let ((c1 (element (get-hierarchy~ row1-data) component-offset))
             (c2 (element (get-hierarchy~ row2-data) component-offset)))
         (if (and (not c1) (not c2))
-            (and parent-offset
-                 (let ((selection-datas (get-selection-datas (get-grid))))
-                   (merge? row1-data row2-data (element selection-datas parent-offset))))
+            (and parent-offset (merge? row1-data row2-data (element (get-selection-structure~ editor) parent-offset)))
           (eq? c1 c2)))))
   
   
-  (method override (client-rows-datas)
+  (method (new-selection-column selection-data)
+    (let ((column (new Grid-Tree-Column width: Default-Selection-Width)))
+      (add-child~ column selection-data)
+      column))
+  
+  
+   (method (new-class-column component-name component-offset parent-offset)
+    (let ((column (new Grid-Tree-Column title: "Class" width: Default-Class-Width)))
+      (add-child~ column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: 'class-info component-offset: component-offset parent-offset: parent-offset))
+      column))
+  
+  
+  (method (new-property-column component-name component-offset parent-offset identifier title (read-only? #f))
+    (let ((column (new Grid-Tree-Column title: title width: Default-Property-Width)))
+      (add-child~ column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: identifier component-offset: component-offset parent-offset: parent-offset read-only?: read-only?))
+      column))
+  
+  
+  (method (generate-components-lists)
     (define (make-child-lists child rest)
       (if (null? rest)
           (list (list child))
@@ -503,21 +522,53 @@
                               (make-child-lists child (make-rows-components-lists child (cdr selection-datas))))
                             addable-children)))))))
     
-    (let ((rows-components-lists (make-rows-components-lists client (get-selection-datas (get-grid)))))
-      (map (lambda (components)
-             (new Component-Row-Data hierarchy: components violations: (make-list (length (get-columns~ (get-grid))) #f)))
-           rows-components-lists))))
+    (set! components-lists (make-rows-components-lists client (get-selection-structure~ editor))))
+  
+  
+  (method override (make-columns)
+    (define (make-property-columns component-name classes component-offset parent-offset)
+      (map (lambda (x)
+             (bind (identifier presentation) x
+               (new-property-column component-name component-offset parent-offset identifier presentation)))
+           (classes-properties/presentations classes)))
+    
+    (define (make-component-columns component-name component-offset parent-offset classes)
+      (let ((name-column (and (not component-name) (new-property-column component-name component-offset parent-offset 'name-info "Name" #t)))
+            (class-column (new-class-column component-name component-offset parent-offset))
+            (property-columns (make-property-columns component-name classes component-offset parent-offset)))
+        (append (if name-column (list name-column) '())
+                (if class-column (list class-column) '())
+                property-columns)))
+    
+    (generate-components-lists)
+    (append-map (lambda (selection-data components)
+                  (let ((component-name (get-component-name~ selection-data))
+                        (component-offset (get-component-offset~ selection-data))
+                        (parent-offset (get-parent-offset~ selection-data))
+                        (classes (remove-duplicates (map class-of (remove-false components)))))
+                    (cons (new-selection-column selection-data)
+                          (if (null? classes)
+                              '()
+                            (make-component-columns component-name component-offset parent-offset classes)))))
+                (get-selection-structure~ editor)
+                (if (null? components-lists)
+                    (map list (get-selection-structure~ editor))
+                  (apply zip components-lists))))
+  
+  
+  (method override (client-rows-datas)
+    (map (lambda (components)
+           (new Component-Row-Data hierarchy: components violations: (make-list (length (get-columns~ (get-grid))) #f)))
+         components-lists)))
 
 
 (class Grid-Tree-Editor extends Grid-Tree-Widget
   
   
-  (property generate-columns? initialize #t)
-  
-  
   (slot editor   initialize #f)
   (slot designer initialize #f)
   (slot client   initialize #f)
+  (slot selection-structure accessors generate)
   
   
   (form
@@ -525,11 +576,6 @@
       (<grid~>
         (<Component-Provider>   name: provider)
         (<Component-Controller> name: controller))))
-  
-  
-  (definition Default-Class-Width 150)
-  (definition Default-Property-Width 100)
-  (definition Default-Selection-Width 20)
   
   
   (method override (destroy)
@@ -584,7 +630,8 @@
   
   (method (update-provider)
     (set-client~ (get-provider) client)
-    (set-designer~ (get-provider) designer))
+    (set-designer~ (get-provider) designer)
+    (set-editor~ (get-provider) self))
   
   
   (method (update-controller)
@@ -603,80 +650,42 @@
   (method (update)
     (with-update-locked~ (get-grid)
       (lambda ()
-        (when generate-columns?
-          (setup-columns))
+        (setup-structure)
         (populate~ (get-grid)))))
   
   
-  (method (new-selection-column component-name component-offset parent-offset class-references)
-    (let ((column (new Grid-Tree-Column width: Default-Selection-Width)))
-      (add-child~ column (new Component-Provider-Selection-Data name: 'provider-data component-name: component-name component-offset: component-offset parent-offset: parent-offset class-references: class-references))
-      column))
+  (method (new-selection-data component-name component-offset parent-offset class-references)
+    (new Component-Provider-Selection-Data name: 'provider-data component-name: component-name component-offset: component-offset parent-offset: parent-offset class-references: class-references))
   
   
-  (method (new-class-column component-name component-offset parent-offset)
-    (let ((column (new Grid-Tree-Column title: "Class" width: Default-Class-Width)))
-      (add-child~ column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: 'class-info component-offset: component-offset parent-offset: parent-offset))
-      column))
-  
-  
-  (method (new-property-column component-name component-offset parent-offset identifier title (read-only? #f))
-    (let ((column (new Grid-Tree-Column title: title width: Default-Property-Width)))
-      (add-child~ column (new Component-Provider-Data name: 'provider-data component-name: component-name identifier: identifier component-offset: component-offset parent-offset: parent-offset read-only?: read-only?))
-      column))
-  
-  
-  (method (make-all-columns)
-    (define (make-property-columns component-name class-references component-offset parent-offset)
-      (map (lambda (x)
-             (bind (identifier presentation) x
-               (new-property-column component-name component-offset parent-offset identifier presentation)))
-           (classes-properties/presentations (map resolve-runtime-reference class-references))))
-    
-    (define (make-component-columns component-name component-offset parent-offset class-references name-column?)
-      (let ((selection-column (new-selection-column component-name component-offset parent-offset class-references))
-            (name-column (and name-column? (new-property-column component-name component-offset parent-offset 'name-info "Name" #t)))
-            (class-column (and (> (length class-references) 1) (new-class-column component-name component-offset parent-offset)))
-            (property-columns (make-property-columns component-name class-references component-offset parent-offset)))
-        (cons selection-column
-              (append
-                (if name-column (list name-column) '())
-                (if class-column (list class-column) '())
-                property-columns))))
-    
-    (define (make-children-columns addable-references component-offset)
+  (method (make-selection-structure)
+    (define (make-children-selection-datas addable-references parent-offset)
       (let* ((addable-ancestor (apply classes-common-ancestor (map resolve-runtime-reference addable-references)))
              (ancestor-descriptor (get-descriptor addable-ancestor))
              (children-descriptor (find-child~ ancestor-descriptor 'children))
              (child-descriptors (get-children~ children-descriptor)))
-        (append (append-map (lambda (component-name child-offset class-references)
-                              (make-component-columns component-name child-offset component-offset (map get-runtime-reference~ class-references) #f))
-                            (map get-target~ child-descriptors)
-                            (iota (length child-descriptors) (+ component-offset 1))
-                            (map get-classes~ child-descriptors))
+        (append (map (lambda (component-name component-offset class-references)
+                       (new-selection-data component-name component-offset parent-offset (map get-runtime-reference~ class-references)))
+                     (map get-target~ child-descriptors)
+                     (iota (length child-descriptors) (+ parent-offset 1))
+                     (map get-classes~ child-descriptors))
                 (let ((ancestor-addable-references (and (get-addable?~ children-descriptor)
                                                         (component-get-addable-classes~ (get-descriptor addable-ancestor) #f))))
                   (if (and ancestor-addable-references (not-null? ancestor-addable-references))
-                      (make-all-component-columns ancestor-addable-references (+ component-offset 1 (length child-descriptors)) component-offset)
+                      (make-all-selection-datas ancestor-addable-references (+ parent-offset 1 (length child-descriptors)) parent-offset)
                     '())))))
     
-    (define (make-all-component-columns addable-references component-offset add-to)
+    (define (make-all-selection-datas addable-references component-offset parent-offset)
       (let ((class-references (remove-duplicates addable-references key: resolve-runtime-reference)))
-        (append (make-component-columns #f component-offset add-to class-references #t)
-                (make-children-columns class-references component-offset))))
+        (cons (new-selection-data #f component-offset parent-offset class-references)
+              (make-children-selection-datas addable-references component-offset))))
     
-    (make-all-component-columns (component-addable-classes client) 0 #f))
+    (make-all-selection-datas (component-addable-classes client) 0 #f))
   
   
-  (method virtual (filter-columns columns)
-    columns)
-  
-  
-  (method (setup-columns)
-    (remove-columns~ (get-grid))
+  (method (setup-structure)
     (when (and client (not-null? (component-addable-classes client)))
-      (let ((columns (filter-columns (make-all-columns))))
-        (for-each (lambda (column) (set-parent~ column (get-grid))) columns))))
+      (set! selection-structure (make-selection-structure))))
   
   
   ;;;

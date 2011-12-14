@@ -1,26 +1,8 @@
 /*
- * This file is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License, version 2,
- * as published by the Free Software Foundation.
+ * Copyright (C) 2009-2011 the libgit2 contributors
  *
- * In addition to the permissions in the GNU General Public License,
- * the authors give you unlimited permission to link the compiled
- * version of this file into combinations with other programs,
- * and to distribute those combinations without any restriction
- * coming from the use of this file.  (The General Public License
- * restrictions do apply in other respects; for example, they cover
- * modification of the file, and distribution when not linked into
- * a combined executable.)
- *
- * This file is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING.  If not, write to
- * the Free Software Foundation, 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * This file is part of libgit2, distributed under the GNU GPL v2 with
+ * a Linking Exception. For full terms see the included COPYING file.
  */
 #ifndef INCLUDE_git_object_h__
 #define INCLUDE_git_object_h__
@@ -39,34 +21,70 @@
 GIT_BEGIN_DECL
 
 /**
- * Write back an object to disk.
+ * Lookup a reference to one of the objects in a repostory.
  *
- * The object will be written to its corresponding
- * repository.
+ * The generated reference is owned by the repository and
+ * should be closed with the `git_object_free` method
+ * instead of free'd manually.
  *
- * If the object has no changes since it was first
- * read from the repository, no actions will take place.
+ * The 'type' parameter must match the type of the object
+ * in the odb; the method will fail otherwise.
+ * The special value 'GIT_OBJ_ANY' may be passed to let
+ * the method guess the object's type.
  *
- * If the object has been modified since it was read from
- * the repository, or it has been created from scratch
- * in memory, it will be written to the repository and
- * its SHA1 ID will be updated accordingly.
- *
- * @param object Git object to write back
- * @return 0 on success; otherwise an error code
+ * @param object pointer to the looked-up object
+ * @param repo the repository to look up the object
+ * @param id the unique identifier for the object
+ * @param type the type of the object
+ * @return a reference to the object
  */
-GIT_EXTERN(int) git_object_write(git_object *object);
+GIT_EXTERN(int) git_object_lookup(
+		git_object **object,
+		git_repository *repo,
+		const git_oid *id,
+		git_otype type);
+
+/**
+ * Lookup a reference to one of the objects in a repostory,
+ * given a prefix of its identifier (short id).
+ *
+ * The object obtained will be so that its identifier
+ * matches the first 'len' hexadecimal characters
+ * (packets of 4 bits) of the given 'id'.
+ * 'len' must be at least GIT_OID_MINPREFIXLEN, and
+ * long enough to identify a unique object matching
+ * the prefix; otherwise the method will fail.
+ *
+ * The generated reference is owned by the repository and
+ * should be closed with the `git_object_free` method
+ * instead of free'd manually.
+ *
+ * The 'type' parameter must match the type of the object
+ * in the odb; the method will fail otherwise.
+ * The special value 'GIT_OBJ_ANY' may be passed to let
+ * the method guess the object's type.
+ *
+ * @param object_out pointer where to store the looked-up object
+ * @param repo the repository to look up the object
+ * @param id a short identifier for the object
+ * @param len the length of the short identifier
+ * @param type the type of the object
+ * @return GIT_SUCCESS or an error code
+ */
+GIT_EXTERN(int) git_object_lookup_prefix(
+		git_object **object_out,
+		git_repository *repo,
+		const git_oid *id,
+		unsigned int len,
+		git_otype type);
 
 /**
  * Get the id (SHA1) of a repository object
  *
- * In-memory objects created by git_object_new() do not
- * have a SHA1 ID until they are written on a repository.
- *
  * @param obj the repository object
  * @return the SHA1 id
  */
-GIT_EXTERN(const git_oid *) git_object_id(git_object *obj);
+GIT_EXTERN(const git_oid *) git_object_id(const git_object *obj);
 
 /**
  * Get the object type of an object
@@ -74,27 +92,36 @@ GIT_EXTERN(const git_oid *) git_object_id(git_object *obj);
  * @param obj the repository object
  * @return the object's type
  */
-GIT_EXTERN(git_otype) git_object_type(git_object *obj);
+GIT_EXTERN(git_otype) git_object_type(const git_object *obj);
 
 /**
  * Get the repository that owns this object
  *
+ * Freeing or calling `git_repository_close` on the
+ * returned pointer will invalidate the actual object.
+ *
+ * Any other operation may be run on the repository without
+ * affecting the object.
+ *
  * @param obj the object
  * @return the repository who owns this object
  */
-GIT_EXTERN(git_repository *) git_object_owner(git_object *obj);
+GIT_EXTERN(git_repository *) git_object_owner(const git_object *obj);
 
 /**
- * Free a reference to one of the objects in the repository.
+ * Close an open object
  *
- * Repository objects are managed automatically by the library,
- * but this method can be used to force freeing one of the
- * objects.
+ * This method instructs the library to close an existing
+ * object; note that git_objects are owned and cached by the repository
+ * so the object may or may not be freed after this library call,
+ * depending on how agressive is the caching mechanism used
+ * by the repository.
  *
- * Careful: freeing objects in the middle of a repository
- * traversal will most likely cause errors.
+ * IMPORTANT:
+ * It *is* necessary to call this method when you stop using
+ * an object. Failure to do so will cause a memory leak.
  *
- * @param object the object to free
+ * @param object the object to close
  */
 GIT_EXTERN(void) git_object_free(git_object *object);
 

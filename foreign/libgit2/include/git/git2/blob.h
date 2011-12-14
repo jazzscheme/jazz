@@ -1,26 +1,8 @@
 /*
- * This file is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License, version 2,
- * as published by the Free Software Foundation.
+ * Copyright (C) 2009-2011 the libgit2 contributors
  *
- * In addition to the permissions in the GNU General Public License,
- * the authors give you unlimited permission to link the compiled
- * version of this file into combinations with other programs,
- * and to distribute those combinations without any restriction
- * coming from the use of this file.  (The General Public License
- * restrictions do apply in other respects; for example, they cover
- * modification of the file, and distribution when not linked into
- * a combined executable.)
- *
- * This file is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING.  If not, write to
- * the Free Software Foundation, 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * This file is part of libgit2, distributed under the GNU GPL v2 with
+ * a Linking Exception. For full terms see the included COPYING file.
  */
 #ifndef INCLUDE_git_blob_h__
 #define INCLUDE_git_blob_h__
@@ -28,7 +10,7 @@
 #include "common.h"
 #include "types.h"
 #include "oid.h"
-#include "repository.h"
+#include "object.h"
 
 /**
  * @file git2/blob.h
@@ -41,55 +23,51 @@ GIT_BEGIN_DECL
 
 /**
  * Lookup a blob object from a repository.
- * The generated blob object is owned by the revision
- * repo and shall not be freed by the user.
  *
  * @param blob pointer to the looked up blob
  * @param repo the repo to use when locating the blob.
  * @param id identity of the blob to locate.
- * @return 0 on success; error code otherwise
+ * @return GIT_SUCCESS or an error code
  */
 GIT_INLINE(int) git_blob_lookup(git_blob **blob, git_repository *repo, const git_oid *id)
 {
-	return git_repository_lookup((git_object **)blob, repo, id, GIT_OBJ_BLOB);
+	return git_object_lookup((git_object **)blob, repo, id, GIT_OBJ_BLOB);
 }
 
 /**
- * Create a new in-memory git_blob.
+ * Lookup a blob object from a repository,
+ * given a prefix of its identifier (short id).
  *
- * The blob object must be manually filled using
- * the 'set_rawcontent' methods before it can
- * be written back to disk.
+ * @see git_object_lookup_prefix
  *
- * @param blob pointer to the new blob
- * @param repo The repository where the object will reside
- * @return 0 on success; error code otherwise
+ * @param blob pointer to the looked up blob
+ * @param repo the repo to use when locating the blob.
+ * @param id identity of the blob to locate.
+ * @param len the length of the short identifier
+ * @return GIT_SUCCESS or an error code
  */
-GIT_INLINE(int) git_blob_new(git_blob **blob, git_repository *repo)
+GIT_INLINE(int) git_blob_lookup_prefix(git_blob **blob, git_repository *repo, const git_oid *id, unsigned int len)
 {
-	return git_repository_newobject((git_object **)blob, repo, GIT_OBJ_BLOB);
+	return git_object_lookup_prefix((git_object **)blob, repo, id, len, GIT_OBJ_BLOB);
 }
 
 /**
- * Fill a blob with the contents inside
- * the pointed file.
+ * Close an open blob
  *
- * @param blob pointer to the new blob
- * @param filename name of the file to read
- * @return 0 on success; error code otherwise
+ * This is a wrapper around git_object_free()
+ *
+ * IMPORTANT:
+ * It *is* necessary to call this method when you stop
+ * using a blob. Failure to do so will cause a memory leak.
+ *
+ * @param blob the blob to close
  */
-GIT_EXTERN(int) git_blob_set_rawcontent_fromfile(git_blob *blob, const char *filename);
 
-/**
- * Fill a blob with the contents inside
- * the pointed buffer
- *
- * @param blob pointer to the blob
- * @param buffer buffer with the contents for the blob
- * @param len size of the buffer
- * @return 0 on success; error code otherwise
- */
-GIT_EXTERN(int) git_blob_set_rawcontent(git_blob *blob, const void *buffer, size_t len);
+GIT_INLINE(void) git_blob_free(git_blob *blob)
+{
+	git_object_free((git_object *) blob);
+}
+
 
 /**
  * Get a read-only buffer with the raw content of a blob.
@@ -97,12 +75,12 @@ GIT_EXTERN(int) git_blob_set_rawcontent(git_blob *blob, const void *buffer, size
  * A pointer to the raw content of a blob is returned;
  * this pointer is owned internally by the object and shall
  * not be free'd. The pointer may be invalidated at a later
- * time (e.g. when changing the contents of the blob).
+ * time.
  *
  * @param blob pointer to the blob
  * @return the pointer; NULL if the blob has no contents
  */
-GIT_EXTERN(const char *) git_blob_rawcontent(git_blob *blob);
+GIT_EXTERN(const void *) git_blob_rawcontent(git_blob *blob);
 
 /**
  * Get the size in bytes of the contents of a blob
@@ -110,18 +88,32 @@ GIT_EXTERN(const char *) git_blob_rawcontent(git_blob *blob);
  * @param blob pointer to the blob
  * @return size on bytes
  */
-GIT_EXTERN(int) git_blob_rawsize(git_blob *blob);
+GIT_EXTERN(size_t) git_blob_rawsize(git_blob *blob);
 
 /**
  * Read a file from the working folder of a repository
- * and write it to the Object Database as a loose blob,
- * if such doesn't exist yet.
+ * and write it to the Object Database as a loose blob
  *
- * @param written_id return the id of the written blob
- * @param repo repository where the blob will be written
- * @param path file from which the blob will be created
+ * @param oid return the id of the written blob
+ * @param repo repository where the blob will be written.
+ *	this repository cannot be bare
+ * @param path file from which the blob will be created,
+ *	relative to the repository's working dir
+ * @return GIT_SUCCESS or an error code
  */
-GIT_EXTERN(int) git_blob_writefile(git_oid *written_id, git_repository *repo, const char *path);
+GIT_EXTERN(int) git_blob_create_fromfile(git_oid *oid, git_repository *repo, const char *path);
+
+
+/**
+ * Write an in-memory buffer to the ODB as a blob
+ *
+ * @param oid return the oid of the written blob
+ * @param repo repository where to blob will be written
+ * @param buffer data to be written into the blob
+ * @param len length of the data
+ * @return GIT_SUCCESS or an error code
+ */
+GIT_EXTERN(int) git_blob_create_frombuffer(git_oid *oid, git_repository *repo, const void *buffer, size_t len);
 
 /** @} */
 GIT_END_DECL

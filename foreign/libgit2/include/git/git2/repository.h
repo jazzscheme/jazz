@@ -1,26 +1,8 @@
 /*
- * This file is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License, version 2,
- * as published by the Free Software Foundation.
+ * Copyright (C) 2009-2011 the libgit2 contributors
  *
- * In addition to the permissions in the GNU General Public License,
- * the authors give you unlimited permission to link the compiled
- * version of this file into combinations with other programs,
- * and to distribute those combinations without any restriction
- * coming from the use of this file.  (The General Public License
- * restrictions do apply in other respects; for example, they cover
- * modification of the file, and distribution when not linked into
- * a combined executable.)
- *
- * This file is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; see the file COPYING.  If not, write to
- * the Free Software Foundation, 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * This file is part of libgit2, distributed under the GNU GPL v2 with
+ * a Linking Exception. For full terms see the included COPYING file.
  */
 #ifndef INCLUDE_git_repository_h__
 #define INCLUDE_git_repository_h__
@@ -41,159 +23,62 @@ GIT_BEGIN_DECL
 /**
  * Open a git repository.
  *
- * The 'path' argument must point to an existing git repository
- * folder, e.g.
+ * The 'path' argument must point to either a git repository
+ * folder, or an existing work dir.
  *
- *		/path/to/my_repo/.git/	(normal repository)
- *							objects/
- *							index
- *							HEAD
- *
- *		/path/to/bare_repo/		(bare repository)
- *						objects/
- *						index
- *						HEAD
- *
- *	The method will automatically detect if 'path' is a normal
- *	or bare repository or fail is 'path' is neither.
+ * The method will automatically detect if 'path' is a normal
+ * or bare repository or fail is 'path' is neither.
  *
  * @param repository pointer to the repo which will be opened
  * @param path the path to the repository
- * @return 0 on success; error code otherwise
+ * @return GIT_SUCCESS or an error code
  */
 GIT_EXTERN(int) git_repository_open(git_repository **repository, const char *path);
 
-
 /**
- * Open a git repository by manually specifying all its paths
+ * Look for a git repository and copy its path in the given buffer.
+ * The lookup start from base_path and walk across parent directories
+ * if nothing has been found. The lookup ends when the first repository
+ * is found, or when reaching a directory referenced in ceiling_dirs
+ * or when the filesystem changes (in case across_fs is true).
  *
- * @param repository pointer to the repo which will be opened
+ * The method will automatically detect if the repository is bare
+ * (if there is a repository).
  *
- * @param git_dir The full path to the repository folder
- *		e.g. a '.git' folder for live repos, any folder for bare
- *		Equivalent to $GIT_DIR. 
- *		Cannot be NULL.
+ * @param repository_path The user allocated buffer which will
+ * contain the found path.
  *
- * @param git_object_directory The full path to the ODB folder.
- *		the folder where all the loose and packed objects are stored
- *		Equivalent to $GIT_OBJECT_DIRECTORY.
- *		If NULL, "$GIT_DIR/objects/" is assumed.
+ * @param size repository_path size
  *
- * @param git_index_file The full path to the index (dircache) file
- *		Equivalent to $GIT_INDEX_FILE.
- *		If NULL, "$GIT_DIR/index" is assumed.
+ * @param start_path The base path where the lookup starts.
  *
- * @param git_work_tree The full path to the working tree of the repository,
- *		if the repository is not bare.
- *		Equivalent to $GIT_WORK_TREE.
- *		If NULL, the repository is assumed to be bare.
+ * @param across_fs If true, then the lookup will not stop when a
+ * filesystem device change is detected while exploring parent directories.
  *
- * @return 0 on success; error code otherwise
+ * @param ceiling_dirs A GIT_PATH_LIST_SEPARATOR separated list of
+ * absolute symbolic link free paths. The lookup will stop when any
+ * of this paths is reached. Note that the lookup always performs on
+ * start_path no matter start_path appears in ceiling_dirs ceiling_dirs
+ * might be NULL (which is equivalent to an empty string)
+ *
+ * @return GIT_SUCCESS or an error code
  */
-GIT_EXTERN(int) git_repository_open2(git_repository **repository,
-		const char *git_dir,
-		const char *git_object_directory,
-		const char *git_index_file,
-		const char *git_work_tree);
-
-
-/**
- * Open a git repository by manually specifying its paths and
- * the object database it will use.
- *
- * @param repository pointer to the repo which will be opened
- *
- * @param git_dir The full path to the repository folder
- *		e.g. a '.git' folder for live repos, any folder for bare
- *		Equivalent to $GIT_DIR. 
- *		Cannot be NULL.
- *
- * @param object_database A pointer to a git_odb created & initialized
- *		by the user (e.g. with custom backends). This object database
- *		will be owned by the repository and will be automatically free'd.
- *		It should not be manually free'd by the user, or this
- *		git_repository object will become invalid.
- *
- * @param git_index_file The full path to the index (dircache) file
- *		Equivalent to $GIT_INDEX_FILE.
- *		If NULL, "$GIT_DIR/index" is assumed.
- *
- * @param git_work_tree The full path to the working tree of the repository,
- *		if the repository is not bare.
- *		Equivalent to $GIT_WORK_TREE.
- *		If NULL, the repository is assumed to be bare.
- *
- * @return 0 on success; error code otherwise
- */
-
-GIT_EXTERN(int) git_repository_open3(git_repository **repository,
-		const char *git_dir,
-		git_odb *object_database,
-		const char *git_index_file,
-		const char *git_work_tree);
-
-
-/**
- * Lookup a reference to one of the objects in the repostory.
- *
- * The generated reference is owned by the repository and
- * should not be freed by the user.
- *
- * The 'type' parameter must match the type of the object
- * in the odb; the method will fail otherwise.
- * The special value 'GIT_OBJ_ANY' may be passed to let
- * the method guess the object's type.
- *
- * @param object pointer to the looked-up object
- * @param repo the repository to look up the object
- * @param id the unique identifier for the object
- * @param type the type of the object
- * @return a reference to the object
- */
-GIT_EXTERN(int) git_repository_lookup(git_object **object, git_repository *repo, const git_oid *id, git_otype type);
-
-/**
- * Get the object database behind a Git repository
- *
- * @param repo a repository object
- * @return a pointer to the object db
- */
-GIT_EXTERN(git_odb *) git_repository_database(git_repository *repo);
-
-/**
- * Get the Index file of a Git repository
- *
- * @param repo a repository object
- * @return a pointer to the Index object; 
- *	NULL if the index cannot be opened
- */
-GIT_EXTERN(git_index *) git_repository_index(git_repository *rpeo);
-
-/**
- * Create a new in-memory repository object with
- * the given type.
- *
- * The object's attributes can be filled in using the
- * corresponding setter methods.
- *
- * The object will be written back to given git_repository
- * when the git_object_write() function is called; objects
- * cannot be written to disk until all their main
- * attributes have been properly filled.
- *
- * Objects are instantiated with no SHA1 id; their id
- * will be automatically generated when writing to the
- * repository.
- *
- * @param object pointer to the new object
- * @parem repo Repository where the object belongs
- * @param type Type of the object to be created
- * @return the new object
- */
-GIT_EXTERN(int) git_repository_newobject(git_object **object, git_repository *repo, git_otype type);
+GIT_EXTERN(int) git_repository_discover(
+		char *repository_path,
+		size_t size,
+		const char *start_path,
+		int across_fs,
+		const char *ceiling_dirs);
 
 /**
  * Free a previously allocated repository
+ *
+ * Note that after a repository is free'd, all the objects it has spawned
+ * will still exist until they are manually closed by the user
+ * with `git_object_free`, but accessing any of the attributes of
+ * an object without a backing repository will result in undefined
+ * behavior
+ *
  * @param repo repository handle to close. If NULL nothing occurs.
  */
 GIT_EXTERN(void) git_repository_free(git_repository *repo);
@@ -203,34 +88,203 @@ GIT_EXTERN(void) git_repository_free(git_repository *repo);
  *
  * TODO:
  *	- Reinit the repository
- *	- Create config files
  *
  * @param repo_out pointer to the repo which will be created or reinitialized
  * @param path the path to the repository
- * @param is_bare if true, a Git repository without a working directory is created 
- *		at the pointed path. If false, provided path will be considered as the working 
+ * @param is_bare if true, a Git repository without a working directory is created
+ *		at the pointed path. If false, provided path will be considered as the working
  *		directory into which the .git directory will be created.
  *
- * @return 0 on success; error code otherwise
+ * @return GIT_SUCCESS or an error code
  */
 GIT_EXTERN(int) git_repository_init(git_repository **repo_out, const char *path, unsigned is_bare);
 
 /**
- * Lookup a reference by its name in the repository.
+ * Retrieve and resolve the reference pointed at by HEAD.
  *
- * The generated reference is owned by the repository and
- * should not be freed by the user.
+ * @param head_out pointer to the reference which will be retrieved
+ * @param repo a repository object
  *
- * TODO:
- *	- Ensure the reference name is valid
- *
- * @param reference_out pointer to the looked-up reference
- * @param repo the repository to look up the reference
- * @param name the long name for the reference (e.g. HEAD, ref/heads/master, refs/tags/v0.1.0, ...)
- * @return a reference to the reference
+ * @return 0 on success; error code otherwise
  */
-GIT_EXTERN(int) git_repository_lookup_ref(git_reference **reference_out, git_repository *repo, const char *name);
-	
+GIT_EXTERN(int) git_repository_head(git_reference **head_out, git_repository *repo);
+
+/**
+ * Check if a repository's HEAD is detached
+ *
+ * A repository's HEAD is detached when it points directly to a commit
+ * instead of a branch.
+ *
+ * @param repo Repo to test
+ * @return 1 if HEAD is detached, 0 if i'ts not; error code if there
+ * was an error.
+ */
+GIT_EXTERN(int) git_repository_head_detached(git_repository *repo);
+
+/**
+ * Check if the current branch is an orphan
+ *
+ * An orphan branch is one named from HEAD but which doesn't exist in
+ * the refs namespace, because it doesn't have any commit to point to.
+ *
+ * @param repo Repo to test
+ * @return 1 if the current branch is an orphan, 0 if it's not; error
+ * code if therewas an error
+ */
+GIT_EXTERN(int) git_repository_head_orphan(git_repository *repo);
+
+/**
+ * Check if a repository is empty
+ *
+ * An empty repository has just been initialized and contains
+ * no commits.
+ *
+ * @param repo Repo to test
+ * @return 1 if the repository is empty, 0 if it isn't, error code
+ * if the repository is corrupted
+ */
+GIT_EXTERN(int) git_repository_is_empty(git_repository *repo);
+
+/**
+ * Get the path of this repository
+ *
+ * This is the path of the `.git` folder for normal repositories,
+ * or of the repository itself for bare repositories.
+ *
+ * @param repo A repository object
+ * @return the path to the repository
+ */
+GIT_EXTERN(const char *) git_repository_path(git_repository *repo);
+
+/**
+ * Get the path of the working directory for this repository
+ *
+ * If the repository is bare, this function will always return
+ * NULL.
+ *
+ * @param repo A repository object
+ * @return the path to the working dir, if it exists
+ */
+GIT_EXTERN(const char *) git_repository_workdir(git_repository *repo);
+
+/**
+ * Set the path to the working directory for this repository
+ *
+ * The working directory doesn't need to be the same one
+ * that contains the `.git` folder for this repository.
+ *
+ * If this repository is bare, setting its working directory
+ * will turn it into a normal repository, capable of performing
+ * all the common workdir operations (checkout, status, index
+ * manipulation, etc).
+ *
+ * @param repo A repository object
+ * @param workdir The path to a working directory
+ * @return GIT_SUCCESS, or an error code
+ */
+GIT_EXTERN(int) git_repository_set_workdir(git_repository *repo, const char *workdir);
+
+/**
+ * Check if a repository is bare
+ *
+ * @param repo Repo to test
+ * @return 1 if the repository is bare, 0 otherwise.
+ */
+GIT_EXTERN(int) git_repository_is_bare(git_repository *repo);
+
+/**
+ * Get the configuration file for this repository.
+ *
+ * If a configuration file has not been set, the default
+ * config set for the repository will be returned, including
+ * global and system configurations (if they are available).
+ *
+ * The configuration file must be freed once it's no longer
+ * being used by the user.
+ *
+ * @param out Pointer to store the loaded config file
+ * @param repo A repository object
+ * @return GIT_SUCCESS, or an error code
+ */
+GIT_EXTERN(int) git_repository_config(git_config **out, git_repository *repo);
+
+/**
+ * Set the configuration file for this repository
+ *
+ * This configuration file will be used for all configuration
+ * queries involving this repository.
+ *
+ * The repository will keep a reference to the config file;
+ * the user must still free the config after setting it
+ * to the repository, or it will leak.
+ *
+ * @param repo A repository object
+ * @param config A Config object
+ */
+GIT_EXTERN(void) git_repository_set_config(git_repository *repo, git_config *config);
+
+/**
+ * Get the Object Database for this repository.
+ *
+ * If a custom ODB has not been set, the default
+ * database for the repository will be returned (the one
+ * located in `.git/objects`).
+ *
+ * The ODB must be freed once it's no longer being used by
+ * the user.
+ *
+ * @param out Pointer to store the loaded ODB
+ * @param repo A repository object
+ * @return GIT_SUCCESS, or an error code
+ */
+GIT_EXTERN(int) git_repository_odb(git_odb **out, git_repository *repo);
+
+/**
+ * Set the Object Database for this repository
+ *
+ * The ODB will be used for all object-related operations
+ * involving this repository.
+ *
+ * The repository will keep a reference to the ODB; the user
+ * must still free the ODB object after setting it to the
+ * repository, or it will leak.
+ *
+ * @param repo A repository object
+ * @param odb An ODB object
+ */
+GIT_EXTERN(void) git_repository_set_odb(git_repository *repo, git_odb *odb);
+
+/**
+ * Get the Index file for this repository.
+ *
+ * If a custom index has not been set, the default
+ * index for the repository will be returned (the one
+ * located in `.git/index`).
+ *
+ * The index must be freed once it's no longer being used by
+ * the user.
+ *
+ * @param out Pointer to store the loaded index
+ * @param repo A repository object
+ * @return GIT_SUCCESS, or an error code
+ */
+GIT_EXTERN(int) git_repository_index(git_index **out, git_repository *repo);
+
+/**
+ * Set the index file for this repository
+ *
+ * This index will be used for all index-related operations
+ * involving this repository.
+ *
+ * The repository will keep a reference to the index file;
+ * the user must still free the index after setting it
+ * to the repository, or it will leak.
+ *
+ * @param repo A repository object
+ * @param index An index object
+ */
+GIT_EXTERN(void) git_repository_set_index(git_repository *repo, git_index *index);
+
 /** @} */
 GIT_END_DECL
 #endif

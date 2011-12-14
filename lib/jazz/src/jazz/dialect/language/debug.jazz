@@ -118,6 +118,10 @@
 ;;;
 
 
+(definition procedure-name-cache
+  (make-table test: eq?))
+
+
 (definition public (get-procedure-name procedure)
   (define (present-anonymous)
     (let ((output (open-output-string)))
@@ -125,9 +129,12 @@
       (get-output-string output)))
   
   (if procedure
-      (or (procedure-name procedure)
-          @wait-check-all-use-cases
-          (present-anonymous))
+      (or (table-ref procedure-name-cache procedure #f)
+          (let ((name (or (procedure-name procedure)
+                          @wait-check-all-use-cases
+                          (present-anonymous))))
+            (table-set! procedure-name-cache procedure name)
+            name))
     "(interaction)"))
 
 

@@ -341,6 +341,13 @@
           (proc surface)))))
   
   
+  (method public (with-clipped-transformation-surface proc)
+    (let ((surface (transformation-surface)))
+      (with-clipped-view-transform surface (get-rootmost)
+        (lambda ()
+          (proc surface)))))
+  
+  
   (method public (with-pristine-surface proc)
     (let ((surface (transformation-surface)))
       (with-pristine-transform~ surface
@@ -461,7 +468,7 @@
   
   
   (method public (paint-content surface <Surface> draw-self? <bool> nodes <list> context <list>) <void>
-    (with-self-transform surface
+    (with-clipped-self-transform surface
       (lambda ()
         (render surface draw-self? nodes context))))
 
@@ -519,13 +526,28 @@
             thunk)))))
   
   
-  (method protected virtual (with-self-transform surface <Surface> thunk <procedure>)
+  (method protected (with-self-transform surface <Surface> thunk <procedure>)
+    (with-transform~ surface (get-h~ position) (get-v~ position) (get-transformation)
+      thunk))
+  
+  
+  (method protected (with-clipped-view-transform surface <Surface> root <View> thunk <procedure>)
+    (if (eq? self root)
+        (with-pristine-transform~ surface
+          thunk)
+      (with-clipped-view-transform~ parent surface root
+        (lambda ()
+          (with-clipped-self-transform surface
+            thunk)))))
+  
+  
+  (method protected virtual (with-clipped-self-transform surface <Surface> thunk <procedure>)
     (with-clipping-transform~ surface (get-h~ position) (get-v~ position) (get-width~ size) (get-height~ size) (get-transformation)
       thunk))
   
   
   (method public (get-view-clipper)
-    (with-transformation-surface
+    (with-clipped-transformation-surface
       (lambda (surface)
         (get-clipper~ surface))))
   

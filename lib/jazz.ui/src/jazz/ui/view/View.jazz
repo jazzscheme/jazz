@@ -1373,26 +1373,26 @@
     )
   
   
-  (method public (scroll-view delta rect (clip-rect: clip-rect #f))
+  (method public (scroll-view delta rect)
     (let ((player (get-player)))
       (when (and player (view-visible?))
-        (with-transformation-surface
+        (with-clipped-transformation-surface
           (lambda (surface)
             (let ((delta (device->logical~ surface delta))
                   (acquired (logical->device~ surface rect))
-                  (clip-rect (logical->device~ surface (or clip-rect (get-clipper~ surface)))))
+                  (clip-rect (logical->device~ surface (get-clipper~ surface))))
               (scroll-window~ player delta acquired clip-rect)))))))
   
   
   ;; an attempt at a platform-independant scroll-view
   @wait
-  (method public (scroll-view2 dh dv rect (clip-rect: clip-rect #f))
+  (method public (scroll-view2 dh dv rect)
     (let ((player (get-player))
           (root (get-root)))
       (when (and player (view-visible?))
         (let ((delta (device->logical~ surface delta))
               (acquired (logical->device~ surface rect))
-              (clip-rect (logical->device~ surface (or clip-rect (get-clipper~ surface)))))
+              (clip-rect (logical->device~ surface (get-clipper~ surface))))
           (scroll-offscreen2~ root delta acquired clip-rect)))))
   
   
@@ -3246,7 +3246,7 @@
 
   (method public (with-view-surface proc)
     (with ((surface (new Surface (get-window-surface (get-player)))))
-      (with-view-transform surface (get-rootmost)
+      (with-clipped-view-transform surface (get-rootmost)
         (lambda ()
           (proc surface)))))
   
@@ -3299,7 +3299,7 @@
   (method public (invalidate-rect rect)
     (when (and (not (inhibit-invalidates?)) (view-visible?))
       (let ((acquired
-              (with-transformation-surface
+              (with-clipped-transformation-surface
                 (lambda (surface)
                   (logical->device~ surface (if (inhibit-clipping?)
                                                 rect
@@ -3310,7 +3310,7 @@
   ;; todo: not using acquire is a potentiel scaling bug...
   (method public (invalidate-region region)
     (when (and (not (inhibit-invalidates?)) (view-visible?))
-      (with-transformation-surface
+      (with-clipped-transformation-surface
         (lambda (surface)
           (let ((delta (logical->device~ surface {Point 0 0})))
             (offset!~ region (get-h~ delta) (get-v~ delta))
@@ -3325,13 +3325,13 @@
       (when player
         (cond (rect
                (let ((acquired
-                       (with-transformation-surface
+                       (with-clipped-transformation-surface
                          (lambda (surface)
                            (logical->device~ surface (rect-intersection rect (get-clipper~ surface)))))))
                  (redraw-window~ player rect: acquired)))
               ;; todo: not using acquire is a potentiel scaling bug...
               (region
-               (with-transformation-surface
+               (with-clipped-transformation-surface
                  (lambda (surface)
                    (let ((delta (logical->device~ surface {Point 0 0})))
                      (offset!~ region (get-h~ delta) (get-v~ delta))
@@ -3340,7 +3340,7 @@
                (redraw-window~ player region: region))
               (else
                (let ((acquired
-                       (with-transformation-surface
+                       (with-clipped-transformation-surface
                          (lambda (surface)
                            (logical->device~ surface (rect-intersection (get-bounds) (get-clipper~ surface)))))))
                  (redraw-window~ player rect: acquired)))))))
@@ -3363,7 +3363,7 @@
   
   (method public (view-invalidater)
     (when player
-      (with-transformation-surface
+      (with-clipped-transformation-surface
         (lambda (surface)
           (let ((player player)
                 (rect (logical->device~ surface (get-clipper~ surface))))

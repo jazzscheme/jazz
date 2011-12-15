@@ -38,8 +38,10 @@
 (module protected jazz.debugger.debugger.Debugger-Manager jazz
 
 
-(import (jazz.debugger)
+(import (jazz.debuggee)
+        (jazz.debugger)
         (jazz.graphic)
+        (jazz.jrm)
         (jazz.media)
         (jazz.system)
         (jazz.system.access)
@@ -542,4 +544,22 @@
   (method public (process-received-filenames? process)
     (let ((process (get-reference~ process)))
       (let ((debugger (get-process-debugger process)))
-        (and debugger (received-runtime-filenames?~ debugger process)))))))
+        (and debugger (received-runtime-filenames?~ debugger process)))))
+  
+  
+  (method public (evaluate-filename-expressions filename syntax str container line col)
+    (let ((processes (filename-processes filename)))
+      (if (null? processes)
+          (let ((ide (get-application)))
+            (when (get-local-debugger~ ide)
+              (let ((controller-debugger (get-controller-debugger)))
+                (when (remote-proxy? controller-debugger)
+                  (let ((targets (evaluation-processes~ ide)))
+                    (let ((processes (evaluate-expressions-to~ controller-debugger targets filename syntax str container line col)))
+                      (when (not-null? processes)
+                        processes)))))))
+        (let ((cookie (register-debugger-cookie #f)))
+          (for-each (lambda (process)
+                      (evaluate-expressions~ process syntax str container line col cookie))
+                    processes))
+        (map get-reference~ processes))))))

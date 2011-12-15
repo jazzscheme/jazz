@@ -56,10 +56,21 @@
      '())))
 
 
-(define (jazz:build-git descriptor . rest)
-  (let ((unit-specs jazz:git-units))
-    (apply jazz:custom-compile/build unit-specs rest)
-	(apply jazz:build-product-descriptor descriptor rest)))
+(define (jazz:build-git descriptor #!key (unit #f) (force? #f))
+  (let ((build (%%repository-directory jazz:Build-Repository))
+        (source jazz:kernel-source))
+    (define (build-file path)
+      (string-append build path))
+    
+    (define (source-file path)
+      (string-append source path))
+    
+    (define (copy-platform-files)
+      (jazz:copy-file (source-file "foreign/libgit2/lib/libgit2.dll") (build-file "libgit2.dll") feedback: jazz:feedback))
+    
+    (let ((unit-specs jazz:git-units))
+      (jazz:custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
+      (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
 
 
 ;;;

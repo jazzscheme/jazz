@@ -119,7 +119,7 @@
   (slot hover-history                            initialize #f)
   (slot hover-pulse                              initialize #f)
   (slot tools-info                               initialize #f)
-  (slot matrix-cache                             initialize #f getter generate) ; DANGER, DO NOT SHARE!!
+  (slot device-transformation                    initialize #f getter generate) ; DANGER, DO NOT SHARE!!
   
   
   (method override (shortcut-update action-item));;abstract
@@ -154,7 +154,7 @@
   (method override (destroy-component)
     (detach-mouse-in)
     (detach-view-focus)
-    (flush-matrix-cache)
+    (flush-device-transformation)
     (nextmethod))
 
 
@@ -3244,43 +3244,43 @@
 
   (method public (with-view-surface proc)
     (with ((surface (new Surface (get-window-surface (get-player)))))
-      (with-clipped-view-transform surface (get-rootmost)
+      (with-clipping-view-transformation surface (get-rootmost)
         (lambda ()
           (proc surface)))))
   
   
-  (method public (flush-matrix-cache)
-    (when matrix-cache
+  (method public (flush-device-transformation)
+    (when device-transformation
       (for-each (lambda (child)
-                  (flush-matrix-cache~ child))
+                  (flush-device-transformation~ child))
                 children)
-      (cairo_matrix_t-free matrix-cache) ; DANGER, should let the gc handle it through wills
-      (set! matrix-cache #f)))
+      (cairo_matrix_t-free device-transformation) ; DANGER, should handle it through wills
+      (set! device-transformation #f)))
   
   
-  (method public (build-matrix-cache)
+  (method public (build-device-transformation)
     (let ((surface (transformation-surface)))
-      (with-cached-transform surface
+      (with-cached-transformation surface
         (lambda ()
           ;; hacked for testing
           (cairo_matrix_t-xx-ref (cairo_get_matrix_raw (get-context~ surface)))))))
   
   
-  (method public (with-cached-transform surface thunk)
+  (method public (with-cached-transformation surface thunk)
     (define (save-and-thunk)
-      (set! matrix-cache (cairo_matrix_t-make))
-      (cairo_get_matrix (get-context~ surface) matrix-cache)
+      (set! device-transformation (cairo_matrix_t-make))
+      (cairo_get_matrix (get-context~ surface) device-transformation)
       (thunk))
     
-    (if (not matrix-cache)
+    (if (not device-transformation)
         (if parent
-            (with-cached-transform~ parent surface
+            (with-cached-transformation~ parent surface
               (lambda ()
-                (with-self-transform surface save-and-thunk)))
-          (with-pristine-transform~ surface save-and-thunk))
+                (with-self-transformation surface save-and-thunk)))
+          (with-pristine-transformation~ surface save-and-thunk))
       (with-preserved-matrix~ surface
         (lambda ()
-          (cairo_set_matrix (get-context~ surface) matrix-cache)
+          (cairo_set_matrix (get-context~ surface) device-transformation)
           (thunk)))))
 
 

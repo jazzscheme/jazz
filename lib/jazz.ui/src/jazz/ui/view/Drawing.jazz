@@ -117,10 +117,10 @@
         (if (eq? root origin-root)
             (let ((surface (transformation-surface))
                   (ancestor (common-ancestor (get-ancestry) (get-ancestry~ origin))))
-              (let ((device-shape (with-view-transform~ origin surface ancestor
+              (let ((device-shape (with-view-transformation~ origin surface ancestor
                                     (lambda ()
                                       (logical->device~ surface shape)))))
-                (with-view-transform surface ancestor
+                (with-view-transformation surface ancestor
                   (lambda ()
                     (device->logical~ surface device-shape)))))
           (let ((player (get-player))
@@ -336,21 +336,21 @@
   
   (method public (with-transformation-surface proc)
     (let ((surface (transformation-surface)))
-      (with-view-transform surface (get-rootmost)
+      (with-view-transformation surface (get-rootmost)
         (lambda ()
           (proc surface)))))
   
   
   (method public (with-clipped-transformation-surface proc)
     (let ((surface (transformation-surface)))
-      (with-clipped-view-transform surface (get-rootmost)
+      (with-clipping-view-transformation surface (get-rootmost)
         (lambda ()
           (proc surface)))))
   
   
   (method public (with-pristine-clipped-surface proc)
     (let ((surface (transformation-surface)))
-      (with-pristine-clipping-transform~ surface
+      (with-pristine-clipping-transformation~ surface
         (lambda ()
           (proc surface)))))
   
@@ -363,7 +363,7 @@
   
   (method public (find-in-drawing surface <Surface> device-pos <Point> ignore)
     (unless (and ignore (memq? self ignore))
-      (with-self-transform surface
+      (with-self-transformation surface
         (lambda ()
           (let ((pos (device->logical~ surface device-pos)))
             (when (in-drawing? pos size)
@@ -426,7 +426,7 @@
           (with ((coverage (if (get-opaque?~ view) (new Region rect: (logical->device~ surface (get-bounds~ view))) (new Region))))
             (for-each-view-reversed~ view
               (lambda (child)
-                (with-self-transform~ child surface
+                (with-self-transformation~ child surface
                   (lambda ()
                     (with ((child-region (new Region rect: (logical->device~ surface (get-bounds~ child)))))
                       (with ((intersection (region-intersection update child-region)))
@@ -468,7 +468,7 @@
   
   
   (method public (paint-content surface <Surface> draw-self? <bool> nodes <list> context <list>) <void>
-    (with-clipped-self-transform surface
+    (with-clipping-self-transformation surface
       (lambda ()
         (render surface draw-self? nodes context))))
 
@@ -516,33 +516,33 @@
   ;;;
   
   
-  (method protected (with-view-transform surface <Surface> root <View> thunk <procedure>)
+  (method protected (with-view-transformation surface <Surface> root <View> thunk <procedure>)
     (if (eq? self root)
-        (with-pristine-transform~ surface
+        (with-pristine-transformation~ surface
           thunk)
-      (with-view-transform~ parent surface root
+      (with-view-transformation~ parent surface root
         (lambda ()
-          (with-self-transform surface
+          (with-self-transformation surface
             thunk)))))
   
   
-  (method protected (with-self-transform surface <Surface> thunk <procedure>)
-    (with-transform~ surface (get-h~ position) (get-v~ position) (get-transformation)
+  (method protected (with-self-transformation surface <Surface> thunk <procedure>)
+    (with-transformation~ surface (get-h~ position) (get-v~ position) (get-transformation)
       thunk))
   
   
-  (method protected (with-clipped-view-transform surface <Surface> root <View> thunk <procedure>)
+  (method protected (with-clipping-view-transformation surface <Surface> root <View> thunk <procedure>)
     (if (eq? self root)
-        (with-pristine-clipping-transform~ surface
+        (with-pristine-clipping-transformation~ surface
           thunk)
-      (with-clipped-view-transform~ parent surface root
+      (with-clipping-view-transformation~ parent surface root
         (lambda ()
-          (with-clipped-self-transform surface
+          (with-clipping-self-transformation surface
             thunk)))))
   
   
-  (method protected virtual (with-clipped-self-transform surface <Surface> thunk <procedure>)
-    (with-clipping-transform~ surface (get-h~ position) (get-v~ position) (get-width~ size) (get-height~ size) (get-transformation)
+  (method protected virtual (with-clipping-self-transformation surface <Surface> thunk <procedure>)
+    (with-clipping-transformation~ surface (get-h~ position) (get-v~ position) (get-width~ size) (get-height~ size) (get-transformation)
       thunk))
   
   

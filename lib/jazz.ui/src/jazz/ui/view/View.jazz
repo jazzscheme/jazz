@@ -119,6 +119,7 @@
   (slot hover-history                            initialize #f)
   (slot hover-pulse                              initialize #f)
   (slot tools-info                               initialize #f)
+  (slot matrix-cache                             initialize #f getter generate) ; DANGER, DO NOT SHARE!!
   
   
   (method override (shortcut-update action-item));;abstract
@@ -153,6 +154,7 @@
   (method override (destroy-component)
     (detach-mouse-in)
     (detach-view-focus)
+    (flush-matrix-cache)
     (nextmethod))
 
 
@@ -3247,6 +3249,41 @@
       (with-view-transform surface (get-rootmost)
         (lambda ()
           (proc surface)))))
+  
+  
+  (method public (flush-matrix-cache)
+    (when matrix-cache
+      (for-each (lambda (child)
+                  (flush-matrix-cache~ child))
+                children)
+      (cairo_matrix_t-free matrix-cache) ; DANGER, should let gc handle it through wills
+      (set! matrix-cache #f)))
+  
+  
+  (method public (build-matrix-cache)
+    (let ((surface (transformation-surface)))
+      (with-cached-transform surface
+        (lambda ()
+          ;; hacked for testing
+          (cairo_matrix_t-xx-ref (cairo_get_matrix_raw (get-context~ surface)))))))
+  
+  
+  (method public (with-cached-transform surface thunk)
+    (define (save-and-thunk)
+      (set! matrix-cache (cairo_matrix_t-make))
+      (cairo_get_matrix (get-context~ surface) matrix-cache)
+      (thunk))
+    
+    (if (not matrix-cache)
+        (if parent
+            (with-cached-transform~ parent surface
+              (lambda ()
+                (with-self-transform surface save-and-thunk)))
+          (with-pristine-transform~ surface save-and-thunk))
+      (with-preserved-matrix~ surface
+        (lambda ()
+          (cairo_set_matrix (get-context~ surface) matrix-cache)
+          (thunk)))))
 
 
   ;;;

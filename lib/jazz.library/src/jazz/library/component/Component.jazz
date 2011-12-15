@@ -343,19 +343,35 @@
     (install-component))
   
   
-  (method (install-base-traits properties)
-    (let ((traits (or (getf properties 'base-traits) (getf properties base-traits:))))
-      (when traits
-        (set-base-traits traits))))
-  
-  
-  (method (install-default-traits properties)
-    (let ((traits (or (getf properties 'default-traits) (getf properties default-traits:))))
-      (when traits
-        (set-default-traits traits))))
-  
-  
   (method public (install-form form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
+    (define (install-base-traits properties)
+      (let ((traits (getf properties base-traits:)))
+        (when traits
+          (set-base-traits traits))))
+    
+    (define (install-properties properties <Object> restore-form <Object>)
+      (let (iter (scan properties))
+        (when (not-null? scan)
+          (let ((expr (car scan))
+                (value (cadr scan)))
+            (unless (initer-property? expr)
+              (when (symbol? expr)
+                (set! expr (component-property (class-of self) expr))
+                (set-car! scan expr))
+              (when restore-form
+                (remember-property~ restore-form self expr))
+              (write-property-to self expr value)))
+          (iter (cddr scan)))))
+    
+    (define (install-children children <Object> creator <Object> creator-branch <Object> restore-form <Object>)
+      (loop (for child in children)
+            (do (install-child child creator creator-branch restore-form))))
+    
+    (define (install-default-traits properties)
+      (let ((traits (getf properties default-traits:)))
+        (when traits
+          (set-default-traits traits))))
+    
     (when form
       (let ((properties (get-properties~ form))
             (children (get-children~ form)))
@@ -365,12 +381,7 @@
         (install-default-traits properties))))
   
   
-  (method protected virtual (install-children children <Object> creator <Object> creator-branch <Object> restore-form <Object>)
-    (loop (for child in children)
-          (do (install-child child creator creator-branch restore-form))))
-  
-  
-  (method public virtual (install-child form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
+  (method protected virtual (install-child form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
     (let ((action (get-action~ form))
           (name (get-name~ form)))
       (define (new-component)
@@ -409,20 +420,6 @@
         (else
          (error "Unknown form action: {t} in {t}" action form)))))
   
-
-  (method (install-properties properties <Object> restore-form <Object>)
-    (while (not-null? properties)
-      (let ((expr (car properties))
-            (value (cadr properties)))
-        (unless (initer-property? expr)
-          (when (symbol? expr)
-            (set! expr (component-property (class-of self) expr))
-            (set-car! properties expr))
-          (when restore-form
-            (remember-property~ restore-form self expr))
-          (write-property-to self expr value)))
-      (set! properties (cddr properties))))
-  
   
   (method public virtual (find-to-modify name <Object> test <procedure>)
     (or (widget-part name)
@@ -437,6 +434,15 @@
 
 
   (method protected chained (finish initargs <Object>)
+    (define (write-properties properties <Object>)
+      (define (write-initarg-to object <Object> property <Object> value <Object>)
+        (let ((property-name (keyword->symbol property)))
+          (unless (initer-property? property-name)
+            (write-property-to object (component-property (class-of object) property-name) value))))
+      
+      (loop (for (property value) in-properties properties)
+            (do (write-initarg-to self property value))))
+    
     (bind-keywords ((form #f) (creator #f) . others) initargs
       (when form
         ;; setting the creator to #t is a service for Form instantiate
@@ -451,16 +457,6 @@
     )
   
   
-  (method public (write-properties properties <Object>)
-    (define (write-initarg-to object <Object> property <Object> value <Object>)
-      (let ((property-name (keyword->symbol property)))
-        (unless (initer-property? property-name)
-          (write-property-to object (component-property (class-of object) property-name) value))))
-    
-    (loop (for (property value) in-properties properties)
-          (do (write-initarg-to self property value))))
-  
-  
   ;; Only done after the component is fully initialized so as not to install
   ;; an invalid component should an error occur during the initialization phase.
   (method protected virtual (install-in-parent)
@@ -471,12 +467,7 @@
       (let ((surrogate (get-surrogate~ parent)))
         (when surrogate
           (remove-surrogate)
-          (install-surrogate (get-editor~ surrogate)))))
-    (parent-add-child))
-  
-  
-  (method public (parent-add-child)
-    (when parent
+          (install-surrogate (get-editor~ surrogate))))
       (add-child~ parent self)))
 
 

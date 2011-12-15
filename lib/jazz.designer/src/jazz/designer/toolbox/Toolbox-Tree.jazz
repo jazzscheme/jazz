@@ -205,6 +205,13 @@
           (delete-selection~ text)))))
   
   
+  (method (remove-from-runtime unit symbol)
+    (let ((module (require-module unit)))
+      (table-set! (get-exports~ module) symbol)
+      (table-set! (get-entries~ module) symbol)
+      (module-undefine unit symbol)))
+  
+  
   (method virtual (delete-tool tool parent (confirm? #t))
     (define (confirm-delete)
       (let ((code (message-box "Delete selected object?" type: 'confirmation)))
@@ -224,10 +231,7 @@
                     (let ((unit (get-unit~ tool))
                           (symbol (get-model~ tool)))
                       (remove-text-location unit symbol)
-                      (let ((module (require-module unit)))
-                        (table-set! (get-exports~ module) symbol)
-                        (table-set! (get-entries~ module) symbol))
-                      (module-undefine unit symbol)
+                      (remove-from-runtime unit symbol)
                       (remove-child~ (get-designer) tool))))))))
       (bell)))
   
@@ -242,10 +246,6 @@
   
   (method virtual (find-name-location text tool)
     (location-range~ text (list (get-model~ tool) 1)))
-  
-  
-  (method (evaluate-at-caret text)
-    (apply evaluate-expressions~ (get-local-process) (prepare-expressions~ text (current-declaration-range~ text)) #f))
   
   
   (method virtual (rename-tool tool parent)
@@ -263,8 +263,8 @@
                         (set-selection~ text range)
                         (replace-selection~ text (list (symbol->string name)))
                         (set-caret~ text (get-end~ range))
-                        (evaluate-at-caret text))))
-                  (table-set! (get-exports~ (require-module unit)) symbol)
+                        (evaluate-selection~ text))))
+                  (remove-from-runtime unit symbol)
                   (set-property~ designer tool 'model name)
                   (set-property~ designer tool 'title (symbol->string name)))))))
       (bell)))

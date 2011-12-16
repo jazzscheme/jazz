@@ -638,10 +638,10 @@
       (typecase sender
         ((Toolbox-Tree)
          (typecase data
-           ((Toolbox-Model)
-            (add-new (get-class~ data) pos import: (get-unit~ data)))
            ((Toolbox-Form)
-            (add-new-form (require-form (get-locator~ data)) pos imports: (get-imports~ data)))))
+            (add-new-form (resolve-form~ data) pos import: (get-unit~ data)))
+           ((Toolbox-Model)
+            (add-new (get-class~ data) pos import: (get-unit~ data)))))
         ((Properties-Tree)
          (set-selection~ sender '())
          (let* ((property (get-property~ data))
@@ -678,12 +678,15 @@
   
   
   ;; this should probably be unified with add-new above
-  (method public (add-new-form form pos (centered?: centered? #t) (name: name #f) (imports: imports '()))
+  (method public (add-new-form form pos (centered?: centered? #t) (name: name #f) (import: import #f))
     (with-information-update
       (lambda ()
         (let ((preferences (get-preferences 'designer))
               (designer (get-designer~ editor)))
-          (let ((child (add-form~ designer form client imports: imports name: name)))
+          (let ((child (add-form~ designer form client imports: import name: name)))
+            (set-property~ designer child 'position pos)
+            (when centered?
+              (center-child~ designer child))
             (let ((model (class-of child)))
               (layout-view~ client)
               (layout-view~ child)

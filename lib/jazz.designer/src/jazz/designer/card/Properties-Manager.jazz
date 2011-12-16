@@ -133,6 +133,16 @@
       (set-flat?~ (locate 'scroller) #t)
       (set-flat?~ (locate 'header) #t)
       (set-filter~ (locate 'tree) 'categorized)))
+  
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method override (guest-actions)
+    (cons (find-actions 'properties-manager)
+          (nextmethod)))
     
   
   ;;;
@@ -164,6 +174,46 @@
          (set-editor #f)
          (set-designer #f)
          (set-client #f)))))
+  
+  
+  (method (on-present-documentation evt)
+    (define (determine-class client property)
+      (let (iter (class (class-of (car client))))
+        (cond ((not class)
+               #f)
+              ((memq? property (get-slots~ class))
+               class)
+              (else
+               (iter (get-ascendant~ class))))))
+    
+    (let ((tree (get-tree)))
+      (let ((client (get-client~ tree))
+            (property (selected-property~ tree)))
+        (when (and client (not-null? client) property)
+          (let ((frame (show-help~ (get-application))))
+            (when frame
+              (let ((text (get-guest~ frame))
+                    (class (determine-class client property)))
+                (when class
+                  (let ((class-title (->string (category-name class)))
+                        (property-title (->string (get-name~ property))))
+                    (let (iter (scan (get-chapters~ text)) (class-level #f) (class-pos #f))
+                      (if (null? scan)
+                          (if class-pos
+                              (select-chapter~ text class-pos)
+                            (set-caret~ text (text-beginning~ text))
+                            (user-message "Property {a} not found in documentation" property-title))
+                        (bind (level pos header title) (car scan)
+                          (cond ((and class-level (<= level class-level))
+                                 (select-chapter~ text class-pos))
+                                ((equal? title class-title)
+                                 (iter (cdr scan) level pos))
+                                ((equal? title property-title)
+                                 (if class-pos
+                                     (select-chapter~ text pos)
+                                   (iter (cdr scan) class-level class-pos)))
+                                (else
+                                 (iter (cdr scan) class-level class-pos)))))))))))))))
   
   
   ;;;

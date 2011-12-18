@@ -103,7 +103,6 @@
       (when edited-cell
         (let ((row (get-row (get-line~ edited-cell))))
           (finish-edition~ row)
-          @w
           (acquire-focus)))
       (when (and row (editable?~ row))
         (start-edition~ row))))
@@ -143,12 +142,21 @@
   (method (finish-cell-edition)
     (when edited-cell
       (let ((row (get-row (get-line~ edited-cell))))
-        (finish-edition~ row))))
+        (when row
+          (finish-edition~ row)))))
   
   
   ;;;
   ;;;; Focus
   ;;;
+  
+  
+  @w
+  (method override (focus-lose)
+    (nextmethod)
+    (jazz.ui.window:delay-event
+      (lambda ()
+        (end-edition))))
   
   
   (method override (focus-gained)
@@ -157,6 +165,7 @@
   
   
   (method override (focus-delegate)
+    @w
     (let ((row (selected-row)))
       (when (and row (editable?~ row))
         (editor-focus-delegate~ row))))

@@ -219,6 +219,16 @@
 
 
   (method (update)
+    (define (insert-partition client any editor designer father partition)
+      (for-each (lambda (partition)
+                  (bind (class . properties) partition
+                    (if (not class)
+                        (insert-properties client any editor designer father properties)
+                      (let ((title (->string (category-name class))))
+                        (let ((row (add-row father: father state: 'expanded children: (list (new Tree-Node title: title image: {Image-Resource "BlueRed"}) (new Tree-Label) (new Tree-Image)))))
+                          (insert-properties client any editor designer row properties))))))
+                partition))
+    
     (define (insert-properties client any editor designer father properties)
       (for-each (lambda (property)
                   (if (pair? property)
@@ -269,20 +279,44 @@
       (filter-by-rights component editor
         (get-filtered-properties~ component filter: filter)))
     
+    (define (partition-properties any properties)
+      (let ((info (new-queue))
+            (partition '()))
+        (loop (for category in-vector (get-ancestors~ (class-of any)))
+              (do (when (class? category)
+                    (let ((properties (intersection properties (get-slots~ category))))
+                      (let ((non-info (new-queue)))
+                        (for-each (lambda (property)
+                                    (let ((category (get-category~ (class-of any) property))
+                                          (standard? (get-standard?~ (class-of any) property)))
+                                      (when standard?
+                                        (if (eq? (get-name~ category) 'infos)
+                                            (enqueue info property)
+                                          (enqueue non-info property)))))
+                                  properties)
+                        (let ((non-info (queue-list non-info)))
+                          (when (not-null? non-info)
+                            (set! partition (cons (cons category non-info) partition)))))))))
+        (let ((info (queue-list info)))
+          (if (null? info)
+              partition
+            (cons (cons #f info) partition)))))
+    
     (let* ((client (get-client))
-           ;; temp fix. need to investigate. if i remember correctly
+           ;; temp fix. need to investigate. if I remember correctly
            ;; client is actually a list of clients and so the problem
            ;; would be a wrong default value of #f instead of '()
            (any (if (or (not client) (null? client)) #f (car client)))
            (editor (get-editor))
            (designer (get-designer))
-           (properties (get-client-properties client editor)))
+           (properties (get-client-properties client editor))
+           (partition (and properties (partition-properties any properties))))
       (remove-every-row)
       (with-update-locked
         (lambda ()
           ;; see above comment for this test too
-          (when properties
-            (insert-properties client any editor designer #f properties))))))
+          (when partition
+            (insert-partition client any editor designer #f partition))))))
   
   
   (method (owner-image designer client category property)
@@ -541,7 +575,8 @@
   
   
   (method override (draw-data surface context row data width height)
-    (when (is? row Value-Row)
+    (if (is-not? row Value-Row)
+        (nextmethod surface context row data width height)
       (let ((value (get-value~ row)))
         (draw-data~ row surface context value self row data width height)))))
 

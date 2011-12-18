@@ -759,8 +759,7 @@
               (let ((row (get-row (get-line~ cell)))
                     (column (get-column (get-col~ cell))))
                 (when auto-expand/collapse?
-                  (auto-expand/collapse row)
-                  (auto-select~ row))
+                  (auto-expand/collapse row))
                 (focus-delegate)
                 (drag-up~ column cell pos))))
           (process-action self))))
@@ -989,9 +988,7 @@
                (set-selection (list cell))))
             (else
              (unless (memq? (get-line~ cell) (get-selection))
-               (set-selection (list (get-line~ cell))))))
-          (when auto-expand/collapse?
-            (auto-select~ row)))
+               (set-selection (list (get-line~ cell)))))))
         (update-view))
       (proc)))
 
@@ -1492,8 +1489,6 @@
   (method (move-selection line direction user-origin)
     (let ((row (get-row line)))
       (set-selection (list line) user-origin: user-origin)
-      (when auto-expand/collapse?
-        (auto-select~ row))
       (when user-origin
         (update-view))))
   
@@ -2017,9 +2012,11 @@
     (define (auto-toggle row auto-toggle?)
       (if (expanded?~ row)
           (when auto-toggle?
-            (auto-collapse~ row)
+            (when (collapsable?~ row)
+              (collapse row))
             (set! auto-expanded-row #f))
-        (auto-expand~ row)
+        (when (expandable?~ row)
+          (expand/collapse row))
         (set! auto-expanded-row row)))
     
     (let ((selected-rows (selection->rows selection)))
@@ -2027,18 +2024,18 @@
              (when (and close-auto-expanded? auto-expanded-row (neq? auto-expanded-row row))
                (close-auto-expanded new-spine: (and row (get-spine~ row)) force?: #f)
                (set! delayed-autorow auto-expanded-row)
-               (set! auto-expanded-row #f))
-             (when (and row (auto-in-place?~ row))
-               (auto-toggle row auto-toggle?)))
+               (set! auto-expanded-row #f)))
             ((mouse-up?~ selection-manager)
              (when delayed-autorow
                (if row
                    (close-delayed-row new-spine: (get-spine~ row))
-                 (auto-collapse~ (if (expanded?~ delayed-autorow)
-                                     delayed-autorow
-                                   (get-father~ delayed-autorow)))
+                 (let ((row (if (expanded?~ delayed-autorow)
+                                delayed-autorow
+                              (get-father~ delayed-autorow))))
+                   (when (collapsable?~ row)
+                     (collapse row)))
                  (set! delayed-autorow #f)))
-             (when (and row (not (auto-in-place?~ row)))
+             (when row
                (auto-toggle row auto-toggle?)))
             (else
              (when close-auto-expanded?
@@ -2057,7 +2054,8 @@
                              (unless done?
                                (if (and new-spine (memq? row new-spine))
                                    (set! done? #t)
-                                 (auto-collapse~ row))))
+                                 (when (collapsable?~ row)
+                                   (collapse row)))))
                            old-spine))))
   
   
@@ -2070,8 +2068,9 @@
                              (unless done?
                                (if (and new-spine (memq? row new-spine))
                                    (set! done? #t)
-                                 (if (or force? (auto-in-place?~ row))
-                                     (auto-collapse~ row)
+                                 (if force?
+                                     (when (collapsable?~ row)
+                                       (collapse row))
                                    (set! auto-expanded-row row)
                                    (set! done? #t)))))
                            old-spine))))
@@ -2079,7 +2078,8 @@
   
   (method (close-auto-expanded-row)
     (when auto-expanded-row
-      (auto-collapse~ auto-expanded-row)
+      (when (collapsable?~ auto-expanded-row)
+        (collapse auto-expanded-row))
       (set! auto-expanded-row #f)))
   
   
@@ -2201,9 +2201,7 @@
         (when (and auto-expand/collapse? auto-expand?)
           (unless multiple-selection?
             (when (or (not auto-row) (collapsed?~ auto-row))
-              (auto-expand/collapse auto-row auto-toggle?: #t)))
-          (when auto-row
-            (auto-select~ auto-row))))
+              (auto-expand/collapse auto-row auto-toggle?: #t)))))
       (when (and ensure-displayed? (end-delayed?~ selection-manager))
         (ensure-displayed))))
   

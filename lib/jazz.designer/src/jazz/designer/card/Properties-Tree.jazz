@@ -62,7 +62,7 @@
   
 
   (form
-    (<install>                            filled-column: value draggable?: #t multiple-selection?: #f selection-mode: row auto-expand/collapse?: #t focused-on-descendants?: #t portfolio: :images context-menu-handler: {Event-Handler :form on-context-menu}
+    (<install>                            filled-column: value draggable?: #t multiple-selection?: #f selection-mode: row focused-on-descendants?: #t portfolio: :images selection-handler: {Event-Handler :form on-selection-change} context-menu-handler: {Event-Handler :form on-context-menu}
       (<Property-Column>   name: property title: "Property" width: 140 toplevel-controls?: #f)
       (<Value-Column>      name: value    title: "Value" width: 192 justification: (2 2))
       (<Tree-Image-Column> name: owner    title: "!" width: 25 justification: center)))
@@ -74,7 +74,7 @@
   
   
   (method public (get-card)
-    (child 5))
+    (find-ascendant Properties-Card))
   
   
   (method public (get-editor)
@@ -95,9 +95,19 @@
   
   
   (method override (double-click pos)
-    (let ((row (get-selected-row)))
+    (let ((row (selected-row)))
       (when row
         (double-click~ row (acquire~ row self pos)))))
+  
+  
+  (method (on-selection-change evt)
+    (let ((row (selected-row)))
+      (when edited-cell
+        (let ((row (get-row (get-line~ edited-cell))))
+          (finish-edition~ row)
+          (acquire-focus)))
+      (when (and row (editable?~ row))
+        (start-edition~ row))))
   
   
   (method (on-context-menu evt)
@@ -148,8 +158,8 @@
   
   
   (method protected (save-edition)
-    (let ((row auto-expanded-row))
-      (when (and row (is? row Value-Row) (in-edition?~ row))
+    (let ((row (selected-row)))
+      (when (and row (in-edition?~ row))
         (save-edition~ row))))
 
 
@@ -245,7 +255,7 @@
     (define (insert-property client any editor designer father property state position)
       (let* ((domain (property-domain~ any property))
              (category (get-category~ (class-of any) property))
-             (row (new Domain-Row domain: domain))
+             (row (new Value-Row domain: domain))
              (image (get-image~ category))
              (values (map (lambda (component) (read-property component property)) client))
              (presented (map (lambda (value) (present~ row value)) values))

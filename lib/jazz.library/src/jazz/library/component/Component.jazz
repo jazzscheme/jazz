@@ -598,16 +598,10 @@
   
   
   (method public (get-filtered-properties (filter: filter 'standard))
-    (define (get-all-properties filter)
-      (sort (lambda (x y)
-              (let ((xr (get-rank~ (get-category~ (class-of self) x)))
-                    (yr (get-rank~ (get-category~ (class-of self) y))))
-                (or (< xr yr)
-                    (and (= xr yr)
-                         (string<? (symbol->string (field-name x)) (symbol->string (field-name y)))))))
-            (collect-if (lambda (property)
+    (define (collect-properties filter)
+      (collect-if (lambda (property)
                           (display-filtered-property? property filter))
-                        (mop-instance-slots~ (class-of self) self))))
+                        (mop-instance-slots~ (class-of self) self)))
     
     (define (display-filtered-property? property filter)
       (and (property? property)
@@ -621,7 +615,7 @@
     (if (eq? filter 'standard)
         (let ((properties (get-standard-properties)))
           (if (eq? properties #t)
-              (get-all-properties '(infos properties))
+              (collect-properties '(infos properties))
             (let ((class (class-of self)))
               (define (standardize object)
                 (cond ((string? object)
@@ -633,7 +627,7 @@
                        (map standardize object))))
               
               (standardize properties))))
-      (get-all-properties filter)))
+      (collect-properties filter)))
 
 
   ;;;

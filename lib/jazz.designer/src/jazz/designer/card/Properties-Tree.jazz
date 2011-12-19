@@ -99,13 +99,15 @@
   
   
   (method (on-selection-change evt)
-    (let ((row (selected-row)))
+    (let ((row (selected-row))
+          (focus? (contains-focus?)))
       (when edited-site
         (let ((row (get-row~ edited-site)))
-          (finish-edition~ row)
-          (acquire-focus)))
-      (when (and row (editable?~ row))
-        (start-edition~ row))))
+          (finish-edition~ row)))
+      (when focus?
+        (if (and row (editable?~ row))
+            (start-edition~ row focus?: focus?)
+          (acquire-focus)))))
   
   
   (method (on-context-menu evt)
@@ -151,21 +153,12 @@
   ;;;
   
   
-  @w
-  (method override (focus-lose)
-    (nextmethod)
-    (jazz.ui.window:delay-event
-      (lambda ()
-        (end-edition))))
-  
-  
   (method override (focus-gained)
     (nextmethod)
     (focus-delegate))
   
   
   (method override (focus-delegate)
-    @w
     (let ((row (selected-row)))
       (when (and row (editable?~ row))
         (editor-focus-delegate~ row))))
@@ -548,13 +541,6 @@
         (invalidate-column-header~ (get-header~ parent) self)
         (when (not filter?)
           (header-click~ parent self)))))
-  
-  
-  (method override (draw-data surface context row data width height)
-    (draw-background surface context row data width height)
-    (draw-level surface row data width height)
-    (draw-image surface context row data width height)
-    (draw-title surface context row data 0 0 width height))
   
   
   (method (get-filter-image)

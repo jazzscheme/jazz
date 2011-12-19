@@ -50,13 +50,13 @@
 (class undocumented Value-Row extends Tree-Row
 
 
+  (property domain    initialize #f accessors generate)
   (property property_ initialize #f getter get-property setter set-property)
   (property value     initialize #f accessors generate)
-  (property domain    initialize #f accessors generate)
   (property violation initialize #f accessors generate)
 
   
-  (slot editor    initialize #f accessors generate)
+  (slot editor    initialize #f getter generate)
   (slot modified? initialize #f accessors generate)
 
 
@@ -162,14 +162,9 @@
     (set-modified?~ (get-entry) flag))
   
   
-  (method public (show-cursor)
-    @w
-    (show-text-cursor~ editor))
-  
-  
-  (method public (start-edition)
+  (method public (start-edition (focus?: focus? #t))
     (when (not (in-edition?))
-      (edit)))
+      (edit focus?: focus?)))
   
   
   (method public (finish-edition)
@@ -179,9 +174,7 @@
   
   (method public (close-editor)
     (save-edition)
-    (let ((tree (get-tree)))
-      (end-edition~ tree))
-    (set! editor #f))
+    (end-edition~ (get-tree)))
   
   
   (method public (save-edition)
@@ -197,13 +190,6 @@
             (enter-edited-value))
           (set-edited-modified? #f)
           (invalidate-cell~ (get-parent) (new Cell (row->line~ parent self) 1))))))
-  
-  
-  (method public (select-editor)
-    (let ((tree (get-tree)))
-      (when (not (in-edition?))
-        (edit))
-      (focus-editor)))
   
   
   (method public (in-edition?)
@@ -239,7 +225,6 @@
   
   
   (method public (editor-return)
-    (show-cursor)
     (with-cursor :wait
       (lambda ()
         (set-edited-modified? #t)
@@ -254,8 +239,9 @@
   
   
   (method public (editor-focus-lose)
-    (finish-edition)
-    (invalidate-drawing))
+    (unless (window-losing-focus?)
+      (finish-edition)
+      (invalidate-drawing)))
   
   
   ;;;
@@ -263,7 +249,7 @@
   ;;;
   
   
-  (method public (edit)
+  (method public (edit (focus?: focus? #t))
     (let* ((tree (get-tree))
            (cell (new Cell (row->line~ tree self) 1))
            (border (new Border-View border-type: 'solid border-color: {Color Dark-Red}))
@@ -273,8 +259,9 @@
       (set! editor (new-editor))
       (set-parent~ editor content)
       (set-edited-value value)
-      (edit-cell~ tree cell editor: border)
-      (focus-editor)
+      (edit-cell~ tree cell editor: border after-end: (lambda (site) (set! editor #f)))
+      (when focus?
+        (focus-editor))
       (set-client~ scroller editor)))
   
   
@@ -295,6 +282,7 @@
         (set-arrow-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-arrow))
         (set-tab-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-tab))
         (set-return-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-return))
+        (set-focus-lose-handler~ view (new Event-Handler target: self method-name: 'on-focus-lose))
         (when (is? (get-entry) Enumeration-Entry)
           (set-action-handler~ (locate~ entry 'combo) (new Event-Handler target: self method-name: 'on-editor-action)))
         (acquire-focus~ view)
@@ -319,6 +307,10 @@
          (typecase view
            ((Text-View) (arrow-move~ view evt))
            (else (arrow-press~ view evt)))))))
+  
+  
+  (method (on-focus-lose evt)
+    (editor-focus-lose))
   
   
   (method (on-editor-action evt)

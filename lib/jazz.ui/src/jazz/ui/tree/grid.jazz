@@ -221,7 +221,8 @@
   
   (method (editor-arrow-press tab-view evt)
     (let ((text? (is? tab-view Text-View)))
-      (let ((next-move (dispatch (class-of tab-view) (if text? 'arrow-move 'arrow-press)))
+      (let ((edited-cell (get-edited-cell))
+            (next-move (dispatch (class-of tab-view) (if text? 'arrow-move 'arrow-press)))
             (direction (get-property~ evt direction:))
             (internal? (if text? (get-property~ evt word?:) (get-control?~ evt)))
             (evt (if text?
@@ -385,15 +386,16 @@
               (let ((domain (get-domain~ provider row-data column-data))
                     (editor (new-editor)))
                 (let* ((entry (setup-entry editor domain))
-                       (after-end (lambda (cell)
-                                    (receive (row-data column-data) (cell-data-values cell)
-                                      (when (get-modified?~ entry)
-                                        (let* ((text (and (is? domain Text-Domain) (get-presentation~ entry)))
-                                               (violation (and text (validate-text~ domain text))))
-                                          (set-violation~ provider row-data column-data (and violation (new Provider-Violation violation: violation presentation: text)))
-                                          (if violation
-                                              (update-cell cell)
-                                            (set-data~ provider row-data column-data (get-value~ entry)))))))))
+                       (after-end (lambda (site)
+                                    (let ((cell (site->cell site)))
+                                      (receive (row-data column-data) (cell-data-values cell)
+                                        (when (get-modified?~ entry)
+                                          (let* ((text (and (is? domain Text-Domain) (get-presentation~ entry)))
+                                                 (violation (and text (validate-text~ domain text))))
+                                            (set-violation~ provider row-data column-data (and violation (new Provider-Violation violation: violation presentation: text)))
+                                            (if violation
+                                                (update-cell cell)
+                                              (set-data~ provider row-data column-data (get-value~ entry))))))))))
                   (let ((provider-violation (get-violation~ provider row-data column-data)))
                     (if provider-violation
                         (set-presentation~ entry (get-presentation~ provider-violation))
@@ -507,7 +509,6 @@
                  (update-editor-highlight tree-data cell)))))))))
           
   
-  
   (method (update-highlight)
     (update-frame-highlight)
     (update-cells-highlight))
@@ -533,7 +534,8 @@
   
   
   (method (update-cell cell)
-    (let* ((editor (and edited-cell (cell=? cell edited-cell) cell-editor))
+    (let* ((edited-cell (get-edited-cell))
+           (editor (and edited-cell (cell=? cell edited-cell) cell-editor))
            (label (if editor (get-preserved-data~ cell-editor) (get-cell-data cell))))
       (receive (row column) (cell-values cell)
         (call-with-row/column-data row column

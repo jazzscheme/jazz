@@ -107,9 +107,8 @@
   (slot protected highlighted                   initialize '())
   (slot protected indentation                   initialize 16   getter generate)
   (slot protected columns-right            <fx> initialize 0    getter generate)
-  (slot protected edited-cell                   initialize #f   getter generate)
+  (slot protected edited-site                   initialize #f   getter generate)
   (slot protected cell-editor                   initialize #f   getter generate)
-  (slot protected close-cell-editor?            initialize #t)
   (slot protected auto-expanded-row             initialize #f   setter generate)
   (slot protected locator                       initialize (new Tree-Locator self))
   (slot protected selection-manager             initialize (new Selection-Manager self))
@@ -1824,11 +1823,18 @@
         cell)))
   
   
-  (method public (get-top-cell cell)
-    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
+  (method public (get-master-site site)
+    (let ((merge-cell (safe-get-merge-cell site)))
       (if merge-cell
-          (get-first-cell~ merge-cell)
-        cell)))
+          (cell->site (get-master-cell~ merge-cell))
+        site)))
+  
+  
+  (method public (get-top-site site)
+    (let ((merge-cell (safe-get-merge-cell site)))
+      (if merge-cell
+          (cell->site (get-first-cell~ merge-cell))
+        site)))
   
 
   ;;;
@@ -2234,7 +2240,7 @@
     (let ((saved-selection (save-selection (get-selection)))
           (saved-position (nu+ (get-scrolled-position) (selection-position (get-selection))))
           (saved-pivot (and selection-pivot (save-selection (list selection-pivot))))
-          (saved-edited (and edited-cell (save-cell edited-cell))))
+          (saved-edited (and edited-site (save-cell (site->cell edited-site)))))
       (list use
             saved-selection
             saved-position
@@ -2285,8 +2291,8 @@
           (let ((edited (restore-cell saved-edited)))
             (if (not edited)
                 (kill-edition)
-              (set! edited-cell (get-master-cell edited))
-              (replace-cell edited-cell cell-editor))))
+              (set! edited-site (cell->site (get-master-cell edited)))
+              (replace-site edited-site cell-editor))))
         (let ((selection (restore-selection saved-selection)))
           (scroll-to (nu- saved-position (selection-position selection)))
           (set-selection selection ensure-displayed?: ensure-displayed? generate-event?: generate-event? auto-expand?: #f)))))
@@ -2391,8 +2397,6 @@
   
   ;; update slots that are line based
   (method override (added-update-selection line count)
-    (when (and edited-cell (>= (get-line~ edited-cell) line))
-      (set-line~ edited-cell (+ (get-line~ edited-cell) count)))
     (let ((proc (case selection-mode
                   ((cell) (lambda (cell)
                             (let ((l (get-line~ cell)))
@@ -2412,8 +2416,6 @@
   
   ;; update slots that are line based
   (method override (removed-update-selection line count)
-    (when (and edited-cell (>= (get-line~ edited-cell) line))
-      (set-line~ edited-cell (- (get-line~ edited-cell) count)))
     (let ((end-line (+ line count))
           (removed #f))
       (let ((proc (case selection-mode
@@ -2638,77 +2640,60 @@
   
   
   (method public (in-edition?)
-    edited-cell)
+    edited-site)
   
   
-  (method public (edit-cell cell (editor: editor #f) (cover-spacing?: cover-spacing? #f) (close-editor?: close-editor? #t) (before-end: before-end #f) (after-end: after-end #f))
+  (method public (edit-cell cell (editor: editor #f) (after-end: after-end #f))
     (assert (not update-locked?))
     (assert (< (get-col~ cell) (get-columns-count)))
     (end-edition)
     (let ((rect (cell-editor-rect cell))
           (view (new Tree-Data-View
-                  cover-spacing?: cover-spacing?
                   preserved-data: (get-cell-data cell)
-                  before-end: before-end
                   after-end: after-end
                   visible?: #f
-                  children: (list editor))))
-      (replace-cell (get-top-cell cell) view)
+                  children: (list editor)))
+          (site (cell->site cell)))
+      (replace-site (get-top-site site) view)
       (set-rect~ view (acquire~ (get-parent~ view) self rect))
-      (set! edited-cell cell)
+      (set! edited-site site)
       (set! cell-editor view)
-      (set! close-cell-editor? close-editor?)
       (set-visible?~ view #t)))
   
   
   (method public (end-edition)
-    (define (find-editor-line editor col)
-      (continuation-capture
-        (lambda (return)
-          (for-each-visible-row
-            (lambda (row line)
-              (when (eq? editor (get-child~ row col))
-                (continuation-return return line))))
-          #f)))
-    
-    (when edited-cell
-      (let ((cell edited-cell)
+    (when edited-site
+      (let ((site edited-site)
             (editor cell-editor)
-            (bounds (cell-editor-rect edited-cell))
-            (before-end (get-before-end~ cell-editor))
+            (bounds (cell-editor-rect (site->cell edited-site)))
             (after-end (get-after-end~ cell-editor)))
-        (when before-end
-          (before-end cell))
-        (set! edited-cell #f)
+        (replace-site (get-master-site edited-site) (get-preserved-data~ editor))
+        (set! edited-site #f)
         (set! cell-editor #f)
-        (let* ((line (find-editor-line editor (get-col~ cell)))
-               (new-cell (new Cell line (get-col~ cell))))
-          (let ((preserved-data (get-preserved-data~ editor))
-                (merge-cell (safe-get-merge-cell (cell->site new-cell))))
-            (if merge-cell
-                (replace-cell (get-master-cell~ merge-cell) preserved-data)
-              (replace-cell new-cell preserved-data)))
-          (if close-cell-editor?
-              (close~ editor)
-            (set-parent~ editor #f))
-          (when after-end
-            (after-end new-cell))
-          (invalidate-rect bounds)))))
+        (close~ editor)
+        (when after-end
+          (after-end site))
+        (invalidate-rect bounds))))
   
   
   (method public (kill-edition)
-    (when edited-cell
-      (let ((cell edited-cell)
-            (editor cell-editor))
-        (set! edited-cell #f)
+    (when edited-site
+      (let ((editor cell-editor))
+        (set! edited-site #f)
         (set! cell-editor #f)
-        (if close-cell-editor?
-            (close~ editor)
-          (set-parent~ editor #f)))))
+        (close~ editor))))
+  
+  
+  (method public (replace-site site child)
+    (replace-child~ (get-row~ site) (column->col (get-column~ site)) child))
   
   
   (method public (replace-cell cell child)
     (replace-child~ (get-row (get-line~ cell)) (get-col~ cell) child))
+  
+  
+  (method public (get-edited-cell)
+    (and edited-site (site->cell edited-site)))
   
   
   (method (cell-editor-rect cell)

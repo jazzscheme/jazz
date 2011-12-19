@@ -2139,6 +2139,12 @@
       site))
 
 
+  (method (site->line/col site)
+    (let ((col (column->col (get-column~ site)))
+          (line (row->line (get-row~ site))))
+      (values line col)))
+
+
   (method public (process-selection cell shift? control? user-origin)
     (let ((element (case selection-mode ((cell) cell) (else (get-line~ cell)))))
       (if (and multiple-selection? (or shift? control?))
@@ -2663,16 +2669,18 @@
   (method public (end-edition)
     (when edited-site
       (let ((site edited-site)
-            (editor cell-editor)
-            (bounds (cell-editor-rect (site->cell edited-site)))
-            (after-end (get-after-end~ cell-editor)))
+            (editor cell-editor))
         (set! edited-site #f)
         (set! cell-editor #f)
-        (replace-site (get-master-site site) (get-preserved-data~ editor))
-        (close~ editor)
-        (when after-end
-          (after-end site))
-        (invalidate-rect bounds))))
+        (receive (line col) (site->line/col site)
+          (when (and line col)
+            (let ((bounds (cell-editor-rect (new Cell line col)))
+                  (after-end (get-after-end~ editor)))
+              (replace-site (get-master-site site) (get-preserved-data~ editor))
+              (close~ editor)
+              (when after-end
+                (after-end site))
+              (invalidate-rect bounds)))))))
   
   
   (method public (kill-edition)

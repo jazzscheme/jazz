@@ -198,6 +198,7 @@
   (method override (mouse-down view)
     (let ((cell (view->tree view)))
       (when cell
+        (save-edition)
         (end-edition)
         (receive (row column) (cell-values cell)
           (if (selection-cell?~ (get-controller) row column)
@@ -206,6 +207,7 @@
   
   
   (method override (context-menu pos)
+    (save-edition)
     (end-edition)
     (with-context-click pos
       (lambda ()
@@ -228,6 +230,8 @@
             (evt (if text?
                      (new Action-Event (get-kind~ evt) (get-sender~ evt) word?: #f extend?: (get-property~ evt extend?:) direction: (get-property~ evt direction:))
                    evt)))
+        (unless internal?
+          (save-edition))
         (case direction
           ((left)  (if internal? (next-move tab-view evt) (select-left edited-cell)))
           ((right) (if internal? (next-move tab-view evt) (select-right edited-cell)))
@@ -260,6 +264,7 @@
   
   
   (method override (navigate-tab from backward?)
+    (save-edition)
     (let ((stops (get-tab-stops)))
       (if (not-null? stops)
           (if (eq? from (get-creator))
@@ -374,6 +379,22 @@
       entry))
   
   
+  (method (save-edition)
+    (let ((provider (get-provider)))
+      (when edited-site
+        (let ((cell (site->cell edited-site))
+              (entry (first-child~ (first-child~ cell-editor))))
+          (receive (row-data column-data) (cell-data-values cell)
+            (when (get-modified?~ entry)
+              (let* ((domain (get-domain~ provider row-data column-data))
+                     (text (and (is? domain Text-Domain) (get-presentation~ entry)))
+                     (violation (and text (validate-text~ domain text))))
+                (set-violation~ provider row-data column-data (and violation (new Provider-Violation violation: violation presentation: text)))
+                (if violation
+                    (update-cell cell)
+                  (set-data~ provider row-data column-data (get-value~ entry))))))))))
+  
+  
   (method override (select-cell cell)
     (let ((provider (get-provider)))
       (receive (row-data column-data) (cell-data-values cell)
@@ -385,22 +406,12 @@
             (lambda (value)
               (let ((domain (get-domain~ provider row-data column-data))
                     (editor (new-editor)))
-                (let* ((entry (setup-entry editor domain))
-                       (after-end (lambda (site)
-                                    (let ((cell (site->cell site)))
-                                      (receive (row-data column-data) (cell-data-values cell)
-                                        (when (get-modified?~ entry)
-                                          (let* ((text (and (is? domain Text-Domain) (get-presentation~ entry)))
-                                                 (violation (and text (validate-text~ domain text))))
-                                            (set-violation~ provider row-data column-data (and violation (new Provider-Violation violation: violation presentation: text)))
-                                            (if violation
-                                                (update-cell cell)
-                                              (set-data~ provider row-data column-data (get-value~ entry))))))))))
+                (let ((entry (setup-entry editor domain)))
                   (let ((provider-violation (get-violation~ provider row-data column-data)))
                     (if provider-violation
                         (set-presentation~ entry (get-presentation~ provider-violation))
                       (set-value~ entry value)))
-                  (edit-cell cell editor: editor after-end: after-end)
+                  (edit-cell cell editor: editor)
                   (prepare-and-focus-entry entry)))))))))
   
   
@@ -543,7 +554,7 @@
             (update-label rd cd label)
             (update-cell-highlight label cell)
             (when editor
-              (update-editor~ (get-controller) rd cd editor)
+              (update-editor rd cd editor)
               (update-editor-highlight editor cell))
             (invalidate-cell cell)))))))
 

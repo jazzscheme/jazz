@@ -289,6 +289,7 @@
       (when (is? data Toolbox-Model)
         (let ((form? (is? data Toolbox-Form))
               (trait? (is? data Toolbox-Trait)))
+          (set-action-enabled? {Action components-tree edit-source} #t)
           (set-action-enabled? {Action components-tree new} (not trait?))
           (set-action-enabled? {Action components-tree open} (not form?))
           (set-action-enabled? {Action components-tree add} (not trait?))))))
@@ -384,6 +385,16 @@
                                        (add-new~ surrogate (get-class~ addable) {Point 0 0} centered?: #f import: (get-unit~ addable))))))
                     (cascade-view-position~ (get-designer~ editor) component {Point 0 0}))))
             (bell))))))
+  
+  
+  (method (on-edit-source evt)
+    (let ((addable (selected-addable)))
+      (with-safe-toolbox addable
+        (lambda ()
+          (let* ((module (require-module (get-unit~ addable)))
+                 (info (table-ref (get-exports~ module) (get-model~ addable)))
+                 (locator (if (symbol? info) info (cdr info))))
+            (edit~ (new Jazz-Code-Location (list locator)) workspace: (designer-source-workspace)))))))
   
   
   (method override (row-state component update? level)

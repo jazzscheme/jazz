@@ -43,6 +43,7 @@
         (jazz.jml)
         (jazz.library)
         (jazz.locale)
+        (jazz.runtime)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.view))
@@ -119,7 +120,11 @@
                  (when (and (< (get-h~ pos) Filter-Width) (< (get-v~ pos) header-height))
                    (track-popup-menu~ sender (new Filter-Menu client: self) (new Point 5 header-height))))))
             (else
-             (context-menu pos)))))
+             (with-context-click~ sender pos
+               (lambda ()
+                 (let ((info (get-single-selected-data)))
+                   (when (class? info)
+                     (track-popup-menu (new Class-Menu client: self) pos)))))))))
   
   
   (method (new-property-menu client)
@@ -237,7 +242,7 @@
                     (if (not class)
                         (insert-properties client any editor designer father properties)
                       (let ((title (->string (category-name class))))
-                        (let ((row (add-row father: father state: 'expanded children: (list (new Tree-Node title: title image: {Image-Resource "BlueRed"}) (new Tree-Label) (new Tree-Image)))))
+                        (let ((row (add-row father: father state: 'expanded children: (list (new Tree-Node title: title image: {Image-Resource "BlueRed"}) (new Tree-Label) (new Tree-Image)) user-data: class)))
                           (insert-properties client any editor designer row properties))))))
                 partition))
     
@@ -388,6 +393,13 @@
         row)))
   
   
+  (method (selected-class)
+    (let ((row (get-selected-row)))
+      (let ((user-data (get-user-data~ row)))
+        (when (class? user-data)
+          user-data))))
+  
+  
   (method (selected-property)
     (let ((row (selected-row)))
       (when row
@@ -399,6 +411,20 @@
       (if (not rank)
           (set-selection '() generate-event?: #f)
         (set-single-selection rank generate-event?: #f))))
+
+  
+  ;;;
+  ;;;; Class
+  ;;;
+  
+  
+  (method (edit-descriptor)
+    (let ((class (selected-class)))
+      (let ((descriptor (get-descriptor class)))
+        (if descriptor
+            (edit-definitions~ (get-application) (category-name (class-of descriptor)) workspace: (designer-source-workspace))
+          (bell)
+          (user-message "Unable to find descriptor for {s}" class)))))
 
   
   ;;;
@@ -603,6 +629,23 @@
   (method (on-action evt)
     (let ((filter (get-name~ (get-sender~ evt))))
       (set-filter~ client filter))))
+
+
+;;;
+;;;; Class-Menu
+;;;
+
+
+(class Class-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: edit-descriptor title: "Edit Descriptor" icon: {Image-Resource "Edit"} action-handler: {Event-Handler :form on-edit-descriptor})))
+  
+  
+  (method (on-edit-descriptor evt)
+    (edit-descriptor~ client)))
 
 
 ;;;

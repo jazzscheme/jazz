@@ -229,9 +229,9 @@
 (class Component-Controller extends Component implements Grid-Controller
   
   
-  (slot designer accessors generate)
-  (slot editor accessors generate)
-  (slot client accessors generate)
+  (slot designer initialize #f accessors generate)
+  (slot editor initialize #f accessors generate)
+  (slot client initialize #f accessors generate)
   (slot components-lists)
   
   
@@ -279,25 +279,67 @@
                   (collect-visible-rows~ grid))))
   
   
+  (method (update-rows-highlight old new)
+    (define (switch-row-color row selected?)
+      (let ((row-data (get-user-data~ row)))
+        (for-each (lambda (label column-data)
+                    (let ((color (background row-data column-data selected?)))
+                      (set-background~ label color)))
+                  (get-children~ row)
+                  (map get-provider-data~ (get-columns~ (get-grid))))))
+    
+    (define (get-merged-rows rows)
+      (let ((components (map first (map get-hierarchy~ (map get-user-data~ rows)))))
+        (user-data-rows~ (get-grid) components test: (lambda (data component)
+                                                       (eq? (first (get-hierarchy~ data)) component)))))
+    
+    (let ((old-rows (get-merged-rows (map (~ get-row (get-grid)) (remove-duplicates (map get-line~ old)))))
+          (new-rows (get-merged-rows (map (~ get-row (get-grid)) (remove-duplicates (map get-line~ new))))))
+      (let ((removed-rows (difference old-rows new-rows))
+            (added-rows (difference new-rows old-rows)))
+        (for-each (lambda (row)
+                    (switch-row-color row #f))
+                  removed-rows)
+        (for-each (lambda (row)
+                    (switch-row-color row #t))
+                  added-rows))))
+  
+  
   (method override (inactive-title row-data column-data)
     (if (is? column-data Component-Provider-Selection-Data)
         "+"
       ""))
   
   
-  (method override (inactive-background row-data column-data)
-    (typecase column-data
-      ((Component-Provider-Selection-Data)
-       (let ((parent-offset (get-parent-offset~ column-data)))
-         (cond ((not parent-offset) {Color White})
-               ((element (get-hierarchy~ row-data) (get-parent-offset~ column-data)) {Color White})
-               (else {Color Gray}))))
-      (else
-       {Color Gray})))
+  (definition clear-color {Color White})
+  (definition clear-selected-color {Color Light-Gray})
+  (definition grayed-color {Color Gray})
+  (definition grayed-selected-color {Color Dark-Gray})
   
   
-  (method override (active-background row-data column-data)
-    {Color Tree-Background})
+  (method override (inactive-background row-data column-data (selected? #f))
+    (let ((clear-color (if selected? clear-selected-color clear-color))
+          (grayed-color (if selected? grayed-selected-color grayed-color)))
+      (typecase column-data
+        ((Component-Provider-Selection-Data)
+         (let ((parent-offset (get-parent-offset~ column-data)))
+           (cond ((not parent-offset) clear-color)
+                 ((element (get-hierarchy~ row-data) (get-parent-offset~ column-data)) clear-color)
+                 (else grayed-color))))
+        (else
+         grayed-color))))
+  
+  
+  (method override (active-background row-data column-data (selected? #f))
+    (if selected? clear-selected-color clear-color))
+  
+  
+  (method (background row-data column-data (selected? #f))
+    (get-data~ (get-provider) row-data column-data
+      (lambda ()
+        (inactive-background row-data column-data selected?))
+      (lambda (val)
+        (active-background row-data column-data selected?))))
   
   
   (method override (get-frame-color)
@@ -403,8 +445,12 @@
   
   
   (method override (on-selection-change evt)
-    (set-selection~ editor (selected-components))
-    (update-focus-actions~ (get-application)))
+    (when editor
+      (let ((old (get-selection~ editor))
+            (new (selected-components)))
+        (unless (equal? old new)
+          (set-selection~ editor (selected-components))
+          (update-focus-actions~ (get-application))))))
   
   
   (method override (cut-selection)
@@ -768,7 +814,11 @@
   
   
   (method (set-selection components)
-    (set-selection~ editor (remove #f components) origin: self force?: #t focus?: #f))
+    (set-selection~ editor components origin: self force?: #t focus?: #f))
+  
+  
+  (method (get-selection)
+    (get-selection~ editor))
   
   
   (method (update-selection)
@@ -779,7 +829,7 @@
     (if (null? selection)
         (begin
           (set-client (get-client~ editor))
-          (set-selection~ (get-grid) '() generate-event?: #f))
+          (set-selection~ (get-grid) '()))
       (let ((component (car selection)))
         (receive (client selected) (determine-client component)
           (unless (eq? client (get-client))
@@ -790,8 +840,8 @@
                      (cell (and row (new Cell (row->line~ (get-grid) row) (column->col~ (get-grid) column)))))
                 (when row
                   (unless (nu=? (get-selection~ (get-grid)) (list cell))
-                    (set-selection~ (get-grid) (list cell) generate-event?: #f))))
-            (set-selection~ (get-grid) '() generate-event?: #f)))))))
+                    (set-selection~ (get-grid) (list cell)))))
+            (set-selection~ (get-grid) '())))))))
 
 
 (class Grid-Component-Editor extends Component-Editor

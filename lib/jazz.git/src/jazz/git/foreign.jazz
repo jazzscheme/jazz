@@ -58,6 +58,7 @@
 (c-constant GIT_EPACKEDREFSCORRUPTED (- GIT_ERROR 18))
 (c-constant GIT_EINVALIDPATH (- GIT_ERROR 19))
 
+
 ;;;
 ;;;; Enumerations
 ;;;
@@ -80,6 +81,11 @@
   (GIT_REF_OID       1)
   (GIT_REF_SYMBOLIC  2))
 
+
+(c-type char** (pointer char*))
+(define-pointer-to-pointer char* "char*")
+
+
 ;;;
 ;;;; Types
 ;;;
@@ -95,11 +101,9 @@
 (c-type git_odb** (pointer git_odb*))
 (c-type git_odb_backend (native "git_odb_backend"))
 (c-type git_odb_backend* (pointer git_odb_backend))
-
 (c-type git_repository (native "git_repository"))
 (c-type git_repository* (pointer git_repository))
 (c-type git_repository** (pointer git_repository*))
-
 (c-type git_reference (native "git_reference"))
 (c-type git_reference* (pointer git_reference))
 (c-type git_reference** (pointer git_reference*))
@@ -162,13 +166,18 @@
 (c-type git_reflog (native "git_reflog"))
 (c-type git_reflog* (pointer git_reflog))
 (c-type git_reflog** (pointer git_reflog*))
+(c-type git_strarray (native "git_strarray"))
+(c-type git_strarray* (pointer git_strarray))
+(c-type git_strarray** (pointer git_strarray*))
 
+;;;
+;;;; Pointers
+;;;
 
 (define-pointer-to-pointer git_odb* "git_odb*")
 (define-pointer-to-pointer git_odb_backend* "git_odb_backend*")
 (define-pointer-to-pointer git_odb_object* "git_odb_object*")
 (define-pointer-to-pointer git_odb_stream* "git_odb_stream*")
-;(define-pointer-to-type git_repository    "git_repository")
 (define-pointer-to-pointer git_repository* "git_repository*")
 (define-pointer-to-pointer git_object* "git_object*");
 (define-pointer-to-pointer git_revwalk* "git_revwalk*")
@@ -184,11 +193,11 @@
 (define-pointer-to-pointer git_reflog* "git_reflog*")
 (define-pointer-to-pointer git_reference* "git_reference*")
 (define-pointer-to-pointer git_signature* "git_signature*")
-
+(define-pointer-to-pointer git_strarray* "git_strarray*")
 
 ;;;
 ;;;; Structures
-;;;            
+;;;
   
 (c-structure git_index_time
   (time_t seconds)
@@ -207,6 +216,10 @@
   (ushort flags)
   (ushort flags_extended)
   (UTF-8-string path))
+
+(c-structure git_strarray
+  (char** strings)
+  (uint count))
 
 ;;;
 ;;;; Blobs
@@ -273,7 +286,7 @@
 (c-external (git_odb_add_backend git_odb* git_odb_backend* int) int) 
 (c-external (git_odb_read git_odb_object** git_odb* git_oid*) int)
 (c-external (git_odb_read_header size_t* git_otype* git_odb* git_oid*) int)
-(c-external (git_odb_write git_oid* git_odb* void* size_t git_otype) int)       
+(c-external (git_odb_write git_oid* git_odb* void* size_t git_otype) int)
 (c-external (git_odb_exists git_odb* git_oid*) int)
 (c-external (git_odb_object_data git_odb_object*) void*)
 (c-external (git_odb_open_wstream git_odb_stream** git_odb* size_t git_otype) int)
@@ -357,13 +370,14 @@
 (c-external (git_tree_entry_attributes git_tree_entry*) uint)
 (c-external (git_tree_entry_name git_tree_entry*) UTF-8-string)
 (c-external (git_tree_entry_id git_tree_entry*) git_oid*)
-(c-external (git_tree_entry_2object git_object**  git_repository* git_tree_entry*) int)
+(c-external (git_tree_entry_2object git_object** git_repository* git_tree_entry*) int)
 (c-external (git_treebuilder_create git_treebuilder** git_tree*) int)
 
 ;;;
 ;;;; Common
 ;;;
 
+(c-external (git_strarray_free git_strarray*) void)
 (c-external (git_libgit2_version int* int* int*) void)
 
 ;;;
@@ -371,20 +385,33 @@
 ;;;
 
 (c-external (git_odb_backend_pack git_odb_backend** UTF-8-string) int)
-(c-external (git_odb_backend_loose git_odb_backend** UTF-8-string int  int) int)
+(c-external (git_odb_backend_loose git_odb_backend** UTF-8-string int int) int)
 
 ;;;
 ;;;; Git config management routines
 ;;;
 
 (c-external (git_config_open_global git_config**) int)
-(c-external (git_config_add_file_ondisk git_config*  UTF-8-string int) int)
+(c-external (git_config_add_file_ondisk git_config* UTF-8-string int) int)
+(c-external (git_config_find_global UTF-8-string) int)
 
 ;;;
 ;;;; Git reflog management routines
 ;;;
 
-(c-external (git_reflog_read git_reflog** git_reference* ) int)
+(c-external (git_reflog_read git_reflog** git_reference*) int)
 (c-external (git_reflog_write git_reference* git_oid* git_signature* UTF-8-string) int)
+
+;;;
+;;;; Git reference management routines
+;;;
+
+;; @param reference_out pointer to the looked-up reference
+;; @param repo the repository to look up the reference
+;; @param name the long name for the reference (e.g. HEAD, ref/heads/master, refs/tags/v0.1.0, ...)
+;; @return GIT_SUCCESS or an error code
+
+(c-external (git_reference_lookup git_reference** git_repository* UTF-8-string) int)
+(c-external (git_reference_listall git_strarray* git_repository* unsigned-int) int)
 
 )

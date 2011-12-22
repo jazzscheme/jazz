@@ -786,62 +786,55 @@
       ((:client-change) (set-client (get-property~ evt client:)))
       ((:designer-change) (set-designer (get-property~ evt designer:)))
       ((:selection-changed)
-       ;; This is needed to prevent the grid from switching its own client
-       (unless (eq? self (get-origin~ evt))
-         (selection-changed (get-selection~ evt))))
+       (selection-changed (get-selection~ evt) (get-origin~ evt)))
       ((:saving) (end-edition~ (get-grid)))))
   
   
-  (method (determine-client component)
+  (method (determine-client components)
     (define (get-addable? component)
       (let* ((descriptor (get-descriptor (class-of component)))
              (structure (find-child~ descriptor 'children)))
         (get-addable?~ structure)))
     
-    (let ((parent (get-parent~ component)))
-      (cond ((or (not parent)
-                 (and (not (get-addable? component))
-                      (not-null? (component-addable-classes component))))
-             (values component #f))
-            ((and (not (get-addable? parent))
-                  (not-null? (component-addable-classes parent)))
-             (values parent component))
-            ((eq? parent (get-client~ editor))
-             (values parent #f))
-            (else
-             (receive (client selected) (determine-client parent)
-               (values client (and selected component)))))))
-  
-  
-  (method (set-selection components)
-    (set-selection~ editor components origin: self force?: #t focus?: #f))
+    (let ((editor-client (get-client~ editor)))
+      (let (loop (ancestor (common-ancestor components)))
+        (cond ((or (eq? ancestor editor-client)
+                   (not ancestor))
+               editor-client)
+              ((and (not (get-addable? ancestor))
+                    (not-null? (component-addable-classes ancestor)))
+               ancestor)
+              (else
+               (loop (get-parent~ ancestor)))))))
   
   
   (method (get-selection)
     (get-selection~ editor))
   
   
+  (method (set-selection components)
+    (set-selection~ editor components origin: self force?: #t focus?: #f))
+  
+  
   (method (update-selection)
-    (selection-changed (get-selection~ editor)))
+    (selection-changed (get-selection~ editor) self))
   
   
-  (method (selection-changed selection)
-    (if (null? selection)
-        (begin
-          (set-client (get-client~ editor))
-          (set-selection~ (get-grid) '()))
-      (let ((component (car selection)))
-        (receive (client selected) (determine-client component)
+  (method (selection-changed selection origin)
+    (let ((grid (get-grid)))
+      (define (component->cell component)
+        (let* ((row (user-data-row~ grid component test: (lambda (target val) (memq? target (get-hierarchy~ val)))))
+               ;; This does not work if the selection columns are reordered
+               (column (and row (element (get-selection-columns grid) (find (get-hierarchy~ (get-user-data~ row)) component)))))
+          (and row (new Cell (row->line~ grid row) (column->col~ grid column)))))
+      
+      (unless (eq? self origin)
+        (let ((client (determine-client selection)))
           (unless (eq? client (get-client))
-            (set-client client))
-          (if selected
-              (let* ((row (user-data-row~ (get-grid) selected test: (lambda (target val) (memq? target (get-hierarchy~ val)))))
-                     (column (and row (element (get-selection-columns (get-grid)) (find (get-hierarchy~ (get-user-data~ row)) selected))))
-                     (cell (and row (new Cell (row->line~ (get-grid) row) (column->col~ (get-grid) column)))))
-                (when row
-                  (unless (nu=? (get-selection~ (get-grid)) (list cell))
-                    (set-selection~ (get-grid) (list cell)))))
-            (set-selection~ (get-grid) '())))))))
+            (set-client client))))
+      (let ((cells (collect component->cell selection)))
+        (unless (nu=? cells (get-selection~ grid))
+          (set-selection~ grid cells))))))
 
 
 (class Grid-Component-Editor extends Component-Editor

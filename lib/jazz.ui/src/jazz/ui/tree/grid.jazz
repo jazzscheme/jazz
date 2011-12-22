@@ -441,7 +441,7 @@
   
   (method (make-row-label row-data column-data)
     (let ((label (new Tree-Label)))
-      (update-label row-data column-data label)
+      (update-label row-data column-data label #f)
       label))
   
   
@@ -451,14 +451,14 @@
          (get-columns)))
   
   
-  (method public (update-label row-data column-data label)
+  (method public (update-label row-data column-data label selected?)
     (define (update-inactive-element)
       (set-title~ label (inactive-title~ (get-controller) row-data column-data))
-      (set-background~ label (inactive-background~ (get-controller) row-data column-data)))
+      (set-background~ label (inactive-background~ (get-controller) row-data column-data selected?)))
     
     (define (update-active-element val)
       (let ((domain (get-domain~ (get-provider) row-data column-data)))
-        (set-background~ label (active-background~ (get-controller) row-data column-data))
+        (set-background~ label (active-background~ (get-controller) row-data column-data selected?))
         (let ((violation (get-violation~ (get-provider) row-data column-data)))
           (if violation
               (set-title~ label (get-presentation~ violation))
@@ -553,7 +553,9 @@
       (receive (row column) (cell-values cell)
         (call-with-row/column-data row column
           (lambda (rd cd)
-            (update-label rd cd label)
+            (let ((selected-lines (remove-duplicates (map get-line~ selection)))
+                  (cell-line (get-line~ cell)))
+              (update-label rd cd label (memv? cell-line selected-lines)))
             (update-cell-highlight label cell)
             (when editor
               (update-editor rd cd editor)

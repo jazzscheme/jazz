@@ -57,9 +57,9 @@
   (method (on-clipboard-menu evt)
     (let* ((sender (get-sender~ evt))
            (pos (nu+ (get-position~ sender) (new Point 0 (get-height~ (get-size~ sender)))))
-           (text (get-clipboard-text))
+           (clipboard (get-clipboard))
            (stack (get-clipboard-stack~ (get-application)))
-           (clipboards (if text (cons text stack) stack)))
+           (clipboards (if clipboard (cons clipboard stack) stack)))
       (when (not-null? clipboards)
         (track-popup-menu (new Clipboards-Menu clipboards: clipboards) pos))))
   
@@ -96,13 +96,14 @@
         (for-each insert-item others))))
   
   
-  (method (insert-item item)
-    (new Label-Item parent: self title: item action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list string: item))))
+  (method (insert-item clipboard)
+    (let ((title (present~ clipboard)))
+      (new Label-Item parent: self title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list clipboard: clipboard)))))
   
   
   (method (on-action evt)
     (let ((focus (get-focus)))
       (if (is-not? focus Text-View)
           (bell)
-        (let ((string (get-property~ evt string:)))
-          (paste-clipboard-string~ focus string)))))))
+        (let ((clipboard (get-property~ evt clipboard:)))
+          (paste-clipboard-value~ focus clipboard)))))))

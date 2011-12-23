@@ -1505,6 +1505,26 @@
         (paste-clipboard-string text))))
   
   
+  (method override (paste-clipboard-value clipboard)
+    (when (eq? (get-format~ clipboard) 'unicode-text)
+      (paste-clipboard-string (get-text~ clipboard))))
+  
+  
+  (method override (cycle-paste-clipboard actual-clipboard clipboard)
+    (when (eq? (get-format~ clipboard) 'unicode-text)
+      (if (neq? (get-format~ actual-clipboard) 'unicode-text)
+          (paste-clipboard-value clipboard)
+        (let ((expl (new (explorer-class) model)))
+          (set-pos~ expl (get-start))
+          (with-atomic-undo~ (get-undoer~ model)
+            (lambda ()
+              (let ((actual-text (get-text~ actual-clipboard)))
+                (when (looking-back?~ expl actual-text)
+                  (backward-n~ expl (string-length actual-text))
+                  (delete-range~ model (get-range~ expl)))
+                (insert-string (get-text~ clipboard)))))))))
+  
+  
   (method public (paste-clipboard-string string)
     (replace-selection (split-lines string)))
 
@@ -2400,15 +2420,21 @@
   
   
   (method (paste-formatted-clipboard)
-    (if (clipboard-format-available? 'jazz-formatted-text)
-        (let ((text (get-clipboard-text format: 'jazz-formatted-text)))
-          (let ((info (parameterize ((walk-for #f))
-                        (with-jazz-readtable
-                          (lambda ()
-                            (read-string-element text))))))
-            (replace-formatted-selection info)))
-      (let ((strings (split-lines (get-clipboard-text))))
-        (replace-selection strings))))
+    (paste-formatted-clipboard-value (get-clipboard)))
+  
+  
+  (method (paste-formatted-clipboard-value clipboard)
+    (case (get-format~ clipboard)
+      ((jazz-formatted-text)
+       (let ((text (get-clipboard-text format: 'jazz-formatted-text)))
+         (let ((info (parameterize ((walk-for #f))
+                       (with-jazz-readtable
+                         (lambda ()
+                           (read-string-element text))))))
+           (replace-formatted-selection info))))
+      ((unicode-text)
+       (let ((strings (split-lines (get-clipboard-text))))
+         (replace-selection strings)))))
   
   
   (method protected (replace-formatted-selection strings)

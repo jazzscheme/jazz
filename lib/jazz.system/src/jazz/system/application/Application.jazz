@@ -293,9 +293,9 @@
   
   
   (method public (add-clipboard)
-    (let ((text (get-clipboard-text)))
-      (when text
-        (set! Clipboard-Stack (cons text Clipboard-Stack))
+    (let ((clipboard (get-clipboard)))
+      (when clipboard
+        (set! Clipboard-Stack (cons clipboard Clipboard-Stack))
         (trim-clipboard)
         (update-focus-actions))))
   
@@ -315,46 +315,37 @@
   
   
   (method (pop-clipboard)
-    (let ((string (car Clipboard-Stack)))
+    (let ((clipboard (car Clipboard-Stack)))
       (set! Clipboard-Stack (cdr Clipboard-Stack))
-      (set-clipboard-text string)
+      (set-clipboard clipboard)
       (update-focus-actions)
-      string))
+      clipboard))
   
   
   (method public (cycle-clipboard)
-    (let ((string (get-clipboard-text)))
+    (let ((clipboard (get-clipboard)))
       (let ((res (pop-clipboard)))
         (if (null? Clipboard-Stack)
-            (set! Clipboard-Stack (list string))
-          (set-cdr! (last-pair Clipboard-Stack) (list string)))
+            (set! Clipboard-Stack (list clipboard))
+          (set-cdr! (last-pair Clipboard-Stack) (list clipboard)))
         res)))
   
   
   (method public (cycle-clipboard-reversed)
-    (let ((string (get-clipboard-text)))
+    (let ((clipboard (get-clipboard)))
       (let ((res (last Clipboard-Stack)))
-        (set! Clipboard-Stack (cons string (butlast Clipboard-Stack)))
-        (set-clipboard-text res)
+        (set! Clipboard-Stack (cons clipboard (butlast Clipboard-Stack)))
+        (set-clipboard res)
         res)))
 
   
   (method package (paste-cycle-stack reversed?)
-    (let ((focus (get-focus)))
-      (if (or (is-not? focus Text-View) (null? Clipboard-Stack))
-          (bell)
-        (let ((text (get-clipboard-text)))
-          (if (not text)
-              (bell)
-            (let ((model (get-model~ focus)))
-              (let ((expl (new (explorer-class~ focus) model)))
-                (set-pos~ expl (get-start~ focus))
-                (with-atomic-undo~ (get-undoer~ model)
-                  (lambda ()
-                    (when (looking-back?~ expl text)
-                      (backward-n~ expl (string-length text))
-                      (delete-range~ model (get-range~ expl)))
-                    (insert-string~ focus (if reversed? (cycle-clipboard-reversed) (cycle-clipboard))))))))))))
+    (if (null? Clipboard-Stack)
+        (bell)
+      (let ((focus (get-focus))
+            (actual-clipboard (get-clipboard))
+            (clipboard (if reversed? (cycle-clipboard-reversed) (cycle-clipboard))))
+        (cycle-paste-clipboard~ focus actual-clipboard clipboard))))
   
   
   (method package (on-copy-formatted evt)

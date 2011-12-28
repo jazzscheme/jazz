@@ -1,0 +1,63 @@
+(module protected jazz.designer.editor.Text-Editor jazz
+
+
+(import (jazz.designer)
+        (jazz.editor.jazz)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.ui))
+
+
+(class Jazz-Text-Editor-View extends Jazz-Text-View
+    
+  
+  (slot editor initialize #f setter explicit getter generate)
+  (slot designer initialize #f accessors generate)
+  
+  
+  (method public (set-editor edt)
+    (when (neq? edt editor)
+      (when editor
+        (remove-editor-listener~ editor self))
+      (set! editor edt)
+      (when editor
+        (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))))
+  
+  
+  (method (on-editor evt)
+    (case (get-kind~ evt)
+      ((:designer-change) (set-designer (get-property~ evt designer:)))))
+  
+  
+  (method override (evaluate-range range)
+    (parameterize ((walk-for #f))
+      (with-readtable jazz-readtable
+        (lambda ()
+          (let* ((locator (get-locator~ (get-form~ designer)))
+                 (form (construct-form (cadr (read-string-element (get-string-content))) locator)))
+            (setup-context~ form form)
+            (set-origin~ form (get-origin~ (get-form~ designer)))
+            (set-form~ designer form)
+            (set-modified?~ editor #t)))))))
+
+
+(class Text-Editor extends Component-Editor
+  
+  
+  (form
+    (<install> layout-type: fill
+      (<Scroller-View> vscroll?: #t hscroll?: #t
+        (<!>                       name: content
+          (<Jazz-Text-Editor-View> name: text)))))
+  
+  
+  (method override (client-updated)
+    (when client
+      (set-string-content~ (locate 'text) (form->string (get-form~ designer) 1))))
+  
+  
+  (method override (install rest)
+    (nextmethod rest)
+    (set-editor~ (locate 'text) self)
+    (set-designer~ (locate 'text) designer))))

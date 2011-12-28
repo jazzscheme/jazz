@@ -475,20 +475,20 @@
   
   
   (method (refresh)
-    (define (confirm-refresh)
-      (let ((code (message-box "You must save before refreshing. Save changes?"
-                               type: 'confirmation)))
-        (case code
-          ((yes) #t)
-          ((no) (signal-cancel))
-          ((cancel) (signal-cancel)))))
-    
-    (let ((destination (if (get-modified?)
-                           (when (confirm-refresh)
-                             (designer-save))
-                         (get-origin~ (get-form~ designer)))))
-      (set-modified? #f)
-      (reset-client destination)))
+    (let ((origin (get-origin~ (get-form~ designer)))
+          (form (get-form~ designer)))
+      (set-client
+        (typecase origin
+          ((File) (instantiate~ form))
+          ((Class) (new origin class-form: form))
+          ((Runtime-Reference)
+           (let ((obj (resolve-runtime-reference origin)))
+             (if (is? obj Trait)
+                 (instantiate~ form)
+               (error "Incompatible object"))))
+          (else
+           (instantiate~ form))))
+      (select client)))
   
   
   (method public (reset-client target)

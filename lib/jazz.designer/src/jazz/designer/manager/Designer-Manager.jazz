@@ -143,19 +143,13 @@
   
   
   (method (on-toggle-try-out evt)
-    (define (confirm-save)
-      (case (message-box "You must save before trying out this class"
-                         title: "Save"
-                         yes: "Save"
-                         cancel: "Cancel")
-        ((yes) (save~ client) #t)
-        ((cancel) (signal-cancel))))
-    
-    (let* ((component (get-client~ client))
+    (let* ((form (get-form~ (get-designer~ client)))
+           (origin (get-origin~ form))
+           (component (if (is? origin Class)
+                          (new origin class-form: form)
+                        (instantiate~ form)))
            (descriptor (and component (get-descriptor (class-of component))))
            (try-out? (and descriptor (can-try-out?~ descriptor component))))
-      (when (and try-out? (get-modified?~ client))
-        (confirm-save))
       (unless (and try-out? (try-out~ descriptor component))
         (toggle-try-out~ client))))
   

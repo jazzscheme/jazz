@@ -8,17 +8,22 @@
 
 (module protected jazz.git.foreign jazz
 
+
+;; until we port to non-windows platforms
+(cond-expand
+  (windows
 (import (jazz.platform.types))
 (import (jazz.platform.types-syntax (phase syntax)))
-
 
 
 (c-include "<time.h>")
 (c-include "<git2.h>")
 
+
 ;;;
 ;;;; Constants
 ;;;
+
 
 (c-constant GIT_IDXENTRY_NAMEMASK #x0fff)
 (c-constant GIT_IDXENTRY_STAGEMASK #x3000)
@@ -32,9 +37,11 @@
 (c-constant GIT_SORT_TIME 2)
 (c-constant GIT_SORT_REVERSE 4)
 
+
 ;;;
 ;;;; Error Constants
 ;;;
+
 
 (c-constant GIT_SUCCESS 0)
 (c-constant GIT_ERROR -1)
@@ -63,6 +70,7 @@
 ;;;; Enumerations
 ;;;
 
+
 (c-enumeration git_otype
   (GIT_OBJ_ANY      -2)
   (GIT_OBJ_BAD      -1)
@@ -89,6 +97,7 @@
 ;;;
 ;;;; Types
 ;;;
+
 
 (c-type time_t (native "time_t"))
 (c-type git_time (native "git_time"))
@@ -170,9 +179,11 @@
 (c-type git_strarray* (pointer git_strarray))
 (c-type git_strarray** (pointer git_strarray*))
 
+
 ;;;
 ;;;; Pointers
 ;;;
+
 
 (define-pointer-to-pointer git_odb* "git_odb*")
 (define-pointer-to-pointer git_odb_backend* "git_odb_backend*")
@@ -195,13 +206,16 @@
 (define-pointer-to-pointer git_signature* "git_signature*")
 (define-pointer-to-pointer git_strarray* "git_strarray*")
 
+
 ;;;
 ;;;; Structures
 ;;;
-  
+
+
 (c-structure git_index_time
   (time_t seconds)
   (uint nanoseconds))
+
 
 (c-structure git_index_entry
   (git_index_time ctime)
@@ -217,21 +231,26 @@
   (ushort flags_extended)
   (UTF-8-string path))
 
+
 (c-structure git_strarray
   (char** strings)
   (uint count))
+
 
 ;;;
 ;;;; Blobs
 ;;;
 
+
 (c-external (git_blob_lookup git_blob** git_repository* git_oid*) int )
 (c-external (git_blob_rawcontent git_blob*) void*)
 (c-external (git_blob_rawsize git_blob*) int)
 
+
 ;;;
 ;;;; Commits
 ;;;
+
 
 (c-external (git_commit_lookup git_commit** git_repository* git_oid*) int)
 (c-external (git_commit_id git_commit*) git_oid*)
@@ -244,15 +263,19 @@
 (c-external (git_commit_parentcount git_commit*) uint)
 (c-external (git_commit_parent git_commit** git_commit* uint) int)
 
+
 ;;;
 ;;;; Errors
 ;;;
 
+
 (c-external (git_strerror int) UTF-8-string)
+
 
 ;;;
 ;;;; Indexes
 ;;;
+
 
 (c-external (git_index_clear git_index*) void)
 (c-external (git_index_free git_index*) void)
@@ -264,9 +287,11 @@
 (c-external (git_index_get git_index* int) git_index_entry*)
 (c-external (git_index_entrycount git_index*) uint)
 
+
 ;;;
 ;;;; Object Management
 ;;;
+
 
 (c-external (git_object_id git_object*) git_oid*)
 (c-external (git_object_type git_object*) git_otype)
@@ -277,9 +302,11 @@
 (c-external (git_object_typeisloose git_otype) int)
 (c-external (git_object__size git_otype) size_t)
 
+
 ;;;
 ;;;; Object Database Routines
 ;;;
+
 
 (c-external (git_odb_new git_odb**) int)
 (c-external (git_odb_open git_odb** UTF-8-string) int)
@@ -291,9 +318,11 @@
 (c-external (git_odb_object_data git_odb_object*) void*)
 (c-external (git_odb_open_wstream git_odb_stream** git_odb* size_t git_otype) int)
 
+
 ;;;
 ;;;; Object ID routines
 ;;;
+
 
 (c-external (git_oid_fmt UTF-8-string git_oid*) void)
 (c-external (git_oid_pathfmt UTF-8-string git_oid*) void)
@@ -302,9 +331,11 @@
 (c-external (git_oid_cpy git_oid* git_oid*) void)
 (c-external (git_oid_cmp git_oid* git_oid*) int)
 
+
 ;;;
 ;;;; References
 ;;;
+
 
 (c-external (git_reference_oid git_reference*) git_oid*)
 (c-external (git_reference_target git_reference*) UTF-8-string)
@@ -315,9 +346,11 @@
 (c-external (git_reference_set_target git_reference* UTF-8-string) void)
 (c-external (git_reference_set_oid git_reference* git_oid*) void)
 
+
 ;;;
 ;;;; Repository management
 ;;;
+
 
 (c-external (git_repository_open git_repository** UTF-8-string) int)
 (c-external (git_repository_index git_index** git_repository*) int)
@@ -326,9 +359,11 @@
 (c-external (git_repository_workdir git_repository*) UTF-8-string)
 (c-external (git_repository_is_empty git_repository*) int)
 
+
 ;;;
 ;;;; Revision traversal
 ;;;
+
 
 (c-external (git_revwalk_new git_revwalk** git_repository*) int)
 (c-external (git_revwalk_reset git_revwalk*) void)
@@ -339,17 +374,21 @@
 (c-external (git_revwalk_free git_revwalk*) void)
 (c-external (git_revwalk_repository git_revwalk*) git_repository*)
 
+
 ;;;
 ;;;; Signature
 ;;;
+
 
 (c-external (git_signature_new git_signature** UTF-8-string UTF-8-string git_time_t int) int)
 (c-external (git_signature_dup git_signature*) git_signature*)
 (c-external (git_signature_free git_signature*) void)
 
+
 ;;;
 ;;;; Tag management
 ;;;
+
 
 (c-external (git_tag_lookup git_tag** git_repository* git_oid*) int)
 (c-external (git_tag_id git_tag*) git_oid*)
@@ -360,9 +399,11 @@
 (c-external (git_tag_tagger git_tag*) git_signature*)
 (c-external (git_tag_message git_tag*) UTF-8-string)
 
+
 ;;;
 ;;;; Tree parsing and loading
 ;;;
+
 
 (c-external (git_tree_lookup git_tree** git_repository* git_oid*) int)
 (c-external (git_tree_id git_tree*) git_oid*)
@@ -373,38 +414,48 @@
 (c-external (git_tree_entry_2object git_object** git_repository* git_tree_entry*) int)
 (c-external (git_treebuilder_create git_treebuilder** git_tree*) int)
 
+
 ;;;
 ;;;; Common
 ;;;
 
+
 (c-external (git_strarray_free git_strarray*) void)
 (c-external (git_libgit2_version int* int* int*) void)
+
 
 ;;;
 ;;;; Git custom backend functions
 ;;;
 
+
 (c-external (git_odb_backend_pack git_odb_backend** UTF-8-string) int)
 (c-external (git_odb_backend_loose git_odb_backend** UTF-8-string int int) int)
+
 
 ;;;
 ;;;; Git config management routines
 ;;;
 
+
 (c-external (git_config_open_global git_config**) int)
 (c-external (git_config_add_file_ondisk git_config* UTF-8-string int) int)
 (c-external (git_config_find_global UTF-8-string) int)
+
 
 ;;;
 ;;;; Git reflog management routines
 ;;;
 
+
 (c-external (git_reflog_read git_reflog** git_reference*) int)
 (c-external (git_reflog_write git_reference* git_oid* git_signature* UTF-8-string) int)
+
 
 ;;;
 ;;;; Git reference management routines
 ;;;
+
 
 ;; @param reference_out pointer to the looked-up reference
 ;; @param repo the repository to look up the reference
@@ -413,5 +464,6 @@
 
 (c-external (git_reference_lookup git_reference** git_repository* UTF-8-string) int)
 (c-external (git_reference_listall git_strarray* git_repository* unsigned-int) int)
-
+)
+  (else))
 )

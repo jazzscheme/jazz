@@ -6,7 +6,8 @@
         (jazz.jml)
         (jazz.library)
         (jazz.library.component)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.view))
 
 
 (class Jazz-Text-Editor-View extends Jazz-Text-View
@@ -31,15 +32,19 @@
   
   
   (method override (evaluate-range range)
-    (parameterize ((walk-for #f))
-      (with-readtable jazz-readtable
-        (lambda ()
-          (let* ((locator (get-locator~ (get-form~ designer)))
-                 (form (construct-form (cadr (read-string-element (get-string-content))) locator)))
-            (setup-context~ form form)
-            (set-origin~ form (get-origin~ (get-form~ designer)))
-            (set-form~ designer form)
-            (set-modified?~ editor #t)))))))
+    (with-catched-exception
+      (lambda (exc)
+        #t)
+      (lambda ()
+        (parameterize ((walk-for #f))
+          (with-readtable jazz-readtable
+            (lambda ()
+              (let* ((locator (get-locator~ (get-form~ designer)))
+                     (form (construct-form (cadr (read-string-element (get-string-content))) locator)))
+                (setup-context~ form form)
+                (set-origin~ form (get-origin~ (get-form~ designer)))
+                (set-form~ designer form)
+                (set-modified?~ editor #t)))))))))
 
 
 (class Text-Editor extends Component-Editor
@@ -50,6 +55,15 @@
       (<Scroller-View> vscroll?: #t hscroll?: #t
         (<!>                       name: content
           (<Jazz-Text-Editor-View> name: text)))))
+  
+  
+  (method override (prepare-mode-switch)
+    (with-catched-exception
+      (lambda (exc)
+        #t)
+      (lambda ()
+        (evaluate-buffer~ (locate 'text))
+        (nextmethod))))
   
   
   (method override (client-updated)

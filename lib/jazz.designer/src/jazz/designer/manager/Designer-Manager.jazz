@@ -155,19 +155,26 @@
   
   
   (method (on-viewing-mode evt)
-    (let ((editor client)
-          (application (get-application))
-          (mode (get-property~ evt mode:)))
-      (refresh~ editor)
-      (let ((client (get-client~ editor))
-            (modified? (get-modified?~ editor)))
-        (set-parent~ client #f)
-        (close~ (get-frame~ editor))
-        (let ((editor (open-component client editor-class: (case mode
-                                                             ((view) (view-editor-class~ application))
-                                                             ((grid) (component-editor-class~ application))
-                                                             ((text) (text-editor-class~ application))))))
-          (set-modified?~ editor modified?)))))
+    (with-cursor :wait
+      (lambda ()
+        (let ((editor client)
+              (application (get-application))
+              (mode (get-property~ evt mode:)))
+          (refresh~ editor)
+          (let ((frame (get-frame~ editor))
+                (client (get-client~ editor))
+                (modified? (get-modified?~ editor)))
+            (let ((position (get-position~ frame))
+                  (size (get-size~ frame)))
+              (set-parent~ client #f)
+              (close~ frame)
+              (let ((editor (open-component client editor-class: (case mode
+                                                                   ((view) (view-editor-class~ application))
+                                                                   ((grid) (component-editor-class~ application))
+                                                                   ((text) (text-editor-class~ application)))
+                              host-position: position
+                              host-size: size)))
+                (set-modified?~ editor modified?))))))))
   
   
   (method (on-edit-form evt)

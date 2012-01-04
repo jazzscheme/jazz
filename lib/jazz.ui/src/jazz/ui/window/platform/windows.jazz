@@ -1188,51 +1188,6 @@
 
 
 ;;;
-;;;; Work Area
-;;;
-
-
-(definition public (get-work-area) <Rect>
-  ;; Because Window's SPI_GETWORKAREA doesn't take autohide into account
-  (define (adjust-work-area-with-taskbar rect)
-    rect
-    @convert
-    (let ((state (get-taskbar-state))
-          (edge (get-taskbar-edge)))
-      (if (and (mask-bit-set? state ABS_AUTOHIDE) (mask-bit-set? state ABS_ALWAYSONTOP))
-          (ecase edge
-            ((ABE_LEFT)   (expand-rect rect  1  0  0  0))
-            ((ABE_TOP)    (expand-rect rect  0  1  0  0))
-            ((ABE_RIGHT)  (expand-rect rect  0  0 -1  0))
-            ((ABE_BOTTOM) (expand-rect rect  0  0  0 -1)))
-        rect)))
-  
-  (let ((area (RECT-make)))
-    (SystemParametersInfo SPI_GETWORKAREA 0 area 0)
-    (prog1 (adjust-work-area-with-taskbar (RECT->rect area))
-      (RECT-free area))))
-
-
-(definition public (get-taskbar-state)
-  (unimplemented 'get-taskbar-state)
-  @convert
-  (let ((data (new APPBARDATA)))
-    (set data 'cbSize (size-of APPBARDATA))
-    (prog1 (SHAppBarMessage ABM_GETSTATE data)
-      (APPBARDATA-free data))))
-
-
-(definition public (get-taskbar-edge)
-  (unimplemented 'get-taskbar-edge)
-  @convert
-  (let ((data (new APPBARDATA)))
-    (set data 'cbSize (size-of APPBARDATA))
-    (SHAppBarMessage ABM_GETTASKBARPOS data)
-    (prog1 (get data 'uEdge)
-      (APPBARDATA-free data))))
-
-
-;;;
 ;;;; Drop Files
 ;;;
 

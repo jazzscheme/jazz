@@ -50,7 +50,9 @@
         (jazz.ui.window.platform.windows (cond windows))
         (jazz.ui.window.platform.x11     (cond x11))
         (jazz.debuggee)
+        (jazz.geometry)
         (jazz.graphic)
+        (jazz.platform)
         (jazz.system))
 
 
@@ -75,6 +77,63 @@
   (unless desktop
     (set! desktop (new Desktop)))
   desktop)
+
+
+;;;
+;;;; Monitors
+;;;
+
+
+(class Monitor extends Object
+  
+  
+  (slot handle)
+  
+  
+  (method override (initialize handle)
+    (nextmethod)
+    (set! handle~self handle))
+  
+  
+  (method (with-info proc)
+    (let ((info (MONITORINFO-make)))
+      (MONITORINFO-cbSize-set! info (MONITORINFO-sizeof))
+      (GetMonitorInfo handle info)
+      (prog1 (proc info)
+        (MONITORINFO-free info))))
+  
+  
+  (method public (get-area)
+    (with-info
+      (lambda (info)
+        (RECT->rect (MONITORINFO-rcMonitor-ref info)))))
+  
+  
+  (method public (get-work-area)
+    (with-info
+      (lambda (info)
+        (RECT->rect (MONITORINFO-rcWork-ref info)))))
+  
+  
+  (method public (get-primary?)
+    (with-info
+      (lambda (info)
+        (/= (MONITORINFO-dwFlags-ref info) 0)))))
+
+
+(definition public (toplevel-monitor)
+  (new Monitor (MonitorFromWindow (get-handle~ (get-toplevel)) 0)))
+
+
+(definition public (toplevel-monitor-center size)
+  (monitor-center (toplevel-monitor) size))
+
+
+(definition public (monitor-center monitor size)
+  (let ((area (get-work-area~ monitor)))
+    (let ((area-position (rect-position area))
+          (area-size (rect-size area)))
+      (nu+ area-position (center size area-size)))))
 
 
 ;;;

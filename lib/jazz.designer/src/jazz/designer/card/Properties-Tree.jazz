@@ -142,15 +142,19 @@
             (else
              (with-context-click~ sender pos
                (lambda ()
-                 (let ((info (get-single-selected-data)))
-                   (when (class? info)
-                     (track-popup-menu (new Class-Menu client: self) pos)))))))))
+                 (let ((row (get-selected-row)))
+                   (if (is? row Value-Row)
+                       (track-popup-menu (new-property-menu (get-client)) pos)
+                     (let ((info (get-single-selected-data)))
+                       (when (class? info)
+                         (track-popup-menu (new Class-Menu client: self) pos)))))))))))
   
   
   (method (new-property-menu client)
     (let* ((menu (new Property-Menu client: self))
            (any (car client))
            (creator (get-creator~ any)))
+      @wait
       (if (branch-installed?~ creator)
           (begin
             (set-visible?~ (locate~ menu 'end-consolidate-group) #f)
@@ -457,6 +461,22 @@
   ;;;
   
   
+  (method (reset-property)
+    (let ((client (get-client))
+          (designer (get-designer))
+          (row (selected-row)))
+      (let ((any (car client))
+            (property (get-property~ row)))
+        (let ((value (initialized-value-heuristic (car client) property)))
+          (for-each (lambda (component)
+                      (remove-property~ designer component property value))
+                    client)
+          (set-value~ row value)
+          (set-edited-value~ row value)
+          (set-modified?~ row #f)
+          (set-edited-modified?~ row #f)))))
+  
+  
   (method (consolidate-property)
     (let* ((client (get-client))
            (code (message-box (format "Consolidate value{a} to root and lose values in other traits?" (format-plural (length client))) type: 'confirmation)))
@@ -689,9 +709,17 @@
   
   (form
     (<install>
+      (<Label-Item>     name: reset-property        title: "Reset Property" icon: {Image-Resource "Cancel"} action-handler: {Event-Handler :form on-reset-property})
+      @wait
       (<Radio-Item>     name: consolidate           title: "Consolidate To Root" icon: {Image-Resource "ConsolidateProperty"} action-handler: {Event-Handler :form on-consolidate})
+      @wait
       (<Separator-Item> name: end-consolidate-group)
+      @wait
       (<Radio-Item>     name: distribute            title: "Distribute Onto Traits" icon: {Image-Resource "DistributeProperty"} action-handler: {Event-Handler :form on-distribute})))
+  
+  
+  (method (on-reset-property evt)
+    (reset-property~ client))
   
   
   (method (on-consolidate evt)

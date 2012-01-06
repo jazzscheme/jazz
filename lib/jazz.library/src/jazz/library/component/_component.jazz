@@ -171,18 +171,32 @@
     (apply instantiate~ form rest)))
 
 
-(definition public (imports-locator imports)
+(definition public (locator-add-reference locator reference-symbol reference)
   (lambda (symbol)
-    (continuation-capture
-      (lambda (return)
-        (for-each (lambda (import)
-                    (let ((module-name (if (pair? import) (car import) import)))
-                      (let ((object (module-get module-name symbol)))
-                        (when object
-                          (let ((reference (list 'module-public module-name symbol)))
-                            (continuation-return return (deserialize-runtime-reference reference)))))))
-                  imports)
-        #f))))
+    (if (eq? symbol reference-symbol)
+        reference
+      (locator symbol))))
+  
+
+(definition public (locator-add-imports locator imports)
+  (if (null? imports)
+      (let ((new-locator (imports-locator imports)))
+        (lambda (symbol)
+          (or (new-locator symbol)
+              (locator symbol))))
+    `locator))
+
+
+(definition public (imports-locator imports)
+  (let ((imports (map (lambda (import)
+                        (if (pair? import) (car import) import))
+                      imports)))
+    (lambda (symbol)
+      (let ((module-name (find-if (lambda (module-name)
+                                    (boolean (module-get module-name symbol)))
+                                  imports)))
+        (and module-name
+             (deserialize-runtime-reference (list 'module-public module-name symbol)))))))
 
 
 ;;;

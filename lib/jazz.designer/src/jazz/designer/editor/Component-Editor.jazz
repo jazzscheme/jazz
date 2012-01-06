@@ -474,25 +474,27 @@
     (process-saved))
   
   
-  (method virtual (prepare-mode-switch)
-    (refresh))
+  (method virtual (prepare-mode-switch))
+  
+  
+  (method (recreate-client)
+    (let ((origin (get-origin~ (get-form~ designer)))
+          (form (get-form~ designer)))
+      (typecase origin
+        ((File) (instantiate~ form))
+        ((Class) (new origin class-form: form))
+        ((Runtime-Reference)
+         (let ((obj (resolve-runtime-reference origin)))
+           (if (is? obj Trait)
+               (instantiate~ form)
+             (error "Incompatible object"))))
+        (else
+         (instantiate~ form)))))
   
   
   (method (refresh)
-    (let ((origin (get-origin~ (get-form~ designer)))
-          (form (get-form~ designer)))
-      (set-client
-        (typecase origin
-          ((File) (instantiate~ form))
-          ((Class) (new origin class-form: form))
-          ((Runtime-Reference)
-           (let ((obj (resolve-runtime-reference origin)))
-             (if (is? obj Trait)
-                 (instantiate~ form)
-               (error "Incompatible object"))))
-          (else
-           (instantiate~ form))))
-      (select client)))
+    (set-client (recreate-client))
+    (select client))
   
   
   (method public (reset-client target)

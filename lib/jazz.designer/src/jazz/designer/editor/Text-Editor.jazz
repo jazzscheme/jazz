@@ -31,7 +31,7 @@
       ((:designer-change) (set-designer (get-property~ evt designer:)))))
   
   
-  (method override (evaluate-range range)
+  (method (evaluate-form)
     (with-catched-exception
       (lambda (exc)
         #t)
@@ -39,12 +39,26 @@
         (parameterize ((walk-for #f))
           (with-readtable jazz-readtable
             (lambda ()
-              (let* ((locator (get-locator~ (get-form~ designer)))
-                     (form (construct-form (cadr (read-string-element (get-string-content))) locator)))
-                (setup-context~ form form)
-                (set-origin~ form (get-origin~ (get-form~ designer)))
-                (set-form~ designer form)
-                (set-modified?~ editor #t)))))))))
+              (let ((old-form (get-form~ designer)))
+                (bind (imports form-expr) (read-string-content (get-string-content))
+                  (let* ((locator (imports-locator (cdr imports)))
+                         (new-form (construct-form (cadr form-expr) locator)))
+                    (setup-context~ new-form new-form)
+                    (set-origin~ form (get-origin~ old-form))
+                    (set-form~ designer new-form)
+                    (set-modified?~ editor #t))))))))))
+  
+  
+  (method override (evaluate-range range)
+    (evaluate-form))
+  
+  
+  (method override (evaluate-selection)
+    (evaluate-form))
+  
+  
+  (method override (evaluate-buffer)
+    (evaluate-form)))
 
 
 (class Text-Editor extends Component-Editor
@@ -68,7 +82,19 @@
   
   (method override (client-updated)
     (when client
-      (set-string-content~ (locate 'text) (form->string (get-form~ designer) 1))))
+      (let ((text (locate 'text))
+            (form (get-form~ designer)))
+        (set-string-content~ text "(module #f jazz)")
+        (insert-imports text (form-imports form))
+        (let ((model (get-model~ text)))
+          (delete-range~ model (selection-line~ text 0))
+          (delete-range~ model (selection-line~ text 0))
+          (delete-range~ model (selection-line~ text 0)))
+        (goto-end~ text #t #f)
+        (backspace~ text #f)
+        (let ((form-string (form->string form 1)))
+          (insert-string~ text (format "{%}{%}{%}{a}" form-string)))
+        (goto-home~ text #t #f))))
   
   
   (method override (install rest)

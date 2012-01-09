@@ -43,56 +43,15 @@
         (jazz.locale))
 
 
-(class Child-Domain extends Domain
+(class Child-Domain extends Component-Domain
+  
+  (method override (filter root component)
+    (and (eq? root (get-parent~ component))  
+         (nextmethod root component)))
   
   
-  (property filter-child initialize #f)
-  
-  
-  (method (get-choices component)
-    (let* ((children (get-children~ component))
-           (filtered (if filter-child
-                         (let ((filter-child (resolve-reference~ filter-child)))
-                           (collect-if filter-child children))
-                       children)))
-      (cons (list #f "<None>")
-            (sort string<?
-                  (collect (lambda (child)
-                             (let ((name (get-name~ child)))
-                               (and name
-                                    (list name (symbol->string name)))))
-                           filtered)
-                  key: ->string))))
-  
-  
-  (method override (present value)
-    (if (not value)
-        "<None>"
-      (symbol->string value)))
-  
-  
-  (method override (validate property value component root editor context manager)
-    (validate-value property value component root editor context manager))
-  
-  
-  (method override (validate-value property value component root editor context manager)
-    (define (present-choice choice)
-      (if (not (cdr choice))
-          (car choice)
-        (localize (cadr choice))))
-    
-    (let ((choices (get-choices component)))
-      (when (not (member? value choices key: car))
-        (add-violation~ manager (new Integrity-Violation message: (format "Property {a} must be one of {a}: {t}" (field-name property) (join (map present-choice choices) ", ") value) property: property) component root editor))))
-  
-  
-  (method override (setup-entry view client)
-    (if (> (length client) 1)
-        (let ((entry (new Value-Entry parent: view size: (get-size~ view) domain: self)))
-          (set-editable?~ (locate~ entry 'text) #f)
-          entry)
-      (let ((entry (new Enumeration-Entry parent: view size: (get-size~ view) domain: self)))
-        (let ((combo (locate~ entry 'combo)))
-          (set-condensed?~ combo #f)
-          (set-choices~ combo (get-choices (car client))))
-        entry)))))
+  (method override (domain-root-component client)
+    (when (= 1 (length (remove-duplicates client)))
+      (car client)))))
+
+

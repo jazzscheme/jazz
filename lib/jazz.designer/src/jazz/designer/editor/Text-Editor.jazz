@@ -11,7 +11,7 @@
 
 
 (class Jazz-Text-Editor-View extends Jazz-Text-View
-    
+  
   
   (slot editor initialize #f setter explicit getter generate)
   (slot designer initialize #f accessors generate)
@@ -32,21 +32,25 @@
   
   
   (method (evaluate-form)
-    (with-catched-exception
-      (lambda (exc)
-        #t)
+    (with-cursor :wait
       (lambda ()
-        (parameterize ((walk-for #f))
-          (with-readtable jazz-readtable
+        (when (get-modified?)
+          (with-catched-exception
+            (lambda (exc)
+              #t)
             (lambda ()
-              (let ((old-form (get-form~ designer)))
-                (bind (imports form-expr) (read-string-content (get-string-content))
-                  (let* ((locator (imports-locator (cdr imports)))
-                         (new-form (construct-form (cadr form-expr) locator)))
-                    (setup-context~ new-form new-form)
-                    (set-origin~ new-form (get-origin~ old-form))
-                    (set-form~ designer new-form)
-                    (set-modified?~ editor #t))))))))))
+              (parameterize ((walk-for #f))
+                (with-readtable jazz-readtable
+                  (lambda ()
+                    (let ((old-form (get-form~ designer)))
+                      (bind (imports form-expr) (read-string-content (get-string-content))
+                        (let* ((locator (imports-locator (cdr imports)))
+                               (new-form (construct-form (cadr form-expr) locator)))
+                          (setup-context~ new-form new-form)
+                          (set-origin~ new-form (get-origin~ old-form))
+                          (set-form~ designer new-form)
+                          (set-modified?~ editor #t)
+                          (set-modified? #f)))))))))))))
   
   
   (method override (evaluate-range range)
@@ -97,6 +101,7 @@
         (goto-end~ text #t #f)
         (let ((form-string (form->string form 1)))
           (insert-string~ text (format "{%}{%}{%}{a}" form-string)))
+        (set-modified?~ text #f)
         (goto-home~ text #t #f))))
   
   

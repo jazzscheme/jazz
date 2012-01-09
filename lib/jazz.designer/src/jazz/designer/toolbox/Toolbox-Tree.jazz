@@ -51,6 +51,16 @@
         (jazz.ui.view))
 
 
+(class Toolbox-Menu extends Component-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: new                before: add-item title: "New" icon: {Image-Resource "NewTrait"} action-handler: {Event-Handler :form on-new})
+      (<Label-Item>     name: add                before: add-item title: "Add" icon: {Image-Resource "Added"} action-handler: {Event-Handler :form on-add})
+      (<Separator-Item> name: end-new-group      before: add-item))))
+
+
 (class undocumented Toolbox-Tree extends Descendants-Tree
   
   
@@ -78,15 +88,35 @@
         (nextmethod ref))))
   
   
+  (method virtual (can-add?)
+    (let ((components (selected-components)))
+      (and (not-null? components)
+           (not (is? (car components) Toolbox-Trait)))))
+  
+  
+  (method virtual (can-new?)
+    (let ((components (selected-components)))
+      (and (not-null? components)
+           (not (is? (car components) Toolbox-Trait)))))
+  
+  
+  (method override (context-menu-class)
+    Toolbox-Menu)
+  
+  
   (method override (get-context-menu)
     (let ((menu (nextmethod))
           (components (selected-components)))
-      (when (= 1 (length components))
+      (unless (null? components)
         (let ((component (car components)))
           (when (is? component Toolbox-Addable)
             (let ((kind (get-kind~ (find-ascendant~ component Toolbox))))
               (set-default?~ (locate~ menu 'open) (eq? kind 'user))
               (set-default?~ (locate~ menu 'add) (neq? kind 'user))))))
+      (set-visible?~ (locate~ menu 'add) (can-add?))
+      (set-visible?~ (locate~ menu 'new) (can-new?))
+      (cleanup-separators~ menu)
+      (layout-menu~ menu)
       menu))
   
   
@@ -299,12 +329,9 @@
     (nextmethod)
     (let ((data (get-single-selected-data)))
       (when (is? data Toolbox-Model)
-        (let ((form? (is? data Toolbox-Form))
-              (trait? (is? data Toolbox-Trait)))
+        (let ((form? (is? data Toolbox-Form)))
           (set-action-enabled? {Action components-tree edit-source} #t)
-          (set-action-enabled? {Action components-tree new} (not trait?))
-          (set-action-enabled? {Action components-tree open} (not form?))
-          (set-action-enabled? {Action components-tree add} (not trait?))))))
+          (set-action-enabled? {Action components-tree open} (not form?))))))
   
   
   (method (on-double-click evt)

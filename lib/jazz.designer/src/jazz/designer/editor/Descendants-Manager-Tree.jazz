@@ -40,12 +40,31 @@
 
 (import (jazz.designer)
         (jazz.designer.view)
+        (jazz.jml)
         (jazz.graphic)
         (jazz.library)
         (jazz.library.component)
+        (jazz.runtime)
         (jazz.system.access)
         (jazz.ui)
         (jazz.ui.view))
+
+
+(class undocumented Descendants-Manager-Tree-Actions extends Actions
+  
+  
+  (form
+    (<install>
+      (<Action-Item> name: change-class action-handler: {Event-Handler :focus on-change-class}))))
+
+
+(class undocumented Descendants-Manager-Menu extends Component-Menu
+  
+  
+  (form
+    (<install>
+      (<Separator-Item> before: before-traits)
+      (<Label-Item>     before: before-traits name: change-class title: "Change Class..." icon: {Image-Resource "InstanceInit"} action-handler: {Action descendants-manager-tree change-class}))))
 
 
 (class undocumented Descendants-Manager-Tree extends Descendants-Tree
@@ -108,15 +127,74 @@
   
   
   ;;;
+  ;;;; Classes
+  ;;;
+  
+  
+  (method (on-change-class evt)
+    (let* ((component (selected-component))
+           (reference (get-reference~ (get-context~ (get-form~ designer)) (category-name (class-of component)))))
+      (bind (old-import old-symbol) (parse-runtime-reference reference)
+        (let* ((parent (get-parent~ component))
+               (child-descriptor (find (get-children~ (get-children-descriptor~ (get-class-descriptor~ (class-of parent))))
+                                       (get-name~ component)
+                                       key: get-target~
+                                       test: eq?
+                                       return: 'item))
+               (references (if child-descriptor
+                               (get-classes~ child-descriptor)
+                             (list (runtime-reference->reference (find (get-addable-classes~ parent) component key: resolve-runtime-reference test: is? return: 'item))))))
+          (bind (symbol import) (get-modal Class-Dialog-Toolbox initialize: (lambda (host manager) (setup~ manager old-import old-symbol)) references: references)
+            (unless (and (eq? old-symbol symbol) (eq? old-import import))
+              (let ((next (and (not (eq? component (last-child~ parent)))
+                               (next-child~ parent component))))
+                (with-atomic-undo~ (get-undoer~ designer)
+                  (lambda ()
+                    (remove-child~ designer component)
+                    (let ((new-component (new (module-ref import symbol))))
+                      (add-child~ designer new-component parent name: (get-name~ component) import: import descendant?: #t)
+                      (when next
+                        (send-before~ designer new-component next))
+                      (select-component new-component)))))))))))
+  
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method override (context-menu-class)
+    Descendants-Manager-Menu)
+  
+  
+  (method override (get-context-menu)
+    (let ((menu (nextmethod)))
+      (with-update-locked~ menu
+        (lambda ()
+          (set-visible?~ (locate~ menu 'change-class) (get-action-enabled? {Action descendants-manager-tree change-class}))
+          (cleanup-separators~ menu)
+          (layout-menu~ menu)
+          menu))))
+  
+  
+  ;;;
   ;;;; Focus
   ;;;
   
   
+  (method override (focus-actions)
+    (cons (find-actions 'descendants-manager-tree)
+          (nextmethod)))
+  
+  
   (method override (focus-update-actions)
     (nextmethod)
-    (when (is? (get-single-selected-data) Component)
-      (set-action-enabled? {Action components-tree open} #t)
-      (set-action-enabled? {Action components-tree set-default-traits} #t)))
+    (let ((component (selected-component)))
+      (when component
+        (set-action-enabled? {Action components-tree open} #t)
+        (set-action-enabled? {Action components-tree set-default-traits} #t)
+        (set-action-enabled? {Action descendants-manager-tree change-class} (and (boolean (get-parent~ component))
+                                                                                 (component-owned-by-reference?~ designer component))))))
 
 
   ;;;

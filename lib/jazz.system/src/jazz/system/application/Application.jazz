@@ -1612,7 +1612,11 @@
   
   
   (method public (full-screen-stage fullscreen?)
-    (full-screen (current-stage-border) fullscreen?))
+    (let ((stage (current-stage)))
+      (when stage
+        (set-fullscreen?~ stage fullscreen?)
+        (receive (preference view) (find-top-stage stage)
+          (full-screen view fullscreen?)))))
   
   
   (method public (toggle-full-screen host)
@@ -1636,18 +1640,14 @@
         (with-locked-update
           (lambda ()
             (set-fullscreen?~ toplevel fullscreen?)
-            (when stage
-              (set-fullscreen?~ stage fullscreen?))
-            (receive (preference view) (find-top-stage stage)
-              (for-each-splitter view
-                (lambda (splitter host)
-                  (let ((preferences (get-preferences~ splitter)))
-                    (when (and preferences (eq? (get-name~ preferences) 'top))
-                      (fix-top-splitter-insets splitter)))
-                  (set-full?~ splitter fullscreen?)
-                  (if fullscreen?
-                      (zoom~ splitter host)
-                    (unzoom~ splitter))))))))))
+            (for-each-splitter host
+              (lambda (splitter host)
+                (let ((preferences (get-preferences~ splitter)))
+                  (when (and preferences (eq? (get-name~ preferences) 'top))
+                    (fix-top-splitter-insets splitter)))
+                (if fullscreen?
+                    (zoom~ splitter host)
+                  (unzoom~ splitter)))))))))
   
   
   (method public (on-delete-stage evt)

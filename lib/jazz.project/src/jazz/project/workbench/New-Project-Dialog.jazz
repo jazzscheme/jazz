@@ -98,18 +98,18 @@
     (let ((tree (locate 'kinds))
           (text (locate 'name))
           (root (parse-jml (get-project-kinds))))
+      (define (insert node father)
+        (let* ((title (get-property~ node 'name))
+               (icon (get-property~ node 'icon))
+               (row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: icon)) user-data: node)))
+          (for-each (lambda (child)
+                      (insert child row))
+                    (get-children~ node))))
+      
       (remove-every-row~ tree)
-      (letrec ((insert
-                (lambda (node father)
-                  (let* ((title (get-property~ node 'name))
-                         (icon (get-property~ node 'icon))
-                         (row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: icon)) user-data: node)))
-                    (for-each (lambda (child)
-                                (insert child row))
-                              (get-children~ node))))))
-        (for-each (lambda (node)
-                    (insert node #f))
-                  (get-children~ root)))
+      (for-each (lambda (node)
+                  (insert node #f))
+                (get-children~ root))
       (set-single-selection~ tree 0)
       (ensure-displayed~ tree))
     (update-ok))
@@ -117,7 +117,7 @@
   
   (method (setup-directory)
     (let ((widget (locate 'directory)))
-      (set-moniker~ widget directory)))
+      (set-moniker~ widget (or directory (get-project-directory)))))
 
   
   ;;;

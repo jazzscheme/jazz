@@ -44,7 +44,7 @@
 
 
 
-(class Component-Domain extends Domain
+(class Component-Domain extends Enumeration-Domain
 
   
   (property filter-test initialize #f)
@@ -70,35 +70,34 @@
     
     
   (method virtual (make-values client)
-    (let ((root (domain-root-component client)))
-      (remove-duplicates (cons #f (map (lambda (component) (component->value root component))
-                                       (collect-if (lambda (component) (filter root component)) 
+    (let ((root (domain-root-component client))) 
+      (remove-duplicates (cons #f (map (lambda (component) 
+                                         (component->value root component)) 
+                                       (collect-if (lambda (component) 
+                                                     (filter root component)) 
                                                    (if root (collect-descendants~ root) '())))))))
       
-
+      
+  (method (make-values-assoc-list client) 
+    (sort string>? (map (lambda (value) (list value (present value))) (make-values client)) key: cadr))
+      
+      
   (method override (present value)
     (if (not value)
         "{}"
-      (->string value :reader)))  
+      (->string value :reader))) 
 
  
-  (method override (validate property value component root editor context manager)
-    (validate-value property value component root editor context manager))
-
-
   (method override (validate-value property value component root editor context manager)
-    (let ((values (make-values (list component))))
-      (unless (member? value values)        
-        (let ((message (format "Property {a} must be one of {a}: {t}" (field-name property) (join (sort string>? (map present values)) ", ") value)))
-          (add-violation~ manager (new Integrity-Violation message: message property: property) component root editor)))))
+    (set! choices (make-values-assoc-list (list component)))
+    (nextmethod property value component root editor context manager))
   
   
   (method override (setup-entry view client)
-    (let ((choices (sort string>? (map (lambda (value) (list value (present value))) (make-values client)) key: cadr)))
-      (if (= 1 (length choices))
-          (let ((entry (new Value-Entry parent: view size: (get-size~ view) domain: self)))
-            (set-editable?~ (locate~ entry 'text) #f)
-            entry)
-        (let ((entry (new Enumeration-Entry parent: view size: (get-size~ view) domain: self)))
-          (set-choices~ (locate~ entry 'combo) choices)
-          entry))))))
+    (set! choices (make-values-assoc-list client))
+    (if (= 1 (length choices))
+        (let ((entry (new Value-Entry parent: view size: (get-size~ view) domain: self)))
+          (set-editable?~ (locate~ entry 'text) #f)
+          entry)
+      (nextmethod view client)))))
+    

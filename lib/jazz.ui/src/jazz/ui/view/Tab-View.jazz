@@ -41,7 +41,9 @@
 (import (jazz.geometry)
         (jazz.graphic)
         (jazz.jml)
+        (jazz.library)
         (jazz.locale)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.view))
 
@@ -135,6 +137,25 @@
   (method override (mouse-leave)
     (when close-button-enter
       (close-button-leave~ close-button-enter)))
+
+
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method override (context-menu pos)
+    (with-context-click pos
+      (lambda ()
+        (when (control-down?)
+          (let ((menu (new Context-Menu)))
+            (make-condensed-menu~ menu
+              (enabled-sheets)
+              (lambda (user-data title parent)
+                (new Label-Item parent: parent title: title action-handler: (new Event-Handler execute: (lambda (evt) (set-selection (sheet->rank user-data) user-origin: #t)))))
+              key: get-title~)
+            (layout-menu~ menu)
+            (track-popup-menu menu pos))))))
 
 
   ;;;
@@ -291,7 +312,11 @@
   
   
   (method public (all-sheets)
-    (get-children))
+    children)
+  
+  
+  (method public (enabled-sheets)
+    (collect-if is-enabled?~ children))
   
   
   (method public (remove-every-sheet)

@@ -155,7 +155,7 @@
   
   (method protected virtual (on-editor evt)
     (case (get-kind~ evt)
-      ((:client-change) (set-client (get-property~ evt client:)))
+      ((:client-change) (set-client (get-property~ evt client:) recreate?: (get-property~ evt recreate?:)))
       ((:designer-change) (set-designer (get-property~ evt designer:)))))
 
 
@@ -168,13 +168,15 @@
     client)
 
 
-  (method public (set-client clt)
+  (method public (set-client clt (recreate?: recreate? #f))
     (when (neq? clt client)
-      (when client
+      (when recreate?
+        (transfer-state client clt))
+      (when (and client (not recreate?))
         (preserve-state client))
       (set! client clt)
       (client-update)
-      (when client
+      (when (and client (not recreate?))
         (restore-state client))))
   
   
@@ -185,6 +187,10 @@
   ;;;
   ;;;; State
   ;;;
+  
+  
+  (method protected virtual (transfer-state actual client)
+    )
   
   
   (method protected virtual (preserve-state client)

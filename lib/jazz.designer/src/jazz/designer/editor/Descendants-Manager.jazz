@@ -74,16 +74,20 @@
   
   (method (filter filter-search)
     (define (collect-classes client)
-      (let ((table (make-table test: eq?)))
+      (let ((table (make-table test: eq?))
+            (not-found {Box}))
         (for-each-descendant~ client
           (lambda (component level)
-            (for-each (lambda (category)
-                        (when (class? category)
-                          (let ((class-name (symbol->string (category-name category))))
-                            (when (search class-name filter-search)
-                              (table-set! table category #t)))))
-                      (vector->list (get-ancestors~ (class-of component))))))
-        (table-keys table)))
+            (when (eq? not-found (table-ref table (class-of component) not-found))
+              (let ((match? #f)
+                    (ancestors (get-ancestors~ (class-of component))))
+                (loop (for n from (- (vector-length ancestors) 1) downto 0)
+                      (let ((category (vector-ref ancestors n)))
+                        (let ((category-name (symbol->string (category-name category))))
+                          (when (search category-name filter-search)
+                            (set! match? #t))
+                          (table-set! table category match?))))))))
+        table))
     
     (let ((client (get-client)))
       (when client
@@ -93,9 +97,7 @@
             row-filter:
             (lambda (row)
               (let ((component (get-user-data~ row)))
-                (some? (lambda (class)
-                         (is? component class))
-                       classes))))))))
+                (table-ref classes (class-of component)))))))))
   
   
   (method (get-filter-text)

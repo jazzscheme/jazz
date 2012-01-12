@@ -234,7 +234,7 @@
            (host (get-root~ player))
            (guest (or guest (new-guest guest-class others)))
            (size (or (host-size~ guest-class) (get-size~ guest)))
-           (pos (or (host-position~ guest-class) (center-dialog size))))
+           (pos (or (host-position~ guest-class) (position-dialog size))))
       (set-title~ player (or host-title (host-title~ guest-class) "Dialog"))
       (set-size~ player size)
       (set-position~ player pos)
@@ -252,7 +252,7 @@
         (values #t host)))))
 
 
-(definition public (center-dialog size)
+(definition public (position-dialog size)
   (monitor-center (toplevel-monitor) size))
 
 
@@ -280,10 +280,12 @@
 (definition public (new-palette guest-class . rest)
   (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-visible? #t) (guest #f) (initialize #f) . others) rest
     (let* ((player (new (palette-class~ guest-class) visible?: #f))
-           (host (get-root~ player)))
+           (host (get-root~ player))
+           (size (or host-size (get-size~ host)))
+           (pos (or host-position (position-palette size))))
+      (debug guest-class host-position pos)
       (set-title~ player (or host-title (host-title~ guest-class) "Palette"))
-      (when host-position
-        (set-position~ player host-position))
+      (set-position~ player pos)
       (when host-size
         (set-size~ player host-size))
       ;; It is important to set the palette's size before installing the guest
@@ -315,6 +317,11 @@
         (fade-in~ palette))
       (focus-host~ host))
     palette))
+
+
+(definition public (position-palette size)
+  (nu- (monitor-center (toplevel-monitor) size)
+       {Dimension 0 100}))
 
 
 (definition public (collect-palettes)

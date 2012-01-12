@@ -39,7 +39,9 @@
 
 
 (import (jazz.designer)
-        (jazz.jml))
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui))
 
 
 (class undocumented Descendants-Manager extends Descendants-Editor
@@ -47,13 +49,58 @@
   
   (form
     (<install>
-      (<!>       name: border
-        (<!>     name: scroller
-          (<!>   name: content
-            (<!> name: header   shown?: #f))))))
+      (<!>                          name: tools
+        (<Border-View>                                location: tail size: {Dimension 130 21} border-type: fill border-insets: {Rect 0 2 0 0}
+          (<Border-View>                              border-type: edge style: entry
+            (<Scroller-View>                          hscroll?: #f vscroll?: #f
+              (<!>                  name: content     layout-type: fill
+                (<Filter-Text-View> name: filter-text content-change-handler: {Event-Handler :guest on-filter-text-change}))))))
+      (<!>                          name: border
+        (<!>                        name: scroller
+          (<!>                      name: content
+            (<!>                    name: header      shown?: #f))))))
 
   
   (method override (form-model form)
     (case (get-name~ form)
       ((tree) Descendants-Manager-Tree)
-      (else (nextmethod form))))))
+      (else (nextmethod form))))
+  
+  
+  ;;;
+  ;;;; Filter
+  ;;;
+  
+  
+  (method (filter filter-search)
+    (define (collect-classes client)
+      (let ((table (make-table test: eq?)))
+        (for-each-descendant~ client
+          (lambda (component level)
+            (for-each (lambda (category)
+                        (when (class? category)
+                          (let ((class-name (symbol->string (category-name category))))
+                            (when (search class-name filter-search)
+                              (table-set! table category #t)))))
+                      (vector->list (get-ancestors~ (class-of component))))))
+        (table-keys table)))
+    
+    (let ((client (get-client)))
+      (when client
+        (let ((classes (collect-classes client)))
+          (filter-rows~ (get-tree)
+            #f
+            row-filter:
+            (lambda (row)
+              (let ((component (get-user-data~ row)))
+                (some? (lambda (class)
+                         (is? component class))
+                       classes))))))))
+  
+  
+  (method (get-filter-text)
+    (locate 'filter-text))
+  
+  
+  (method (on-filter-text-change evt)
+    (filter-target~ (get-filter-text)))))

@@ -521,20 +521,29 @@
   
   
   (method public (reprint-current-form (space-properties?: space-properties? #t) (align-name?: align-name? #t))
-    (let* ((range (declaration-range (get-end)))
-           (str (get-string range))
-           (form (jml->form (second (with-jazz-readtable (lambda () (read-string-element str)))))))
-      (if (is-not? form Form)
-          (bell)
-        (let* ((designer (new Designer form: form))
-               (output (saved-form~ designer 2 space-properties?: space-properties? align-name?: align-name?)))
-          (if (string=? str output)
-              (user-message "No changes to current form")
-            (with-update-locked
-              (lambda ()
-                (set-selection range)
-                (insert-string output)
-                (user-message "Current form reprinted")))))))))
+    (let ((range (declaration-range (get-end))))
+      (if range
+          (let ((str (get-string range)))
+            (let ((expr (with-jazz-readtable (lambda () (read-string-element str)))))
+              (if (and (pair? expr)
+                       (eq? (car expr) 'form)
+                       (pair? (cdr expr))
+                       (pair? (cadr expr))
+                       (eq? (car (cadr expr)) '<install>))
+                  (let ((form (jml->form (cadr expr))))
+                    (if (is? form Form)
+                        (let* ((designer (new Designer form: form))
+                               (output (saved-form~ designer 2 space-properties?: space-properties? align-name?: align-name?)))
+                          (if (string=? str output)
+                              (user-message "No changes to current form")
+                            (with-update-locked
+                              (lambda ()
+                                (set-selection range)
+                                (insert-string output)
+                                (user-message "Current form reprinted")))))
+                      (bell)))
+                (bell))))
+        (bell)))))
 
 
 ;;;

@@ -44,7 +44,6 @@
         (jazz.graphic)
         (jazz.jml)
         (jazz.library)
-        (jazz.library.component)
         (jazz.locale)
         (jazz.system)
         (jazz.ui)
@@ -169,19 +168,7 @@
         (fill-column)
         (invalidate-header))))
   
-  
-  (method override (validate-component validation-context)
-    (let ((values (filled-column-values (list self)))) 
-      (unless (memq? filled-column values)
-        (add-violation~ 
-          (get-manager~ validation-context) 
-          (new Integrity-Violation message: (format "filled-column must be one of {a}: {t}" (join (map ->string values) ", ") filled-column) property: filled-column) 
-          self 
-          (get-root~ validation-context) 
-          (get-editor~ validation-context)))))
 
-  
-  
   ;;;
   ;;;; Access
   ;;;
@@ -2857,19 +2844,6 @@
     (new Tree-View-Descriptor)))
 
 
-
-;;;
-;;;; Tree-View definitions
-;;;
-
-
-(definition (filled-column-values client)
-  (if (pair? client) 
-      (component-descendant-value-list (car client) filter-proc: (lambda (descendant) (is? descendant Tree-Column))) 
-    '()))
-
-
-
 ;;;
 ;;;; Locator
 ;;;
@@ -3052,6 +3026,8 @@
 (import (jazz.designer))
 
 
+(definition (is-tree-column? root component)
+  (is? component Tree-Column))
 
 
 (class Tree-View-Descriptor extends Outline-View-Old-Descriptor
@@ -3083,7 +3059,7 @@
         (<Property-Descriptor>  name: empty-background          standard?: #f
           (<Value-Domain>       name: domain                    nullable?: #t))
         (<Property-Descriptor>  name: filled-column
-          (<Enumeration-Domain> name: domain                    choices: {Reference filled-column-values}))
+          (<Child-Domain>       name: domain                    filter-test: {Reference is-tree-column?}))
         (<Property-Descriptor>  name: column-spacing            standard?: #f
           (<Integer-Domain>     name: domain))
         (<Property-Descriptor>  name: column-frequency          standard?: #f

@@ -52,7 +52,6 @@
   (property limit      initialize #f  accessors generate)
   
   
-  
   ;;;
   ;;;; Validation
   ;;;
@@ -67,9 +66,8 @@
       (if (not (cdr choice))
           (car choice)
         (localize (cadr choice))))
-                                  
-    (unless (or (is? choices Reference)
-                (member? value choices key: car))
+    
+    (when (not (member? value choices key: car))
       (add-violation~ manager (new Integrity-Violation message: (format "Property {a} must be one of {a}: {t}" (field-name property) (join (map present-choice choices) ", ") value) property: property) component root editor)))
   
   
@@ -81,7 +79,7 @@
   (method override (present value)
     (if (not value)
         "{}"
-      (let ((pair (unless (is? choices Reference) (assq value choices))))
+      (let ((pair (assq value choices)))
         (if (not pair)
             (->string value)
           (localize (cadr pair))))))
@@ -91,26 +89,16 @@
   ;;;; Entry
   ;;;
   
-  (method (make-choices-list client)
-    (cond ((is? choices Reference) (sort string<=? 
-                                         (cons (list #f "{}") 
-                                               (map (lambda (value) 
-                                                      (list value (->string value)))
-                                                    ((resolve-reference~ choices) client)))
-                                         key: cadr))
-          ((list? choices) choices)
-          (else (error "Property choices must be either a list or a Reference"))))
-  
   
   (method override (setup-entry view client)
     (let ((entry (new Enumeration-Entry parent: view size: (get-size~ view) domain: self)))
       (let ((combo (locate~ entry 'combo)))
         (set-condensed?~ combo condensed?)
-        (set-choices~ combo (make-choices-list client))
-      entry)))
+        (set-choices~ combo choices))
+      entry))
   
   
   (method override (setup-list-entry view client)
     (let ((entry (new Enumeration-List-Entry parent: view domain: self)))
-      (setup~ entry client (make-choices-list client))
+      (setup~ entry client choices)
       entry))))

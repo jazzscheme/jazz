@@ -467,6 +467,16 @@
           (set-modified? #t)))))
   
   
+  (method (purge-form form)
+    (when (and (eq? (get-action~ form) 'modify)
+               (null? (get-properties~ form))
+               (null? (get-children~ form)))
+      (let ((parent (get-parent~ form)))
+        (when parent
+          (remove-child~ parent form)
+          (purge-form parent)))))
+  
+  
   ;; This works well really only with branches because else we don't have restore information
   (method public virtual (remove-property component/path property default-value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t))
     (let* ((branch (target-branch trait))
@@ -479,6 +489,7 @@
         (receive (next-form next-restore) (find-next-branch branch component property)
           (when (has-property?~ form property)
             (remove-property~ form property)
+            (purge-form form)
             (let ((old-value (read-property component property)))
               (when undoable?
                 (register-undo~ undoer

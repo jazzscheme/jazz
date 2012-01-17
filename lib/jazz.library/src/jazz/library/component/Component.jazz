@@ -69,6 +69,7 @@
   (slot branch                       initialize #f)   ;; the immediatly installed branch
   (slot base-branch                  initialize #f)   ;; the branch set by base-traits and used when replacing the default-traits
   (slot form                         initialize #f)   ;; the form that created the component
+  (slot class-forms                  initialize #f getter generate)
   (slot creator                      initialize #f)   ;; the root component of the class form (used for indexing and as inner class instantiation context)
   (slot creator-branch               initialize #f)   ;; the branch that created the component (#f if none)
   (slot event-consumer               initialize self)
@@ -317,9 +318,14 @@
       (let ((init-name (or (getf initargs name:) (default-name))))
         (when init-name
           (set-name init-name)))
+      (let ((alternative-class-form (getf initargs class-form:))
+            (class-forms (get-class-forms~ (class-of self))))
+        (set! class-forms~self (if alternative-class-form
+                                   (cons alternative-class-form (cdr class-forms))
+                                 class-forms)))
       (set-form (or (getf initargs form:)
-                    (getf initargs class-form:)
-                    (get-class-form~ (class-of self))))
+                    (and (not-null? class-forms)
+                         (car class-forms))))
       (set-creator (getf initargs creator:))
       (set-creator-branch (getf initargs creator-branch:)))
     
@@ -328,19 +334,12 @@
 
 
   (method protected chained (install initargs <Object>)
-    (define (install-component)
-      (let ((alternative-class-form (getf initargs class-form:))
-            (class-forms (get-class-forms~ (class-of self))))
-        (install-inherited (if alternative-class-form
-                               (cons alternative-class-form (cdr class-forms))
-                             class-forms))))
-    
     (define (install-inherited forms)
       (when (not-null? forms)
         (install-inherited (cdr forms))
         (install-form (car forms) self #f #f)))
     
-    (install-component))
+    (install-inherited class-forms))
   
   
   (method public (install-form form <Object> creator <Object> creator-branch <Object> restore-form <Object>)

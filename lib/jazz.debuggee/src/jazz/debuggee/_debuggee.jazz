@@ -334,7 +334,14 @@
 
 
 (definition package (persist-console)
-  (persist-console~ controller-debugger (get-remote~ (thread-console (current-thread) select?: #t))))
+  (persist-console~ controller-debugger (get-remote~ (thread-console (current-thread)))))
+
+
+(definition package (close-console)
+  (let ((thread (current-thread)))
+    (let ((console (thread-console thread)))
+      (detach-console thread console)
+      (unregister-console~ controller-debugger (get-remote~ console)))))
 
 
 (definition (console-port-getter)
@@ -344,18 +351,19 @@
 
 
 (definition (detach-consoles)
-  (define (detach-console thread console)
-    (stop-debuggee-console-pump (get-pump~ console))
-    (close-port (get-tail~ console))
-    (close-port (get-head~ console))
-    (table-clear *consoles* thread))
-  
+  (for-each (lambda (pair)
+              (bind (thread . console) pair
+                (detach-console thread console)))
+            (table-keys/values *consoles*)))
+
+
+(definition (detach-console thread console)
   (with-consoles-mutex
     (lambda ()
-      (for-each (lambda (pair)
-                  (bind (thread . console) pair
-                    (detach-console thread console)))
-                (table-keys/values *consoles*)))))
+      (stop-debuggee-console-pump (get-pump~ console))
+      (close-port (get-tail~ console))
+      (close-port (get-head~ console))
+      (table-clear *consoles* thread))))
 
 
 ;;;
@@ -371,7 +379,7 @@
           (lambda (str)
             (when debugger
               (console-output~ debugger console str)))))
-      'debuggee-console-pump)))
+      'debuggee-pump)))
 
 
 (definition (stop-debuggee-console-pump thread)

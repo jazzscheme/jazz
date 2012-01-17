@@ -226,6 +226,10 @@
   (make-table test: debugged=? hash: debugged-hash))
 
 
+(definition package (get-debugger-resources-table)
+  *debugger-resources*)
+
+
 (definition public (get-debugger-resources process)
   (table-ref *debugger-resources* process '()))
 
@@ -238,6 +242,20 @@
 
 (definition public (unregister-debugger-resource process resource)
   (set-debugger-resources process (remove! resource (get-debugger-resources process))))
+
+
+(definition public (find-debugger-resource target)
+  (continuation-capture
+    (lambda (return)
+      (let ((manager (get-debugger-manager)))
+        (for-each-process~ manager
+          (lambda (debugger process live? focused?)
+            (for-each (lambda (resource)
+                        (let ((reference (get-reference~ resource)))
+                          (when (eq? reference target)
+                            (continuation-return return resource))))
+                      (get-debugger-resources process)))))
+      #f)))
 
 
 (definition package (close-process-debugger-resources process)
@@ -298,7 +316,7 @@
                         (with-jrm-exception-handler
                           (lambda ()
                             (console-input~ process-proxy thread-proxy str))))))
-        'debugger-console-pump)))
+        'debugger-pump)))
   
   (let ((manager (get-console-manager)))
     (bind (title traits thread) (process-information process-proxy thread-proxy)

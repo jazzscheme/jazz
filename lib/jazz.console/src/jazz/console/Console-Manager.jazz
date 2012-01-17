@@ -116,7 +116,7 @@
   
   
   (method (register-console presentation select? (view-class: view-class #f) (console-button?: console-button? #t) (process-title: process-title #f) (process-traits: process-traits #f) (process-thread: process-thread #f))
-    (let ((tool (and console-button? (new Console-Button title: (console-title process-title process-traits process-thread) process-title: process-title process-traits: process-traits process-thread: process-thread auto-size?: #t location: 'head resource: {Image-Resource "Process"} portfolio: :images tooltip-text: presentation tooltip?: #t))))
+    (let ((tool (and console-button? (new Console-Button title: (console-title process-title process-traits process-thread) process-title: process-title process-traits: process-traits process-thread: process-thread console-manager: self auto-size?: #t location: 'head resource: {Image-Resource "Process"} portfolio: :images tooltip-text: presentation tooltip?: #t))))
       (when tool
         (add-tool~ (get-host) tool))
       (let ((pad (get-pad))
@@ -203,6 +203,15 @@
   
   
   ;;;
+  ;;;; Console
+  ;;;
+  
+  
+  (method (console-context-menu button pos)
+    (track-popup-menu~ button (new Console-Menu client: self) pos))
+  
+  
+  ;;;
   ;;;; Events
   ;;;
 
@@ -231,7 +240,16 @@
       (if (not text)
           (bell)
         (clear-console~ text)
-        (acquire-focus~ text)))))
+        (acquire-focus~ text))))
+  
+  
+  (method (on-close-console evt)
+    (let ((console (get-text)))
+      (when console
+        (let ((resource (find-debugger-resource console)))
+          (if (not resource)
+              (unregister-debugger-console console)
+            (close-resource~ resource)))))))
 
 
 ;;;
@@ -242,9 +260,10 @@
 (class Console-Button extends Radio-Tool
   
   
-  (property process-title  initialize #f accessors generate)
-  (property process-traits initialize #f accessors generate)
-  (property process-thread initialize #f accessors generate)
+  (property process-title   initialize #f accessors generate)
+  (property process-traits  initialize #f accessors generate)
+  (property process-thread  initialize #f accessors generate)
+  (property console-manager initialize #f accessors generate)
   
   
   (method public (update-title)
@@ -256,7 +275,24 @@
       (let ((background (if selected?
                             (or (get-active-background~ look) {Color White})
                           (or (get-inactive-background~ look) (get-inactive-background~ (find-look 'docked))))))
-        (fill-background~ surface (get-bounds) background)))))
+        (fill-background~ surface (get-bounds) background))))
+  
+  
+  (method override (context-menu pos)
+    (console-context-menu~ console-manager self pos)))
+
+
+;;;
+;;;; Console-Menu
+;;;
+
+
+(class Console-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Check-Item> name: close title: "Close Console" action-handler: {Event-Handler (:form :client) on-close-console}))))
 
 
 ;;;

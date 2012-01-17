@@ -2021,7 +2021,7 @@
     (jazz:error "Unit name expected: {a}" unit-name)))
 
 
-(define jazz:script-arguments
+(define jazz:current-script-arguments
   (make-parameter '()))
 
 

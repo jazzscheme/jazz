@@ -47,13 +47,13 @@
 (class Enumeration-Domain extends Domain
   
   
-  (property choices             initialize '() accessors generate)
-  (property choices-handler     initialize #f  accessors generate)
-  (property value->text-handler initialize #f  accessors generate)
-  (property condensed?          initialize #f  accessors generate)
-  (property strict?             initialize #f  accessors generate)
-  (property limit               initialize #f  accessors generate)
-  (property nil-presentation    initialize #f  getter explicit)
+  (property choices                     initialize '() accessors generate)
+  (property choices-handler             initialize #f  accessors generate)
+  (property value->presentation-handler initialize #f  accessors generate)
+  (property condensed?                  initialize #f  accessors generate)
+  (property strict?                     initialize #f  accessors generate)
+  (property limit                       initialize #f  accessors generate)
+  (property nil-presentation            initialize #f  getter explicit)
     
   
   ;;;
@@ -82,8 +82,8 @@
   
   
   (method (value->text value)
-    (if value->text-handler
-        ((resolve-reference~ value->text-handler) value)
+    (if value->presentation-handler
+        ((resolve-reference~ value->presentation-handler) value)
       (->string value)))
   
   
@@ -108,11 +108,8 @@
   (method (make-choices-list client)
     (if (not choices-handler)
         choices
-      (sort string<=? (cons (list #f (get-nil-presentation)) 
-                            (map (lambda (value)
-                                   (list value (value->text value)))
-                                 ((resolve-reference~ choices-handler) client)))
-        key: cadr)))
+      (let ((dynamic-choices (map (lambda (value) (list value (value->text value))) ((resolve-reference~ choices-handler) client))))
+        (sort string<=? (if nullable? (cons (list #f (get-nil-presentation)) dynamic-choices) dynamic-choices) key: cadr))))
   
   
   (method override (setup-entry view client)

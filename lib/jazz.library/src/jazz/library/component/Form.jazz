@@ -112,10 +112,15 @@
   
   
   (method override (copy-object deep?)
-    (let ((copy (new Form textual?: #f data: (and data (copy data)) origin: origin context: context action: action model: model locator: locator name: name tag-symbolic?: tag-symbolic? tag-reference: tag-reference properties: (copy properties) children: (subcopy children deep?))))
-      (when (and deep? (has-property? 'client-form))
-        (set-property~ copy 'client-form (copy-object~ (get-property 'client-form) #t)))
-      copy))
+    (let ((properties (copy properties))
+          (children (subcopy children deep?)))
+      (let ((new-form (new Form textual?: #f data: (and data (copy data)) origin: origin context: context action: action model: model locator: locator name: name tag-symbolic?: tag-symbolic? tag-reference: tag-reference properties: properties children: children)))
+        (for-each (lambda (form)
+                    (set-parent-value~ form new-form))
+                  children)
+        (when (and deep? (has-property? 'client-form))
+          (set-property~ new-form 'client-form (copy-object~ (get-property 'client-form) #t)))
+        new-form)))
   
   
   (method override (print output readably)

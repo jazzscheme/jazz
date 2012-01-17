@@ -38,27 +38,32 @@
 (module protected jazz.validation.validate.Validation-Suite jazz
 
 
+(import (jazz.validation))
+
+
 (class Validation-Suite extends Object
   
   
   (slot feedback)
-  (slot failed-assertions)
+  (slot feedback-port)
+  (slot failures)
   
   
-  (method override (initialize (feedback: feedback #f))
-    (define (default-feedback format-string . rest)
-      (apply format :terminal format-string rest)
-      (format :terminal "{%}"))
-    
+  (method override (initialize (feedback: feedback #f) (feedback-port: feedback-port #f))
     (nextmethod)
-    (set! feedback~self (or feedback default-feedback)))
+    (set! feedback~self (or feedback default-feedback))
+    (set! feedback-port~self (or feedback-port :terminal)))
+  
+  
+  (method (default-feedback format-string . rest)
+    (apply format feedback-port format-string rest)
+    (format feedback-port "{%}"))
   
   
   (method public (validate (test: test #t) (report-success?: report-success? #t))
     (define (validate-suite)
-      (set! failed-assertions (new List-Factory))
-      (for-each invoke-tester (if (pair? test) test (list test)))
-      (feedback "Done"))
+      (set! failures (new List-Factory))
+      (for-each invoke-tester (if (pair? test) test (list test))))
     
     (define (invoke-tester class)
       (let ((tester (new class suite: self)))
@@ -66,19 +71,21 @@
         (test~ tester)))
     
     (define (report-results (report-success?: report-success? #t))
-      (let ((failed (get-output~ failed-assertions)))
+      (let ((failed (get-output~ failures)))
         (if (null? failed)
             (when report-success?
-              (format :terminal "Test suite completed successfully.{%}"))
-          (format :terminal "The following assertions failed:{%}{%}")
-          (for-each (lambda (info)
-                      (bind (title section message) info
-                        (format :terminal "{a}{a} : {a}{%}" title (if section (format ".{a}" section) "") message)))
+              (format feedback-port "Test suite completed successfully.{%}"))
+          (format feedback-port "The following assertions failed:{%}{%}")
+          (for-each (lambda (failure)
+                      (let ((tester (get-tester~ failure))
+                            (section (get-section~ failure))
+                            (message (get-message~ failure)))
+                        (format feedback-port "{a}{a} : {a}{%}" tester (if section (format ".{a}" section) "") message)))
                     failed))))
     
     (validate-suite)
     (report-results report-success?: report-success?))
   
   
-  (method public (assertion-failed title section form)
-    (put~ failed-assertions (list title section form)))))
+  (method public (assertion-failed tester section message)
+    (put~ failures (new Validation-Failure tester: tester section: section message: message)))))

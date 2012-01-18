@@ -154,20 +154,24 @@
           (set-client-direct~ (get-parent) selection))
         (acquire-focus~ tool)))
     
-    (let ((outers (collect-outers clt)))
-      (unless (equal? outers (collect-outers client))
-        (set! client clt)
+    (let* ((outers (collect-outers clt))
+           (old-outers (collect-outers client))
+           (groups (and clt (not-null? clt) (collect-groups outers))))
+      (set! client clt)
+      (unless (equal? outers old-outers)
         (close-children)
         (when (and client (not-null? client))
-          (let ((groups (collect-groups outers)))
-            (cond (groups
-                    (let ((selected (selected-group groups client)))
-                      (for-each (lambda (group)
-                                  (setup-tool (new Containment-Tool parent: self resource: (get-component-image~ (car group)) portfolio: :images selected?: (eq? group selected) selection: group uniform?: #t)))
-                                groups)))
-                  (else
-                   (setup-tool (new Containment-Tool parent: self resource: {Image-Resource "All"} portfolio: :images selected?: #t selection: client uniform?: #f)))))
-          (layout-view))))))
+          (cond (groups
+                  (for-each (lambda (group)
+                              (setup-tool (new Containment-Tool parent: self resource: (get-component-image~ (car group)) portfolio: :images selection: group uniform?: #t)))
+                            groups))
+                (else
+                 (setup-tool (new Containment-Tool parent: self resource: {Image-Resource "All"} portfolio: :images selected?: #t selection: client uniform?: #f))))
+          (layout-view)))
+      (when groups
+        (let* ((selected-group (selected-group groups client))
+               (selected-tool (find children selected-group test: equal? key: get-selection~ return: 'item)))
+          (set-selected?~ selected-tool #t))))))
 
 
 ;;;

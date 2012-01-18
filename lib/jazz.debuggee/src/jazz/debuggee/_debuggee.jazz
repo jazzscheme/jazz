@@ -265,13 +265,14 @@
 (class Console extends Object
   
   
-  (slot remote    getter generate)
-  (slot pump      getter generate)
-  (slot tail      getter generate)
-  (slot head      getter generate)
-  (slot readtable accessors generate)
-  (slot context   accessors generate)
-  (slot history   accessors generate)
+  (slot remote      getter generate)
+  (slot pump        getter generate)
+  (slot tail        getter generate)
+  (slot head        getter generate)
+  (slot readtable   accessors generate)
+  (slot repl-thread accessors generate)
+  (slot context     accessors generate)
+  (slot history     accessors generate)
   
   
   (method override (initialize remote pump tail head)
@@ -280,6 +281,7 @@
     (set! tail~self tail)
     (set! head~self head)
     (set! readtable~self #f)
+    (set! repl-thread~self #f)
     (set! context~self (unspecified))
     (set! history~self #f)))
 
@@ -338,10 +340,14 @@
 
 
 (definition package (close-console)
-  (let ((thread (current-thread)))
-    (let ((console (thread-console thread)))
-      (detach-console thread console)
-      (unregister-console~ controller-debugger (get-remote~ console)))))
+  (close-thread-console (current-thread)))
+
+
+(definition package (close-thread-console thread)
+  (let ((console (thread-console thread)))
+    (stop-repl-thread console)
+    (detach-console thread console)
+    (unregister-console~ controller-debugger (get-remote~ console))))
 
 
 (definition (console-port-getter)
@@ -400,28 +406,38 @@
 
 (definition (with-repl-thread thread reason port level thunk (step?: step? #f))
   (parameterize ((current-repl-level level))
-    (let ((thread (start-repl-thread thread reason port level step?: step?)))
+    (let ((repl-thread (start-repl-thread thread reason port level step?: step?)))
       (unwind-protect
           (thunk)
-        (exit-thread thread)))))
+        (stop-repl-thread (thread-console thread))))))
 
 
 (definition public (start-repl-thread thread reason port (level 0) (step?: step? #f))
-  (thread-start!
-    (new-system-thread
-      (lambda ()
-        (when (= level 0)
-          (display-banner port))
-        (when reason
-          (format port #"\($\)"#)
-          (display reason port)
-          (newline port))
-        (when (and (> level 0) (not step?))
-          (display-prompt port level))
-        (read-eval-print-loop thread port level))
-      (if (= level 0)
-          'repl
-        (string->symbol (format "repl{a}" level))))))
+  (let ((repl-thread
+          (thread-start!
+            (new-system-thread
+              (lambda ()
+                (when (= level 0)
+                  (display-banner port))
+                (when reason
+                  (format port #"\($\)"#)
+                  (display reason port)
+                  (newline port))
+                (when (and (> level 0) (not step?))
+                  (display-prompt port level))
+                (read-eval-print-loop thread port level))
+              (if (= level 0)
+                  'repl
+                (string->symbol (format "repl{a}" level)))))))
+    (set-repl-thread~ (thread-console thread) repl-thread)
+    repl-thread))
+
+
+(definition package (stop-repl-thread console)
+  (let ((repl-thread (get-repl-thread~ console)))
+    (when repl-thread
+      (exit-thread repl-thread)
+      (set-repl-thread~ console #f))))
 
 
 (definition public (start-local-debugger-repl)

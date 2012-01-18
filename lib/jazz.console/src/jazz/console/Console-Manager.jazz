@@ -128,6 +128,7 @@
             (set-selection~ pad view))
           (layout-view~ pad)
           (when tool
+            (set-console~ tool text)
             (set-action-handler~ tool
               (new Event-Handler
                 execute: (lambda (event)
@@ -208,7 +209,7 @@
   
   
   (method (console-context-menu button pos)
-    (track-popup-menu~ button (new Console-Menu client: self) pos))
+    (track-popup-menu~ button (new Console-Menu client: self button: button) pos))
   
   
   ;;;
@@ -244,12 +245,13 @@
   
   
   (method (on-close-console evt)
-    (let ((console (get-text)))
-      (when console
-        (let ((resource (find-debugger-resource console)))
-          (if (not resource)
-              (unregister-debugger-console console)
-            (close-resource~ resource)))))))
+    (let ((console (get-console~ (get-button~ (get-parent~ (get-sender~ evt))))))
+      (let ((resource (find-debugger-resource console)))
+        (if (not resource)
+            (unregister-debugger-console console)
+          (let ((process (get-reference~ (get-process~ resource)))
+                (thread (get-reference~ (get-thread~ resource))))
+            (console-close~ process thread)))))))
 
 
 ;;;
@@ -264,6 +266,7 @@
   (property process-traits  initialize #f accessors generate)
   (property process-thread  initialize #f accessors generate)
   (property console-manager initialize #f accessors generate)
+  (property console         initialize #f accessors generate)
   
   
   (method public (update-title)
@@ -288,6 +291,9 @@
 
 
 (class Console-Menu extends Context-Menu
+  
+  
+  (property button initialize #f accessors generate)
   
   
   (form

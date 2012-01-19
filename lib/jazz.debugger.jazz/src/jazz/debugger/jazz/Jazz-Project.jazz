@@ -60,6 +60,7 @@
   (property profile          initialize #f accessors generate)
   (property arguments        initialize #f accessors generate)
   (property debug-script     initialize #f accessors generate)
+  (property validate-script  initialize #f accessors generate)
   (property script-arguments initialize #f accessors generate)
   (property test-unit        initialize #f accessors generate)
 
@@ -130,11 +131,35 @@
 
 
   ;;;
+  ;;;; Validate
+  ;;;
+  
+  
+  (method override (project-validate (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (debugger-cookie: debugger-cookie #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
+    (if debug-script
+        (parameterize ((current-script-arguments (cons self (or script-arguments '()))))
+          (load-script (parse~ debug-script)))
+      (if product
+          (launch
+            executable: executable
+            debugger?: #t
+            debugger-interactive?: debugger-interactive?
+            debugger-cookie: debugger-cookie
+            validate?: #t
+            profile: profile
+            command-action: command-action
+            command-arguments: command-arguments
+            show-console?: show-console?
+            wait?: wait?)
+        (message-box "This project doesn't define a product property"))))
+
+
+  ;;;
   ;;;; Launch
   ;;;
   
   
-  (method override (launch (executable: executable #f) (directory: directory #f) (kernel-arguments: kernel-arguments #f) (action: action #f) (debugger?: debugger? #f) (debugger-cookie: debugger-cookie #f) (debugger-interactive?: debugger-interactive? #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f) (invite: invite #f))
+  (method override (launch (executable: executable #f) (directory: directory #f) (kernel-arguments: kernel-arguments #f) (action: action #f) (debugger?: debugger? #f) (debugger-cookie: debugger-cookie #f) (debugger-interactive?: debugger-interactive? #f) (validate?: validate? #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f) (invite: invite #f))
     (define (determine-kernel)
       (cond ((eq? executable :choose) (choose-kernel))
             (executable executable)
@@ -158,6 +183,7 @@
              (debugger-interactive-arg (if (and debugger? debugger-interactive?) (list "-debugger-interactive" "true") '()))
              (process-title-arg        (list "-process-title" (project-title)))
              (process-traits-arg       (let ((traits (get-default-traits))) (if traits (list "-process-traits" (present-process-traits traits)) '())))
+             (validate-arg             (or validate? (list "-validate") '()))
              (profile                  (or profile (project-profile)))
              (profile-arg              (if profile (list "-profile" (->string profile)) '()))
              (action-arg               (if command-action (list command-action) '()))

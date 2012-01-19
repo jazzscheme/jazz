@@ -132,97 +132,7 @@
   
   
   (method (save-as (default-extension: default-extension #f) (extensions: extensions '()))
-    (let* ((toolbox-managers (get-toolbox-managers))
-           (destination (if (null? toolbox-managers)
-                            (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))
-                          (choose-new-destination toolbox-managers))))
-      (save-content destination)))
-  
-  
-  (method (set-class-destination module-name class-name)
-    (define (evaluate-class module-name class-name super-class-name imports)
-      (evaluate-in-unit module-name `(import ,@imports) eval)
-      (evaluate-in-unit module-name `(class ,class-name extends ,super-class-name) eval)
-      (module-ref module-name class-name))
-    
-    (define (insert-class text class-name super-class-name)
-      (let ((explorer (new Jazz-Explorer (get-model~ text))))
-        (set-caret~ text (find-namespace-insertion-point~ explorer))
-        (let ((class-string (format "{%}{%}{%}(class {a} extends {a}{%}{%}{%}(form{%}(<install>)))" class-name super-class-name)))
-          (insert-string~ text class-string)
-          (tabulate-range~ text (location-range~ text (list class-name))))))
-    
-    (call-with-saved-text (find-unit-source module-name)
-      (lambda (text)
-        (let* ((super-class-name (super-class-name form))
-               (imports (imports-to-insert form super-class-name module-name)))
-          (insert-imports text imports)
-          (insert-class text class-name super-class-name)
-          (evaluate-class module-name class-name super-class-name imports)))
-      verify-reload?: #f))
-  
-  
-  (method (choose-new-destination toolbox-managers)
-    (define (parse-class-name class-string)
-      (let ((content (with-exception-catcher
-                       (lambda (err) #f)
-                       (lambda () (read-string-content class-string)))))
-        (and content
-             (= 1 (length content))
-             (symbol? (car content))
-             (car content))))
-    
-    (define (validate-class-name module-name class-name)
-      (if class-name
-          (let* ((not-found (list #f))
-                 (ref (module-get module-name class-name not-found: not-found)))
-            (if (eq? ref not-found)
-                class-name
-              (designer-error "Existing class")))
-        (designer-error "Invalid class name")))
-    
-    (define (validate-module-name module-name)
-      (if module-name
-          (with-exception-catcher
-            (lambda (exc)
-              (designer-error "Non-existant module"))
-            (lambda ()
-              (require-module module-name)))
-        (designer-error "Empty module")))
-    
-    (let* ((modules (apply union test: eq? (map get-module-names~ toolbox-managers)))
-           (result (get-modal Save-Chooser modules: modules)))
-      (if (is? result File)
-          result
-        (bind (module-name class-string) result
-          (with-safe-design
-            (lambda ()
-              (let ((class-name (parse-class-name class-string)))
-                (validate-module-name module-name)
-                (validate-class-name module-name class-name)
-                (set-class-destination module-name class-name))))))))
-  
-    
-  (method (super-class-name form)
-    (or (get-model~ form)
-        (category-name (class-ascendant (get-origin~ form)))))
-  
-  
-  (method (imports-to-insert form super-class-name module-name)
-    (define (super-class-import)
-      (and super-class-name
-           (eq? 'install (get-action~ form))
-           (receive (unit _) (split-locator (get-name~ (get-origin~ form)))
-             (let ((ser (serialize-runtime-reference (evaluate-in-unit unit `(reference ,super-class-name) eval))))
-               (if (eq? (first ser) 'module-private)
-                   (origin-import form)
-                 (second ser))))))
-    
-    (let* ((super-class-import (super-class-import))
-           (modules (remove-duplicates (append (default-designer-imports~ (get-application))
-                                               (if super-class-import (list super-class-import) '())
-                                               (form-imports form)))))
-      (if module-name (remove module-name modules) modules)))
+    (save-content (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))))
   
   
   (method (save-content destination)
@@ -231,20 +141,7 @@
       ((Class) (save-to-class destination))
       ((Runtime-Reference) (save-to-reference destination))
       (else (error "unsupported destination")))
-    (set-modified? #f)
-    destination)
-  
-  
-  (method (origin-import form)
-    (let ((origin (get-origin~ form)))
-      (and origin 
-           (is? origin Class)
-           (let ((toolbox-models (apply union (map get-toolbox-models~ (get-toolbox-managers)))))
-             (receive (module models) (split-locator (get-name~ origin))
-               (let ((toolbox-model (find-in toolbox-models (car models) key: get-model~)))
-                 (if toolbox-model
-                     (get-unit~ toolbox-model)
-                   module)))))))
+    (set-modified? #f))
   
   
   (method public (designing-trait?)
@@ -264,21 +161,16 @@
         (insert-string~ text "\n\n\n")
         (insert-string~ text string)))
     
-    (let ((imports (imports-to-insert form #f unit))
+    (let ((imports (imports-to-insert form '() (list unit)))
           (trait-form (first (get-children~ form)))
           (class-sym (get-model~ form)))
       (call-with-saved-text (find-unit-source unit)
         (lambda (text)
-          (evaluate-in-unit unit `(import ,@imports) eval)
-          (evaluate-in-unit unit `(define-trait ,symbol ,class-sym ,(form->eval-expr trait-form)) eval)
           (insert-imports text imports)
           (let ((trait-string (format "(define-trait {a} {a}{%}{a})" symbol class-sym (form->string trait-form 2 include-form?: #f))))
             (if new?
                 (insert-new-trait text trait-string)
-              (select-trait text)
-              (insert-string~ text trait-string))
-            (select-trait text)
-            (tabulate~ text))))))
+              (insert-string~ (get-model~ text) (location-range~ text (list symbol)) trait-string)))))))
   
   
   (method (save-to-reference reference)
@@ -294,62 +186,53 @@
     (let ((class-name (category-name class))
           (module-name (category-unit class)))
       (define (save-form text form)
-        (let* ((form-exists? (if (class-has-form? text class-name) :form :new-form))
-               (form-range (location-range~ text (list class-name (if form-exists? :form :new-form))))
-               (form-string (format (if form-exists? "{a}" "{%}{%}{%}{a}") (form->string form 2))))
-          (insert-string~ (get-model~ text) form-range form-string)))
-      
-      (define (evaluate-form form imports)
-        (let ((super-class-name (category-name (class-ascendant class))))
-          (when imports
-            (evaluate-in-unit module-name `(import ,@imports) eval))
-          (evaluate-in-unit
-            module-name
-            `(class ,class-name extends ,super-class-name
-               (form
-                 ,(form->eval-expr form)))
-            eval)))
+        (let ((form-exists? (class-has-form? text class-name)))
+          (let ((form-range (location-range~ text (list class-name (if form-exists? :form :new-form))))
+                (form-string (format (if form-exists? "{a}" "{%}{%}{%}{a}") (form->string form 2))))
+            (insert-string~ (get-model~ text) form-range form-string))))
       
       (call-with-saved-text (find-unit-source module-name)
         (lambda (text)
-          (let ((imports (imports-to-insert form #f module-name))
-                (adjusted-form (new Form textual?: #f action: 'install properties: (get-properties~ form) children: (get-children~ form))))
-            (insert-imports text imports)
-            (save-form text adjusted-form)
-            (evaluate-form adjusted-form imports))))))
+          (insert-imports text (imports-to-insert form '() (list module-name)))
+          (save-form text form)
+          (evaluate-range~ text (location-range~ text (list class-name :form)))))))
   
   
   (method (save-to-file file)
-    (define (adjust-form form)
-      (if (is? (get-origin~ form) Class)
-          (let ((adjusted-form (copy-object~ form #f)))
-            (set-action~ adjusted-form 'new)
-            (set-model~ adjusted-form (super-class-name form))
-            adjusted-form)
-        form))
+    (define (super-class-reference form)
+      (or (get-reference~ form (get-model~ form))
+          (runtime-class-reference (class-ascendant (get-origin~ form)))))
+    
+    (define (adjust-form form super-class-symbol)
+      (let ((adjusted-form (copy-object~ form #f)))
+        (set-action~ adjusted-form 'new)
+        (set-model~ adjusted-form super-class-symbol)
+        adjusted-form))
     
     (if (and (exists?~ file) (read-only?~ file))
         (message-box (format "Unable to save to read-only file: {s}" file))
       (call-with-output-file (path-settings file char-encoding: 'UTF-8)
         (lambda (output)
-          (let ((data (get-data~ form))
-                (origin (get-origin~ form))
-                (adjusted-form (adjust-form form)))
-            (output-header (get-model~ adjusted-form) output)
-            (format output "{%}{%}")
-            (format output "(data {a}{%}" (if data (get-dialect~ data) 'jazz))
-            (format output "{%}{%}")
-            (let ((imports (if data
-                               (get-imports~ data)
-                             (imports-to-insert form (super-class-name form) #f))))
-              (when (and imports (not-null? imports))
-                (format output "(import {s}" (car imports))
-                (for-each (lambda (import)
-                            (format output "{%}        {s}" import))
-                          (cdr imports))
-                (format output  "){%}{%}{%}")))
-            (print-file-form adjusted-form 1 output)
-            (format output "){%}"))))))
+          (bind (super-class-unit super-class-symbol) (parse-runtime-reference (super-class-reference form))
+            (let ((data (get-data~ form))
+                  (adjusted-form (if (is? (get-origin~ form) Class)
+                                     (adjust-form form super-class-symbol)
+                                   form)))
+              (output-header (get-model~ adjusted-form) output)
+              (format output "{%}{%}")
+              (format output "(data {a}{%}" (if data (get-dialect~ data) 'jazz))
+              (format output "{%}{%}")
+              (let ((imports (if data
+                                 (get-imports~ data)
+                               (imports-to-insert form (list super-class-unit) '()))))
+                (when (and imports (not-null? imports))
+                  (format output "(import {s}" (car imports))
+                  (for-each (lambda (import)
+                              (format output "{%}        {s}" import))
+                            (cdr imports))
+                  (format output  "){%}{%}{%}")))
+              (print-file-form adjusted-form 1 output)
+              (format output "){%}")))))))
 
 
   (method public (saved-form . rest)

@@ -56,8 +56,8 @@
   
   (form
     (<install>
-      (<Action-Item> name: add action-handler: {Event-Handler :focus on-add})
-      (<Action-Item> name: new action-handler: {Event-Handler :focus on-new}))))
+      (<Action-Item> name: add       action-handler: {Event-Handler :focus on-add})
+      (<Action-Item> name: add-other action-handler: {Event-Handler :focus on-add-other}))))
 
 
 (class Toolbox-Menu extends Component-Menu
@@ -65,9 +65,9 @@
   
   (form
     (<install>
-      (<Label-Item>     name: new                before: add-item title: "New" icon: {Image-Resource "NewTrait"} action-handler: {Action toolbox-tree new})
-      (<Label-Item>     name: add                before: add-item title: "Add" icon: {Image-Resource "Added"} action-handler: {Action toolbox-tree add})
-      (<Separator-Item> name: end-new-group      before: add-item))))
+      (<Label-Item>     name: add           before: add-item title: "Add" icon: {Image-Resource "Added"} action-handler: {Action toolbox-tree add})
+      (<Separator-Item> name: end-new-group before: add-item)
+      (<Label-Item>     name: add-other     before: end-add-group title: "Add other..." icon: {Image-Resource "Added"} action-handler: {Action toolbox-tree add-other}))))
 
 
 (class undocumented Toolbox-Tree extends Descendants-Tree
@@ -82,29 +82,29 @@
       (request-name accepts-empty?: #f unicity-domain: (map symbol->string symbols))))
   
   
+  (method (insert-class text class-name super-class-name)
+    (let ((explorer (new Jazz-Explorer (get-model~ text))))
+      (set-caret~ text (find-namespace-insertion-point~ explorer))
+      (insert-string~ text (format "{%}{%}{%}(class {a} extends {a})" class-name super-class-name))))
+  
+  
   (method override (add-component-class ref)
     (let ((parent (selected-component)))
       (if (is? parent Toolbox-Module)
           (let ((module-name (get-module-name~ parent)))
             (bind (unit model) (parse-runtime-reference ref)
-              (let* ((name (request-unique-name-in-module module-name))
-                     (editor (new-class model unit))
-                     (designer (get-designer~ editor))
-                     (destination (set-class-destination~ designer module-name name)))
-                (save-to-class~ designer destination)
-                (reset-client~ editor destination)
-                (nextmethod (reference Toolbox-Model) presentation: (symbol->string name) properties: (list unit: module-name model: name)))))
+              (let ((class-name (request-unique-name-in-module module-name)))
+                (call-with-saved-text (find-unit-source module-name)
+                  (lambda (text)
+                    (let ((imports (if (eq? module-name unit) '() (list unit))))
+                      (insert-imports text imports)
+                      (insert-class text class-name model)
+                      (evaluate-range~ text (location-range~ text (list class-name)))
+                      (nextmethod (reference Toolbox-Model) presentation: (symbol->string class-name) properties: (list unit: module-name model: class-name))))))))
         (nextmethod ref))))
   
   
   (method virtual (can-add?)
-    (let ((components (selected-components)))
-      (and (not-null? components)
-           (is? (car components) Toolbox-Addable)
-           (not (is? (car components) Toolbox-Trait)))))
-  
-  
-  (method virtual (can-new?)
     (let ((components (selected-components)))
       (and (not-null? components)
            (is? (car components) Toolbox-Addable)
@@ -127,7 +127,7 @@
                   (set-default?~ (locate~ menu 'open) (eq? kind 'user))
                   (set-default?~ (locate~ menu 'add) (neq? kind 'user))))))
           (set-visible?~ (locate~ menu 'add) (can-add?))
-          (set-visible?~ (locate~ menu 'new) (can-new?))
+          (set-visible?~ (locate~ menu 'add-other) (get-action-enabled? {Action toolbox-tree add-other}))
           (cleanup-separators~ menu)
           (layout-menu~ menu)
           menu))))
@@ -346,13 +346,14 @@
   (method override (focus-update-actions)
     (nextmethod)
     (let ((data (get-single-selected-data)))
-      (when (is? data Toolbox-Model)
-        (let ((form? (is? data Toolbox-Form)))
-          (set-action-enabled? {Action toolbox-tree add} (can-add?))
-          (set-action-enabled? {Action toolbox-tree new} (can-new?))
-          (set-action-enabled? {Action components-tree try-out} #t)
-          (set-action-enabled? {Action components-tree edit-source} #t)
-          (set-action-enabled? {Action components-tree open} (not form?))))))
+      (let ((module? (is? data Toolbox-Module))
+            (model? (is? data Toolbox-Model))
+            (form? (is? data Toolbox-Form)))
+        (set-action-enabled? {Action toolbox-tree add} (and model? (can-add?) (is? (current-document) Component-Editor)))
+        (set-action-enabled? {Action toolbox-tree add-other} module?)
+        (set-action-enabled? {Action components-tree try-out} model?)
+        (set-action-enabled? {Action components-tree edit-source} model?)
+        (set-action-enabled? {Action components-tree open} (and model? (not form?))))))
   
   
   (method (on-double-click evt)
@@ -361,10 +362,6 @@
         (if (eq? (get-kind~ selected) 'user)
             (on-open evt)
           (on-add evt)))))
-  
-  
-  (method (on-new evt)
-    (new-addable (selected-addable)))
   
   
   (method virtual (get-tool-origin tool)
@@ -395,31 +392,7 @@
         (open-model model))))
   
   
-  (method (new-addable addable)
-    (with-safe-toolbox addable
-      (lambda ()
-        (typecase addable
-          ((Toolbox-Form)
-           (new-form (resolve-form~ addable)))
-          ((Toolbox-Model)
-           (new-class (get-model~ addable) (get-unit~ addable)))))))
-  
-  
-  (method (new-class model unit (size: size #f))
-    (let* ((model-name (string->symbol (format "<{a}>" model)))
-           (form-data (new Data #f 'jazz `((,unit)) #f))
-           (form (construct-form
-                   (list model-name)
-                   (let ((imports (effective-imports~ form-data)))
-                     (imports-locator imports))
-                   form-data))
-           (target (instantiate~ form))
-           (editor (open-component target)))
-      (when size
-        (safe-set-property~ (get-designer~ editor) target 'size size undoable?: #f))
-      editor))
-  
-  
+  @a
   (method (new-form form (size: size #f))
     (let ((form (copy-object~ form #t)))
       (setup-context~ form form)
@@ -429,12 +402,17 @@
         (open-component target))))
   
   
+  (method (on-add-other evt)
+    (bind (symbol import) (get-modal Class-Dialog-Toolbox references: (list (runtime-reference->reference (reference Component))))
+      (add-component-class (deserialize-runtime-reference (list 'module-public import symbol)))))
+  
+  
   (method (on-add evt)
     (let ((addable (selected-addable))
           (editor (current-document)))
       (with-safe-toolbox addable
         (lambda ()
-          (if (is? editor View-Editor)
+          (if (is? editor Component-Editor)
               (with-atomic-undo~ (get-undoer~ (get-designer~ editor))
                 (lambda ()
                   (let* ((surrogate (get-surrogate~ (get-client~ editor)))

@@ -39,6 +39,7 @@
 
 
 (import (jazz.debuggee)
+        (jazz.debugger)
         (jazz.designer)
         (jazz.designer.view)
         (jazz.editor.jazz)
@@ -262,10 +263,15 @@
   
   
   (method (remove-from-runtime unit symbol)
-    (let ((module (require-module unit)))
-      (table-set! (get-exports~ module) symbol)
-      (table-set! (get-entries~ module) symbol)
-      (module-undefine unit symbol)))
+    (let* ((run-module 'jazz.runtime)
+           (str (object->string
+                  `(module ,run-module jazz
+                   (let ((module (require-module ',unit)))
+                     (table-set! (get-exports~ module) ',symbol)
+                     (table-set! (get-entries~ module) ',symbol)
+                     (module-undefine ',unit ',symbol)
+                     #!void)))))
+      (evaluate-filename-expressions~ (get-debugger-manager) (parse~ (find-unit-source run-module)) 'jazz str #f #f #f)))
   
   
   (method virtual (delete-tool tool parent (confirm? #t))

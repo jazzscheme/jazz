@@ -31,6 +31,13 @@
       ((:designer-change) (set-designer (get-property~ evt designer:)))))
   
   
+  (method (make-trait-form-expr old-form form-expr)
+    (let ((component-symbol (string->symbol (format "<{a}>" (get-model~ old-form)))))
+      `(,component-symbol
+         (<Trait>
+           ,form-expr))))
+  
+  
   (method (evaluate-form)
     (with-cursor :wait
       (lambda ()
@@ -45,7 +52,10 @@
                     (let ((old-form (get-form~ designer)))
                       (bind (imports form-expr) (read-string-content (get-string-content))
                         (let* ((locator (imports-locator (cdr imports)))
-                               (new-form (construct-form (cadr form-expr) locator)))
+                               (new-form (construct-form (if (designing-trait?~ designer)
+                                                             (make-trait-form-expr old-form form-expr)
+                                                           (cadr form-expr))
+                                                         locator)))
                           (setup-context~ new-form new-form)
                           (set-origin~ new-form (get-origin~ old-form))
                           (set-form~ designer new-form)
@@ -103,7 +113,10 @@
           (delete-range~ model (selection-line~ text 0))
           (delete-range~ model (selection-line~ text 0)))
         (goto-end~ text #t #f)
-        (let ((form-string (form->string form 1)))
+        (let* ((effective-form (if (designing-trait?~ designer)
+                                   (get-property~ (car (get-children~ form)) 'client-form)
+                                 form))
+               (form-string (form->string effective-form 1)))
           (insert-string~ text (format "{%}{%}{%}{a}" form-string)))
         (set-modified?~ text #f)
         (goto-home~ text #t #f)

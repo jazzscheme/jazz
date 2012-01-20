@@ -151,26 +151,16 @@
              (is? obj Trait)))))
   
   
-  (method (save-to-trait unit symbol (new? #f))
-    (define (select-trait text)
-      (set-selection~ text (location-range~ text (list symbol))))
-    
-    (define (insert-new-trait text string)
-      (let ((explorer (new Jazz-Explorer (get-model~ text))))
-        (set-caret~ text (find-namespace-insertion-point~ explorer))
-        (insert-string~ text "\n\n\n")
-        (insert-string~ text string)))
-    
+  (method (save-to-trait unit symbol)
     (let ((imports (imports-to-insert form '() (list unit)))
           (trait-form (first (get-children~ form)))
           (class-sym (get-model~ form)))
       (call-with-saved-text (find-unit-source unit)
         (lambda (text)
           (insert-imports text imports)
-          (let ((trait-string (format "(define-trait {a} {a}{%}{a})" symbol class-sym (form->string trait-form 2 include-form?: #f))))
-            (if new?
-                (insert-new-trait text trait-string)
-              (insert-string~ (get-model~ text) (location-range~ text (list symbol)) trait-string)))))))
+          (let ((trait-string (format "(define-trait {a} {a}{%}{a})" symbol class-sym (form->string trait-form 1 include-form?: #f))))
+            (insert-string~ (get-model~ text) (location-range~ text (list symbol)) trait-string)
+            (evaluate-range~ text (location-range~ text (list symbol))))))))
   
   
   (method (save-to-reference reference)

@@ -4525,9 +4525,11 @@
       (let ((exported-module-reference (jazz:outline-module module-name)))
         (let ((decl (jazz:lookup-declaration exported-module-reference name jazz:public-access declaration)))
           (if decl
-              (if (%%is? decl jazz:Autoload-Declaration)
-                  decl
-                (jazz:new-autoload-declaration name #f #f (%%get-declaration-toplevel declaration) (jazz:new-module-reference module-name #f)))
+              (begin ; manually add since lookup-declaration was not done on the local module
+                (jazz:add-to-module-references declaration decl)
+                (if (%%is? decl jazz:Autoload-Declaration)
+                    decl
+                  (jazz:new-autoload-declaration name #f #f (%%get-declaration-toplevel declaration) (jazz:new-module-reference module-name #f))))
             (jazz:walk-error walker resume declaration symbol-src "Unable to find {s} in unit {s}" name module-name))))))
   
   (define (lookup walker environment symbol)

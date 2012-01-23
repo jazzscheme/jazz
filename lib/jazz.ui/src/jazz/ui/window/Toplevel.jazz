@@ -38,7 +38,8 @@
 (module protected jazz.ui.window.Toplevel jazz
 
 
-(import (jazz.jml)
+(import (jazz.geometry)
+        (jazz.jml)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.view)
@@ -118,18 +119,33 @@
     (let ((pref (get-preferences #f error?: #f)))
       (assert handle)
       (let ((state (or (get-toplevel-state~ pref) (get-setting 'jazz.ui.toplevel-state 'restored)))
+            (monitor (get-toplevel-monitor~ pref))
             (position (get-toplevel-position~ pref))
             (size (get-toplevel-size~ pref)))
+        (define (position-toplevel)
+          (if monitor
+              (let ((monitor (find-monitor monitor)))
+                (let ((monitor-position (rect-position (get-work-area~ monitor))))
+                  (set-position (if position
+                                    (nu+ monitor-position position)
+                                  monitor-position))))
+            (when position
+              (set-position position))))
+        
+        (define (size-toplevel)
+          (when size
+            (set-window-size size)))
+        
         (case (if pref state 'restored)
           ((maximized)
+           (position-toplevel)
+           (size-toplevel)
            (show-maximized handle)
            (set! previous-state 'maximized))
           ((restored)
            (show-restored handle)
-           (when position
-             (set-position position))
-           (when size
-             (set-window-size size))
+           (position-toplevel)
+           (size-toplevel)
            (set! previous-state 'restored)
            (set! previous-position (get-position))
            (set! previous-size (get-window-size))))))

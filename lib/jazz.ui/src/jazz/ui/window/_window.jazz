@@ -84,10 +84,40 @@
 ;;;
 
 
-(definition public (toplevel-monitor)
-  (if (and platform-toplevel-monitor (get-toplevel))
-      (platform-toplevel-monitor)
+(definition public (current-monitor)
+  (if (and platform-current-monitor (get-toplevel))
+      (platform-current-monitor)
     (desktop-monitor)))
+
+
+(definition public (auxiliary-monitor)
+  (let ((current (current-monitor)))
+    (or (find-if (lambda (monitor)
+                   (not (monitor=? monitor current)))
+                 (all-monitors))
+        current)))
+
+
+(definition public (primary-monitor)
+  (find-if (lambda (monitor)
+             (get-primary?~ monitor))
+           (all-monitors)))
+
+
+(definition public (secondary-monitor)
+  (or (find-if (lambda (monitor)
+                 (not (get-primary?~ monitor)))
+               (all-monitors))
+      (current-monitor)))
+
+
+(definition public (find-monitor kind)
+  (case kind
+    ((current) (current-monitor))
+    ((auxiliary) (auxiliary-monitor))
+    ((primary) (primary-monitor))
+    ((secondary) (secondary-monitor))
+    (else (error "Unknown monitor kind: {s}" kind))))
 
 
 (definition public (all-monitors)
@@ -107,6 +137,11 @@
     (let ((area-position (rect-position area))
           (area-size (rect-size area)))
       (nu+ area-position (center size area-size)))))
+
+
+(definition public (monitor=? x y)
+  (and (eqv? (get-primary?~ x) (get-primary?~ y))
+       (nu=? (get-display-area~ x) (get-display-area~ y))))
 
 
 ;;;

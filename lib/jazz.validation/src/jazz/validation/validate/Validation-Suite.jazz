@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Validation Suite
+;;;; Validation Suite
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -44,54 +44,11 @@
 (class Validation-Suite extends Object
   
   
-  (slot feedback)
-  (slot feedback-port)
-  (slot failures)
+  (slot title   getter generate)
+  (slot testers getter generate)
   
   
-  (method override (initialize (feedback: feedback #f) (feedback-port: feedback-port #f))
+  (method override (initialize title testers)
     (nextmethod)
-    (set! feedback~self (or feedback default-feedback))
-    (set! feedback-port~self (or feedback-port :terminal)))
-  
-  
-  (method (default-feedback format-string . rest)
-    (apply format feedback-port format-string rest)
-    (format feedback-port "{%}"))
-  
-  
-  (method public (validate (test: test #t) (report-success?: report-success? #t) (report-results?: report-results? #t))
-    (define (validate-suite)
-      (set! failures (new List-Factory))
-      (for-each invoke-tester (if (pair? test) test (list test))))
-    
-    (define (invoke-tester class)
-      (let ((tester (new class suite: self)))
-        (feedback "Testing {a}..." (category-name (class-of tester)))
-        (test~ tester)))
-    
-    (define (report-results (report-success?: report-success? #t))
-      (let ((failed (get-output~ failures)))
-        (if (null? failed)
-            (when report-success?
-              (format feedback-port "Test suite completed successfully.{%}"))
-          (format feedback-port "{%}********************************")
-          (format feedback-port "{%}The following assertions failed:{%}{%}")
-          (for-each (lambda (failure)
-                      (let ((tester (get-tester~ failure))
-                            (section (get-section~ failure))
-                            (message (get-message~ failure)))
-                        (format feedback-port "{a}{a} : {a}{%}" tester (if section (format ".{a}" section) "") message)))
-                    failed))))
-    
-    (validate-suite)
-    (when report-results?
-      (report-results report-success?: report-success?)))
-  
-  
-  (method public (assertion-failed tester section message)
-    (put~ failures (new Validation-Failure tester: tester section: section message: message)))
-  
-  
-  (method public (collect-failures)
-    (get-output~ failures))))
+    (set! title~self title)
+    (set! testers~self testers))))

@@ -1,0 +1,118 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Validation Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.validation.validate.Validation-Manager jazz
+
+
+(import (jazz.jml)
+        (jazz.validation))
+
+
+(class Validation-Manager extends Object
+  
+  
+  (slot feedback)
+  (slot feedback-port)
+  (slot report-success?)
+  (slot report-results?)
+  (slot failures)
+  
+  
+  (method override (initialize (feedback: feedback #f)
+                               (feedback-port: feedback-port #f)
+                               (report-success?: report-success? #t)
+                               (report-results?: report-results? #t))
+    (nextmethod)
+    (set! feedback~self (or feedback default-feedback))
+    (set! feedback-port~self (or feedback-port :terminal))
+    (set! report-success?~self report-success?)
+    (set! report-results?~self report-results?)
+    (set! failures~self (new List-Factory)))
+  
+  
+  (method (default-feedback format-string . rest)
+    (apply format feedback-port format-string rest)
+    (format feedback-port "{%}"))
+  
+  
+  (method public (validate suite)
+    (define (validate-suite)
+      (for-each invoke-tester (get-testers~ suite)))
+    
+    (define (invoke-tester class)
+      (let ((tester (new class manager: self suite: suite)))
+        (feedback "Validating {a}..." (category-name (class-of tester)))
+        (test~ tester)))
+    
+    (validate-suite)
+    (when report-results?
+      (report-results)))
+  
+  
+  (method public (assertion-failed suite tester section message)
+    (put~ failures (new Validation-Failure suite: suite tester: tester section: section message: message)))
+  
+  
+  (method public (collect-failures)
+    (get-output~ failures))
+  
+  
+  (method public (report-results)
+    (let ((failures (collect-failures)))
+      (if (null? failures)
+          (when report-success?
+            (format feedback-port "Test suite completed successfully.{%}"))
+        (format feedback-port "{%}********************************")
+        (format feedback-port "{%}The following assertions failed:{%}{%}")
+        (for-each (lambda (failure)
+                    (let ((tester (get-tester~ failure))
+                          (section (get-section~ failure))
+                          (message (get-message~ failure)))
+                      (format feedback-port "{a}{?.{a}~} : {a}{%}" tester section message)))
+                  failures))))
+  
+  
+  (method public (->jml)
+    (parse-jml
+      `(<validation-report>
+         ,@(map (lambda (failure)
+                  (let ((suite (get-suite~ failure))
+                        (tester (get-tester~ failure))
+                        (section (get-section~ failure))
+                        (message (get-message~ failure)))
+                    `(<failure> suite: ,(get-title~ suite) tester: ,tester section: ,section message: ,message)))
+                (collect-failures)))))))

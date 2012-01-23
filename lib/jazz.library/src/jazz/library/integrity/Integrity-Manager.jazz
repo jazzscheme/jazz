@@ -40,6 +40,7 @@
 
 (import (jazz.library))
 
+
 ;;;
 ;;;; Validation-Context
 ;;;
@@ -78,9 +79,6 @@
   )
 
 
-
-
-
 ;;;
 ;;;; Integrity-Manager
 ;;;
@@ -89,16 +87,18 @@
 (class undocumented Integrity-Manager extends Object
   
   
+  (slot violation-adder initialize #f)
   (slot constraints     initialize '())
   
   
-  (method override (initialize)
+  (method override (initialize (violation-adder: violation-adder #f))
     (define (setup-constraints)
       (set! constraints (new List-Factory))
       (register-constraints)
       (set! constraints (get-output~ constraints)))
     
     (nextmethod)
+    (set! violation-adder~self violation-adder)
     (setup-constraints))
   
   
@@ -177,13 +177,15 @@
   
   
   (method public virtual (add-violation violation component root editor)
-    (let* ((trait (get-active-trait~ root))
-           (trait-name (and trait (get-name~ trait)))
-           (trait-presentation (and trait (get-presentation-property~ trait))))
-      (receive (path presentation) (present-path~ component root)
-        (set-component~ violation component)
-        (set-trait~ violation trait-name)
-        (set-trait-presentation~ violation trait-presentation)
-        (set-path~ violation path)
-        (set-path-presentation~ violation (if trait (cons trait-presentation presentation) presentation))
-        (add-violation~ editor violation))))))
+    (if violation-adder
+        (violation-adder violation component root editor)
+      (let* ((trait (get-active-trait~ root))
+             (trait-name (and trait (get-name~ trait)))
+             (trait-presentation (and trait (get-presentation-property~ trait))))
+        (receive (path presentation) (present-path~ component root)
+          (set-component~ violation component)
+          (set-trait~ violation trait-name)
+          (set-trait-presentation~ violation trait-presentation)
+          (set-path~ violation path)
+          (set-path-presentation~ violation (if trait (cons trait-presentation presentation) presentation))
+          (add-violation~ editor violation)))))))

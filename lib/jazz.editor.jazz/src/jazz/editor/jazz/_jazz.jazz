@@ -74,30 +74,22 @@
 
 
 (definition public (insert-imports text imports)
-  (define (insert-import-declaration initial-import)
+  (define (insert-import-declaration)
     (let ((explorer (new Jazz-Explorer (get-model~ text))))
       (forward-namespace~ explorer)
       (unless (enter-import~ explorer)
         (let ((explorer (new Jazz-Explorer (get-model~ text))))
           (forward-namespace~ explorer)
           (set-caret~ text (get-end~ explorer))
-          (insert-string~ text (format "{%}{%}{%}(import{? ({a})~})" initial-import))))))
+          (insert-string~ text (format "{%}{%}{%}(import)"))))))
   
-  (define (insert-import unit)
+  (define (insert-import invoice)
     (let ((explorer (new Jazz-Explorer (get-model~ text))))
-      (forward-namespace~ explorer)
-      (enter-import~ explorer)
-      (receive (found? first?) (find-import-invoice~ explorer unit #t)
-        (unless found?
-          (set-caret~ text (get-end~ explorer))
-          (cond (first?
-                  (insert-string~ text (format " ({a})" unit))
-                  (insert-newline~ text)
-                  (tabulate~ text))
-                (else
-                 (insert-newline~ text)
-                 (tabulate~ text)
-                 (insert-string~ text (format "({a})" unit))))))))
+      (if (list? invoice)
+          (bind (unit parameter) invoice
+            (insert-import-invoice~ explorer unit parameter))
+        (insert-import-invoice~ explorer invoice))))
   
-  (insert-import-declaration (and (not-null? imports) (car imports)))
-  (for-each insert-import (remove-duplicates imports))))
+  (unless (null? imports)
+    (insert-import-declaration)
+    (for-each insert-import (remove-duplicates imports)))))

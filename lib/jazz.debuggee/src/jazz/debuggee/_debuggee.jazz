@@ -441,17 +441,18 @@
 
 
 (definition public (start-local-debugger-repl)
-  (thread-start!
-    (new-thread
-      (lambda ()
-        (let ((thread (current-thread))
-              (local-debugger (find-object~ (get-local-register) 'debugger)))
-          (let ((port (get-head~ (thread-console thread debugger: local-debugger))))
-            (start-repl-thread thread #f port)
-            (with-current-loop
-              (lambda ()
-                (process-debuggee-loop~ (get-process)))))))
-      'local-repl)))
+  (let ((local-debugger (find-object~ (get-local-register) 'debugger)))
+    (when local-debugger
+      (thread-start!
+        (new-thread
+          (lambda ()
+            (let ((thread (current-thread)))
+              (let ((port (get-head~ (thread-console thread debugger: local-debugger))))
+                (start-repl-thread thread #f port)
+                (with-current-loop
+                  (lambda ()
+                    (process-debuggee-loop~ (get-process)))))))
+          'local-repl)))))
 
 
 (definition package (display-banner port)

@@ -39,6 +39,7 @@
 
 
 (import (jazz.designer)
+        (jazz.editor.jazz)
         (jazz.io)
         (jazz.library)
         (jazz.library.component)
@@ -176,13 +177,29 @@
       (error "Target is not a trait: {s}" resolved))))
 
 
-(definition public (make-class-edition-instance class)
+(definition public (insert-new-form text class-name)
+  (insert-string~ (get-model~ text) (location-range~ text (list class-name :new-form)) "\n\n\n  (form\n    (<install>))"))
+
+
+(definition (check-class-form class)
   (let ((class-form (get-class-form~ class)))
-    (if (not class-form)
-        (new class)
-      (let ((edition-form (copy-object~ class-form #t)))
-        (setup-context~ edition-form edition-form)
-        (new class class-form: edition-form)))))
+    (unless (and class-form (eq? (get-origin~ class-form) class))
+      (case (message-box "This class does not have a form. Do you want to add one? You will have to reopen." yes: "Yes" no: "No")
+        ((yes)
+         (bind (unit class-name) (cdr (serialize-class class))
+           (call-with-saved-text (find-unit-source unit)
+             (lambda (text)
+               (insert-new-form text class-name)
+               (evaluate-range~ text (location-range~ text (list class-name :form))))))))
+      (signal-cancel))))
+
+
+(definition public (make-class-edition-instance class)
+  (check-class-form class)
+  (let* ((class-form (get-class-form~ class))
+         (edition-form (copy-object~ class-form #t)))
+    (setup-context~ edition-form edition-form)
+    (new class class-form: edition-form)))
 
 
 (definition public (open-class class (editor-class: editor-class #f))

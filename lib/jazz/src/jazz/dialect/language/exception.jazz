@@ -69,7 +69,7 @@
 
 
 (definition package (exception-debugger-hook exc other)
-  (let ((exception-debugger (or (current-exception-debugger) *exception-debugger*)))
+  (let ((exception-debugger (active-exception-debugger)))
     (if exception-debugger
         (exception-debugger exc)
       (system-exception-hook exc other))))
@@ -78,6 +78,10 @@
 (definition public (with-exception-debugger exception-debugger thunk)
   (parameterize ((current-exception-debugger exception-debugger))
     (thunk)))
+
+
+(definition public (active-exception-debugger)
+  (or (current-exception-debugger) *exception-debugger*))
 
 
 (definition public (system-exception-debugger exc)
@@ -270,15 +274,8 @@
   (raise exception))
 
 
-(definition public inline (throw-cancel)
-  (throw (new Cancel-Signal)))
-
-
-(definition public signal throw)
-
-
 (definition public (error . rest)
-  (signal (new Error message: (apply format rest))))
+  (throw (new Error message: (apply format rest))))
 
 
 (definition public (disabled-functionality)
@@ -298,6 +295,14 @@
 
 (definition public (warn-unimplemented name)
   (format :console "{%}Warning: {a} is unimplemented" name))
+
+
+(definition public (signal signal)
+  (raise signal))
+
+
+(definition public inline (signal-cancel)
+  (signal (new Cancel-Signal)))
 
 
 ;;;
@@ -336,15 +341,15 @@
     (thunk)))
 
 
-(definition public (with-restart-catcher name message catcher thunk)
+(definition public (with-restart-catcher name message thunk)
   (continuation-capture
     (lambda (catcher-cont)
       (with-restart-handler name message
         (lambda rest
           (continuation-return catcher-cont
-            (cond ((not (null? rest)) (car rest))
-                  (catcher (catcher))
-                  (else #f))))
+            (if (not-null? rest)
+                (car rest)
+              #f)))
         thunk))))
 
 

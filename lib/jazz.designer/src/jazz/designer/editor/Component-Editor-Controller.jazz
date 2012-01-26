@@ -38,8 +38,8 @@
 (module protected jazz.designer.editor.Component-Editor-Controller jazz
 
 
-(import (jazz.designer)
-        (jazz.io)
+(import (jazz.io)
+        (jazz.library)
         (jazz.ui)
         (jazz.ui.view))
 
@@ -47,12 +47,70 @@
 (class undocumented Component-Editor-Controller extends Document-Controller
   
   
+  (slot origin-form initialize #f)
+  
+  
+  (method override (initialize . rest)
+    (apply nextmethod rest)
+    (set! origin-form (get-origin-form)))
+  
+  
+  (method (get-origin-form)
+    (let ((client (get-client~ document)))
+      (and client
+           (let ((origin (get-origin~ (get-form~ client))))
+             (and origin (typecase origin
+                           ((Class)
+                            (get-class-form~ origin))
+                           ((Runtime-Reference)
+                            (let ((trait (resolve-runtime-reference origin)))
+                              (and (is? trait Trait) (get-form~ trait))))
+                           (else
+                            #f)))))))
+  
   ;; this is a quick fix that I know will break some other code!!!
   (method override (save)
-    (save-content-patch~ document #f))
+    (save-content-patch~ document)
+    (set! origin-form (get-origin-form)))
   
-  (method (revert)
-    (revert-content~ document #f))
+  
+  (method override (save-as)
+    (save-content-as-patch~ document)
+    (set! origin-form (get-origin-form)))
+  
+  
+  (method override (needs-reload?)
+    (and origin-form
+         (not (eq? origin-form (get-origin-form)))))
+  
+  
+  (method meta override (propose-multiple-reloads)
+    (message-box "Components have been modified elsewhere. You can reload them, losing your designer changes, or overwrite them."
+                 title: "Components Status"
+                 type: 'question
+                 yes: "Reload"
+                 no: "Overwrite"))
+  
+  
+  (method override (propose-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
+    (let ((code (if (not propose-reload?)
+                    'yes
+                  (message-box (format "Component {s} has been modified elsewhere. You can reload it, losing your designer changes, or overwrite it." (name-status))
+                               title: "Component Status"
+                               type: 'question
+                               yes: "Reload"
+                               no: "Overwrite"))))
+      (propose-reload-action code cancel-edition?: cancel-edition?)))
+  
+  
+  (method override (propose-reload-action code (cancel-edition?: cancel-edition? #f))
+    (let ((designer (get-designer~ document)))
+      (case code
+        ((no)
+         (save)))
+      (set! origin-form (get-origin-form))
+      (reset-client~ document (get-origin~ (get-form~ designer)))))
+  
   
   (method override (name-status)
     (define (find-origin)
@@ -68,6 +126,8 @@
                      (effective-newname))
                     ((file? origin)
                      (get-name~ origin))
+                    ((is? origin Runtime-Reference)
+                     (symbol->string (third (serialize-runtime-reference origin))))
                     (else
                      (category-name origin))))))
   
@@ -78,8 +138,7 @@
                                type: 'confirmation)))
         (case code
           ((yes) (save-all))
-          ((no) (revert))
-          ((cancel) (throw-cancel))))))
+          ((cancel) (signal-cancel))))))
   
   
   (method override (update-moniker-time moniker)

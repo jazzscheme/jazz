@@ -54,7 +54,7 @@
   
   
   (method public (get-traits)
-    #f)
+    (current-process-traits))
   
   
   (method public (get-icon)
@@ -111,11 +111,19 @@
   ;;;
   
   
-  (definition (break-thread thread-proxy)
+  (method (break-thread thread-proxy)
     (let ((thread (get-thread~ (get-object~ thread-proxy))))
       (thread-interrupt! thread
         (lambda ()
           (break)))))
+  
+  
+  (method (terminate-thread thread-proxy)
+    (let ((thread (get-thread~ (get-object~ thread-proxy))))
+      (with-exception-filter
+        inactive-thread-exception?
+        (lambda (exception) #f)
+        (lambda () (exit-thread thread)))))
   
   
   ;;;
@@ -156,6 +164,28 @@
   
   
   ;;;
+  ;;;; Runtime
+  ;;;
+  
+  
+  (method public (transmit-runtime-filenames)
+    (thread-start!
+      (new-thread
+        (lambda ()
+          (let ((queue (new-queue)))
+            (define (add-unit unit)
+              (let ((resource (find-unit-src unit #f)))
+                (when resource
+                  (enqueue queue (resource-pathname resource)))))
+            
+            (let ((process (get-process)))
+              (for-each add-unit (product-units (runtime-product~ process)))
+              (for-each add-unit (runtime-units~ process)))
+            (transmit-filenames (queue-list queue))))
+        'runtime-filenames)))
+  
+  
+  ;;;
   ;;;; Console
   ;;;
   
@@ -174,7 +204,7 @@
   ;;;
   
   
-  (method (evaluate-expressions syntax str container line col)
+  (method (evaluate-expressions syntax str container line col cookie)
     (define (unit/module-form? expr)
       (and (pair? (source-code expr))
            (memq? (source-code (car (source-code expr))) '(unit module))))
@@ -204,21 +234,25 @@
                                  (call-with-input-string str
                                    (lambda (port)
                                      (read-source-all port container line col))))))))
-          (let ((first (car expressions))
-                (evaluate (cons 'begin expressions)))
-            (if (and (eq? syntax 'jazz) (unit/module-form? first))
-                (receive (unit-name access) (parse-unit/module (cdr (source-code first)))
-                  (load-unit unit-name)
-                  (outline-unit unit-name)
-                  (parameterize ((requested-unit-name unit-name)
-                                 (walk-for 'eval)
-                                 (generate-symbol-for (format "%{a}&" (eval-count)))
-                                 (generate-symbol-context unit-name)
-                                 (generate-symbol-counter 0))
-                    (present (eval evaluate))))
-              (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
-                             (generate-symbol-counter 0))
-                (present (eval evaluate)))))))))
+          (catch (Walk-Problems exc
+                   (report-walk-problems~ (get-controller-debugger) (get-local-process) (exception-detail exc) cookie)
+                   (unless (delay-reporting?)
+                     (throw exc)))
+            (let ((first (car expressions))
+                  (evaluate (cons 'begin expressions)))
+              (if (and (eq? syntax 'jazz) (unit/module-form? first))
+                  (receive (unit-name access) (parse-unit/module (cdr (source-code first)))
+                    (load-unit unit-name)
+                    (outline-unit unit-name)
+                    (parameterize ((requested-unit-name unit-name)
+                                   (walk-for 'eval)
+                                   (generate-symbol-for (format "%{a}&" (eval-count)))
+                                   (generate-symbol-context unit-name)
+                                   (generate-symbol-counter 0))
+                      (present (eval evaluate))))
+                (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
+                               (generate-symbol-counter 0))
+                  (present (eval evaluate))))))))))
   
   
   ;;;
@@ -253,58 +287,50 @@
   
   
   (method public (profiler-profile)
-    (define (merge-profiles profile remote-profile)
-      (define (frame->symbol frame)
-        (or (when frame
-              (bind (creator locat) frame
-                (when creator
-                  (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
-                    (list name locat)))))
-            frame))
-          
-      (define (merge-calls calls source-calls)
-        (iterate-table source-calls
-          (lambda (proc count-duration)
-            (let* ((key (map frame->symbol proc))
-                   (temp-call (table-ref calls key #f)))
-              (table-set! calls key
-                          (if temp-call
-                              (list (+ (first count-duration) (first temp-call))
-                                    (+ (second count-duration) (second temp-call)))
-                              count-duration))))))
-      
-      (let ((temp-profile (new-profile label: (profile-label profile)
-                                       profiler: (profile-profiler profile)
-                                       depth: (profile-depth profile))))
-        (profile-calls-count-set! temp-profile (+ (profile-calls-count profile)
-                                                  (if remote-profile
-                                                      (profile-calls-count remote-profile)
-                                                      0)))
-        (profile-calls-duration-set! temp-profile (+ (profile-calls-duration profile)
-                                                     (if remote-profile
-                                                         (profile-calls-duration remote-profile)
-                                                         0)))
-        (profile-process-start-info-set! temp-profile (profile-process-start-info profile))
-        (profile-process-stop-info-set! temp-profile (profile-process-stop-info profile))
-        (let ((temp-calls (profile-calls temp-profile)))
-          (merge-calls temp-calls (profile-calls profile))
-          (when remote-profile
-            (merge-calls temp-calls (profile-calls remote-profile))))
-        temp-profile))
-
+    (define (frame->symbol frame)
+      (or (when frame
+            (bind (creator locat) frame
+              (when creator
+                (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
+                  (list name locat)))))
+          frame))
+    
+    (define (merge-calls call-table calls)
+      (iterate-table calls
+        (lambda (proc count/duration)
+          (let ((key (map frame->symbol proc)))
+            (let ((local-count/duration (table-ref calls key #f)))
+              (if local-count/duration
+                  (table-set! call-table key (list (+ (first count/duration) (first local-count/duration))
+                                                   (+ (second count/duration) (second local-count/duration))))
+                (table-set! call-table key count/duration)))))))
+    
+    (define (profile-add profile remote-profile proc)
+      (if remote-profile
+          (+ (proc profile) (proc remote-profile))
+        (proc profile)))
     
     (let ((profile (find-selected-profile)))
       (when profile
-        (let* ((label (profile-label profile))
-               (remote-profile (and (get-application) (get-remote-profile~ (get-application) label)))
-               (temp-profile (merge-profiles profile remote-profile)))
-          (list label
-                (profiler-type (profile-profiler temp-profile))
-                (profile-depth temp-profile)
-                (profile-calls-count temp-profile)
-                (profile-calls-duration temp-profile)
-                (profile-process-info temp-profile)
-                (table->list (profile-calls temp-profile)))))))
+        (let ((remote-profile (and (get-application) (get-remote-profile~ (get-application) (profile-label profile)))))
+          (let ((frames-count (profile-add profile remote-profile profile-frames-count))
+                (frames-duration (profile-add profile remote-profile profile-frames-duration))
+                (calls-count (profile-add profile remote-profile profile-calls-count))
+                (calls-duration (profile-add profile remote-profile profile-calls-duration))
+                (calls (let ((call-table (make-table test: equal?)))
+                         (merge-calls call-table (profile-calls profile))
+                         (when remote-profile
+                           (merge-calls call-table (profile-calls remote-profile)))
+                         call-table)))
+            (list (profile-label profile)
+                  (profiler-type (profile-profiler profile))
+                  (profile-depth profile)
+                  frames-count
+                  frames-duration
+                  calls-count
+                  calls-duration
+                  (profile-process-info profile)
+                  (table->list calls)))))))
   
   
   (method public (profile-reset profiler depth)
@@ -318,5 +344,11 @@
   ;;;
   
   
-  (method public (inspect-serial serial)
-    (inspect-value (serial->object serial)))))
+  (method public (inspect-serial serial max-content)
+    (inspect-value (serial->object serial) max-content: max-content))
+  
+  
+  (method public (present-serial serial)
+    (let ((port (open-output-string)))
+      (display (serial->object serial) port)
+      (get-output-string port)))))

@@ -42,6 +42,7 @@
         (jazz.geometry)
         (jazz.graphic)
         (jazz.jml)
+        (jazz.library)
         (jazz.locale)
         (jazz.system)
         (jazz.ui)
@@ -51,9 +52,9 @@
 (class Label-View extends View
 
 
-  (property justification initialize 'head               accessors explicit)
+  (property justification initialize 'head         accessors explicit)
   (property color         initialize {Color Black} accessors explicit)
-  (property shadow?       initialize #f                  accessors explicit)
+  (property shadow?       initialize #f            accessors explicit)
   
   
   (method override (default-size)
@@ -102,6 +103,25 @@
 
   
   ;;;
+  ;;;; Font
+  ;;;
+  
+  
+  (method override (effective-font)
+    (let ((font (and style (get-font~ style))))
+      (or font (nextmethod))))
+
+  
+  ;;;
+  ;;;; Style
+  ;;;
+  
+  
+  (method override (style-update)
+    (adjust-size))
+
+  
+  ;;;
   ;;;; Layout
   ;;;
   
@@ -110,7 +130,10 @@
     (let ((title (localize (label-title))))
       (if (not title)
           (default-size)
-        (text-extent~ (effective-font) title))))
+        (let ((extent (text-extent~ (effective-font) title)))
+          (new Dimension
+            (get-width~ extent)
+            (max 16 (get-height~ extent)))))))
   
   
   ;;;
@@ -133,17 +156,25 @@
   ;;;
   
   
-  (method override (draw surface context lh lv)
+  (method override (draw surface context)
     (let ((title (localize (or (label-title) ""))))
       (let ((pos (justify-lazy (lambda () (get-text-extent~ surface title))
                                (lambda () (get-size))
                                (if (pair? justification) justification (list justification 'center)))))
-        (when shadow?
-          (set-text-color~ surface {Color Medium-Gray})
-          (draw-text~ surface (+ (get-h~ pos) 2) (+ (get-v~ pos) 2) title))
-        (let ((enabled? (view-enabled?)))
-          (set-text-color~ surface (if enabled? color {Color Dark}))
-          (draw-text~ surface (get-h~ pos) (get-v~ pos) title enabled?)))))
+        (if style
+            (let ((h (get-h~ pos))
+                  (v (get-v~ pos))
+                  (line-height (get-height))
+                  (tabs '())
+                  (left 0)
+                  (enabled? (view-enabled?)))
+              (draw-style~ style surface context title h v line-height tabs left enabled?))
+          (when shadow?
+            (set-text-color~ surface {Color Medium-Gray})
+            (draw-text~ surface (+ (get-h~ pos) 2) (+ (get-v~ pos) 2) title))
+          (let ((enabled? (view-enabled?)))
+            (set-text-color~ surface (if enabled? color {Color Dark}))
+            (draw-text~ surface (get-h~ pos) (get-v~ pos) title enabled?))))))
   
   
   ;;;
@@ -170,11 +201,11 @@
   
   
   (form
-    (<install>
-      (<properties~>                                  default: title categorized: (class-info name-info title background color position size font justification shadow? auto-size?)
-        (<Property-Descriptor>    name: justification title: "Justification"
+    (<install>                                        image: {Image-Resource "Text"}
+      (<properties~>                                  default: title
+        (<Property-Descriptor>    name: justification
           (<Justification-Domain> name: domain))
-        (<Property-Descriptor>    name: color         title: "Color"
+        (<Property-Descriptor>    name: color
           (<Color-Domain>         name: domain))
-        (<Property-Descriptor>    name: shadow?       title: "Shadow"
+        (<Property-Descriptor>    name: shadow?
           (<Boolean-Domain>       name: domain))))))))

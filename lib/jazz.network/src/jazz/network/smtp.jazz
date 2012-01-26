@@ -1,0 +1,195 @@
+(module jazz.network.smtp jazz
+
+
+(class SMTP-Client extends Object
+  
+  
+  (slot port)
+  
+  
+  (method override (initialize server-address (port-number: port-number 25) (username: username "") (password: password ""))
+    (set! port (open-tcp-client (list
+                                  server-address: server-address
+                                  port-number: port-number
+                                  eol-encoding: 'cr-lf
+                                  buffering: 'line
+                                  keep-alive: #t)))
+    (get-reply "220" #f)
+    (display (format "EHLO {a}\n" server-address) port)
+    (let* ((commands (cdr (get-reply "250" #f)))
+           (login-methods (get-login-methods commands)))
+      (cond ((member? "LOGIN" login-methods)
+             (auth-login username password))
+            ((member? "PLAIN" login-methods)
+             (auth-plain username password))
+            (else
+             (error "No supported login methods")))))
+  
+  
+  (method override (destroy)
+    (display "QUIT\n" port)
+    (close-port port)
+    (nextmethod))
+  
+  (method (get-reply code (invalid #f))
+    (let ((reply (read-line port)))
+      (if (eof-object? reply)
+          (error "Unexpected end of file")
+        (unless (string-starts-with? reply code)
+          (if invalid
+              (invalid)
+            (error "Expected {a}, received {a}" code reply)))
+        (if (string-starts-with? reply (format "{a}-" code))
+            (cons (substring reply 4 (string-length reply))
+                  (get-reply code invalid))
+          '()))))
+  
+  (method (get-login-methods commands)
+    (cdr (split (find commands "AUTH" test: (lambda (target str) (string-starts-with? str target)) return: 'item) " ")))
+  
+  (method (auth-login username password)
+    (display "AUTH LOGIN\n" port)
+    (get-reply "334")
+    (display (ascii-string->base64-string username) port)
+    (newline port)
+    (get-reply "334" (lambda () (error "Invalid username.")))
+    (display (ascii-string->base64-string password) port)
+    (newline port)
+    (get-reply "235" (lambda () (error "Invalid credentials."))))
+  
+  
+  (method (auth-plain username password)
+    (display "AUTH PLAIN\n" port)
+    (get-reply "334")
+    (display (ascii-string->base64-string 
+               (list->string
+                 (append '(#\nul) (string->list username) '(#\nul) (string->list password)))) port)
+    (newline port)
+    (get-reply "235" (lambda ()
+                       (throw "Invalid credentials."))))
+  
+  
+  (method (send-mail origin <string> recipients content <string>)
+    (define (loop-recipient-list lst code)
+      (when (not (empty? lst))
+        (display (format "{a}: {a}" code (car lst)) port)
+        (for-each
+          (lambda (elem)
+            (display (format ", {a}" elem) port))
+          (cdr lst))
+        (newline port)))
+    
+    (display "RSET\n" port)
+    (get-reply "250")
+    
+    (display (format "MAIL FROM:<{a}>\n" origin) port)
+    (get-reply "250" 
+               (lambda () (error (format "Error adding sender {a}." origin))))
+    
+    (for-each
+      (lambda (recipient)
+        (begin
+          (display (format "RCPT TO: {a}\n" recipient) port)
+          (get-reply "250" (lambda () (error (format "Error adding recipient {a}." recipient))))))
+      recipients)
+    
+    (display "data\n" port)
+    (get-reply "354" (lambda () (error "Error sending the message. Server not accepting data.")))
+    
+    (display content port)
+    (display "\n.\n" port)
+    (get-reply "250" (lambda () (error "Error sending the message.")))))
+
+
+(definition public (make-mime-header from to subject (cc: cc '()) (bcc: bcc '()))
+  (string-append (format "From: {a}\n" from)
+                 (format "To: {a}\n" (join to ", "))
+                 (format "Cc: {a}\n" (join cc ", "))
+                 (format "Bcc: {a}\n" (join bcc ", "))
+                 (format "Subject: {a}\n" subject)
+                 "MIME-Version: 1.0\n"))
+
+
+(definition (separate-lines string ch-size)
+  (let ((length (string-length string)))
+    (let (recurse (index 0))
+      (cond ((>= index length)
+             "\n")
+            ((< (- length index) ch-size)
+             (string-append (substring string index length) "\n"))
+            (else
+             (string-append (substring string index (+ index ch-size))
+                            "\n"
+                            (recurse (+ index ch-size))))))))
+
+
+(definition public (file->u8vector file)
+  (with-input-from-file (parse~ file)
+    (lambda ()
+      (define (read-vectors)
+        (let* ((vector (make-u8vector 1024))
+               (l (read-subu8vector vector 0 1024)))
+          (if (zero? l)
+              '()
+            (u8vector-shrink! vector l)
+            (cons vector (read-vectors)))))
+      
+      (append-u8vectors (read-vectors)))))
+
+
+(definition public (file->base64-string file)
+  (u8vector->base64-string (file->u8vector file)))
+
+
+(definition public (make-plain-mime-message header body)
+  (string-append header
+                 "Content-Type: text/plain;\n\n"
+                 body
+                 "\n\n"))
+
+
+(definition public (make-multipart-mime-message header body attachments)
+  ;; Generate this boundary
+  (let* ((boundary "CF69BC42-C9CB-11E0-82A0-A5C34824019B")
+         (parts (append (list (format "Content-Type: multipart/mixed; boundary={a}\n" boundary)
+                              (format "Content-Type: text/plain;\n\n{a}\n\n" body))
+                        (map (lambda (file)
+                               (string-append (format "Content-Type: application/octet-stream\n")
+                                              (format "Content-Disposition: attachment; filename={s}\n" (get-name~ file))
+                                              "Content-Transfer-Encoding: base64\n\n"
+                                              (separate-lines (file->base64-string file) 72)
+                                              "\n"))
+                             attachments))))
+    (string-append header
+                   (join parts (format "--{a}\n" boundary))
+                   (format "--{a}--\n" boundary))))
+
+
+
+(definition public (make-mime-message from to subject message (cc: cc '()) (bcc: bcc '()) (attachments: attachments '()))
+  (let ((header (make-mime-header from to subject cc: cc bcc: bcc)))
+    (if (null? attachments)
+        (make-plain-mime-message header message)
+      (make-multipart-mime-message header message attachments))))
+
+
+(definition public (send-message message from to server (username: username "") (password: password ""))
+  (let ((client (new SMTP-Client server username: username password: password)))
+    (send-mail~ client from to message)
+    (close~ client)))
+
+
+(definition (base64-string->ascii-string str)
+  (list->string
+    (map
+      integer->char
+      (u8vector->list
+        (base64-string->u8vector str)))))
+
+(definition (ascii-string->base64-string str)
+  (u8vector->base64-string 
+    (list->u8vector
+      (map char->integer
+           (string->list str))))))
+
+

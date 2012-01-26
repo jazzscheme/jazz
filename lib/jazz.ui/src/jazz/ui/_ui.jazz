@@ -318,12 +318,46 @@
   (make-parameter #f))
 
 
+(definition public inhibit-invalidates?
+  (make-parameter #f))
+
+
+(definition public inhibit-layouts?
+  (make-parameter #f))
+
+
+(definition public inhibit-scrollee-layouts?
+  (make-parameter #f))
+
+(definition public inhibited-scrollee-layout
+  (make-parameter #f))
+
+
+(definition public (without-scrollee-layouts thunk)
+  (let ((inhibited (make-table test: eq?)))
+    (prog1 (parameterize ((inhibit-scrollee-layouts? #t)
+                          (inhibited-scrollee-layout (lambda (view) (table-set! inhibited view #t))))
+             (thunk))
+      (iterate-table inhibited
+        (lambda (view ignore)
+          (layout-scrollee~ view))))))
+
+
 ;;;
-;;;; Text
+;;;; Clipping
 ;;;
 
 
-(definition public keyboard-input?
+(definition public inhibit-clipping?
+  (make-parameter #f))
+
+
+;;;
+;;;; Events
+;;;
+
+
+(definition public event-type
   (make-parameter #f))
 
 
@@ -351,6 +385,16 @@
   (locate~ *formats* name error?: #f))
 
 
+(definition public (symbolic-formats)
+  (table-keys (get-index~ *formats*)))
+
+
+(definition public (symbolic-format format)
+  (if (symbol? format)
+      (registered-format format)
+    format))
+
+
 ;;;
 ;;;; Styles
 ;;;
@@ -375,6 +419,16 @@
   (locate~ *styles* name error?: #f))
 
 
+(definition public (symbolic-styles)
+  (table-keys (get-index~ *styles*)))
+
+
+(definition public (symbolic-style style)
+  (if (symbol? style)
+      (registered-style style)
+    style))
+
+
 ;;;
 ;;;; Runs
 ;;;
@@ -395,12 +449,16 @@
 ;;;
 
 
+(definition protected redrawn-merge-cells
+  (make-parameter #f))
+
+
 (definition public (in-cell-edit? view)
   (find-ascendant~ view Tree-Data-View))
 
 
 (definition public min-column-width
-    9)
+  9)
 
 
 ;;;

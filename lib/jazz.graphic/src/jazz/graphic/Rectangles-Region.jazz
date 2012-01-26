@@ -38,45 +38,42 @@
 (module protected jazz.graphic.Rectangles-Region jazz
 
 
-(import (jazz.geometry)
-        (jazz.library))
+(import (jazz.geometry))
 
 
 (class Rectangles-Region extends Object
   
   
   (slot keep-rectangles?)
-  (slot rectangles       initialize #f)
-  (slot bounding-box     initialize #f)
+  (slot rectangles               initialize '())
+  (slot bounding-box     <Rect+> initialize #f)
   
   
-  (method override (initialize keep? rest)
+  (method override (initialize (keep-rectangles?: keep-rectangles? (needs-rectangles?)) (rect: rect #f))
     (nextmethod)
-    (set! keep-rectangles? keep?)
-    (when keep-rectangles?
-      (if (null? rest)
-          (begin
-            (set! rectangles (list (new Rect 0 0 0 0)))
-            (set! bounding-box (car rectangles)))
-        (let ((first (car rest)))
-          (cond ((rect? first)
-                 (set! rectangles (list first))
-                 (set! bounding-box (car rectangles)))
-                ((fixnum? first)
-                 (bind (top right bottom) (cdr rest)
-                   (set! rectangles (list (new Rect first top right bottom)))
-                   (set! bounding-box (car rectangles)))))))))
+    (set! keep-rectangles?~self keep-rectangles?)
+    (when (and keep-rectangles? rect)
+      (set! rectangles (list rect))
+      (set! bounding-box rect)))
   
   
-  (method public (keep-rectangles)
-    (set! keep-rectangles? #t)
-    (set! rectangles (list (get-box)))
-    (set! bounding-box (car rectangles)))
+  (method protected virtual (needs-rectangles?)
+    #t)
   
   
   (method public (get-rectangles)
     (assert keep-rectangles?)
     rectangles)
+
+
+  (method public (get-bounding-box) <Rect+>
+    (assert keep-rectangles?)
+    bounding-box)
+
+
+  (method public virtual (get-box) <Rect>
+    (assert keep-rectangles?)
+    (or bounding-box {Rect 0 0 0 0}))
   
   
   (method public virtual (offset! h v)
@@ -84,24 +81,27 @@
       (for-each (lambda (rect)
                   (offset-rect! rect h v))
                 rectangles)
-      (offset-rect! bounding-box h v)))
+      (when bounding-box
+        (offset-rect! bounding-box h v))))
 
 
   (method public virtual (combine! region mode)
     (when keep-rectangles?
       (case mode
         ((or xor)
-         (set! rectangles (append rectangles (get-rectangles~ region)))
-         (set! bounding-box (rect-union bounding-box (get-box~ region)))))))
+         (let ((region-bounding-box (get-bounding-box~ region)))
+           (when region-bounding-box
+             (set! rectangles (append rectangles (get-rectangles~ region)))
+             (set! bounding-box (if bounding-box
+                                    (rect-union bounding-box region-bounding-box)
+                                  region-bounding-box))))))))
   
   
   (method public virtual (empty?) <bool>
-    (= (get-box) {Rect 0 0 0 0}))
+    (assert keep-rectangles?)
+    (not bounding-box))
   
   
   (method public virtual (intersects-rect? rect) <bool>
-    (rect-intersect? (get-box) rect))
-
-
-  (method public virtual (get-box) <Rect>
-    bounding-box)))
+    (assert keep-rectangles?)
+    (and bounding-box (rect-intersect? bounding-box rect)))))

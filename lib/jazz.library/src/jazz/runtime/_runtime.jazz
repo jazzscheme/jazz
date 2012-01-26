@@ -91,12 +91,53 @@
 
 
 ;;;
-;;;; Iteration
+;;;; Reference
+;;;
+
+
+(definition public (serialize-reference reference)
+  (let ((unit (reference-unit reference))
+        (name (reference-name reference)))
+    (let (iter (module-name unit))
+      (let ((module (and (unit-loadable? module-name)
+                         (require-module module-name))))
+        (if (and module
+                 (eq? (get-access~ module) 'public)
+                 (table-ref (get-exports~ module) name #f))
+            (list 'module-public module-name name)
+          (let ((path (butlast (split-identifier module-name))))
+            (if (null? path)
+                (error "Unable to serialize: {s}" reference)
+              (iter (apply compose-identifier path)))))))))
+
+
+(definition public (serialize-class class)
+  (serialize-reference (get-name~ class)))
+
+
+(definition public (runtime-class-reference class)
+  (deserialize-runtime-reference (serialize-class class)))
+
+
+(definition public (publicize-runtime-reference runtime-reference)
+  (let ((serialized (serialize-runtime-reference runtime-reference)))
+    (if (eq? (first serialized) 'module-public)
+        runtime-reference
+      (let ((reference (second serialized)))
+        (deserialize-runtime-reference (serialize-reference reference))))))
+
+
+(definition public (parse-runtime-reference runtime-reference)
+  (cdr (serialize-runtime-reference (publicize-runtime-reference runtime-reference))))
+
+
+;;;
+;;;; Repository
 ;;;
 
 
 (definition public (repository-units repository)
-  (load-build)
+  (load-runtime)
   (let ((table (make-table test: eq?)))
     (iterate-packages repository
       (lambda (package)
@@ -128,15 +169,13 @@
 
 
 (definition public (iterate-units proc (repositories: repositories #f) (feedback: feedback #f))
-  (let ((count 0)
-        (repositories (or repositories (get-repositories))))
+  (let ((repositories (or repositories (get-repositories))))
     (for-each (lambda (repository)
                 (unless (repository-binary? repository)
                   (for-each (lambda (unit-name)
                               (when feedback
                                 (feedback unit-name))
-                              (proc unit-name)
-                              (increase! count))
+                              (proc unit-name))
                             (repository-units repository))))
               repositories)))
 
@@ -155,6 +194,81 @@
 
 (definition public (load-all (feedback: feedback #f))
   (iterate-units load-unit feedback: feedback))
+
+
+;;;
+;;;; Product
+;;;
+
+
+(definition public (product-dependencies product-name)
+  (load-runtime)
+  (let ((queue (new-queue)))
+    (define (add name)
+      (unless (memq? name (queue-list queue))
+        (enqueue queue name)))
+    
+    (define (iter name)
+      (receive (package descriptor) (get-product-descriptor name)
+        (add descriptor)
+        (for-each iter (cond-expanded-product-descriptor-dependencies product-name descriptor))))
+    
+    (iter product-name)
+    (queue-list queue)))
+
+
+(definition public (product-units product-name)
+  (load-runtime)
+  (let ((queue (new-queue)))
+    (for-each (lambda (descriptor)
+                (for-each (lambda (unit-name)
+                            (for-each-subunit unit-name
+                              (lambda (unit-name declaration phase)
+                                (enqueue queue unit-name))))
+                          (cond-expanded-product-descriptor-update product-name descriptor)))
+              (product-dependencies product-name))
+    (queue-list queue)))
+
+
+;;;
+;;;; Module
+;;;
+
+
+(definition public (module-undefine module-name name)
+  (let ((module-declaration (get-catalog-entry module-name)))
+    (define (clean-metaclass)
+      (let ((declaration (find-declaration-child module-declaration name)))
+        (when (is? declaration Class-Declaration)
+          (let ((metaclass-name (string->symbol (format "{a}~~Class" name))))
+            (clean-entry metaclass-name)))))
+    
+    (define (clean-entry name)
+      (define (clean-global)
+        (let ((declaration (find-declaration-child module-declaration name)))
+          (when declaration
+            (let ((locator (get-locator~ declaration)))
+              (when (global-bound? locator)
+                (global-unbind! locator))))))
+      
+      (define (clean-lookup)
+        (define (clean access)
+          (let ((lookup (%%get-access-lookup module-declaration access)))
+            (table-clear lookup name)))
+        
+        (clean jazz:private-access)
+        (clean jazz:public-access))
+      
+      (define (clean-children)
+        (remove-declaration-child module-declaration name))
+      
+      (clean-global)
+      (clean-lookup)
+      (clean-children))
+  
+    (assert module-declaration
+      (clean-metaclass)
+      (clean-entry name))))
 
 
 ;;;

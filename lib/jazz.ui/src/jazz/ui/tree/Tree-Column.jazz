@@ -57,7 +57,9 @@
   (property protected user-data     initialize #f     accessors generate)
   
   
-  (slot protected down? initialize #f)
+  (slot protected rank    initialize #f accessors generate)
+  (slot protected borders initialize #f accessors generate)
+  (slot protected down?   initialize #f)
   
   
   (method override (print output readably)
@@ -80,6 +82,7 @@
   (method public (set-title value)
     (set! title value)
     (when (and (initialized?)
+               parent
                (get-player~ parent))
       (let ((header (get-header~ parent)))
         (when header
@@ -92,8 +95,9 @@
   
   (method public (set-width value)
     (set! width value)
-    (invalidate-columns~ parent)
-    (invalidate-view~ parent))
+    (when parent
+      (invalidate-columns~ parent)
+      (invalidate-view~ parent)))
   
   
   (method public (get-background)
@@ -102,7 +106,8 @@
   
   (method public (set-background value)
     (set! background value)
-    (invalidate-view~ parent))
+    (when parent
+      (invalidate-view~ parent)))
   
   
   (method public (get-justification)
@@ -111,14 +116,16 @@
   
   (method public (set-justification just)
     (set! justification just)
-    (invalidate-view~ parent))
+    (when parent
+      (invalidate-view~ parent)))
   
   
   (method override (set-visible? flag)
     (nextmethod flag)
-    (invalidate-columns~ parent)
-    (fill-column~ parent)
-    (invalidate-view~ parent))
+    (when parent
+      (invalidate-columns~ parent)
+      (fill-column~ parent)
+      (invalidate-view~ parent)))
   
   
   ;;;
@@ -209,10 +216,10 @@
   
   (method public virtual (mouse-down cell pos shift? control?)
     (acquire-focus~ parent)
-    (complete-mouse-down cell pos shift? control?))
+    (column-mouse-down cell pos shift? control?))
   
   
-  (method public virtual (complete-mouse-down cell pos shift? control?)
+  (method public virtual (column-mouse-down cell pos shift? control?)
     (process-selection~ parent cell shift? control? 'mouse))
   
   
@@ -251,12 +258,6 @@
   ;;;
 
   
-  (method public (paint-data surface context lh <fx> lv <fx> h v width height row data sh <fx> sv <fx> sc <fl> sc? <bool>)
-    (with-transform~ surface lh lv width height sh sv sc sc?
-      (lambda ()
-        (draw-data surface context row data width height))))
-
-  
   (method public virtual (draw-data surface context row data width height)
     (draw-at surface context row data 0 0 width height))
   
@@ -272,7 +273,7 @@
                          ((not (view-enabled?~ parent))
                           {Color Medium})
                          (else
-                          (background-color data context)))))
+                          (background-color row data context)))))
         (fill-rect~ surface rect color))
       (when (is? data Tree-Data)
         (let ((frame-color (get-frame-color~ data)))
@@ -280,13 +281,14 @@
             (frame-rect~ surface rect frame-color))))))
   
   
-  (method (background-color data context)
+  (method (background-color row data context)
     (let ((selected? (getf context selected?:)))
       (if (and selected? (cell-selected? context))
           (selection-color~ parent)
         (or (and (is? data Tree-Data) (get-background~ data))
             (get-cell-background~ parent)
             (or (get-background~ (get-look~ parent))
+                (get-background~ row)
                 {Color Tree-Background})))))
   
   
@@ -306,17 +308,17 @@
       ((row) #t)))
   
   
-  (method public virtual (draw-header surface context lh lv h v width height sorted spaced? flat? enabled?)
-    (draw-header-at surface lh lv h v width height (localize title) down? sorted spaced? flat? enabled?))
+  (method public virtual (draw-header surface context h v width height sorted spaced? flat? enabled?)
+    (draw-header-at surface h v width height (localize title) down? sorted spaced? flat? enabled?))
   
   
-  (method (draw-header-at surface lh lv h v width height title down? sorted spaced? flat? enabled?)
+  (method (draw-header-at surface h v width height title down? sorted spaced? flat? enabled?)
     (if down?
-        (draw-sunken-button surface lh lv h v width height title sorted spaced? flat? enabled?)
-      (draw-raised-button surface lh lv h v width height title sorted spaced? flat? enabled?)))
-    
+        (draw-sunken-button surface h v width height title sorted spaced? flat? enabled?)
+      (draw-raised-button surface h v width height title sorted spaced? flat? enabled?)))
   
-  (method (draw-raised-button surface lh lv h v width height title sorted spaced? flat? enabled?)
+  
+  (method (draw-raised-button surface h v width height title sorted spaced? flat? enabled?)
     (let ((thick (if flat? -1 -2)))
       ;; when spaced, it's the background that draws the right side shadow
       (let* ((outer (new Rect h v (+ h width) (+ v height)))
@@ -330,15 +332,15 @@
           (draw-edge~ surface outer inner: 'raised outer: 'raised edges: '(right bottom))
           (let ((rect (expand-rect outer 0 0 -1 -1)))
             (draw-edge~ surface rect inner: 'raised edges: '(top left))))
-        (fill-rect~ surface inner (or background (header-color~ parent)))
+        (fill-rect~ surface inner (if (debug-paint?) (cycle-debug-color!) (or background (header-color~ parent))))
         (set-text-color~ surface (if enabled? {Color Black} {Color Dark}))
-        (with-transform~ surface (+ lh h) (+ lv v) width (- height 1) 0 0 1.0 #f
+        (with-clipping-transformation~ surface h v width (- height 1) #f
           (lambda ()
             (draw-text~ surface text-h 1 title)
             (draw-sorted surface text-h 0 title sorted))))))
     
   
-  (method protected virtual (header-title-h surface width height title)
+  (method protected (header-title-h surface width height title)
     (+ 2 (get-h~ (justify-title surface (- width 4) height title justification))))
   
   
@@ -364,15 +366,15 @@
           ((descending) (draw-arrow-tip~ surface h v size 'down))))))
   
   
-  (method (draw-sunken-button surface lh lv h v width height title sorted spaced? flat? enabled?)
+  (method (draw-sunken-button surface h v width height title sorted spaced? flat? enabled?)
     (let* ((outer (new Rect h v (+ h width) (+ v height)))
            (inner (inflate-rect outer -1 -1))
            (text-h (+ (header-title-h surface width height title) 1)))
       (set-color~ surface {Color Dark})
       (frame-rect~ surface outer {Color Dark})
-      (fill-rect~ surface inner (or background (header-color~ parent)))
+      (fill-rect~ surface inner (if (debug-paint?) (cycle-debug-color!) (or background (header-color~ parent))))
       (set-text-color~ surface (if enabled? {Color Black} {Color Dark}))
-      (with-transform~ surface (+ lh h) (+ lv v) width (- height 1) 0 0 1.0 #f
+      (with-clipping-transformation~ surface h v width (- height 1) #f
         (lambda ()
           (draw-text~ surface text-h 2 title)
           (draw-sorted surface (+ text-h 1) 1 title sorted)))))
@@ -411,10 +413,15 @@
   
   
   (form
-    (<install>                 image: {Image-Resource "Green"} can-move?: #f
+    (<install>                                     image: {Image-Resource "Green"} can-relocate?: #f
       (<properties~>
-        (<Property-Descriptor> name: title title: "Title"
-          (<String-Domain> name: domain))
-        (<Property-Descriptor> name: width title: "Width")
-        (<Property-Descriptor> name: background title: "Background")
-        (<Property-Descriptor> name: justification title: "Justification")))))))
+        (<Property-Descriptor> name: title
+          (<String-Domain>     name: domain))
+        (<Property-Descriptor> name: width
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: background
+          (<Value-Domain>      name: domain        nullable?: #t))
+        (<Property-Descriptor> name: justification
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: user-data
+          (<Value-Domain>      name: domain        nullable?: #t))))))))

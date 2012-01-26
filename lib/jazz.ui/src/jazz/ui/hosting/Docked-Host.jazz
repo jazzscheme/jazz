@@ -56,6 +56,7 @@
   (property fullscreen? initialize #f accessors generate)
   (property caption?    initialize #t accessors generate)
   (property zoomable?   initialize #t accessors generate)
+  (property preferences initialize #f accessors generate)
 
   
   (form
@@ -170,7 +171,8 @@
           (set-visible?~ view #f)
           (set-size~ dest (new Dimension (tools-width tools) 22))
           (layout-view)
-          (layout-view~ guest)))))
+          (layout-view~ guest)
+          (invalidate-view)))))
   
   
   (method public (add-tool tool)
@@ -178,7 +180,8 @@
       (set-parent~ tool tools)
       (layout-view~ tools)
       (set-size~ tools (new Dimension (tools-width (get-children~ tools)) 22))
-      (layout-view)))
+      (layout-view)
+      (invalidate-view)))
   
   
   (method public (remove-tool tool)
@@ -186,13 +189,15 @@
       (set-parent~ tool #f)
       (layout-view~ tools)
       (set-size~ tools (new Dimension (tools-width (get-children~ tools)) 22))
-      (layout-view)))
+      (layout-view)
+      (invalidate-view)))
   
   
   (method package (refresh-tools)
     (let ((tools (locate 'tools)))
       (set-size~ tools (new Dimension (tools-width (get-children~ tools)) 22))
-      (layout-view)))
+      (layout-view)
+      (invalidate-view)))
   
   
   (definition (tools-width tools)
@@ -266,28 +271,33 @@
   ;;;
 
   
-  (method override (draw surface context lh lv)
+  (method override (draw surface context)
     (let ((bounds (get-bounds))
           (focused? (eq? self (get-focused-host)))
           (all (collect-all))
           (look (get-look)))
-      (fill-background~ surface (new Rect (get-left~ bounds) (get-top~ bounds) (get-right~ bounds) 24) (get-inactive-background~ look))
+      (let ((rect (new Rect (get-left~ bounds) (get-top~ bounds) (get-right~ bounds) 24)))
+        (if (debug-paint?)
+            (fill-rect~ surface rect (cycle-debug-color!))
+          (fill-background~ surface rect (if (debug-paint?) (cycle-debug-color!) (get-inactive-background~ look)))))
       (frame-rect~ surface bounds (get-frame-color~ look))
       (let ((h 1)
-            (first (first all)))
+            (first (first all))
+            (compact? (determine-compact?)))
         (for-each (lambda (docked)
                     (let ((title (get-title~ docked))
-                          (icon (host-icon~ (class-of (get-guest~ docked))))
+                          (icon (or (get-icon~ docked) (host-icon~ (class-of (get-guest~ docked)))))
                           (first? (eq? docked first))
                           (selected? (eq? docked self)))
                       (let* ((left (- h .5))
                              (top .5)
-                             (width (+ (get-text-width~ surface title) 37))
+                             (title? (or selected? (not compact?)))
+                             (width (if title? (+ (get-text-width~ surface title) 37) 24))
                              (height 24)
                              (right (+ left width))
                              (bottom (+ top height)))
                         (when (and selected? focused?)
-                          (fill-background~ surface (new Rect h 1 (+ h width) 24) (get-active-background~ look))
+                          (fill-background~ surface (new Rect h 1 (+ h width) 24) (if (debug-paint?) (cycle-debug-color!) (get-active-background~ look)))
                           (set-color~ surface (if focused? {Color Dark} {Color red: 230 green: 225 blue: 204}))
                           (set-line-width~ surface 1)
                           (when (not first?)
@@ -298,14 +308,30 @@
                           (cairo-line-to~ surface right bottom)
                           (stroke~ surface))
                         (draw-image~ (get-images-portfolio~ (get-application)) surface context icon (+ h 3) 5)
-                        (set-font~ surface {Font Label})
-                        (set-text-color~ surface (if selected? (get-focused-text-color~ look) (get-unfocused-text-color~ look)))
-                        (draw-text~ surface (+ h 21) 7 title)
+                        (when title?
+                          (set-font~ surface {Font Label})
+                          (set-text-color~ surface (if selected? (get-focused-text-color~ look) (get-unfocused-text-color~ look)))
+                          (draw-text~ surface (+ h 21) 7 title))
                         (increase! h width))))
                   all))
       (set-color~ surface {Color Dark})
       (set-line-width~ surface 1)
       (line~ surface 1 24 (- (get-width) 1) 24)))
+  
+  
+  (method (determine-compact?)
+    (define (full-width)
+      (let ((all (collect-all))
+            (h 0))
+        (for-each (lambda (docked)
+                    (let ((title (get-title~ docked)))
+                      (let ((width (+ (text-width~ {Font Label} title) 37)))
+                        (increase! h width))))
+                  all)
+        h))
+    
+    (let ((tools-width (get-width~ (locate 'tools))))
+      (> (full-width) (- (get-width) tools-width))))
   
   
   ;;;
@@ -355,18 +381,38 @@
   
   
   (method override (double-click pos)
+    (define (toggle-zoom splitter target)
+      (with-locked-update
+        (lambda ()
+          (if (eq? (get-state~ splitter) 'split)
+              (zoom~ splitter target)
+            (unzoom~ splitter)))))
+    
+    (define (opposite-orientation orientation)
+      (case orientation
+        ((horz) 'vert)
+        ((vert) 'horz)))
+    
+    (define (find-orientation view child orientation)
+      (if (and (is? view Splitter-View) (eq? (get-orientation~ view) orientation))
+          (cons view child)
+        (let ((parent (get-parent~ view)))
+          (and parent (find-orientation parent view orientation)))))
+    
     (when zoomable?
       (let* ((parent (get-parent))
              (target (if (is? parent Pad-View) parent self)))
-        (if (shift-down?)
+        (if (alt-down?)
             (toggle-full-screen~ (get-application) target)
           (let ((splitter (if (is? parent Pad-View) (get-parent~ parent) parent)))
             (when (is? splitter Splitter-View)
-              (with-locked-update
-                (lambda ()
-                  (if (eq? (get-state~ splitter) 'split)
-                      (zoom~ splitter target)
-                    (unzoom~ splitter))))))))))
+              (if (shift-down?)
+                  (let ((found (find-orientation splitter target (opposite-orientation (get-orientation~ splitter)))))
+                    (if found
+                        (bind (splitter . target) found
+                          (toggle-zoom splitter target))
+                      (bell)))
+                (toggle-zoom splitter target))))))))
 
 
   ;;;
@@ -392,13 +438,15 @@
   (method (for-all proc)
     (let ((all (collect-all)))
       (let ((h 0)
-            (first (first all)))
+            (first (first all))
+            (compact? (determine-compact?)))
         (for-each (lambda (docked)
                     (let ((title (get-title~ docked))
-                          (first? (eq? docked first)))
+                          (first? (eq? docked first))
+                          (title? (or (eq? docked self) (not compact?))))
                       (let ((left (if first? (+ h 1) h))
                             (top 1)
-                            (width (+ (text-width~ {Font Label} title) 37))
+                            (width (if title? (+ (text-width~ {Font Label} title) 37) 24))
                             (height 23))
                         (proc docked (new Rect left top (+ h width) (+ top height)))
                         (increase! h width))))

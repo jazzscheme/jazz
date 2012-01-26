@@ -40,19 +40,14 @@
 
 
 (import (jazz.designer)
-        (jazz.geometry)
         (jazz.graphic)
-        (jazz.io)
         (jazz.jml)
         (jazz.library)
-        (jazz.library.exemplar)
         (jazz.library.listener)
-        (jazz.platform)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
-        (jazz.ui.search)
         (jazz.ui.skin)
         (jazz.ui.view)
         (jazz.ui.window))
@@ -61,6 +56,8 @@
 (class Text-View extends Outline-View implements Document
   
   
+  ;; the text content automaticaly saved in a canonical form when the text is visually edited
+  (property protected text-content              initialize #f accessors explicit)
   (property protected selectable?               initialize #t accessors generate)
   (property protected editable?                 initialize #t accessors generate)
   (property protected accepts-returns?          initialize #t accessors generate)
@@ -70,7 +67,7 @@
   
   
   (slot protected syntax                 initialize #f accessors generate)
-  (slot protected controller             initialize #f)
+  (slot protected document-controller    initialize #f)
   (slot protected selection-anchor       initialize #f)
   (slot protected locked-anchor?         initialize #f)
   (slot protected mouse-selecting?       initialize #f)
@@ -187,14 +184,14 @@
   
   (method override (install-in-host host)
     (nextmethod host)
-    (install-in-host~ (get-controller) host))
+    (install-in-host~ (get-document-controller) host))
   
   
   (method override (split-view)
-    (let ((host (new-frame (class-of self) host-visible?: #f)))
+    (let ((host (new-frame (class-of self) host-workspace: (get-workspace~ (get-host)) host-visible?: #f)))
       (let ((view (get-guest~ host)))
         (set-model~ view model)
-        (change-moniker~ (get-controller~ view) (get-moniker))
+        (change-moniker~ (get-document-controller~ view) (get-moniker))
         (scroll-to~ view (get-scrolled-position))
         (set-selection~ view (get-selection) ensure-displayed?: #f)
         (update-status~ view)
@@ -217,13 +214,13 @@
   ;;;
   
   
-  (method override (get-controller)
-    (unless controller
-      (set! controller (new-controller)))
-    controller)
+  (method override (get-document-controller)
+    (unless document-controller
+      (set! document-controller (new-document-controller)))
+    document-controller)
   
   
-  (method override (new-controller)
+  (method override (new-document-controller)
     (new Document-Controller self tool?: (default-tool?) console?: (default-console?)))
   
   
@@ -236,52 +233,52 @@
   
   
   (method override (save)
-    (save~ (get-controller)))
+    (save~ (get-document-controller)))
   
   
   (method override (save-as)
-    (save-as~ (get-controller)))
+    (save-as~ (get-document-controller)))
   
   
   (method public virtual (save-all)
-    (save-all~ (get-controller)))
+    (save-all~ (get-document-controller)))
   
   
   (method public (get-moniker)
-    (get-moniker~ (get-controller)))
+    (get-moniker~ (get-document-controller)))
   
   
   (method public (set-moniker moniker)
-    (set-moniker~ (get-controller) moniker))
+    (set-moniker~ (get-document-controller) moniker))
   
   
   (method override (get-modified?)
-    (get-modified?~ (get-controller)))
+    (get-modified?~ (get-document-controller)))
   
   
   (method override (set-modified? state)
-    (set-modified?~ (get-controller) state))
+    (set-modified?~ (get-document-controller) state))
   
   
   (method (get-read-only?)
-    (get-read-only?~ (get-controller)))
+    (get-read-only?~ (get-document-controller)))
   
   
   (method (write-allowed?)
-    (and editable? (write-allowed?~ (get-controller))))
+    (and editable? (write-allowed?~ (get-document-controller))))
   
   
   (method (update-status)
-    (update-status~ (get-controller)))
+    (update-status~ (get-document-controller)))
   
   
   (method (update-moniker-time moniker)
-    (update-moniker-time~ (get-controller) moniker))
+    (update-moniker-time~ (get-document-controller) moniker))
   
   
   (method override (confirm-close . rest)
     (when (last-client?)
-      (confirm-close~ (get-controller))))
+      (confirm-close~ (get-document-controller))))
   
   
   (method override (tool-update tool?)
@@ -293,11 +290,11 @@
 
   
   (method override (revert-saved)
-    (revert-saved~ (get-controller)))
+    (revert-saved~ (get-document-controller)))
 
   
   (method override (compare-saved)
-    (compare-saved~ (get-controller)))
+    (compare-saved~ (get-document-controller)))
   
   
   (method override (install-scroller?)
@@ -346,6 +343,20 @@
   
   (method override (compare-moniker moniker)
     (compare-moniker~ model moniker))
+  
+  
+  ;;;
+  ;;;; Content
+  ;;;
+  
+  
+  (method public (get-text-content)
+    text-content)
+  
+  
+  (method public (set-text-content value)
+    (set! text-content value)
+    (set-content~ model text-content))
   
   
   ;;;
@@ -414,7 +425,8 @@
   
   
   (method override (on-backspace-press evt)
-    (backspace-press #f word?: (get-property~ evt word?:)))
+    (parameterize ((event-type 'keyboard))
+      (backspace-press #f word?: (get-property~ evt word?:))))
   
   
   (method (on-delete-press evt)
@@ -636,10 +648,9 @@
   
   
   (method public virtual (char-press key)
-    (parameterize ((keyboard-input? #t))
-      (if (auto-complete?)
-          (auto-complete key)
-        (insert-char key))))
+    (if (auto-complete?)
+        (auto-complete key)
+      (insert-char key)))
   
   
   (method (reset-mode (keep: keep #f))
@@ -844,16 +855,16 @@
       (when (and pos #t @parameterized-fix-me (/= pos previous-position))
         (let* ((range (selection-range pos))
                (parts (range-difference range (get-selection)))
-               (player (get-player))
-               (root (get-root)))
-          (receive (dh dv sc) (get-delta~ root self)
-            (change-selection pos)
-            (with ((region (multi-part-region parts dh dv sc)))
-              (when region
-                (if final?
-                    (invalidate-region~ player region)
-                  (redraw-window~ player region: region)
-                  (set! previous-position pos)))))))))
+               (player (get-player)))
+          (with-transformation-surface
+            (lambda (surface)
+              (change-selection pos)
+              (with ((region (multi-part-region parts (lambda (rect) (logical->device~ surface rect)))))
+                (when region
+                  (if final?
+                      (invalidate-region~ player region)
+                    (redraw-window~ player region: region)
+                    (set! previous-position pos))))))))))
   
   
   (method override (double-click view)
@@ -985,12 +996,12 @@
                  (get-output~ parts)))))))
   
   
-  (method (multi-part-region parts dh dv sc)
+  (method (multi-part-region parts transformer)
     (case (length parts)
       ((0) #f)
-      ((1) (range-region (car parts) dh dv sc))
-      ((2) (with ((region (range-region (first parts) dh dv sc)))
-             (let ((union (range-region (second parts) dh dv sc)))
+      ((1) (range-region (car parts) transformer))
+      ((2) (with ((region (range-region (first parts) transformer)))
+             (let ((union (range-region (second parts) transformer)))
                (when (and region union)
                  (combine!~ union region 'or)
                  union))))))
@@ -998,7 +1009,7 @@
   
   (method (calculate-autoscroll-amount view)
     (let* ((display (view->display view))
-           (size (get-display-size))
+           (size (get-size~ (get-display)))
            (h (get-h~ display))
            (v (get-v~ display))
            (height (get-default-height))
@@ -1351,7 +1362,7 @@
   (method package (on-user-code evt)
     (let* ((appl (get-application))
            (profile (get-profile~ appl)))
-      (text-macro~ profile self)))
+      (user-code~ profile self)))
   
   
   ;;;
@@ -1359,19 +1370,16 @@
   ;;;
   
   
-  (method (range-region range <Range$Cell$> dh dv sc (top: top #f) (bottom: bottom #f))
+  (method (range-region range <Range$Cell$> transformer (top: top #f) (bottom: bottom #f))
     (let ((root (get-root))
-          (region (new Region))
-          (width (and scroller (get-display-width))))
-      (keep-rectangles~ region)
+          (region (new Region keep-rectangles?: #t))
+          (width (get-width)))
       (for-each-logical-range range
         (lambda (line paragraph start end)
-          (with ((sub (range-region~ paragraph left-padding start end dh dv sc width)))
+          (with ((sub (range-region~ paragraph left-padding start end width transformer)))
             (combine!~ region sub 'or))))
-      (let ((root-clipper (get-root-clipper)))
-        (when root-clipper
-          (with ((clipper (new Region root-clipper)))
-            (combine!~ region clipper 'and))))
+      (with ((clipper (new Region rect: (transformer (get-view-clipper)))))
+        (combine!~ region clipper 'and))
       region))
   
   
@@ -1386,19 +1394,19 @@
   
   (method (invalidate-range range <Range$Cell$>)
     (when (view-visible?)
-      (let ((root (get-root)))
-        (receive (dh dv sc) (get-delta~ root self)
-          (with ((region (range-region range dh dv sc)))
+      (with-transformation-surface
+        (lambda (surface)
+          (with ((region (range-region range (lambda (rect) (logical->device~ surface rect)))))
             (invalidate-region~ player region))))))
   
   
   ;; this should be unified with selection-region
-  (method (text-selection-region dh dv sc top bottom)
-    (range-region (get-selection) dh dv sc top: top bottom: bottom))
+  (method (text-selection-region transformer top bottom)
+    (range-region (get-selection) transformer top: top bottom: bottom))
   
   
-  (method (selection-region-all dh dv sc)
-    (text-selection-region dh dv sc 0 (get-display-height)))
+  (method (selection-region-all transformer)
+    (text-selection-region transformer 0 (get-display-height)))
   
   
   (method protected virtual (get-selection-color)
@@ -1629,7 +1637,7 @@
     (get-range~ selection))
   
   
-  (method override (set-selection range <Range$Cell$> (force?: force? #f) (ensure-displayed?: ensure-displayed? #t) (set-anchor?: set-anchor? #t))
+  (method override (set-selection range <Range$Cell$> (force?: force? #f) (reposition: reposition #f) (ensure-displayed?: ensure-displayed? #t) (set-anchor?: set-anchor? #t))
     (validate-range range)
     (when (or force? (/= (cast <Range$Cell$> (get-selection)) range))
       (hide-caret)
@@ -1638,7 +1646,7 @@
       (update-selection range)
       (update-caret)
       (when (and ensure-displayed? (not mouse-selecting?))
-        (ensure-displayed center?: (eq? ensure-displayed? 'center-caret)))
+        (ensure-displayed reposition: reposition center?: (eq? ensure-displayed? 'center-caret)))
       (unless (and mouse-down? (eq? (get-mouse-in) self))
         (update-focus-actions~ (get-application)))))
   
@@ -1646,19 +1654,20 @@
   (method public (update-selection range <Range$Cell$>)
     (if (not (view-visible?))
         (set-range~ selection range)
-      (let ((root (get-root)))
-        (receive (dh dv sc) (get-delta~ root self)
-          (with ((old (selection-region-all dh dv sc)))
-            (set-range~ selection range)
-            (with ((new (selection-region-all dh dv sc)))
-              (if (and old new)
-                  (begin
-                    (combine!~ new old 'xor)
-                    (invalidate-region~ player new))
-                (when old
-                  (invalidate-region~ player old))
-                (when new
-                  (invalidate-region~ player new)))))))))
+      (with-transformation-surface
+        (lambda (surface)
+          (let ((transformer (lambda (rect) (logical->device~ surface rect))))
+            (with ((old (selection-region-all transformer)))
+              (set-range~ selection range)
+              (with ((new (selection-region-all transformer)))
+                (if (and old new)
+                    (begin
+                      (combine!~ new old 'xor)
+                      (invalidate-region~ player new))
+                  (when old
+                    (invalidate-region~ player old))
+                  (when new
+                    (invalidate-region~ player new))))))))))
   
   
   (method public (reset-caret pos <Cell> (force?: force? #f))
@@ -1767,8 +1776,8 @@
     (invalidate-range sel))
   
   
-  (method override (selection-region sel dh dv sc)
-    (range-region self dh dv sc))
+  (method override (selection-region sel transformer)
+    (range-region self transformer))
   
   
   (method public (get-char pos <Cell>) <char>
@@ -1990,9 +1999,25 @@
         width)))
   
   
+  (method override (dynamic-scrollee?)
+    (not fit-to-scroller?))
+  
+  
+  (method override (dynamic-set-scrollee-size)
+    (let ((size (dimension-max {Dimension 10 10} (scrollee-size))))
+      (set-size size)
+      (let ((scroller (get-scroller)))
+        (when scroller
+          (let ((scroller-size (dimension-min (get-size~ (get-parent~ (get-scroller))) size)))
+            (set-size-noevent~ (get-scroller) scroller-size)
+            (set-size-noevent~ (get-content~ (get-scroller)) scroller-size)
+            (layout-view~ (get-parent~ (get-scroller))))))))
+  
+  
   ;; until we maintain it incrementally
   (method protected virtual (dynamic-scrollee-width?)
-    (<= (get-visible-count~ model) 16))
+    (or (not fit-to-scroller?)
+        (<= (get-visible-count~ model) 16)))
   
   
   (method override (scrollee-content-width)
@@ -2026,10 +2051,6 @@
   
   (method public (paragraph-length line <fx>) <fx>
     (paragraph-length~ model line))
-  
-  
-  (method (paragraph->string paragraph <Paragraph>) <string>
-    (paragraph->string~ model paragraph))
   
   
   (method public (first-paragraph)
@@ -2077,7 +2098,7 @@
             (nextmethod context)))))
   
   
-  (method override (draw-children surface nodes context lh lv sh sv sc sc?)
+  (method override (draw-children surface nodes context)
     (define (draw-highlights)
       (let ((focus? (has-focus?))
             (tabs (get-tabs~ model)))
@@ -2099,44 +2120,32 @@
                           (draw-style~ style surface '() target (get-h~ pos) (get-v~ pos) height tabs left enabled?)))))
                   highlights)))
     
+    (define (draw-caret)
+      (when (and caret-visible? (empty-selection?) (or (not mouse-down?) (not (alt-down?))))
+        (let ((rect <Rect> (caret-rect (get-caret) 0)))
+          (set-color~ surface (or (get-caret-color~ (get-look)) {Color Black}))
+          (set-line-width~ surface 1)
+          (line~ surface (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-bottom~ rect)))))
+    
     (let ((top #f)
           (bottom #f)
           (printing? (getf context printing?:)))
       (unless printing?
         (draw-selection surface top bottom))
-      (nextmethod surface nodes context lh lv sh sv sc sc?)
+      (nextmethod surface nodes context)
       (draw-highlights)
       (unless printing?
-        (draw-caret surface sc sc?))))
+        (draw-caret))))
   
   
   (method protected (draw-selection surface top bottom)
-    (when (or (has-focus?) show-unfocused-selection?)
-      (with ((region (text-selection-region 0.0 0.0 1.0 top bottom)))
+    (when (and (or (is-focused?) show-unfocused-selection?) selectable?)
+      (with ((region (text-selection-region identity top bottom)))
         (when region
           (fill-region~ surface region
-            (if (has-focus?)
+            (if (is-focused?)
                 (get-selection-color)
               (get-inactive-selection-color)))))))
-  
-  
-  (method protected (draw-caret surface sc <fl> sc? <bool>)
-    (when (and caret-visible? (empty-selection?) (or (not mouse-down?) (not (alt-down?))))
-      (let ((proc
-             (lambda (rect)
-               (set-color~ surface (or (get-caret-color~ (get-look)) {Color Black}))
-               (set-line-width~ surface 1)
-               (line~ surface (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-bottom~ rect)))))
-        (let ((rect <Rect> (caret-rect (get-caret) 0)))
-          (if (not sc?)
-              (proc rect)
-            ;; this could use some improvements!
-            (let ((scaled (new Rect
-                            (fxround (if sc? (* (get-left~ rect) sc) (get-left~ rect)))
-                            (fxround (if sc? (* (get-top~ rect) sc) (get-top~ rect)))
-                            (fxround (if sc? (* (get-right~ rect) sc) (get-right~ rect)))
-                            (fxround (if sc? (* (get-bottom~ rect) sc) (get-bottom~ rect))))))
-              (proc scaled)))))))
   
   
   ;;;
@@ -2166,7 +2175,7 @@
   
   
   (method public (ensure-range-displayed range <Range$Cell$> . rest)
-    (unless (or update-locked? (not player))
+    (unless update-locked?
       (let* ((start (get-start~ range))
              (end (get-end~ range))
              (end-height (get-height-at end)))
@@ -2174,12 +2183,12 @@
   
   
   (method public (ensure-scrolled-left)
-    (unless (or update-locked? (not player))
+    (unless update-locked?
       (when (/= 0 (get-h~ (get-position)))
         (let* ((size (get-display-width))
                (context (cdr (get-scroll-context)))
                (context (if context (fxround (* size context)) 0))
-               (tail (+ (get-display-h) size))
+               (tail (+ (get-scrolled-distance-h) size))
                (end (get-h~ (text->view (get-end)))))
           (when (< end (- tail context))
             (scroll (new Point (- tail context end) 0)))))))
@@ -2270,17 +2279,17 @@
   (method public (insert-styled string style)
     (when (write-allowed?)
       (let ((start (get-start))
-            (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (get-style~ model style)))))
+            (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (locate-style~ model style)))))
         (insert-string string)
-        (set-style~ model (new Range$Cell$ start (get-start)) style))))
+        (stylize-range~ model (new Range$Cell$ start (get-start)) style))))
   
   
   (method public (replace-styled range strings style)
     (when (write-allowed?)
       (let ((start (get-start~ range))
-            (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (get-style~ model style)))))
+            (style (cond ((is? style Style) style) ((not style) (get-default-style~ model)) (else (locate-style~ model style)))))
         (replace~ model range strings)
-        (set-style~ model (new Range$Cell$ start (get-start)) style))))
+        (stylize-range~ model (new Range$Cell$ start (get-start)) style))))
   
   
   (method public (insert-line line (proper? #t))
@@ -2392,11 +2401,19 @@
   
   (method (paste-formatted-clipboard)
     (if (clipboard-format-available? 'jazz-formatted-text)
-        (let* ((text (get-clipboard-text format: 'jazz-formatted-text))
-               (info (with-jazz-readtable (lambda () (read-string-element text)))))
-          (replace-formatted~ model (get-selection) info))
+        (let ((text (get-clipboard-text format: 'jazz-formatted-text)))
+          (let ((info (parameterize ((walk-for #f))
+                        (with-jazz-readtable
+                          (lambda ()
+                            (read-string-element text))))))
+            (replace-formatted-selection info)))
       (let ((strings (split-lines (get-clipboard-text))))
         (replace-selection strings))))
+  
+  
+  (method protected (replace-formatted-selection strings)
+    (when (write-allowed?)
+      (caret-update (replace-formatted~ model (get-selection) strings))))
   
   
   (method protected (replace-formatted-text range <Range$Cell$> strings formats styles paragraphs)
@@ -2508,16 +2525,16 @@
   
   
   ;;;
-  ;;;; Styles
+  ;;;; Style
   ;;;
-  
+
   
   (method public (add-style name pref-style) <Style>
     (add-style~ model name pref-style))
   
   
-  (method public (get-style name/style (error?: error? #t)) <Style>
-    (get-style~ model name/style error?: error?))
+  (method public (locate-style name/style (error?: error? #t)) <Style>
+    (locate-style~ model name/style error?: error?))
   
   
   ;;;
@@ -2586,6 +2603,16 @@
     (if (get-first-special?)
         (if (null? lst) '() (cdr lst))
       lst))
+  
+  
+  (method protected (select-chapter pos)
+    (let* ((pos (valid-cell pos))
+           (line (get-line~ pos))
+           (col (get-col~ pos))
+           (len (paragraph-length line))
+           (range (new Range$Cell$ (new Cell line col) (new Cell line len))))
+      (set-selection-safe range ensure-displayed?: #f)
+      (ensure-displayed force-vertical: 'head)))
   
   
   ;;;
@@ -2720,7 +2747,7 @@
   
   
   ;;;
-  ;;;; Format
+  ;;;; Formats
   ;;;
   
   
@@ -2849,8 +2876,8 @@
   
   
   (method public (set-selection-format/style name/exemplar (format?: format? #f) (style?: style? #f))
-    (let* ((format (and format? (get-format~ model name/exemplar error?: #f)))
-           (style (and style? (get-style~ model name/exemplar error?: #f)))
+    (let* ((format (and format? (locate-format~ model name/exemplar error?: #f)))
+           (style (and style? (locate-style~ model name/exemplar error?: #f)))
            (selection (get-selection))
            (start (get-start))
            (end (get-end))
@@ -3133,15 +3160,14 @@
 
 
   (method protected (insert-char/backspace c (word?: word? #f))
-    (parameterize ((keyboard-input? #t))
-      (case c
-        ((#\backspace)
-         ; remove competion before doing backspace
-         (when completion-active?
-           (delete-selection))
-         (backspace word?))
-        (else
-         (insert-char c)))))
+    (case c
+      ((#\backspace)
+       ; remove competion before doing backspace
+       (when completion-active?
+         (delete-selection))
+       (backspace word?))
+      (else
+       (insert-char c))))
 
   
   ;;;
@@ -3246,25 +3272,20 @@
   
   
   (form
-    (<install>
-      (<properties~>           categorized: (class-info name-info accepts-returns? focus-selects-all? background)
-        (<Property-Descriptor> name: selectable? title: "Selectable"
+    (<install>                                                 image: {Image-Resource "Script"}
+      (<properties~>
+        (<Property-Descriptor> name: selectable?
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: editable? title: "Editable"
+        (<Property-Descriptor> name: editable?
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: accepts-returns? title: "Accepts Returns"
+        (<Property-Descriptor> name: accepts-returns?
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: focus-selects-all? title: "Focus Selects All"
+        (<Property-Descriptor> name: focus-selects-all?
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: show-unfocused-selection? title: "Show Unfocused Selection"
+        (<Property-Descriptor> name: show-unfocused-selection?
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: force-tab-navigate? title: "Force Tab Navigate"
+        (<Property-Descriptor> name: force-tab-navigate?
           (<Boolean-Domain>    name: domain)))))
-  
-  
-  @too-many-icons!
-  (method override (class-image class)
-    {Image-Resource "Style"})
   
   
   (method override (component-surrogate-class component)
@@ -3273,5 +3294,5 @@
   
   (method override (component-save-properties component designer)
     (when (get-modified?~ component)
-      (set-property~ designer component 'text-content (get-content~ component) design-events?: #f)
+      (set-property~ designer component 'text-content (get-content~ (get-model~ component)) design-events?: #f)
       (set-modified?~ component #f))))))

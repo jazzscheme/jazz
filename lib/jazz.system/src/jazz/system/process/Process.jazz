@@ -42,20 +42,22 @@
         (jazz.designer)
         (jazz.io)
         (jazz.jrm)
-        (jazz.jrm.register.stub)
         (jazz.library)
         (jazz.library.component)
         (jazz.network)
         (jazz.platform)
         (jazz.platform.crash)
+        (jazz.profile)
+        (jazz.runtime)
         (jazz.system)
-        (jazz.system.process)
-        (jazz.system.process.stub))
+        (jazz.system.process))
 
 
 (class Process extends Object
 
 
+  (slot profile-class        initialize #f)
+  (slot profile              initialize #f getter generate)
   (slot settings             initialize #f getter generate)
   (slot preferences-designer initialize #f getter generate)
   (slot context              initialize #f)
@@ -102,6 +104,10 @@
   (method public virtual (process-event-source)
     (or (string-parameter "event-source" 'EventSource #f)
         (process-name)))
+  
+  
+  (method public virtual (is-application?)
+    #f)
   
   
   ;;;
@@ -156,6 +162,9 @@
     (prepare-settings)
     (prepare-bindings)
     (prepare-aliases)
+    (prepare-system)
+    (prepare-profile)
+    (login-profile)
     (prepare-environment)
     (prepare-preferences)
     (prepare-preferences-aliases)
@@ -165,11 +174,19 @@
 
   (method protected virtual (prepare-settings)
     (use-print? #t))
+  
+  
+  (method protected virtual (prepare-system)
+    (set-process self)
+    (initialize-system))
+  
+  
+  (method protected virtual (prepare-profile)
+    )
 
 
   (method protected virtual (prepare-environment)
-    (set-process self)
-    (initialize-system))
+    )
 
 
   (method (prepare-preferences)
@@ -209,7 +226,11 @@
 
   
   (method public virtual (setup-profile)
-    )
+    (define (create-profile)
+      (set! profile (new (load-profile-class profile-class))))
+    
+    (when (and (use-profile?) profile-class)
+      (create-profile)))
     
   
   (method (finish-phase)
@@ -272,6 +293,67 @@
   (method (persist-preferences)
     (when (and preferences-designer (persist-preferences?) (file? (get-origin~ (get-form~ preferences-designer))))
       (save~ preferences-designer)))
+
+
+  ;;;
+  ;;;; Profile
+  ;;;
+  
+  
+  (method protected virtual (login-profile)
+    (when (use-profile?)
+      (install-profiles)
+      (log-profile)))
+  
+  
+  (method protected virtual (use-profile?)
+    #f)
+  
+  
+  (method protected virtual (install-profiles)
+    )
+  
+  
+  (method protected virtual (log-profile)
+    (define (install-profile name unit bindings)
+      (let ((source (find-unit-source profile-class)))
+        (register-alias 'Profile (get-list~ (get-parent~ source)))))
+    
+    (define (standard-profile title)
+      (let ((name (string->symbol title))
+            (unit-name (string->symbol (format "profile.{a}" (downcase title))))
+            (bindings 'jazz))
+        (values name unit-name bindings)))
+    
+    (define (profile-parameter)
+      (let ((profile (string-parameter "profile" 'profile #f)))
+        (when profile
+          (capitalize (->string profile)))))
+    
+    (let ((profile-arg (profile-parameter)))
+      (when profile-arg
+        (receive (name unit bindings) (standard-profile (->string profile-arg))
+          (set! profile-class (compose-identifier unit name))
+          (install-profile name unit bindings)))))
+  
+  
+  ;;;
+  ;;;; Runtime
+  ;;;
+  
+  
+  (method public virtual (runtime-product)
+    (or (jazz-product) (current-process-product) 'jazz))
+  
+  
+  (method public virtual (runtime-units)
+    (if profile-class
+        (list profile-class)
+      '()))
+  
+  
+  (method public virtual (evaluation-processes)
+    '())
   
   
   ;;;
@@ -319,6 +401,7 @@
   (method public virtual (process-alias name)
     (case name
       ((:process) self)
+      ((:profile) profile)
       (else
        (if (pair? name)
            (let ((sub (process-alias (car name))))
@@ -500,26 +583,23 @@
                 (start-loop))))))))
   
   
-  (method public (resume-loop)
+  (method public (invoke-resume-loop)
     (let ((restart (find-restart 'resume-loop)))
       (when restart
-        (resume-loop-action)
         (invoke-restart restart))))
-  
-  
-  (method public virtual (resume-loop-action)
-    )
 
 
   (method public virtual (start-loop)
     (declare (proper-tail-calls))
-    (let (loop)
-      (with-restart-catcher 'resume-loop (present-current-loop-restart) #f
+    (let (restart-loop)
+      (with-restart-catcher 'resume-loop (present-current-loop-restart)
         (lambda ()
-          (let ((thunk (thread-read)))
-            (with-exception-debugger (get-exception-debugger)
-              thunk))))
-      (loop)))
+          (let (loop)
+            (let ((thunk (thread-read)))
+              (with-exception-debugger (get-exception-debugger)
+                thunk))
+            (loop))))
+      (restart-loop)))
 
 
   ;;;

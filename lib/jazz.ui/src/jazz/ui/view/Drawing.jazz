@@ -70,21 +70,11 @@
   
   
   (method public (get-lie) <Point>
-    (receive (h <fl> v <fl> sc) (get-lie-parent 0.0 0.0 1.0)
-      (new Point (fxround h) (fxround v))))
-  
-  
-  (method protected virtual (get-lie-parent h <fl> v <fl> sc <fl>)
-    (if (not parent)
-        (values h v sc)
-      (get-lie-parent~ parent (+ (get-h~ position) h) (+ (get-v~ position) v) sc)))
+    (view->device {Point 0 0}))
   
   
   (method public (set-lie lie <Point>) <void>
-    (let* ((actual (get-lie))
-           (delta (- lie actual))
-           (pos (+ position delta)))
-      (set-position pos)))
+    (set-position (nu+ (device->view lie) position)))
 
   
   ;;;
@@ -96,6 +86,16 @@
     (let ((player (get-player)))
       (when player
         (get-root~ player))))
+  
+  
+  (method public (get-rootmost) <View>
+    (define (rootmost view)
+      (let ((parent (get-parent~ view)))
+        (if (not parent)
+            view
+          (rootmost parent))))
+    
+    (or (get-root) (rootmost self)))
 
   
   ;;;
@@ -104,34 +104,47 @@
 
 
   (method public (acquire origin <Drawing> shape)
-    (receive (dh dv sc) (get-delta origin)
-      (acquire-delta dh dv sc shape)))
-
-
-  (method public (acquire-delta dh <fl> dv <fl> sc <fl> shape)
-    (typecase shape
-      ((Point)
-       (let ((h <fx> (get-h~ shape))
-             (v <fx> (get-v~ shape)))
-         (new Point (fxround (+ dh (* h sc)))
-                    (fxround (+ dv (* v sc))))))
-      ((Rect)
-       (let ((left <fx> (get-left~ shape))
-             (top <fx> (get-top~ shape))
-             (right <fx> (get-right~ shape))
-             (bottom <fx> (get-bottom~ shape)))
-         (new Rect (fxround (+ dh (* left sc)))
-                   (fxround (+ dv (* top sc)))
-                   (fxround (+ dh (* right sc)))
-                   (fxround (+ dv (* bottom sc))))))
-      (else
-       (error "Unable to acquire {t}" shape))))
+    (define (common-ancestor l1 l2)
+      (let (iter (ancestor #f) (s1 l1) (s2 l2))
+        (if (and (not-null? s1) (not-null? s2) (eq? (car s1) (car s2)))
+            (iter (car s1) (cdr s1) (cdr s2))
+          ancestor)))
+    
+    (if (eq? origin self)
+        shape
+      (let ((root (get-rootmost))
+            (origin-root (get-rootmost~ origin)))
+        (if (eq? root origin-root)
+            (let ((surface (transformation-surface))
+                  (ancestor (common-ancestor (get-ancestry) (get-ancestry~ origin))))
+              (let ((device-shape (with-view-transformation~ origin surface ancestor
+                                    (lambda ()
+                                      (logical->device~ surface shape)))))
+                (with-view-transformation surface ancestor
+                  (lambda ()
+                    (device->logical~ surface device-shape)))))
+          (let ((player (get-player))
+                (origin-player (get-player~ origin)))
+            (if (and player origin-player)
+                (acquire~ self (get-root) (acquire~ player origin-player (acquire~ (get-root~ origin) origin shape)))
+              ;; quick hack that needs to be fixed for some regressions like mouse-move or mouse-up
+              ;; that can occur when they get called playerless because their window was closed for
+              ;; example when double-clicking a found binding in the View Shortcut Bindings tree
+              shape
+              @quick-hack
+              (error "Unable to acquire {s}" shape)))))))
   
   
-  (method protected virtual (get-delta origin <Drawing>)
-    (receive (origin-h <fl> origin-v <fl> origin-sc <fl>) (get-lie-parent~ origin 0.0 0.0 1.0)
-      (receive (h <fl> v <fl> sc <fl>) (get-lie-parent 0.0 0.0 1.0)
-        (values (/ (- origin-h h) sc) (/ (- origin-v v) sc) (/ origin-sc sc)))))
+  (method public (view->device shape)
+    (with-transformation-surface
+      (lambda (surface)
+        (logical->device~ surface shape))))
+  
+  
+  (method public (device->view shape)
+    (with-transformation-surface
+      (lambda (surface)
+        (device->logical~ surface shape))))
 
   
   ;;;
@@ -212,80 +225,12 @@
   
   
   ;;;
-  ;;;; Scaling
+  ;;;; Transformation
   ;;;
   
 
-  (method public virtual (get-scaled?)
+  (method public virtual (get-transformation)
     #f)
-
-
-  (method public virtual (set-scaled? value)
-    )
-  
-
-  (method public virtual (get-scaling) <fl>
-    1.0)
-
-
-  (method public virtual (set-scaling value <fl>)
-    )
-
-
-  (method public (logical->device shape (orientation: orientation #f) (info: info #f))
-    (let ((info (or info (scaling-info))))
-      (if (not info)
-          shape
-        (receive (sh <fx> sv <fx> sc <fl>) info
-          (let ((horz (lambda (lh <fx>) (fxround (+ (* (- lh sh) sc) sh))))
-                (vert (lambda (lv <fx>) (fxround (+ (* (- lv sv) sc) sv)))))
-            (typecase shape
-              ((Point) (new Point (horz (get-h~ shape)) (vert (get-v~ shape))))
-              ((Dimension) (new Dimension (horz (get-width~ shape)) (vert (get-height~ shape))))
-              ((Rect) (new Rect (horz (get-left~ shape)) (vert (get-top~ shape)) (horz (get-right~ shape)) (vert (get-bottom~ shape))))
-              ((Number) (case orientation
-                          ((horz) (horz shape))
-                          ((vert) (vert shape))
-                          (else (error "Unknown orientation: {t}" orientation))))
-              (else (error "Unable to translate {t}" shape))))))))
-
-
-  (method public (device->logical shape (orientation: orientation #f) (info: info #f))
-    (let ((info (or info (scaling-info))))
-      (if (not info)
-          shape
-        (receive (sh <fx> sv <fx> sc <fl>) info
-          (let ((horz (lambda (dh <fx>) (+ (quotient (- dh sh) sc) sh)))
-                (vert (lambda (dv <fx>) (+ (quotient (- dv sv) sc) sv))))
-            (typecase shape
-              ((Point) (new Point (horz (get-h~ shape)) (vert (get-v~ shape))))
-              ((Dimension) (new Dimension (horz (get-width~ shape)) (vert (get-height~ shape))))
-              ((Rect) (new Rect (horz (get-left~ shape)) (vert (get-top~ shape)) (horz (get-right~ shape)) (vert (get-bottom~ shape))))
-              ((Number) (case orientation
-                          ((horz) (horz shape))
-                          ((vert) (vert shape))
-                          (else (error "Unknown orientation: {t}" orientation))))
-              (else (error "Unable to translate {t}" shape))))))))
-  
-  
-  ;; Maybe this method should be optimized out by setting
-  ;; scaling info in every child of the scaled drawing...
-  (method (scaling-info)
-    (let ((drawing self)
-          (sh <fx> 0)
-          (sv <fx> 0))
-      (continuation-capture
-        (lambda (return)
-          (while drawing
-            (let ((sc? (get-scaled?~ drawing))
-                  (sc (get-scaling~ drawing)))
-              (if sc?
-                  (continuation-return return (values sh sv sc))
-                (let ((pos (get-position~ drawing)))
-                  (decrease! sh (get-h~ pos))
-                  (decrease! sv (get-v~ pos)))
-                (set! drawing (get-parent~ drawing)))))
-          #f))))
 
   
   ;;;
@@ -323,7 +268,7 @@
   
   
   (method protected (call-layout)
-    (unless (get-layout-valid?)
+    (unless (or (get-layout-valid?) (and (inhibit-layouts?) (not (get-visible?))))
       (layout)
       (set-layout-valid? #t)))
   
@@ -337,6 +282,18 @@
   
   
   (method public virtual (layout)
+    )
+  
+  
+  (method public virtual (adjust?)
+    #f)
+  
+  
+  (method public virtual (adjust-fit)
+    )
+  
+  
+  (method public virtual (adjust)
     )
 
   
@@ -365,34 +322,69 @@
   ;;;
   
   
+  (definition *transformation-surface*
+    #f)
+  
+  
+  (method (transformation-surface)
+    (unless *transformation-surface*
+      (set! *transformation-surface* (new Memory-Surface #f {Dimension 4096 4096})))
+    *transformation-surface*
+    @doesnt-work-as-is
+    (get-offscreen~ (get-root) #f))
+  
+  
+  (method public (with-transformation-surface proc)
+    (let ((surface (transformation-surface)))
+      (with-view-transformation surface (get-rootmost)
+        (lambda ()
+          (proc surface)))))
+  
+  
+  (method public (with-clipped-transformation-surface proc)
+    (let ((surface (transformation-surface)))
+      (with-clipping-view-transformation surface (get-rootmost)
+        (lambda ()
+          (proc surface)))))
+  
+  
+  (method public (with-pristine-clipped-surface proc)
+    (let ((surface (transformation-surface)))
+      (with-pristine-clipping-transformation~ surface
+        (lambda ()
+          (proc surface)))))
+  
+  
   (method public (find-drawing pos <Point> (ignore: ignore #f))
-    (when (in-drawing? pos size)
-      (or (find-subdrawing pos ignore)
-          (unless (get-transparent?)
-            self))))
+    (with-pristine-clipped-surface
+      (lambda (surface)
+        (find-in-drawing surface pos ignore))))
   
   
-  (method protected virtual (in-drawing? pos <Point> size <Dimension>)
-    (in-size? pos size))
+  (method public (find-in-drawing surface <Surface> device-pos <Point> ignore)
+    (unless (and ignore (memq? self ignore))
+      (with-self-transformation surface
+        (lambda ()
+          (let ((pos (device->logical~ surface device-pos)))
+            (when (in-drawing? pos size)
+              (or (find-subdrawing surface device-pos pos ignore)
+                  (unless (get-transparent?)
+                    self))))))))
   
   
-  (method protected virtual (find-subdrawing pos <Point> ignore)
+  (method protected virtual (find-subdrawing surface <Surface> device-pos <Point> pos <Point> ignore)
     (continuation-capture
       (lambda (return)
         (for-each-view-reversed
           (lambda (view <View>)
-            (let ((delta <Point> (- pos (get-position~ view))))
-              (let* ((scaled? (get-scaled?~ view))
-                     (found (if (not scaled?)
-                                (find-drawing~ view delta)
-                              (let ((scaling <fl> (get-scaling~ view)))
-                                (let ((scaled (new Point
-                                                (fxround (/ (get-h~ delta) scaling))
-                                                (fxround (/ (get-v~ delta) scaling)))))
-                                  (find-drawing~ view scaled))))))
-                (when (and found (or (not ignore) (not (memq? found ignore))))
-                  (continuation-return return found))))))
+            (let ((found (find-in-drawing~ view surface device-pos ignore)))
+              (when found
+                (continuation-return return found)))))
         #f)))
+  
+  
+  (method protected virtual (in-drawing? pos <Point> size <Dimension>)
+    (in-size? pos size))
 
 
   ;;;
@@ -410,33 +402,36 @@
   ;;;
   
   
-  (method public (paint-root surface <Surface>) <void>
-    (with ((region (copy-region (get-update-region~ surface))))
-      (bind (view draw-self? . nodes) (painting-tree region 0 0)
-        (paint surface draw-self? nodes '() 0 0 0 0 1.0 #f))))
+  (method public (paint-root surface <Surface> update-region <Region>) <void>
+    (bind (view draw-self? . nodes) (painting-tree surface update-region)
+      (paint surface draw-self? nodes '())))
   
   
-  (method public (paint-drawing surface <Surface> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
-    (with ((region (new Region (get-clipper~ surface))))
-      (bind (view draw-self? . nodes) (painting-tree region lh lv)
-        (paint surface draw-self? nodes context lh lv sh sv sc sc?))))
+  (method public (paint-drawing surface <Surface> context <list>) <void>
+    (with ((region (new Region rect: (logical->device~ surface (get-clipper~ surface)))))
+      (bind (view draw-self? . nodes) (painting-tree surface region)
+        (paint surface draw-self? nodes context))))
   
   
-  (method public (painting-tree region <Region> lh <fx> lv <fx>)
-    (define (make-tree view region lh lv)
+  (method public (render-drawing surface <Surface> context <list>) <void>
+    (with ((region (new Region rect: (logical->device~ surface (get-clipper~ surface)))))
+      (bind (view draw-self? . nodes) (painting-tree surface region)
+        (render surface draw-self? nodes context))))
+  
+  
+  (method public (painting-tree surface region <Region>)
+    (define (make-tree surface view region)
       (let ((nodes '()))
         (with ((update (copy-region region)))
-          (with ((coverage (if (get-opaque?~ view) (new Region lh lv (+ lh (get-width~ view)) (+ lv (get-height~ view))) (new Region))))
+          (with ((coverage (if (get-opaque?~ view) (new Region rect: (logical->device~ surface (get-bounds~ view))) (new Region))))
             (for-each-view-reversed~ view
               (lambda (child)
-                (let ((position (get-position~ child))
-                      (size (get-size~ child)))
-                  (let ((ch (+ lh (get-h~ position)))
-                        (cv (+ lv (get-v~ position))))
-                    (with ((child-region (new Region ch cv (+ ch (get-width~ size)) (+ cv (get-height~ size)))))
+                (with-self-transformation~ child surface
+                  (lambda ()
+                    (with ((child-region (new Region rect: (logical->device~ surface (get-bounds~ child)))))
                       (with ((intersection (region-intersection update child-region)))
                         (when (not (empty?~ intersection))
-                          (bind (child-coverage . node) (make-tree child intersection ch cv)
+                          (bind (child-coverage . node) (make-tree surface child intersection)
                             (set! nodes (cons node nodes))
                             (combine!~ update child-coverage 'diff)
                             (combine!~ coverage child-coverage 'or)
@@ -444,9 +439,10 @@
             (cons (region-intersection region coverage) (cons view (cons (not (empty?~ update)) nodes)))))))
     
     ;; temporary patch until full-fledged regions in X11
-    (if (neq? kernel-platform 'windows)
+    (if (or (neq? kernel-platform 'windows)
+            (not (use-painting-tree?~ surface)))
         (full-painting-tree)
-      (bind (coverage . node) (make-tree self region lh lv)
+      (bind (coverage . node) (make-tree surface self region)
         (close~ coverage)
         node)))
   
@@ -462,53 +458,47 @@
     (make-tree self))
 
   
-  (method public (paint surface <Surface> draw-self? <bool> nodes <list> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
+  (method public (paint surface <Surface> draw-self? <bool> nodes <list> context <list>) <void>
     (if (not (get-offscreen?))
-        (paint-content surface draw-self? nodes context lh lv sh sv sc sc?)
+        (paint-content surface draw-self? nodes context)
       (let ((offscreen (get-offscreen surface)))
         (set-clipper~ offscreen (get-clipper~ surface))
-        (set-update-region~ offscreen (get-update-region~ surface))
-        (paint-content offscreen draw-self? nodes context lh lv sh sv sc sc?)
+        (paint-content offscreen draw-self? nodes context)
         (blit-surface~ surface offscreen))))
   
   
-  (method public (paint-content surface <Surface> draw-self? <bool> nodes <list> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
-    (let ((scaled? (get-scaled?)))
-      (let ((new-sh (if (not scaled?) sh lh))
-            (new-sv (if (not scaled?) sv lv))
-            (new-sc (if (not scaled?) sc (get-scaling)))
-            (new-sc? (if (not scaled?) sc? #t)))
-        (with-transform~ surface lh lv (get-width~ size) (get-height~ size) new-sh new-sv new-sc new-sc?
-          (lambda ()
-            (render surface draw-self? nodes context lh lv new-sh new-sv new-sc new-sc?))))))
+  (method public (paint-content surface <Surface> draw-self? <bool> nodes <list> context <list>) <void>
+    (with-clipping-self-transformation surface
+      (lambda ()
+        (render surface draw-self? nodes context))))
 
   
-  (method public virtual (render surface <Surface> draw-self? <bool> nodes <list> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
+  (method public virtual (render surface <Surface> draw-self? <bool> nodes <list> context <list>) <void>
     (when draw-self?
       (if (debug-paint?)
-          (fill-rect~ surface (get-bounds) (cycle-debug-color!))
+          (when (is? self View)
+            (fill-rect~ surface (get-bounds) (cycle-debug-color!)))
         (draw-background surface context))
-      (draw-content surface context lh lv))
-    (draw-children surface nodes context lh lv sh sv sc sc?))
+      (draw-content surface context))
+    (draw-children surface nodes context))
 
   
   (method public virtual (draw-background surface <Surface> context) <void>
     )
   
   
-  (method public virtual (draw-content surface <Surface> context <list> lh <fx> lv <fx>) <void>
-    (draw surface context lh lv))
+  (method public virtual (draw-content surface <Surface> context <list>) <void>
+    (draw surface context))
     
   
-  (method public virtual (draw surface <Surface> context <list> lh <fx> lv <fx>) <void>
+  (method public virtual (draw surface <Surface> context <list>) <void>
     )
 
   
-  (method public virtual (draw-children surface <Surface> nodes <list> context <list> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>) <void>
+  (method public virtual (draw-children surface <Surface> nodes <list> context <list>) <void>
     (for-each (lambda (node)
                 (bind (drawing draw-self? . nodes) node
-                  (let ((pos (get-position~ drawing)))
-                    (paint~ drawing surface draw-self? nodes context (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
+                  (paint~ drawing surface draw-self? nodes context)))
               nodes))
 
 
@@ -526,26 +516,40 @@
   ;;;
   
   
-  (method public (get-clipper)
-    (get-translated-clipper 0 0))
+  (method protected (with-view-transformation surface <Surface> root <View> thunk <procedure>)
+    (if (eq? self root)
+        (with-pristine-transformation~ surface
+          thunk)
+      (with-view-transformation~ parent surface root
+        (lambda ()
+          (with-self-transformation surface
+            thunk)))))
   
   
-  (method package (get-translated-clipper h v)
-    (if (not parent)
-        (offset-rect (get-bounds) (fxround h) (fxround v))
-      (get-parent/child-clipper~ parent self h v)))
+  (method protected (with-self-transformation surface <Surface> thunk <procedure>)
+    (with-transformation~ surface (get-h~ position) (get-v~ position) (get-transformation)
+      thunk))
   
   
-  (method protected virtual (get-parent/child-clipper child h v)
-    (let ((p (get-translated-clipper (- h (get-h~ (get-position~ child))) (- v (get-v~ (get-position~ child)))))
-          (c (offset-rect (get-bounds~ child) (fxround h) (fxround v))))
-      (rect-intersection p c)))
+  (method protected (with-clipping-view-transformation surface <Surface> root <View> thunk <procedure>)
+    (if (eq? self root)
+        (with-pristine-clipping-transformation~ surface
+          thunk)
+      (with-clipping-view-transformation~ parent surface root
+        (lambda ()
+          (with-clipping-self-transformation surface
+            thunk)))))
   
   
-  (method public (get-root-clipper)
-    (let ((root (get-root)))
-      (when root
-        (acquire~ root self (get-clipper)))))
+  (method protected virtual (with-clipping-self-transformation surface <Surface> thunk <procedure>)
+    (with-clipping-transformation~ surface (get-h~ position) (get-v~ position) (get-width~ size) (get-height~ size) (get-transformation)
+      thunk))
+  
+  
+  (method public (get-view-clipper)
+    (with-clipped-transformation-surface
+      (lambda (surface)
+        (get-clipper~ surface))))
   
   
   (method public virtual (get-offscreen?)

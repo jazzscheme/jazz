@@ -1,0 +1,163 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Problems View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.debugger.debugger.Problems-View jazz
+
+
+(import (jazz.debuggee.stub)
+        (jazz.debugger)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.window))
+
+
+(class Problems-View extends Detail-View
+  
+
+  (form
+    (<install>                      layout-type: border
+      (<!>           name: tools
+        (<Push-Tool> name: edit     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Resolved" resource: {Image-Resource "Done"} portfolio: :images action-handler: {Event-Handler :guest on-resolved})
+        (<Push-Tool> name: pop      size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Clear" resource: {Image-Resource "ClearResults"} portfolio: :images action-handler: {Event-Handler :guest on-clear}))
+      (<!>           name: scroller
+        (<!>         name: content
+          (<!>       name: header
+            (<!>     name: content
+              (<!>   name: detail
+                (<!> name: detail   toplevel-controls?: #t))))))))
+
+
+  (slot details initialize (make-table test: equal?))
+
+  
+  (method meta override (external-name . rest)
+    'problems-view)
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-icon)
+    {Image-Resource "Clone"})
+  
+  
+  (method meta override (host-title)
+    "Problems")
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'detail))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-resolved evt)
+    (let ((row (selected-row)))
+      (when row
+        (let ((tree (get-tree))
+              (top-row (car (get-spine~ row))))
+          (let ((location (->string (get-title~ (get-user-data~ top-row)))))
+            (table-clear details location))
+          (update)
+          (if (> (get-visible-count~ tree) 0)
+              (set-selection~ tree (list 0))
+            (set-selection~ tree '()))))))
+  
+  
+  (method (on-clear evt)
+    (empty-table details)
+    (update)
+    (set-selection~ (get-tree) '()))
+
+  
+  ;;;
+  ;;;; Problems
+  ;;;
+
+
+  (method public (report-problems problems (highlight?: highlight? #f))
+    (define (add-detail detail)
+      (let ((location (->string (get-title~ detail))))
+        (table-set! details location detail)))
+    
+    (let ((children (get-children~ problems)))
+      (for-each add-detail children)
+      (update)
+      (when (and highlight? (not-null? children))
+        (let ((tree (get-tree))
+              (detail (car children)))
+          (let ((line (user-data-index~ tree detail)))
+            (when line
+              (set-single-selection~ tree line)))))))
+
+  
+  ;;;
+  ;;;; Update
+  ;;;
+
+  
+  (method (update)
+    (define (insert-detail tree father detail)
+      (let ((title (get-title~ detail))
+            (icon (get-icon~ detail)))
+        (let ((image (if icon (new Image-Resource icon) #f)))
+          (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: detail)))
+            (for-each (lambda (subdetail)
+                        (insert-detail tree row subdetail))
+                      (get-children~ detail))))))
+    
+    (let ((tree (get-tree)))
+      (remove-every-row~ tree)
+      (with-update-locked~ tree
+        (lambda ()
+          (let ((pairs (table->list details)))
+            (for-each (lambda (pair)
+                        (let ((detail (cdr pair)))
+                          (insert-detail tree #f detail)))
+                      (sort string<? pairs key: car)))))))))

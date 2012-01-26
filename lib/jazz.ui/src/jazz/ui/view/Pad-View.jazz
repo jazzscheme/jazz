@@ -38,10 +38,14 @@
 (module protected jazz.ui.view.Pad-View jazz
 
 
-(import (jazz.ui))
+(import (jazz.system)
+        (jazz.ui))
 
 
 (class Pad-View extends View
+  
+  
+  (property preferences initialize #f accessors generate)
   
   
   ;;;
@@ -105,10 +109,21 @@
   
   
   (method public (set-selection target)
+    (define (save-preferences)
+      (when (is? target Docked-Host)
+        (let ((target-pref (get-preferences~ target))
+              (designer (get-workspaces-designer~ (get-application))))
+          (when (and preferences target-pref designer)
+            (for-each (lambda (child)
+                        (when (is? child Docked-Preferences)
+                          (set-property~ designer child 'location (if (eq? child target-pref) 'selection #f))))
+                      (get-children~ preferences))))))
+    
     (for-each (lambda (child)
                 (set-location~ child (if (eq? child target) 'selection #f)))
               children)
-    (layout-view))
+    (layout-view)
+    (save-preferences))
   
   
   (method public (select-next)

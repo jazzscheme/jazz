@@ -75,13 +75,18 @@
         ;; temp code until an initialized? flag in the Object class
         (when (and unit-name sublocation)
           (format output "{s} {l}" unit-name sublocation)))))
+  
+  
+  ;;;
+  ;;;; Edit
+  ;;;
 
 
   (method override (edit (workspace: workspace #f) (activate-focus?: activate-focus? #t) (error?: error? #t))
     (let ((location (find-location workspace: workspace error?: error?)))
       (when location
         (receive (frame text range) location
-          (set-selection~ text range ensure-displayed?: #f)
+          (set-selection-safe~ text range ensure-displayed?: #f)
           (ensure-displayed~ text force-vertical: 'head)
           (bring-to-front~ frame)
           (set-visible?~ frame #t)
@@ -96,8 +101,8 @@
   
   (method public (find-location (workspace: workspace #f) (error?: error? #t))
     (define (find-unit unit-name)
-      (let* ((appl (get-application))
-             (source (find-unit-source unit-name)))
+      (let ((appl (get-application))
+            (source (find-unit-source unit-name)))
         (or (edit-document~ appl source class: Jazz-Text-View workspace: workspace visible?: #f)
             (when error?
               (signal (new Location-Error kind: 'unknown location: unit-name))))))

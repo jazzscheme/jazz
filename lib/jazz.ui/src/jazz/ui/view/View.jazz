@@ -45,6 +45,7 @@
         (jazz.jml)
         (jazz.library)
         (jazz.locale)
+        (jazz.platform.cairo)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.dialog)
@@ -60,6 +61,7 @@
   
   (property title                                initialize #f accessors explicit)
   (property font                                 initialize #f accessors explicit)
+  (property style                                initialize #f accessors explicit)
   (property background                           initialize #f accessors explicit)
   (property auto-size?                           initialize #f accessors explicit)
   (property tooltip?                             initialize #f accessors explicit)
@@ -67,13 +69,15 @@
   (property draggable?                           initialize #f accessors explicit)
   (property drag-tolerance                       initialize 5  accessors generate)
   (property enabled?                             initialize #t accessors explicit)
+  (property navigable?                           initialize #t accessors generate)
   (property outline-view                         initialize #f accessors generate)
   (property offscreen?                 <bool>    initialize #f accessors explicit)
+  (property scaling                              initialize #f accessors explicit)
+  (property rotation                             initialize #f accessors explicit)
   ;; not implemented yet
   (property layer                                initialize 0  accessors explicit)
   (property effect                               initialize #f accessors explicit)
   (property user-data                            initialize #f accessors generate)
-  (property disabled-navigate?                   initialize #f accessors generate)
 
   
   (property focus-gained-handler                 initialize #f accessors generate)
@@ -107,8 +111,7 @@
   (slot offscreen                                initialize #f)
   (slot scroller                                 initialize #f)
   (slot renderer                                 initialize #f accessors generate)
-  (slot scaled?                     <bool>       initialize #f)
-  (slot scaling                     <fl>         initialize 1.0)
+  (slot transformation                           initialize #f)
   (slot previous-size               <Dimension+> initialize #f)
   (slot update-locked?              <bool>       initialize #f getter generate)
   (slot scrollee-locked?            <bool>       initialize #f)
@@ -116,6 +119,7 @@
   (slot hover-history                            initialize #f)
   (slot hover-pulse                              initialize #f)
   (slot tools-info                               initialize #f)
+  (slot device-transformation                    initialize #f getter generate) ; DANGER, DO NOT SHARE!!
   
   
   (method override (shortcut-update action-item));;abstract
@@ -148,15 +152,9 @@
   
   
   (method override (destroy-component)
-    (let ((mouse-in (get-mouse-in)))
-      (when (and mouse-in (has-ascendant?~ mouse-in self))
-        (reset-mouse-in)
-        (call-mouse-leave~ mouse-in)))
-    (let ((focus (get-focus)))
-      (when (and focus (has-ascendant?~ focus self))
-        (let ((window-focus (get-window-focus)))
-          (when (eq? player window-focus)
-            (reset-focus~ window-focus)))))
+    (detach-mouse-in)
+    (detach-view-focus)
+    (flush-device-transformation)
     (nextmethod))
 
 
@@ -169,8 +167,32 @@
           (view-destroyed~ host self)))
       (set-offscreen? #f)
       (set! player #f)
+      (when transformation
+        (cairo_matrix_t-free transformation)
+        (set! transformation #f))
       (when (is? parent View)
         (invalidate-rect~ parent rect))))
+  
+  
+  ;;;
+  ;;;; Reset
+  ;;;
+  
+  
+  (method protected (detach-mouse-in)
+    (let ((mouse-in (get-mouse-in)))
+      (when (and mouse-in (has-ascendant?~ mouse-in self))
+        (reset-mouse-in)
+        (call-mouse-leave~ mouse-in))))
+  
+  
+  (method protected (detach-view-focus)
+    (let ((focus (get-focus)))
+      (when (and focus (has-ascendant?~ focus self))
+        (let ((window-focus (get-window-focus)))
+          (when (eq? player window-focus)
+            (reset-focus~ window-focus)
+            focus)))))
   
   
   ;;;
@@ -197,30 +219,13 @@
   
   
   (method override (set-player plr)
-    (define (own-focus)
-      (let ((focus (get-focus)))
-        (when (eq? focus self)
-          focus)))
-    
-    (define (own-mouse)
-      (let ((mouse (get-mouse-in)))
-        (when (eq? mouse self)
-          mouse)))
-    
     (when (neq? player plr)
-      (let ((focus (own-focus))
-            (mouse (own-mouse)))
-        (when focus
-          (let ((window-focus (get-window-focus)))
-            (when (eq? player window-focus)
-              (reset-focus~ window-focus))))
-        (when (and mouse (not plr))
-          (reset-mouse-in)
-          (call-mouse-leave))
+      (detach-mouse-in)
+      (let ((own-focus (detach-view-focus)))
         (set! player plr)
         (nextmethod plr)
-        (when (and player focus)
-          (acquire-focus~ focus)))))
+        (when (and player own-focus)
+          (acquire-focus~ own-focus)))))
   
   
   (method public (in-player?)
@@ -349,20 +354,30 @@
   
   
   (method public (effective-host-workspaces)
+    (define (pref-workspace pref)
+      (let ((associations (get-associations~ pref)))
+        (continuation-capture
+          (lambda (return)
+            (for-each (lambda (association)
+                        (bind (reference . workspace) association
+                          (let ((class (resolve-reference~ reference)))
+                            (when (is? self class)
+                              (continuation-return return workspace)))))
+                      associations)
+            #f))))
+    
+    (define (host-workspace)
+      (get-workspace~ (get-host)))
+      
     (define (filter-inexistant-workspaces pref workspaces)
       (let ((names (map get-name~ (get-children~ pref))))
         (collect-if (lambda (name)
-                      (memq? name names))
+                      (and name (memq? name names)))
                     workspaces)))
     
-    (host-workspaces)
-    @convert-external-name
-    (let* ((pref (get-workspaces-preferences))
-           (associations (get-associations~ pref))
-           (external (external-name error?: #f)))
+    (let ((pref (get-workspaces-preferences)))
       (filter-inexistant-workspaces pref
-                                    (or (and external (assq external associations))
-                                        (host-workspaces)))))
+        (cons (pref-workspace pref) (cons (host-workspace) (host-workspaces))))))
   
   
   (method public (for-each-view-docked proc)
@@ -576,6 +591,10 @@
   
   (method public virtual (set-title value)
     (set! title value)
+    (adjust-title))
+  
+  
+  (method protected virtual (adjust-title)
     (adjust-size))
   
   
@@ -590,6 +609,7 @@
 
   (method override (show)
     (nextmethod)
+    (call-layout)
     (invalidate-view))
 
 
@@ -625,16 +645,53 @@
   
   
   ;;;
-  ;;;; Scaling
+  ;;;; Transformation
   ;;;
   
 
-  (method override (get-scaled?)
-    scaled?)
+  (method public (get-scaling)
+    scaling)
+  
+  
+  (method public (effective-scaling)
+    (or scaling 1.))
 
 
-  (method override (set-scaled? value)
-    (set! scaled? value)
+  (method public (set-scaling value)
+    (set! scaling value)
+    (update-transformation))
+  
+  
+  (method public (scale-view factor)
+    (set-scaling (and factor (* (effective-scaling) factor))))
+  
+
+  (method public (get-rotation)
+    rotation)
+  
+  
+  (method public (effective-rotation)
+    (or rotation 0.))
+
+
+  (method public (set-rotation value)
+    (set! rotation value)
+    (update-transformation))
+  
+  
+  (method override (get-transformation)
+    transformation)
+  
+  
+  (method (update-transformation)
+    (set! transformation (and (or scaling rotation)
+                              (let ((matrix (cairo_matrix_t-make)))
+                                (cairo_matrix_init_identity matrix)
+                                (when rotation
+                                  (cairo_matrix_rotate matrix (degree->radian rotation)))
+                                (when scaling
+                                  (cairo_matrix_scale matrix scaling scaling))
+                                matrix)))
     (update-displayed)
     (update-scrollbars)
     ;; Depending on whether it's the view's point of vue or it's parent
@@ -642,14 +699,6 @@
     (if parent
         (invalidate-view~ parent)
       (invalidate-view)))
-  
-
-  (method override (get-scaling)
-    scaling)
-
-
-  (method override (set-scaling value)
-    (set! scaling (/ (round (* value 1000)) 1000)))
 
   
   ;;;
@@ -723,55 +772,17 @@
   
   (method override (set-effect value)
     (set! effect value))
-
-  
-  ;;;
-  ;;;; Lie
-  ;;;
-  
-  
-  (method override (get-lie-parent h <fl> v <fl> sc <fl>)
-    (if (or (not parent) (not scaled?))
-        (nextmethod h v sc)
-      (get-lie-parent~ parent (+ (get-h~ position) (* h scaling)) (+ (get-v~ position) (* v scaling)) (* sc scaling))))
-
-  
-  ;;;
-  ;;;; Global
-  ;;;
-  
-  
-  (method public (get-global) <Point>
-    (+ (get-position-in-root~ (cast <Window> player)) (get-lie)))
-
-  
-  ;;;
-  ;;;; Coordinates
-  ;;;
-  
-  
-  (method override (get-delta origin <View>)
-    (let ((origin-player (get-player~ origin)))
-      (if (and player origin-player (neq? player origin-player))
-          (receive (h <fl> v <fl> sc <fl>) (get-lie-parent 0.0 0.0 1.0)
-            (let ((delta <Point> (- (get-global~ origin) (get-global))))
-              (values (* (get-h~ delta) sc) (* (get-v~ delta) sc) sc)))
-        (nextmethod origin))))
   
   
   ;;;
   ;;;; Position
   ;;;
   
-  
-  (method override (default-position) <Point>
-    {Point 0 0})
-  
 
   (method override (set-position pos <Point>)
     (when (/= pos position)
       ;; todo: it is possible to invalidate more precisely
-      (let ((inval? (and player (is? parent View))))
+      (let ((inval? (and player (is? parent View) (not (inhibit-invalidates?)))))
         (let* ((bounds (and inval? (get-bounds)))
                (old (and inval? (acquire~ parent self bounds))))
           (set! position pos)
@@ -816,8 +827,8 @@
     )
   
   
-  (method (invaled-size sz)
-    (when (and player (is? parent View))
+  (method (invalidated-size sz)
+    (when (and player (is? parent View) (not (inhibit-invalidates?)))
       (let ((old (get-bounds))
             (new (size-rect sz)))
         (acquire~ parent self (rect-union old new)))))
@@ -825,21 +836,23 @@
 
   (method override (set-size sz <Dimension>)
     (when (/= sz size)
-      (let ((invaled-size (invaled-size sz)))
+      (let ((invalidated-size (invalidated-size sz)))
         (set! size sz)
         (size-change size)
         (unless scroller
           (content-size-change size))
-        (when invaled-size
-          (invalidate-rect~ parent invaled-size)))))
+        (when parent
+          (adjust-fit~ parent))
+        (when invalidated-size
+          (invalidate-rect~ parent invalidated-size)))))
   
   
   (method override (set-size-noevent sz <Dimension>)
     (when (/= sz size)
-      (let ((invaled-size (invaled-size sz)))
+      (let ((invalidated-size (invalidated-size sz)))
         (set! size sz)
-        (when invaled-size
-          (invalidate-rect~ parent invaled-size)))))
+        (when invalidated-size
+          (invalidate-rect~ parent invalidated-size)))))
   
   
   (method public (set-preferred-size)
@@ -960,10 +973,10 @@
   ;;;
   
 
-  (method override (render surface draw-self? nodes context lh lv sh sv sc sc?)
+  (method override (render surface draw-self? nodes context)
     (if renderer
-        (render~ renderer self surface draw-self? nodes context lh lv sh sv sc sc?)
-      (nextmethod surface draw-self? nodes context lh lv sh sv sc sc?)))
+        (render~ renderer self surface draw-self? nodes context)
+      (nextmethod surface draw-self? nodes context)))
 
   
   ;;;
@@ -982,9 +995,9 @@
     background)
   
   
-  (method override (draw-content surface context lh lv)
+  (method override (draw-content surface context)
     (set-font~ surface (effective-font))
-    (draw surface context lh lv))
+    (draw surface context))
   
   
   ;;;
@@ -1016,7 +1029,7 @@
         offscreen)))
   
   
-  (definition (new-offscreen surface <Surface> width <fx> height <fx>)
+  (definition (new-offscreen surface <Surface+> width <fx> height <fx>)
     (new Memory-Surface surface (new Dimension width height)))
   
   
@@ -1040,6 +1053,10 @@
   ;;;
   
   
+  (method public virtual (custom-page-setup?)
+    #f)
+  
+  
   (method public virtual (get-page-setup)
     (default-page-setup~ (get-application)))
   
@@ -1048,12 +1065,12 @@
     (default-page-setup-designer~ (get-application)))
   
   
-  (method public (get-page-setup-for name)
-    (let* ((page-setup (get-page-setup))
-           (trait (find-component~ page-setup name)))
-      (when trait
-        (set-active-trait~ page-setup trait))
-      page-setup))
+  (method public virtual (get-page-setup-parcel designer)
+    (default-page-setup-parcel~ (get-application) designer))
+  
+  
+  (method public virtual (apply-page-setup designer form page-setup)
+    (default-apply-page-setup~ (get-application) designer form page-setup))
 
   
   ;;;
@@ -1079,7 +1096,8 @@
           (let* ((toplevel (get-toplevel))
                  (toolbar (find-docked~ toplevel Page-Toolbar)))
             (set-visible?~ (locate~ toolbar 'print-preview) (not from-preview?))
-            (layout-view~ toolbar))
+            (layout-view~ toolbar)
+            (invalidate-window~ toplevel))
           (let* ((frame (new-frame Page-Editor host-title: "Print Layout" client: client))
                  (pane (get-guest~ frame)))
             (acquire-focus~ pane))))))
@@ -1103,7 +1121,8 @@
           (let* ((toplevel (get-toplevel))
                  (toolbar (find-docked~ toplevel Preview-Toolbar)))
             (set-visible?~ (locate~ toolbar 'print-layout) (not from-layout?))
-            (layout-view~ toolbar))
+            (layout-view~ toolbar)
+            (invalidate-window~ toplevel))
           (set-visible?~ frame #t)
           (acquire-focus~ pane)))))
   
@@ -1113,6 +1132,10 @@
     (let ((frame (new-frame Preview-Pane host-title: "Print Preview" client: self)))
       (let ((pane (get-guest~ frame)))
         (acquire-focus~ pane))))
+  
+  
+  (method public virtual (get-page-area context)
+    #f)
   
   
   (method public virtual (get-print-area context)
@@ -1148,17 +1171,14 @@
   
   
   (method protected virtual (setup-printing)
-    (let ((pos position)
-          (sc? scaled?))
+    (let ((pos position))
       (set! position (new Point 0 0))
-      (set! scaled? #f)
       (update-displayed)
-      (list position: pos scaled?: sc?)))
+      (list position: pos)))
   
   
   (method protected virtual (restore-printing preserved)
     (set! position (getf preserved position:))
-    (set! scaled? (getf preserved scaled?:))
     (update-displayed))
   
   
@@ -1170,7 +1190,7 @@
   (method public (export-picture (context: context '()) (where: where 'file) (destination: destination #f))
     (with ((surface (new Memory-Surface #f (get-size))))
       (set-clipper~ surface (new Rect 0 0 (get-width) (get-height)))
-      (paint-drawing surface context 0 0 0 0 1.0 #f)
+      (paint-drawing surface context)
       (export-to-png~ surface (or destination (choose-new-file default-extension: "png")))))
 
 
@@ -1185,14 +1205,10 @@
             (with ((picture (new Picture file: file)))
               (with-printing
                 (lambda ()
-                  (let* ((area (get-print-area context))
-                         (lie (get-lie))
-                         (lh (get-h~ lie))
-                         (lv (get-v~ lie)))
-                    (let ((content (offset-rect area lh lv)))
-                      (with-clipper~ picture content
-                        (lambda ()
-                          (paint-drawing picture context lh lv (get-left~ content) (get-top~ content) 1.0 #f)))))))
+                  (let ((content (offset-rect (get-print-area context))))
+                    (with-clip~ picture content
+                      (lambda ()
+                        (paint-drawing picture context (get-left~ content) (get-top~ content) 1. #f))))))
               (set! metafile (get-metafile~ picture)))
             (if (eq? where 'clipboard)
                 (set-clipboard-metafile metafile)
@@ -1218,29 +1234,32 @@
     (set! scroller view))
   
   
-  (method public virtual (set-scroll-pos part pos (redraw?: redraw? #f))
+  (method public virtual (set-scroll-pos pos (redraw?: redraw? #f))
     (when scroller
-      (set-scroll-pos~ scroller part pos redraw?: redraw?)))
+      (set-scroll-pos~ scroller pos redraw?: redraw?)))
     
   
-  (method public virtual (set-scroll-info part min max page)
+  (method public virtual (set-scroll-info part min max line page)
     (when scroller
-      (set-scroll-info~ scroller part min max page)))
+      (set-scroll-info~ scroller part min max line page)))
   
   
   (method public (compute-scroll-info)
     (let ((vmin #f)
           (vmax #f)
+          (vline #f)
           (vpage #f)
           (vscroll? #f)
           (hmin #f)
           (hmax #f)
+          (hline #f)
           (hpage #f)
           (hscroll? #f))
       (define (vupdate)
         (let ((adjust (if hscroll? scrollbar-size 0)))
           (set! vmin  0)
           (set! vmax  (- (get-height) adjust))
+          (set! vline (get-line-size 'vert))
           (set! vpage (- (get-page-size 'vert) adjust))
           (set! vscroll? (> vmax vpage))))
       
@@ -1248,6 +1267,7 @@
         (let ((adjust (if vscroll? scrollbar-size 0)))
           (set! hmin  0)
           (set! hmax  (- (get-width) adjust))
+          (set! hline (get-line-size 'horz))
           (set! hpage (- (get-page-size 'horz) adjust))
           (set! hscroll? (> hmax hpage))))
       
@@ -1255,27 +1275,27 @@
       (hupdate)
       (vupdate)
       (hupdate)
-      (values vmin vmax vpage hmin hmax hpage)))
+      (values vmin vmax vline vpage hmin hmax hline hpage)))
   
   
   (method public (update-scrollbars)
     (when (and scroller (not update-locked?))
-      (receive (vmin vmax vpage hmin hmax hpage) (compute-scroll-info)
+      (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info)
         (set-vscroll-needed?~ scroller (> vmax vpage))
         (when (get-vscroll?~ scroller)
-          (set-scroll-info 'vert vmin vmax vpage))
+          (set-scroll-info 'vert vmin vmax vline vpage))
         (set-hscroll-needed?~ scroller (> hmax hpage))
         (when (get-hscroll?~ scroller)
-          (set-scroll-info 'horz hmin hmax hpage)))))
+          (set-scroll-info 'horz hmin hmax hline hpage)))))
   
   
   (method public (vscroll-needed?)
-    (receive (vmin vmax vpage hmin hmax hpage) (compute-scroll-info)
+    (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info)
       (> vmax vpage)))
   
   
   (method public (hscroll-needed?)
-    (receive (vmin vmax vpage hmin hmax hpage) (compute-scroll-info)
+    (receive (vmin vmax vline vpage hmin hmax hline hpage) (compute-scroll-info)
       (> hmax hpage)))
   
   
@@ -1284,72 +1304,59 @@
       (scroll-to (+ (get-scrolled-position) delta) redraw?: redraw?)))
   
   
+  (method public (scroll-to dest <Point> (redraw?: redraw? #f))
+    (when (get-scroller)
+      (let ((pos (get-scrolled-position)))
+        (when (/= dest pos)
+          (let* ((size (get-size))
+                 (display-size (get-display-size))
+                 (min-dist {Distance 0 0})
+                 (max-dist (dimension->distance (- display-size size)))
+                 (new-dist (distance-min (distance-max (point->distance dest) max-dist) min-dist))
+                 (new-pos (get-display-position (distance->point new-dist))))
+            (when (/= new-pos position)
+              (set! position new-pos)
+              (let ((delta (- new-dist (point->distance pos))))
+                (set-scroll-pos (distance->point (- new-dist)) redraw?: redraw?)
+                (update-scrollbars)
+                (scroll-invalidate delta)
+                (if transformation
+                    (invalidate-view)
+                  (let ((display (get-display)))
+                    (let ((rect (get-bounds~ display)))
+                      (scroll-view~ display delta rect)))))))))))
+  
+  
+  @wait
   (method public (scroll2 delta <Point> (redraw?: redraw? #f))
     (unless (= delta {Point 0 0})
       (scroll-to2 (+ (get-scrolled-position) delta) redraw?: redraw?)))
   
   
-  (method public (scroll-to dest <Point> (redraw?: redraw? #f))
-    (when (get-scroller)
-      (let ((pos (get-scrolled-position)))
-        ;; dest and pos are in this view coordinates
-        (when (/= dest pos)
-          (let* ((size (get-size))
-                 (display (get-display))
-                 (display-size (get-size~ display))
-                 (sc (if scaled? scaling 1.0))
-                 (min-h (- (/ (get-width~ display-size) sc) (get-width~ size)))
-                 (min-v (- (/ (get-height~ display-size) sc) (get-height~ size)))
-                 (max-h 0)
-                 (max-v 0)
-                 (h (fxround (min (max (get-h~ dest) min-h) max-h)))
-                 (v (fxround (min (max (get-v~ dest) min-v) max-v)))
-                 (new-pos (new Point (fxround (* h sc)) (fxround (* v sc)))))
-            (when (/= new-pos position)
-              (set! position (new Point (fxround (* h sc)) (fxround (* v sc))))
-              (let ((scrolled (get-scrolled-position)))
-                (set-scroll-pos 'horz (- h) redraw?: redraw?)
-                (set-scroll-pos 'vert (- v) redraw?: redraw?))
-              (update-scrollbars)
-              (let ((dh (- h (get-h~ pos)))
-                    (dv (- v (get-v~ pos))))
-                (scroll-invalidate dh dv)
-                ;; temp for testing...
-                (if scaled?
-                    ;; convert to-fix scroll-view bugs when used from thumb-track
-                    (invalidate-view~ scroller)
-                  (let ((rect (get-bounds~ display))
-                        (clip-rect (acquire~ display self (get-clipper))))
-                    (scroll-view~ display dh dv rect clip-rect: clip-rect))))))))))
-  
-  
+  @wait
+  ;; need to rebase changes done in scroll-to
   (method public (scroll-to2 dest <Point> (redraw?: redraw? #f))
     (let ((pos (get-scrolled-position)))
-      ;; dest and pos are in this view coordinates
       (when (/= dest pos)
         (let* ((size (get-size))
                (display (get-display))
                (display-size (get-size~ display))
-               (sc (if scaled? scaling 1.0))
-               (min-h (- (/ (get-width~ display-size) sc) (get-width~ size)))
-               (min-v (- (/ (get-height~ display-size) sc) (get-height~ size)))
+               (sc 1.0 @convert-me scaling)
+               (min-h (- (/ (cast <fl> (get-width~ display-size)) sc) (get-width~ size)))
+               (min-v (- (/ (cast <fl> (get-height~ display-size)) sc) (get-height~ size)))
                (max-h 0)
                (max-v 0)
                (h (fxround (min (max (get-h~ dest) min-h) max-h)))
                (v (fxround (min (max (get-v~ dest) min-v) max-v)))
                (new-pos (new Point (fxround (* h sc)) (fxround (* v sc)))))
           (when (/= new-pos position)
-            (set! position (new Point (fxround (* h sc)) (fxround (* v sc))))
-            (let ((scrolled (get-scrolled-position)))
-              (set-scroll-pos 'horz (- h) redraw?: redraw?)
-              (set-scroll-pos 'vert (- v) redraw?: redraw?))
+            (set! position new-pos)
+            (set-scroll-pos (new Point (- h) (- v)) redraw?: redraw?)
             (update-scrollbars)
             (let ((dh (- h (get-h~ pos)))
                   (dv (- v (get-v~ pos))))
               (scroll-invalidate dh dv)
-              ;; temp for testing...
-              (if scaled?
-                  ;; convert to-fix scroll-view bugs when used from thumb-track
+              (if transformation
                   (invalidate-view~ scroller)
                 (scroll-view2 dh dv (get-bounds)))))))))
   
@@ -1358,60 +1365,80 @@
     )
   
   
-  (method protected virtual (scroll-invalidate dh dv)
+  (method protected virtual (scroll-invalidate delta)
     )
-    
   
-  (method public (scroll-view dh dv rect (clip-rect: clip-rect #f))
-    (let ((player (get-player))
-          (root (get-root))
-          (display (get-display)))
+  
+  (method public (scroll-view delta rect)
+    (let ((player (get-player)))
       (when (and player (view-visible?))
-        (let ((acquired (acquire~ root self rect))
-              (clip-rect (acquire~ root self (or clip-rect (get-clipper)))))
-          (receive (h v sc) (get-lie-parent 0.0 0.0 1.0)
-            (scroll-window~ player (fxround (* dh sc)) (fxround (* dv sc)) acquired clip-rect))))))
+        (with-clipped-transformation-surface
+          (lambda (surface)
+            (let ((delta (device->logical~ surface delta))
+                  (acquired (logical->device~ surface rect))
+                  (clip-rect (logical->device~ surface (get-clipper~ surface))))
+              (scroll-window~ player delta acquired clip-rect)))))))
   
   
   ;; an attempt at a platform-independant scroll-view
-  (method public (scroll-view2 dh dv rect (clip-rect: clip-rect #f))
+  @wait
+  (method public (scroll-view2 dh dv rect)
     (let ((player (get-player))
           (root (get-root)))
-      (when player
-        (let ((acquired (acquire~ root self rect))
-              (clip-rect (acquire~ root self (or clip-rect (get-clipper)))))
-          (scroll-offscreen~ root dh dv acquired clip-rect)))))
+      (when (and player (view-visible?))
+        (let ((delta (device->logical~ surface delta))
+              (acquired (logical->device~ surface rect))
+              (clip-rect (logical->device~ surface (get-clipper~ surface))))
+          (scroll-offscreen2~ root delta acquired clip-rect)))))
   
   
-  (method (scroll-offscreen dh dv src-rect clip-rect)
-    (with ((surface (get-surface)))
-      (let* ((src-rect (rect-intersection src-rect clip-rect))
-             (dst-rect (offset-rect src-rect dh dv))
-             (modified-rect (rect-intersection (rect-union src-rect dst-rect) clip-rect))
-             (new-clipper (rect-intersection modified-rect dst-rect))
-             (offscreen (get-offscreen #f)))
-        (set-source-surface~ surface offscreen dh dv)
-        (draw-rectangle~ surface new-clipper)
-        (fill~ surface)
-        (set-source-surface~ offscreen offscreen dh dv)
-        (draw-rectangle~ offscreen new-clipper)
-        (fill~ offscreen)
-        (let ((ml (get-left~ modified-rect))
-              (mt (get-top~ modified-rect))
-              (mr (get-right~ modified-rect))
-              (mb (get-bottom~ modified-rect)))
-          (when (< dh 0)
-            (invalidate-rect (new Rect (+ mr dh) mt mr mb)))
-          (when (< dv 0)
-            (invalidate-rect (new Rect ml (+ mb dv) mr mb)))
-          (when (> dh 0)
-            (invalidate-rect (new Rect ml mt (+ ml dh) mb)))
-          (when (> dv 0)
-            (invalidate-rect (new Rect ml mt mr (+ mt dv))))))))
+  @wait
+  (method (scroll-offscreen2 delta src-rect clip-rect)
+    (with-view-surface
+      (lambda (surface)
+        (let* ((src-rect (rect-intersection src-rect clip-rect))
+               (dst-rect (offset-rect src-rect dh dv))
+               (modified-rect (rect-intersection (rect-union src-rect dst-rect) clip-rect))
+               (new-clipper (rect-intersection modified-rect dst-rect))
+               (offscreen (get-offscreen #f)))
+          (set-source-surface~ surface offscreen dh dv)
+          (draw-rectangle~ surface new-clipper)
+          (fill~ surface)
+          (set-source-surface~ offscreen offscreen dh dv)
+          (draw-rectangle~ offscreen new-clipper)
+          (fill~ offscreen)
+          (let ((ml (get-left~ modified-rect))
+                (mt (get-top~ modified-rect))
+                (mr (get-right~ modified-rect))
+                (mb (get-bottom~ modified-rect)))
+            (when (< dh 0)
+              (invalidate-rect (new Rect (+ mr dh) mt mr mb)))
+            (when (< dv 0)
+              (invalidate-rect (new Rect ml (+ mb dv) mr mb)))
+            (when (> dh 0)
+              (invalidate-rect (new Rect ml mt (+ ml dh) mb)))
+            (when (> dv 0)
+              (invalidate-rect (new Rect ml mt mr (+ mt dv)))))))))
+ 
+  
+  (method public (get-scrolled-distance) <Distance>
+    (if scroller
+        (nu- (display->view (point->distance position)))
+      {Distance 0 0}))
+ 
+  
+  (method public (get-scrolled-distance-h) <fx>
+    (get-x~ (get-scrolled-distance)))
+ 
+  
+  (method public (get-scrolled-distance-v) <fx>
+    (get-y~ (get-scrolled-distance)))
  
   
   (method public (get-scrolled-position) <Point>
-    (- (get-display-position)))
+    (if scroller
+        (distance->point (display->view (point->distance position)))
+      {Point 0 0}))
  
   
   (method public (get-scrolled-h) <fx>
@@ -1433,13 +1460,10 @@
   
   
   (method public virtual (get-page-size orientation) <fx>
-    (let ((size
-           (case orientation
-             ((vert) (get-height~ parent))
-             ((horz) (get-width~ parent)))))
-      (if (not scaled?)
-          size
-        (fxround (/ size scaling)))))
+    (let ((size (get-display-size)))
+      (case orientation
+        ((vert) (get-height~ size))
+        ((horz) (get-width~ size)))))
   
   
   (method public (with-scrollee-locked proc)
@@ -1464,23 +1488,27 @@
           (scroll (new Point (- fit right) 0)))))
     
     (unless update-locked?
-      (when (dynamic-scrollee?)
-        (dynamic-set-scrollee-size))
-      (if (not scroller)
-          (layout-scrollee-content)
-        (let ((size (scrollee-size)))
-          (when size
-            (set-size size)
-            (scroll-to-fit)
-            ;; prevents multiple useless layouts that can occur when update scrollbars
-            ;; resizes a view that will call layout-scrollee in response (ex: tree header)
-            (unless scrollee-locked?
-              ;; it is important to update scrollbars first as this can change
-              ;; the scrollee size and we do not want to layout twice for nothing
-              (with-scrollee-locked
-                (lambda ()
-                  (update-scrollbars)))
-              (layout-scrollee-content)))))))
+      (if (inhibit-scrollee-layouts?)
+          ((inhibited-scrollee-layout) self)
+        (let ((dynamic? (dynamic-scrollee?)))
+          (when dynamic?
+            (dynamic-set-scrollee-size))
+          (if (not scroller)
+              (layout-scrollee-content)
+            (let ((size (scrollee-size)))
+              (when size
+                (unless dynamic?
+                  (set-size size))
+                (scroll-to-fit)
+                ;; prevents multiple useless layouts that can occur when update scrollbars
+                ;; resizes a view that will call layout-scrollee in response (ex: tree header)
+                (unless scrollee-locked?
+                  ;; it is important to update scrollbars first as this can change
+                  ;; the scrollee size and we do not want to layout twice for nothing
+                  (with-scrollee-locked
+                    (lambda ()
+                      (update-scrollbars)))
+                  (layout-scrollee-content)))))))))
   
   
   ;; temp patch until update-displayed is 100% fixed
@@ -1492,20 +1520,13 @@
     )
 
 
-  (method package virtual (on-vscroll code thumb-pos orientation)
-    )
-
-
-  (method package virtual (on-hscroll code thumb-pos orientation)
+  (method package virtual (scroll-action action line page thumb-pos orientation)
     )
 
 
   ;;;
   ;;;; Display
   ;;;
-
-
-  ;; to-convert clean all this by having the callers use (get-display)...
   
   
   (method public virtual (content-size-change size)
@@ -1518,95 +1539,35 @@
       self))
   
   
-  (method public (get-display-position) <Point>
-    (if scroller
-        (let ((pos <Point> (- (get-position))))
-          (if (not scaled?)
-              pos
-            (new Point
-              (fxround (/ (get-h~ pos) scaling))
-              (fxround (/ (get-v~ pos) scaling)))))
-      {Point 0 0}))
-    
-  
-  (method public (get-display-h) <fx>
-    (get-h~ (get-display-position)))
-    
-  
-  (method public (get-display-v) <fx>
-    (get-v~ (get-display-position)))
+  (method public (get-display-position pos <Point>) <Point>
+    (distance->point (view->display (point->distance pos))))
     
   
   (method public (get-display-size) <Dimension>
-    (if scroller
-        (let ((size <Dimension> (get-size~ parent)))
-          (if (not scaled?)
-              size
-            (new Dimension (fxround (/ (get-width~ size) scaling)) (fxround (/ (get-height~ size) scaling)))))
-      (get-size)))
+    (display->view (get-size~ (get-display))))
     
   
   (method public (get-display-width) <fx>
-    (if scroller
-        (get-width~ (get-display-size))
-      (get-width)))
+    (get-width~ (get-display-size)))
     
   
   (method public (get-display-height) <fx>
-    (if scroller
-        (get-height~ (get-display-size))
-      (get-height)))
+    (get-height~ (get-display-size)))
   
   
-  (method public (get-display-rect) <Rect>
-    (if scroller
-        (get-bounds~ parent)
-      (get-bounds)))
-  
-  
-  (method public (view->display pos <Point>) <Point>
-    (if scroller
-        (if (not scaled?)
-            (+ pos position)
-          (new Point (fxround (+ (get-h~ pos) (/ (get-h~ position) scaling))) (fxround (+ (get-v~ pos) (/ (get-v~ position) scaling)))))
-      pos))
+  (method public (view->display shape)
+    (acquire~ (get-display) self shape))
 
   
-  (method public (h-view->display h <fx>) <fx>
-    (if scroller
-        (+ h (get-h~ (get-scrolled-position)))
-      h))
-
-  
-  (method public (v-view->display v <fx>) <fx>
-    (if scroller
-        (+ v (get-v~ (get-scrolled-position)))
-      v))
-
-  
-  (method public (display->view pos <Point>) <Point>
-    (if scroller
-        (- pos (get-scrolled-position))
-      pos))
-
-  
-  (method public (h-display->view h) <fx>
-    (if scroller
-        (- h (get-h~ (get-scrolled-position)))
-      h))
-
-  
-  (method public (v-display->view v) <fx>
-    (if scroller
-        (- v (get-v~ (get-scrolled-position)))
-      v))
+  (method public (display->view shape)
+    (acquire~ self (get-display) shape))
   
   
-  (method public (scroll-needed start end context (force-vertical: force-vertical #f) (force-horizontal: force-horizontal #f) (reposition?: reposition? #f) (center?: center? #f)) <Point>
-    (let ((display-pos (get-display-position))
+  (method public (scroll-needed start end context (force-vertical: force-vertical #f) (force-horizontal: force-horizontal #f) (reposition: reposition #f) (center?: center? #f)) <Point>
+    (let ((distance (get-scrolled-distance))
           (display-size (get-display-size))
           (needed
-            (lambda (start end context pos size force-direction center?)
+            (lambda (start end context pos size force-direction reposition? center?)
               (let* ((start-offset (- pos start))
                      (end-offset (- (+ pos size) end))
                      (big-range? (> (- end start) size))
@@ -1614,18 +1575,18 @@
                              (let ((context (if context (fxround (* size context)) 0)))
                                (if use-head? (+ start-offset context) (- end-offset context))))))
                 (cond
-                  (center? (if (and (< start-offset 0) (> end-offset 0)) 0 (quotient (+ start-offset end-offset) 2)))
                   (reposition? (proc (neq? force-direction 'tail)))
+                  (center? (if (and (< start-offset 0) (> end-offset 0)) 0 (quotient (+ start-offset end-offset) 2)))
                   ((and (> start-offset 0) (> end-offset 0)) (proc (if (not force-direction) (not big-range?) (eq? force-direction 'head))))
                   ((and (< start-offset 0) (< end-offset 0)) (proc (if (not force-direction) big-range? (eq? force-direction 'head))))
                   (else 0))))))
       (new Point
-        (needed (get-h~ start) (get-h~ end) (and context (car context)) (get-h~ display-pos) (get-width~ display-size) force-horizontal #f)
-        (needed (get-v~ start) (get-v~ end) (and context (cdr context)) (get-v~ display-pos) (get-height~ display-size) force-vertical center?))))
+        (needed (get-h~ start) (get-h~ end) (and context (car context)) (get-x~ distance) (get-width~ display-size) force-horizontal (eq? reposition 'horizontal) #f)
+        (needed (get-v~ start) (get-v~ end) (and context (cdr context)) (get-y~ distance) (get-height~ display-size) force-vertical (eq? reposition 'vertical) center?))))
   
   
   (method public (horizontal-scroll-needed target direction) <fx>
-    (let* ((start (get-display-h))
+    (let* ((start (get-scrolled-distance-h))
            (end (+ start (get-display-width))))
       (case direction
         ((backward)
@@ -1639,7 +1600,7 @@
   
   
   (method public (vertical-scroll-needed target direction) <fx>
-    (let* ((start (get-display-v))
+    (let* ((start (get-scrolled-distance-v))
            (end (+ start (get-display-height))))
       (case direction
         ((backward)
@@ -1672,6 +1633,25 @@
   
   (method public virtual (effective-font)
     (or font (registered-font default-font)))
+
+
+  ;;;
+  ;;;; Style
+  ;;;
+
+
+  (method public (get-style)
+    style)
+
+
+  (method public (set-style value)
+    (when (neq? value style)
+      (set! style value)
+      (style-update)))
+  
+  
+  (method protected virtual (style-update)
+    (invalidate-view))
 
   
   ;;;
@@ -1797,6 +1777,19 @@
   (method public (call-selection-handler old selection force? user-origin)
     (when selection-handler
       (invoke-handler self selection-handler (new Selection-Event :selection-change self old selection force?: force? user-origin: user-origin))))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method public virtual (get-view-state)
+    )
+  
+  
+  (method public virtual (set-view-state state)
+    )
 
 
   ;;;
@@ -1833,9 +1826,10 @@
               (dv (- height ph)))
           (when (or (/= dh 0) (/= dv 0))
             (resize dh dv)))))
-    (invalidate-layout)
-    (when (get-finished?)
-      (call-layout)))
+    (unless (adjust?)
+      (invalidate-layout)
+      (when (get-finished?)
+        (call-layout))))
 
 
   (method protected virtual (resize dh <fx> dv <fx>)
@@ -1871,6 +1865,11 @@
   
   (method public (has-focus?)
     (eq? self (get-focus)))
+  
+  
+  (method public (is-focused?)
+    (or (has-focus?)
+        (memq? self (get-pushed-focuses~ player))))
   
   
   (method public virtual (focus-lose)
@@ -2128,7 +2127,7 @@
           (when (allow-start-drag? pos)
             (let ((drag-drop (get-drag-drop)))
               (when drag-drop
-                (drag-start pos (nu- mouse-down-point (get-drag-hotspot)) drag-drop))))
+                (drag-start pos drag-drop))))
           (when (current-drag-drop)
             (drag-follow pos)))
       (call-drag-move pos)))
@@ -2243,10 +2242,14 @@
   
   
   (method public virtual (mouse-wheel pos delta)
-    (when (get-scroller)
-      (if (shift-down?)
-          (scroll (new Point (quotient delta 3) 0))
-        (scroll (new Point 0 (quotient delta 3))))))
+    (unless (get-mouse-down?)
+      (let ((scroller (find-ascendant Scroller-View)))
+        (when scroller
+          (let ((client (get-client~ scroller)))
+            (when client
+              (if (shift-down?)
+                  (scroll~ client (new Point (quotient delta 3) 0))
+                (scroll~ client (new Point 0 (quotient delta 3))))))))))
 
   
   (method public virtual (mouse-enter)
@@ -2351,7 +2354,7 @@
     
     (cancel-hovering)
     (let ((start (mouse-position))
-          (period (/ time Hovering-Steps)))
+          (period (/ (cast <fl> time) Hovering-Steps)))
       (set! hover-history '())
       (set! hover-pulse (new Pulse 'hovering period (lambda () (check-hovering start)) delay: 0))))
   
@@ -2664,10 +2667,6 @@
         (new DnD source: source))))
   
   
-  (method public virtual (get-drag-hotspot)
-    {Point 0 0})
-  
-  
   (method public virtual (get-drag-source)
     (let ((pos (get-drag-position)))
       (new Drag-Source view: self position: pos image: (get-drag-image pos))))
@@ -2681,7 +2680,7 @@
     #f)
   
   
-  (method (drag-start pos hotspot drag-drop)
+  (method (drag-start pos drag-drop)
     (set-current-drag-drop drag-drop)
     (let ((view (get-view~ (get-source~ drag-drop))))
       (set-cursor :no)
@@ -2958,7 +2957,7 @@
     (let ((to (navigated-view from backward?)))
       (if to
           (let ((enabled (view-enabled?~ to)))
-            (while (and (not disabled-navigate?) (not enabled))
+            (while (and navigable? (not enabled))
               (set! to (navigated-view to backward?))
               (set! enabled (view-enabled?~ to)))
             (if (is? to View)
@@ -3053,58 +3052,94 @@
       (select-all~ surrogate)))
   
   
-  (method public virtual (can-undo?)
+  (method public (can-view-undo?)
     (if surrogate
         (can-undo?~ surrogate)
-      #f))
+      (can-undo?)))
+  
+  
+  (method public virtual (can-undo?)
+    #f)
+  
+  
+  (method public (can-view-redo?)
+    (if surrogate
+        (can-redo?~ surrogate)
+      (can-redo?)))
   
   
   (method public virtual (can-redo?)
+    #f)
+  
+  
+  (method public (can-view-cut?)
     (if surrogate
-        (can-redo?~ surrogate)
-      #f))
+        (can-cut?~ surrogate)
+      (can-cut?)))
   
   
   (method public virtual (can-cut?)
+    #f)
+  
+  
+  (method public (can-view-copy?)
     (if surrogate
-        (can-cut?~ surrogate)
-      #f))
+        (can-copy?~ surrogate)
+      (can-copy?)))
   
   
   (method public virtual (can-copy?)
+    #f)
+  
+  
+  (method public (can-view-paste?)
     (if surrogate
-        (can-copy?~ surrogate)
-      #f))
+        (can-paste?~ surrogate)
+      (can-paste?)))
   
   
   (method public virtual (can-paste?)
+    #f)
+  
+  
+  (method public (can-view-paste-properties?)
     (if surrogate
-        (can-paste?~ surrogate)
-      #f))
+        (can-paste-properties?~ surrogate)
+      (can-paste-properties?)))
   
   
   (method public virtual (can-paste-properties?)
+    #f)
+  
+  
+  (method public (can-view-delete?)
     (if surrogate
-        (can-paste-properties?~ surrogate)
-      #f))
+        (can-delete?~ surrogate)
+      (can-delete?)))
   
   
   (method public virtual (can-delete?)
+    #f)
+  
+  
+  (method public (can-view-rename?)
     (if surrogate
-        (can-delete?~ surrogate)
-      #f))
+        (can-rename?~ surrogate)
+      (can-rename?)))
   
   
   (method public virtual (can-rename?)
+    #f)
+  
+  
+  (method public (can-view-select-all?)
     (if surrogate
-        (can-rename?~ surrogate)
-      #f))
+        (can-select-all?~ surrogate)
+      (can-select-all?)))
   
   
   (method public virtual (can-select-all?)
-    (if surrogate
-        (can-select-all?~ surrogate)
-      #f))
+    #f)
   
   
   (method public virtual (undo)
@@ -3200,23 +3235,6 @@
           (bounds (get-tooltip-bounds pos)))
       (when text
         (new Tooltip-Context view: self text: text bounds: bounds))))
-
-  
-  ;;;
-  ;;;; Clipping
-  ;;;
-  
-  
-  (method override (get-parent/child-clipper child h v)
-    (let ((sc <fl> (if scaled? scaling 1.0)))
-      (let ((p (get-translated-clipper (- (* h sc) (get-h~ (get-position~ child))) (- (* v sc) (get-v~ (get-position~ child)))))
-            (c (offset-rect (get-bounds~ child) (fxround h) (fxround v))))
-        (when scaled?
-          (set-left~ p (fxround (/ (get-left~ p) sc)))
-          (set-top~ p (fxround (/ (get-top~ p) sc)))
-          (set-right~ p (fxround (/ (get-right~ p) sc)))
-          (set-bottom~ p (fxround (/ (get-bottom~ p) sc))))
-        (rect-intersection p c))))
   
   
   ;;;
@@ -3224,12 +3242,46 @@
   ;;;
 
 
-  (method public (get-surface)
-    (let ((surface (new Surface (get-window-surface (get-player))))
-          (lie (get-lie)))
-      (set-transform~ surface (get-h~ lie) (get-v~ lie) (get-width) (get-height) 0 0 1.0 #f)
-      (set-clipper~ surface (get-bounds))
-      surface))
+  (method public (with-view-surface proc)
+    (with ((surface (new Surface (get-window-surface (get-player)))))
+      (with-clipping-view-transformation surface (get-rootmost)
+        (lambda ()
+          (proc surface)))))
+  
+  
+  (method public (flush-device-transformation)
+    (when device-transformation
+      (for-each (lambda (child)
+                  (flush-device-transformation~ child))
+                children)
+      (cairo_matrix_t-free device-transformation) ; DANGER, should handle it through wills
+      (set! device-transformation #f)))
+  
+  
+  (method public (build-device-transformation)
+    (let ((surface (transformation-surface)))
+      (with-cached-transformation surface
+        (lambda ()
+          ;; hacked for testing
+          (cairo_matrix_t-xx-ref (cairo_get_matrix_raw (get-context~ surface)))))))
+  
+  
+  (method public (with-cached-transformation surface thunk)
+    (define (save-and-thunk)
+      (set! device-transformation (cairo_matrix_t-make))
+      (cairo_get_matrix (get-context~ surface) device-transformation)
+      (thunk))
+    
+    (if (not device-transformation)
+        (if parent
+            (with-cached-transformation~ parent surface
+              (lambda ()
+                (with-self-transformation surface save-and-thunk)))
+          (with-pristine-transformation~ surface save-and-thunk))
+      (with-preserved-matrix~ surface
+        (lambda ()
+          (cairo_set_matrix (get-context~ surface) device-transformation)
+          (thunk)))))
 
 
   ;;;
@@ -3243,39 +3295,53 @@
   
   
   (method public (invalidate-rect rect)
-    (when (view-visible?)
-      (let ((acquired (acquire~ (get-root) self (rect-intersection rect (get-clipper)))))
+    (when (and (not (inhibit-invalidates?)) (view-visible?))
+      (let ((acquired
+              (with-clipped-transformation-surface
+                (lambda (surface)
+                  (logical->device~ surface (if (inhibit-clipping?)
+                                                rect
+                                              (rect-intersection rect (get-clipper~ surface))))))))
         (invalidate-rect~ player acquired))))
   
   
   ;; todo: not using acquire is a potentiel scaling bug...
   (method public (invalidate-region region)
-    (when (view-visible?)
-      (let ((root (cast <View> (get-root))))
-        (let ((delta (- (get-lie) (get-lie~ root))))
-          (offset!~ region (get-h~ delta) (get-v~ delta))
-          (with ((clipper (new Region (acquire~ root self (get-clipper)))))
-            (combine!~ region clipper 'and))
-          (invalidate-region~ player region)))))
+    (when (and (not (inhibit-invalidates?)) (view-visible?))
+      (with-clipped-transformation-surface
+        (lambda (surface)
+          (let ((delta (logical->device~ surface {Point 0 0})))
+            (offset!~ region (get-h~ delta) (get-v~ delta))
+            (unless (inhibit-clipping?)
+              (with ((clipper (new Region rect: (logical->device~ surface (get-clipper~ surface)))))
+                (combine!~ region clipper 'and))))))
+      (invalidate-region~ player region)))
   
   
   (method public (redraw-view (rect: rect #f) (region: region #f))
     (let ((player (get-player)))
       (when player
-        (let ((root (get-root)))
-          (cond (rect
-                  (let ((acquired (acquire~ root self (rect-intersection rect (get-clipper)))))
-                    (redraw-window~ player rect: acquired)))
-                ;; todo: not using acquire is a potentiel scaling bug...
-                (region
-                  (let ((delta (- (get-lie) (get-lie~ root))))
-                    (offset!~ region (get-h~ delta) (get-v~ delta))
-                    (with ((clipper (new Region (acquire~ root self (get-clipper)))))
-                      (combine!~ region clipper 'and))
-                    (redraw-window~ player region: region)))
-                (else
-                 (let ((acquired (acquire~ root self (rect-intersection (get-bounds) (get-clipper)))))
-                   (redraw-window~ player rect: acquired))))))))
+        (cond (rect
+               (let ((acquired
+                       (with-clipped-transformation-surface
+                         (lambda (surface)
+                           (logical->device~ surface (rect-intersection rect (get-clipper~ surface)))))))
+                 (redraw-window~ player rect: acquired)))
+              ;; todo: not using acquire is a potentiel scaling bug...
+              (region
+               (with-clipped-transformation-surface
+                 (lambda (surface)
+                   (let ((delta (logical->device~ surface {Point 0 0})))
+                     (offset!~ region (get-h~ delta) (get-v~ delta))
+                     (with ((clipper (new Region rect: (logical->device~ surface (get-clipper~ surface)))))
+                       (combine!~ region clipper 'and)))))
+               (redraw-window~ player region: region))
+              (else
+               (let ((acquired
+                       (with-clipped-transformation-surface
+                         (lambda (surface)
+                           (logical->device~ surface (rect-intersection (get-bounds) (get-clipper~ surface)))))))
+                 (redraw-window~ player rect: acquired)))))))
   
 
   ;; Mainly used by the scrollbar to only redraw itself when scrolling
@@ -3293,13 +3359,20 @@
         (update-window~ player))))
   
   
+  (method public (without-invalidates thunk)
+    (prog1 (parameterize ((inhibit-invalidates? #t))
+             (thunk))
+      (invalidate-view)))
+  
+  
   (method public (view-invalidater)
-    (when player
-      (let ((rect (acquire~ (get-root) self (get-bounds)))
-            (player player))
-        (lambda ()
-          (when player
-            (invalidate-rect~ player rect))))))
+    (when (and player (not (inhibit-invalidates?)))
+      (with-clipped-transformation-surface
+        (lambda (surface)
+          (let ((player player)
+                (rect (logical->device~ surface (get-clipper~ surface))))
+            (lambda ()
+              (invalidate-rect~ player rect)))))))
 
   
   ;;;
@@ -3390,90 +3463,103 @@
   
   
   (form
-    (<install>                 image: {Image-Resource "View"}
+    (<install>                                               image: {Image-Resource "View"}
       (<properties~>
-        (<Property-Descriptor> name: title title: "Title"
-          (<Localized-Domain>  name: domain))
-        (<Property-Descriptor> name: font title: "Font"
-          (<Font-Domain>       name: domain))
-        (<Property-Descriptor> name: background title: "Background"
-          (<Color-Domain>      name: domain))
-        (<Property-Descriptor> name: auto-size? title: "Auto Size"
+        (<Property-Descriptor> name: title
+          (<Localized-Domain>  name: domain                  nullable?: #t))
+        (<Property-Descriptor> name: font                    standard?: #f
+          (<Font-Domain>       name: domain                  nullable?: #t))
+        (<Property-Descriptor> name: style                   standard?: #f
+          (<Style-Domain>      name: domain                  nullable?: #t))
+        (<Property-Descriptor> name: background
+          (<Color-Domain>      name: domain                  nullable?: #t))
+        (<Property-Descriptor> name: auto-size?              standard?: #f
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: tooltip? title: "Tooltip"
+        (<Property-Descriptor> name: tooltip?                standard?: #f
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: tooltip-text title: "Tooltip Text"
-          (<String-Domain>     name: domain nullable?: #t))
-        (<Property-Descriptor> name: draggable? title: "Draggable"
+        (<Property-Descriptor> name: tooltip-text            standard?: #f
+          (<String-Domain>     name: domain                  nullable?: #t))
+        (<Property-Descriptor> name: draggable?              standard?: #f
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: drag-tolerance title: "Drag Tolerance")
-        (<Property-Descriptor> name: enabled? title: "Enabled"
+        (<Property-Descriptor> name: drag-tolerance          standard?: #f
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: enabled?                standard?: #f
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: action title: "Action")
-        (<Property-Descriptor> name: outline-view title: "Outline View")
-        (<Property-Descriptor> name: offscreen? title: "Offscreen"
+        (<Property-Descriptor> name: navigable?              standard?: #f
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: layer title: "Layer")
-        (<Property-Descriptor> name: effect title: "Effect")
-        (<Property-Descriptor> name: user-data title: "User Data")
-        (<Property-Descriptor> name: disabled-navigate? title: "Disabled Navigate"
+        (<Property-Descriptor> name: action
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: outline-view            standard?: #f
+          (<Value-Domain>      name: domain                  nullable?: #t))
+        (<Property-Descriptor> name: offscreen?              standard?: #f
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: focus-gained-handler category: handler
+        (<Property-Descriptor> name: scaling                 standard?: #f
+          (<Value-Domain>      name: domain                  nullable?: #t))
+        (<Property-Descriptor> name: rotation                standard?: #f
+          (<Value-Domain>      name: domain                  nullable?: #t))
+        (<Property-Descriptor> name: layer                   standard?: #f
+          (<Value-Domain>      name: domain                  nullable?: #t))
+        (<Property-Descriptor> name: effect                  standard?: #f
+          (<Value-Domain>      name: domain                  nullable?: #t))
+        (<Property-Descriptor> name: user-data               standard?: #f
+          (<Value-Domain>      name: domain                  nullable?: #t))
+        (<Property-Descriptor> name: focus-gained-handler    category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: focus-lose-handler category: handler
+        (<Property-Descriptor> name: focus-lose-handler      category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: cursor-update-handler category: handler
+        (<Property-Descriptor> name: cursor-update-handler   category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: mouse-enter-handler category: handler
+        (<Property-Descriptor> name: mouse-enter-handler     category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: mouse-hover-handler category: handler
+        (<Property-Descriptor> name: mouse-hover-handler     category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: mouse-leave-handler category: handler
+        (<Property-Descriptor> name: mouse-leave-handler     category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: mouse-down-handler category: handler
+        (<Property-Descriptor> name: mouse-down-handler      category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: mouse-move-handler category: handler
+        (<Property-Descriptor> name: mouse-move-handler      category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: mouse-up-handler category: handler
+        (<Property-Descriptor> name: mouse-up-handler        category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: drag-move-handler category: handler
+        (<Property-Descriptor> name: drag-move-handler       category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: drag-up-handler category: handler
+        (<Property-Descriptor> name: drag-up-handler         category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: double-click-handler category: handler
+        (<Property-Descriptor> name: double-click-handler    category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: current-drop-handler category: handler
+        (<Property-Descriptor> name: current-drop-handler    category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: receive-drop-handler category: handler
+        (<Property-Descriptor> name: receive-drop-handler    category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: receive-files-handler category: handler
+        (<Property-Descriptor> name: receive-files-handler   category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: context-menu-handler category: handler
+        (<Property-Descriptor> name: context-menu-handler    category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: key-press-handler category: handler
+        (<Property-Descriptor> name: key-press-handler       category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: arrow-press-handler category: handler
+        (<Property-Descriptor> name: arrow-press-handler     category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: escape-press-handler category: handler
+        (<Property-Descriptor> name: escape-press-handler    category: handler
           (<Handler-Domain>    name: domain))
         (<Property-Descriptor> name: backspace-press-handler category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: return-press-handler category: handler
+        (<Property-Descriptor> name: return-press-handler    category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: tab-press-handler category: handler
+        (<Property-Descriptor> name: tab-press-handler       category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: content-change-handler category: handler
+        (<Property-Descriptor> name: content-change-handler  category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: selection-handler category: handler
+        (<Property-Descriptor> name: selection-handler       category: handler
           (<Handler-Domain>    name: domain))
-        (<Property-Descriptor> name: action-handler category: handler
+        (<Property-Descriptor> name: action-handler          category: handler
           (<Handler-Domain>    name: domain)))))
   
   
+  (method override (component-get-categorized-addable-classes component)
+    (list
+      (list
+        (reference View))))
+  
+  
   (method override (component-surrogate-class component)
-    View-Surrogate)
-  
-  
-  (method override (component-addable-class? component class)
-    (or (subtype? class View)
-        (nextmethod component class))))))
+    View-Surrogate))))

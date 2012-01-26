@@ -179,37 +179,58 @@
 
 
 ;;;
+;;;; Form
+;;;
+
+
+(define *forms*
+  (make-table test: eq?))
+
+
+(definition public (register-form name form)
+  (table-set! *forms* name form))
+
+(definition public (unregister-form name)
+  (table-clear *forms* name))
+
+(definition public (registered-form name)
+  (table-ref *forms* name #f))
+
+(definition public (require-form name)
+  (or (registered-form name)
+      (error "Unable to find form: {s}" name)))
+
+
+;;;
 ;;;; Trait
 ;;;
 
 
-(define *traits*
-  (make-table test: eq?))
+(definition public (instantiate-trait type form)
+  (let ((trait (instantiate~ form)))
+    (setup-client-type~ trait type)
+    trait))
 
 
-(definition public (register-trait name trait)
-  (table-set! *traits* name trait))
-
-(definition public (unregister-trait name)
-  (table-clear *traits* name))
-
-(definition public (registered-trait name)
-  (table-ref *traits* name #f))
-
-(definition public (require-trait name)
-  (or (registered-trait name)
-      (error "Unable to find trait: {s}" name)))
+(definition public (resolve-trait context obj)
+  (cond ((symbol? obj)
+         (assert context)
+         (local-trait context obj))
+        ((is? obj Trait)
+         obj)
+        ((is? obj Trait-Reference)
+         (resolve-parameters~ obj))
+        (else
+         (error "Unable to resolve trait: {s}" obj))))
 
 
-(definition public (resolve-trait context name/trait)
-  (if (is? name/trait Trait)
-      name/trait
-    (bind (name . path) (split-symbol name/trait #\:)
-      (if (null? path)
-          (if context
-              (child~ (get-creator~ context) name)
-            (error "Unable to find trait: {s}" name))
-        (child~ (require-trait name) path)))))
+(definition public (local-trait context obj)
+  (or (find-local-trait context obj)
+      (error "Unable to resolve trait: {s}" obj)))
+
+
+(definition public (find-local-trait context obj)
+  (find-component~ (get-creator~ context) (split-identifier obj)))
 
 
 ;;;
@@ -235,6 +256,16 @@
 
 (definition public (find-application)
   ((module-ref 'jazz.system 'get-application)))
+
+
+;;;
+;;;; References
+;;;
+
+
+(definition public (get-reference-import reference)
+  (second (serialize-runtime-reference
+            (get-runtime-reference~ reference))))
 
 
 ;;;
@@ -529,22 +560,17 @@
   (make-table test: eq?))
 
 
-(definition get-descriptor-hook #f)
-
-
-(definition public (set-descriptor-hook proc)
-  (set! get-descriptor-hook proc))
+(definition package (reset-descriptors)
+  (empty-table Class-Descriptors))
 
 
 (definition public undocumented (get-descriptor model)
-  (if get-descriptor-hook
-      (get-descriptor-hook model)
-    (let ((name (category-identifier model)))
-      (or (table-ref Class-Descriptors name #f)
-          (let ((descriptor (get-class-descriptor~ model)))
-            (set-name~ descriptor name)
-            (table-set! Class-Descriptors name descriptor)
-            descriptor)))))
+  (let ((name (category-identifier model)))
+    (or (table-ref Class-Descriptors name #f)
+        (let ((descriptor (get-class-descriptor~ model)))
+          (set-name~ descriptor name)
+          (table-set! Class-Descriptors name descriptor)
+          descriptor))))
 
 
 (definition public undocumented (get-properties-descriptor model)
@@ -557,6 +583,24 @@
   (let ((properties-descriptor (get-properties-descriptor model)))
     (when properties-descriptor
       (find-component~ properties-descriptor name))))
+
+
+;;;
+;;;; Integrity
+;;;
+
+
+(class Validate-Exception extends Exception
+  
+  
+  (slot violation     getter generate)
+  (slot stop-descent? getter generate)
+  
+  
+  (method override (initialize violation (stop-descent?: stop-descent? #f))
+    (nextmethod)
+    (set! violation~self violation)
+    (set! stop-descent?~self stop-descent?)))
 
 
 ;;;

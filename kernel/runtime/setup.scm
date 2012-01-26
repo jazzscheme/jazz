@@ -134,8 +134,10 @@
 
 
 (define (jazz:library-main)
-  (jazz:setup-settings)
-  (jazz:process-jazzini #t)
+  (if jazz:kernel-source-access?
+      (begin
+        (jazz:setup-settings)
+        (jazz:process-jazzini #t)))
   (jazz:prepare-repositories)
   (jazz:setup-repositories))
 
@@ -232,7 +234,7 @@
         (%%string->symbol arg)
       arg))
   
-  (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
+  (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "install" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
     (lambda (options remaining)
       (let ((nosource? (jazz:get-option "nosource" options))
             (debug? (jazz:get-option "debug" options))
@@ -252,6 +254,7 @@
             (update (jazz:get-option "update" options))
             (make (jazz:get-option "make" options))
             (build (jazz:get-option "build" options))
+            (install (jazz:get-option "install" options))
             (compile (jazz:get-option "compile" options))
             (debugger (jazz:get-option "debugger" options))
             (link (symbol-argument (jazz:get-option "link" options)))
@@ -264,15 +267,17 @@
                     (##set-gambcdir! gambcdir))))
           (set! ##allow-inner-global-define? #t)
           (set! jazz:debugger debugger)
-          (jazz:setup-settings)
-          (jazz:process-jazzini #t))
+          (if nosource?
+              (set! jazz:kernel-source-access? #f))
+          (if jazz:kernel-source-access?
+              (begin
+                (jazz:setup-settings)
+                (jazz:process-jazzini #t))))
         
         (define (setup-repositories)
           (if build-repository (jazz:build-repository build-repository))
           (if jazz-repository (jazz:jazz-repository jazz-repository))
           (if repositories (jazz:repositories repositories))
-          (if nosource?
-              (set! jazz:kernel-source-access? #f))
           (jazz:prepare-repositories)
           (jazz:setup-repositories))
           
@@ -298,6 +303,9 @@
               (jazz:save-emit? #t))
           (if dry?
               (jazz:dry-run? #t)))
+        
+        (define (setup-install)
+          (setup-build))
         
         (define (run-scripts lst)
           (jazz:load-foundation)
@@ -336,6 +344,9 @@
               (build
                (setup-build)
                (jazz:build-product (%%string->symbol build)))
+              (install
+               (setup-install)
+               (jazz:install-product (%%string->symbol install)))
               ((%%not (%%null? remaining))
                (setup-runtime)
                (run-scripts remaining))

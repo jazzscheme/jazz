@@ -929,6 +929,10 @@
   
   
   (method public (for-each-comment proc <procedure> (start-line: start-line #f) (end-line: end-line #f))
+    (define (semicolon-literal? string col)
+      (and (>= col 2)
+           (equal? (substring string (- col 2) (+ col 1)) "#\\;")))
+    
     (let* ((previous-line #f)
            (title-comment (title-comment-string~ syntax))
            (title-comment-size (string-length title-comment))
@@ -941,7 +945,7 @@
                       (let ((string (paragraph-string line))
                             (style (get-style-at~ model pos))
                             (start pos))
-                        (unless (or (inherits?~ style 'Expr-Comment) (inherits?~ style 'Named-Comment) (string-style?~ syntax style))
+                        (unless (or (semicolon-literal? string col) (inherits?~ style 'Expr-Comment) (inherits?~ style 'Named-Comment) (string-style?~ syntax style))
                           (set! previous-line (get-line~ pos))
                           (set-end pos)
                           (paragraph-end)
@@ -998,10 +1002,14 @@
   
   
   (method protected (walk-parameters context declaration keyword expression doc)
-    (let (iterate)
-      (when (forward-expr)
-        (walk-expression context expression 'code #f)
-        (iterate))))
+    (let ((result '()))
+      (let (iterate)
+        (when (forward-expr)
+          (set! result (cons (get-marked) result))
+          (walk-expression context expression 'code #f)
+          (iterate)))
+      (when context
+        (set-parameters~ context (reverse! result)))))
   
   
   (method protected (walk-unknown context symbol form declaration keyword expression doc)
@@ -1071,13 +1079,8 @@
   
   
   (method (walk-expression context expression mode first?)
-    (define (specifier-marked?)
-      (and (eq? kind 'symbol)
-           (eqv? (get-char start) #\<)
-           (eqv? (get-char (- end 1)) #\>)))
-    
     (expression context start end mode
-      (if (and (eq? kind 'symbol) (specifier-marked?))
+      (if (specifier-marked?)
           (if first?
               'tag
             'specifier)
@@ -1090,6 +1093,16 @@
              (let ((mode (if (memq? kind '(quote quasiquote)) kind 'code)))
                (forward-expr)
                (walk-expression context expression mode #f))))))
+  
+  
+  (method (walk-specifier context expression mode)
+    (when context
+      (forward-whites)
+      (when (eqv? (char-forward 0) #\<)
+        (forward-expr)
+        (when (specifier-marked?)
+          (set-type~ context (get-marked))
+          (expression context start end mode 'specifier)))))
   
 
   ;;;

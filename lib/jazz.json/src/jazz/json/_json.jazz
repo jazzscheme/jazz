@@ -46,8 +46,13 @@
 ;;;
 
 
+(definition json-additional-escaped-chars
+  '((#\/ . #\/)))
+
+
 (definition (make-json-readtable)
   (let ((readtable (make-standard-readtable)))
+    (readtable-escaped-char-table-set! readtable (append (readtable-escaped-char-table readtable) json-additional-escaped-chars))
     (readtable-char-handler-set! readtable #\: (readtable-char-handler readtable #\space))
     (readtable-char-handler-set! readtable #\, (readtable-char-handler readtable #\space))
     (readtable-bracket-keyword-set! readtable :array)
@@ -66,6 +71,7 @@
 
 
 (definition public (read-json port)
+  
   (define (convert obj)
     (cond ((string? obj) obj)
           ((number? obj) obj)
@@ -108,14 +114,50 @@
 
 
 (definition public (print-json json port)
+  (define (escape-double-quotes string)
+    (let ((printer (open-output-string))
+          (reader (open-input-string string)))
+      (let (iterate (c (read-char reader)))
+        (unless (eof-object? c)
+          (when (or (eqv? c #\") (eqv? c #\backslash))
+            (write-char #\backslash printer))
+          (write-char c printer)
+          (iterate (read-char reader))))
+      (get-output-string printer)))
+  
   (define (print obj depth)
+    (define (standardize-real obj)
+      (let ((str (number->string obj)))
+        (cond ((eqv? (string-ref str 0) #\.)
+               (string-append "0" str))
+              ((string=? str "0.")
+               "0.0")
+              ((string=? str "-0.")
+               "-0.0")
+              ((and (> (string-length str) 1)
+                    (eqv? (string-ref str 1) #\.)
+                    (eqv? (string-ref str 0) #\-))
+               (string-append "-0" (substring str 1 (string-length str))))
+              (else
+               str))))
+    
     (cond ((eq? obj #f) (display "false" port))
           ((eq? obj #t) (display "true" port))
           ((null? obj) (display "null" port))
-          ((string? obj) (write obj port))
-          ((number? obj) (write obj port))
+          ((string? obj) (format port "\"{a}\"" (escape-double-quotes obj)))
+          ((number? obj) (cond ((integer? obj)
+                                (if (exact? obj)
+                                    (write obj port)
+                                  (write (inexact->exact obj) port)))
+                               ((rational? obj)
+                                (display (standardize-real (exact->inexact obj)) port))
+                               ((real? obj)
+                                (display (standardize-real obj) port))
+                               (else
+                                (display obj port))))
           ((pair? obj) (print-array obj depth))
           ((table? obj) (print-object obj depth))
+          ;; this code from VS is wrong. cases should be explicit and else should error
           (else (format port "\"{s}\"" obj))))
   
   (define (print-array obj depth)

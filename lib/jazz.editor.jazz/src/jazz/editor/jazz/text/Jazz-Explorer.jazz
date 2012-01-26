@@ -258,6 +258,29 @@
               #f)))))
 
 
+  (method (find-namespace-insertion-point)
+    (forward-namespace)
+    (let (loop)
+      (let* ((last-expression? (not (forward-expr)))
+             (composite? (and (not last-expression?)
+                              (enter-composite)))
+             (submodule? (and composite?
+                              (eq? (get-kind) 'list)
+                              (forward-expr)
+                              (eq? (read-marked) 'submodule))))
+        (when last-expression?
+          (backward-expr))
+        (when composite?
+          (exit-composite))
+        (when submodule?
+          (forward-expr)
+          (backward-expr)
+          (backward-expr))
+        (unless (or last-expression? submodule?)
+          (loop))))
+    (get-end))
+  
+  
   ;;;
   ;;;; Imports
   ;;;
@@ -333,16 +356,17 @@
         (unless found?
           (with-atomic-undo~ (get-undoer~ model)
             (lambda ()
-              @mvc
-              (set-caret~ text (get-end))
-              (cond (first?
-                      (insert-string~ model (format " ({a})" unit))
-                      (insert-newline~ model)
-                      (tabulate~ model))
-                    (else
-                     (insert-newline~ model)
-                     (tabulate~ model)
-                     (insert-string~ model (format "({a})" unit))))))))))
+              (let ((text (single-client~ model)))
+                (assert text)
+                (set-caret~ text (get-end))
+                (cond (first?
+                        (insert-string~ text (format " ({a})" unit))
+                        (insert-newline~ text)
+                        (tabulate~ text))
+                      (else
+                       (insert-newline~ text)
+                       (tabulate~ text)
+                       (insert-string~ text (format "({a})" unit)))))))))))
   
   
   (method public (remove-import-invoice unit)
@@ -353,9 +377,11 @@
         (when found?
           (with-atomic-undo~ (get-undoer~ model)
             (lambda ()
-              (delete-range~ model (get-range))
-              (when first?
-                (remove-spaces~ model (get-start) keep: 'one))))))))
+              (let ((text (single-client~ model)))
+                (assert text)
+                (delete-range~ model (get-range))
+                (when first?
+                  (remove-spaces~ text (get-start) keep: 'one)))))))))
 
 
   ;;;
@@ -392,11 +418,12 @@
       ((:c-external)      walk-c-external)
       ((:com-external)    walk-com-external)
       ((:datacontainer)   walk-datacontainer)
+      ((:define-handler)  walk-define-handler)
       (else               (nextmethod name))))
   
   
   (method (walk-proclaim context symbol form declaration keyword expression doc)
-    (walk-anonymous context symbol form declaration keyword expression doc))
+    (walk-anonymous context 'proclaim symbol form declaration keyword expression doc))
 
   
   (method (walk-properties context symbol form declaration keyword expression doc)
@@ -413,18 +440,26 @@
         (forward-expr)
         (when (eq? kind 'symbol)
           (let ((marked (get-marked)))
-            (declaration context 'definition symbol start end marked (symbol-documented? (find-marked-symbol) doc))
-            (declaration context 'accessor 'getter start end (string-append "get-" marked) #f)
-            (declaration context 'accessor 'setter start end (string-append "set-" marked) #f))
-          (walk-keywords/properties context expression
-            (lambda (symbol)
-              (case symbol
-                ((initialize test)
-                 (keyword context start end)
-                 #f)
-                (else
-                 #f))))
-          (walk-expressions context expression))
+            (let ((entry (declaration context 'definition '() symbol '() #f start end marked (symbol-documented? (find-marked-symbol) doc))))
+              (declaration context 'accessor '() 'getter '() #f start end (string-append "get-" marked) #f)
+              (declaration context 'accessor '() 'setter '() #f start end (string-append "set-" marked) #f)
+              (let ((keywords '()))
+                (define (add-keyword keyword value)
+                  (set! keywords (cons (cons keyword value) keywords)))
+                
+                (walk-keywords/properties context expression
+                  (lambda (symbol)
+                    (case symbol
+                      ((initialize test)
+                       (keyword context start end)
+                       (when (forward-expr)
+                         (add-keyword symbol (get-marked)))
+                       #f)
+                      (else
+                       #f))))
+                (when entry
+                  (set-parameters~ entry (reverse! keywords))))
+              (walk-expressions context expression))))
         (exit-list)
         (iterate))))
 
@@ -432,45 +467,53 @@
   (method (walk-definition context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (forward-whites)
-      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
-        (cond ((not list?)
-               (when (and (forward-expr) (eq? kind 'symbol))
-                 (set! entry (declaration context 'definition symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
-              (else
-               (enter-list)
-               (when (and (forward-expr) (eq? kind 'symbol))
-                 (set! entry (declaration context 'definition symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-               (walk-parameters entry declaration keyword expression doc)
-               (exit-list))))
-      (walk-expressions entry expression 'code #f)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (forward-whites)
+        (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+          (cond ((not list?)
+                 (when (and (forward-expr) (eq? kind 'symbol))
+                   (set! entry (declaration context 'definition modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
+                (else
+                 (enter-list)
+                 (when (and (forward-expr) (eq? kind 'symbol))
+                   (set! entry (declaration context 'definition modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+                 (walk-parameters entry declaration keyword expression doc)
+                 (exit-list))))
+        (walk-specifier entry expression 'code)
+        (walk-expressions entry expression 'code #f)
+        entry)))
   
   
   (method (walk-specialize context symbol form declaration keyword expression doc)
-    (let ((entry context))
+    (let ((entry context)
+          (as #f))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (forward-whites)
-      (when (not (eqv? (char-forward 0) #\open-parenthesis))
-        (when (and (forward-expr) (eq? kind 'symbol) (eq? (find-marked-symbol) 'as))
-          (keyword context start end)
-          (forward-expr)
-          (declaration context 'specialize symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))
-          (forward-whites)))
-      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
-        (cond ((not list?)
-               (when (and (forward-expr) (eq? kind 'symbol))
-                 (set! entry (declaration context 'specialize symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
-              (else
-               (enter-list)
-               (when (and (forward-expr) (eq? kind 'symbol))
-                 (set! entry (declaration context 'specialize symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-               (walk-parameters entry declaration keyword expression doc)
-               (exit-list))))
-      (walk-expressions entry expression 'code #f)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (forward-whites)
+        (when (not (eqv? (char-forward 0) #\open-parenthesis))
+          (when (and (forward-expr) (eq? kind 'symbol) (eq? (find-marked-symbol) 'as))
+            (keyword context start end)
+            (forward-expr)
+            (set! as (get-marked))
+            (declaration context 'specialize modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))
+            (forward-whites)))
+        (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+          (define (mangle-as marked)
+            (if as
+                (list marked as)
+              marked))
+          
+          (cond ((not list?)
+                 (when (and (forward-expr) (eq? kind 'symbol))
+                   (set! entry (declaration context 'specialize modifiers symbol '() #f start end (mangle-as (get-marked)) (symbol-documented? (find-marked-symbol) doc)))))
+                (else
+                 (enter-list)
+                 (when (and (forward-expr) (eq? kind 'symbol))
+                   (set! entry (declaration context 'specialize modifiers symbol '() #f start end (mangle-as (get-marked)) (symbol-documented? (find-marked-symbol) doc))))
+                 (walk-parameters entry declaration keyword expression doc)
+                 (exit-list))))
+        (walk-expressions entry expression 'code #f)
+        entry)))
 
   
   (method (walk-class context symbol form declaration keyword expression doc)
@@ -489,15 +532,16 @@
   (method public (walk-method context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (enter-list)
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context 'method symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
-        (forward-whites)
-        (walk-parameters entry declaration keyword expression doc)
-        (exit-list)
-        (walk-expressions entry expression 'code #f))
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (enter-list)
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'method modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+          (forward-whites)
+          (walk-parameters entry declaration keyword expression doc)
+          (exit-list)
+          (walk-specifier entry expression 'code)
+          (walk-expressions entry expression 'code #f))
+        entry)))
   
   
   (method (walk-keywords/properties context expression proc)
@@ -510,109 +554,120 @@
         (walk-expression context expression 'code #f))))
   
   
-  (method (walk-slot/property-accessors context slot-name declaration keyword expression doc)
+  (method (walk-slot/property-accessors context entry slot-name declaration keyword expression doc)
     (define (declare-accessor accessor)
       (let ((name (string-append (case accessor ((getter) "get-") ((setter) "set-")) slot-name)))
-        (declaration context 'accessor accessor start end name (symbol-documented? (find-marked-symbol) doc))
+        (declaration context 'accessor '() accessor '() #f start end name (symbol-documented? (find-marked-symbol) doc))
         #t))
     
-    (walk-keywords/properties context expression
-      (lambda (symbol)
-        (case symbol
-          ((initialize)
-           (keyword context start end)
-           #f)
-          ((getter setter accessors)
-           (keyword context start end)
-           (when (and (forward-expr) (eq? kind 'symbol) (string=? (get-marked) "generate"))
-             (case symbol
-               ((getter)
-                (declare-accessor 'getter))
-               ((setter)
-                (declare-accessor 'setter))
-               ((accessors)
-                (declare-accessor 'getter)
-                (declare-accessor 'setter)))))
-          (else
-           #f)))))
+    (walk-specifier entry expression 'code)
+    (let ((keywords '()))
+      (define (add-keyword keyword value)
+        (set! keywords (cons (cons keyword value) keywords)))
+      
+      (walk-keywords/properties context expression
+        (lambda (symbol)
+          (case symbol
+            ((initialize)
+             (keyword context start end)
+             (when (forward-expr)
+               (add-keyword symbol (get-marked)))
+             #f)
+            ((getter setter accessors)
+             (keyword context start end)
+             (when (forward-expr)
+               (add-keyword symbol (get-marked))
+               (when (and (eq? kind 'symbol) (string=? (get-marked) "generate"))
+                 (case symbol
+                   ((getter)
+                    (declare-accessor 'getter))
+                   ((setter)
+                    (declare-accessor 'setter))
+                   ((accessors)
+                    (declare-accessor 'getter)
+                    (declare-accessor 'setter))))))
+            (else
+             #f))))
+      (when entry
+        (set-parameters~ entry (reverse! keywords)))))
   
   
   (method (walk-slot context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (forward-whites)
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (let ((marked (get-marked)))
-          (set! entry (declaration context 'slot symbol start end marked (symbol-documented? (find-marked-symbol) doc)))
-          (walk-slot/property-accessors context marked declaration keyword expression doc)))
-      (walk-expressions entry expression)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (forward-whites)
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (let ((marked (get-marked)))
+            (set! entry (declaration context 'slot modifiers symbol '() #f start end marked (symbol-documented? (find-marked-symbol) doc)))
+            (walk-slot/property-accessors context entry marked declaration keyword expression doc)))
+        (walk-expressions entry expression)
+        entry)))
   
   
   (method (walk-property context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (let ((marked (get-marked)))
-          (set! entry (declaration context 'property symbol start end marked (symbol-documented? (find-marked-symbol) doc)))
-          (walk-slot/property-accessors context marked declaration keyword expression doc)))
-      (walk-expressions entry expression)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (let ((marked (get-marked)))
+            (set! entry (declaration context 'property modifiers symbol '() #f start end marked (symbol-documented? (find-marked-symbol) doc)))
+            (walk-slot/property-accessors context entry marked declaration keyword expression doc)))
+        (walk-expressions entry expression)
+        entry)))
   
   
   (method (walk-form context symbol form declaration keyword expression doc)
-    (walk-anonymous context symbol form declaration keyword expression doc))
+    (walk-anonymous context 'form symbol form declaration keyword expression doc))
         
   
   (method (walk-global context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context 'global symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'global modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        entry)))
     
   
   (method (walk-constant context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context 'constant symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-      (walk-expressions entry expression)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'constant modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (walk-expressions entry expression)
+        entry)))
   
   
   (method (walk-enumeration context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context 'enumeration symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-      (walk-expressions entry expression)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'enumeration modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (walk-expressions entry expression)
+        entry)))
 
   
   (method (walk-c-constant context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context 'c-constant symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-      (walk-expressions entry expression)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'c-constant modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (walk-expressions entry expression)
+        entry)))
   
   
   (method (walk-c-enumeration context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context 'c-enumeration symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-      (walk-expressions entry expression)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'c-enumeration modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (walk-expressions entry expression)
+        entry)))
 
   
   (method (walk-c-named-declare context symbol form declaration keyword expression doc)
@@ -628,63 +683,84 @@
   (method (walk-c-type context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context 'c-type symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-      (walk-expressions entry expression)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'c-type modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (walk-expressions entry expression)
+        entry)))
   
   
   (method (walk-c-structure context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (forward-whites)
-      (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
-        (when list?
-          (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol))
-          (set! entry (declaration context 'c-structure symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-        (when list?
-          (exit-list)))
-      (walk-expressions entry expression)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (forward-whites)
+        (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+          (when list?
+            (enter-list))
+          (when (and (forward-expr) (eq? kind 'symbol))
+            (set! entry (declaration context 'c-structure modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+          (when list?
+            (exit-list)))
+        (walk-expressions entry expression)
+        entry)))
 
   
   (method (walk-c-external context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (let ((entered? (enter-list)))
-        (when (and (forward-expr) (eq? kind 'symbol))
-          (set! entry (declaration context 'external symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-        (when entered?
-          (walk-parameters entry declaration keyword expression doc))
-        (when entered?
-          (exit-list)))
-      (walk-expressions entry expression)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (let ((entered? (enter-list)))
+          (when (and (forward-expr) (eq? kind 'symbol))
+            (set! entry (declaration context 'external modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+          (when entered?
+            (walk-parameters entry declaration keyword expression doc))
+          (when entered?
+            (exit-list)))
+        (walk-specifier entry expression 'code)
+        (walk-expressions entry expression 'code #f)
+        entry)))
 
   
   (method (walk-com-external context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
-      (walk-modifiers context declaration keyword (get-modifiers~ form))
-      (let ((entered? (enter-list)))
-        (when (and (forward-expr) (eq? kind 'symbol))
-          (set! entry (declaration context 'com-external symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-        (when entered?
-          (walk-parameters entry declaration keyword expression doc))
-        (when entered?
-          (exit-list)))
-      (walk-expressions entry expression)
-      entry))
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (let ((entered? (enter-list)))
+          (when (and (forward-expr) (eq? kind 'symbol))
+            (set! entry (declaration context 'com-external modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+          (when entered?
+            (walk-parameters entry declaration keyword expression doc))
+          (when entered?
+            (exit-list)))
+        (walk-specifier entry expression 'code)
+        (walk-expressions entry expression 'code #f)
+        entry)))
   
   
   (method (walk-datacontainer context symbol form declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (when (forward-expr)
-        (set! entry (declaration context 'datacontainer symbol start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (set! entry (declaration context 'datacontainer '() symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (walk-expressions entry expression)
-      entry))))
+      entry))
+  
+  
+  (method (walk-define-handler context symbol form declaration keyword expression doc)
+    (let ((entry context))
+      (keyword context start end)
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (forward-whites)
+        (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+          (cond ((not list?)
+                 (when (and (forward-expr) (eq? kind 'symbol))
+                   (set! entry (declaration context 'definition modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
+                (else
+                 (enter-list)
+                 (when (and (forward-expr) (eq? kind 'symbol))
+                   (set! entry (declaration context 'definition modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+                 (walk-parameters entry declaration keyword expression doc)
+                 (exit-list))))
+        (walk-expressions entry expression 'code #f)
+        entry)))))

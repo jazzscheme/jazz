@@ -38,21 +38,10 @@
 (module protected jazz.debugger.jazz.Snapshot-Debugger jazz
 
 
-(import (jazz.catalog)
-        (jazz.console)
-        (jazz.debuggee)
-        (jazz.debugger)
-        (jazz.io)
-        (jazz.editor.jazz)
-        (jazz.editor.jazz.inspector)
-        (jazz.jrm)
-        (jazz.media)
-        (jazz.network)
+(import (jazz.debugger)
+        (jazz.library)
         (jazz.project)
-        (jazz.system)
-        (jazz.ui.view)
-        (jazz.ui.window)
-        (jazz.ui.workspace))
+        (jazz.ui.window))
 
 
 (class Snapshot-Debugger extends Debugger
@@ -80,6 +69,10 @@
   
   (method override (detach-processes)
     )
+  
+  
+  (method override (standard-process-image)
+    {Image-Resource "File"})
   
   
   ;;;
@@ -119,22 +112,25 @@
     #f)
   
   
-  (method override (evaluate-expressions process syntax str container line col)
+  (method override (evaluate-expressions process syntax str container line col cookie)
     )
   
   
-  (method override (inspect-serial process serial)
+  (method override (inspect-serial process serial max-content)
     (let ((value (serial->value process serial)))
-      (map (lambda (info)
-             (bind (name . serial) info
-               ;; temp backward compatibility test
-               (when (pair? serial)
-                 (set! serial (car serial)))
-               (inspect-name/serial process name serial)))
-           (get-property~ value 'content '()))))
+      (let ((content (get-property~ value 'content '())))
+        (map (lambda (info)
+               (bind (key . serial) info
+                 (bind (category name rank) (backward-compatible-key key)
+                   (inspect-name/serial process name rank serial))))
+             content))))
   
   
-  (method (inspect-name/serial process name serial)
+  (method override (present-serial process serial)
+    (unimplemented))
+  
+  
+  (method (inspect-name/serial process name rank serial)
     (let ((mutable? #f)
           (value (serial->value process serial)))
       (if (not value)
@@ -144,7 +140,7 @@
         (let ((class (get-property~ value 'class))
               (presentation (get-property~ value 'presentation))
               (content (get-property~ value 'content '())))
-          (cons name (list serial class presentation (not-null? content) mutable? :raw))))))
+          (cons (list #f name rank) (list serial class presentation (not-null? content) mutable? :raw))))))
   
   
   (method override (process-detach process)
@@ -184,6 +180,10 @@
   
   
   (method override (break-thread process thread)
+    )
+  
+  
+  (method override (terminate-thread process thread)
     )
   
   
@@ -298,11 +298,13 @@
 
     
   (method override (frame-variables process frame kind)
-    (map (lambda (variable)
-           (let ((name (get-property~ variable 'name))
-                 (serial (get-property~ variable 'serial)))
-             (inspect-name/serial process name serial)))
-         (get-children~ frame)))
+    (let ((variables (get-children~ frame)))
+      (map (lambda (variable rank)
+             (let ((name (get-property~ variable 'name))
+                   (serial (get-property~ variable 'serial)))
+               (inspect-name/serial process name rank serial)))
+           variables
+           (naturals 0 (length variables)))))
   
   
   ;;;

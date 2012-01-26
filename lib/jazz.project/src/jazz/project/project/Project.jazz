@@ -38,14 +38,13 @@
 (module protected jazz.project.project.Project jazz
 
 
-(import (jazz.designer)
-        (jazz.ide)
+(import (jazz.debugger)
+        (jazz.designer)
         (jazz.io)
         (jazz.jml)
         (jazz.library)
         (jazz.project)
         (jazz.system)
-        (jazz.ui)
         (jazz.ui.view))
 
 
@@ -63,6 +62,7 @@
   (property active?            initialize #t accessors generate)
   (property catalog-extensions initialize #f accessors generate)
   (property catalog-heuristics initialize #f accessors generate)
+  (property description-file   initialize #f accessors generate)
 
 
   (slot catalog initialize #f accessors generate)
@@ -250,6 +250,45 @@
 
 
   ;;;
+  ;;;; Projects
+  ;;;
+  
+  
+  (method public (find-project name (include-inactives?: include-inactives? #f) (error?: error? #t))
+    (define (find project path)
+      (cond ((not project)
+             (when error?
+               (error "Unable to find project: {s}" name)))
+            ((null? path)
+             project)
+            ((symbol? path)
+             (find-name project path))
+            ((pair? path)
+             (find (find project (car path)) (cdr path)))
+            (else
+             #f)))
+    
+    (define (find-name project name)
+      (continuation-capture
+        (lambda (return)
+          (for-each-project~ project
+            (lambda (project)
+              (when (eq? (get-name~ project) name)
+                (continuation-return return project)))
+            include-inactives?: include-inactives?
+            stop-test: (lambda (descendant)
+                         (is? descendant Project)))
+          #f)))
+    
+    (find self (split-symbol name #\:)))
+  
+  
+  (method public (require-project name)
+    (or (find-project name)
+        (error "Unable to find project: {a}" name)))
+
+
+  ;;;
   ;;;; Files
   ;;;
   
@@ -388,19 +427,30 @@
   
   
   (form
-    (<install>                 image: {Image-Resource "Project"}
-      (<properties~>           categorized: (title @wait icon @wait owner @wait copyright @wait version include-extensions @wait documentation @wait active? catalog-extensions catalog-heuristics)
-        (<Property-Descriptor> name: title title: "Title")
-        (<Property-Descriptor> name: icon title: "Icon")
-        (<Property-Descriptor> name: owner title: "Owner")
-        (<Property-Descriptor> name: copyright title: "Copyright")
-        (<Property-Descriptor> name: version title: "Version")
-        (<Property-Descriptor> name: include-extensions title: "Include Extensions")
-        (<Property-Descriptor> name: documentation title: "Documentation")
-        (<Property-Descriptor> name: editable? title: "Editable?")
-        (<Property-Descriptor> name: active? title: "Active?")
-        (<Property-Descriptor> name: catalog-extensions title: "Catalog Extensions")
-        (<Property-Descriptor> name: catalog-heuristics title: "Catalog Heuristics"))))
+    (<install>                                          image: {Image-Resource "Project"}
+      (<properties~>
+        (<Property-Descriptor> name: title
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: icon
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: owner
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: copyright
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: version
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: include-extensions
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: documentation
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: editable?
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: active?
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: catalog-extensions
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: catalog-heuristics
+          (<Value-Domain>      name: domain)))))
   
   
   (method override (component-presentation-property? component property)
@@ -408,11 +458,23 @@
   
   
   (method override (component-get-presentation component)
-    (project-title~ component))
+    (let ((title (project-title~ component))
+          (traits (get-default-traits~ component)))
+      (if (not traits)
+          title
+        (format "{a}{a}" title (present-process-traits traits)))))
   
   
   (method override (component-set-presentation component designer presentation)
     (set-property~ designer component title: presentation))
+  
+  
+  (method override (component-get-component-image component)
+    (let ((description-file (get-description-file~ component)))
+      (cond ((not description-file) (nextmethod component))
+            ((filename=? (get-name~ description-file) ".repository") {Image-Resource "CompareManager"})
+            ((filename=? (get-name~ description-file) ".package") {Image-Resource "Catalog"})
+            (else (nextmethod component)))))
   
   
   (method override (component-addable-class? component class)

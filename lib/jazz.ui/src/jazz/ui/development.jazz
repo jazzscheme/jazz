@@ -72,10 +72,12 @@
                       {Rect 0 0 5000 5000}
                     (typecase obj
                       ((Rect) obj)
-                      ((View) (acquire~ (get-root~ obj) obj (rect-intersection (or rect (get-bounds~ obj)) (get-clipper~ obj))))))))
-      (with ((region (new Region update)))
-        (pretty-print (painting-tree~ root region 0 0))
-        (unspecified)))))
+                      ((View) (acquire~ (get-root~ obj) obj (rect-intersection (or rect (get-bounds~ obj)) (get-view-clipper~ obj))))))))
+      (with-transformation-surface~ root
+        (lambda (surface)
+          (with ((region (new Region rect: update)))
+            (pretty-print (painting-tree~ root surface region))
+            (unspecified)))))))
 
 
 ;;;
@@ -124,7 +126,8 @@
     (list "Position" (get-position~ view))
     (list "Size" (get-size~ view))
     (list "Mouse" pos)
-    (list "Action Handler" (get-action-handler~ view))))
+    (list "Action Handler" (get-action-handler~ view))
+    (list "Serial" (object->serial view))))
 
 
 ;; State as in the state that the view and it's associated objects must maintain
@@ -142,13 +145,10 @@
       (lambda (view level)
         (when (is? view View)
           (let ((type (category-identifier (class-of view)))
-                (lie (get-lie~ view))
                 (position (get-position~ view))
                 (size (get-size~ view)))
             (output~ classes type level)
             (output~ properties (format "~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Dimension {a width: 4 justify: :right} {a width: 4 justify: :right}}"
-                                        (get-h~ lie)
-                                        (get-v~ lie)
                                         (get-h~ position)
                                         (get-v~ position)
                                         (get-width~ size)
@@ -213,6 +213,7 @@
 (specific (view-debug (<Text-View> view) pos)
   (nextmethod view pos)
   (let* ((model (get-model~ view))
+         (syntax (get-syntax~ view))
          (start (get-start~ view))
          (end (get-end~ view))
          (moniker (get-moniker~ view))
@@ -227,6 +228,7 @@
     (set-%s start)
     (set-%e end)
     (set-%m model)
+    (set-%x syntax)
     (set-%p paragraph)
     (set-%f (get-format~ paragraph))
     (set-%n (get-line-at~ paragraph (get-col~ end)))
@@ -234,7 +236,7 @@
     (set-%y (get-style-at~ model end))
     (set-%i (and moniker (git-filename moniker)))
     (set-%k moniker)
-    (set-%c (get-controller~ view))))
+    (set-%c (get-document-controller~ view))))
 
 
 (specific (view-describe (<Text-View> view) pos)
@@ -282,7 +284,6 @@
                   (let ((data (get-cell-data~ view cell)))
                     (list
                       (list "Node Column" (get-node-column~ view))
-                      (list "Columns Borders" (get-columns-borders~ view))
                       (list "Columns Right" (get-columns-right~ view))
                       (list "User Data" user-data)
                       (list "Image" (and (is? node Tree-Node) (get-image~ node))))))))))))

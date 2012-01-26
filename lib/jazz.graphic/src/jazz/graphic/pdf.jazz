@@ -1,3 +1,40 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; PDF Surfaces
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Jeremie Lasalle Ratelle.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
 (module jazz.graphic.pdf jazz
 
 
@@ -6,23 +43,65 @@
         (jazz.ui))
 
 
-(definition public (document->pdf filename view)
-  (let* ((size (get-size~ view))
-         (surface (new Pdf-Surface #f size filename)))
-    (set-clipper~ surface (new Rect 0 0 10000 10000))
-    (let ((job (new Print-Job surface view (get-page-setup-for~ view 'printer) 60)))
-      (print-job~ job))
-    (destroy~ surface)))
+(definition pdf-dpi
+  72)
+
+
+(definition public (document->pdf view file (page-setup: page-setup #f) (scaling: scaling #f))
+  (let ((page-setup (or page-setup (new Page-Setup))))
+    (let ((width (* (/ (get-width~ page-setup) default-resolution) pdf-dpi))
+          (height (* (/ (get-height~ page-setup) default-resolution) pdf-dpi)))
+      (with ((surface (new PDF-Surface #f (new Dimension width height) (parse~ file))))
+        (with-update-locked~ view
+          (lambda ()
+            (let ((job (new PDF-Job surface view page-setup pdf-dpi scaling: scaling)))
+              (print-job~ job))))))))
+
+
+;;;
+;;;; PDF-Job
+;;;
     
 
+(class PDF-Job extends Print-Job
+  
+  
+  (method override (end-page no)
+    (show-page~ surface))
+  
+  
+  (method override (print-orientation)
+    'portrait))
 
-(class Pdf-Surface extends Surface
+
+;;;
+;;;; PDF-Surface
+;;;
+
+
+(class PDF-Surface extends Surface
   
   
   (slot size getter generate)
   
   
   (method override (initialize _ size filename)
-    (let ((surface (cairo_pdf_surface_create filename (exact->inexact (get-width~ size)) (exact->inexact (get-height~ size)))))
-      (nextmethod surface)
-      (set! size~self size)))))
+    (let ((handle (cairo_pdf_surface_create filename (fixnum->flonum (get-width~ size)) (fixnum->flonum (get-height~ size)))))
+      (nextmethod handle)
+      (set! size~self size)))
+  
+  
+  ;; PDF surfaces are in 72 floating point DPI while windows regions are in integer
+  (method override (use-painting-tree?)
+    #f)
+  
+  
+  (method override (frame-rect rect <Rect> color)
+    (set-line-width 1)
+    (set-color color)
+    (draw-rectangle rect)
+    (stroke))
+  
+  
+  (method (show-page)
+    (cairo_show_page context))))

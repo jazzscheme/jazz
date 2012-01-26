@@ -41,6 +41,7 @@
 (import (jazz.geometry)
         (jazz.graphic)
         (jazz.jml)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.workspace))
 
@@ -117,19 +118,20 @@
   
   
   (method (on-close evt)
-    (close-workspace))
+    (close-workspace #t))
   
   
   (method override (escape-press key)
-    (close-workspace))
+    (close-workspace #f))
   
   
-  (method (close-workspace)
+  (method (close-workspace save?)
     (let ((frame (get-host))
           (workspace (selected-workspace)))
       (restore-client)
       (close~ frame)
-      (apply-preferences~ (get-previous~ workspace))))
+      (apply-preferences~ (get-previous~ workspace))
+      (invalidate-window~ (get-toplevel))))
 
   
   ;;;
@@ -147,7 +149,7 @@
   
   
   (method protected (restore-client)
-    (wrap-header/footer~ (get-page-setup-for~ client 'printer) '())
+    (wrap-header/footer~ (get-page-setup~ client) '())
     (restore-printing~ client preserved))
   
   
@@ -180,9 +182,9 @@
     (let* ((scrollee (locate 'scrollee))
            (centered (locate 'centered))
            (print-area (get-print-area~ client '()))
-           (page-setup (get-page-setup-for~ client 'printer))
-           (scaling (scale-content~ page-setup client 60))
-           (zoom (/ Zoom scaling))
+           (page-setup (get-page-setup~ client))
+           (scaling (scale-content~ page-setup client default-resolution))
+           (zoom (/ (cast <fl> Zoom) scaling))
            (display-size (get-size))
            (border-size (nu+ (scale (get-size~ page-setup) zoom) {Dimension 4 4}))
            (separator (scale 50 zoom)))
@@ -216,7 +218,7 @@
         (set-size~ scrollee (new Dimension (max (- (get-width~ display-size) 13) max-h) (max (- (get-height~ display-size) 13) max-v)))
         (layout-view~ scrollee)
         (update-scrollbars~ scrollee)
-        (set! job (new Preview-Job #f client page-setup 60 zoom: zoom))
+        (set! job (new Preview-Job #f client page-setup default-resolution zoom: zoom))
         (for-each (lambda (page)
                     (set-client~ page client))
                   pages)

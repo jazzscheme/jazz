@@ -888,8 +888,7 @@
   
   (let* ((product (jazz:get-product product-name))
          (package (%%product-package product))
-         (update (jazz:cond-expand-each (jazz:ill-formed-field-error "update" product-name)
-                                        (jazz:product-descriptor-update descriptor)))
+         (update (jazz:cond-expanded-product-descriptor-update product-name descriptor))
          (library-base (jazz:relocate-product-library-name-base jazz:Build-Repository package product-name))
          (library-dir (jazz:pathname-dir library-base)))
     (jazz:with-numbered-pathname (string-append library-base "." jazz:Library-Extension) #t 1

@@ -38,13 +38,12 @@
 (module protected jazz.ui.document.Document-Controller jazz
 
 
-(import (jazz.io)
-        (jazz.locale)
-        (jazz.platform)
+(import (jazz.locale)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.dialog)
         (jazz.ui.view)
+        (jazz.ui.window)
         (time))
 
 
@@ -115,7 +114,7 @@
         (case code
           ((yes) (save-all))
           ((no))
-          ((cancel) (throw-cancel))))))
+          ((cancel) (signal-cancel))))))
   
   
   (method public (close-on-close-all?)
@@ -183,7 +182,7 @@
         (case code
           ((yes) (reload-moniker~ document moniker))
           ((no))
-          ((cancel) (throw-cancel))))))
+          ((cancel) (signal-cancel))))))
   
   
   (method public (compare-saved)
@@ -240,6 +239,10 @@
 
   (method public virtual (update-status)
     (update-state)
+    (update-caption))
+  
+  
+  (method public virtual (update-caption)
     (let ((host (get-host~ document)))
       (when (and (is? host Host-View) (eq? (get-guest~ host) document))
         (set-caption (document-status)))))
@@ -300,19 +303,30 @@
     (set! moniker-digest (digest-file (parse~ moniker) 'SHA-1)))
   
   
-  (method public (verify-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
+  (method public (verify-reload (delay-event?: delay-event? #f) (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
+    (define (propose)
+      (propose-reload propose-reload?: propose-reload? cancel-edition?: cancel-edition?))
+    
     (when (needs-reload?)
-      (propose-reload propose-reload?: propose-reload? cancel-edition?: cancel-edition?)))
+      (if delay-event?
+          (delay-event propose)
+        (propose))))
   
   
-  (method public (needs-reload?)
+  (method public virtual (needs-reload?)
     (and moniker moniker-time
          (exists?~ moniker)
          (/= (time->seconds (get-modification-time~ moniker)) (time->seconds moniker-time))
          (not (equal? (digest-file (parse~ moniker) 'SHA-1) moniker-digest))))
 
   
-  (method public (propose-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
+  (method meta public virtual (propose-multiple-reloads)
+    (message-box (format "Files have been modified. Do you want to reload them?")
+                 title: "File Status"
+                 type: 'question))
+  
+  
+  (method public virtual (propose-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
     (let ((code (if (not propose-reload?)
                     'yes
                   (message-box (format "File {s} has been modified. Do you want to reload it?" (get-moniker))
@@ -321,12 +335,12 @@
       (propose-reload-action code cancel-edition?: cancel-edition?)))
   
   
-  (method protected (propose-reload-action code (cancel-edition?: cancel-edition? #f))
+  (method protected virtual (propose-reload-action code (cancel-edition?: cancel-edition? #f))
     (case code
       ((yes)
        (reload-moniker~ document moniker)
        (when cancel-edition?
-         (throw-cancel)))
+         (signal-cancel)))
       ((no)
        (update-moniker-time moniker)
        (update-status))))
@@ -361,7 +375,7 @@
          #t)
         ((no))
         ((cancel)
-         (throw-cancel)))))
+         (signal-cancel)))))
 
   
   ;;;

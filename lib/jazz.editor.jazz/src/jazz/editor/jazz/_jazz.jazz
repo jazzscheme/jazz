@@ -38,4 +38,67 @@
 (module jazz.editor.jazz jazz
 
 
-(export (jazz.editor.jazz.autoload)))
+(import (jazz.editor.jazz.autoload)
+        (jazz.system.access))
+
+
+(export (jazz.editor.jazz.autoload))
+
+
+(definition public (call-with-saved-text file func (verify-reload?: verify-reload? #t))
+  (call-with-text file
+    (lambda (text)
+      (let ((result (func text)))
+        (save~ text)
+        (when verify-reload?
+          (verify-reload~ (get-application) file))
+        result))))
+
+
+(definition public (call-with-text file func)
+  (let ((text (new Jazz-Text-View)))
+    (set-colorize?~ (get-syntax~ text) #f)
+    (set-moniker~ text file)
+    (func text)))
+
+
+(definition public (class-has-form? text symbol)
+  (with-exception-filter
+    (lambda (exc)
+      (is? exc Location-Error))
+    (lambda (exc)
+      #f)
+    (lambda ()
+      (location-range~ text (list symbol :form))
+      #t)))
+
+
+(definition public (insert-imports text imports)
+  (define (insert-import-declaration initial-import)
+    (let ((explorer (new Jazz-Explorer (get-model~ text))))
+      (forward-namespace~ explorer)
+      (unless (enter-import~ explorer)
+        (let ((explorer (new Jazz-Explorer (get-model~ text))))
+          (forward-namespace~ explorer)
+          (set-caret~ text (get-end~ explorer))
+          (insert-string~ text (format "{%}{%}{%}(import ({a}))" initial-import))))))
+  
+  (define (insert-import unit)
+    (let ((explorer (new Jazz-Explorer (get-model~ text))))
+      (forward-namespace~ explorer)
+      (enter-import~ explorer)
+      (receive (found? first?) (find-import-invoice~ explorer unit #t)
+        (unless found?
+          (set-caret~ text (get-end~ explorer))
+          (cond (first?
+                  (insert-string~ text (format " ({a})" unit))
+                  (insert-newline~ text)
+                  (tabulate~ text))
+                (else
+                 (insert-newline~ text)
+                 (tabulate~ text)
+                 (insert-string~ text (format "({a})" unit))))))))
+  
+  (insert-import-declaration (car imports))
+  (for-each insert-import (let ((explorer (new Jazz-Explorer (get-model~ text))))
+                            (filter-existing-import-invoices~ explorer (remove-duplicates (cdr imports)))))))

@@ -324,7 +324,7 @@
   (let ((source-access? jazz:kernel-source-access?))
     (let ((build (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t create?: #t))
           (jazz (and source-access? (jazz:make-repository 'Jazz "lib" (or (jazz:jazz-repository) jazz:kernel-source))))
-          (binary-repositories (or (and source-access? jazz:kernel-binary-repositories) '()))
+          (binary-repositories (or jazz:kernel-binary-repositories '()))
           (source-repositories (or (and source-access? jazz:kernel-source-repositories) '()))
           (repositories (jazz:repositories)))
       (set! jazz:Build-Repository build)
@@ -417,6 +417,11 @@
 
 (define (jazz:uninstall-repository repository)
   (set! jazz:Repositories (%%remove repository jazz:Repositories)))
+
+
+(define (jazz:require-repository name)
+  (or (jazz:find-repository name)
+      (jazz:error "Unknown repository: {s}" name)))
 
 
 (define (jazz:find-repository name)
@@ -1171,6 +1176,16 @@
       '())))
 
 
+(define (jazz:cond-expanded-product-descriptor-update product-name product-descriptor)
+  (jazz:cond-expand-map (jazz:ill-formed-field-error "update" product-name)
+                        (jazz:product-descriptor-update product-descriptor)))
+
+
+(define (jazz:cond-expanded-product-descriptor-dependencies product-name product-descriptor)
+  (jazz:cond-expand-map (jazz:ill-formed-field-error "dependencies" product-name)
+                        (jazz:product-descriptor-dependencies product-descriptor)))
+
+
 (define jazz:Products-Table
   (%%make-table test: eq?))
 
@@ -1178,10 +1193,16 @@
   (%%make-table test: eq?))
 
 
+(jazz:define-variable jazz:process-product
+  #f)
+
 (jazz:define-variable jazz:process-name
   #f)
 
 (jazz:define-variable jazz:process-title
+  #f)
+
+(jazz:define-variable jazz:process-traits
   #f)
 
 (jazz:define-variable jazz:process-icon
@@ -1190,6 +1211,9 @@
 (jazz:define-variable jazz:process-version
   #f)
 
+
+(define (jazz:current-process-product)
+  jazz:process-product)
 
 (define (jazz:current-process-name)
   jazz:process-name)
@@ -1202,6 +1226,12 @@
 
 (define (jazz:current-process-title-set! title)
   (set! jazz:process-title title))
+
+(define (jazz:current-process-traits)
+  jazz:process-traits)
+
+(define (jazz:current-process-traits-set! traits)
+  (set! jazz:process-traits traits))
 
 (define (jazz:current-process-icon)
   jazz:process-icon)
@@ -1224,9 +1254,9 @@
           #f))))
 
 
-(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (library #f))
+(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (build-library #f) (install #f))
   (receive (package descriptor) (jazz:find-product-descriptor name)
-    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build library package descriptor))))
+    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build build-library install package descriptor))))
 
 
 (define (jazz:get-product-descriptor name)
@@ -1256,6 +1286,7 @@
             jazz:update-product-descriptor
             jazz:build-product-descriptor
             jazz:build-library-descriptor
+            #f
             package
             descriptor))))))
 
@@ -1263,6 +1294,7 @@
 (define (jazz:setup-product name)
   (let ((product (jazz:get-product name)))
     (let ((descriptor (%%product-descriptor product)))
+      (set! jazz:process-product name)
       (set! jazz:process-name name)
       (set! jazz:process-title (or (%%product-title product) (jazz:product-descriptor-title descriptor)))
       (set! jazz:process-icon (or (%%product-icon product) (jazz:product-descriptor-icon descriptor))))
@@ -1319,7 +1351,7 @@
     (jazz:error "ill-formed {a} field in product descriptor for product {a}" field-name product-name)))
 
 
-(define (jazz:cond-expand-each error-proc updates)
+(define (jazz:cond-expand-map error-proc updates)
   (define (apply-cond-expand exp)
     (cond ((and (%%pair? exp)
                 (%%pair? (%%car exp)))
@@ -1358,8 +1390,7 @@
 
 (define (jazz:update-product-descriptor descriptor)
   (let* ((name (jazz:product-descriptor-name descriptor))
-         (update (jazz:cond-expand-each (jazz:ill-formed-field-error "update" name)
-                                        (jazz:product-descriptor-update descriptor))))
+         (update (jazz:cond-expanded-product-descriptor-update name descriptor)))
     (for-each jazz:build-unit update)))
 
 
@@ -1370,7 +1401,7 @@
           (descriptor (%%product-descriptor product)))
       (jazz:feedback "make {a}" name)
       (jazz:load-build)
-            
+      
       (if build
           (build descriptor)
         (jazz:build-product-descriptor descriptor))
@@ -1402,6 +1433,23 @@
     (if library
         (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: library)
       (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor))))
+
+
+(define (jazz:install-product name)
+  (let ((product (jazz:setup-product name)))
+    (let ((install (%%product-install product)))
+      (if install
+          (let ((descriptor (%%product-descriptor product)))
+            (jazz:feedback "install {a}" name)
+            (jazz:load-install)
+            (install descriptor))))))
+
+
+(define (jazz:install-directory path)
+  (let ((root (jazz:install-root)))
+    (if (%%not root)
+        (jazz:error "Undefined mandatory setting: (jazz:install-root)")
+      (%%append root path))))
 
 
 (define (jazz:make-product name)
@@ -1513,8 +1561,7 @@
                         (make subname)
                         (%%table-set! subproduct-table subname #t))))
                 (receive (package descriptor) (jazz:get-product-descriptor name)
-                  (jazz:cond-expand-each (jazz:ill-formed-field-error "dependencies" name)
-                                         (jazz:product-descriptor-dependencies descriptor))))
+                  (jazz:cond-expanded-product-descriptor-dependencies name descriptor)))
       (jazz:build-product name))
     
     (define (remote-make name)
@@ -1529,8 +1576,7 @@
                          (mutex-unlock! subproduct-table-mutex)
                          thread))
                      (receive (package descriptor) (jazz:get-product-descriptor name)
-                       (jazz:cond-expand-each (jazz:ill-formed-field-error "dependencies" name)
-                                              (jazz:product-descriptor-dependencies descriptor)))))
+                       (jazz:cond-expanded-product-descriptor-dependencies name descriptor))))
       (build name))
     
     (define (make name)
@@ -1732,53 +1778,71 @@
   (make-parameter #f))
 
 
-(define (jazz:load-unit-src/bin unit-name)
+(define (jazz:load-unit-src/bin unit-name #!key (force-source? #f))
   (jazz:with-unit-resources unit-name #f
     (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
       (parameterize ((jazz:requested-unit-name unit-name)
                      (jazz:requested-unit-resource (if bin-uptodate? bin src)))
-        (cond (lib-uptodate?
-                (jazz:increment-image-load-counter)
-                (jazz:with-verbose (jazz:load-verbose?) "loading" (symbol->string unit-name)
-                  (lambda ()
-                    (load-proc))))
-              (bin-uptodate?
-                (jazz:increment-object-load-counter)
-                (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))
-                                                (and ext (%%string=? ext "jazz"))))))
-                  (jazz:load-resource bin quiet?)))
+        (cond ((and lib-uptodate? (not force-source?))
+               (jazz:increment-image-load-counter)
+               (jazz:with-verbose (jazz:load-verbose?) "loading" (symbol->string unit-name)
+                 (lambda ()
+                   (load-proc))))
+              ((and bin-uptodate? (not force-source?))
+               (jazz:increment-object-load-counter)
+               (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))
+                                               (and ext (%%string=? ext "jazz"))))))
+                 (jazz:load-resource bin quiet?)))
               (src
-                (jazz:increment-interpreted-load-counter)
-                (let ((warn (jazz:warn-interpreted?)))
-                  (if warn
-                      (case warn
-                        ((error)
-                         (jazz:error "Loading {a} interpreted" unit-name))
-                        ((stack)
-                         (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
-                         (pp jazz:Load-Stack))
-                        (else
-                         (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
-                         (if (and (%%pair? warn) (%%memq unit-name warn))
-                             (pp jazz:Load-Stack))))))
-                (parameterize ((jazz:walk-for 'interpret)
-                               (jazz:generate-symbol-for "&")
-                               (jazz:generate-symbol-context unit-name)
-                               (jazz:generate-symbol-counter 0))
-                  (jazz:with-extension-reader (%%resource-extension src)
-                    (lambda ()
-                      (jazz:load-resource src)))))
+               (jazz:increment-interpreted-load-counter)
+               (let ((warn (jazz:warn-interpreted?)))
+                 (if warn
+                     (case warn
+                       ((error)
+                        (jazz:error "Loading {a} interpreted" unit-name))
+                       ((stack)
+                        (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
+                        (pp jazz:Load-Stack))
+                       (else
+                        (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
+                        (if (and (%%pair? warn) (%%memq unit-name warn))
+                            (pp jazz:Load-Stack))))))
+               (parameterize ((jazz:walk-for 'interpret)
+                              (jazz:generate-symbol-for "&")
+                              (jazz:generate-symbol-context unit-name)
+                              (jazz:generate-symbol-counter 0))
+                 (jazz:with-extension-reader (%%resource-extension src)
+                   (lambda ()
+                     (jazz:load-resource src)))))
               (else
-               (jazz:error "Unable to find unit: {s}" unit-name)))))))
+               (if force-source?
+                   (jazz:error "Unable to find unit source: {s}" unit-name)
+                 (jazz:error "Unable to find unit: {s}" unit-name))))))))
+
+
+(define (jazz:unit-loadable? unit-name)
+  (jazz:with-unit-resources unit-name #f
+    (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+      (or lib-uptodate? bin-uptodate? src))))
 
 
 (define (jazz:load-foundation)
   (jazz:load-unit 'core.module))
 
 
+(define (jazz:load-runtime)
+  (jazz:load-foundation)
+  (jazz:load-unit 'core.unit.runtime))
+
+
 (define (jazz:load-build)
   (jazz:load-foundation)
+  (jazz:load-unit 'core.unit.runtime)
   (jazz:load-unit 'core.unit.builder))
+
+
+(define (jazz:load-install)
+  (jazz:load-build))
 
 
 ;;;
@@ -1809,6 +1873,9 @@
 
 (define jazz:Loaded-State
   '(loaded))
+
+(define jazz:Error-State
+  '(error))
 
 
 ;;;
@@ -1938,19 +2005,24 @@
                 (let ((unit-state (jazz:get-environment-unit unit-name)))
                   (cond ((%%eq? unit-state jazz:Loading-State)
                          (jazz:circular-dependency-error unit-name (map cdr (jazz:get-load-stack))))
-                        ((%%eq? unit-state jazz:Unloaded-State)
+                        ((or (%%eq? unit-state jazz:Unloaded-State)
+                             (%%eq? unit-state jazz:Error-State))
                          (dynamic-wind
                            (lambda ()
                              (jazz:set-environment-unit unit-name jazz:Loading-State)
                              (jazz:push-load-stack ':load unit-name))
                            (lambda ()
-                             (jazz:load-unit-src/bin unit-name)
+                             (jazz:load-unit-src/bin unit-name force-source?: (%%eq? unit-state jazz:Error-State))
                              (jazz:set-environment-unit unit-name jazz:Loaded-State))
                            (lambda ()
                              (jazz:pop-load-stack)
                              (if (%%eq? (jazz:get-environment-unit unit-name) jazz:Loading-State)
-                                 (jazz:set-environment-unit unit-name jazz:Unloaded-State)))))))))))
+                                 (jazz:set-environment-unit unit-name jazz:Error-State)))))))))))
     (jazz:error "Unit name expected: {a}" unit-name)))
+
+
+(define jazz:current-script-arguments
+  (make-parameter '()))
 
 
 (define (jazz:load-script path)

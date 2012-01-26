@@ -48,47 +48,63 @@
 (class undocumented Component-Descriptor extends Component
   
   
-  (property title                 initialize #f accessors generate)
-  (property image                 initialize #f accessors generate)
-  (property name-prohibited?      initialize #f accessors generate)
-  (property name-mandatory?       initialize #f accessors generate)
-  (property name-unicity?         initialize #t accessors generate)
-  (property can-cut?                            accessors generate)
-  (property can-copy?                           accessors generate)
-  (property can-paste?                          accessors generate)
-  (property can-paste-properties?               accessors generate)
-  (property can-rename?                         accessors generate)
-  (property can-select-all?                     accessors generate)
-  (property can-delete?                         accessors generate)
-  (property can-move?                           accessors generate)
-  (property can-view-properties?                accessors generate)
-  (property sort-components?                    accessors generate)
-  (property indexable?                          accessors generate)
+  (property title                 initialize #f  accessors generate)
+  (property image                 initialize #f  accessors generate)
+  (property name-prohibited?      initialize #f  accessors generate)
+  (property name-mandatory?       initialize #f  accessors generate)
+  (property name-unicity?         initialize #t  accessors generate)
+  (property can-cut?                             accessors generate)
+  (property can-copy?                            accessors generate)
+  (property can-paste?                           accessors generate)
+  (property can-paste-properties?                accessors generate)
+  (property can-rename?                          accessors generate)
+  (property can-select-all?                      accessors generate)
+  (property can-delete?                          accessors generate)
+  (property can-relocate?                        accessors generate)
+  (property can-view-properties?                 accessors generate)
+  (property sort-components?                     accessors generate)
+  (property indexable?                           accessors generate)
+  (property categorized-classes   initialize '() accessors generate)
+  
+  
+  (slot children-descriptor getter generate)
   
   
   (form
     (<install>
       (<Properties-Descriptor>   name: properties
-        (<Property-Descriptor>   name: before            title: "Before")
-        (<Property-Descriptor>   name: children          title: "Children")
-        (<Property-Descriptor>   name: visible?          title: "Visible"
+        (<Property-Descriptor>   name: before            standard?: #f
+          (<Value-Domain>        name: domain))
+        (<Property-Descriptor>   name: children          standard?: #f
+          (<Value-Domain>        name: domain))
+        (<Property-Descriptor>   name: visible?          standard?: #f
           (<Boolean-Domain>      name: domain))
         (<Property-Descriptor>   name: class-info        title: "class" category: info
           (<Presentation-Domain> name: domain))
         (<Property-Descriptor>   name: name-info         title: "name" category: info
           (<Name-Domain>         name: domain))
-        (<Property-Descriptor>   name: presentation-info title: "label" category: info
+        (<Property-Descriptor>   name: presentation-info title: "label" category: info standard?: #f
           (<Presentation-Domain> name: domain)))
       (<Children-Descriptor>     name: children)))
-
-
+  
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method override (setup-component)
+    (nextmethod)
+    (set! children-descriptor (child 'children)))
+  
+  
   ;;;
   ;;;; Descriptor
   ;;;
   
   
   (method meta override (get-class-descriptor)
-    (new Component-Meta-Descriptor))
+    (instantiate~ Component-Meta-Descriptor))
 
 
   ;;;
@@ -100,7 +116,7 @@
     (or (let ((property-descriptor (get-property-descriptor class (field-name property))))
           (and property-descriptor
                (get-domain~ property-descriptor)))
-        (new Value-Domain)))
+        (error "Found no domain for {s}" property)))
   
   
   (method public virtual (class-get-category class property)
@@ -109,11 +125,17 @@
             (and property-descriptor
                  (get-category~ property-descriptor)))
           'property)))
+  
+  
+  (method public virtual (class-get-standard? class property)
+    (let ((property-descriptor (get-property-descriptor class (field-name property))))
+      (and property-descriptor
+           (get-standard?~ property-descriptor))))
 
   
   (method public virtual (component-property-domain component property)
     (get-domain~ (class-of component) property))
-
+  
   
   ;;;
   ;;;; Designer
@@ -239,8 +261,8 @@
     (either can-delete? #t))
   
   
-  (method public virtual (component-can-move-component? component)
-    (either can-move? #t))
+  (method public virtual (component-can-relocate-component? component)
+    (either can-relocate? #t))
   
   
   (method public virtual (component-can-view-properties? component)
@@ -251,7 +273,7 @@
     (boolean (determine-paster~ component try-parent?)))
   
   
-  (method public (component-determine-paster component (try-parent? #t))
+  (method public virtual (component-determine-paster component (try-parent? #t))
     (when (and (can-paste-component?~ component) (clipboard-format-available? 'jazz-parcels))
       (let* ((parcels (get-jazz-parcels))
              (models (remove-duplicates (map get-master-model~ parcels))))
@@ -314,10 +336,6 @@
         (set-surrogate~ component #f))))
   
   
-  (method public virtual (component-display-property? component property)
-    (not (memq? (field-name property) '(presentation-info before children visible?))))
-  
-  
   (method public virtual (component-get-addable-default component)
     #f)
   
@@ -327,7 +345,7 @@
   
   
   (method public virtual (component-get-categorized-addable-classes component)
-    '())
+    categorized-classes)
   
   
   (method public virtual (component-addable-class? component class)
@@ -377,5 +395,21 @@
     #f)
   
   
+  (method public virtual (component-add-component-menu component menu)
+    )
+  
+  
   (method public virtual (component-save-properties component designer)
-    )))
+    )
+  
+  
+  (method public virtual (can-validate? component)
+    #f)
+  
+  
+  (method public virtual (can-try-out? component)
+    #f)
+  
+  
+  (method public virtual (try-out component)
+    #f)))

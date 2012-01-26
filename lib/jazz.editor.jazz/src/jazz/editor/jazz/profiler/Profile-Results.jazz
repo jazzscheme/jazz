@@ -39,16 +39,13 @@
 
 
 (import (jazz.debugger)
-        (jazz.detprof)
-        (jazz.editor.jazz)
         (jazz.graphic)
         (jazz.jml)
+        (jazz.jrm)
         (jazz.library)
         (jazz.system)
         (jazz.ui)
-        (jazz.ui.view)
-        (profiler)
-        (statprof))
+        (jazz.ui.view))
 
 
 (class Profile-Results extends Layout-View
@@ -64,10 +61,10 @@
         (<Separator>                         size: {Dimension 4 0})
         (<Push-Tool>          name: reset    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Reset Profile" resource: {Image-Resource "Clear"} portfolio: :images action-handler: {Event-Handler :guest on-reset-profile}))
       (<Layout-View>                         layout-type: border location: center background: {Color Medium}
-        (<Layout-View>                       size: {Dimension 100 22} location: north layout-type: flow
+        (<Layout-View>                       size: {Dimension 100 24} location: north layout-type: box layout-insets: {Rect 0 1 0 0} layout-padding: 2
           (<Push-Tool>        name: view     size: {Dimension 22 22} tooltip?: #t tooltip-text: "View Profile..." resource: {Image-Resource "Edit"} portfolio: :images action-handler: {Event-Handler :form on-choose-profile})
           (<Separator>                       size: {Dimension 4 0})
-          (<Label-View>       name: profile  size: {Dimension 250 23} auto-size?: width)
+          (<Label-View>       name: profile  size: {Dimension 250 23} location: center)
           (<Label-View>                      title: "Kind:" size: {Dimension 31 23} location: tail)
           (<Layout-View>                     size: {Dimension 85 22} layout-type: fill layout-insets: {Rect 0 2 0 2} location: tail
             (<Border-View>                   border-color: {Color Dark}
@@ -157,7 +154,9 @@
   
   (method (on-choose-profile evt)
     (define (present-profile profile)
-      (or profile "<default>"))
+      (if profile
+          (->string profile)
+        "<default>"))
     
     (let ((process (require-focused-process~ (get-debugger-manager))))
       (let ((profiles (profiler-profiles~ process))
@@ -239,65 +238,85 @@
   
   
   (method (view-profile)
-    (let ((profile (profiler-profile~ (require-focused-process~ (get-debugger-manager))))
-          (tree (get-tree)))
-      (when profile
-        (bind (label profiler depth calls-count calls-duration process-info calls) profile
-          (define (make-children frame count duration total-duration)
-            (let ((duration (unless (and duration (not (eqv? duration 0))) (if count (* count (/ total-duration calls-count)) #f)))
-                  (total-duration (max total-duration 1)))
-              (list (new Tree-Node
-                      title: (present-frame frame)
-                      image: {Image-Resource "Link"})
-                    (new Tree-Label title: (if count (->string count) ""))
-                    (new Tree-Label title: (if duration (format "{r precision: 3}" duration) ""))
-                    (new Tree-Label title: (if duration (format "{r precision: 2}" (* 100.0 (/ duration total-duration))) "")))))
-          
-          (define (present-frame frame)
-            (if (string? frame)
-                frame
-              (let ((name (and frame (car frame))))
-                (if name
-                    (present-reference name)
-                  "(interaction)"))))
-          
-          (set-value~ (locate 'profiler) profiler)
-          (set-value~ (locate 'depth) depth)
-          (remove-every-row~ tree)
-          (unless (empty? calls)
-            (bind (user-time sys-time gc-time bytes-allocated) process-info
-              (set-title~ (locate 'profile)
-                (format "{?{a}~} Program: {a}ms Kernel: {a}ms GC: {a}ms Allocation: {a}KiB" label user-time sys-time gc-time (floor (/ bytes-allocated 1024))))
-              (let ((locator-table (make-table test: eq?))
-                    (null-stack "(interaction)"))
-                (for-each (lambda (call)
-                            (bind (stack count duration) call
-                              (if (null? stack)
-                                  (bind (total-count calls) (table-ref locator-table null-stack '(0 ()))
-                                    (table-set! locator-table null-stack (list (+ total-count count) (cons call calls))))
-                                (for-each (lambda (frame)
-                                            (let ((locator (car frame)))
-                                              (bind (total-count calls) (table-ref locator-table locator '(0 ()))
-                                                (table-set! locator-table locator (list (+ total-count count) (cons call calls))))))
-                                          stack))))
-                          calls)
-                (with-update-locked~ tree
-                  (lambda ()
-                    (for-each (lambda (kv)
-                                (bind (locator total-count calls) kv
-                                  (let ((locator-name (if (string? locator) locator (list locator))))
-                                    (let ((father (add-row~ tree children: (make-children locator-name total-count #f user-time) user-data: #f)))
-                                      (for-each (lambda (call)
-                                                  (bind (stack count duration) call
-                                                    (if (null? stack)
-                                                        (add-row~ tree father: father children: (make-children "(interaction)" count duration user-time) user-data: #f)
-                                                      (bind (head-frame . frames) stack
-                                                        (let ((row (add-row~ tree father: father children: (make-children head-frame count duration user-time) user-data: head-frame)))
-                                                          (for-each (lambda (frame)
-                                                                      (add-row~ tree father: row children: (make-children frame #f #f user-time) user-data: frame))
-                                                                    frames))))))
-                                                (sort > calls key: second))))))
-                              (sort > (table->list locator-table) key: second))))))))))))
+    (with-cursor :wait
+      (lambda ()
+        (let ((tree (get-tree))
+              (profile (parameterize ((receive-timeout 30))
+                         (profiler-profile~ (require-focused-process~ (get-debugger-manager))))))
+          (when profile
+            (bind (label profiler depth frames-count frames-duration calls-count calls-duration process-info calls) profile
+              (bind (user-time sys-time real-time gc-time bytes-allocated) process-info
+                (define (make-children frame count duration)
+                  (let ((duration (cond ((and (not (and duration calls-duration (> calls-duration 0)))
+                                              (and count calls-count (> calls-count 0) frames-duration))
+                                         (/ (cast <fl> (* frames-duration count)) calls-count))
+                                        (else
+                                         duration))))
+                    (let ((fraction (cond ((and duration calls-duration (> calls-duration 0))
+                                           (/ (cast <fl> duration) calls-duration))
+                                          ((and count calls-count (> calls-count 0) frames-duration)
+                                           (/ (cast <fl> count) calls-count))
+                                          (else
+                                           #f))))
+                      (list (new Tree-Node title: (present-frame frame)
+                                 image: {Image-Resource "Link"})
+                            (new Tree-Label title: (if count (->string count) ""))
+                            (new Tree-Label title: (if duration (format "{r precision: 0}" duration) ""))
+                            (new Tree-Label title: (if fraction (format "{r precision: 2}" (* fraction 100)) ""))))))
+                
+                (define (present-frame frame)
+                  (if (string? frame)
+                      frame
+                    (let ((name (and frame (car frame))))
+                      (if name
+                          (present-reference name)
+                        "(interaction)"))))
+                
+                (define (calculate-fps)
+                  (format ", count: {a}{?, average: {a} ms~}{?, fps: {a}~}"
+                          frames-count
+                          (and (/= frames-count 0) (inexact->exact (truncate (exact->inexact (/ frames-duration frames-count)))))
+                          (and (/= frames-duration 0) (inexact->exact (truncate (/ frames-count (milliseconds->seconds frames-duration)))))))
+                
+                (set-value~ (locate 'profiler) profiler)
+                (set-value~ (locate 'depth) depth)
+                (remove-every-row~ tree)
+                (let ((alloc (fxfloor/ bytes-allocated 1024))
+                      (fps (calculate-fps)))
+                  (let ((title (format "{?{a}: ~}program: {a} ms, kernel: {a} ms, gc: {a} ms, allocation: {a} kb{? {a}~}" label user-time sys-time gc-time alloc fps)))
+                    (set-title~ (locate 'profile) title)
+                    (set-tooltip?~ (locate 'profile) title)
+                    (set-tooltip-text~ (locate 'profile) title)))
+                (let ((locator-table (make-table test: eq?))
+                      (null-stack "<nostack>"))
+                  (for-each (lambda (call)
+                              (bind (stack count duration) call
+                                (if (null? stack)
+                                    (bind (total-count calls) (table-ref locator-table null-stack '(0 ()))
+                                      (table-set! locator-table null-stack (list (+ total-count count) (cons call calls))))
+                                  (for-each (lambda (frame)
+                                              (let ((locator (car frame)))
+                                                (bind (total-count calls) (table-ref locator-table locator '(0 ()))
+                                                  (table-set! locator-table locator (list (+ total-count count) (cons call calls))))))
+                                            stack))))
+                            calls)
+                  (with-update-locked~ tree
+                    (lambda ()
+                      (for-each (lambda (kv)
+                                  (bind (locator total-count calls) kv
+                                    (let ((locator-name (if (string? locator) locator (list locator))))
+                                      (let ((father (add-row~ tree children: (make-children locator-name total-count #f) user-data: #f)))
+                                        (for-each (lambda (call)
+                                                    (bind (stack count duration) call
+                                                      (if (null? stack)
+                                                          (add-row~ tree father: father children: (make-children "<nostack>" count duration) user-data: #f)
+                                                        (bind (head-frame . frames) stack
+                                                          (let ((row (add-row~ tree father: father children: (make-children head-frame count duration) user-data: head-frame)))
+                                                            (for-each (lambda (frame)
+                                                                        (add-row~ tree father: row children: (make-children frame #f #f) user-data: frame))
+                                                                      frames))))))
+                                                  (sort > calls key: second))))))
+                                (sort > (table->list locator-table) key: second)))))))))))))
 
 
 ;;;

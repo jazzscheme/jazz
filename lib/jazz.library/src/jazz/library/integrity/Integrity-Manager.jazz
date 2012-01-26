@@ -38,10 +38,58 @@
 (module protected jazz.library.integrity.Integrity-Manager jazz
 
 
+(import (jazz.library))
+
+;;;
+;;;; Validation-Context
+;;;
+
+
+(class undocumented Validation-Context extends Object
+  
+  
+  (slot manager   initialize #f getter generate)
+  (slot root      initialize #f getter generate)
+  (slot editor    initialize #f getter generate)
+  (slot context   initialize #f getter generate)
+  (slot component initialize #f getter generate)
+  (slot property  initialize #f getter generate)
+  
+  
+  (method override (initialize manager root editor context component property)
+    (set! manager~self manager)
+    (set! root~self root)
+    (set! editor~self editor)
+    (set! context~self context)
+    (set! component~self component)
+    (set! property~self property))
+  
+  
+  (method public (add-violation (message: message #f))
+    (let ((violation (new Integrity-Violation
+                       message: message
+                       component: component
+                       property: property)))
+      (add-violation~ manager violation component root editor)))
+  
+  
+  (method public (refine (property: property #f))
+    (new Validation-Context manager root editor context component property))
+  )
+
+
+
+
+
+;;;
+;;;; Integrity-Manager
+;;;
+
+
 (class undocumented Integrity-Manager extends Object
   
   
-  (slot constraints initialize '())
+  (slot constraints     initialize '())
   
   
   (method override (initialize)
@@ -81,27 +129,27 @@
   ;;;
   
   
-  (method public (validate-integrity root (context: context #f) (reporter: reporter #f))
-    (clear-violations root)
-    (validate-all root context reporter))
+  (method public (validate-integrity root editor (context: context #f) (reporter: reporter #f))
+    (validate-all root editor context reporter))
   
   
-  (method protected virtual (validate-all root context reporter)
-    (validate-hierarchy root root root context reporter))
+  (method protected virtual (validate-all root editor context reporter)
+    (validate-hierarchy root root editor context reporter))
   
   
-  (method protected virtual (validate-hierarchy component root client context reporter)
+  (method protected virtual (validate-hierarchy component root editor context reporter)
     (when reporter
       (report-progress component root reporter))
-    (unless (eq? (validate component root client context) 'stop-descent)
+    (unless (eq? (validate component root editor context) 'stop-descent)
       (for-each (lambda (child)
-                  (validate-hierarchy child root client context reporter))
+                  (validate-hierarchy child root editor context reporter))
                 (get-children~ component))))
   
   
-  (method public (validate component root client context)
+  (method public (validate component root editor context)
     (let ((new-context (validation-context component root context)))
-      (if (eq? (validate-component~ component root client context self) 'stop-descent)
+      (if (eq? (validate-component~ component (new Validation-Context self root editor context component #f))
+               'stop-descent)
           'stop-descent
         (continuation-capture
           (lambda (return)
@@ -109,7 +157,7 @@
                         (bind (constraint model root?) info
                           (when (and (or (null? model) (is? component model))
                                      (or root? (branch-installed?~ root)))
-                            (when (eq? (validate~ constraint component root client context self) 'stop-descent)
+                            (when (eq? (validate~ constraint component root editor context self) 'stop-descent)
                               (continuation-return return 'stop-descent)))))
                       constraints))))))
   
@@ -128,17 +176,14 @@
   ;;;
   
   
-  (method public virtual (add-violation violation component root client)
+  (method public virtual (add-violation violation component root editor)
     (let* ((trait (get-active-trait~ root))
            (trait-name (and trait (get-name~ trait)))
            (trait-presentation (and trait (get-presentation-property~ trait))))
       (receive (path presentation) (present-path~ component root)
+        (set-component~ violation component)
         (set-trait~ violation trait-name)
         (set-trait-presentation~ violation trait-presentation)
         (set-path~ violation path)
         (set-path-presentation~ violation (if trait (cons trait-presentation presentation) presentation))
-        (add-violation~ client violation))))
-  
-  
-  (method public virtual (clear-violations root)
-    (clear-violations~ root))))
+        (add-violation~ editor violation))))))

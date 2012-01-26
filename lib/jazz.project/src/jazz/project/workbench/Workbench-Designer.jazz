@@ -117,8 +117,8 @@
           (apply (~ remove-child designer) child rest)))))
   
   
-  (method override (move-components components destination . rest)
-    (unimplemented 'move-components))
+  (method override (relocate-components components destination . rest)
+    (unimplemented 'relocate-components))
   
   
   (method override (transfer-components components destination . rest)
@@ -165,13 +165,24 @@
   ;;;
   
   
+  (method (find-owner-project component)
+    (if (or (eq? component reference) (is? component Project))
+        component
+      (find-owner-project (get-parent~ component))))
+  
+  
+  (method override (component-owned-by-reference? component)
+    (let ((owner-project (find-owner-project component)))
+      (and owner-project
+           (if (eq? owner-project reference)
+               (component-owned? component form reference)
+             (let ((designer (get-project-designer owner-project)))
+               (and designer
+                    (component-owned-by-reference?~ designer component)))))))
+  
+  
   (method (find-modification-owner components)
     (define (find-components-owner)
-      (define (find-owner-project component)
-        (if (or (eq? component reference) (is? component Project))
-            component
-          (find-owner-project (get-parent~ component))))
-      
       (if (pair? components)
           (let ((owners (remove-duplicates (map find-owner-project components))))
             (if (> (length owners) 1)

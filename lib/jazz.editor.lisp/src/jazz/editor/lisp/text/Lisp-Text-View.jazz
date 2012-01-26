@@ -38,13 +38,12 @@
 (module protected jazz.editor.lisp.text.Lisp-Text-View jazz
 
 
-(import (jazz.catalog)
+(import (jazz.debuggee)
         (jazz.debugger)
         (jazz.editor.lisp)
         (jazz.jml)
+        (jazz.jrm)
         (jazz.library)
-        (jazz.library.automata)
-        (jazz.platform)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.search)
@@ -146,6 +145,19 @@
         (with-atomic-undo~ (get-undoer~ model)
           (lambda ()
             (tabulate))))))
+  
+  
+  ;;;
+  ;;;; Mouse Copy
+  ;;;
+  
+  
+  (method override (mouse-insert copy)
+    (with-atomic-undo~ (get-undoer~ model)
+      (lambda ()
+        (let ((start (get-start)))
+          (nextmethod copy)
+          (tabulate-range (new-range start (get-end)))))))
 
   
   ;;;
@@ -185,15 +197,19 @@
 
 
   (method override (tabulate)
-    (let ((start (get-start))
-          (end (get-end)))
+    (tabulate-range (get-selection)))
+  
+  
+  (method protected (tabulate-range range)
+    (let ((start (get-start~ range))
+          (end (get-end~ range)))
       (with-update-locked
         (lambda ()
           (with-safe-explore
             (lambda ()
-              (set-caret (get-start))
+              (set-caret start)
               (receive (modified? last-delta <fx>) (tabulate-lines (get-line~ start) (get-line~ end))
-                (set-caret (+ end last-delta))
+                (set-caret (nu+ end last-delta))
                 (when modified?
                   (set-modified? #t))))
             action: 'ignore)))))
@@ -353,14 +369,18 @@
                        (explore-error~ expl "Ill-balanced expressions" start end))))))
           (queue-list queue))))
     
-    (let ((debugged (get-focused-process~ (get-debugger-manager))))
-      (if (not debugged)
+    (let ((moniker (get-moniker)))
+      (if (not moniker)
           (bell)
-        (bind (syntax str container line col) (prepare-expressions range)
-          (evaluate-expressions~ debugged syntax str container line col)
-          (let ((names (collect-declaration-names)))
-            (when (not-null? names)
-              (user-message "Evaluated: {l detail: :human separator: \", \"}" names)))))))
+        (let ((filename (parse~ moniker)))
+          (bind (syntax str container line col) (prepare-expressions range)
+            (let ((processes (evaluate-filename-expressions~ (get-debugger-manager) filename syntax str container line col)))
+              (if (not processes)
+                  (bell)
+                (let ((names (collect-declaration-names)))
+                  (when (not-null? names)
+                    (let ((process-titles (map get-title~ processes)))
+                      (user-message "Evaluated {l detail: :human separator: \", \"} to {l detail: :human separator: \", \"}" names process-titles)))))))))))
   
   
   (method protected virtual (prepare-expressions range)

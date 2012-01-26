@@ -1,0 +1,184 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Descendants-Manager-Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.editor.Descendants-Manager-Tree jazz
+
+
+(import (jazz.designer)
+        (jazz.designer.view)
+        (jazz.graphic)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.system.access)
+        (jazz.ui)
+        (jazz.ui.view))
+
+
+(class undocumented Descendants-Manager-Tree extends Descendants-Tree
+  
+  
+  (slot preserved-states initialize (make-table test: eq? weak-keys: #t))
+
+
+  ;;;
+  ;;;; Classes
+  ;;;
+  
+  
+  (method override (categorized-addable-classes component)
+    (or (component-categorized-toolbox-addable-classes component)
+        (nextmethod component)))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method (refresh-colors component)
+    (let* ((row (component-row component))
+           (data (and row (get-child~ row 0))))
+      (unless (or (not data) (get-color~ data))
+        (for-each refresh-component (component-ancestry component (get-reference~ designer))))))
+  
+  
+  (method override (on-designer evt)
+    (if (eq? (get-kind~ evt) ':property-change)
+        (refresh-colors (get-property~ evt component:))
+      (nextmethod evt)))
+  
+  
+  ;;;
+  ;;;; Default Traits
+  ;;;
+  
+  
+  (method (on-set-default-traits evt)
+    (define (initialize host manager)
+      (set-client~ manager (make-traits-toolbox~ (get-application) (class-of (selected-component))))
+      (on-synchronize~ manager #f)
+      (let ((references (get-default-traits~ (selected-component))))
+        (when references
+          (if (every? (lambda (obj) (is? obj Trait-Reference)) references)
+              (setup-traits~ manager (map make-locator references) (map get-reference-import references))
+            (designer-error "Some traits are not of the Trait-Reference class")))))
+    
+    (define (make-locator reference)
+      (cons (get-symbol~ reference) (get-parameters~ reference)))
+    
+    (define (make-reference locator)
+      (new Trait-Reference (car locator) (cdr locator)))
+    
+    (bind (locators imports) (get-modal Traits-Dialog application-select?: #f initialize: initialize)
+      (set-default-traits~ designer (selected-component) (map make-reference locators) imports: (remove-duplicates imports))))
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method override (focus-update-actions)
+    (nextmethod)
+    (when (is? (get-single-selected-data) Component)
+      (set-action-enabled? {Action components-tree open} #t)
+      (set-action-enabled? {Action components-tree set-default-traits} #t)))
+
+
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method override (client-update)
+    (when editor
+      (update expand-state: (table-ref preserved-states client #f) selected-components: (get-selection~ editor))))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method override (preserve-state client)
+    (table-set! preserved-states client (get-expand-state)))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (owned-color)
+    {Color Dark-Green})
+  
+  
+  (method (modify-color)
+    {Color red: 1 green: 127 blue: 139})
+  
+  
+  (method (unowned-color)
+    {Color Dark-Gray})
+  
+  
+  (method override (component-font component owned-form)
+    (if owned-form
+        (case (ownership-level owned-form)
+          ((create modify) {Font Label-Bold})
+          ((traverse) #f))
+      #f))
+  
+  
+  (method override (component-color component owned-form)
+    (if owned-form
+        (case (ownership-level owned-form)
+          ((create) (owned-color))
+          ((modify) (modify-color))
+          ((traverse) (unowned-color)))
+      (unowned-color)))
+  
+  
+  (method override (component-state component)
+    'collapsed)
+  
+  
+  (method override (insert-component row component rights update? level (image: image #f) (state: state #f))
+    (let ((subrow (nextmethod row component rights update? level image: image state: state)))
+      (when subrow
+        (when (component-owned component)
+          (ensure-expanded subrow))
+        subrow)))))

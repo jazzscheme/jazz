@@ -50,10 +50,8 @@
 (import (jazz.platform.types)
         (jazz.platform.cairo.cairo-base)
         (jazz.platform.cairo.cairo-carbon   (cond carbon))
-        (jazz.platform.cairo.cairo-windows  (cond windows))
         (jazz.platform.cairo.cairo-x11      (cond x11))
         (jazz.platform.cairo.cairo-freetype (cond carbon))
-        (jazz.platform.cairo.cairo-logfont  (cond windows))
         (jazz.platform.cairo.cairo-freetype (cond x11)))
 
 
@@ -67,8 +65,6 @@
   (else))
 
 (c-include "<cairo-pdf.h>")
-
-(c-constant M_PI 3.14159265358979323846)
 
 (c-type cairo_t            (native "cairo_t"))
 (c-type cairo_t*           (pointer cairo_t cairo_t*))
@@ -215,20 +211,36 @@
 ;;;
 
 
-(definition package (cairo_device_to_user context pt)
+(definition package (cairo_device_to_user context h <fl> v <fl>)
   (let ((fn (c-function (cairo_t* F64PTR) void
               "cairo_device_to_user(___arg1,___arg2,___arg2+1);"))
-        (vec (f64vector (cast <fl> (get-h~ pt)) (cast <fl> (get-v~ pt)))))
+        (vec (f64vector h v)))
     (fn context vec)
-    (new Point (fxfloor (f64vector-ref vec 0)) (fxfloor (f64vector-ref vec 1)))))
+    (values (f64vector-ref vec 0) (f64vector-ref vec 1))))
 
-     
-(definition package (cairo_user_to_device context pt)
+
+(definition package (cairo_device_to_user_distance context width <fl> height <fl>)
+  (let ((fn (c-function (cairo_t* F64PTR) void
+              "cairo_device_to_user_distance(___arg1,___arg2,___arg2+1);"))
+        (vec (f64vector width height)))
+    (fn context vec)
+    (values (f64vector-ref vec 0) (f64vector-ref vec 1))))
+
+
+(definition package (cairo_user_to_device context h <fl> v <fl>)
   (let ((fn (c-function (cairo_t* F64PTR) void
               "cairo_user_to_device(___arg1,___arg2,___arg2+1);"))
-        (vec (f64vector (cast <fl> (get-h~ pt)) (cast <fl> (get-v~ pt)))))
+        (vec (f64vector h v)))
     (fn context vec)
-    (new Point (fxfloor (f64vector-ref vec 0)) (fxfloor (f64vector-ref vec 1)))))
+    (values (f64vector-ref vec 0) (f64vector-ref vec 1))))
+
+
+(definition package (cairo_user_to_device_distance context width <fl> height <fl>)
+  (let ((fn (c-function (cairo_t* F64PTR) void
+              "cairo_user_to_device_distance(___arg1,___arg2,___arg2+1);"))
+        (vec (f64vector width height)))
+    (fn context vec)
+    (values (f64vector-ref vec 0) (f64vector-ref vec 1))))
 
 
 ;;;
@@ -347,6 +359,14 @@
 
 
 ;;;
+;;;; Muli-page
+;;;
+
+
+(c-external (cairo_show_page cairo_t*) void)
+
+
+;;;
 ;;;; Font
 ;;;
 
@@ -418,11 +438,15 @@
 (c-external (cairo_set_matrix cairo_t* cairo_matrix_t*) void)
 (c-external (cairo_get_matrix cairo_t* cairo_matrix_t*) void)
 (c-external (cairo_matrix_init_identity cairo_matrix_t*) void)
+(c-external (cairo_matrix_init_translate cairo_matrix_t* double double) void)
 (c-external (cairo_matrix_init_scale cairo_matrix_t* double double) void)
+(c-external (cairo_matrix_init_rotate cairo_matrix_t* double) void)
+(c-external (cairo_matrix_translate cairo_matrix_t* double double) void)
+(c-external (cairo_matrix_scale cairo_matrix_t* double double) void)
+(c-external (cairo_matrix_rotate cairo_matrix_t* double) void)
 (c-external (cairo_identity_matrix cairo_t*) void)
 (c-external (cairo_scale cairo_t* double double) void)
 (c-external (cairo_rotate cairo_t* double) void)
-(c-external (cairo_device_to_user_distance cairo_t* double* double*) void)
 
 
 ;;;
@@ -450,9 +474,6 @@
 (c-external (cairo_pdf_surface_create char-string double double) cairo_surface_t*)
 
 
-@wait(c-external (cairo_surface_show_page cairo_surface_t*) void)
-
-
 (definition public (get-cairo-image-surface-size surface)
   (new Dimension
     (cairo_image_surface_get_width surface)
@@ -471,6 +492,17 @@
     "cairo_set_dash(___arg1, 0, 0, 0.0);"))
 
 
+(definition package (cairo_get_matrix_raw context)
+  (let ((matrix (cairo_matrix_t-make)))
+    (cairo_get_matrix context matrix)
+    matrix))
+
+
+(definition package (cairo_set_matrix_raw context matrix)
+  (cairo_set_matrix context matrix)
+  (cairo_matrix_t-free matrix))
+
+
 (definition package (cairo_get_clipper context)
   (let ((fn (c-function (cairo_t* F64PTR) void
               "cairo_clip_extents(___arg1,___arg2,___arg2+1,___arg2+2,___arg2+3);"))
@@ -480,7 +512,29 @@
           (top    (f64vector-ref vec 1))
           (right  (f64vector-ref vec 2))
           (bottom (f64vector-ref vec 3)))
-      (new Rect (inexact->exact left) (inexact->exact top) (inexact->exact right) (inexact->exact bottom)))))
+      (new Rect (flonum->fixnum left) (flonum->fixnum top) (flonum->fixnum right) (flonum->fixnum bottom)))))
+
+
+(definition package (cairo_get_clipper_raw context)
+  (let ((fn (c-function (cairo_t* F64PTR) void
+              "cairo_clip_extents(___arg1,___arg2,___arg2+1,___arg2+2,___arg2+3);"))
+        (vec (make-f64vector 4)))
+    (fn context vec)
+    vec))
+
+
+(definition package (cairo_set_clipper_raw context vec)
+  (cairo_reset_clip context)
+  (let ((x (f64vector-ref vec 0))
+        (y (f64vector-ref vec 1)))
+    (let ((w (- (f64vector-ref vec 2) x))
+          (h (- (f64vector-ref vec 3) y)))
+      (cairo_rectangle context
+                       x
+                       y
+                       w
+                       h)))
+  (cairo_clip context))
 
 
 ;;;

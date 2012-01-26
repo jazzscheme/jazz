@@ -79,10 +79,12 @@
   
   (method (get-variables kind)
     (let ((cont (serial->object continuation)))
-      (map (lambda (variable)
-             (bind (name value mutable?) variable
-               (cons name (package-info value mutable?: mutable?))))
-           (case kind
-             ((:lexical) (get-continuation-lexical-environment cont))
-             ((:all) (append (get-continuation-lexical-environment cont)
-                             (get-continuation-dynamic-environment cont)))))))))
+      (let ((variables (case kind
+                         ((:lexical) (get-continuation-lexical-environment cont))
+                         ((:all) (append (get-continuation-lexical-environment cont)
+                                         (get-continuation-dynamic-environment cont))))))
+        (map (lambda (variable rank)
+               (bind (name value mutable?) variable
+                 (cons (list #f name rank) (package-info value mutable?: mutable?))))
+             variables
+             (naturals 0 (length variables))))))))

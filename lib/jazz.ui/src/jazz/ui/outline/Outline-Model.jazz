@@ -38,12 +38,9 @@
 (module protected jazz.ui.outline.Outline-Model jazz
 
 
-(import (jazz.graphic)
-        (jazz.jml)
-        (jazz.library)
+(import (jazz.jml)
         (jazz.system)
-        (jazz.ui)
-        (jazz.ui.view))
+        (jazz.ui))
 
 
 (class Outline-Model extends View
@@ -174,28 +171,26 @@
         (collect proc (get-sons~ root-row) type: List))))
   
   
-  ;; This function will only work properly for a fully collapsed outline.
-  ;; Note that its main purpose being to restore a new outline to a stored state,
-  ;; this is not a limitation but a design decision.
   (method public (set-expand-state state)
+    (define (set-state row info)
+      (bind (title state . children) info
+        (let ((subrow (find-by-title~ row title)))
+          (when subrow
+            (let ((actual (get-state~ subrow)))
+              (if (eq? state 'expanded)
+                  (unless (eq? actual 'expanded)
+                    (expand/collapse subrow))
+                (when (and (eq? actual 'dynamic) children)
+                  (update-row subrow))))
+            (iterate children
+                     (lambda (info)
+                       (set-state subrow info)))))))
+    
     (when root-row
-      (letrec ((proc
-                (lambda (row info)
-                  (bind (title state . children) info
-                    (let ((subrow (find-by-title~ row title)))
-                      (when subrow
-                        (let ((actual (get-state~ subrow)))
-                          (if (eq? state 'expanded)
-                              (unless (eq? actual 'expanded)
-                                (expand/collapse subrow))
-                            (when (and (eq? actual 'dynamic) children)
-                              (update-row subrow))))
-                        (iterate children
-                                 (lambda (info)
-                                   (proc subrow info)))))))))
-        (for-each (lambda (info)
-                    (proc root-row info))
-                  state))))
+      (collapse-all-deep)
+      (for-each (lambda (info)
+                  (set-state root-row info))
+                state)))
   
   
   ;;;
@@ -285,21 +280,19 @@
   ;;;
   
   
-  (method protected virtual (draw-outline surface context lh lv sh sv sc sc? outline scrolled-pos)
-    (define (draw-rows top bottom)
-      (define (draw-row row line)
-        (let* ((width (get-width))
-               (height (get-height~ row))
-               (total-height (+ height row-spacing))
-               (selected? #f @mvc (line-draw-selected? line))
-               (pos <Point> (get-position~ row)))
-          (set-font~ surface (effective-font))
-          (let ((new-context (optimize-context selected? line context)))
-            (paint-content~ row surface #t '() new-context (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?))))
-      
-      (let ((row (get-first-displayed~ outline))
+  (method protected virtual (draw-outline surface context outline scrolled-v)
+    (define (draw-row row line)
+      (let ((selected? #f @mvc (line-draw-selected? line)))
+        (set-font~ surface (effective-font))
+        (let ((new-context (cons selected?: (cons selected? (cons line: (cons line context))))))
+          (paint-content~ row surface #t '() new-context))))
+    
+    (let ((clipper (get-clipper~ surface)))
+      (let ((top (get-top~ clipper))
+            (bottom (get-bottom~ clipper))
+            (row (get-first-displayed~ outline))
             (line <fx> (get-first-displayed-line~ outline))
-            (rt <fx> (- top-padding (get-first-displayed-offset~ outline)))
+            (rt <fx> (+ scrolled-v (- top-padding (get-first-displayed-offset~ outline))))
             (width <fx> (get-width)))
         (while (and row (< rt bottom))
           (let* ((height <fx> (get-height~ row))
@@ -310,30 +303,11 @@
             (set! rt rb)
             (set! row (get-next~ row))
             (increase! rt row-spacing)))
-        (draw-empty surface top bottom sh sv sc sc? rt width)))
-    
-    (let ((clipper (get-logical-clipper~ surface)))
-      (let ((top (+ (get-top~ clipper) (get-v~ scrolled-pos)))
-            (bottom (+ (get-bottom~ clipper) (get-v~ scrolled-pos))))
-        (draw-rows top bottom))))
+        (draw-empty surface top bottom rt width))))
   
   
-  (method protected virtual (draw-empty surface top bottom sh sv sc sc? rt width)
+  (method protected virtual (draw-empty surface top bottom rt width)
     )
-  
-  
-  ;; this memory optimization should work because as drawing always
-  ;; occurs in the primary thread, it is implicitly synchronized...
-  (definition optimized-context
-    (list selected?: #f line: 0))
-  
-  
-  (definition (optimize-context selected? line context)
-    (if context
-        (cons selected?: (cons selected? (cons line: (cons line context))))
-      (set-second! optimized-context selected?)
-      (set-fourth! optimized-context line)
-      optimized-context))
 
   
   ;;;
@@ -700,6 +674,20 @@
           (expand/collapse row)))))
   
   
+  (method public (collapse-all-deep)
+    (with-update-locked
+      (lambda ()
+        (define (collapse-sons row)
+          (iterate (get-sons~ row) collapse))
+        
+        (define (collapse row)
+          (when (eq? (get-state~ row) 'expanded)
+            (collapse-sons row)
+            (expand/collapse row)))
+        
+        (collapse-sons root-row))))
+  
+  
   (definition (link-rows before after)
     (when before
       (set-next~ before after))
@@ -766,7 +754,7 @@
           (when (< (+ top (get-scrolled-v)) display-height)
             (when in-expand?
               (invalidate-expand previous top dynamic?))
-            (scroll-view~ display 0 height (new Rect 0 opens display-width display-height)))
+            (scroll-view~ display (new Distance 0 height) (new Rect 0 opens display-width display-height)))
           (layout-scrollee)
           @mvc
           (when (> count 0)
@@ -799,7 +787,7 @@
             @buggy
             (when (< top display-height)
               (invalidate-collapse line first top removed)
-              (scroll-view~ display 0 (- height) (new Rect 0 (+ opens height) display-width (+ display-height height)))))
+              (scroll-view~ display (new Distance 0 (- height)) (new Rect 0 (+ opens height) display-width (+ display-height height)))))
           (layout-scrollee)))))
   
   
@@ -901,8 +889,13 @@
   (form
     (<install>
       (<properties~>
-        (<Property-Descriptor> name: default-row-height title: "Default Row Height")
-        (<Property-Descriptor> name: row-spacing title: "Row Spacing")
-        (<Property-Descriptor> name: left-padding title: "Left Padding")
-        (<Property-Descriptor> name: top-padding title: "Top Padding")
-        (<Property-Descriptor> name: background-filler title: "Background Filler")))))))
+        (<Property-Descriptor> name: default-row-height
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: row-spacing
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: left-padding
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: top-padding
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: background-filler
+          (<Value-Domain>      name: domain             nullable?: #t))))))))

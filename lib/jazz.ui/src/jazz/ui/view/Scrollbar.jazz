@@ -64,7 +64,6 @@
   (property line-height <fx>    initialize 1           accessors explicit)
   (property page-height <fx>    initialize 3           accessors explicit)
   (property flat?       <bool>  initialize #f          accessors explicit)
-  (property style               initialize #f          accessors explicit)
   
   
   (slot tracking?          initialize #f)
@@ -143,8 +142,9 @@
       (invalidate-view)))
   
   
-  (method public (set-info min max page)
+  (method public (set-info min max line page)
     (set-range (new Range min max))
+    (set-line-height line)
     (set-page-height page))
   
 
@@ -155,16 +155,6 @@
   (method public (set-flat? value)
     (when (neq? value flat?)
       (set! flat? value)
-      (invalidate-view)))
-
-
-  (method public (get-style)
-    style)
-
-
-  (method public (set-style value)
-    (when (neq? value style)
-      (set! style value)
       (invalidate-view)))
 
   
@@ -183,10 +173,7 @@
   
   
   (method (call-scroll action (thumb-pos #f))
-    (let ((client (get-client)))
-      (case orientation
-        ((vert) (on-vscroll~ client action thumb-pos orientation))
-        ((horz) (on-hscroll~ client action thumb-pos orientation)))))
+    (scroll-action~ (get-client) action line-height page-height thumb-pos orientation))
   
   
   ;;;
@@ -270,8 +257,8 @@
           (r (- (get-end~ range) (get-start~ range))))
       (when (> r 0)
         (let* ((shaft (- e b b))
-               (thumb (max 6 (fxround (* (min 1 (fl/ page-height r)) shaft))))
-               (thumb-pos (+ b (fxround (* (fl/ pos (- r page-height)) (- shaft thumb))))))
+               (thumb (max 6 (fxround (* (min 1 (/ (cast <fl> page-height) r)) shaft))))
+               (thumb-pos (+ b (fxround (* (/ (cast <fl> pos) (- r page-height)) (- shaft thumb))))))
           (values thumb-pos (+ thumb-pos thumb))))))
     
   
@@ -374,11 +361,11 @@
         color)))
   
   
-  (method override (draw surface <Surface> context lh lv)
+  (method override (draw surface <Surface> context)
     (define (draw-button rect direction)
       (draw-raised~ surface rect)
       (let ((inflated (inflate-rect rect -1 -1)))
-        (fill-rect~ surface inflated {Color Medium})
+        (fill-rect~ surface inflated (if (debug-paint?) (cycle-debug-color!) {Color Medium}))
         (set-color~ surface {Color Black})
         (let ((dh (if (eq? orientation 'horz) 1 0))
               (dv (if (eq? orientation 'horz) -1 0)))
@@ -407,7 +394,7 @@
             (draw-edge~ surface thumb-rect inner: 'raised outer: 'raised edges: 'rectangle))
           (let ((width (if flat? 1 2)))
             (let ((inflated (inflate-rect thumb-rect (- width) (- width))))
-              (fill-background~ surface inflated (or thumb {Color Medium}))))
+              (fill-background~ surface inflated (if (debug-paint?) (cycle-debug-color!) (or thumb {Color Medium})))))
           @interesting
           (let* ((height (rect-height thumb-rect))
                  (v (+ (get-top~ thumb-rect) (quotient (- height 8) 2))))
@@ -490,17 +477,17 @@
   
   
   (form
-    (<install>
+    (<install>                                   image: {Image-Resource "ResizeHeight"}
       (<properties~>
-        (<Property-Descriptor> name: orientation title: "Orientation")
-        (<Property-Descriptor> name: pos title: "Pos")
-        (<Property-Descriptor> name: range title: "Range")
-        (<Property-Descriptor> name: line-height title: "Line Height")
-        (<Property-Descriptor> name: page-height title: "Page Height")
-        (<Property-Descriptor> name: flat? title: "Flat")
-        (<Property-Descriptor> name: style title: "Style"))))
-  
-  
-  @too-many-icons!
-  (method override (class-image class)
-    {Image-Resource "ResizeHeight"}))))
+        (<Property-Descriptor> name: orientation
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: pos
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: range
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: line-height
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: page-height
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: flat?
+          (<Boolean-Domain>    name: domain))))))))

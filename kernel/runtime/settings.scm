@@ -138,6 +138,15 @@
 
 
 ;;;
+;;;; Install
+;;;
+
+
+(jazz:define-setting jazz:install-root
+  #f)
+
+
+;;;
 ;;;; Debug
 ;;;
 
@@ -169,13 +178,4 @@
 
 
 (jazz:define-setting jazz:profile-walker?
-  #f)
-
-
-;;;
-;;;; Statistics
-;;;
-
-
-(jazz:define-setting jazz:keep-instances-statistics
   #f))

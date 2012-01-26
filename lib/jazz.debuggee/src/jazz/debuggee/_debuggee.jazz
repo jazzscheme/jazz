@@ -118,11 +118,15 @@
       (receive (host port) (parse-host/service debugger-arg)
         (if (not port)
             (error "Ill-formed debugger argument: {a}" debugger-arg)
-          (load-debuggee-units)
-          (start-remote-listener)
-          (attach-to-controller (new-remote-register (or host #u8(127 0 0 1)) port) (parse-boolean interactive-arg))
-          (current-input-port (console-input-port))
-          (current-output-port (console-output-port)))))))
+          (attach-debuggee host port focus?: (parse-boolean interactive-arg)))))))
+
+
+(definition package (attach-debuggee host port (focus?: focus? #f))
+  (load-debuggee-units)
+  (start-remote-listener)
+  (attach-to-controller (new-remote-register (or host #u8(127 0 0 1)) port) focus?)
+  (current-input-port (console-input-port))
+  (current-output-port (console-output-port)))
 
 
 (definition package (ready-debuggee)
@@ -133,9 +137,12 @@
 
 (definition package (update-debuggee-arguments)
   (let ((title-arg (command-argument "process-title"))
+        (traits-arg (command-argument "process-traits"))
         (icon-arg (command-argument "process-icon")))
     (when title-arg
       (current-process-title-set! title-arg))
+    (when traits-arg
+      (current-process-traits-set! traits-arg))
     (when icon-arg
       (current-process-icon-set! icon-arg))))
 
@@ -143,6 +150,16 @@
 (definition package (update-debuggee-process)
   (when controller-debugger
     (update-process~ controller-debugger local-process)))
+
+
+;;;
+;;;; Process
+;;;
+
+
+(definition public (process-hash process <Debuggee-Process-Stub>)
+  ;; fixme
+  0)
 
 
 ;;;
@@ -200,6 +217,18 @@
       (primordial-thread)
       (lambda ()
         (jazz-handle-exception exc cont)))))
+
+
+;;;
+;;;; Runtime
+;;;
+
+
+(definition public (transmit-filenames filenames)
+  (receive-runtime-filenames~ controller-debugger local-process filenames)
+  (let ((local-debugger (get-local-debugger~ (get-process))))
+    (when local-debugger
+      (receive-runtime-filenames~ local-debugger local-process filenames))))
 
 
 ;;;
@@ -342,8 +371,7 @@
 
 
 (definition (stop-debuggee-console-pump thread)
-  (thread-interrupt! thread
-    thread-exit))
+  (exit-thread thread))
 
 
 ;;;
@@ -363,8 +391,7 @@
     (let ((thread (start-repl-thread thread reason port level step?: step?)))
       (unwind-protect
           (thunk)
-        (thread-interrupt! thread
-          thread-exit)))))
+        (exit-thread thread)))))
 
 
 (definition public (start-repl-thread thread reason port (level 0) (step?: step? #f))
@@ -413,6 +440,17 @@
 (definition public (eval-count)
   (prog1 *eval-count*
     (increase! *eval-count*)))
+
+
+(definition public (evaluate-in-unit unit-name expr evaluator)
+  (load-unit unit-name)
+  (let ((module-declaration (outline-unit unit-name)))
+    (parameterize ((requested-unit-name #f)
+                   (generate-symbol-for (format "%{a}&" (eval-count)))
+                   (generate-symbol-context unit-name)
+                   (generate-symbol-counter 0))
+      (evaluator
+        `(module ,unit-name ,(get-dialect-name~ module-declaration) ,expr)))))
 
 
 ;;;
@@ -471,12 +509,12 @@
       (define (eval-in-context context frame evaluator expr)
         (define (local-names variables)
           (map (lambda (var)
-                 (string->symbol (car var)))
+                 (string->symbol (second (car var))))
                variables))
         
         (define (local-self variables)
           (find-object (lambda (var)
-                         (when (string=? (car var) "self")
+                         (when (string=? (second (car var)) "self")
                            (let ((serial (cadr var)))
                              (when serial
                                (let ((object (serial->object serial)))
@@ -505,48 +543,45 @@
                                     expr)))
                       ((symbol? effective-context)
                        (let ((unit-name effective-context))
-                         (load-unit unit-name)
-                         (let ((module-declaration (outline-unit unit-name)))
-                           (parameterize ((requested-unit-name #f)
-                                          (generate-symbol-for (format "%{a}&" (eval-count)))
-                                          (generate-symbol-context unit-name)
-                                          (generate-symbol-counter 0))
+                         (evaluate-in-unit
+                           unit-name
+                           `(with-local-variables ,local-names
+                              ,expr)
+                           (lambda (expr)
                              (evaluator (lambda (thunk)
                                           (parameterize ((current-console-context unit-name))
                                             (thunk)))
-                                        `(module ,unit-name ,(get-dialect-name~ module-declaration)
-                                         (with-local-variables ,local-names
-                                           ,expr)))))))
+                                        expr)))))
                       (else
                        (let ((class-identifier (category-identifier (class-of effective-context))))
                          (receive (unit-name class-name) (break-reference class-identifier)
-                           (load-unit unit-name)
-                           (let ((module-declaration (outline-unit unit-name)))
-                             (parameterize ((requested-unit-name #f)
-                                            (generate-symbol-for (format "%{a}&" (eval-count)))
-                                            (generate-symbol-context unit-name)
-                                            (generate-symbol-counter 0))
+                           (evaluate-in-unit
+                             unit-name
+                             `(class ,class-name
+                                (with-dynamic-self (jazz.debuggee:current-console-context)
+                                  (with-local-variables ,local-names
+                                    ,expr)))
+                             (lambda (expr)
                                (evaluator (lambda (thunk)
                                             (parameterize ((current-console-context effective-context))
                                               (thunk)))
-                                          `(module ,unit-name ,(get-dialect-name~ module-declaration)
-                                           (class ,class-name
-                                             (with-dynamic-self (jazz.debuggee:current-console-context)
-                                               (with-local-variables ,local-names
-                                                 ,expr))))))))))))))))
+                                          expr))))))))))))
       
       (let ((console (current-console)))
         (let ((context (console-context console)))
           (receive (cmd arguments) (parse-unquote-command expr)
-            (if cmd
-                (let ((command (registered-console-command cmd)))
-                  (command cmd arguments console console-read console-eval console-print))
+            (define (context-eval context expr)
               (let ((frame (current-frame)))
                 (let ((evaluator (frame-evaluator frame)))
                   (catch (Walk-Problems problems
                            (display-exception problems)
                            (unspecified))
-                    (eval-in-context context frame evaluator expr)))))))))
+                    (eval-in-context context frame evaluator expr)))))
+            
+            (if cmd
+                (let ((command (registered-console-command cmd)))
+                  (command cmd arguments console console-read console-eval console-print context-eval))
+              (context-eval context expr))))))
     
     (define (console-print result)
       (when (and (thread-call-result? result)
@@ -654,14 +689,16 @@
       (error "Unknown console command: {s}" cmd)))
 
 
-(define (in-command cmd arguments console read eval print)
-  (let ((context (console-context console)))
-    (if (or (not arguments) (null? arguments))
-        context
-      (let ((ctx (car arguments)))
-        (let ((new-context (or (context-alias ctx) (eval ctx))))
-          (when (symbol? new-context)
-            (load-unit new-context))
+(define (in-command cmd arguments console read eval print context-eval)
+  (if (or (not arguments) (null? arguments))
+      (console-context console)
+    (let ((ctx (car arguments)))
+      (let ((new-context (or (context-alias ctx) (eval ctx))))
+        (when (symbol? new-context)
+          (load-unit new-context))
+        (if (not-null? (cdr arguments))
+            (let ((expr (cadr arguments)))
+              (context-eval new-context expr))
           (when console
             (set-context~ console new-context)
             (set-readtable~ console (if (not new-context) #f jazz-readtable)))
@@ -669,6 +706,14 @@
 
 
 (register-console-command 'in in-command)
+
+
+(define (scheme-command cmd arguments console read eval print context-eval)
+  (let ((expr (car arguments)))
+    (context-eval #f expr)))
+
+
+(register-console-command 'scheme scheme-command)
 
 
 ;;;
@@ -701,9 +746,13 @@
             (invoke-debugger 'exception reason detail exc cont)))))))
 
 
+(definition public (jazz-debugger?)
+  (and (eq? (active-exception-debugger) jazz-exception-debugger)
+       (boolean controller-debugger)))
+
+
 (definition public (local-debugger?)
-  (and (eq? (current-exception-debugger) jazz-exception-debugger)
-       controller-debugger
+  (and (jazz-debugger?)
        (local-proxy? controller-debugger)))
 
 
@@ -714,10 +763,16 @@
     (thunk)))
 
 
+(definition public (using-debugger?)
+  (boolean (command-argument "debugger")))
+
+
 (definition protected (break-internal (reason: reason #f))
   (continuation-capture
     (lambda (continuation)
-      (invoke-debugger 'break reason #f #f continuation))))
+      (with-restart-catcher 'continue "Continue"
+        (lambda ()
+          (invoke-debugger 'break reason #f #f continuation))))))
 
 
 (definition protected (start-repl-internal (reason: reason #f) (select?: select? #t))
@@ -984,24 +1039,17 @@
 
 
 (definition public (invoke-debugger kind reason detail exc continuation (locat: locat #f) (stepper: stepper #f))
-  ;; this is a temporary solution to threads keeping the load-mutex locked
-  ;; see the todo file for details on what needs to be done for a clean solution
-  (define (release-load-mutex!)
-    (let ((load-mutex (get-load-mutex)))
-      ;; limit the scope of the patch by a heuristic that could turn out
-      ;; to be wrong if a loading thread depends on a thread that errors
-      ;; but this is very far fetched and will do until a clean solution
-      (when (eq? (mutex-owner load-mutex) (current-thread))
-        (mutex-unlock! load-mutex))))
+  (define (invoke-releases)
+    (for-each (lambda (proc)
+                (proc))
+              (get-debugger-releases)))
   
   (define (compute-restarts thread)
     (map (lambda (restart)
            (new Debuggee-Restart-Local-Proxy (new Debuggee-Restart thread restart)))
          (current-restarts)))
   
-  (enable-interrupts!)
-  (release-load-mutex!)
-  (release-catalog-entries)
+  (invoke-releases)
   (let ((thread (current-thread))
         (port (get-console-port))
         (level (+ (current-repl-level) 1)))
@@ -1024,19 +1072,21 @@
                           (process-debuggee-loop~ process))))))
                 (lambda ()
                   (unregister-stop stop)
-                  (when controller-debugger ;; #f when quit while in error
+                  (when controller-debugger
                     (unregister-stop~ controller-debugger local-process thread-proxy stop-proxy))))))))
       step?: (boolean stepper))))
 
 
 (definition package (debuggee-loop)
-  (let (loop)
-    (with-restart-catcher 'resume-loop (present-current-loop-restart) #f
+  (let (restart-loop)
+    (with-restart-catcher 'resume-loop (present-current-loop-restart)
       (lambda ()
-        (let ((thunk (thread-read)))
-          (with-jazz-exception-debugger
-            thunk))))
-    (loop)))
+        (let (loop)
+          (let ((thunk (thread-read)))
+            (with-jazz-exception-debugger
+              thunk))
+          (loop))))
+    (restart-loop)))
 
 
 (definition package (present-current-loop-restart)
@@ -1047,6 +1097,41 @@
                 (if (= level 0)
                     ""
                   (format " {a}" level)))))))
+
+
+;;;
+;;;; Releases
+;;;
+
+
+(definition *debugger-releases*
+  (new-queue))
+
+(definition public (get-debugger-releases)
+  (queue-list *debugger-releases*))
+
+(definition public (add-debugger-release name proc)
+  (enqueue *debugger-releases* proc))
+
+
+(add-debugger-release 'enable-interrupts
+  enable-interrupts!)
+
+
+(add-debugger-release 'load-mutex
+  ;; this is a temporary solution to threads keeping the load-mutex locked
+  ;; see the todo file for details on what needs to be done for a clean solution
+  (lambda ()
+    (let ((load-mutex (get-load-mutex)))
+      ;; limit the scope of the patch by a heuristic that could turn out
+      ;; to be wrong if a loading thread depends on a thread that errors
+      ;; but this is very far fetched and will do until a clean solution
+      (when (eq? (mutex-owner load-mutex) (current-thread))
+        (mutex-unlock! load-mutex)))))
+
+
+(add-debugger-release 'catalog-entries
+  release-catalog-entries)
 
 
 ;;;

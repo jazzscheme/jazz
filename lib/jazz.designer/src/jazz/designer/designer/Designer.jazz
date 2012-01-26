@@ -50,6 +50,7 @@
         (jazz.platform)
         (jazz.runtime)
         (jazz.system)
+        (jazz.ui)
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
         (jazz.ui.view))
@@ -58,11 +59,11 @@
 (class Designer extends Object
   
   
-  (slot form      initialize #f accessors generate)
-  (slot form-copy initialize #f accessors generate)
-  (slot reference initialize #f getter generate)
-  (slot listeners initialize '())
-  (slot modified? initialize #f accessors generate)
+  (slot form          initialize #f accessors generate)
+  (slot reference     initialize #f getter generate)
+  (slot listeners     initialize '())
+  (slot modified?     initialize #f accessors generate)
+  (slot undoer        initialize #f getter generate)
 
   
   ;;;
@@ -73,11 +74,11 @@
   (method override (initialize (form: form #f) (reference: reference #f))
     (define (setup-form frm)
       (if (not frm)
-          (set! form~self (new Form textual?: #f origin: (class-of reference) action: 'new model: 'install))
-        (let ((origin (get-origin~ frm)))
-          (if (file? origin)
-              (setup-file-form frm)
-            (setup-class-form frm)))))
+          (begin
+            (set! form~self (new Form textual?: #f origin: (class-of reference) action: 'install))
+            (set-context~ form~self form~self)
+            (set-data~ form~self (new Data #f 'jazz '() #f)))
+        (set! form~self frm)))
     
     ;; Setting form to a copy until saving is a tempting approach,
     ;; but fails because we absolutly need pointer equality as a test
@@ -91,31 +92,16 @@
     ;; Or maybe simply take a copy before the first modification is made
     ;; (lazy approach) and if we need to rollback, set the original form
     ;; to the copy.
-    (define (setup-class-form frm)
-      (set! form~self frm)
-      (unless (get-data~ frm)
-        (set-data~ frm (new Data 'jazz '() #f)))
-      (set! form-copy (copy-object~ frm #t)))
     
-    (define (setup-file-form frm)
-      (set! form~self frm))
+    (define (setup-undoer)
+      (set! undoer (new Undoer reset-modified: reset-modified?)))
     
     (nextmethod)
     (set! reference~self reference)
-    (setup-form form))
+    (setup-form form)
+    (setup-undoer))
   
   
-  ;;;
-  ;;;; Revert
-  ;;;
-  
-  
-  (method public (revert)
-    (let ((origin (get-origin~ form)))
-      (when (class? origin)
-        (set-class-form~ origin form-copy))))
-  
-
   ;;;
   ;;;; Save
   ;;;
@@ -127,7 +113,7 @@
         (let ((origin (get-origin~ form)))
           (if (not origin)
               (save-as default-extension: default-extension extensions: extensions)
-            (save-content))))))
+            (save-content origin))))))
   
   
   (method public (save-to file)
@@ -146,34 +132,37 @@
   
   
   (method (save-as (default-extension: default-extension #f) (extensions: extensions '()))
-    (let ((toolbox-manager (find-docked Toolbox-Manager)))
-        (set-origin~ form 
-          (if toolbox-manager
-              (choose-new-origin toolbox-manager)
-            (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))))
-        (save-content)))
+    (let* ((toolbox-managers (get-toolbox-managers))
+           (destination (if (null? toolbox-managers)
+                            (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))
+                          (choose-new-destination toolbox-managers))))
+      (save-content destination)))
   
   
-  (method (call-with-saved-text file func)
-    (call-with-text file
+  (method (set-class-destination module-name class-name)
+    (define (evaluate-class module-name class-name super-class-name imports)
+      (evaluate-in-unit module-name `(import ,@imports) eval)
+      (evaluate-in-unit module-name `(class ,class-name extends ,super-class-name) eval)
+      (module-ref module-name class-name))
+    
+    (define (insert-class text class-name super-class-name)
+      (let ((explorer (new Jazz-Explorer (get-model~ text))))
+        (set-caret~ text (find-namespace-insertion-point~ explorer))
+        (let ((class-string (format "{%}{%}{%}(class {a} extends {a}{%}{%}{%}(form{%}(<install>)))" class-name super-class-name)))
+          (insert-string~ text class-string)
+          (tabulate-range~ text (location-range~ text (list class-name))))))
+    
+    (call-with-saved-text (find-unit-source module-name)
       (lambda (text)
-        (let ((result (func text)))
-          (save~ text)
-          result))))
+        (let* ((super-class-name (super-class-name form))
+               (imports (imports-to-insert form super-class-name module-name)))
+          (insert-imports text imports)
+          (insert-class text class-name super-class-name)
+          (evaluate-class module-name class-name super-class-name imports)))
+      verify-reload?: #f))
   
   
-  (method (call-with-text file func)
-    (let* ((frame (edit-document~ (get-application) file force-new?: #t class: Jazz-Text-View visible?: #f))
-           (text (get-guest~ frame))
-           (result (func text)))
-      (close~ frame)
-      result))
-  
-  
-  (method (evaluate-at-caret text)
-    (apply evaluate-expressions~ (get-local-process) (prepare-expressions~ text (current-declaration-range~ text))))
-  
-  (method (choose-new-origin toolbox-manager)
+  (method (choose-new-destination toolbox-managers)
     (define (parse-class-name class-string)
       (let ((content (with-exception-catcher
                        (lambda (err) #f)
@@ -201,26 +190,7 @@
               (require-module module-name)))
         (designer-error "Empty module")))
     
-    (define (evaluate-class text module-name class-name)
-      (let ((explorer (new Jazz-Explorer (get-model~ text))))
-        (forward-location~ explorer (list class-name))
-        (set-end~ explorer (get-start~ explorer))
-        (enter-list~ explorer)
-        (set-caret~ text (get-end~ explorer))
-        (evaluate-at-caret text)
-        (module-ref module-name class-name)))
-    
-    (define (insert-class text class-name)
-      (let ((explorer (new Jazz-Explorer (get-model~ text))))
-        (forward-namespace~ explorer)
-        ;; We suppose the import form exist
-        (forward-expr~ explorer)
-        (set-caret~ text (get-end~ explorer))
-        (let* ((super-class (get-model~ form))
-               (class-string (format "{%}{%}{%}(class {a} extends {a})" class-name super-class)))
-          (insert-string~ text class-string))))
-    
-    (let* ((modules (get-module-names~ toolbox-manager))
+    (let* ((modules (apply union test: eq? (map get-module-names~ toolbox-managers)))
            (result (get-modal Save-Chooser modules: modules)))
       (if (is? result File)
           result
@@ -230,133 +200,155 @@
               (let ((class-name (parse-class-name class-string)))
                 (validate-module-name module-name)
                 (validate-class-name module-name class-name)
-                (call-with-saved-text (find-unit-source module-name)
-                  (lambda (text)
-                    (insert-imports text module-name)
-                    (evaluate-imports text)
-                    (insert-class text class-name)
-                    (evaluate-class text module-name class-name))))))))))
+                (set-class-destination module-name class-name))))))))
+  
+    
+  (method (super-class-name form)
+    (or (get-model~ form)
+        (category-name (class-ascendant (get-origin~ form)))))
   
   
-  (method (save-content)
+  (method (imports-to-insert form super-class-name module-name)
+    (define (super-class-import)
+      (and super-class-name
+           (eq? 'install (get-action~ form))
+           (receive (unit _) (split-locator (get-name~ (get-origin~ form)))
+             (let ((ser (serialize-runtime-reference (evaluate-in-unit unit `(reference ,super-class-name) eval))))
+               (if (eq? (first ser) 'module-private)
+                   (origin-import form)
+                 (second ser))))))
+    
+    (let* ((super-class-import (super-class-import))
+           (modules (remove-duplicates (append (default-designer-imports~ (get-application))
+                                               (if super-class-import (list super-class-import) '())
+                                               (form-imports form)))))
+      (if module-name (remove module-name modules) modules)))
+  
+  
+  (method (save-content destination)
+    (typecase destination
+      ((File) (save-to-file destination))
+      ((Class) (save-to-class destination))
+      ((Runtime-Reference) (save-to-reference destination))
+      (else (error "unsupported destination")))
+    (set-modified? #f)
+    destination)
+  
+  
+  (method (origin-import form)
     (let ((origin (get-origin~ form)))
-      (if (file? origin)
-          (save-to-file origin)
-        (save-to-class origin)))
-    (set-modified? #f))
+      (and origin 
+           (is? origin Class)
+           (let ((toolbox-models (apply union (map get-toolbox-models~ (get-toolbox-managers)))))
+             (receive (module models) (split-locator (get-name~ origin))
+               (let ((toolbox-model (find-in toolbox-models (car models) key: get-model~)))
+                 (if toolbox-model
+                     (get-unit~ toolbox-model)
+                   module)))))))
   
   
-  (method (evaluate-imports text)
-    (let ((explorer (new Jazz-Explorer (get-model~ text))))
-      (forward-namespace~ explorer)
-      (enter-import~ explorer)
-      (set-caret~ text (get-end~ explorer))
-      (evaluate-at-caret text)))
+  (method public (designing-trait?)
+    (let ((origin (get-origin~ form)))
+      (and (is? origin Runtime-Reference)
+           (let ((obj (resolve-runtime-reference origin)))
+             (is? obj Trait)))))
   
   
-  (method (insert-imports text module-name)
-    (define (insert-import unit)
+  (method (save-to-trait unit symbol (new? #f))
+    (define (select-trait text)
+      (set-selection~ text (location-range~ text (list symbol))))
+    
+    (define (insert-new-trait text string)
       (let ((explorer (new Jazz-Explorer (get-model~ text))))
-        (forward-namespace~ explorer)
-        (if (not (enter-import~ explorer))
-            (error "Unable to find import declaration")
-          (receive (found? first?) (find-import-invoice~ explorer unit #t)
-            (unless found?
-              (set-caret~ text (get-end~ explorer))
-              (cond (first?
-                      (insert-string~ text (format " ({a})" unit))
-                      (insert-newline~ text)
-                      (tabulate~ text))
-                    (else
-                     (insert-newline~ text)
-                     (tabulate~ text)
-                     (insert-string~ text (format "({a})" unit)))))))))
+        (set-caret~ text (find-namespace-insertion-point~ explorer))
+        (insert-string~ text "\n\n\n")
+        (insert-string~ text string)))
     
-    
-    (for-each insert-import (let ((explorer (new Jazz-Explorer (get-model~ text)))
-                                  (units (cons 'jazz.jml (remove module-name (map car (get-imports~ (get-data~ form)))))))
-                              (filter-existing-import-invoices~ explorer units))))
+    (let ((imports (imports-to-insert form #f unit))
+          (trait-form (first (get-children~ form)))
+          (class-sym (get-model~ form)))
+      (call-with-saved-text (find-unit-source unit)
+        (lambda (text)
+          (evaluate-in-unit unit `(import ,@imports) eval)
+          (evaluate-in-unit unit `(define-trait ,symbol ,class-sym ,(form->eval-expr trait-form)) eval)
+          (insert-imports text imports)
+          (let ((trait-string (format "(define-trait {a} {a}{%}{a})" symbol class-sym (form->string trait-form 2 include-form?: #f))))
+            (if new?
+                (insert-new-trait text trait-string)
+              (select-trait text)
+              (insert-string~ text trait-string))
+            (select-trait text)
+            (tabulate~ text))))))
+  
+  
+  (method (save-to-reference reference)
+    (bind (_ unit symbol) (serialize-runtime-reference reference)
+      (typecase (module-ref unit symbol)
+        ((Trait)
+         (save-to-trait unit symbol))
+        (else
+         (error "Unknown save target")))))
   
   
   (method (save-to-class class)
     (let ((class-name (category-name class))
           (module-name (category-unit class)))
+      (define (save-form text form)
+        (let* ((form-exists? (if (class-has-form? text class-name) :form :new-form))
+               (form-range (location-range~ text (list class-name (if form-exists? :form :new-form))))
+               (form-string (format (if form-exists? "{a}" "{%}{%}{%}{a}") (form->string form 2))))
+          (insert-string~ (get-model~ text) form-range form-string)))
       
-      (define (save-to-existing-class text)
-        (let ((form-exists? (eq? form (get-class-form~ class))))
-          (insert-imports text module-name)
-          (evaluate-imports text)
-          (save-form text form form-exists?)
-          (tabulate-form text)
-          (unless form-exists? (evaluate-form text))))
-      
-      (define (save-to-new-class text)
-        (let ((adjusted-form (new Form textual?: #f action: 'new model: 'install properties: (get-properties~ form) children: (get-children~ form))))
-          (save-form text adjusted-form #f)
-          (tabulate-form text)
-          (evaluate-form text)
-          (set-object-slot reference 0 class)
-          (for-each (lambda (designer)
-                      (process-property-change~ designer #f reference (category-field class 'class-info) (get-class-presentation~ class) #f)) 
-                    (get-designers~ reference))))
-      
-      (define (tabulate-form text)
-        (let ((explorer (new Jazz-Explorer (get-model~ text))))
-          (forward-location~ explorer (list class-name :form))
-          (set-selection~ text (get-range~ explorer))
-          (tabulate~ text)))
-      
-      (define (save-form text form form-exists?)
-        (let ((explorer (new Jazz-Explorer (get-model~ text)))
-              (where (if form-exists? :form :new-form))
-              (str (form->string form 2)))
-          (forward-location~ explorer (list class-name where))
-          (set-selection~ text (get-range~ explorer))
-          (insert-string~ text (format (if form-exists? "{a}" "{%}{%}{%}{a}") str))))
-      
-      (define (evaluate-form text)
-        (let ((explorer (new Jazz-Explorer (get-model~ text))))
-          (forward-location~ explorer (list class-name :form))
-          (set-end~ explorer (get-start~ explorer))
-          (enter-list~ explorer)
-          (set-caret~ text (get-end~ explorer))
-          (evaluate-at-caret text)
-          (let ((new-form (get-class-form~ class)))
-            (set-data~ new-form (get-data~ form))
-            (for-each (lambda (designer)
-                        (set-form~ designer new-form))
-                      (get-designers~ reference)))))
+      (define (evaluate-form form imports)
+        (let ((super-class-name (category-name (class-ascendant class))))
+          (when imports
+            (evaluate-in-unit module-name `(import ,@imports) eval))
+          (evaluate-in-unit
+            module-name
+            `(class ,class-name extends ,super-class-name
+               (form
+                 ,(form->eval-expr form)))
+            eval)))
       
       (call-with-saved-text (find-unit-source module-name)
         (lambda (text)
-          (if (is? reference class)
-              (save-to-existing-class text)
-            (save-to-new-class text))))))
+          (let ((imports (imports-to-insert form #f module-name))
+                (adjusted-form (new Form textual?: #f action: 'install properties: (get-properties~ form) children: (get-children~ form))))
+            (insert-imports text imports)
+            (save-form text adjusted-form)
+            (evaluate-form adjusted-form imports))))))
   
   
   (method (save-to-file file)
+    (define (adjust-form form)
+      (if (is? (get-origin~ form) Class)
+          (let ((adjusted-form (copy-object~ form #f)))
+            (set-action~ adjusted-form 'new)
+            (set-model~ adjusted-form (super-class-name form))
+            adjusted-form)
+        form))
+    
     (if (and (exists?~ file) (read-only?~ file))
         (message-box (format "Unable to save to read-only file: {s}" file))
       (call-with-output-file (path-settings file char-encoding: 'UTF-8)
         (lambda (output)
-          (let ((data (get-data~ form)))
-            (output-header (get-model~ form) output)
+          (let ((data (get-data~ form))
+                (origin (get-origin~ form))
+                (adjusted-form (adjust-form form)))
+            (output-header (get-model~ adjusted-form) output)
             (format output "{%}{%}")
-            (format output "(data {a}{%}" (get-dialect~ data))
+            (format output "(data {a}{%}" (if data (get-dialect~ data) 'jazz))
             (format output "{%}{%}")
-            (let ((imports (get-imports~ data)))
-              (when imports
-                (format output "(import ")
-                (let ((first? #t))
-                  (for-each (lambda (import)
-                              (if first?
-                                  (set! first? #f)
-                                (format output "{%}"))
-                              (format output "{s}" import))
-                            imports)
-                  (format output "){%}"))
-                (format output "{%}{%}")))
-            (print-to 1 output)
+            (let ((imports (if data
+                               (get-imports~ data)
+                             (imports-to-insert form (super-class-name form) #f))))
+              (when (and imports (not-null? imports))
+                (format output "(import {s}" (car imports))
+                (for-each (lambda (import)
+                            (format output "{%}        {s}" import))
+                          (cdr imports))
+                (format output  "){%}{%}{%}")))
+            (print-file-form adjusted-form 1 output)
             (format output "){%}"))))))
 
 
@@ -368,9 +360,30 @@
     (apply print-file-form form rest))
   
   
+  (method (reset-modified?)
+    (set-modified? #f))
+  
+  
   ;;;
   ;;;; Design
   ;;;
+  
+  
+  (method public virtual (set-default-traits component traits-references (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t) (imports: imports #f))
+    (let* ((owner (find-owner component)))
+      (if (neq? owner reference)
+          (designer-error "Default traits cannot be changed in non owner root {a}" (get-presentation-property~ reference))
+        (when imports
+          (add-import imports))
+        (for-each (lambda (ref)
+                    (setup-context~ ref form))
+                  traits-references)
+        (set-default-traits~ component traits-references)
+        (set-property~ form default-traits: traits-references)
+        (when design-events?
+          (fire-refresh component 'all))
+        (set-modified? #t))))
+  
   
   (method public virtual (set-name component name (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t))
     (let* ((branch (target-branch trait))
@@ -386,7 +399,7 @@
             (lambda (trait)
               (let ((form (get-client-form~ trait)))
                 (when form
-                  (let* ((ancestry (component-ancestry component))
+                  (let* ((ancestry (component-ancestry component reference))
                          (component-form (owned-form form ancestry)))
                     (when (and component-form (neq? (get-action~ component-form) 'install))
                       (set-name~ component-form name)))))))
@@ -401,7 +414,7 @@
           (set-modified? #t)))))
   
   
-  (method public virtual (set-property component/path property value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #f))
+  (method public virtual (set-property component/path property value (old-value: old-value #f) (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t) (import: import #f))
     (let ((branch (target-branch trait)))
       ;; Quick fix for the special case of setting a property of the active trait
       (if (eq? component/path trait)
@@ -422,10 +435,22 @@
                     (designer-error "Unable to modify an explicit trait using a component having a different branch creator"))))
               (receive (form restore) (find-form component branch restore?: #t)
                 (receive (next-form next-restore) (find-next-branch branch component property)
-                  (set-property~ form property value)
+                  (let ((old-value (or old-value (read-property component property)))
+                        (remove?   (not (has-property?~ form property))))
+                    (set-property~ form property value)
+                    (when undoable?
+                      (register-undo~ undoer
+                        (lambda ()
+                          (if remove?
+                              (remove-property component/path property old-value)
+                            (set-property component/path property old-value))))))
+                  (when import
+                    (add-import import))
+                  (when (is? value Reference)
+                    (setup-context~ value (get-form)))
                   (when installed?
                     (if (not next-form)
-                        (let ((old-value (read-property component property)))
+                        (let ((old-value (or old-value (read-property component property))))
                           (when (and restore (not (has-property?~ restore property)))
                             (set-property~ restore property old-value))
                           (let* ((fire-presentation? (and design-events? (presentation-property?~ component property)))
@@ -443,7 +468,7 @@
   
   
   ;; This works well really only with branches because else we don't have restore information
-  (method public virtual (remove-property component/path property default-value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #f))
+  (method public virtual (remove-property component/path property default-value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t))
     (let* ((branch (target-branch trait))
            (installed? (or (not branch) (is? branch Branch)))
            (path? (is? component/path Path))
@@ -453,6 +478,12 @@
       (receive (form restore) (find-form component branch restore?: #t)
         (receive (next-form next-restore) (find-next-branch branch component property)
           (when (has-property?~ form property)
+            (remove-property~ form property)
+            (let ((old-value (read-property component property)))
+              (when undoable?
+                (register-undo~ undoer
+                  (lambda ()
+                    (set-property component/path property old-value)))))
             (let ((value (if (not restore) default-value (get-property~ restore property))))
               (when installed?
                 (if (not next-form)
@@ -461,30 +492,50 @@
                       (when design-events?
                         (fire-property-change branch component property value undoable?)))
                   (set-property~ next-restore property value))))
-            (remove-property~ form property)
             (when restore
               (remove-property~ restore property))
             (set-modified? #t))))))
   
   
-  (method public virtual (add-child child parent (trait: trait #t) (name: name #f) (properties: properties '()) (tag-reference: tag-reference #f) (import: import '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
-    (let ((data (get-data~ form))
-          (branch (target-branch trait)))
+  ;; tofix
+  (method public virtual (add-import import)
+    (let ((imports (map listify (listify import)))
+          (origin-form (get-context~ (get-form))))
+      (when (not-null? imports)
+        (let ((old-locator (get-locator~ origin-form)))
+          (set-locator~ origin-form (let ((new-locator (imports-locator imports)))
+                                      (lambda (symbol)
+                                        (or (new-locator symbol)
+                                            (old-locator symbol)))))))
+      (let ((data (get-data~ origin-form)))
+        (when data
+          (for-each (lambda (import) (add-import~ data import)) imports)))))
+  
+  
+  (method public virtual (add-child child parent (undoable?: undoable? #t) (form: form #f) (trait: trait #t) (name: name #f) (properties: properties '()) (tag-reference: tag-reference #f) (import: import '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
+    (define (make-new-child-form parent-form)
+      (let* ((child-origin-form (get-form~ child))
+             (child-is-form? (and child-origin-form (is? (get-origin~ child-origin-form) File))))
+        (new Form
+          textual?: #f
+          context: (get-context~ parent-form)
+          action: (if tag-reference 'instantiate 'new)
+          model: (cond (tag-reference #f)
+                       (child-is-form? (get-name~ child-origin-form))
+                       (else (category-name (class-of child))))
+          tag-reference: tag-reference)))
+    
+    (let ((branch (target-branch trait)))
       (unless (eq? (get-parent~ child) parent)
         (set-parent~ child parent))
-      (receive (form restore) (find-form parent branch restore?: #t)
-        (let* ((child-origin-form (get-form~ child))
-               (child-is-form? (and child-origin-form (is? (get-origin~ child-origin-form) File)))
-               (child-form (new Form
-                             textual?: #f
-                             context: (get-context~ form)
-                             action: (if tag-reference 'instantiate 'new)
-                             model: (cond (tag-reference #f)
-                                          (child-is-form? (get-name~ child-origin-form))
-                                          (else (category-name (class-of child))))
-                             tag-reference: tag-reference)))
+      (receive (parent-form restore) (find-form parent branch restore?: #t)
+        (let ((child-form (or form (make-new-child-form parent-form))))
           (set-form~ child child-form)
-          (add-form~ parent form child-form))
+          (add-form~ parent parent-form child-form)
+          (when undoable?
+            (register-undo~ undoer
+              (lambda ()
+                (remove-child child)))))
         (when restore
           (remember-creation~ restore self child))
         (when name
@@ -494,24 +545,31 @@
         (when properties
           (for-each-property (lambda (property value)
                                (set-property child property value trait: trait design-events?: design-events?))
-            properties))
+                             properties))
         (when import
-          (let ((imports (map listify (listify import))))
-            (when (not-null? imports)
-              (let* ((form (get-form))
-                     (old-locator (get-locator~ form)))
-                (set-locator~ form (let ((new-locator (imports-locator imports)))
-                                     (lambda (symbol)
-                                       (or (new-locator symbol)
-                                           (old-locator symbol)))))))
-            (when data
-              (for-each (lambda (import) (add-import~ data import)) imports))))
+          (add-import import))
         ;; the two sexpr where toggled so that the
         ;; event occurs after the properties are set
         (when design-events?
           (fire-child-add child parent descendant?))
         (set-modified? #t)))
     child)
+  
+  
+  (method public virtual (add-form form parent (trait: trait #t) (name: name #f) (imports: imports '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
+    (with-atomic-undo~ undoer
+      (lambda ()
+        (let ((child (instantiate-form name #f form parent trait design-events? descendant? imports: (list import))))
+          (register-undo~ undoer
+            (lambda ()
+              (remove-child child)))
+          child))))
+  
+  
+  (method public virtual (apply-form form component (trait: trait #t) (design-events?: design-events? #t))
+    (with-atomic-undo~ undoer
+      (lambda ()
+        (instantiate-content form component trait design-events?))))
 
   
   (method public virtual (remove-child child (trait: trait #t) (design-events?: design-events? #t))
@@ -529,7 +587,7 @@
                    (form (find-form child branch)))
               (define (purge-references form)
                 (when form
-                  (let* ((parent-ancestry (component-ancestry parent))
+                  (let* ((parent-ancestry (component-ancestry parent reference))
                          (parent-form (owned-form form parent-ancestry)))
                     (when parent-form
                       (let ((child-form (find-child~ parent-form name)))
@@ -547,11 +605,20 @@
               (for-each-trait~ (if (is? effective Branch) (get-trait~ effective) effective)
                 (lambda (trait)
                   (purge-references (get-client-form~ trait))))
-              (close~ child)
+              (register-undo~ undoer
+                (lambda ()
+                  (add-child child parent form: form)))
+              (set-parent~ child #f)
               (remove-child~ parent-form form)
               (when design-events?
                 (fire-child-remove child parent))
               (set-modified? #t)))))))
+  
+  
+  (method public virtual (remove-components components)
+    (with-atomic-undo~ undoer
+      (lambda ()
+        (for-each remove-child components))))
   
   
   (method public (remove-children parent (trait: trait #t) (design-events?: design-events? #t))
@@ -560,25 +627,30 @@
               (get-children~ parent)))
   
   
-  (method public (move-component component destination (trait: trait #t))
-    (move-components (list component) destination trait: trait))
+  (method public (relocate-component component destination (trait: trait #t) (design-events?: design-events? #t))
+    (relocate-components (list component) destination trait: trait design-events?: design-events?))
   
   
-  (method public virtual (move-components components destination (trait: trait #t))
-    (assert (eq? (get-form~ (get-creator~ destination)) form))
+  (method public virtual (relocate-components components destination (trait: trait #t) (design-events?: design-events? #t))
     (let ((destination-form (get-form~ destination)))
       (for-each (lambda (component)
-                  (assert (eq? (get-form~ (get-creator~ component)) form))
-                  (set-parent~ component destination)
-                  (let ((component-form (get-form~ component)))
-                    (set-parent~ component-form destination-form)))
+                  (let ((parent (get-parent~ component))
+                        (form (get-form~ component)))
+                    (remove-child component trait: trait)
+                    (add-child component destination form: form trait: trait)))
                 components)
       (set-modified? #t)))
   
   
-  (method public (can-move-component? component destination)
-    (and (eq? (get-form~ (get-creator~ component)) form)
-         (eq? (get-form~ (get-creator~ destination)) form)))
+  (method public (can-relocate-component? component destination)
+    (and (addable-class?~ destination (class-of component))
+         (component-owned-by-reference? component)))
+  
+  
+  (method public (can-relocate-components? components destination)
+    (every? (lambda (component)
+              (can-relocate-component? component destination))
+            components))
   
   
   (method public virtual (transfer-components components destination (trait: trait #t))
@@ -591,15 +663,16 @@
   
   
   (method public virtual (send-before child target (trait: trait #t))
-    (let* ((branch (target-branch trait))
-           (parent (get-parent~ child))
-           (parent-form (find-form parent branch))
-           (child-form (find-form child branch))
-           (target-form (and target (find-form target branch))))
-      (send-before~ child target)
-      (send-child-before~ parent-form child-form target-form)
-      (fire-send-before child parent target)
-      (set-modified? #t)))
+    (unless (eq? child target)
+      (let* ((branch (target-branch trait))
+             (parent (get-parent~ child))
+             (parent-form (find-form parent branch))
+             (child-form (find-form child branch))
+             (target-form (and target (find-form target branch))))
+        (send-before~ child target)
+        (send-child-before~ parent-form child-form target-form)
+        (fire-send-before child parent target)
+        (set-modified? #t))))
   
   
   (method public (send-to-back child (trait: trait #t))
@@ -715,54 +788,46 @@
   ;;;
   
   
-  (method (package-components components (trait: trait #f))
-    (define (component-forms component)
-      (let ((ancestry (component-ancestry component))
-            (forms '()))
-        (iterate-branch-spine~ reference
-          (lambda (owner form)
-            (let ((form (owned-form form ancestry)))
-              (when form
-                (set! forms (cons form forms)))))
-          trait: trait)
-        (reverse forms)))
+  (method public (package-component component (trait: trait #f))
+    (car (package-components (list component) trait: trait)))
+  
+  
+  (method public (package-components components (trait: trait #f))
+    ;; Allows copying the reference component
+    (define (replace-master old-master component)
+      (if (eq? (get-action~ old-master) 'install)
+          (let ((master (copy-object~ old-master #t))
+                (class-name (get-name~ (class-of component))))
+            (receive (module models) (split-locator class-name)
+              (let* ((model (car models))
+                     (reference (deserialize-runtime-reference (list 'module-private class-name))))
+                (set-action~ master 'new)
+                (set-model~ master model)
+                (setup-context~ master master)
+                (set-locator~ master (let ((locator (get-locator~ master)))
+                                       (lambda (symbol)
+                                         (if (eq? symbol model) reference (locator symbol)))))
+                master)))
+        old-master))
     
-    (define (form-imports form)
-      (let ((imports (case (get-action~ form)
-                       ((new)
-                        (let* ((context (get-context~ form))
-                               (reference (get-reference~ context (get-model~ form)))
-                               (serialization (serialize-runtime-reference reference)))
-                          (list (if (eq? (first serialization) 'module-private)
-                                    (receive (module symbol) (split-locator (second serialization))
-                                      module)
-                                  (second serialization)))))
-                       (else
-                        '()))))
-        (remove-duplicates (apply append imports (map form-imports (get-children~ form))))))
-    
-    (define (replace-master forms component)
-      (if (null? forms)
-          forms
-        (let ((master (copy-object~ (car forms) #t))
-              (class-name (get-name~ (class-of component))))
-          (receive (module models) (split-locator class-name)
-            (let* ((model (car models))
-                   (reference (deserialize-runtime-reference (list 'module-private class-name))))
-              (set-action~ master 'new)
-              (set-model~ master model)
-              (setup-context~ master master)
-              (set-locator~ master (let ((locator (get-locator~ master)))
-                                     (lambda (symbol)
-                                       (if (eq? symbol model) reference (locator symbol)))))
-              (cons master (cdr forms)))))))
+    ;; Modifying the master from its parent is equivalent to an install
+    (define (modify->install form)
+      (let ((new-form (copy-object~ form #f)))
+        (when (eq? (get-action~ new-form) 'modify)
+          (set-action~ new-form 'install)
+          (set-name~ new-form #f))
+        new-form))
     
     (define (package-component component)
-      (let ((forms (replace-master (component-forms component) component)))
-        (if (and (not-null? forms) (memq? (get-action~ (car forms)) '(new install)))
-            (let ((imports (map listify (apply union (map form-imports forms)))))
-              (new Component-Parcel (current-process-id) (object->serial component) imports forms))
-          (designer-error "Unable to find owner for {t}" component))))
+      (let ((original-forms (let ((forms (if (eq? reference component) (list form) (component-forms component))))
+                              ;; This is when the form is not associated to a class. Does not work with traits
+                              (if (null? forms) (list (owned-form form (component-ancestry component reference))) forms))))
+        (if (not original-forms)
+            (designer-error "Unable to find owner for {t}" component)
+          (let* ((imports (map listify (apply union (map (lambda (form) (form-imports form)) original-forms))))
+                 (forms (cons (replace-master (car original-forms) component)
+                              (map modify->install (cdr original-forms)))))
+            (new Component-Parcel (current-process-id) (object->serial component) imports forms)))))
     
     (map package-component components))
   
@@ -790,37 +855,42 @@
     (let* ((forms (get-content~ parcel))
            (master (car forms))
            (name (get-name~ master)))
-      (let* ((brothers (get-children~ parent))
-             (domain (map get-name~ brothers))
-             (equal (sort-predicate 'equal))
-             (conflict? (and name (member? name domain test: equal))))
-        (when conflict?
-          (case name-resolution
-            ((rename) (set! name (unique-name name domain))
-             (for-each (lambda (form)
-                         (set-name~ form name))
-                       forms))
-            ((override) (let ((conflicts (name-conflicts (list name) brothers)))
-                          (delete-components conflicts trait: trait))))))
-      (let ((imports (get-imports~ parcel)))
-        (let ((locator (imports-locator imports)))
-          (for-each (lambda (f)
-                      (set-locator~ f locator)
-                      (set-context-recursive f f))
-                    forms))
-        (let ((component (instantiate-form name name-resolution master parent trait design-events? descendant? imports: imports)))
-          (for-each (lambda (form)
-                      (instantiate-form name #f form parent trait design-events? descendant?))
-                    (cdr forms))
-          component))))
+      (if (not (eq? (get-action~ master) 'new))
+          (designer-error "Master form's action must be 'new")
+        (let* ((brothers (get-children~ parent))
+               (domain (map get-name~ brothers))
+               (equal (sort-predicate 'equal))
+               (conflict? (and name (member? name domain test: equal))))
+          (when conflict?
+            (case name-resolution
+              ((rename)
+               (set! name (unique-name name domain)))
+              ((override)
+               (let ((conflicts (name-conflicts (list name) brothers)))
+                 (delete-components conflicts trait: trait))))))
+        (let ((imports (get-imports~ parcel)))
+          (let ((locator (imports-locator imports)))
+            (for-each (lambda (f)
+                        (set-locator~ f locator)
+                        (set-context-recursive f f))
+                      forms))
+          (let ((component (instantiate-form name name-resolution master parent trait design-events? descendant? imports: imports)))
+            (for-each (lambda (form)
+                        (instantiate-form name #f form component trait design-events? descendant?))
+                      (cdr forms))
+            component)))))
   
   
   (method public virtual (instantiate-form name name-resolution form parent trait design-events? descendant? (imports: imports '()))
     (let ((component (instantiate-component name name-resolution form parent trait design-events? descendant? imports: imports)))
       (when component
-        (instantiate-properties component (get-properties~ form) trait design-events?)
-        (instantiate-children component (get-children~ form) trait design-events?)
-        component)))
+        (instantiate-content form component trait design-events?))))
+  
+  
+  (method public virtual (instantiate-content form component trait design-events?)
+    (instantiate-properties component (get-properties~ form) trait design-events?)
+    (instantiate-children component (get-children~ form) trait design-events?)
+    component)
 
   
   (method public virtual (instantiate-component name name-resolution form parent trait design-events? descendant? (imports: imports '()))
@@ -828,6 +898,7 @@
       (case action
         ((new) (instantiate-new-component name form parent trait design-events? descendant? imports: imports))
         ((modify locate) (find-to-modify~ parent (get-name~ form) (sort-predicate 'equal)))
+        ((install) parent)
         (else (designer-error "Unsupported form action: {t}" action)))))
   
   
@@ -839,7 +910,8 @@
   
   (method public virtual (instantiate-properties component properties trait design-events?)
     (for-each-property (lambda (property value)
-                         (set-property component property value trait: trait design-events?: design-events? undoable?: #f))
+                         (unless (initer-property?~ component property)
+                           (set-property component property value trait: trait design-events?: design-events? undoable?: #f)))
                        properties))
 
   
@@ -908,7 +980,7 @@
                (code (message-box text type: 'question)))
           (case code
             ((yes) 'override)
-            ((no) (throw-cancel))))))
+            ((no) (signal-cancel))))))
     
     (let* ((names (map get-master-name~ parcels))
            (children (get-children~ destination))
@@ -920,21 +992,35 @@
   ;;;
   ;;;; View
   ;;;
-    
+  
   
   ;; This special support for views is not clean, but it is better
   ;; than having it directly inside add-child where it was before!
   (method public virtual (add-view child parent . rest)
     (bind-keywords ((name #f) (position #f) (centered? #f) (visible? #t) . others) rest
-      (apply add-child child parent name: name others)
-      (when position
-        (set-property child 'position position))
-      (when centered?
-        (let ((size (get-size~ child)))
-          (move-figure~ child (- (quotient (get-width~ size) 2)) (- (quotient (get-height~ size) 2)))))
-      (when visible?
-        (set-visible?~ child #t))
-      (set-modified? #t)))
+      (with-atomic-undo~ undoer
+        (lambda ()
+          (apply add-child child parent name: name others)
+          (when position
+            (set-property child 'position position))
+          (when centered?
+            (center-child child))
+          (when visible?
+            (set-visible?~ child #t))
+          (set-modified? #t)))))
+  
+  
+  (method public (center-child child)
+    (let ((size (get-size~ child)))
+      (move-figure~ child (- (quotient (get-width~ size) 2)) (- (quotient (get-height~ size) 2)))
+      (set-property child 'position (get-position~ child))))
+  
+  
+  (method public (cascade-view-position view initial)
+    (when (is? view View)
+      (let* ((positions (map get-position~ (remove view (get-views~ (get-parent~ view)))))
+             (pos (cascade-position initial {Distance 10 10} positions)))
+        (safe-set-property view 'position pos))))
   
   
   ;;;
@@ -967,10 +1053,10 @@
     
     (define (embed-new-form form name)
       (let ((subform (new Form action: 'modify context: (get-context~ form) name: name)))
-        (add-child~ form subform)
+        (set-parent~ subform form)
         subform))
     
-    (let* ((ancestry (component-ancestry component))
+    (let* ((ancestry (component-ancestry component reference))
            (trait-form (if branch (get-client-form~ (get-trait~ branch)) form))
            (restore-form (and restore? branch (get-restore-form~ branch)))
            (form (embed-form trait-form ancestry))
@@ -988,21 +1074,17 @@
           (else (find-trait-branch~ reference trait))))
   
   
-  (method (component-ancestry component)
-    (let ((end? (lambda (scan)
-                  (if scan
-                      (eq? scan reference)
-                    (designer-error "{t} is not a descendant of the reference component {t}" component reference)))))
-      (unfold-right end? identity get-parent-component~ component)))
-  
-  
   ;;;
   ;;;; Owner
   ;;;
   
   
+  (method public virtual (component-owned-by-reference? component)
+    (component-owned? component form reference))
+  
+  
   (method public (find-owner component (property #f))
-    (let ((ancestry (component-ancestry component)))
+    (let ((ancestry (component-ancestry component reference)))
       (continuation-capture
         (lambda (return)
           (iterate-branch-spine~ reference
@@ -1020,7 +1102,7 @@
     (if (not branch)
         (values #f #f)
       (let ((lower (get-branches~ (or branch reference)))
-            (ancestry (component-ancestry component)))
+            (ancestry (component-ancestry component reference)))
         (continuation-capture
           (lambda (return)
             (for-each (lambda (branch)
@@ -1031,27 +1113,6 @@
                                 (continuation-return return (values form (owned-form (get-restore-form~ branch) ancestry))))))))
                       lower)
             (values #f #f))))))
-  
-  
-  (definition (owned-form form ancestry)
-    (continuation-capture
-      (lambda (return)
-        (for-each (lambda (cpn)
-                    (let ((children (get-children~ form))
-                          (cpn-form (get-form~ cpn)))
-                      (if (not cpn-form)
-                          (continuation-return return #f)
-                        (if (memq? cpn-form children)
-                            (set! form cpn-form)
-                          (let ((name (get-name~ cpn)))
-                            (if (not name)
-                                (continuation-return return #f)
-                              (let ((subform (find-in children name key: get-name~ test: equal?)))
-                                (if (not subform)
-                                    (continuation-return return #f)
-                                  (set! form subform)))))))))
-                  ancestry)
-        form)))
   
   
   ;;;
@@ -1080,17 +1141,20 @@
   ;;;
   
   
-  (method public (edit-form)
+  (method public (edit-form (workspace: workspace #f))
     (let ((appl (get-application))
           (origin (get-origin~ form)))
+      (define (find-entry locator)
+        ((module-ref 'jazz.project 'locator->entry) locator))
+      
       (cond ((not origin)
              (bell))
             ((file? origin)
-             (edit-document~ appl origin class: Jazz-Text-View))
-            (((module-ref 'jazz.project 'locator->entry) (get-name~ origin)) => edit~)
+             (edit-document~ appl origin class: Jazz-Text-View workspace: workspace))
+            ((find-entry (get-name~ origin)) => (lambda (entry) (edit~ entry workspace: workspace)))
             (else
              (receive (module class) (break-reference (get-name~ origin))
-               (edit-document~ appl (find-unit-source module) class: Jazz-Text-View))))))
+               (edit-document~ appl (find-unit-source module) class: Jazz-Text-View workspace: workspace))))))
   
   
   ;;;
@@ -1102,47 +1166,6 @@
     (with-safe-design
       (lambda ()
         (apply set-property rest))))
-  
-  
-  ;;;
-  ;;;; Fire
-  ;;;
-  
-  
-  (definition (fire-name-change component name old-name undoable?)
-    (for-each (lambda (designer)
-                (process-name-change~ designer component name old-name undoable?))
-              (get-designers~ component)))
-  
-  
-  (definition (fire-presentation-change component presentation old-presentation undoable?)
-    (for-each (lambda (designer)
-                (process-presentation-change~ designer component presentation old-presentation undoable?))
-              (get-designers~ component)))
-  
-  
-  (definition (fire-property-change branch component property value undoable?)
-    (for-each (lambda (designer)
-                (process-property-change~ designer branch component property value undoable?))
-              (get-designers~ component)))
-  
-  
-  (definition (fire-child-add child parent descendant?)
-    (for-each (lambda (designer)
-                (process-child-add~ designer child parent descendant?))
-              (get-designers~ parent)))
-  
-  
-  (definition (fire-child-remove child parent)
-    (for-each (lambda (designer)
-                (process-child-remove~ designer child parent))
-              (get-designers~ child)))
-  
-  
-  (definition (fire-send-before child parent target)
-    (for-each (lambda (designer)
-                (process-send-before~ designer child parent target))
-              (get-designers~ child)))
   
   
   ;;;
@@ -1193,6 +1216,14 @@
   (method (process-child-remove child parent)
     (when (not-null? listeners)
       (let ((evt (new Designer-Event :child-remove self child: child parent: parent)))
+        (for-each (lambda (listener)
+                    (invoke~ listener self evt))
+                  listeners))))
+  
+  
+  (method (process-child-relocate child parent destination)
+    (when (not-null? listeners)
+      (let ((evt (new Designer-Event :child-relocate self child: child parent: parent target: destination)))
         (for-each (lambda (listener)
                     (invoke~ listener self evt))
                   listeners))))

@@ -40,7 +40,6 @@
 
 (import (jazz.debuggee.stub)
         (jazz.debugger)
-        (jazz.graphic)
         (jazz.jml)
         (jazz.library)
         (jazz.system)
@@ -57,10 +56,8 @@
   (form
     (<install>                                 layout-type: border
       (<Layout-View>          name: tools
-        ;; invisible until fully functional
-        (<Push-Tool>          name: restart    visible?: #f size: {Dimension 22 22} enabled?: #f tooltip?: #t tooltip-text: "Restart" resource: {Image-Resource "Restart"} portfolio: :images action-handler: {Event-Handler :guest on-restart})
-        ;; invisible until fully functional
-        (<Push-Tool>          name: break      visible?: #f size: {Dimension 22 22} enabled?: #f tooltip?: #t tooltip-text: "Break" resource: {Image-Resource "Break"} portfolio: :images action-handler: {Event-Handler :guest on-break})
+        (<Push-Tool>          name: restart    size: {Dimension 22 22} enabled?: #f tooltip?: #t tooltip-text: "Restart" resource: {Image-Resource "Restart"} portfolio: :images action-handler: {Event-Handler :guest on-restart})
+        (<Push-Tool>          name: break      size: {Dimension 22 22} enabled?: #f tooltip?: #t tooltip-text: "Break" resource: {Image-Resource "Break"} portfolio: :images action-handler: {Event-Handler :guest on-break})
         (<Push-Tool>          name: continue   size: {Dimension 22 22} enabled?: #f tooltip?: #t tooltip-text: "Continue" resource: {Image-Resource "Continue"} portfolio: :images action-handler: {Event-Handler :guest on-continue})
         (<Separator>                           size: {Dimension 5 0})
         (<Toggle-Tool>        name: detailed   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show Detailed Information" resource: {Image-Resource "All"} portfolio: :images action-handler: {Event-Handler :guest on-toggle-detailed})
@@ -117,7 +114,7 @@
 
   (method override (install rest)
     (nextmethod rest)
-    (update-threads))
+    (update))
 
   
   ;;;
@@ -131,7 +128,7 @@
 
   (method public (set-process value)
     (set! process value)
-    (update-threads))
+    (update))
   
   
   (method (show-detailed?)
@@ -140,7 +137,7 @@
   
   (method public (process-changed new-process)
     (set! process new-process)
-    (update-threads))
+    (update))
 
   
   ;;;
@@ -169,29 +166,34 @@
   
   
   (method (on-toggle-detailed evt)
-    (update-threads))
+    (update))
 
 
   (method (on-select-thread evt)
-    (update-tools)
-    (thread-change))
+    (let ((user-origin (get-user-origin~ evt)))
+      (update-tools)
+      (thread-changed~ (get-debugger-manager) (selected-thread) user-origin: user-origin)))
+  
+  
+  (method (on-restart evt)
+    (let ((restart (car (get-restarts~ (get-active-stop~ (selected-thread))))))
+      (restart-stop restart)))
   
   
   (method (on-break evt)
-    (let ((thread (selected-thread)))
-      (with-thread-refresh thread
-        (lambda ()
-          (with-jrm-exception-handler
-            (lambda ()
-              (break-thread~ process thread)))))))
+    (break-thread))
   
   
   (method (on-continue evt)
     (continue-stop))
   
   
+  (method (on-terminate evt)
+    (terminate-thread))
+  
+  
   (method (on-update evt)
-    (update-threads user-origin: #t))
+    (update user-origin: #t))
   
   
   (method (with-thread-refresh thread thunk)
@@ -201,8 +203,7 @@
           (sleep .1)
           (execute-event
             (lambda ()
-              (update-threads)
-              (update-tools))))))
+              (update))))))
     (thunk))
   
   
@@ -221,6 +222,15 @@
           (with-jrm-exception-handler
             (lambda ()
               (restart-stop~ process restart)))))))
+  
+  
+  (method (break-thread)
+    (let ((thread (selected-thread)))
+      (with-thread-refresh thread
+        (lambda ()
+          (with-jrm-exception-handler
+            (lambda ()
+              (break-thread~ process thread)))))))
   
   
   (method (continue-stop)
@@ -243,23 +253,40 @@
                 (step-stop~ process stop command))))))))
   
   
+  (method (terminate-thread)
+    (let ((thread (selected-thread)))
+      (with-thread-refresh thread
+        (lambda ()
+          (with-jrm-exception-handler
+            (lambda ()
+              (terminate-thread~ process thread)))))))
+  
+  
   (method (update-tools)
-    (define (enable restart break continue)
-      (set-enabled?~ (locate 'restart) restart)
-      (set-enabled?~ (locate 'break) break)
-      (set-enabled?~ (locate 'continue) continue))
-    
+    (receive (restarts break? continue?) (selected-state)
+      (set-enabled?~ (locate 'restart) (not-null? restarts))
+      (set-enabled?~ (locate 'break) break?)
+      (set-enabled?~ (locate 'continue) continue?)))
+  
+  
+  (method (selected-state)
     (let ((thread (selected-thread)))
       (if (not thread)
-          (enable #f #f #f)
+          (values '() #f #f)
         (let ((stop (get-active-stop~ thread)))
           (if (not stop)
-              (enable #f #f #f)
-            (enable #f #f (eq? (get-kind~ stop) 'break)))))))
+              (values '() #t #f)
+            (values (get-restarts~ stop) #f (eq? (get-kind~ stop) 'break)))))))
+  
   
   ;;;
   ;;;; Update
   ;;;
+  
+  
+  (method protected (update (user-origin: user-origin #f))
+    (update-threads user-origin: user-origin)
+    (update-tools))
   
   
   (method protected (update-threads (user-origin: user-origin #f))
@@ -300,21 +327,21 @@
                               (frame-color (get-stopped-frame-color~ manager thread))
                               (background (get-visited-highlight-color~ manager thread)))
                           (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))
-                      detailed?: (show-detailed?))))
-                (unless (selected-thread)
-                  (when (get-installed?)
-                    (continuation-capture
-                      (lambda (return)
-                        (for-each-thread~ manager
-                          (lambda (thread stop detailed?)
-                            (unless (debugged-visited?~ manager thread)
-                              ;; this will recursively call (get-threads-view) when called from (install)
-                              (set-selected-thread thread)
-                              (thread-change))
-                            (continuation-return return))))))))
+                      detailed?: (show-detailed?)))))
               use: 'data
               test: debugged=?
-              generate-event?: user-origin))))))
+              generate-event?: user-origin)
+            (unless (selected-thread)
+              (when (get-installed?)
+                (continuation-capture
+                  (lambda (return)
+                    (for-each-thread~ manager
+                      (lambda (thread stop detailed?)
+                        (unless (debugged-visited?~ manager thread)
+                          ;; this will recursively call (get-threads-view) when called from (install)
+                          (set-selected-thread thread)
+                          (thread-changed~ (get-debugger-manager) (selected-thread)))
+                        (continuation-return return))))))))))))
   
   
   (method public (update-highlight thread)
@@ -330,15 +357,6 @@
               (set-frame-color~ data (get-stopped-frame-color~ manager thread))
               (set-background~ data (get-visited-highlight-color~ manager thread)))
             (invalidate-cell~ tree cell))))))
-
-  
-  ;;;
-  ;;;; Edition
-  ;;;
-  
-  
-  (method (thread-change)
-    (thread-changed~ (get-debugger-manager) (selected-thread)))
   
   
   ;;;
@@ -380,30 +398,28 @@
   
   
   (method (new-context-menu object)
-    (define (make-handler restart)
-      (new Event-Handler execute:
-           (lambda (event)
-             (with-jrm-exception-handler
-               (lambda ()
-                 (restart-stop restart))))))
+    (define (make-handler proc)
+      (new Event-Handler
+        execute: (lambda (event)
+                   (with-jrm-exception-handler
+                     proc))))
     
     (define (new-thread-menu thread)
-      (let ((menu (new Thread-Menu))
-            (stop (get-active-stop~ thread)))
-        (if (not stop)
-            #f @wait (new Label-Item parent: menu title: "Break" icon: {Image-Resource "Break"} action-handler: {Event-Handler :form on-break})
-          (for-each (lambda (restart)
-                      (let ((title (get-message~ restart))
-                            (icon {Image-Resource "Restart"}))
-                        (new Label-Item parent: menu title: title icon: icon action-handler: (make-handler restart))))
-                    (get-restarts~ stop))
-          @wait
-          (when (eq? (get-kind~ stop) 'break)
-            (new Separator-Item parent: menu)
-            (new Label-Item parent: menu title: "Continue" icon: {Image-Resource "Continue"} action-handler: {Event-Handler :form on-continue})))
-        (cleanup-separators~ menu)
-        (layout-menu~ menu)
-        menu))
+      (receive (restarts break? continue?) (selected-state)
+        (let ((menu (new Thread-Menu))
+              (stop (get-active-stop~ thread)))
+          (if break?
+              (new Label-Item parent: menu title: "Break" icon: {Image-Resource "Break"} action-handler: (make-handler (lambda () (break-thread))))
+            (for-each (lambda (restart)
+                        (let ((title (get-message~ restart))
+                              (icon {Image-Resource "Restart"}))
+                          (new Label-Item parent: menu title: title icon: icon action-handler: (make-handler (lambda () (restart-stop restart))))))
+                      restarts))
+          (new Separator-Item parent: menu)
+          (new Label-Item parent: menu title: "Terminate" action-handler: (make-handler (lambda () (terminate-thread))))
+          (cleanup-separators~ menu)
+          (layout-menu~ menu)
+          menu)))
     
     (typecase object
       ((Debugged-Thread)

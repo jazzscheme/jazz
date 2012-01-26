@@ -341,7 +341,7 @@
 (definition public (singleton-docked guest-class name . rest)
   (let ((ref (or name (external-name guest-class))))
     (or (table-ref Dockeds ref #f)
-        (let ((palette (new-docked guest-class name: name)))
+        (let ((palette (apply new-docked guest-class name: name rest)))
           (table-set! Dockeds ref palette)
           palette))))
 
@@ -440,21 +440,21 @@
 
 
 (definition public (first-frame)
-  (let ((frames (all-frames)))
+  (let ((frames (current-stage-frames)))
     (if (null? frames)
         #f
       (first frames))))
 
 
 (definition public (second-frame)
-  (let ((frames (all-frames)))
+  (let ((frames (current-stage-frames)))
     (if (>= (length frames) 2)
         (second frames)
       #f)))
 
 
 (definition public (last-frame)
-  (let ((frames (all-frames)))
+  (let ((frames (current-stage-frames)))
     (if (null? frames)
         #f
       (last frames))))
@@ -464,7 +464,7 @@
   (collect-if (lambda (frame)
                 (let ((guest (get-guest~ frame)))
                   (or (is-not? guest Document)
-                      (not (get-tool?~ (get-controller~ guest))))))
+                      (not (get-tool?~ (get-document-controller~ guest))))))
               (all-frames)))
 
 
@@ -517,29 +517,36 @@
 
 
 (definition public (delete-other-stages)
-  (define (find-splitter splitter parent view)
-    (if (stage-splitter? parent)
-        (find-splitter parent (get-parent~ parent) (get-parent~ view))
-      (values splitter view)))
-  
-  (define (stage-splitter? splitter)
-    (and (is? splitter Splitter-Preferences)
-         (every? (lambda (pref)
-                    (or (is? pref Stage-Preferences)
-                        (stage-splitter? pref)))
-                  (get-children~ splitter))))
-  
   (let ((designer (get-workspaces-designer~ (get-application)))
         (current-stage (current-stage)))
     (let ((stage (get-figure-preferences~ current-stage)))
       (let ((splitter (get-parent~ stage)))
         (if (is-not? splitter Splitter-Preferences)
             (bell)
-          (receive (splitter splitter-view) (find-splitter splitter (get-parent~ splitter) (get-parent~ (get-border~ current-stage)))
-            (delete-stages designer stage splitter current-stage splitter-view)))))))
+          (receive (preference view) (find-top-stage current-stage)
+            (delete-stages designer stage preference current-stage view)))))))
 
 
-(definition (delete-stages designer stage splitter stage-view splitter-view)
+(definition public (find-top-stage stage)
+  (define (find-splitter preference view)
+    (let ((parent (get-parent~ preference)))
+      (if (stage-splitter? parent)
+          (find-splitter parent (get-parent~ view))
+        (values preference view))))
+  
+  (let ((preference (get-figure-preferences~ stage)))
+    (find-splitter preference (get-border~ stage))))
+
+
+(definition public (stage-splitter? splitter)
+  (and (is? splitter Splitter-Preferences)
+       (every? (lambda (pref)
+                 (or (is? pref Stage-Preferences)
+                     (stage-splitter? pref)))
+               (get-children~ splitter))))
+
+
+(definition (delete-stages designer stage splitter stage-view closed-view)
   (define (only-stages? view)
     (or (is? view Stage-Preferences)
         (and (is? view Splitter-Preferences)
@@ -556,19 +563,19 @@
               destroyed-stages))
   
   (let ((parent (get-parent~ splitter)))
-    (if (or (not (can-move-component?~ designer stage parent))
+    (if (or (not (can-relocate-component?~ designer stage parent))
             (not (only-stages? splitter)))
         (bell)
       (set-property~ designer stage 'location (get-location~ splitter))
-      (move-component~ designer stage parent)
+      (relocate-component~ designer stage parent)
       (remove-child~ designer splitter)
       (let ((border-view (get-border~ stage-view)))
-        (let ((parent-view (get-parent~ splitter-view))
-              (destroyed-stages (remove! stage-view (collect-descendants~ splitter-view Stage))))
+        (let ((parent-view (get-parent~ closed-view))
+              (destroyed-stages (remove! stage-view (collect-descendants~ closed-view Stage))))
           (move-frames destroyed-stages stage-view)
-          (set-location~ border-view (get-location~ splitter-view))
+          (set-location~ border-view (get-location~ closed-view))
           (set-parent~ border-view parent-view)
-          (close~ splitter-view)
+          (close~ closed-view)
           (layout-view~ parent-view)))
       (update-window-actions~ (get-application)))))
 
@@ -605,7 +612,7 @@
               (new-splitter (new Splitter-Preferences))
               (new-stage (new Stage-Preferences)))
           (add-child~ designer new-splitter parent)
-          (move-component~ designer stage new-splitter)
+          (relocate-component~ designer stage new-splitter)
           (add-child~ designer new-stage new-splitter)
           (set-property~ designer new-splitter 'location (get-location~ stage))
           (set-property~ designer new-splitter 'orientation direction)
@@ -627,7 +634,7 @@
               (set-maximized?~ stage (get-maximized?~ current-stage))
               (layout-view~ (get-parent~ splitter))
               (layout-view~ splitter)
-              (set-current-stage stage activate?: #f)
+              (set-current-stage stage activate?: (not (front-frame)))
               (when (is? frame Host-View)
                 (let ((splitted (split-view~ (get-guest~ frame))))
                   (when splitted
@@ -639,14 +646,13 @@
 (definition public (move-frame)
   (let ((frame (current-frame)))
     (let ((stage (if frame (get-stage~ frame) (current-stage))))
-      (let ((next-stage (next-stage stage)))
+      (let ((next-stage (navigate-next-stage)))
         (if (not next-stage)
             (bell)
           (when frame
             (set-parent~ frame next-stage)
             (maximize/restore~ frame)
-            (remember-workspace-stage~ frame))
-          (set-current-stage next-stage))))))
+            (remember-workspace-stage~ frame)))))))
 
 
 (definition public (clone-frame)
@@ -654,7 +660,7 @@
     (if (is-not? frame Host-View)
         (bell)
       (let ((stage (get-stage~ frame)))
-        (let ((next-stage (next-stage stage)))
+        (let ((next-stage (navigate-next-stage)))
           (if (not next-stage)
               (bell)
             (let ((brother (find-frame-brother next-stage frame)))
@@ -665,8 +671,26 @@
                       (bell)
                     (set-parent~ splitted next-stage)
                     (maximize/restore~ splitted)
-                    (remember-workspace-stage~ splitted)
-                    (set-current-stage next-stage)))))))))))
+                    (remember-workspace-stage~ splitted)))))))))))
+
+
+(definition public (tie-frame-model)
+  (let ((frame (current-frame)))
+    (if (is-not? frame Host-View)
+        (bell)
+      (let ((guest (get-guest~ frame))
+            (stage (get-figure-preferences~ (current-stage)))
+            (designer (get-workspaces-designer~ (get-application))))
+        (let ((guest-model (category-name (class-of guest))))
+          (set-property~ designer stage 'guest-model (new Reference guest-model))
+          (user-message "Stage tied to {s}" guest-model))))))
+
+
+(definition public (untie-stage)
+  (let ((stage (get-figure-preferences~ (current-stage)))
+        (designer (get-workspaces-designer~ (get-application))))
+    (set-property~ designer stage 'guest-model #f)
+    (user-message "Stage untied")))
 
 
 (definition public (next-stage stage)
@@ -688,11 +712,11 @@
     (set! *stages* (cons stage (remove! stage *stages*))))
   
   (let ((stages (get-active-stages)))
-    (if (< (length stages) 2)
-        (bell)
+    (when (>= (length stages) 2)
       (let ((stage (last-stage)))
         (bring-stage-to-front stage)
-        (activate-stage stage)))))
+        (activate-stage stage)
+        stage))))
 
 
 (definition public (navigate-previous-stage)
@@ -700,11 +724,12 @@
     (set! *stages* (append (remove! stage *stages*) (list stage))))
   
   (let ((stages (get-active-stages)))
-    (if (< (length stages) 2)
-        (bell)
+    (when (>= (length stages) 2)
       (let ((stage (first-stage)))
         (send-stage-to-back stage)
-        (activate-stage (first-stage))))))
+        (let ((stage (first-stage)))
+          (activate-stage stage)
+          stage)))))
 
 
 (define (activate-stage stage)
@@ -731,11 +756,6 @@
 
 
 (definition package (activate-current-frame)
-  (define (front-frame)
-    (let ((stage (current-stage)))
-      (when stage
-        (first-view~ stage))))
-  
   (let ((front (front-frame))
         (active *active-frame*))
     (when (neq? front active)
@@ -746,6 +766,19 @@
         (let ((stage (current-stage)))
           (when stage
             (stage-empty-activate~ stage)))))))
+
+
+(definition public (front-frame)
+  (let ((stage (current-stage)))
+    (when stage
+      (first-view~ stage))))
+
+
+(definition public (current-stage-frames)
+  (let ((stage (current-stage)))
+    (if stage
+        (get-views~ stage)
+      '())))
 
 
 ;;;
@@ -759,10 +792,10 @@
         (right  (get-right~ frame))
         (bottom (get-bottom~ frame))
         (region (new Region)))
-    (with ((l (new Region left                          top                             (+ left (get-left~ insets)) bottom))
-           (t (new Region left                          top                             right                       (+ top (get-top~ insets))))
-           (r (new Region (- right (get-right~ insets)) top                             right                       bottom))
-           (b (new Region left                          (- bottom (get-bottom~ insets)) right                       bottom)))
+    (with ((l (new Region rect: (new Rect left                          top                             (+ left (get-left~ insets)) bottom)))
+           (t (new Region rect: (new Rect left                          top                             right                       (+ top (get-top~ insets)))))
+           (r (new Region rect: (new Rect (- right (get-right~ insets)) top                             right                       bottom)))
+           (b (new Region rect: (new Rect left                          (- bottom (get-bottom~ insets)) right                       bottom))))
       (combine!~ region l 'or)
       (combine!~ region t 'or)
       (combine!~ region r 'or)
@@ -775,11 +808,15 @@
 ;;;
 
 
-(definition public (new-frame guest-class . rest)
+(define-setting default-frame-kind
+  'internal)
+
+
+(definition public (new-frame guest/class . rest)
   (bind-keywords ((kind #f) . others) rest
-    (case (or kind 'internal)
-      ((internal) (apply new-internal-frame guest-class others))
-      ((external) (apply new-external-frame guest-class others)))))
+    (case (or kind (default-frame-kind))
+      ((internal) (apply new-internal-frame guest/class others))
+      ((external) (apply new-external-frame guest/class others)))))
 
 
 ;;;
@@ -787,27 +824,75 @@
 ;;;
 
 
-(definition public (new-internal-frame guest-class . rest)
-  (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (guest #f) (initialize #f) . others) rest
-    (let ((guest (or guest (new-guest guest-class others))))
-      (let ((host (new Internal-Frame-Host parent: (current-stage) visible?: #f)))
-        (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
-        (set-position~ host (or host-position (cascade-position host guest)))
-        (set-size~ host (or host-size (nu+ (get-size~ guest) {Dimension 8 28})))
-        (when host-workspace
-          (set-workspace~ host host-workspace))
-        (set-guest~ host guest)
-        ;; Should initialisations done here generate errors, at least
-        ;; parent install is still not done at this point
-        (when initialize
-          (initialize host guest))
-        (ensure-displayed~ host)
-        (when host-visible?
-          (bring-to-front~ host)
-          (set-visible?~ host #t)
-          (when host-focus?
-            (focus-host~ host)))
-        host))))
+(definition Internal-Frame-Cascade-Position
+  {Point 25 25})
+
+
+(definition Internal-Frame-Cascade-Step
+  {Dimension 22 22})
+
+
+(definition (collect-frames-positions host guest)
+  (let* ((stage (get-stage~ host))
+         (maximized? (get-maximized?~ stage)))
+    (collect (lambda (frame)
+               (and (is? frame Internal-Frame-Host)
+                    (eq? (class-of (get-guest~ frame)) (class-of guest))
+                    (if maximized?
+                        (get-preserved-position~ frame)
+                      (get-position~ frame))))
+             (get-views~ stage))))
+
+
+(definition (cascade-frame-position host guest)
+  (cascade-position Internal-Frame-Cascade-Position
+                    Internal-Frame-Cascade-Step
+                    (collect-frames-positions host guest)))
+
+
+(definition public (new-internal-frame guest/class . rest)
+  (let ((guest-class (if (class? guest/class) guest/class (class-of guest/class)))
+        (guest (if (class? guest/class) #f guest/class)))
+    (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (initialize #f) . others) rest
+      (define (determine-stage)
+        (let ((stages (get-active-stages)))
+          (continuation-capture
+            (lambda (return)
+              ;; find a tie match
+              (for-each (lambda (stage)
+                          (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
+                            (when (and guest-model (subtype? guest-class (resolve-reference~ guest-model)))
+                              (continuation-return return stage))))
+                        stages)
+              ;; prefer untied stages
+              (for-each (lambda (stage)
+                          (let ((guest-model (get-guest-model~ (get-figure-preferences~ stage))))
+                            (when (not guest-model)
+                              (continuation-return return stage))))
+                        stages)
+              ;; else
+              (current-stage)))))
+      
+      (let ((guest (or guest (new-guest guest-class others))))
+        (let ((host (new Internal-Frame-Host parent: (determine-stage) visible?: #f)))
+          (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
+          (set-position~ host (or host-position (cascade-frame-position host guest)))
+          (set-size~ host (or host-size (nu+ (get-size~ guest) {Dimension 8 28})))
+          (when host-workspace
+            (set-workspace~ host host-workspace))
+          (set-guest~ host guest)
+          ;; Should initialisations done here generate errors, at least
+          ;; parent install is still not done at this point
+          (when initialize
+            (initialize host guest))
+          (when host-visible?
+            (ensure-displayed~ host)
+            (bring-to-front~ host)
+            (set-visible?~ host #t)
+            (remember-workspace-stage~ host)
+            (when host-focus?
+              (focus-host~ host)))
+          host)))))
 
 
 ;;;
@@ -815,29 +900,11 @@
 ;;;
 
 
-(definition Cascade-Position
-  {Point 25 25})
-
-(definition Cascade-Step
-  {Dimension 22 22})
-
-
-(definition (cascade-position host guest)
-  (define (collect-positions stage)
-    (let ((maximized? (get-maximized?~ stage)))
-      (collect (lambda (frame)
-                 (when (and (is? frame Internal-Frame-Host)
-                            (eq? (class-of (get-guest~ frame)) (class-of guest)))
-                   (if maximized?
-                       (get-preserved-position~ frame)
-                     (get-position~ frame))))
-                 (get-views~ stage))))
-  
-  (let ((positions (collect-positions (get-stage~ host))))
-    (let (iterate (pos Cascade-Position))
-      (if (member? pos positions test: nu=?)
-          (iterate (nu+ pos Cascade-Step))
-        pos))))
+(definition public (cascade-position position step positions)
+  (let (iterate (pos position))
+    (if (member? pos positions test: nu=?)
+        (iterate (nu+ pos step))
+      pos)))
 
 
 ;;;
@@ -845,30 +912,32 @@
 ;;;
 
 
-(definition public (new-external-frame guest-class . rest)
-  (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (guest #f) (initialize #f) . others) rest
-    (let* ((player (new External-Frame visible?: #f))
-           (host (get-root~ player)))
-      (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
-      (when host-position
-        (set-position~ player host-position))
-      (when host-size
-        (set-size~ player host-size))
-      ;; It is important to set the frame's size before installing the guest
-      ;; in order to minimize layouting by having the size right the first time!
-      (let ((guest (or guest (new-guest guest-class others))))
-        (set-guest~ host guest)
-        ;; Should initialisations done here generate errors, at least
-        ;; parent install is still not done at this point
-        (when initialize
-          (initialize host guest))
-        (layout-view~ host)
-        (when host-visible?
-          (fade-in~ player)
-          (when host-focus?
-            (focus-host~ host))
-          (activate-frame~ host))
-        host))))
+(definition public (new-external-frame guest/class . rest)
+  (let ((guest-class (if (class? guest/class) guest/class (class-of guest/class)))
+        (guest (if (class? guest/class) #f guest/class)))
+    (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (initialize #f) . others) rest
+      (let* ((player (new External-Frame visible?: #f))
+             (host (get-root~ player)))
+        (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
+        (when host-position
+          (set-position~ player host-position))
+        (when host-size
+          (set-size~ player host-size))
+        ;; It is important to set the frame's size before installing the guest
+        ;; in order to minimize layouting by having the size right the first time!
+        (let ((guest (or guest (new-guest guest-class others))))
+          (set-guest~ host guest)
+          ;; Should initialisations done here generate errors, at least
+          ;; parent install is still not done at this point
+          (when initialize
+            (initialize host guest))
+          (layout-view~ host)
+          (when host-visible?
+            (fade-in~ player)
+            (when host-focus?
+              (focus-host~ host))
+            (activate-frame~ host))
+          host)))))
 
 
 ;;;
@@ -920,9 +989,7 @@
 ;;;
 
 
-(definition (with-progress proc (threaded?: threaded? #t) (name: name #f) (progress-reporter: progress-reporter Progress-Reporter) (cancelable?: cancelable? #t) (abnormal-cleanup: abnormal-cleanup #f))
-  (unimplemented 'with-progress)
-  @convert-thread
+(definition public (with-progress proc (threaded?: threaded? #t) (name: name #f) (progress-reporter: progress-reporter Progress-Reporter) (cancelable?: cancelable? #t) (abnormal-cleanup: abnormal-cleanup #f))
   (if (not threaded?)
       (proc (new User-Reporter))
     (receive (process? dialog) (new-dialog progress-reporter host-closable?: cancelable?)
@@ -932,27 +999,11 @@
         (thread-start!
           (new-thread
             (lambda ()
-              (let* ((result)
-                     (resignal #f)
-                     (abnormal
-                       (lambda (sig)
-                         (when abnormal-cleanup
-                           (abnormal-cleanup))
-                         (set! resignal sig))))
-                (unwind-protect
-                    ;; Conceptually, the with-progress proc is executed in the same thread as the caller...
-                    ;; The fact that we are using a thread for user interface responsiveness should not affect
-                    ;; the semantics of proc which is why we resignal forwardable signals through the signal-modal
-                    ;; definition which will resignal them to the calling thread
-                    (catch (Signal sig
-                             (if (forwardable?~ sig)
-                                 (abnormal sig)
-                               (signal sig)))
-                      (set! result (proc reporter)))
-                  (if resignal
-                      (signal-modal~ dialog resignal)
+              (let ((result (proc reporter)))
+                (post-event
+                  (lambda ()
                     (end-modal~ dialog result)))))
-            'worker))
+            'progress))
         (process-modal~ dialog)))))
 
 
@@ -1062,7 +1113,7 @@
             (ask err))
         #f))
     (lambda (err)
-      (throw-cancel))
+      (signal-cancel))
     thunk))
 
 
@@ -1082,7 +1133,7 @@
                 (edit-document~ (get-application) source selection: range)))
             (neq? result 'no)))))
     (lambda (exc)
-      (throw-cancel))
+      (signal-cancel))
     proc))
 
 
@@ -1159,7 +1210,7 @@
           (parse-string~ Date string))))))
 
 
-(definition public (request-list content (class: class List-Request) (title: title #f) (invite: invite #f) (present: present #f) (selected: selected #f))
+(definition public (request-list content (class: class List-Request) (title: title #f) (invite: invite #f) (present: present #f) (selected: selected #f) (multiple-selection?: multiple-selection? #f))
   (receive (process? host) (new-dialog class)
     (let ((view (get-guest~ host))
           (player (get-player~ host)))
@@ -1169,8 +1220,10 @@
         (set-invite~ view invite))
       (when present
         (set-present~ view present))
+      (set-multiple-selection?~ view multiple-selection?)
       (set-content~ view content)
-      (set-selected~ view selected)
+      (when selected
+        (set-selected~ view selected))
       (process-modal~ host))))
 
 
@@ -1229,6 +1282,13 @@
               (for-each-docked~ window
                 proc))
             (all-windows)))
+
+
+(definition public (docked-views)
+  (let ((docked-views '()))
+    (for-each-docked (lambda (view)
+                       (set! docked-views (cons view docked-views))))
+    docked-views))
 
 
 (definition public (for-each-splitter view proc)

@@ -46,10 +46,23 @@
   
   
   (property inherit     initialize '() accessors generate)
+  (property client-type initialize #f  accessors generate)
   (property client-form initialize #f  accessors generate)
   
   
   (slot restoreable? initialize #t accessors generate)
+  
+  
+  ;;;
+  ;;;; Type
+  ;;;
+  
+  
+  (method protected (setup-client-type type)
+    (set! client-type type)
+    (for-each (lambda (child)
+                (setup-client-type~ child type))
+              children))
   
   
   ;;;
@@ -72,12 +85,13 @@
 
 
   (method protected (configure-client client parent)
-    (let ((branch (new Branch client self parent)))
-      (let ((restore-form (and restoreable? (new Restore-Form action: 'install))))
-        (when restore-form
-          (set-restore-form~ branch restore-form))
-        (install-form~ client client-form client branch restore-form)
-        branch)))
+    (assert (or (not client-type) (is? client client-type))
+      (let ((branch (new Branch client self parent)))
+        (let ((restore-form (and restoreable? (new Restore-Form action: 'install))))
+          (when restore-form
+            (set-restore-form~ branch restore-form))
+          (install-form~ client client-form client branch restore-form)
+          branch))))
   
   
   ;; convert-trait quick hack
@@ -109,15 +123,11 @@
   
   
   (form
-    (<install>                 image: {Image-Resource "Trait"} name-mandatory?: #t name-unicity?: #t
+    (<install>                                   image: {Image-Resource "Trait"} name-mandatory?: #t name-unicity?: #t
       (<properties~>
-        (<Property-Descriptor> name: client-form))))
+        (<Property-Descriptor> name: client-form standard?: #f
+          (<Value-Domain>      name: domain)))))
   
   
   (method override (component-set-presentation component designer presentation)
-    (set-name~ designer component (string->symbol presentation) trait: #f))
-  
-  
-  (method override (component-display-property? component property)
-    (and (nextmethod component property)
-         (not (memq? (field-name property) '(client-form))))))))
+    (set-name~ designer component (string->symbol presentation) trait: #f)))))

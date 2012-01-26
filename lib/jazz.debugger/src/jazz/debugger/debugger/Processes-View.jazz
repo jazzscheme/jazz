@@ -39,7 +39,6 @@
 
 
 (import (jazz.debugger)
-        (jazz.graphic)
         (jazz.io)
         (jazz.jml)
         (jazz.library)
@@ -51,24 +50,32 @@
 
 (class Processes-View extends Layout-View
   
+  
+  (property client initialize #f accessors explicit)
+  
 
   (form
-    (<install>                                   layout-type: border
+    (<install>                                     layout-type: border
       (<Layout-View>            name: tools
-        (<Push-Tool>            name: open       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open Snapshot" resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :guest on-open-snapshot})
-        (<Separator>                             size: {Dimension 6 0})
-        (<Push-Tool>            name: focus      size: {Dimension 22 22} enabled?: #f location: tail tooltip?: #t tooltip-text: "Focus" resource: {Image-Resource "Script"} portfolio: :images action-handler: {Event-Handler :guest on-focus})
-        (<Separator>                             size: {Dimension 2 0})
-        (<Push-Tool>            name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-update}))
-      (<Scroller-View>          name: scroller   location: center vscroll?: #t style: tool
-        (<!>                    name: content    layout-type: fill
-          (<Tree-Header>        name: header     shown?: #f
+        (<Push-Tool>            name: open         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open Snapshot" resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :guest on-open-snapshot})
+        (<Separator>                               size: {Dimension 6 0})
+        (<Toggle-Tool>          name: focused-mode size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Focused Mode" resource: {Image-Resource "Script"} portfolio: :images action-handler: {Event-Handler :guest on-focused-mode})
+        (<Separator>                               size: {Dimension 2 0})
+        (<Push-Tool>            name: update       size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-update}))
+      (<Scroller-View>          name: scroller     location: center vscroll?: #t style: tool
+        (<!>                    name: content      layout-type: fill
+          (<Tree-Header>        name: header       shown?: #f
             (<!>                name: content
-              (<Processes-Tree> name: processes  multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-process} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
+              (<Processes-Tree> name: processes    multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-process} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
 
   
   (method meta override (external-name . rest)
     'processes-view)
+  
+  
+  (method override (finish initargs)
+    (nextmethod initargs)
+    (set-selected?~ (locate 'focused-mode) (get-focused-mode?~ (get-debugger-manager))))
 
   
   ;;;
@@ -85,9 +92,17 @@
   
   
   (method override (client-activate)
+    (let ((guest (current-document)))
+      (if (is? guest Text-View)
+          (set-client guest)
+        (set-client #f)))
     (let ((selected-process (selected-process)))
       (when selected-process
         (update-highlight selected-process))))
+  
+  
+  (method override (client-deactivate)
+    (set-client #f))
   
   
   ;;;
@@ -156,12 +171,11 @@
 
 
   (method (on-select-process evt)
-    (update-tools)
     (process-change))
   
   
-  (method (on-focus evt)
-    (focus-selected-process))
+  (method (on-focused-mode evt)
+    (toggle-focused-mode))
   
   
   (method (on-update evt)
@@ -174,9 +188,19 @@
     (process-changed~ (get-debugger-manager) (selected-process)))
   
   
-  (method (update-tools)
-    (let ((process (selected-process)))
-      (set-enabled?~ (locate 'focus) (and process (focusable?~ process)))))
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method public (get-client)
+    client)
+
+ 
+  (method public (set-client clt)
+    (when (neq? clt client)
+      (set! client clt)
+      (update)))
 
   
   ;;;
@@ -185,9 +209,24 @@
   
   
   (method public (update (user-origin: user-origin #f))
-    (define (process-image process live? focused?)
-      (cond ((not live?)
+    (define (process-image debugger process live? focused? focused-mode? manager)
+      (cond ((standard-process-image~ debugger) => identity)
+            ((not live?)
              {Image-Resource "ProcessDead"})
+            ((not focused-mode?)
+             (cond ((not (process-received-filenames?~ manager process))
+                    {Image-Resource "Link"})
+                   ((not client)
+                    {Image-Resource "Process"})
+                   (else
+                    (let ((moniker (get-moniker~ client)))
+                      (if (not moniker)
+                          {Image-Resource "Process"}
+                        (let ((filename (parse~ moniker)))
+                          (let ((processes (determine-filename-processes~ manager filename)))
+                            (if (member? process processes test: debugged=?)
+                                {Image-Resource "Script"}
+                              {Image-Resource "Process"}))))))))
             ((not focused?)
              (or (get-icon~ process) {Image-Resource "Process"}))
             (else
@@ -195,14 +234,16 @@
     
     (define (update-processes tree)
       (let ((manager (get-debugger-manager)))
-        (for-each-process~ manager
-          (lambda (debugger process live? focused?)
-            (let ((title (present~ process))
-                  (image (process-image process live? focused?))
-                  (frame-color (get-stopped-frame-color~ manager process))
-                  (background (get-visited-highlight-color~ manager process)))
-              (set-alive?~ process live?)
-              (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process))))))
+        (let ((focused-mode? (get-focused-mode?~ manager)))
+          (for-each-process~ manager
+            (lambda (debugger process live? focused?)
+              (let ((title (present~ process))
+                    (image (process-image debugger process live? focused? focused-mode? manager))
+                    (frame-color (get-stopped-frame-color~ manager process))
+                    (background (get-visited-highlight-color~ manager process)))
+                (set-alive?~ manager process live?)
+                (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process)))
+            live-test?: user-origin))))
     
     (with-system-exception-debugger
       (lambda ()
@@ -216,6 +257,10 @@
             use: 'data
             test: debugged=?
             generate-event?: user-origin)))))
+  
+  
+  (method public (update-focused-mode focused-mode?)
+    (set-selected?~ (locate 'focused-mode) focused-mode?))
 
   
   ;;;
@@ -285,16 +330,16 @@
   
   (method (new-context-menu object)
     (define (new-process-menu)
-      (let ((menu (new Process-Menu client: self)))
-        (let ((alive? (get-alive?~ object))
+      (let ((manager (get-debugger-manager))
+            (menu (new Process-Menu client: self)))
+        (let ((alive? (get-alive?~ manager object))
               (focusable? (focusable?~ object)))
           (unless (and focusable? alive?)
             (set-visible?~ (locate~ menu 'focus) #f))
           (when (and focusable? alive?)
             (set-title~ (locate~ menu 'exit) "Exit"))
-          @w
-          (unless alive?
-            (set-title~ (locate~ menu 'exit) "Close")))
+          (when (not alive?)
+            (set-title~ (locate~ menu 'exit) "Remove Process")))
         (cleanup-separators~ menu)
         (layout-menu~ menu)
         menu))
@@ -305,19 +350,30 @@
   
   
   (method (exit-selected-process)
-    (let ((object (selected-object)))
-      (exit~ object)
+    (let ((manager (get-debugger-manager))
+          (object (selected-object)))
+      (if (get-alive?~ manager object)
+          (exit~ object)
+        (detach~ object))
       (let ((tree (locate 'processes)))
         (set-selection~ tree '()))))
+  
+  
+  (method (toggle-focused-mode)
+    (toggle-focused-mode~ (get-debugger-manager)))
   
   
   (method (focus-selected-process)
     (focus-process~ (get-debugger-manager) (selected-process)))
   
   
-  @convert/wait
-  (method (select-toplevel)
-    (select-foreground~ (get-toplevel)))
+  (method (refresh-selected-process)
+    (let ((process (selected-process)))
+      (if (not process)
+          (bell)
+        (clear-runtime-filenames~ (get-debugger~ process) (get-reference~ process))
+        (transmit-runtime-filenames~ process)
+        (update))))
   
   
   (method public (open-snapshot file)
@@ -353,22 +409,19 @@
   
   (form
     (<install>
-      (<Label-Item>     name: focus title: "Focus" default?: #t icon: {Image-Resource "Script"} action-handler: {Event-Handler :form on-focus})
+      (<Label-Item>     name: focus   title: "Focus" default?: #t icon: {Image-Resource "Script"} action-handler: {Event-Handler :form on-focus})
       (<Separator-Item>)
-      @wait
-      (<Label-Item>     name: select title: "Select" icon: {Image-Resource "Select"} action-handler: {Event-Handler :form on-select})
-      @wait
+      (<Label-Item>     name: refresh title: "Refresh Filenames" icon: {Image-Resource "Refresh"} action-handler: {Event-Handler :form on-refresh})
       (<Separator-Item>)
-      (<Label-Item>     name: exit   title: "Close" action-handler: {Event-Handler :form on-exit})))
+      (<Label-Item>     name: exit    title: "Close" action-handler: {Event-Handler :form on-exit})))
   
   
   (method (on-focus evt)
     (focus-selected-process~ client))
   
   
-  @wait
-  (method (on-select evt)
-    (select-toplevel~ client))
+  (method (on-refresh evt)
+    (refresh-selected-process~ client))
   
   
   (method (on-exit evt)

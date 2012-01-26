@@ -41,7 +41,6 @@
 
 (import (jazz.geometry)
         (jazz.graphic)
-        (jazz.graphic.font)
         (jazz.graphic.image)
         (jazz.io)
         (jazz.library)
@@ -49,31 +48,20 @@
         (jazz.platform.cairo))
 
 
-;; origin  -> origin used by the view painting algorithm
-;; clipper -> clip rectangle used by the view painting algorithm
-
-
 (class Surface extends Object
   
   
-  (slot surface                                       getter generate)
-  (slot context                                       getter generate)
-  (slot clipper            <Rect>       initialize (new Rect 0 0 0 0))
-  (slot font                            initialize #f)
-  (slot dash-array                      initialize #f)
-  (slot empty-array                     initialize #f)
-  (slot glyph-array                     initialize #f)
-  (slot array-length       <fx>         initialize 0)
-  (slot landscape?         <bool>       initialize #f)
-  (slot landscape-rotation <symbol+>    initialize #f)
-  (slot landscape-page     <Dimension+> initialize #f)
-  (slot update-region      <Region+>    initialize #f accessors generate)
+  (slot handle                                getter generate)
+  (slot context                               getter generate)
+  (slot font                    initialize #f)
+  (slot glyph-array             initialize #f)
+  (slot glyph-array-length <fx> initialize 0)
 
   
-  (method override (initialize surface . rest)
+  (method override (initialize handle . rest)
     (nextmethod)
-    (set! surface~self surface)
-    (set! context~self (cairo_create surface))
+    (set! handle~self handle)
+    (set! context~self (cairo_create handle))
     (destroy-mandatory))
 
 
@@ -91,13 +79,13 @@
   
   
   (method (destroy-surface)
-    (when surface
-      (cairo_surface_destroy surface)
+    (when handle
+      (cairo_surface_destroy handle)
       @wait
       (let ((err (cairo-surface-status)))
         (when (/= err 0)
           (error "Cairo surface error: {t}" (cairo_status_to_string err))))
-      (set! surface #f)))
+      (set! handle #f)))
   
   
   (method (destroy-context)
@@ -111,12 +99,7 @@
   
   
   (method public (cairo-finish)
-    (cairo_surface_finish surface))
-  
-  
-  (method public (show-page)
-    @wait
-    (cairo_surface_show_page surface))
+    (cairo_surface_finish handle))
   
   
   ;;;
@@ -131,19 +114,103 @@
   ;;;; Device
   ;;;
 
+  
+  (method public virtual (use-painting-tree?)
+    #t)
+  
 
-  (method public (logical->device shape <Point>)
-    (cairo_user_to_device context shape))
+  (method public (logical->device shape <Object>)
+    (typecase shape
+      ((Point)
+       (receive (h v) (cairo_user_to_device context (get-h~ shape) (get-v~ shape))
+         (new Point (fxfloor h) (fxfloor v))))
+      ((Dimension)
+       (receive (width height) (cairo_user_to_device_distance context (get-width~ shape) (get-height~ shape))
+         (new Dimension (fxfloor width) (fxfloor height))))
+      ((Distance)
+       (receive (x y) (cairo_user_to_device_distance context (get-x~ shape) (get-y~ shape))
+         (new Distance (fxfloor x) (fxfloor y))))
+      ((Rect)
+       (receive (left top) (cairo_user_to_device context (get-left~ shape) (get-top~ shape))
+         (receive (right bottom) (cairo_user_to_device context (get-right~ shape) (get-bottom~ shape))
+           (new Rect (fxfloor left) (fxfloor top) (fxfloor right) (fxfloor bottom)))))))
   
   
   (method public (device->logical shape <Object>)
     (typecase shape
       ((Point)
-       (cairo_device_to_user context shape))
+       (receive (h v) (cairo_device_to_user context (get-h~ shape) (get-v~ shape))
+         (new Point (fxfloor h) (fxfloor v))))
+      ((Dimension)
+       (receive (width height) (cairo_device_to_user_distance context (get-width~ shape) (get-height~ shape))
+         (new Dimension (fxfloor width) (fxfloor height))))
+      ((Distance)
+       (receive (x y) (cairo_device_to_user_distance context (get-x~ shape) (get-y~ shape))
+         (new Distance (fxfloor x) (fxfloor y))))
       ((Rect)
-       (let ((pt1 (cairo_device_to_user context (new Point (get-left~ shape) (get-top~ shape))))
-             (pt2 (cairo_device_to_user context (new Point (get-right~ shape) (get-bottom~ shape)))))
-         (new Rect (get-h~ pt1) (get-v~ pt1) (get-h~ pt2) (get-v~ pt2))))))
+       (receive (left top) (cairo_device_to_user context (get-left~ shape) (get-top~ shape))
+         (receive (right bottom) (cairo_device_to_user context (get-right~ shape) (get-bottom~ shape))
+           (new Rect (fxfloor left) (fxfloor top) (fxfloor right) (fxfloor bottom)))))))
+  
+  
+  ;;;
+  ;;;; Matrix
+  ;;;
+  
+  
+  (method public (with-preserved-matrix thunk <procedure>)
+    (let ((preserved-matrix (cairo_get_matrix_raw context)))
+      (prog1 (thunk)
+        (cairo_set_matrix_raw context preserved-matrix))))
+  
+  
+  (method public (debug-matrix)
+    (let ((matrix (cairo_get_matrix_raw context)))
+      (debug
+        (cairo_matrix_t-xx-ref matrix)
+        (cairo_matrix_t-yx-ref matrix)
+        (cairo_matrix_t-xy-ref matrix)
+        (cairo_matrix_t-yy-ref matrix)
+        (cairo_matrix_t-x0-ref matrix)
+        (cairo_matrix_t-y0-ref matrix))))
+  
+  
+  ;;;
+  ;;;; Transform
+  ;;;
+  
+  
+  (method public (with-transformation h <fx> v <fx> transformation <foreign+> thunk <procedure>)
+    (with-preserved-matrix
+      (lambda ()
+        (cairo_translate context (cast <fl> h) (cast <fl> v))
+        (when transformation
+          (cairo_transform context transformation))
+        (thunk))))
+  
+  
+  (method public (with-pristine-transformation thunk <procedure>)
+    (with-preserved-matrix
+      (lambda ()
+        (cairo_identity_matrix context)
+        (thunk))))
+  
+  
+  (method public (with-clipping-transformation h <fx> v <fx> width <fx> height <fx> transformation <foreign+> thunk <procedure>)
+    (with-transformation h v transformation
+      (lambda ()
+        (with-clip (new Rect 0 0 width height)
+          thunk))))
+  
+  
+  (method public (with-pristine-clipping-transformation thunk <procedure>)
+    (with-preserved-matrix
+      (lambda ()
+        (cairo_identity_matrix context)
+        (with-preserved-clipper
+          (lambda ()
+            (cairo_reset_clip context)
+            (thunk))))))
   
   
   ;;;
@@ -152,139 +219,30 @@
   
   
   (method public (get-clipper) <Rect>
-    (new Rect (get-left~ clipper)
-              (get-top~ clipper)
-              (get-right~ clipper)
-              (get-bottom~ clipper)))
-  
-  
-  (method public (get-logical-clipper) <Rect>
-    (device->logical (get-clipper)))
-  
-  
-  (method public (get-cairo-clipper)
     (cairo_get_clipper context))
   
   
   (method public (set-clipper rect <Rect>)
-    (set-left~ clipper (get-left~ rect))
-    (set-top~ clipper (get-top~ rect))
-    (set-right~ clipper (get-right~ rect))
-    (set-bottom~ clipper (get-bottom~ rect))
-    (select-clipper clipper))
-
-
-  (method public (select-clipper rect <Rect>)
-    (unless (debug-painting?)
-      (cairo_reset_clip context)
-      (draw-rectangle rect)
-      (cairo_clip context)))
+    (cairo_reset_clip context)
+    (clip rect))
   
   
-  (method public (with-clipper clip-rect <Rect> proc <procedure>)
-    (let* ((old-clipper (get-clipper))
-           (new-clipper (rect-intersection old-clipper clip-rect)))
-      (let ((selected? #f))
-        (unwind-protect
-            (begin
-              (set-clipper new-clipper)
-              (set! selected? #t)
-              (proc))
-          (when selected?
-            (set-clipper old-clipper))))))
+  (method public (clip rect <Rect>)
+    (draw-rectangle rect)
+    (cairo_clip context))
   
   
-  ;;;
-  ;;;; Landscape
-  ;;;
+  (method public (with-preserved-clipper thunk <procedure>)
+    (let ((preserved-clipper (cairo_get_clipper_raw context)))
+      (prog1 (thunk)
+        (cairo_set_clipper_raw context preserved-clipper))))
   
   
-  (method public (with-landscape rotation <symbol> page <Dimension> proc <procedure>)
-    (let ((preserved landscape?))
-      (unwind-protect
-          (begin
-            (set! landscape? #t)
-            (set! landscape-rotation rotation)
-            (set! landscape-page page)
-            (proc))
-        (set! landscape? preserved))))
-  
-  
-  ;;;
-  ;;;; Transform
-  ;;;
-  
-  
-  ;; lh lv : position of the drawing relative to the player
-  ;; sh sv : position of the scaled view relative to the player
-  ;; dh dv : position of the drawing relative to the scaled view, i.e. s - l
-  ;; ch cv : position of the clipper in device coordinates
-  ;; cwidth cheight : size of the clipper in device coordinates
-    
-  
-  (method public (set-transform lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
-    (define (set-transform-scaled)
-      (let* ((dh (- lh sh))
-             (dv (- lv sv))
-             (dx (if (not landscape?) (+ sh (* dh sc)) (+ sv (* (case landscape-rotation ((clockwise) (- (get-height~ (cast <Dimension> landscape-page)) dv)) (else dv)) sc))))
-             (dy (if (not landscape?) (+ sv (* dv sc)) (+ sh (* (case landscape-rotation ((clockwise) dh) (else (- (get-width~ (cast <Dimension> landscape-page)) dh))) sc))))
-             (ch (fxround dx))
-             (cv (fxround dy))
-             (cwidth (fxceiling (* width sc)))
-             (cheight (fxceiling (* height sc))))
-        (let ((old-matrix (cairo_matrix_t-make))
-              (new-matrix (cairo_matrix_t-make)))
-          (cairo_get_matrix context old-matrix)
-          (cairo_identity_matrix context)
-          (let* ((clipper (if #f
-                              (case landscape-rotation
-                                ((clockwise) (new Rect (- ch cheight) cv ch (+ cv cwidth)))
-                                ((counterclockwise) (new Rect ch (- cv cwidth) (+ ch cheight) cv)))
-                            (new Rect ch cv (+ ch cwidth) (+ cv cheight))))
-                 (old-clipper (get-clipper))
-                 (new-clipper (rect-intersection old-clipper clipper)))
-            (set-clipper new-clipper)
-            (if landscape?
-                (case landscape-rotation
-                  ((clockwise)
-                   (cairo_matrix_t-xx-set! new-matrix 0.0) (cairo_matrix_t-xy-set! new-matrix sc)
-                   (cairo_matrix_t-yx-set! new-matrix (- sc)) (cairo_matrix_t-yy-set! new-matrix 0.0))
-                  ((counterclockwise)
-                   (cairo_matrix_t-xx-set! new-matrix 0.0) (cairo_matrix_t-xy-set! new-matrix (- sc))
-                   (cairo_matrix_t-yx-set! new-matrix sc) (cairo_matrix_t-yy-set! new-matrix 0.0)))
-              (cairo_matrix_t-xx-set! new-matrix sc)
-              (cairo_matrix_t-xy-set! new-matrix 0.0)
-              (cairo_matrix_t-yx-set! new-matrix 0.0)
-              (cairo_matrix_t-yy-set! new-matrix sc))
-            (cairo_matrix_t-x0-set! new-matrix (exact->inexact dx))
-            (cairo_matrix_t-y0-set! new-matrix (exact->inexact dy))
-            (cairo_set_matrix context new-matrix)
-            (cairo_matrix_t-free new-matrix)
-            (values old-clipper old-matrix)))))
-  
-  (define (set-transform-unscaled)
-    (let ((old-matrix (cairo_matrix_t-make)))
-      (cairo_get_matrix context old-matrix)
-      (cairo_identity_matrix context)
-      (let* ((clipper (new Rect lh lv (+ lh width) (+ lv height)))
-             (old-clipper (get-clipper))
-             (new-clipper (rect-intersection old-clipper clipper)))
-        (set-clipper new-clipper)
-        (cairo_translate context (cast <fl> lh) (cast <fl> lv))
-        (values old-clipper old-matrix))))
-  
-  (if sc?
-      (set-transform-scaled)
-    (set-transform-unscaled)))
-        
-  
-  (method public (with-transform lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl> sc? <bool> proc <procedure>)
-    (receive (old-clipper old-matrix) (set-transform lh lv width height sh sv sc sc?)
-      (proc)
-      (cairo_identity_matrix context)
-      (set-clipper old-clipper)
-      (cairo_set_matrix context old-matrix)
-      (cairo_matrix_t-free old-matrix)))
+  (method public (with-clip clip-rect <Rect> thunk <procedure>)
+    (with-preserved-clipper
+      (lambda ()
+        (clip clip-rect)
+        (thunk))))
 
   
   ;;;
@@ -363,11 +321,11 @@
           (font-ext (cairo_font_extents_t-make))
           (extents (cairo_text_extents_t-make))
           (len (cardinality str)))
-      (if (< array-length len)
+      (if (< glyph-array-length len)
           (begin
             (destroy-glyph-array)
             (set! glyph-array (glyph-array-make (* len 2)))
-            (set! array-length (* len 2))))
+            (set! glyph-array-length (* len 2))))
       (cairo_font_extents context font-ext)
       (let ((y (+ v (fxround (cairo_font_extents_t-ascent-ref font-ext)))))
         (let (iter (i 0))
@@ -394,11 +352,11 @@
             (font-ext (cairo_font_extents_t-make))
             (extents (cairo_text_extents_t-make))
             (len (cardinality str)))
-        (if (< array-length len)
+        (if (< glyph-array-length len)
             (begin
               (destroy-glyph-array)
               (set! glyph-array (glyph-array-make (* len 2)))
-              (set! array-length (* len 2))))
+              (set! glyph-array-length (* len 2))))
         (cairo_font_extents context font-ext)
         (let ((y (+ v (fxround (cairo_font_extents_t-ascent-ref font-ext)))))
           (let (iter (i 0))
@@ -466,7 +424,7 @@
       (fill)
       (cairo_pattern_destroy pattern)))
   
-   
+  
   (method public (ellipse rect <Rect> outside inside)
     (let ((left (get-left~ rect))
           (right (get-right~ rect))
@@ -474,12 +432,12 @@
           (bottom (get-bottom~ rect)))
       (let ((w (- right left))
             (h (- bottom top)))
-        (let ((tx (exact->inexact (+ left (/ w 2))))
-              (ty (exact->inexact (+ top (/ h 2)))))
+        (let ((tx (+ left (/ (cast <fl> w) 2)))
+              (ty (+ top (/ (cast <fl> h) 2))))
           (cairo_translate context tx ty)
-          (cairo_scale context (exact->inexact (/ w 2)) (exact->inexact (/ h 2)))
-          (cairo_arc context (cast <fl> 0) (cast <fl> 0) (cast <fl> 1) (cast <fl> 0) (* 2 M_PI))
-          (cairo_scale context (exact->inexact (/ 2 w)) (exact->inexact (/ 2 h)))
+          (cairo_scale context (/ (cast <fl> w) 2) (/ (cast <fl> h) 2))
+          (cairo_arc context 0. 0. 1. 0. PI*2)
+          (cairo_scale context (/ 2. w) (/ 2. h))
           (cairo_translate context (- tx) (- ty)))))
     (when outside
       (if (is? outside Color)
@@ -494,7 +452,7 @@
       (fill)))
 
   
-  (method public (draw-image handle x y)
+  (method public (draw-surface handle x y)
     (set-source-surface handle x y)
     (paint))
   
@@ -515,8 +473,8 @@
       (let ((stops (if (every? (lambda (part)
                                  (is? part Color))
                                parts)
-                       (let ((stop 0.0)
-                             (incr (/ (- (exact->inexact (length parts)) 1))))
+                       (let ((stop 0.)
+                             (incr (/ 1. (- (length parts) 1))))
                          (map (lambda (color)
                                 (prog1 (list stop color)
                                   (increase! stop incr)))
@@ -533,42 +491,56 @@
           ((Image-Resource) (new Image resource: content))
           ((File) (and (exists?~ content) (new Image moniker: content))))))
     
-    (define (draw-positioned image)
-      (let ((pos (get-attribute~ texture 'position not-found: {Point 0 0}))
-            (size (get-attribute~ texture 'size)))
-        (define (draw image)
-          (draw~ image self #f (get-h~ pos) (get-v~ pos)))
-        
-        (if (not size)
-            (draw image)
-          (with ((resized (new Image handle: (resize-image (get-handle~ image) (get-width~ size) (get-height~ size)))))
-            (draw resized)))))
+    (with ((image (texture-image)))
+      (if (not image)
+          (fill-rect rect {Color Red})
+        (let ((mode (get-mode~ texture))
+              (position (get-attribute~ texture 'position))
+              (size (get-attribute~ texture 'size)))
+          (fill-image rect image mode: mode position: position size: size)))))
+  
+  
+  (method public (fill-image rect image (mode: mode 'stretch) (position: position #f) (size: size #f))
+    (define (draw-position image)
+      (let ((position (or position {Point 0 0})))
+        (draw-at~ image self #f (get-h~ position) (get-v~ position))))
     
-    (define (draw-centered image)
+    (define (draw-center image)
       (let ((pos (center (image-size~ image) (rect-size rect))))
-        (draw~ image self #f (get-h~ pos) (get-v~ pos))))
+        (draw-at~ image self #f (get-h~ pos) (get-v~ pos))))
     
-    (define (draw-filled image)
+    (define (draw-fill image)
+      (draw-scale image 'fill))
+    
+    (define (draw-fit image)
+      (draw-scale image 'fit))
+    
+    (define (draw-scale image mode)
+      (let ((image-size (image-size~ image))
+            (rect-size (rect-size rect)))
+        (let ((ratio (fit-dimensions image-size rect-size mode)))
+          (with ((resized (new Image handle: (resize-image (get-handle~ image) (fxround (* (get-width~ image-size) ratio)) (fxround (* (get-height~ image-size) ratio))))))
+            (draw-at~ resized self #f 0 0)))))
+    
+    (define (draw-stretch image)
       (with ((resized (new Image handle: (resize-image (get-handle~ image) (rect-width rect) (rect-height rect)))))
-        (draw~ resized self #f 0 0)))
+        (draw-at~ resized self #f 0 0)))
     
-    (define (draw-tiled image)
+    (define (draw-tile image)
       (let ((handle (get-handle~ image)))
         (set-source-surface handle 0 0)
         (cairo_pattern_set_extend (get-source) CAIRO_EXTEND_REPEAT)
         (cairo_rectangle context (cast <fl> (get-left~ rect)) (cast <fl> (get-top~ rect)) (cast <fl> (rect-width rect)) (cast <fl> (rect-height rect)))
         (cairo_fill context)))
     
-    (let ((mode (get-mode~ texture)))
-      (with ((image (texture-image)))
-        (if (not image)
-            (fill-rect rect {Color Red})
-          (case mode
-            ((position) (draw-positioned image))
-            ((center) (draw-centered image))
-            ((fill) (draw-filled image))
-            ((tile) (draw-tiled image))
-            (else (error "Unknown texture mode: {s}" mode)))))))
+    (case mode
+      ((position) (draw-position image))
+      ((center) (draw-center image))
+      ((fill) (draw-fill image))
+      ((fit) (draw-fit image))
+      ((stretch) (draw-stretch image))
+      ((tile) (draw-tile image))
+      (else (error "Unknown fill mode: {s}" mode))))
   
   
   ;;;
@@ -651,29 +623,29 @@
   
   
   (method public (draw-radio-button rect <Rect> (inactive?: inactive? #f) (selected?: selected? #f))
-    (let ((x (+ (get-left~ rect) (/ (- (get-right~ rect) (get-left~ rect)) 2.)))
-          (y (+ (get-top~ rect) (/ (- (get-bottom~ rect) (get-top~ rect)) 2.)))
-          (r (/ (- (get-right~ rect) (get-left~ rect)) 2.)))
-      (cairo_arc context (cast <fl> x) (cast <fl> y) (cast <fl> r) (cast <fl> 0) (* 2 M_PI))
+    (let ((x (+ (get-left~ rect) (/ (cast <fl> (- (get-right~ rect) (get-left~ rect))) 2)))
+          (y (+ (get-top~ rect) (/ (cast <fl> (- (get-bottom~ rect) (get-top~ rect))) 2)))
+          (r (/ (cast <fl> (- (get-right~ rect) (get-left~ rect))) 2)))
+      (cairo_arc context x y r 0. PI*2)
       (set-color (if inactive?
                      {Color Light-Background}
                    {Color White}))
       (fill)
       (set-line-width 1)
-      (cairo_arc context (cast <fl> x) (cast <fl> y) (exact->inexact r) (* 3 (/ M_PI 4)) (* 7 (/ M_PI 4)))
+      (cairo_arc context x y r (* 3 PI/4) (* 7 PI/4))
       (set-color {Color Draw-Edge-Medium})
       (stroke)
-      (cairo_arc context (cast <fl> x) (cast <fl> y) (exact->inexact (- r 1)) (* 3 (/ M_PI 4)) (* 7 (/ M_PI 4)))
+      (cairo_arc context x y (- r 1) (* 3 PI/4) (* 7 PI/4))
       (set-color {Color Draw-Edge-Dark})
       (stroke)
-      (cairo_arc context (cast <fl> x) (cast <fl> y) (exact->inexact r) (* 7 (/ M_PI 4)) (* 3 (/ M_PI 4)))
+      (cairo_arc context x y r (* 7 PI/4) (* 3 PI/4))
       (set-color {Color White})
       (stroke)
-      (cairo_arc context (cast <fl> x) (cast <fl> y) (exact->inexact (- r 1)) (* 7 (/ M_PI 4)) (* 3 (/ M_PI 4)))
+      (cairo_arc context x y (- r 1) (* 7 PI/4) (* 3 PI/4))
       (set-color {Color Draw-Edge-Light})
       (stroke)
       (when selected?
-        (cairo_arc context (cast <fl> x) (cast <fl> y) (exact->inexact (/ r 3)) (cast <fl> 0) (* 2 M_PI))
+        (cairo_arc context x y (/ r 3) 0. PI*2)
         (set-color {Color Black})
         (fill))))
   
@@ -710,10 +682,10 @@
   ;;;
   
   
-  (method public (set-source-surface surface x <fl> y <fl>)
-    (cairo_set_source_surface context (if (is? surface Surface)
-                                          (get-surface~ surface)
-                                        surface)
+  (method public (set-source-surface surface/handle x <fl> y <fl>)
+    (cairo_set_source_surface context (if (is? surface/handle Surface)
+                                          (get-handle~ surface/handle)
+                                        surface/handle)
       x y))
   
   
@@ -919,19 +891,19 @@
   (cond-expand
     (windows
       (method public (start-doc rec)
-        (StartDoc (cairo_win32_surface_get_dc surface) rec))
+        (StartDoc (cairo_win32_surface_get_dc handle) rec))
   
   
       (method public (end-doc)
-        (EndDoc (cairo_win32_surface_get_dc surface)))
+        (EndDoc (cairo_win32_surface_get_dc handle)))
   
   
       (method public (start-page)
-        (StartPage (cairo_win32_surface_get_dc surface)))
+        (StartPage (cairo_win32_surface_get_dc handle)))
   
   
       (method public (end-page)
-        (EndPage (cairo_win32_surface_get_dc surface))))
+        (EndPage (cairo_win32_surface_get_dc handle))))
     (else))
   
   
@@ -950,7 +922,7 @@
       (stroke-preserve)))
   
   
-  (method public (frame-rect rect <Rect> color)
+  (method virtual public (frame-rect rect <Rect> color)
     (set-line-width 1)
     (set-color color)
     (draw-rectangle$fl$
@@ -960,6 +932,27 @@
         (- (get-right~ rect) 0.5)
         (- (get-bottom~ rect) 0.5)))
     (stroke))
+  
+  
+  (method public (frame-partial-rect rect <Rect> sides color)
+    (set-line-width 1)
+    (set-color color)
+    (let ((left (get-left~ rect))
+          (top (get-top~ rect))
+          (right (get-right~ rect))
+          (bottom (get-bottom~ rect)))
+      (when (memq? 'top sides)
+        (move-to left top)
+        (line-to right top))
+      (when (memq? 'right sides)
+        (move-to (- right 1) top)
+        (line-to (- right 1) (- bottom 1)))
+      (when (memq? 'left sides)
+        (move-to left top)
+        (line-to left (- bottom 1)))
+      (when (memq? 'bottom sides)
+        (move-to left (- bottom 1))
+        (line-to right (- bottom 1)))))
   
   
   (method public (frame-round-rect rect <Rect> color)
@@ -1025,15 +1018,15 @@
   
   
   (method public (translate th tv)
-    (cairo_translate context (exact->inexact th) (exact->inexact tv)))
+    (cairo_translate context (cast <fl> th) (cast <fl> tv)))
   
   
   (method public (scale sh sv)
-    (cairo_scale context (exact->inexact sh) (exact->inexact sv)))
+    (cairo_scale context (cast <fl> sh) (cast <fl> sv)))
   
   
   (method public (rotate angle)
-    (cairo_rotate context (exact->inexact angle)))
+    (cairo_rotate context (cast <fl> angle)))
   
   
   ;;;
@@ -1125,50 +1118,52 @@
   
   (method public (draw-rectangle rect <Rect>)
     (let ((x (get-left~ rect))
-          (y (get-top~ rect))
-          (w (- (get-right~ rect) (get-left~ rect)))
-          (h (- (get-bottom~ rect) (get-top~ rect))))
-      (cairo_rectangle context
-                       (cast <fl> x)
-                       (cast <fl> y)
-                       (cast <fl> w)
-                       (cast <fl> h))))
+          (y (get-top~ rect)))
+      (let ((w (- (get-right~ rect) x))
+            (h (- (get-bottom~ rect) y)))
+        (cairo_rectangle context
+                         (cast <fl> x)
+                         (cast <fl> y)
+                         (cast <fl> w)
+                         (cast <fl> h)))))
 
   
   (method public (draw-rectangle$fl$ rect <Rect$fl$>)
     (let ((x (get-left~ rect))
-          (y (get-top~ rect))
-          (w (- (get-right~ rect) (get-left~ rect)))
-          (h (- (get-bottom~ rect) (get-top~ rect))))
-      (cairo_rectangle context
-                       x
-                       y
-                       w
-                       h)))
+          (y (get-top~ rect)))
+      (let ((w (- (get-right~ rect) x))
+            (h (- (get-bottom~ rect) y)))
+        (cairo_rectangle context
+                         x
+                         y
+                         w
+                         h))))
   
   
   (method public (set-color color <Color>)
-    (let ((r (exact->inexact (/ (get-red~ color) 255.0)))
-          (g (exact->inexact (/ (get-green~ color) 255.0)))
-          (b (exact->inexact (/ (get-blue~ color) 255.0)))
-          (a (get-alpha~ color)))
+    (let ((r (/ (cast <fl> (get-red~ color)) 255))
+          (g (/ (cast <fl> (get-green~ color)) 255))
+          (b (/ (cast <fl> (get-blue~ color)) 255))
+          (a (and (get-alpha~ color)
+                  (cast <fl> (get-alpha~ color)))))
       (if (not a)
           (cairo_set_source_rgb context r g b)
         (cairo_set_source_rgba context r g b a))))
   
   
   (definition (add-color-stop pattern offset color)
-    (let ((r (/ (get-red~ color) 255))
-          (g (/ (get-green~ color) 255))
-          (b (/ (get-blue~ color) 255))
-          (a (get-alpha~ color)))
+    (let ((r (/ (cast <fl> (get-red~ color)) 255))
+          (g (/ (cast <fl> (get-green~ color)) 255))
+          (b (/ (cast <fl> (get-blue~ color)) 255))
+          (a (and (get-alpha~ color)
+                  (cast <fl> (get-alpha~ color)))))
       (if (not a)
-          (cairo_pattern_add_color_stop_rgb pattern (exact->inexact offset) (exact->inexact r) (exact->inexact g) (exact->inexact b))
-        (cairo_pattern_add_color_stop_rgba pattern (exact->inexact offset) (exact->inexact r) (exact->inexact g) (exact->inexact b) (exact->inexact a)))))
+          (cairo_pattern_add_color_stop_rgb pattern (cast <fl> offset) r g b)
+        (cairo_pattern_add_color_stop_rgba pattern (cast <fl> offset) r g b a))))
   
   
   (method public (export-to-png file)
-    (cairo_surface_write_to_png surface (parse~ file)))
+    (cairo_surface_write_to_png handle (parse~ file)))
   
 
   (method public (cairo-status)
@@ -1176,7 +1171,7 @@
   
   
   (method public (cairo-surface-status)
-    (cairo_surface_status surface))
+    (cairo_surface_status handle))
   
   
   (proclaim (not warn optimizations))))

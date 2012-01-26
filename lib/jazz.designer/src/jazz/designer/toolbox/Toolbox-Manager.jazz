@@ -41,6 +41,7 @@
 (import (jazz.designer)
         (jazz.designer.view)
         (jazz.io)
+        (jazz.graphic)
         (jazz.jml)
         (jazz.library)
         (jazz.library.component)
@@ -55,7 +56,7 @@
 ;;;
 
 
-(definition (read-toolbox)
+(definition (read-toolbox toolbox)
   (define (load-toolbox file)
     (if (exists?~ file)
         (instantiate~ (read-form file))
@@ -64,7 +65,7 @@
   (with-safe-execution "loading the toolbox"
     (lambda ()
       (let ((appl (get-application)))
-        (let ((toolbox (load-toolbox (toolbox-file~ appl))))
+        (let ((toolbox (load-toolbox (toolbox-file~ appl toolbox))))
           (install-context~ appl toolbox)
           toolbox)))
     continue-handler:
@@ -80,21 +81,26 @@
 (class undocumented Toolbox-Manager extends Component-Editor implements Exit-Listener
   
   
+  (property toolbox initialize #f accessors explicit)
+  
+  
   (form
-    (<install>                            layout-type: border
-      (<Layout-View>    name: tools
-        (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New" resource: {Image-Resource "NewTrait"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-new})
-        (<Push-Tool>    name: edit        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" resource: {Image-Resource "EditResult"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-edit})
-        (<Push-Tool>    name: add         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Add" resource: {Image-Resource "Added"} portfolio: :images action-handler: {Event-Handler (:guest tree) on-add})
-        (<Separator>                      size: {Dimension 4 0})
-        (<Push-Tool>    name: synchronize size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Synchronize" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-synchronize}))
-      (<Toolbox-Editor> name: descendants location: center
-        (<!>            name: scroller    style: tool
-          (<!>          name: content
-            (<!>        name: header
-              (<!>      name: content
-                (<!>    name: tree        highlight-edited?: #f auto-expand/collapse?: #t double-click-handler: {Event-Handler :self on-double-click}
-                  (<!>  name: descendant  title: "Model" width: 291)))))))))
+    (<install>                             layout-type: border
+      (<Layout-View>     name: tools
+        (<Push-Tool>     name: synchronize size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Synchronize" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-synchronize}))
+      (<Toolbox-Editor>  name: descendants location: center
+        (<!>             name: border
+          (<!>           name: scroller    style: tool
+            (<!>         name: content
+              (<!>       name: header
+                (<!>     name: content
+                  (<!>   name: tree        highlight-edited?: #f auto-expand/collapse?: #t double-click-handler: {Event-Handler :self on-double-click}
+                    (<!> name: descendant  title: "Model" width: 291))))))))))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (set-application-select?~ (locate '(descendants tree)) application-select?))
   
   
   (method meta override (external-name . rest)
@@ -144,8 +150,22 @@
   ;;;
   
   
-  (method override (new-controller)
+  (method override (new-document-controller)
     (new Toolbox-Manager-Controller self))
+  
+  
+  ;;;
+  ;;;; Toolbox
+  ;;;
+  
+  
+  (method public (get-toolbox)
+    toolbox)
+  
+  
+  (method public (set-toolbox tlb)
+    (set! toolbox tlb)
+    (set-client (and toolbox (read-toolbox toolbox))))
   
   
   ;;;
@@ -157,7 +177,6 @@
     (nextmethod rest)
     (set-shown?~ (locate-component '(descendants header)) #f)
     (set-editor~ (locate 'descendants) self)
-    (set-client (read-toolbox))
     (add-exit-listener~ (get-application) self))
   
   
@@ -189,12 +208,12 @@
   ;;;
   
   
-  (method public (get-dynamic-toolboxes)
-    (collect-descendants~ (get-client) Toolbox-Dynamic))
-  
-  
   (method public (get-module-names)
-    (map get-module-name~ (get-dynamic-toolboxes)))
+    (map get-module-name~ (get-toolbox-modules)))
+  
+  
+  (method public (get-toolbox-modules)
+    (collect-descendants~ (get-client) Toolbox-Module))
   
   
   (method public (get-toolbox-models)
@@ -204,7 +223,7 @@
   (method public (get-addable-models-refs component)
     (let ((tools (collect-if (lambda (tool)
                                (let ((class (get-class~ tool)))
-                                 (and class (addable-class?~ component class))))
+                                 (and (is? class Class) (addable-class?~ component class))))
                              (get-toolbox-models))))
       (map get-reference~ tools)))
   
@@ -215,21 +234,177 @@
   
   
   (method (on-synchronize evt)
-    (with-safe-design
-      (lambda ()
-        (with-update-locked
-          (lambda ()
-            (for-each (lambda (toolbox)
-                        (let ((module-name (get-module-name~ toolbox)))
-                          (for-each (lambda (class-name)
-                                      (let ((model (new Toolbox-Model parent: toolbox name: class-name))
-                                            (props (list unit: module-name model: class-name)))
-                                        (install-new-component~ (get-tree) designer model toolbox (symbol->string class-name) '() props)))
-                                    (get-missing-classes~ toolbox))
-                          (for-each (lambda (tool)
-                                      (remove-child~ designer tool))
-                                    (get-removed-classes~ toolbox))))
-                      (get-dynamic-toolboxes))))))))
+    (let ((tree (get-tree)))
+      (with-cursor :wait
+        (lambda ()
+          (with-preserved-selection~ tree
+            (lambda ()
+              (with-preserved-expand-state~ tree
+                (lambda ()
+                  (with-safe-design
+                    (lambda ()
+                      (with-update-locked
+                        (lambda ()
+                          (with-design-locked client
+                            (lambda ()
+                              (for-each (lambda (module)
+                                          (for-each (~ remove-child designer) (get-children~ module))
+                                          (add-module-elements~ module (lambda (class properties)
+                                                                         (install-new-component~ tree designer (new class) module #f '() properties descendant?: #t))))
+                                        (get-toolbox-modules)))))))))))
+            use: 'text
+            ensure-expanded?: #t)
+          (set-selection (get-selected-data~ tree)))))))
+
+
+;;;
+;;;; Dialog
+;;;
+
+
+(class Dialog-Toolbox-Manager extends Layout-View
+  
+  
+  (property toolbox-title initialize #f accessors generate)
+  
+  
+  (slot toolboxes initialize #f)
+  
+  
+  (form
+    (<install>                                          layout-type: border size: {Dimension 500 500}
+      (<Border-View>                  name: border      location: center border-type: edge style: entry
+        (<Scroller-View>              name: scroller    style: tool hscroll?: #f vscroll?: #t
+          (<!>                        name: content     layout-type: fill
+            (<Tree-Header>            name: header      style: document shown?: #f
+              (<!>                    name: content
+                (<Tree-View>          name: tree        portfolio: :images show-header?: #f return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} double-click-handler: {Event-Handler :form on-double-click}
+                  (<Tree-Node-Column> name: descendants)))))))
+      (<Layout-View>                  name: south       location: south layout-type: border size: {Dimension 500 36}
+        (<Layout-View>                                  location: south size: {Dimension 500 30} layout-type: flow
+          (<Push-Button>              name: ok          title: "OK" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t position: {Point 9 3})
+          (<Separator>                                  location: tail size: {Dimension 3 0} location: tail)
+          (<Push-Button>              name: cancel      title: "Cancel" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel} position: {Point 97 3})
+          (<Separator>                                  size: {Dimension 5 0} location: tail)))))
+  
+  
+  (method public virtual (filter-model model)
+    #t)
+  
+  
+  (method (get-tree)
+    (locate 'tree))
+  
+  
+  (method (insert-component row component)
+    (let* ((components (get-components~ component))
+           (title      (get-presentation-property~ component))
+           (image      (get-component-image~ component))
+           (state      (if (null? components) 'collapsed 'expanded))
+           (subrow     (add-row~ (locate 'tree) father: row state: state children: (list (new Tree-Node title: title image: image)) user-data: component)))
+      (for-each (lambda (component) (insert-component subrow component)) components)
+      subrow))
+  
+  
+  (method (build-toolbox-element element)
+    (let ((children (collect build-toolbox-element (get-children~ element))))
+      (and (typecase element
+             ((Toolbox-Model) (filter-model element))
+             (else (not-null? children)))
+           (let ((new-element (copy-object~ element #f)))
+             (set-children~ new-element children)
+             new-element))))
+
+
+  (method (build-toolboxes)
+    (map (lambda (toolbox)
+           (let ((new-toolbox (new Toolbox title: (get-title~ toolbox) icon: (get-icon~ toolbox))))
+             (set-children~ new-toolbox (collect build-toolbox-element (get-children~ toolbox)))
+             new-toolbox))
+         (map get-client~ (get-toolbox-managers))))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (let ((toolboxes (build-toolboxes)))
+      (set! toolboxes~self toolboxes)
+      (with-update-locked~ (get-tree)
+        (lambda ()
+          (for-each (lambda (toolbox)
+                      (insert-component #f toolbox))
+                    toolboxes)))))
+  
+  
+  ;;;
+  ;;;; Setup
+  ;;;
+  
+  
+  (method (select-tool import symbol)
+    (let (loop (toolboxes toolboxes))
+      (when (not-null? toolboxes)
+        (let ((model (find-model~ (car toolboxes) symbol import)))
+          (if model
+              (select-user-data-row~ (locate 'tree) model)
+            (loop (cdr toolboxes)))))))
+  
+  
+  (method virtual public (setup import symbol . rest)
+    (select-tool import symbol))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-return-press evt)
+    (let ((dialog (get-host)))
+      (end-modal~ dialog (get-modal-result~ dialog))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+  
+  
+  (method (on-double-click evt)
+    (let ((dialog (get-host)))
+      (end-modal~ dialog (get-modal-result~ dialog))))
+  
+  
+  ;;;
+  ;;;; Result
+  ;;;
+  
+  
+  (method (selected-model)
+    (let ((obj (get-single-selected-data~ (get-tree))))
+      (and (is? obj Toolbox-Model) obj)))
+  
+  
+  (method override (get-modal-result)
+    (let ((obj (selected-model)))
+      (if obj
+          (list (get-model~ obj) (get-unit~ obj))
+        (designer-error "Select a valid model")))))
+
+
+(class Class-Dialog-Toolbox extends Dialog-Toolbox-Manager
+  
+  
+  (property references initialize #f accessors generate)
+  
+  
+  (method override (filter-model model)
+    (if references
+        (let ((classes (map resolve-reference~ references))
+              (class (get-class~ model)))
+          (and (is? class Class)
+               (member? class classes test: subclass?)))
+      (error "No class references in toolbox dialog"))))
 
 
 ;;;
@@ -238,6 +413,10 @@
 
 
 (class Toolbox-Manager-Controller extends Component-Editor-Controller
+  
+  
+  (method override (update-caption)
+    )
   
   
   (method override (document-status)

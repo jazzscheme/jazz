@@ -112,9 +112,12 @@
   
   
   (method override (copy-object deep?)
-    (new Form textual?: #f data: (and data (copy data)) origin: origin context: context action: action model: model locator: locator name: name tag-symbolic?: tag-symbolic? tag-reference: tag-reference properties: (copy properties) children: (subcopy children deep?)))
-
-
+    (let ((copy (new Form textual?: #f data: (and data (copy data)) origin: origin context: context action: action model: model locator: locator name: name tag-symbolic?: tag-symbolic? tag-reference: tag-reference properties: (copy properties) children: (subcopy children deep?))))
+      (when (and deep? (has-property? 'client-form))
+        (set-property~ copy 'client-form (copy-object~ (get-property 'client-form) #t)))
+      copy))
+  
+  
   (method override (print output readably)
     (print-unreadable self output
       (lambda (output)
@@ -185,10 +188,24 @@
     (find-child name))
   
   
+  (method public (find-path path)
+    (if (null? path)
+        self
+      (let ((child (find-child (car path))))
+        (and child (find-path~ child (cdr path))))))
+  
+  
   (method public (find-type type)
     (find-by
       (lambda (child)
         (eq? (get-model~ child) type))))
+  
+  
+  (method public (find-subtype type)
+    (find-by
+      (lambda (child)
+        (let ((class (and (get-model~ child) (resolve-model~ child))))
+          (and class (subtype? class type))))))
   
   
   (method override (add-child child)
@@ -272,6 +289,23 @@
       (get-name)
       (keywordize-properties (get-properties))
       (get-children)))
+  
+  
+  ;;;
+  ;;;; Traits
+  ;;;
+  
+  
+  (method public (get-base-traits-names)
+    (let ((names (or (getf properties 'base-traits) (getf properties base-traits:))))
+      (and names
+           (listify names))))
+  
+  
+  (method public (get-traits context)
+    (map (lambda (trait)
+           (resolve-trait context trait))
+         (or (get-base-traits-names) '())))
   
   
   ;;;

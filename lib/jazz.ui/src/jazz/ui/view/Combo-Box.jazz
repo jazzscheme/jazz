@@ -38,11 +38,9 @@
 (module protected jazz.ui.view.Combo-Box jazz
 
 
-(import (jazz.graphic)
-        (jazz.jml)
+(import (jazz.jml)
         (jazz.library)
         (jazz.locale)
-        (jazz.platform)
         (jazz.ui)
         (jazz.ui.view))
 
@@ -142,9 +140,9 @@
     (let ((current (get-entry))
           (handler (or action-handler (new Event-Handler target: self method-name: 'on-action))))
       (define (checked? choice title)
-        (if selected
-            (eq? choice selected)
-          (string=? title current)))
+        (if editable?
+            (string=? title (standardize-content current))
+          (eq? choice selected)))
       
       (define (create-check-item choice title parent)
         (let ((checked? (checked? choice title)))
@@ -295,6 +293,10 @@
       (call-content-change #f)))
   
   
+  (method protected virtual (standardize-content content)
+    content)
+  
+  
   ;;;
   ;;;; Validate
   ;;;
@@ -310,7 +312,7 @@
                (case (message-box (exception-reason err) type: type yes: "Change It" no: no)
                  ((yes)
                   (focus-body)
-                  (throw-cancel))
+                  (signal-cancel))
                  ((no)
                   (set-entry unique-entry))))
         (get-value))))
@@ -342,8 +344,13 @@
   (form
     (<install>
       (<properties~>
-        (<Property-Descriptor> name: condensed? title: "Condensed")
-        (<Property-Descriptor> name: choices title: "Choices")
-        (<Property-Descriptor> name: nullable? title: "Nullable")
-        (<Property-Descriptor> name: choices-updater title: "Choices Updater")
-        (<Property-Descriptor> name: entry-test title: "Entry Test")))))))
+        (<Property-Descriptor> name: condensed?
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: choices
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: nullable?
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: choices-updater
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: entry-test
+          (<Value-Domain>      name: domain))))))))

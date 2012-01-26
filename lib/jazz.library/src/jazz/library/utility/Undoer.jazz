@@ -38,14 +38,15 @@
 (module protected jazz.library.utility.Undoer jazz
 
 
-(import (jazz.library)
-        (jazz.system))
+(import (jazz.system))
 
 
 (class Undoer extends Object
   
   
-  (slot reset-modified)
+  (slot preserve-state initialize #f  accessors generate)
+  (slot restore-state  initialize #f  accessors generate)
+  (slot reset-modified initialize #f  accessors generate)
   (slot undo-list      initialize '() getter generate)
   (slot redo-list      initialize '())
   (slot undoing?       initialize #f)
@@ -55,8 +56,12 @@
   (slot save-depth     initialize 0)
   
   
-  (method override (initialize (reset-modified: reset-modified #f))
+  (method override (initialize (preserve-state: preserve-state #f)
+                               (restore-state: restore-state #f)
+                               (reset-modified: reset-modified #f))
     (nextmethod)
+    (set! preserve-state~self preserve-state)
+    (set! restore-state~self restore-state)
     (set! reset-modified~self reset-modified))
 
 
@@ -83,17 +88,18 @@
   ;;;
 
 
-  (method public (register-undo action (reset #f))
-    (cond (atomic?
-           (register-atomic-action action))
-          (undoing?
-           (set! redo-list (cons action redo-list))
-           (decrease! save-depth))
-          (else
-           (set! undo-list (cons action undo-list))
-           (increase! save-depth)
-           (unless redoing?
-             (set! redo-list '()))))
+  (method public (register-undo action (reset #f) (preserve? #t))
+    (let ((action (if preserve? (preserving-action action) action)))
+      (cond (atomic?
+              (register-atomic-action action))
+            (undoing?
+              (set! redo-list (cons action redo-list))
+              (decrease! save-depth))
+            (else
+             (set! undo-list (cons action undo-list))
+             (increase! save-depth)
+             (unless redoing?
+               (set! redo-list '())))))
     (when (and reset-modified (= save-depth 0) (not atomic?))
       (reset-modified)))
   
@@ -140,11 +146,43 @@
 
 
   ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method (preserving-action action)
+    (if preserve-state
+        (let ((state (preserve-state)))
+          (lambda ()
+            (action)
+            (restore-state state)))
+      action))
+
+
+  ;;;
   ;;;; Atomic
   ;;;
   
   
   (method public (with-atomic-undo proc)
+    (let ((preserved atomic?)
+          (completed? #f))
+      (unwind-protect
+          (begin
+            (start-atomic-undo)
+            (prog1 (proc)
+              (set! completed? #t)))
+        (end-atomic-undo preserved completed?))))
+  
+  
+  (method public (start-atomic-undo)
+    (prog1 atomic?
+      (unless atomic?
+        (set! atomic-actions '()))
+      (set! atomic? #t)))
+  
+  
+  (method public (end-atomic-undo preserved (completed? #t))
     (define (register-atomic-actions actions)
       (when (not-null? actions)
         (register-undo
@@ -153,25 +191,18 @@
               (lambda ()
                 (for-each (lambda (action)
                             (play-action action))
-                          actions)))))))
+                          actions))))
+          #f
+          #f)))
     
-    (let ((preserved atomic?)
-          (completed? #f))
-      (unwind-protect
-          (begin
-            (unless atomic?
-              (set! atomic-actions '()))
-            (set! atomic? #t)
-            (proc)
-            (set! completed? #t))
-        (set! atomic? preserved)
-        (unless atomic?
-          (let ((actions atomic-actions))
-            (set! atomic-actions '())
-            (when (and completed? (not atomic?))
-              (register-atomic-actions actions)
-              (let ((appl (get-application)))
-                (update-focus-actions~ appl))))))))
+    (set! atomic? preserved)
+    (unless atomic?
+      (let ((actions atomic-actions))
+        (set! atomic-actions '())
+        (when (and completed? (not atomic?))
+          (register-atomic-actions actions)
+          (let ((appl (get-application)))
+            (update-focus-actions~ appl))))))
   
   
   (method (register-atomic-action action)

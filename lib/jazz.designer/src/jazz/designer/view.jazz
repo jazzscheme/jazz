@@ -43,7 +43,8 @@
         (jazz.library)
         (jazz.library.component)
         (jazz.locale)
-        (jazz.platform)
+        (jazz.runtime)
+        (jazz.system.access)
         (jazz.ui.picker)
         (jazz.ui)
         (jazz.ui.view))
@@ -66,15 +67,19 @@
 
 
 (definition package (component-addable-classes component)
-  (flatten (or (component-categorized-toolbox-addable-classes component)
-               (get-categorized-addable-classes~ component))))
+  (remove-duplicates
+    (map publicize-runtime-reference
+         (flatten
+           (or (component-categorized-toolbox-addable-classes component) '())))
+    key: serialize-runtime-reference
+    test: equal?))
 
 
 (definition package (component-categorized-toolbox-addable-classes component)
-  (let ((toolbox (find-docked Toolbox-Manager)))
-    (and toolbox
+  (let ((toolbox-managers (get-toolbox-managers)))
+    (and (not-null? toolbox-managers)
          (is? component Component)
-         (list (get-addable-models-refs~ toolbox component)))))
+         (get-categorized-addable-classes~ component))))
 
 
 (definition package (component-categorized-addable-classes component parent)
@@ -91,18 +96,19 @@
 
 
 (definition public (redundant-descendant? component components)
-    (some? (lambda (target)
-             (and (neq? component target)
-                  (has-parent?~ component target)))
-           components))
+  (some? (lambda (target)
+           (and (neq? component target)
+                (has-parent?~ component target)))
+         components))
 
 
-(definition (can-modify-components? components pred)
-  (every? (lambda (component)
-            (and (is? component Component)
-                 (pred component)
-                 (not (redundant-descendant? component components))))
-          components))
+(definition public (can-modify-components? components pred)
+  (and (not-null? components)
+       (every? (lambda (component)
+                 (and (is? component Component)
+                      (pred component)
+                      (not (redundant-descendant? component components))))
+               components)))
 
 
 (definition public (can-copy-components? components)
@@ -125,43 +131,80 @@
 
 
 ;;;
-;;;; Edit
+;;;; Open
 ;;;
 
 
-(definition public (edit-class class)
-  (define (find-editor)
-    (find-frame-if-guest
-      (lambda (guest)
-        (and (is? guest Component-Editor)
-             (let* ((client (get-client~ guest))
-                    (origin (get-origin~ (get-form~ client))))
-               (eq? class origin))))))
-  
+(definition public (origin-equal? origin1 origin2)
+  (and (eq? (class-of origin1) (class-of origin2))
+       (typecase origin1
+         ((File) (pathname=? origin1 origin2))
+         ((Class) (eq? origin1 origin2))
+         ((Runtime-Reference) (eq? (resolve-runtime-reference origin1)
+                                   (resolve-runtime-reference origin2)))
+         (else
+          (error "Unknown origin type : {s}" (class-of origin1))))))
+
+
+(definition public (find-editor origin)
+  (find-frame-if-guest
+    (lambda (guest)
+      (and (is? guest Component-Editor)
+           (origin-equal? origin (get-origin~ (get-form~ (get-designer~ guest))))))))
+
+
+(definition public (make-trait-edition-instance reference)
+  (let* ((trait (resolve-runtime-reference reference))
+         (trait-type (get-client-type~ trait))
+         (type-name (category-name trait-type))
+         (trait-form (get-form~ trait))
+         (trait-edition-form (copy-object~ trait-form #t))
+         (edition-form (new Form action: 'new model: type-name children: (list trait-edition-form))))
+    (set-locator~ edition-form (let ((locator (get-locator~ trait-form))
+                                     (type-reference (runtime-class-reference trait-type)))
+                                 (lambda (symbol)
+                                   (if (eq? symbol type-name) type-reference (locator symbol)))))
+    (setup-context~ edition-form edition-form)
+    (set-origin~ edition-form reference)
+    (instantiate~ edition-form)))
+
+
+(definition public (open-trait reference)
+  (let ((resolved (resolve-runtime-reference reference)))
+    (if (is? resolved Trait)
+        (let ((frame (find-editor reference)))
+          (if frame
+              (focus-host~ frame)
+            (open-component (make-trait-edition-instance reference))))
+      (error "Target is not a trait: {s}" resolved))))
+
+
+(definition public (make-class-edition-instance class)
+  (let ((edition-form (copy-object~ (get-class-form~ class) #t)))
+    (setup-context~ edition-form edition-form)
+    (new class class-form: edition-form)))
+
+
+(definition public (open-class class)
   (if (class? class)
-      (let ((frame (find-editor)))
+      (let ((frame (find-editor class)))
         (if frame
             (focus-host~ frame)
-          (let* ((component (new class))
-                 (editor-class (typecase component
-                                 ((View) View-Editor)
-                                 ((Component) Grid-Component-Editor))))
-            (new-frame editor-class client: component))))
-    (error "Unable to edit: {s}" class)))
+          (open-component (make-class-edition-instance class))))
+    (error "Target is not a class: {s}" class)))
 
 
-(definition public (edit-component target (editor-class: editor-class #f))
-  (let ((component (parameterize ((designing? #t))
-                     (cond ((class? target) (new target))
-                           ((is? target Form) (instantiate~ target))
-                           ((is? target Component) target)
-                           ((is? target File) (instantiate~ (read-form target)))
-                           (else (error "Unable to edit: {s}" target))))))
-    (let ((editor-class (or editor-class
-                            (typecase component
-                              ((View) View-Editor)
-                              ((Component) Grid-Component-Editor)))))
-      (new-frame editor-class client: component))))
+(definition protected (open-component target (editor-class: editor-class #f))
+  (if (is? target Component)
+      (let ((editor-class (or editor-class
+                              (typecase target
+                                ((View) (view-editor-class~ (get-application)))
+                                ((Component) (component-editor-class~ (get-application)))))))
+        (let ((frame (new-frame editor-class client: target)))
+          (let ((editor (get-guest~ frame)))
+            (set-selection~ editor (list target) origin: editor)
+            editor)))
+    (error "Target is not a component: {s}" target)))
 
 
 ;;;
@@ -242,9 +285,19 @@
 (definition public (designer-error . rest)
   (signal (new Designer-Error message: (apply format rest))))
 
+
 (definition public (with-safe-design thunk)
   (with-catched-exception
     (lambda (obj)
       (and (object? obj)
            (is? obj Designer-Error)))
-    thunk)))
+    thunk))
+
+
+;;;
+;;;; Toolboxes
+;;;
+
+
+(definition public (get-toolbox-managers)
+  (collect-type Toolbox-Manager (docked-views))))

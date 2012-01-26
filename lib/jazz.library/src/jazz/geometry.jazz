@@ -39,6 +39,25 @@
 
 
 ;;;
+;;;; Angle
+;;;
+
+
+(constant PI 3.14159265358979323846)
+(constant PI*2 (* PI 2.))
+(constant PI/2 (/ PI 2.))
+(constant PI/4 (/ PI 4.))
+
+
+(definition public (degree->radian angle <fl>)
+  (/ (* PI*2 angle) 360.))
+
+
+(definition public (radian->degree angle <fl>)
+  (/ (* PI*2 360.) angle))
+
+
+;;;
 ;;;; Rect
 ;;;
 
@@ -155,21 +174,35 @@
     (+ (get-bottom~ rect) b)))
 
 
+(definition public (inset-rect rect <Rect> inset <Rect>)
+  (new Rect
+    (+ (get-left~ rect) (get-left~ inset))
+    (+ (get-top~ rect) (get-top~ inset))
+    (- (get-right~ rect) (get-right~ inset))
+    (- (get-bottom~ rect) (get-bottom~ inset))))
+
+
 (definition public (base-rect rect <Rect>) <Rect>
   (offset-rect rect (- (get-left~ rect)) (- (get-top~ rect))))
 
 
+(definition public (fit-dimensions src dst mode)
+  (let ((dw (get-width~ dst))
+        (dh (get-height~ dst))
+        (sw (get-width~ src))
+        (sh (get-height~ src)))
+    (let ((rw (/ (cast <fl> dw) sw))
+          (rh (/ (cast <fl> dh) sh)))
+      (case mode
+        ((fill) (max rw rh))
+        ((fit) (min rw rh))
+        ((width) rw)
+        ((height) rh)
+        ((both) (if (> rw rh) rh rw))))))
+
+
 (definition public (fit-rects src dst mode)
-  (let* ((dw (rect-width dst))
-         (dh (rect-height dst))
-         (sw (rect-width src))
-         (sh (rect-height src))
-         (rw (/ dw sw))
-         (rh (/ dh sh)))
-    (case mode
-      ((width) rw)
-      ((height) rh)
-      ((both) (if (> rw rh) rh rw)))))
+  (fit-dimensions (rect-size src) (rect-size dst) mode))
 
 
 (definition public (fit-within outer rect (minimum-size: minimum-size {Dimension 0 0}) (padding: padding 0))
@@ -230,6 +263,13 @@
        (<= (get-bottom~ r) (get-bottom~ rect))))
 
 
+(definition public (rect-inside-border? rect <Rect> border <Rect> insets <Rect>) <bool>
+  (and (> (get-left~ rect) (+ (get-left~ border) (get-left~ insets)))
+       (> (get-top~ rect) (+ (get-top~ border) (get-top~ insets)))
+       (< (get-right~ rect) (- (get-right~ border) (get-right~ insets)))
+       (< (get-bottom~ rect) (- (get-bottom~ border) (get-bottom~ insets)))))
+
+
 (definition public (in-size? pt <Point> size <Dimension>) <bool>
   (and (>= (get-h~ pt) 0)
        (>= (get-v~ pt) 0)
@@ -255,6 +295,14 @@
 
 (definition public (inverse-rect rect <Rect>) <Rect>
   (new Rect
+    (- (get-left~ rect))
+    (- (get-top~ rect))
+    (- (get-right~ rect))
+    (- (get-bottom~ rect))))
+
+
+(definition public (transpose-rect rect <Rect>) <Rect>
+  (new Rect
     (get-top~ rect)
     (get-left~ rect)
     (get-bottom~ rect)
@@ -266,6 +314,12 @@
        (>= (get-left~ rect) 0)
        (>= (get-bottom~ rect) 0)
        (>= (get-right~ rect) 0)))
+
+
+(definition public (points-bounding-box pts <Point+>) <Rect>
+  (let ((hs (sort < (map get-h~ pts)))
+        (vs (sort < (map get-v~ pts))))
+    (new Rect (first hs) (first vs) (last hs) (last vs))))
 
 
 ;;;
@@ -293,8 +347,8 @@
   
   (cond ((and (is? inner Dimension) (is? outer Dimension))
          (new Point
-           (just (get-width~ inner) (get-width~ outer) (first justification))
-           (just (get-height~ inner) (get-height~ outer) (second justification))))
+           (just (get-width~ inner) (get-width~ outer) (if (pair? justification) (first justification) justification))
+           (just (get-height~ inner) (get-height~ outer) (if (pair? justification) (second justification) justification))))
         ((and (number? inner) (number? outer))
          (just inner outer justification))
         (else
@@ -364,8 +418,8 @@
     (if (= divider 0)
         #f
       (abs
-        (/ (scalar-product (new Point (- (get-h~ point) (get-h~ start)) (- (get-v~ point) (get-v~ start)))
-                           (new Point (- (get-v~ end) (get-v~ start)) (- (get-h~ start) (get-h~ end))))
+        (/ (cast <fl> (scalar-product (new Point (- (get-h~ point) (get-h~ start)) (- (get-v~ point) (get-v~ start)))
+                                      (new Point (- (get-v~ end) (get-v~ start)) (- (get-h~ start) (get-h~ end)))))
            divider)))))
 
 
@@ -393,7 +447,7 @@
 
 
 (definition public (scale shape sc)
-  (let ((sc (exact->inexact sc)))
+  (let ((sc (cast <fl> sc)))
     (typecase shape
       ((Point)
        (let ((h <fx> (get-h~ shape))

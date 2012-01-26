@@ -40,7 +40,7 @@
 
 (import (jazz.designer)
         (jazz.graphic)
-        (jazz.io)
+        (jazz.graphic.pdf)
         (jazz.jml)
         (jazz.library)
         (jazz.system)
@@ -49,15 +49,14 @@
         (jazz.ui.view))
 
 
-(class undocumented Text-Palette extends View
+(class undocumented Text-Palette extends Layout-View
     
   
-  (slot flow-layout)
-  (slot client      initialize #f)
+  (slot client initialize #f)
 
 
   (form
-    (<install>                                           background: {Color Medium}
+    (<install>                                           layout-type: flow layout-insets: {Rect 4 5 0 0} background: {Color Medium}
       (<Border-View>           name: style-border        size: {Dimension 120 22} border-insets: {Rect 2 2 2 1} border-color: {Color Medium}
         (<Border-View>                                   border-color: {Color red: 200 green: 188 blue: 166}
           (<Text-Style-Combo>  name: style               enabled?: #f)))
@@ -109,7 +108,9 @@
       @wait
       (<Separator>             name: table-separator)
       @wait
-      (<Push-Tool>             name: insert-table        size: {Dimension 22 22} tooltip?: #t tooltip-text: "Insert Table..." resource: {Image-Resource "DesignTable"} portfolio: :images enabled?: #f action-handler: {Event-Handler :form on-insert-table})))
+      (<Push-Tool>             name: insert-table        size: {Dimension 22 22} tooltip?: #t tooltip-text: "Insert Table..." resource: {Image-Resource "DesignTable"} portfolio: :images enabled?: #f action-handler: {Event-Handler :form on-insert-table})
+      (<Separator>             name: export-separator)
+      (<Push-Tool>             name: export-pdf          size: {Dimension 22 22} tooltip?: #t tooltip-text: "Export to PDF..." resource: {Image-Resource "ExportPicture"} portfolio: :images enabled?: #f action-handler: {Event-Handler :form on-export-pdf})))
     
   
   (method meta override (external-name . rest)
@@ -133,59 +134,41 @@
     "Text")
   
   
-  (method override (host-install)
-    (let ((appl (get-application)))
-      (add-focus-listener~ appl (new Event-Handler target: self method-name: 'on-focus-change))))
+  (method override (client-activate)
+    (let ((guest (current-document)))
+      (if (is? guest Formatted-Text-View)
+          (set-client guest)
+        (set-client #f))))
   
   
-  (method override (host-uninstall)
-    (let ((appl (get-application)))
-      (remove-focus-listener~ appl self)))
-
+  (method override (client-deactivate)
+    (set-client #f))
+  
   
   ;;;
-  ;;;; Component
+  ;;;; Client
   ;;;
 
 
-  (method override (finish initargs)
-    (nextmethod initargs)
-    (set! flow-layout (new Flow-Layout insets: {Rect 4 5 0 0}))
-    (layout-view))
-  
-  
-  (method override (layout)
-    (layout~ flow-layout children (get-width) (get-height)))
+  (method public (get-client)
+    client)
+
+ 
+  (method public (set-client clt)
+    (when (neq? clt client)
+      (set! client clt)
+      (when client
+        (set-client~ (locate 'format) client)
+        (set-client~ (locate 'style) client)
+        (set-client~ (locate 'font) client)
+        (set-client~ (locate 'size) client)
+        (selection-change))
+      (enable-buttons client)))
 
   
   ;;;
   ;;;; Events
   ;;;
-  
-  
-  (method (on-focus-change evt)
-    (let ((appl (get-application))
-          (focus (get-focus~ evt)))
-      @convert
-      (when (and (is? old-focus Formatted-Text-View)
-                 (text-listener?~ old-focus self))
-        (remove-text-listener~ old-focus self))
-      (when (and (is? focus Formatted-Text-View)
-                 (not (text-listener?~ focus self)))
-        (add-text-listener~ focus (new Event-Handler target: self method-name: 'on-text))
-        (activate-text focus))
-      (enable-buttons
-        (and focus
-             (or (and (is? focus Formatted-Text-View)
-                      (text-listener?~ focus self))
-                 (let ((host (get-host~ focus)))
-                   (and host
-                        (eq? (get-guest~ host) self))))))))
-  
-  
-  (method (on-text evt)
-    (case (get-kind~ evt)
-      ((:selection-change) (selection-change))))
 
 
   (method protected virtual (enable-buttons enabled?)
@@ -214,7 +197,8 @@
     (set-enabled?~ (locate 'insert-link) enabled?)
     (set-enabled?~ (locate 'insert-image) enabled?)
     @wait
-    (set-enabled?~ (locate 'insert-table) enabled?))
+    (set-enabled?~ (locate 'insert-table) enabled?)
+    (set-enabled?~ (locate 'export-pdf) enabled?))
   
   
   ;;;
@@ -261,21 +245,22 @@
   
   (method (on-insert-table evt)
     (insert-table~ client size: {Dimension 304 101} header?: #f node-column?: #f columns: '((width: 100) (width: 100) (width: 100)) row-count: 2))
-
-  
-  ;;;
-  ;;;; Text
-  ;;;
   
   
-  (method (activate-text text)
-    (when (neq? text client)
-      (set! client text)
-      (set-client~ (locate 'format) client)
-      (set-client~ (locate 'style) client)
-      (set-client~ (locate 'font) client)
-      (set-client~ (locate 'size) client)
-      (selection-change)))
+  (method (on-export-pdf evt)
+    ;; needs cleanup
+    (let ((class (class-of client))
+          (moniker (get-moniker~ client))
+          (page-setup (new Page-Setup)))
+      (let ((page-content (get-content~ page-setup))
+            (text (new class)))
+        (let ((model (get-model~ text)))
+          (set-width~ text (get-width~ page-content))
+          (set-moniker~ text moniker)
+          (with-printing~ (get-model~ text)
+            (lambda ()
+              (set-height-noevent~ text (scrollee-height~ text))
+              (document->pdf text (choose-new-file default-extension: "pdf" extensions: '(("PDF files" . "pdf"))))))))))
 
   
   ;;;

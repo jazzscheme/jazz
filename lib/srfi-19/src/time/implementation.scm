@@ -1413,6 +1413,14 @@
 		       'bad-date-template-string
 		       "Invalid character match."))))
 
+(define (tm:make-char-id-list-reader char-list)
+  (lambda (port)
+    (if (memv (read-char port) char-list)
+        (car char-list)
+      (tm:time-error 'string->date
+                     'bad-date-template-string
+                     "Invalid character match."))))
+
 ;; A List of formatted read directives.
 ;; Each entry is a list.
 ;; 1. the character directive;
@@ -1426,24 +1434,25 @@
 ;; In some cases (e.g., ~A) the action is to do nothing
 
 (define tm:read-directives
-  (let ( (ireader4 (tm:make-integer-reader 4))
-	 (ireader2 (tm:make-integer-reader 2))
-	 (ireaderf (tm:make-integer-reader #f))
-	 (eireader2 (tm:make-integer-exact-reader 2))
-	 (eireader4 (tm:make-integer-exact-reader 4))
-	 (locale-reader-abbr-weekday (tm:make-locale-reader
-				      tm:locale-abbr-weekday->index))
-	 (locale-reader-long-weekday (tm:make-locale-reader
-				      tm:locale-long-weekday->index))
-	 (locale-reader-abbr-month   (tm:make-locale-reader
-				      tm:locale-abbr-month->index))
-	 (locale-reader-long-month   (tm:make-locale-reader
-				      tm:locale-long-month->index))
-	 (char-fail (lambda (ch) #t))
-	 (do-nothing (lambda (val object) (values)))
-	 )
+  (let ((ireader4 (tm:make-integer-reader 4))
+        (ireader2 (tm:make-integer-reader 2))
+        (ireaderf (tm:make-integer-reader #f))
+        (eireader2 (tm:make-integer-exact-reader 2))
+        (eireader4 (tm:make-integer-exact-reader 4))
+        (locale-reader-abbr-weekday (tm:make-locale-reader
+                                      tm:locale-abbr-weekday->index))
+        (locale-reader-long-weekday (tm:make-locale-reader
+                                      tm:locale-long-weekday->index))
+        (locale-reader-abbr-month   (tm:make-locale-reader
+                                      tm:locale-abbr-month->index))
+        (locale-reader-long-month   (tm:make-locale-reader
+                                      tm:locale-long-month->index))
+        (char-fail (lambda (ch) #t))
+        (do-nothing (lambda (val object) (values)))
+        )
     
     (list
+     (list #\. char-fail (tm:make-char-id-list-reader '(#\- #\/)) do-nothing)
      (list #\~ char-fail (tm:make-char-id-reader #\~) do-nothing)
      (list #\a char-alphabetic? locale-reader-abbr-weekday do-nothing)
      (list #\A char-alphabetic? locale-reader-long-weekday do-nothing)

@@ -40,11 +40,8 @@
 
 (import (jazz.designer)
         (jazz.designer.view)
-        (jazz.jml)
         (jazz.library)
-        (jazz.library.component)
-        (jazz.locale)
-        (jazz.platform)
+        (jazz.runtime)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.view)
@@ -53,6 +50,9 @@
 
 (class undocumented Components-Tree extends Components-Viewer
 
+  
+  (property application-select? initialize #t accessors generate)
+  
   
   ;;;
   ;;;; Actions
@@ -91,13 +91,9 @@
     (show-properties))
   
   
-  (method virtual (on-open-grid evt)
-    (new-frame Grid-Component-Editor client: (get-client)))
-  
-  
-  (method virtual (on-edit evt)
+  (method virtual (on-open evt)
     (let ((component (selected-component)))
-      (edit-class (class-of component))))
+      (open-class (class-of component))))
   
   ;;;
   ;;;; Focus
@@ -106,15 +102,16 @@
 
   (method override (focus-gained)
     (nextmethod)
-    (set-selected~ (get-application) (get-editor) (selected-components)))
+    (when application-select?
+      (set-selected~ (get-application) (get-editor) (selected-components))))
   
   
   (method override (focus-update-actions)
     (set-action-enabled? {Action components-tree rename} (can-rename?))
-    (set-action-enabled? {Action components-tree edit} #f)
     (set-action-enabled? {Action components-tree new} #f)
+    (set-action-enabled? {Action components-tree open} #f)
     (set-action-enabled? {Action components-tree add} #f)
-    (set-action-enabled? {Action components-tree open-grid} #f))
+    (set-action-enabled? {Action components-tree set-default-traits} #f))
 
 
   ;;;
@@ -186,7 +183,11 @@
     (get-presentation-property~ component))
   
   
-  (method protected virtual (component-color component)
+  (method protected virtual (component-font component owned-form)
+    #f)
+  
+  
+  (method protected virtual (component-color component owned-form)
     #f)
   
   
@@ -225,13 +226,11 @@
   
   
   (method override (can-cut?)
-    (let ((components (selected-components)))
-      (and (every? (lambda (component) (neq? component client)) components)
-           (can-cut-components? components))))
+    (and editor (can-cut-selection?~ editor)))
   
   
   (method override (can-copy?)
-    (can-copy-components? (selected-components)))
+    (and editor (can-copy-selection?~ editor)))
   
   
   (method override (can-paste?)
@@ -253,17 +252,11 @@
   
   
   (method override (can-delete?)
-    (let ((components (selected-components)))
-      (and (every? (lambda (component) (neq? component client)) components)
-           (can-delete-components? components))))
+    (and editor (can-delete-selection?~ editor)))
   
   
   (method override (can-rename?)
-    (let ((components (selected-components)))
-      (and (= (length components) 1)
-           (let ((component (car components)))
-             (and (is? component Component)
-                  (can-rename-component?~ component))))))
+    (and editor (can-rename-selection?~ editor)))
   
   
   (method override (can-select-all?)
@@ -271,26 +264,11 @@
   
   
   (method override (cut-selection)
-    (let ((components (selected-components)))
-      (if (null? components)
-          (bell)
-        (with-update-locked
-          (lambda ()
-            (with-deleted-selection (get-selection)
-              (lambda ()
-                (cut-components~ designer components))
-              can-survive?: #t))))))
+    (cut-selection~ editor))
   
   
   (method override (copy-selection)
-    (let ((components (selected-components)))
-      (if (null? components)
-          (bell)
-        (with-cursor :wait
-          (lambda ()
-            (copy-components~ designer components)
-            (update-focus-actions~ (get-application)))
-          duration: .150))))
+    (copy-selection~ editor))
   
   
   ;; This is a simplification from the old version see commit : e073f6cb308d78d5f3458eecda045e6076430745
@@ -299,7 +277,11 @@
           (parcels (get-jazz-parcels)))
       (for-each (lambda (info)
                   (bind (model . parcels) info
-                    (paste-parcels~ designer parcels (relocation-parent parent model))))
+                    (with-atomic-undo~ (get-undoer~ designer)
+                      (lambda ()
+                        (let ((components (paste-parcels~ designer parcels (relocation-parent parent model))))
+                          (for-each (lambda (comp) (cascade-view-position~ designer comp {Point 0 0})) components)
+                          (select-components components))))))
                 (partition parcels key: (lambda (parcel) (let ((master (get-master~ parcel))) (get-model~ master)))))))
   
   
@@ -309,26 +291,7 @@
   
   
   (method override (delete-selection)
-    (let ((selection (get-selection)))
-      (when (not-null? selection)
-        (let ((components (get-selected-data)))
-          (when (confirm-close)
-            (with-deleted-selection selection
-              (lambda ()
-                (delete-components~ designer components))
-              can-survive?: #t))))))
-  
-  
-  (method override (confirm-close (components '()))
-    (confirm-action "Delete selected objects?"))
-  
-  
-  (method protected (confirm-action text)
-    (let ((code (message-box (localize text) type: 'confirmation)))
-      (case code
-        ((yes) #t)
-        ((no) #f)
-        ((cancel) (throw-cancel)))))
+    (delete-selection~ editor))
     
 
   
@@ -347,12 +310,9 @@
   
   
   (method override (categorized-addable-classes component)
-    (cond ((not component)
-           (categorized-addable-root-classes))
-          ((is-not? component Component)
-           '())
-          (else
-           (component-categorized-addable-classes component (parent-relocation (get-parent~ component))))))
+    (if (is? component Component)
+        (component-categorized-addable-classes component (parent-relocation (get-parent~ component)))
+      '()))
   
   
   (method override (add-component-class reference (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
@@ -369,17 +329,18 @@
     (let* ((selected (selected-component))
            (class (resolve-runtime-reference reference))
            (parent (or parent (relocation-parent selected class) selected client))
-           (extra-properties properties)
-           (import (second (serialize-runtime-reference reference))))
-      ;; To support the new feature that it is now possible to
-      ;; insert a parent's child directly from the child itself
-      (when (not (memq? class (map resolve-runtime-reference (addable-classes parent))))
-        (set! parent (get-parent~ parent)))
-      (let* ((creation-info (if presentation (values presentation '()) (add-component-request class parent)))
-             (child (create-new-component class parent import creation-info extra-properties)))
-        (when select?
-          (select-component child))
-        child)))
+           (extra-properties properties))
+      (bind (import _) (parse-runtime-reference reference)
+        ;; To support the new feature that it is now possible to
+        ;; insert a parent's child directly from the child itself
+        @creates-problems
+        (when (not (memq? class (map resolve-runtime-reference (addable-classes parent))))
+          (set! parent (get-parent~ parent)))
+        (let* ((creation-info (if presentation (values presentation '()) (add-component-request class parent)))
+               (child (create-new-component class parent import creation-info extra-properties)))
+          (when select?
+            (select-component child))
+          child))))
   
   
   (method protected virtual (add-component-request class parent)
@@ -395,8 +356,8 @@
     '())
   
   
-  (method protected virtual (install-new-component designer child parent presentation added-properties extra-properties (import: import #f))
-    (add-child~ designer child parent import: import)
+  (method protected virtual (install-new-component designer child parent presentation added-properties extra-properties (import: import #f) (descendant?: descendant? #f))
+    (add-child~ designer child parent import: import descendant?: descendant?)
     (when presentation
       (set-presentation-property~ child designer presentation))
     (install-new-properties designer child added-properties extra-properties))
@@ -445,11 +406,11 @@
     
 
   ;;;
-  ;;;; Move
+  ;;;; Relocate
   ;;;
   
   
-  (method (move-components source target)
+  (method (relocate-components source target)
     (let* ((designer (get-designer))
            (components (get-selected-data~ (get-view~ source)))
            (dst (get-row~ target))
@@ -461,8 +422,11 @@
               (let ((parent (uniform components key: (lambda (component) (relocation-parent destination (class-of component))))))
                 (if (not parent)
                     (bell)
-                  (let ((new-components (transfer-components~ designer components parent)))
-                    (select-components new-components))))
+                  (with-atomic-undo~ (get-undoer~ designer)
+                    (lambda ()
+                      (relocate-components~ designer components parent)
+                      (for-each (lambda (comp) (cascade-view-position~ designer comp {Point 0 0})) components)
+                      (select-components components)))))
             (let* ((father (get-father~ dst))
                    (sons (get-sons~ father))
                    (rank (son-rank~ father dst))
@@ -475,7 +439,7 @@
             (select-components components))))))
   
   
-  (method (move-component-row row father (position: position #f))
+  (method (relocate-component-row row father (position: position #f))
     (unless (and (eq? (get-father~ row) father) (= 1 (cardinality (get-sons~ father))))
       (let* ((source (get-user-data~ row))
              (destination (or (get-user-data~ father) client))
@@ -490,7 +454,7 @@
   (method public (reorder-component component)
     (let ((row (find-row component)))
       (when row
-        (move-component-row row (get-father~ row)))))
+        (relocate-component-row row (get-father~ row)))))
   
   
   (method protected virtual (find-component-position component row father)
@@ -564,7 +528,7 @@
     (let ((source (get-source~ drag-drop))
           (target (get-target~ drag-drop)))
       (if (eq? sender self)
-          (move-components source target)
+          (relocate-components source target)
         (typecase sender
           ((Toolbox-Tree)
            (receive-model target))))))
@@ -573,36 +537,11 @@
   ;;;
   ;;;; Properties
   ;;;
-    
-
-  @i-am-not-sure-i-like-this-approach-anymore!
-  (method public (show-properties)
-    (let* ((selection (get-single-selection))
-           (row (get-row selection))
-           (component (selected-component))
-           (border (new Border-View border-type: 'edge border-insets: {Rect 1 1 1 1}))
-           (card (new Properties-Card parent: border))
-           (tree (get-tree~ card)))
-      (set-flat?~ (get-header~ tree) #t)
-      (set-filter~ tree 'categorized)
-      (set-editor~ card (get-editor))
-      (set-designer~ card designer)
-      (set-client~ card component)
-      (let* ((header-height 16)
-             (borders-height 2)
-             (height (+ header-height (get-height~ (get-tree~ card)) borders-height))
-             (subrow (add-row class: Editor-Row father: row row-height: height)))
-        (set! auto-expanded-row row)
-        (set-parent~ border subrow)
-        (set-editor~ subrow border)
-        (expand/collapse row)
-        (let ((width (get-width~ tree)))
-          (set-width~ (locate~ tree 'property) 100)
-          (set-width~ (locate~ tree 'value) (- width 100))))))
   
   
   (method public virtual (show-properties)
-    (show-properties~ editor))
+    (when editor
+      (show-properties~ editor)))
 
   
   ;;;
@@ -612,7 +551,7 @@
   
   (method virtual (on-selection-change evt)
     (when (and editor (eq? editor (get-selected-owner~ (get-application))))
-      (set-selection~ editor (selected-components) origin: self force?: #t focus?: #f)))
+      (set-selection~ editor (selected-components) origin: self focus?: #f)))
   
   
   (method public (select-component component)

@@ -265,10 +265,6 @@
     (coerce-object~ class object)))
 
 
-(definition public (allocate class <Class> size <int>)
-  (call-into-abstract))
-
-
 ;;;
 ;;;; Interface
 ;;;
@@ -1182,7 +1178,7 @@
   (sharp/sharp/fl/ x y))
 
 
-(definition public (flmodulo x y)
+(definition public (flmodulo x <fl> y <fl>)
   (- x (* (floor (/ x y)) y)))
 
 
@@ -1388,11 +1384,11 @@
 
 
 (definition public inline (percentage part <real> total <real>) <real>
-  (* (/ part total) 100.))
+  (* (/ (cast <fl> part) total) 100))
 
 
 (definition public inline (percent percent <real> n <real>) <real>
-  (/ (* n percent) 100.))
+  (/ (cast <fl> (* n percent)) 100))
 
 
 (definition public inline (fxfloor r <fl>) <fx>
@@ -1411,16 +1407,16 @@
 ;; these could potentialy optimize out the flonum operation
 
 (definition public inline (fxfloor/ n <fx> d <fx>) <fx>
-  (fxfloor (fl/ n d)))
+  (fxfloor (/ (cast <fl> n) (cast <fl> d))))
 
 (definition public inline (fxceiling/ n <fx> d <fx>) <fx>
-  (fxceiling (fl/ n d)))
+  (fxceiling (/ (cast <fl> n) (cast <fl> d))))
 
 (definition public inline (fxtruncate/ n <fx> d <fx>) <fx>
-  (fxtruncate (fl/ n d)))
+  (fxtruncate (/ (cast <fl> n) (cast <fl> d))))
 
 (definition public inline (fxround/ n <fx> d <fx>) <fx>
-  (fxround (fl/ n d)))
+  (fxround (/ (cast <fl> n) (cast <fl> d))))
 
 
 ;;;
@@ -1589,21 +1585,30 @@
 ;;;
 
 
+(definition (coerce-sequence seq class)
+  (let ((len (cardinality seq)))
+    (let ((new-sequence (make-sequence~ class len)))
+      (loop (for n from 0 below len)
+            (for elem in-sequence seq)
+            (set-element! new-sequence n elem))
+      new-sequence)))
+
+
 (class Sequence-Class extends Class
   
   
-  (method public virtual abstract (allocate-sequence len <int>))
+  (method public virtual abstract (make-sequence len <int>))
   
   
   (method override (coerce-object seq)
-    (let ((len (cardinality seq)))
-      (let ((new-sequence (allocate-sequence len)))
-        (loop (for n from 0 below len)
-              (set-element! new-sequence n (element seq n)))
-        new-sequence))))
+    (coerce-sequence seq self)))
 
 
 (class primitive Sequence metaclass Sequence-Class extends Object
+  
+  
+  (method override (coerce-string)
+    (coerce-sequence self String))
 
   
   (method override (compare-object seq)
@@ -1619,7 +1624,7 @@
   (method override (copy-object deep? <bool>)
     (let* ((subcopy (if deep? (lambda (x) (subcopy x deep?)) identity))
            (len (cardinality self))
-           (new-seq (allocate-sequence~ (class-of self) len)))
+           (new-seq (make-sequence~ (class-of self) len)))
       (let (iter (i <fx> 0))
         (if (= i len)
             new-seq
@@ -1764,7 +1769,7 @@
 (definition public (subseq seq start (end #f) (type #f))
   (let* ((len (- (or end (cardinality seq)) start))
          (cls <Sequence-Class> (or type (class-of seq)))
-         (sub (allocate-sequence~ cls len))
+         (sub (make-sequence~ cls len))
          (i 0)
          (j start))
     (while (< i len)
@@ -2240,15 +2245,24 @@
           (iterate (- n 1) (cons obj trailer)))))))
 
 
-(definition public (remove-trailing target <Object> list <Object> (test: test eqv?))
-  (let ((result '())
-        (trailing? #t))
-    (for-each (lambda (element)
-                (unless (and trailing? (apply-test test target element))
-                  (set! result (cons element result))
-                  (set! trailing? #f)))
-              (reverse list))
-    result))
+(definition public (remove-leading target <Object> seq <Object> (test: test eqv?))
+  (let* ((start 0)
+         (end (cardinality seq))
+         (head start)
+         (tail end))
+    (while (and (< head end) (apply-test test (element seq head) target))
+      (increase! head))
+    (subseq seq head tail)))
+
+
+(definition public (remove-trailing target <Object> seq <Object> (test: test eqv?))
+  (let* ((start 0)
+         (end (cardinality seq))
+         (head start)
+         (tail end))
+    (while (and (> tail head) (apply-test test (element seq (- tail 1)) target))
+      (decrease! tail))
+    (subseq seq head tail)))
 
 
 (definition public (remove-enclosing target <Object> seq <Object> (test: test eqv?))
@@ -2381,24 +2395,24 @@
                      (match-test: match-test #f)
                      (constituent-test: constituent-test #f)
                      (user-data: user-data #f))
-  (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test user-data))
+  (allocate-search-context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test user-data))
 
-(definition inline (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test user-data)
-  (construct Search-Context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test #f user-data))
+(definition inline (allocate-search-context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test user-data)
+  (allocate Search-Context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test #f user-data))
 
 
 (definition public (->search-set obj)
   (cond ((is? obj Search-Set) obj)
-        ((is? obj Search-Context) (make-search-set (search-context-regexp obj) (list obj)))
+        ((is? obj Search-Context) (allocate-search-set (search-context-regexp obj) (list obj)))
         ((string? obj) (->search-set (->search-context obj)))
         ((list? obj) (let ((contexts (map ->search-context obj)))
-                       (make-search-set
+                       (allocate-search-set
                          (sre->irregex (cons 'or (map search-context->sre contexts)))
                          contexts)))
         (else (error "Unable to make a search set out of {s}" obj))))
 
-(definition public (make-search-set regexp contexts)
-  (construct Search-Set regexp contexts))
+(definition public (allocate-search-set regexp contexts)
+  (allocate Search-Set regexp contexts))
 
 
 (definition (->diacritic-ignoring-sre string)
@@ -2499,7 +2513,7 @@
                      (match-test: match-test #f)
                      (constituent-test: constituent-test #f)) <int+>
   (let ((search-set (->search-set (if (string? target)
-                                      (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
+                                      (allocate-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
                                     target))))
     (let ((found (regular-search-impl seq search-set match-test constituent-test start end reversed?)))
       (if found
@@ -2518,7 +2532,7 @@
                      (match-test: match-test #f)
                      (constituent-test: constituent-test #f)) <list>
   (let ((search-set (->search-set (if (string? target)
-                                      (construct-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
+                                      (allocate-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
                                     target))))
     (map car (regular-search-all seq search-set
                start: start
@@ -2717,25 +2731,31 @@
 (definition public (next-element seq elem (cycle?: cycle? #t))
   (let ((rank (find seq elem))
         (card (cardinality seq)))
-    (element seq
-             (if (not rank)
-                 0
-               (let ((next (+ rank 1)))
-                 (if cycle?
-                     (modulo next card)
-                   (min next (- card 1))))))))
+    (let ((next-rank
+            (if (not rank)
+                0
+              (let ((next (+ rank 1)))
+                (if cycle?
+                    (modulo next card)
+                  (and (< next card)
+                       next))))))
+      (and next-rank
+           (element seq next-rank)))))
 
 
 (definition public (previous-element seq elem (cycle?: cycle? #t))
   (let ((rank (find seq elem))
         (card (cardinality seq)))
-    (element seq
-             (if (not rank)
-                 (- card 1)
-               (let ((previous (- rank 1)))
-                 (if cycle?
-                     (modulo previous card)
-                   (max previous 0)))))))
+    (let ((previous-rank
+            (if (not rank)
+                (- card 1)
+              (let ((previous (- rank 1)))
+                (if cycle?
+                    (modulo previous card)
+                  (and (>= previous 0)
+                       previous))))))
+      (and previous-rank
+           (element seq previous-rank)))))
 
 
 (definition public (random-element seq)
@@ -2900,7 +2920,7 @@
 (class List-Class extends Sequence-Class
   
   
-  (method override (allocate-sequence len)
+  (method override (make-sequence len)
     (make-list len))
   
   
@@ -3053,8 +3073,8 @@
     (setup-context~ (cdr self) context)))
 
 
-(specialize inline (element list <list> n <int>) <any>
-  (list-ref list n))
+(specialize inline (element list <list> n) <any>
+  (list-ref list (cast <int> n)))
 
 
 (specialize inline (cardinality list <list>) <int>
@@ -3166,9 +3186,9 @@
     lst))
 
 
-(definition public (but-last-cdr lst)
+(definition public (butlast-cdr lst)
   (if (pair? lst)
-      (cons (car lst) (but-last-cdr (cdr lst)))
+      (cons (car lst) (butlast-cdr (cdr lst)))
     '()))
 
 
@@ -3724,14 +3744,12 @@
 (class String-Class extends Sequence-Class
   
   
-  (method override (allocate-sequence len)
+  (method override (make-sequence len)
     (make-string len))
   
   
   (method override (coerce-object obj <Object>)
-    (if (sequence? obj)
-        (nextmethod obj)
-      (coerce-string~ obj))))
+    (coerce-string~ obj)))
 
 
 (class primitive String metaclass String-Class extends Sequence
@@ -3739,6 +3757,10 @@
   
   (method override (initialize . rest)
     (native-class "strings"))
+  
+  
+  (method override (coerce-string)
+    self)
 
 
   (method override (compare-object obj)
@@ -3796,27 +3818,27 @@
   (string=? s1 s2))
 
 
-(specialize inline (element string <string> n <int>) <char>
-  (string-ref string n))
+(specialize inline (element string <string> n) <char>
+  (string-ref string (cast <int> n)))
 
 
-(specialize inline (set-element! string <string> n <int> c <char>) <void>
-  (string-set! string n c))
+(specialize inline (set-element! string <string> n c) <void>
+  (string-set! string (cast <int> n) (cast <char> c)))
 
 
 (specialize inline (cardinality string <string>) <int>
   (string-length string))
 
 
-(specialize inline (subseq string <string> start <int> end <int>) <string>
-  (substring string start end))
+(specialize inline (subseq string <string> start end) <string>
+  (substring string (cast <int> start) (cast <int> end)))
 
 
-(specialize (replace-subseq! string <string> start <int> end <int> replacement <string>) <string>
+(specialize (replace-subseq! string <string> start end replacement) <string>
   ;; should become append! when append! is a specialized definition
-  (string-append (subseq string 0 start)
-                 replacement
-                 (subseq string end (cardinality string))))
+  (string-append (subseq string 0 (cast <int> start))
+                 (cast <string> replacement)
+                 (subseq string (cast <int> end) (cardinality string))))
 
 
 (instantiate-for-each string-for-each <string>)
@@ -3833,9 +3855,11 @@
 
 
 (definition public (->string expr (detail :human))
-  (let ((output (open-output-string)))
-    (print expr output detail)
-    (get-output-string output)))
+  (if (and (string? expr) (eq? detail :human))
+      expr
+    (let ((output (open-output-string)))
+      (print expr output detail)
+      (get-output-string output))))
 
 
 (definition public (remove-trailing-char string c)
@@ -3954,11 +3978,17 @@
 
 
 (definition public (seconds->milliseconds x)
-  (inexact->exact (round (* x 1000))))
+  (fxround (* x 1000)))
+
+(definition public (milliseconds->seconds x)
+  (/ x 1000.))
 
 
 (definition public (seconds->microseconds x)
-  (inexact->exact (round (* x 1000000))))
+  (fxround (* x 1000000)))
+
+(definition public (microseconds->seconds x)
+  (/ x 1000000.))
 
 
 ;;;
@@ -4000,7 +4030,7 @@
       @wait-bug-fix-if-to-is-infinity (
       (display " " port)
       (let ((expiry (- (systime->seconds to) (systime->seconds (current-systime)))))
-        (display (/ (round (* 10.0 expiry)) 10.0)
+        (display (/ (round (* 10. expiry)) 10.)
                  port))
       (display "s" port)))
     
@@ -4031,7 +4061,7 @@
     (get-output-string port)))
 
 
-(definition public (present-object object (max-width #f))
+(definition public (safe-present-object object (max-width #f))
   (with-exception-catcher
     (lambda (exc)
       ;; add the exception reason somehow!?
@@ -4046,6 +4076,14 @@
       (if max-width
           (object->string object max-width)
         (object->string object)))))
+
+
+(definition public (safe-present-property object slot)
+  (with-exception-catcher
+    (lambda (exc)
+      "#<unprintable property>")
+    (lambda ()
+      (read-property object slot))))
 
 
 (definition package (thread-loop? thread)
@@ -4158,6 +4196,10 @@
   (continuation-return pristine-thread-continuation #f))
 
 
+(definition public (exit-thread thread)
+  (thread-interrupt! thread thread-exit))
+
+
 (definition public (sleep delay)
   (thread-sleep! delay))
 
@@ -4213,7 +4255,7 @@
 (class Vector-Class extends Sequence-Class
   
   
-  (method override (allocate-sequence len)
+  (method override (make-sequence len)
     (make-vector len)))
 
 
@@ -4255,12 +4297,12 @@
     (list->vector (butlast (vector->list self)))))
 
 
-(specialize inline (element vector <vector> n <int>) <object>
-  (vector-ref vector n))
+(specialize inline (element vector <vector> n) <object>
+  (vector-ref vector (cast <int> n)))
 
 
-(specialize inline (set-element! vector <vector> n <int> obj <object>) <void>
-  (vector-set! vector n obj))
+(specialize inline (set-element! vector <vector> n obj) <void>
+  (vector-set! vector (cast <int> n) obj))
 
 
 (specialize inline (cardinality vector <vector>) <int>
@@ -4279,7 +4321,7 @@
 (class Axis-Class extends Sequence-Class
   
   
-  (method override (allocate-sequence len)
+  (method override (make-sequence len)
     (new Axis len)))
 
 
@@ -4325,64 +4367,69 @@
   (coerce rest Axis))
 
 
-(specialize inline (element axis <Axis> n <fx>) <any>
-  (vector-ref (get-content~ axis) n))
+(specialize inline (element axis <Axis> n) <any>
+  (vector-ref (get-content~ axis) (cast <fx> n)))
 
 
-(specialize inline (set-element! axis <Axis> n <fx> obj <any>) <void>
-  (vector-set! (get-content~ axis) n obj))
+(specialize inline (set-element! axis <Axis> n obj) <void>
+  (vector-set! (get-content~ axis) (cast <fx> n) obj))
 
 
 (specialize inline (cardinality axis <Axis>) <fx>
   (get-size~ axis))
 
 
-(specialize (tail axis <Axis> n <fx>) <Axis>
-  (let ((new-axis (new Axis n))
-        (offset (- (get-size~ axis) n)))
-    (let (iter (i 0))
-      (if (>= i n)
-          new-axis
-        (set-element! new-axis i (element axis (+ i offset)))
-        (iter (+ i 1))))))
+(specialize (tail axis <Axis> n) <Axis>
+  (let ((n (cast <fx> n)))
+    (let ((new-axis (new Axis n))
+          (offset (- (get-size~ axis) n)))
+      (let (iter (i 0))
+        (if (>= i n)
+            new-axis
+          (set-element! new-axis i (element axis (+ i offset)))
+          (iter (+ i 1)))))))
 
 
 (specialize (last axis <Axis>) <any>
   (element axis (- (get-size~ axis) 1)))
 
 
-(specialize (insert! axis <Axis> pos <fx> obj <any>) <Axis>
-  (replace-subseq! axis pos pos (list obj)))
+(specialize (insert! axis <Axis> pos obj) <Axis>
+  (let ((pos (cast <fx> pos)))
+    (replace-subseq! axis pos pos (list obj))))
 
 
-(specialize (replace-subseq! axis <Axis> start <fx> end <fx> replacement <list>) <Axis>
-  (let* ((before (- end start))
-         (after (cardinality replacement))
-         (delta (- after before))
-         (old-size (get-size~ axis))
-         (new-size (+ old-size delta)))
-    (cond ((< after before)
-           (let (iter (n (- old-size end))
-                      (src end)
-                      (dst (+ end delta)))
-             (when (> n 0)
-               (set-element! axis dst (element axis src))
-               (set-element! axis src #f)
-               (iter (- n 1) (+ src 1) (+ dst 1))))
-           (axis-grow axis new-size))
-          ((> after before)
-           (axis-grow axis new-size)
-           (let (iter (n (- old-size end))
-                      (src (- old-size 1))
-                      (dst (+ (- old-size 1) delta)))
-             (when (> n 0)
-               (set-element! axis dst (element axis src))
-               (iter (- n 1) (- src 1) (- dst 1))))))
-    (let (iter (n 0) (dst start))
-      (when (< n after)
-        (set-element! axis dst (element replacement n))
-        (iter (+ n 1) (+ dst 1))))
-    axis))
+(specialize (replace-subseq! axis <Axis> start end replacement) <Axis>
+  (let ((start (cast <fx> start))
+        (end (cast <fx> end))
+        (replacement (cast <list> replacement)))
+    (let* ((before (- end start))
+           (after (cardinality replacement))
+           (delta (- after before))
+           (old-size (get-size~ axis))
+           (new-size (+ old-size delta)))
+      (cond ((< after before)
+             (let (iter (n (- old-size end))
+                        (src end)
+                        (dst (+ end delta)))
+               (when (> n 0)
+                 (set-element! axis dst (element axis src))
+                 (set-element! axis src #f)
+                 (iter (- n 1) (+ src 1) (+ dst 1))))
+             (axis-grow axis new-size))
+            ((> after before)
+             (axis-grow axis new-size)
+             (let (iter (n (- old-size end))
+                        (src (- old-size 1))
+                        (dst (+ (- old-size 1) delta)))
+               (when (> n 0)
+                 (set-element! axis dst (element axis src))
+                 (iter (- n 1) (- src 1) (- dst 1))))))
+      (let (iter (n 0) (dst start))
+        (when (< n after)
+          (set-element! axis dst (element replacement n))
+          (iter (+ n 1) (+ dst 1))))
+      axis)))
 
 
 (definition public (axis-remove! axis <Axis> element <any>) <void>
@@ -4417,23 +4464,19 @@
     (set-element! axis size obj)))
 
 
-(definition public inline (new-axis size)
-  (construct Axis size (make-vector size #f)))
+(definition public inline (allocate-axis size <fx>)
+  (allocate Axis size (make-vector size #f)))
 
-(specialize inline (new class <category<Axis>> size <fx>) <Axis>
-  (new-axis size))
-
-
-(specialize (allocate class <category<Axis>> size <fx>) <Axis>
-  (new-axis size))
+(specialize inline (new class <category<Axis>> size) <Axis>
+  (allocate-axis size))
 
 
-(specialize inline as axis-ref (element axis <Axis> n <fx>) <object>
-  (vector-ref (get-content~ axis) n))
+(specialize inline as axis-ref (element axis <Axis> n) <object>
+  (vector-ref (get-content~ axis) (cast <fx> n)))
 
 
-(specialize inline as axis-set! (set-element! axis <Axis> n <fx> obj <object>) <void>
-  (vector-set! (get-content~ axis) n obj))
+(specialize inline as axis-set! (set-element! axis <Axis> n obj) <void>
+  (vector-set! (get-content~ axis) (cast <fx> n) obj))
 
 
 (specialize inline as axis-cardinality (cardinality axis <Axis>) <int>
@@ -4726,8 +4769,27 @@
           (queue-list queue))))))
 
 
+(definition public (read-lines-chunked input chunk-size proc)
+  (declare (proper-tail-calls))
+  (let (iterate (count 0) (queue (new-queue)) (last-proper? #t))
+    (receive (line proper?) (read-proper-line input)
+      (if line
+          (begin
+            (enqueue queue line)
+            (let ((count (+ count 1)))
+              (if (or (not chunk-size) (< count chunk-size))
+                  (iterate count queue proper?)
+                (proc (queue-list queue))
+                (iterate 0 (new-queue) proper?))))
+        (when last-proper?
+          (enqueue queue ""))
+        (when (or (> count 0) last-proper?)
+          (proc (queue-list queue)))
+        (unspecified)))))
+
+
 (definition public (read-content-string input)
-  ;; passing #f to gambit's read-line make's it never see an actual
+  ;; passing #f to gambit's read-line makes it never see an actual
   ;; end-of-line so that it will read the whole content as a string
   (let ((line (read-line input #f)))
     (if (eof-object? line)
@@ -4920,6 +4982,13 @@
       (new Subseq sequence (+ start s) (- (if (= e -1) (cardinality self) e) s)))))
 
 
+(definition public inline (allocate-subseq sequence <string> start <fx> size <fx>)
+  (allocate Subseq sequence start size))
+
+(specialize inline (new class <category<Subseq>> sequence start size) <Subseq>
+  (allocate-subseq sequence start size))
+
+
 (definition public (offset-subseq! subseq <Subseq> offset <fx>) <void>
   (set-start~ subseq (+ (get-start~ subseq) offset)))
 
@@ -4928,12 +4997,12 @@
   (set-size~ subseq (+ (get-size~ subseq) n)))
 
 
-(specialize inline as subseq-ref (element subseq <Subseq> n <fx>) <object>
-  (element (get-sequence~ subseq) (+ (get-start~ subseq) n)))
+(specialize inline as subseq-ref (element subseq <Subseq> n) <object>
+  (element (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n))))
 
 
-(specialize inline as subseq-set! (set-element! subseq <Subseq> n <fx> obj <object>) <void>
-  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) n) obj))
+(specialize inline as subseq-set! (set-element! subseq <Subseq> n obj) <void>
+  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n)) obj))
 
 
 (specialize inline as subseq-cardinality (cardinality subseq <Subseq>) <int>
@@ -4994,33 +5063,40 @@
       (new Subseq$string$ sequence (+ start s) (- (if (= e -1) (cardinality self) e) s)))))
 
 
-(specialize inline (new class <category<Subseq$string$>> sequence <string> start <fx> size <fx>) <Subseq$string$>
-  (construct Subseq$string$ sequence start size))
+(definition public inline (allocate-subseq$string$ sequence <string> start <fx>  size <fx> )
+  (allocate Subseq$string$ sequence start size))
+
+(specialize inline (new class <category<Subseq$string$>> sequence start size) <Subseq$string$>
+  (allocate-subseq$string$ sequence start size))
 
 
-(specialize inline (element subseq <Subseq$string$> n <fx>) <char>
-  (element (get-sequence~ subseq) (+ (get-start~ subseq) n)))
+(specialize inline (element subseq <Subseq$string$> n) <char>
+  (element (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n))))
 
 
-(specialize inline (set-element! subseq <Subseq$string$> n <fx> obj <char>) <void>
-  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) n) obj))
+(specialize inline (set-element! subseq <Subseq$string$> n obj) <void>
+  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) (cast <fx> n)) (cast <char> obj)))
 
 
 (specialize inline (cardinality subseq <Subseq$string$>) <fx>
   (get-size~ subseq))
 
 
-(specialize (subseq! seq <string> s <fx> e <fx>) <Subseq$string$>
-  (new Subseq$string$ seq s (- e s)))
+(specialize (subseq! seq <string> s e) <Subseq$string$>
+  (let ((s (cast <fx> s))
+        (e (cast <fx> e)))
+    (new Subseq$string$ seq s (- e s))))
 
 
-(specialize (subseq! subseq <Subseq$string$> s <fx> e <fx>) <Subseq$string$>
-  (new Subseq$string$ (get-sequence~ subseq) (+ (get-start~ subseq) s) (- e s)))
+(specialize (subseq! subseq <Subseq$string$> s e) <Subseq$string$>
+  (let ((s (cast <fx> s))
+        (e (cast <fx> e)))
+    (new Subseq$string$ (get-sequence~ subseq) (+ (get-start~ subseq) s) (- e s))))
 
 
-(specialize (offset-subseq! subseq <Subseq$string$> offset <fx>) <void>
-  (set-start~ subseq (+ (get-start~ subseq) offset)))
+(specialize (offset-subseq! subseq <Subseq$string$> offset) <void>
+  (set-start~ subseq (+ (get-start~ subseq) (cast <fx> offset))))
 
 
-(specialize (grow-subseq! subseq <Subseq$string$> n <fx>) <void>
-  (set-size~ subseq (+ (get-size~ subseq) n))))
+(specialize (grow-subseq! subseq <Subseq$string$> n) <void>
+  (set-size~ subseq (+ (get-size~ subseq) (cast <fx> n)))))

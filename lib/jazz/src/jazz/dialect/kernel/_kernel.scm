@@ -69,18 +69,6 @@
 
 
 ;;;
-;;;; Build
-;;;
-
-
-(native jazz:compile-unit)
-(native jazz:build-unit)
-(native jazz:build-image)
-(native jazz:for-each-subunit)
-(native jazz:load-manifest)
-
-
-;;;
 ;;;; Category
 ;;;
 
@@ -122,6 +110,18 @@
 (native jazz:continuation-creator)
 (native jazz:continuation-locat)
 (native jazz:continuation-next)
+
+
+;;;
+;;;; Core
+;;;
+
+
+(native jazz:compile-unit)
+(native jazz:build-unit)
+(native jazz:build-image)
+(native jazz:for-each-subunit)
+(native jazz:load-manifest)
 
 
 ;;;
@@ -370,6 +370,8 @@
 (native list->u8vector)
 (native u8vector->object)
 (native object->u8vector)
+(native u8vector-shrink!)
+(native append-u8vectors)
 
 ;; s16
 (native s16vector)
@@ -543,9 +545,11 @@
 (native jazz:use-debugger?)
 (native jazz:get-repositories)
 (native jazz:get-build-repository)
+(native jazz:load-repository)
 (native jazz:make-repository)
 (native jazz:install-repository)
 (native jazz:uninstall-repository)
+(native jazz:require-repository)
 (native jazz:find-repository)
 (native jazz:find-package)
 (native jazz:repository?)
@@ -586,13 +590,18 @@
 (native jazz:product-descriptor-update)
 (native jazz:product-descriptor-build)
 (native jazz:product-descriptor-dependencies)
+(native jazz:cond-expanded-product-descriptor-update)
+(native jazz:cond-expanded-product-descriptor-dependencies)
 (native jazz:run-product-descriptor)
 (native jazz:update-product-descriptor)
 (native jazz:build-product-descriptor)
+(native jazz:current-process-product)
 (native jazz:current-process-name)
 (native jazz:current-process-name-set!)
 (native jazz:current-process-title)
 (native jazz:current-process-title-set!)
+(native jazz:current-process-traits)
+(native jazz:current-process-traits-set!)
 (native jazz:current-process-icon)
 (native jazz:current-process-icon-set!)
 (native jazz:current-process-version)
@@ -604,6 +613,8 @@
 (native jazz:run-product)
 (native jazz:update-product)
 (native jazz:build-product)
+(native jazz:install-product)
+(native jazz:install-directory)
 (native jazz:descendant-unit?)
 (native jazz:find-pathname-unit)
 (native jazz:find-unit-src)
@@ -618,9 +629,10 @@
 (native jazz:unit-status)
 (native jazz:unit-uptodate-binary?)
 (native jazz:load-unit)
-(native jazz:load-script)
 (native jazz:unload-unit)
 (native jazz:reload-unit)
+(native jazz:load-script)
+(native jazz:current-script-arguments)
 (native jazz:get-load-mutex)
 (native jazz:get-load-thread)
 (native jazz:get-load-stack)
@@ -638,6 +650,7 @@
 (native jazz:global-bound?)
 (native jazz:global-ref)
 (native jazz:global-set!)
+(native jazz:global-unbind!)
 (native jazz:testing?)
 (native jazz:testing)
 (native jazz:generate-symbol-for)
@@ -650,7 +663,9 @@
 (native jazz:crash-process)
 (native jazz:invoke-process)
 (native jazz:call-process)
+(native jazz:unit-loadable?)
 (native jazz:load-foundation)
+(native jazz:load-runtime)
 (native jazz:load-build)
 (native jazz:split-command-line)
 (native jazz:get-option)
@@ -690,9 +705,6 @@
 (native jazz:process-memory)
 (native jazz:symbols-memory)
 (native jazz:classes-statistics)
-(native jazz:class-instances-count)
-(native jazz:class-instances-size)
-(native jazz:instances-statistics)
 (native jazz:vector-size)
 (native jazz:f64vector-size)
 (native jazz:list-size)
@@ -876,6 +888,8 @@
 (native jazz:readtable-brace-keyword-set!)
 (native jazz:readtable-named-char-table)
 (native jazz:readtable-named-char-table-set!)
+(native jazz:readtable-escaped-char-table)
+(native jazz:readtable-escaped-char-table-set!)
 (native jazz:with-readtable)
 (native jazz:scheme-readtable)
 (native jazz:jazz-readtable)
@@ -1229,4 +1243,6 @@
 (native jazz:expand-unit)
 (native jazz:expand-to-port)
 (native jazz:expand-to-file)
-(native jazz:find-declaration))
+(native jazz:find-declaration)
+(native jazz:find-declaration-child)
+(native jazz:remove-declaration-child))

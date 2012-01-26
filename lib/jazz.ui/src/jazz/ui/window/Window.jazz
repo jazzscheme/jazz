@@ -43,7 +43,6 @@
 (import (jazz.geometry)
         (jazz.graphic)
         (jazz.locale)
-        (jazz.system)
         (jazz.ui)
         (jazz.ui.view)
         (jazz.ui.window))
@@ -456,7 +455,7 @@
            (now (time->seconds (current-time)))
            (start now))
       (while (< now (+ start delay))
-        (set-alpha-blending handle (fxceiling (* (- now start) (fl/ max delay))))
+        (set-alpha-blending handle (fxceiling (* (- now start) (/ (cast <fl> max) delay))))
         (set! now (time->seconds (current-time))))
       (set-alpha-blending handle max))
     (set-layered? handle #f)))
@@ -523,12 +522,7 @@
       ((Rect)
        (acquire-rect handle (get-handle~ window) shape))
       (else
-        (error "Unable to translate {t}" shape))))
-  
-  
-  (method public (get-position-in-root) <Point>
-    (assert handle)
-    (platform-translate-to-root handle (get-position)))
+       (error "Unable to acquire {t}" shape))))
   
   
   (method override (get-position) <Point>
@@ -673,11 +667,11 @@
     (platform-get-client-rect handle))
 
 
-  (method public (scroll-window dh dv rect clip-rect)
+  (method public (scroll-window delta rect clip-rect)
     (assert handle)
     (if (inhibit-updates?)
-        (invalidate-window)
-      (platform-scroll-window handle dh dv rect clip-rect))
+        (invalidate-rect clip-rect)
+      (platform-scroll-window handle delta rect clip-rect))
     (let ((proc (debug-flicker)))
       (when proc
         (proc))))

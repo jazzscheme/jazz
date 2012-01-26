@@ -64,28 +64,22 @@
   
 
   (property fit          initialize 'width                 accessors generate)
-  (property resolution   initialize 60                     accessors generate)
   (property orientation  initialize 'portrait              accessors generate)
   (property paper-size   initialize (default-paper-size)   accessors generate)
   (property paper-source initialize (default-paper-source) accessors generate)
+  (property min-margins  initialize {Rect 0 0 0 0}         accessors generate)
 
   
   (form
-    (<install>                            size: {Dimension 510 660} layout-type: fill layout-insets: {Rect 10 10 10 10} background: {Color White}
-      (<Page-Printable>   name: printable layout-type: fill layout-insets: {Rect 50 50 50 50}
-        (<Page-Document>  name: document
-          (<Page-Header>  name: header    size: {Dimension 100 19} location: north)
-          (<Page-Content> name: content   location: center)
-          (<Page-Footer>  name: footer    size: {Dimension 100 19} location: south)))))
-
-
-  ;;;
-  ;;;; Printable
-  ;;;
+    (<install>                          layout-type: fill layout-insets: {Rect 54 54 54 54} background: {Color White}
+      (<Page-Document>  name: document
+        (<Page-Header>  name: header    size: {Dimension 100 19} location: north)
+        (<Page-Content> name: content   location: center)
+        (<Page-Footer>  name: footer    size: {Dimension 100 19} location: south))))
   
   
-  (method public (get-printable)
-    (locate 'printable))
+  (method override (default-size)
+    (new Dimension (* 17/2 default-resolution) (* 11 default-resolution)))
 
 
   ;;;
@@ -121,9 +115,15 @@
   
   
   (method public (scale-content client dest-resolution)
-    (let ((area (get-print-area~ client #f))
-           (content-rect (get-content-rect)))
-      (/ (* (fit-rects area content-rect fit) dest-resolution) resolution)))
+    (/ (cast <fl> (* (if (eq? fit 'none)
+                         1.
+                       (let ((area (get-print-area~ client #f))
+                             (content-rect (case orientation
+                                             ((portrait reverse-portrait) (get-content-rect))
+                                             ((landscape reverse-landscape) (transpose-rect (get-content-rect))))))
+                         (fit-rects area content-rect fit)))
+                     dest-resolution))
+       default-resolution))
 
 
   ;;;
@@ -153,4 +153,10 @@
   (method override (get-drawing-background context)
     (if (getf context printing?:)
         (nextmethod context)
-      {Color red: 193 green: 193 blue: 255}))))
+      {Color red: 193 green: 193 blue: 255}))
+  
+  
+  (method override (draw surface context)
+    (unless (getf context printing?:)
+      (let ((bounds (get-bounds)))
+        (fill-rect~ surface (inset-rect bounds min-margins) {Color Light-Purple}))))))

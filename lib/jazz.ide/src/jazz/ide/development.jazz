@@ -40,15 +40,10 @@
 
 (export (jazz.development))
 
-(import (jazz.debuggee)
-        (jazz.development)
-        (jazz.editor.jazz)
-        (jazz.editor.jazz.inspector)
-        (jazz.editor.sql)
+(import (jazz.editor.jazz)
         (jazz.editor.sql.view)
         (jazz.geometry)
         (jazz.graphic)
-        (jazz.io)
         (jazz.jml)
         (jazz.library)
         (jazz.locale)
@@ -122,11 +117,15 @@
 
 (definition public cc
   (let ((previous-color #f))
-    (lambda ((color-or-name #f))
-      (let ((color (cond ((not color-or-name) previous-color)
-                         ((is? color-or-name Color) color-or-name)
-                         (else (registered-color color-or-name)))))
-        (let ((new-color (choose-color color: color)))
+    (lambda ((color: color #f) (feedback: feedback #f))
+      (let ((color (cond ((not color) previous-color)
+                         ((is? color Color) color)
+                         (else (registered-color color)))))
+        (let ((new-color (catch (Cancel-Signal exc
+                                  (when feedback
+                                    (feedback color))
+                                  (throw exc))
+                           (choose-color color: color feedback: feedback))))
           (set! previous-color new-color)
           new-color)))))
 
@@ -221,7 +220,7 @@
     {Font Heading2})
   
   
-  (method override (draw surface context lh lv)
+  (method override (draw surface context)
     (set-font~ surface Background-Font)
     (let* ((title (localize (or invite "Drop Files Here")))
            (extent (get-text-extent~ surface title))
@@ -257,8 +256,8 @@
 ;;;
 
 
-(definition public (debug-table table (name: name #f) (max-display: max-display 250))
-  (let ((text (get-sql-console-text)))
-    @convert (set-current-request~ text name)
-    (display-table~ text table max-display 0)
-    table)))
+(definition public (inspect-tables tables (name: name #f) (max-display: max-display 250))
+  (let ((console-text (get-sql-console-text)))
+    (set-current-request~ console-text name)
+    (display-tables~ console-text tables max-display 0)
+    tables)))

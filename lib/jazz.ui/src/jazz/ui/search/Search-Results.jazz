@@ -38,19 +38,14 @@
 (module protected jazz.ui.search.Search-Results jazz
 
 
-(import (jazz.catalog)
-        (jazz.editor.jazz)
-        (jazz.graphic)
-        (jazz.io)
+(import (jazz.graphic)
         (jazz.jml)
         (jazz.library)
-        (jazz.platform)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.clipboard)
         (jazz.ui.search)
-        (jazz.ui.view)
-        (jazz.ui.window))
+        (jazz.ui.view))
 
 
 (class undocumented Search-Results extends Navigable-Results
@@ -165,7 +160,7 @@
   (method public (replace-selected)
     (let ((code (message-box "Automatically save & close except for currently edited files?" type: 'confirmation)))
       (if (eq? code 'cancel)
-          (throw-cancel)
+          (signal-cancel)
         (let ((auto-save/close? (eq? code 'yes))
               (selection (get-selection~ (get-tree)))
               (modified-count 0))
@@ -174,7 +169,7 @@
                         (receive (frame new?) (edit-result result 'forward visible?: #f activate-focus?: #f)
                           (let* ((guest (get-guest~ frame))
                                  (text (get-text-view~ guest)))
-                            (user-feedback "Processing {a}..." (name-status~ (get-controller~ text)))
+                            (user-feedback "Processing {a}..." (name-status~ (get-document-controller~ text)))
                             (set-active-search-result result)
                             (replace-all~ result client: text)
                             (when (and auto-save/close? new?)
@@ -312,7 +307,7 @@
   
   
   (method override (return-press key)
-    (edit-selection~ (get-search) #t))
+    (call-edit-selection~ (get-search) #t))
   
   
   (method override (copy-selection)
@@ -329,7 +324,7 @@
   
   
   (method (on-edit-selection evt)
-    (edit-selection~ (get-search) #t))
+    (call-edit-selection~ (get-search) #t))
   
   
   (method override (update-row row)

@@ -46,16 +46,10 @@
         (jazz.jml)
         (jazz.library)
         (jazz.library.exemplar)
-        (jazz.library.listener)
-        (jazz.platform)
         (jazz.system)
         (jazz.ui)
-        (jazz.ui.clipboard)
-        (jazz.ui.dialog)
-        (jazz.ui.search)
         (jazz.ui.skin)
-        (jazz.ui.view)
-        (jazz.ui.window))
+        (jazz.ui.view))
 
 
 (class Text-Model extends Outline-Model
@@ -72,8 +66,6 @@
   
   ;; a user friendly textual input format that is saved as is
   (property protected text                           initialize #f                       accessors explicit)
-  ;; the text content automaticaly saved in a canonical form when the text is visually edited
-  (property protected text-content                   initialize #f                       accessors explicit)
   (property protected wrap?                          initialize #f                       accessors generate)
   (property protected base-format                    initialize #f                       accessors generate)
   (property protected default-format                 initialize #f                       accessors explicit)
@@ -92,7 +84,7 @@
   (slot protected formats                initialize (make-formats)  getter generate)
   (slot protected styles                 initialize (make-styles)   getter generate)
   (slot protected wrap-width             initialize #f              accessors generate)
-  (slot protected wrap-patch             initialize #f)
+  (slot protected wrap-patch             initialize 0               accessors generate)
   
   
   (form
@@ -355,7 +347,7 @@
   ;; Tabs should really grow as needed...
   ;; For now a big number of tabs will do!
   (method (make-tabs)
-    (make-tabs-from 0 32 512))
+    (make-tabs-from 0 32 16))
   
   
   (method public (make-tabs-from from tab-size number)
@@ -623,6 +615,7 @@
       (set! wrap-width 800)
       ;; this is a necessary (hopefully temporary) patch buffer because currently we get and memorize
       ;; character sizes at no scaling and of course round of errors accumulate when in higher scaling
+      ;; wrap is wrongly done character by character
       (set! wrap-patch 50)
       (layout-scrollee)
       (wrap-content '())
@@ -632,7 +625,7 @@
   (method override (restore-printing preserved)
     (nextmethod preserved)
     (set! wrap-width (getf preserved :wrap-width))
-    (set! wrap-patch #f)
+    (set! wrap-patch 0)
     (layout-scrollee)
     (wrap-content '()))
   
@@ -735,9 +728,9 @@
   
   (method public (insert-styled range string style)
     (let ((start (get-start~ range))
-          (style (cond ((is? style Style) style) ((not style) default-style) (else (get-style style)))))
+          (style (cond ((is? style Style) style) ((not style) default-style) (else (locate-style style)))))
       (let ((end (insert-string range string)))
-        (set-style (new Range$Cell$ start end) style))))
+        (stylize-range (new Range$Cell$ start end) style))))
   
   
   (method public (insert-link range string (font: font #f) (anchor: anchor #f) (action: action #f))
@@ -923,7 +916,7 @@
             (lambda (client)
               (let ((size (get-size~ client)))
                 (let ((rect (new Rect 0 top (get-width~ size) (get-height~ size))))
-                  (scroll-view~ client 0 delta rect))))))
+                  (scroll-view~ client (new Distance 0 delta) rect))))))
         (invalidate-paragraph paragraph)))
     
     (define (invalidate-replacements paragraphs replaced inserted bottom before)
@@ -948,7 +941,7 @@
             (when (/= delta 0)
               (let ((size (get-size~ client)))
                 (let ((rect (new Rect 0 bottom (get-width~ size) (get-height~ size))))
-                  (scroll-view~ client 0 delta rect))))))
+                  (scroll-view~ client (new Distance 0 delta) rect))))))
         (for-each invalidate-paragraph paragraphs)))
     
     (define (range-height start end)
@@ -1070,7 +1063,7 @@
             (case target
               ((style:)
                (let ((name (get-next~ scan)))
-                 (set! style (get-style name))))
+                 (set! style (locate-style name))))
               ((:link)
                (let ((action (get-next~ scan)))
                  (set! style (new-link-style action))))
@@ -1230,20 +1223,6 @@
   
   
   ;;;
-  ;;;; Text Content
-  ;;;
-  
-  
-  (method public (get-text-content)
-    text-content)
-  
-  
-  (method public (set-text-content value)
-    (set! text-content value)
-    (set-content text-content))
-  
-  
-  ;;;
   ;;;; Formatted
   ;;;
   
@@ -1338,7 +1317,7 @@
             (lambda (line <fx> paragraph <Paragraph>)
               (put~ fact (cons (get-rank (get-format~ paragraph) formats)
                                (map (lambda (run)
-                                      (list (get-string~ run) (get-rank (get-style~ run) styles)))
+                                      (list (export-string~ run) (get-rank (get-style~ run) styles)))
                                     (get-runs~ paragraph))))))
           (get-output~ fact)))
       
@@ -1467,7 +1446,10 @@
     (define (range-formatted-text range <Range$Cell$>)
       (let ((output (open-output-string)))
         (print-formatted output range)
-        (read-string-element (get-output-string output))))
+        (parameterize ((walk-for #f))
+          (with-jazz-readtable
+            (lambda ()
+              (read-string-element (get-output-string output)))))))
     
     (define (apply-formats/styles range <Range$Cell$>)
       (let ((start (new Cell (get-line~ (get-start~ range)) (get-col~ (get-start~ range))))
@@ -1478,7 +1460,7 @@
                                   (bind (string . ref) run
                                     (let ((style (reference-style styles (car ref))))
                                       (set-col~ end (+ (get-col~ start) (cast <fx> (cardinality string))))
-                                      (set-style (new Range$Cell$ start end) style)
+                                      (stylize-range (new Range$Cell$ start end) style)
                                       (set-col~ start (get-col~ end)))))
                                 runs)
                       (let* ((full-paragraph (get-paragraph (get-line~ start)))
@@ -1560,16 +1542,16 @@
   
   
   (method public (apply-style name start (end #f))
-    (stylize (get-style name) start end))
+    (stylize (locate-style name) start end))
   
   
   (method public (stylize name/style start (end #f))
     (when (not end)
       (set! end (new Cell (get-line~ start) (paragraph-length (get-line~ start)))))
-    (set-text-style (new Range$Cell$ start end) (get-style name/style)))
+    (set-text-style (new Range$Cell$ start end) (locate-style name/style)))
   
   
-  (method public (set-style range <Range$Cell$> style <Style>)
+  (method public (stylize-range range <Range$Cell$> style <Style>)
     (let ((style (intern-style style)))
       (for-each-range range
         (lambda (line paragraph start end)
@@ -1736,7 +1718,7 @@
       (register-exemplar name format formats)))
   
   
-  (method public (get-format name/format (error?: error? #t)) <Format>
+  (method public (locate-format name/format (error?: error? #t)) <Format>
     (if (is? name/format Format)
         name/format
       (locate~ formats name/format error?: error?)))
@@ -1748,7 +1730,7 @@
   
   (method (reference-format formats reference)
     (if (symbol? reference)
-        (get-format reference)
+        (locate-format reference)
       (element formats reference)))
   
   
@@ -1799,7 +1781,7 @@
       (register-exemplar name style styles)))
   
   
-  (method public (get-style name/style (error?: error? #t)) <Style>
+  (method public (locate-style name/style (error?: error? #t)) <Style>
     (if (is? name/style Style)
         name/style
       (locate~ styles name/style error?: error?)))
@@ -1811,7 +1793,7 @@
   
   (method (reference-style styles reference)
     (if (symbol? reference)
-        (get-style reference)
+        (locate-style reference)
       (element styles reference)))
   
   
@@ -2107,13 +2089,20 @@
   
   (form
     (<install>
-      (<properties~>           categorized: (class-info name-info wrap? default-format default-style)
-        (<Property-Descriptor> name: text title: "Text")
-        (<Property-Descriptor> name: text-content title: "Text Content")
-        (<Property-Descriptor> name: wrap? title: "Wrap"
+      (<properties~>
+        (<Property-Descriptor> name: text
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: text-content
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: wrap?
           (<Boolean-Domain>    name: domain))
-        (<Property-Descriptor> name: default-format title: "Default Format")
-        (<Property-Descriptor> name: default-style title: "Default Style")
-        (<Property-Descriptor> name: paragraph-spacing title: "Paragraph Spacing")
-        (<Property-Descriptor> name: char-encoding title: "Char Encoding")
-        (<Property-Descriptor> name: eol-encoding title: "EOL Encoding")))))))
+        (<Property-Descriptor> name: default-format
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: default-style
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: paragraph-spacing
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: char-encoding
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: eol-encoding      title: "EOL Encoding"
+          (<Value-Domain>      name: domain))))))))

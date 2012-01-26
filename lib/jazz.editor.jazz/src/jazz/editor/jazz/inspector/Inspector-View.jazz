@@ -39,26 +39,57 @@
 
 
 (import (jazz.editor.jazz)
+        (jazz.graphic)
         (jazz.jml)
-        (jazz.ui))
+        (jazz.library)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view))
 
 
-(class Inspector-View extends Layout-View
+(class Inspector-View extends Layout-View implements (Filterable History-Provider)
   
   
   (property process initialize #f accessors explicit)
   (property client  initialize #f accessors explicit)
   
   
+  (slot history-manager initialize (new History-Manager self))
+  
+  
   (form
-    (<install>                                    layout-type: fill
-      (<Scroller-View>                            vscroll?: #t hscroll?: #t style: tool
-        (<!>               name: content          layout-type: fill
-          (<Tree-Header>                          style: tool
-            (<!>           name: content
-              (<Inspector> name: inspector        selection-mode: row
-                (<!>       name: name             width: 170)
-                (<!>       name: value            width: 261))))))))
+    (<install>                                         layout-type: border
+      (<Layout-View>                name: toolbar      size: {Dimension 300 25} location: north layout-type: flow layout-insets: {Rect 0 1 0 0}
+        (<Separator>                                   size: {Dimension 2 0})
+        (<Label-View>               name: filter-label justification: (head -2) title: "Filter:" size: {Dimension 31 20} font: {Font Label})
+        (<Separator>                                   size: {Dimension 4 0})
+        (<Border-View>                                 size: {Dimension 170 21} border-type: fill border-insets: {Rect 0 2 0 0}
+          (<Border-View>                               border-type: edge style: entry
+            (<Scroller-View>                           hscroll?: #f vscroll?: #f
+              (<!>                  name: content      layout-type: fill
+                (<Filter-Text-View> name: filter-text  content-change-handler: {Event-Handler :form on-filter-text-change})))))
+        (<Push-Tool>                name: backward     location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Backward" resource: {Image-Resource "Backward"} portfolio: :images action-handler: {Event-Handler :form on-backward})
+        (<Push-Tool>                name: forward      location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Forward" resource: {Image-Resource "Forward"} portfolio: :images action-handler: {Event-Handler :form on-forward})
+        (<Separator>                                   location: tail size: {Dimension 8 0})
+        (<Toggle-Tool>              name: ordering     location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Natural Order" resource: {Image-Resource "FindNext"} portfolio: :images action-handler: {Event-Handler :form on-natural-order}))
+      (<Scroller-View>              name: scroller     location: center vscroll?: #t hscroll?: #t style: tool
+        (<!>                        name: content      layout-type: fill
+          (<Tree-Header>            name: header       style: tool
+            (<!>                    name: content
+              (<Inspector>          name: inspector    selection-mode: row return-press-handler: {Event-Handler :form on-drill-down} double-click-handler: {Event-Handler :form on-drill-down}
+                (<!>                name: name         width: 170)
+                (<!>                name: value        width: 261))))))))
+  
+  
+  (method override (install rest)
+    (define (setup-ordering)
+      (let ((ordering (get-ordering~ (get-preferences 'inspector))))
+        (when ordering
+          (set-selected?~ (locate 'ordering) (eq? ordering 'natural))
+          (update-ordering))))
+    
+    (nextmethod rest)
+    (setup-ordering))
   
   
   ;;;
@@ -70,12 +101,47 @@
     "Inspector")
   
   
-  (method meta override (host-position)
-    {Point 378 60})
-  
-  
   (method meta override (host-size)
     {Dimension 446 641})
+  
+  
+  (method override (install-in-host host)
+    (nextmethod host)
+    (update-title))
+  
+  
+  ;;;
+  ;;;; Filter
+  ;;;
+  
+  
+  (method override (filter filter-search)
+    (set-filter~ (get-inspector) filter-search))
+  
+  
+  (method (get-filter-text)
+    (locate 'filter-text))
+
+  
+  ;;;
+  ;;;; History
+  ;;;
+  
+  
+  (method override (current-history-item)
+    (new History-Inspector-Item (get-client)))
+  
+  
+  (method override (update-history-actions)
+    )
+  
+  
+  (method (add-to-history)
+    (add-history~ history-manager (new History-Inspector-Item (get-client))))
+  
+  
+  (method (reset-history)
+    (set! history-manager (new History-Manager self)))
   
   
   ;;;
@@ -83,21 +149,88 @@
   ;;;
   
   
+  (method public (get-inspector)
+    (locate 'inspector))
+  
+  
   (method public (get-process)
-    (get-process~ (locate 'inspector)))
+    (get-process~ (get-inspector)))
   
   
   (method public (set-process process)
-    (set-process~ (locate 'inspector) process))
+    (set-process~ (get-inspector) process))
   
   
   (method public (get-client)
-    (get-client~ (locate 'inspector)))
+    (get-client~ (get-inspector)))
   
   
   (method public (set-client client)
-    (update-title client)
-    (set-client~ (locate 'inspector) client))
+    (reset-history)
+    (change-client client))
+  
+  
+  (method public (change-client client (force?: force? #f))
+    (set-client~ (get-inspector) client force?: force?)
+    (update-title)
+    (update-history))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-backward evt)
+    (let ((item (go-backward-history~ history-manager)))
+      (when item
+        (change-client (get-client~ item)))))
+  
+  
+  (method (on-forward evt)
+    (let ((item (go-forward-history~ history-manager)))
+      (when item
+        (change-client (get-client~ item)))))
+  
+  
+  (method (on-filter-text-change evt)
+    (filter-target~ (get-filter-text)))
+  
+  
+  (method (on-natural-order evt)
+    (update-ordering)
+    (change-client (get-client) force?: #t))
+  
+  
+  (method (on-drill-down evt)
+    (let ((tree (get-sender~ evt)))
+      (let ((info (get-single-selected-data~ tree)))
+        (cond ((symbol? info)
+               (edit-definitions~ (get-application) info))
+              ((pair? info)
+               (bind (key . value) info
+                 (let ((name (second key)))
+                   (if (not name)
+                       (with-cursor :wait
+                         (lambda ()
+                           (retrieve-all~ (get-inspector))))
+                     (add-to-history)
+                     (change-client (cons value :remote))))))
+              (else
+               (bell))))))
+    
+  
+  ;;;
+  ;;;; Ordering
+  ;;;
+
+  
+  (method (update-ordering)
+    (let ((natural? (get-selected?~ (locate 'ordering))))
+      (set-ordering~ (get-inspector)
+        (if natural?
+            'natural
+          'alphabetic))))
   
   
   ;;;
@@ -105,19 +238,46 @@
   ;;;
   
   
-  (definition Max-Title
-    50)
-  
-  
-  (method (update-title client)
+  (method (update-title)
     (define (get-presentation)
-      (bind (data . kind) client
-        (if (eq? :remote kind)
-            (bind (serial class presentation more? mutable? kind) data
-              presentation)
-          data)))
+      (let ((client (get-client)))
+        (when client
+          (bind (data . kind) client
+            (if (eq? :remote kind)
+                (bind (serial class presentation more? mutable? kind) data
+                  (format :string "{a} #{a}" (reference-name class) serial))
+              "Frame")))))
     
-    (let ((title (format "Inspector for {a}" (get-presentation))))
-      (if (< (cardinality title) Max-Title)
-          (set-title title)
-        (set-title (format "{a} ..." (subseq title 0 Max-Title))))))))
+    (let ((host (get-host)))
+      (when host
+        (let ((title (format "Inspector{? - {a}~}" (get-presentation))))
+          (set-title~ host title)))))
+  
+  
+  (method (update-history)
+    (let ((backward (get-backward-history~ history-manager))
+          (forward (get-forward-history~ history-manager)))
+      (set-enabled?~ (locate 'backward) (not-null? backward))
+      (set-enabled?~ (locate 'forward) (not-null? forward)))))
+
+
+;;;
+;;;; History Item
+;;;
+
+
+(class History-Inspector-Item extends History-Item
+  
+  
+  (slot client getter generate)
+  
+  
+  (method override (initialize client)
+    (nextmethod)
+    (set! client~self client))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{s}" client))))))

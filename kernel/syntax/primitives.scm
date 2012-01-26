@@ -320,9 +320,7 @@
        `(##fixnum? ,obj)))
    
    (jazz:define-macro (%%fixnum->flonum x)
-     (if jazz:debug-core?
-         `(fixnum->flonum ,x)
-       `(##fixnum->flonum ,x)))
+     `(##fixnum->flonum ,x))
    
    (jazz:define-macro (%%fx= x y)
      (if jazz:debug-core?
@@ -381,6 +379,9 @@
      (if jazz:debug-core?
          `(flonum? ,obj)
        `(##flonum? ,obj)))
+   
+   (jazz:define-macro (%%flonum->fixnum x)
+     `(##flonum->fixnum ,x))
    
    (jazz:define-macro (%%fl= x y)
      (if jazz:debug-core?
@@ -837,7 +838,19 @@
     (jazz:define-macro (%%readtable-char-class-set! readtable c delimiter? handler)
       (%%force-uniqueness (readtable c delimiter? handler)
         `(%%check-readtable ,readtable 1 (%%readtable-char-class-set! ,readtable ,c ,delimiter? ,handler)
-           (##readtable-char-class-set! ,readtable ,c ,delimiter? ,handler)))))
+           (##readtable-char-class-set! ,readtable ,c ,delimiter? ,handler))))
+    
+    ;; FIXME : Temporary until proper primitive exists
+    (jazz:define-macro (%%readtable-escaped-char-table readtable)
+      (%%force-uniqueness (readtable)
+        `(%%check-readtable ,readtable 1 (%%readtable-escaped-char-table ,readtable)
+           (##vector-ref ,readtable 3))))
+    
+    ;; FIXME : Temporary until proper primitive exists
+    (jazz:define-macro (%%readtable-escaped-char-table-set! readtable table)
+      (%%force-uniqueness (readtable table)
+        `(%%check-readtable ,readtable 1 (%%readtable-escaped-char-table-set! ,readtable ,table)
+           (##vector-set! ,readtable 3 ,table)))))
 
   (else))
 
@@ -978,7 +991,12 @@
    (jazz:define-macro (%%global-var-set! symbol value)
      (%%force-uniqueness (symbol)
        `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol ,value)
-          (##global-var-set! ,symbol ,value)))))
+          (##global-var-set! ,symbol ,value))))
+   
+   (jazz:define-macro (%%global-var-unbind! symbol)
+     (%%force-uniqueness (symbol)
+       `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol)
+          (##global-var-set! ,symbol #!unbound)))))
 
   (else))
 

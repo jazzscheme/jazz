@@ -42,17 +42,27 @@
         (jazz.geometry)
         (jazz.jml)
         (jazz.library)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.layout))
 
 
 (class Layout-View extends View
   
   
-  ;; fill fit center justify border snap flow box
+  ;; fill    : make every child fill the layout
+  ;; fit     : fit layout around children
+  ;; center  : center children in layout
+  ;; justify : justify children in layout
+  ;; border  : west top right bottom center layout
+  ;; snap    : snap around a center and adjust layout
+  ;; flow    : flow the children accross the layout
+  ;; box
+  ;; gravity
   (property layout-type          initialize #f             accessors explicit)
   (property layout-insets        initialize {Rect 0 0 0 0} accessors explicit)
   (property layout-justification initialize 'center        accessors explicit)
   (property layout-padding       initialize 0              accessors explicit)
+  (property layout-fit           initialize #f             accessors explicit)
   
   
   ;;;
@@ -99,14 +109,27 @@
     (set! layout-padding pad)
     (when layout-type
       (layout-view)))
+  
+  
+  (method public (get-layout-fit)
+    layout-fit)
+  
+  
+  (method public (set-layout-fit fit)
+    (when (neq? fit layout-fit)
+      (set! layout-fit fit)
+      (when layout-fit
+        (layout-view))))
 
   
   ;;;
-  ;;;; Outer
+  ;;;; Widget
   ;;;
   
   
   (method override (inner? view)
+    #f
+    @old-inner
     (and layout-type (memq? view children)))
 
   
@@ -115,24 +138,23 @@
   ;;;
   
   
+  (method (fill-layout)
+    (let ((op (case layout-justification
+                ((horizontal) layout-fill-horizontal)
+                ((vertical) layout-fill-vertical)
+                (else layout-fill))))
+      (op (get-views) (fill-position) (fill-size))))
+  
+  
   (method override (layout)
     (case layout-type
       ((#f))
+      ((gravity)) ;; done in resize
       ((fill)
-       (let ((position (fill-position))
-             (size (fill-size)))
-         (for-each (lambda (child)
-                     (when (is? child View)
-                       (set-position~ child position)
-                       (set-size~ child size)))
-                   children)))
+       (fill-layout))
       ((fit)
-       (let ((child (first-child)))
-         (when child
-           (set-position~ child (rect-position layout-insets))
-           (set-size-noevent (new Dimension
-                               (+ (get-left~ layout-insets) (get-width~ child) (get-right~ layout-insets))
-                               (+ (get-top~ layout-insets) (get-height~ child) (get-bottom~ layout-insets)))))))
+       (let ((ly (new Fit-Layout insets: layout-insets)))
+         (layout~ ly self)))
       ((center)
        (let ((size (get-size)))
          (for-each (lambda (child)
@@ -152,7 +174,7 @@
                          (set-position~ child pos))))
                    children)))
       ((border)
-       (let ((ly (new Border-Layout insets: layout-insets padding: layout-padding)))
+       (let ((ly (new Border-Layout insets: layout-insets padding: layout-padding fit: layout-fit justification: layout-justification)))
          (layout~ ly children (get-width) (get-height))))
       ((snap)
        (let ((ly (new Snap-Layout insets: layout-insets justification: layout-justification padding: layout-padding)))
@@ -164,7 +186,102 @@
        (let ((ly (new Flow-Layout insets: layout-insets justification: layout-justification padding: layout-padding fill?: #t)))
          (layout~ ly children (get-width) (get-height))))
       (else
-       (error "Unknown layout type: {s}" layout-type))))
+       (error "Unknown layout type: {s}" layout-type)))
+    (adjust))
+  
+  
+  (method override (resize dh dv)
+    (define (expand-location location)
+      (define (invalid)
+        (error "Ill-formed location property: {s}" location))
+      
+      (cond ((not location)
+             (values #f #f))
+            ((pair? location)
+             (bind (h-location v-location) location
+               (values (case h-location
+                         ((move fill #f)
+                          h-location)
+                         (else
+                          (invalid)))
+                       (case v-location
+                         ((move fill #f)
+                          v-location)
+                         (else
+                          (invalid))))))
+            ((symbol? location)
+             (case location
+               ((move)   (values 'move 'move))
+               ((h-move) (values 'move #f))
+               ((v-move) (values #f 'move))
+               ((fill)   (values 'fill 'fill))
+               ((h-fill) (values 'fill #f))
+               ((v-fill) (values #f 'fill))
+               (else     (invalid))))
+            (else
+             (invalid))))
+    
+    (define (resize-child view location)
+      (receive (h-location v-location) (expand-location location)
+        (move-figure~ view
+          (if (eq? h-location 'move) dh 0)
+          (if (eq? v-location 'move) dv 0))
+        (size-figure~ view
+          (if (eq? h-location 'fill) dh 0)
+          (if (eq? v-location 'fill) dv 0))))
+    
+    (nextmethod dh dv)
+    (when (eq? layout-type 'gravity)
+      (for-each (lambda (child)
+                  (when (is? child View)
+                    (let ((location (get-location~ child)))
+                      (when location
+                        (resize-child child location)))))
+                (get-children))))
+  
+  
+  (method override (adjust?)
+    (boolean layout-fit))
+  
+  
+  (method override (adjust-fit)
+    (when layout-fit
+      (layout-view)
+      (let ((scroller (get-scroller)))
+        (when scroller
+          (update-scrollbars)))))
+  
+  
+  (method override (adjust)
+    (case layout-fit
+      ((#f))
+      ((around)
+       (let ((left #f)
+             (top #f)
+             (right 0)
+             (bottom 0))
+         (for-each (lambda (child)
+                     (when (and (is? child View) (get-visible?~ child))
+                       (let ((rect (get-rect~ child)))
+                         (set! left (if (not left) (get-left~ rect) (min left (get-left~ rect))))
+                         (set! top (if (not top) (get-top~ rect) (min top (get-top~ rect))))
+                         (set! right (max right (get-right~ rect)))
+                         (set! bottom (max bottom (get-bottom~ rect))))))
+                   children)
+         (if (not left)
+             (set-size (new Dimension
+                         (+ (get-left~ layout-insets) (get-right~ layout-insets))
+                         (+ (get-top~ layout-insets) (get-bottom~ layout-insets))))
+           (let ((dh (- (get-left~ layout-insets) left))
+                 (dv (- (get-top~ layout-insets) top)))
+             (for-each (lambda (child)
+                         (when (and (is? child View) (get-visible?~ child))
+                           (move-figure~ child dh dv)))
+                       children))
+           (let ((size (new Dimension
+                         (+ (get-left~ layout-insets) (- right left) (get-right~ layout-insets))
+                         (+ (get-top~ layout-insets) (- bottom top) (get-bottom~ layout-insets)))))
+             (set-size size)))))))
   
   
   (method protected virtual (fill-position) <Point>
@@ -199,20 +316,18 @@
   
   
   (form
-    (<install>
+    (<install>                                               image: {Image-Resource "Layout"}
       (<properties~>
-        (<Property-Descriptor>    name: layout-type title: "Layout Type"
+        (<Property-Descriptor>    name: layout-type
           (<Type-Domain>          name: domain))
-        (<Property-Descriptor>    name: layout-insets title: "Layout Insets"
+        (<Property-Descriptor>    name: layout-insets
           (<Rect-Domain>          name: domain))
-        (<Property-Descriptor>    name: layout-justification title: "Layout Justification"
+        (<Property-Descriptor>    name: layout-justification
           (<Justification-Domain> name: domain))
-        (<Property-Descriptor>    name: layout-padding title: "Layout Padding"))))
-  
-  
-  @too-many-icons!
-  (method override (class-image class)
-    {Image-Resource "Layout"}))
+        (<Property-Descriptor>    name: layout-padding
+          (<Value-Domain>         name: domain))
+        (<Property-Descriptor>    name: layout-fit
+          (<Boolean-Domain>       name: domain))))))
 
 
 ;;;
@@ -232,7 +347,8 @@
       (border "Border")
       (snap "Snap")
       (flow "Flow")
-      (box "Box")))
+      (box "Box")
+      (gravity "Gravity")))
   
   
   (method override (finish rest)
@@ -253,6 +369,8 @@
       (head "Head")
       (center "Center")
       (tail "Tail")
+      (horizontal "Horizontal")
+      (vertical "Vertical")
       ((head head) "Head Head")
       ((head center) "Head Center")
       ((head tail) "Head Tail")

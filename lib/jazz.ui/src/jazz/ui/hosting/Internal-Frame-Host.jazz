@@ -89,6 +89,15 @@
     (if value
         (maximize)
       (restore)))
+  
+  
+  ;;;
+  ;;;; Title
+  ;;;
+  
+  
+  (method override (adjust-title)
+    (invalidate-caption))
 
   
   ;;;
@@ -202,11 +211,7 @@
       (let ((pref (get-workspace-preferences)))
         (when pref
           (let ((current (get-name~ pref))
-                (workspaces
-                 (cond (workspace
-                        (list workspace))
-                       (else
-                        (effective-host-workspaces~ guest)))))
+                (workspaces (effective-host-workspaces~ guest)))
             (when (and (not-null? workspaces) (not (memq? current workspaces)))
               (let ((pref (find-workspace (car workspaces))))
                 (when pref
@@ -264,11 +269,16 @@
       (new Rect border border (- (get-width) border) (+ border 20))))
   
   
-  (method protected virtual (maximize-rect top right)
+  (method protected (title-rect)
+    (let ((border (if maximized? 0 4)))
+      (new Rect border border (- (get-width) border 40) (+ border 20))))
+  
+  
+  (method protected (maximize-rect top right)
     (new Rect (- right 37) (+ top 3) (- right 21) (+ top 17)))
   
   
-  (method protected virtual (close-rect top right)
+  (method protected (close-rect top right)
     (new Rect (- right 19) (+ top 3) (- right  3) (+ top 17)))
 
   
@@ -367,7 +377,8 @@
   
   
   (method override (invalidate-caption)
-    (invalidate-rect (caption-rect)))
+    (unless maximized?
+      (invalidate-rect (caption-rect))))
   
   
   (method protected virtual (update-buttons)
@@ -413,7 +424,8 @@
   (method override (ensure-container-focusable)
     (select-workspace)
     (set-visible? #t)
-    (bring-to-front))
+    (bring-to-front)
+    (remember-workspace-stage))
 
 
   ;;;
@@ -470,7 +482,7 @@
               (let ((delta-position (nu- new-position (get-position)))
                     (rect (get-rect)))
                 (set-position-noupdate new-position)
-                (scroll-view~ (get-parent) (get-h~ delta-position) (get-v~ delta-position) rect)
+                (scroll-view~ (get-parent) (point->distance delta-position) rect)
                 (update-window~ player)))
           (resize-client dh dv current-part
             (lambda (dh dv dwidth dheight)
@@ -526,7 +538,7 @@
     (list {Color red: 122 green: 150 blue: 223} {Color red: 157 green: 185 blue: 235}))
 
   
-  (method override (draw surface context lh lv)
+  (method override (draw surface context)
     (when (not maximized?)
       (let ((bounds (get-bounds)))
         (draw-edge~ surface bounds inner: 'raised outer: 'raised edges: 'rectangle)))
@@ -549,14 +561,18 @@
         (set-line-width~ surface 1)
         (line~ surface 1 1 (- width 3) 1)
         (line~ surface 1 1 1 24)
-        (gradient-fill~ surface rect (list (list 0 end) (list 1 start)) direction: 'vertical)
+        (if (debug-paint?)
+            (fill-rect~ surface rect (cycle-debug-color!))
+          (gradient-fill~ surface rect (list (list 0 end) (list 1 start)) direction: 'vertical))
         (when icon
           (let ((offset (icon-offset)))
             (draw-image~ (get-images-portfolio~ (get-application)) surface context icon (+ (get-left~ rect) (get-h~ offset)) (+ (get-top~ rect) (get-v~ offset)))))
         (set-font~ surface font)
         (set-text-color~ surface {Color White})
         (let ((offset (title-offset)))
-          (draw-text~ surface (+ (get-left~ rect) (get-h~ offset)) (+ (get-top~ rect) (get-v~ offset)) title)))))
+          (with-clip~ surface (title-rect)
+            (lambda ()
+              (draw-text~ surface (+ (get-left~ rect) (get-h~ offset)) (+ (get-top~ rect) (get-v~ offset)) title)))))))
   
   
   (method protected virtual (icon-offset)

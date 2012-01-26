@@ -38,7 +38,8 @@
 (module protected jazz.ui.layout.Border-Layout jazz
 
 
-(import (jazz.ui))
+(import (jazz.ui)
+        (jazz.ui.layout))
 
 
 (class Border-Layout extends Layout
@@ -46,6 +47,8 @@
   
   (property insets  <Rect> initialize {Rect 0 0 0 0} accessors generate)
   (property padding <fx>   initialize 0              accessors generate)
+  (property fit            initialize #f             accessors generate)
+  (property justification  initialize #f             accessors generate)
   
   
   ;;;
@@ -96,10 +99,17 @@
                       (decrease! right width))
                     (set! right-padding padding)))
                 reversed)
-      (for-each (lambda (figure)
-                  (when (eq? (get-location~ figure) 'center)
-                    (let ((left (+ left (get-left~ insets)))
-                          (top (+ top (get-top~ insets))))
-                      (set-position~ figure (new Point (+ left left-padding) (+ top top-padding)))
-                      (set-size~ figure (new Dimension (- right right-padding left-padding left (get-right~ insets)) (- bottom bottom-padding top-padding top (get-bottom~ insets)))))))
-                reversed)))))
+      (case fit
+        ((#f)
+         (let ((left (+ left (get-left~ insets)))
+               (top (+ top (get-top~ insets))))
+           (let ((position (new Point (+ left left-padding) (+ top top-padding)))
+                 (size (new Dimension (- right right-padding left-padding left (get-right~ insets)) (- bottom bottom-padding top-padding top (get-bottom~ insets))))
+                 (op (case justification
+                       ((horizontal) layout-fill-horizontal)
+                       ((vertical) layout-fill-vertical)
+                       (else layout-fill)))
+                 (centered (collect-if (lambda (figure) (eq? (get-location~ figure) 'center)) visibles)))
+             (op centered position size))))
+        ((around)
+         ))))))

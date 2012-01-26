@@ -42,34 +42,33 @@
         (jazz.jml)
         (jazz.library)
         (jazz.locale)
-        (jazz.system)
-        (jazz.ui)
-        (jazz.ui.view))
+        (jazz.ui))
 
 
 (class undocumented Canvas-Manager extends Component-Editor
 
 
   (form
-    (<install>                                                         size: {Dimension 650 400} layout-type: border layout-insets: {Rect 0 2 0 0}
-      (<Layout-View>                          name: toolbar            size: {Dimension 300 33} layout-type: flow layout-insets: {Rect 0 7 0 0} location: north
-        (<Push-Tool>                          name: new                size: {Dimension 22 22} location: tail enabled?: #f tooltip?: #t tooltip-text: "New" resource: {Image-Resource "New"} portfolio: :images action-handler: {Event-Handler :form on-new}))
-      (<Splitter-View>                        name: splitter           size: {Dimension 650 367} location: center orientation: horz division: 250
-        (<Border-View>                        name: descendants-border position: {Point 2 4} size: {Dimension 278 338} location: first border-type: edge style: entry
-          (<Descendants-Editor>               name: descendants
-            (<!>                              name: scroller
-              (<!>                            name: content
-                (<!>                          name: header
-                  (<!>                        name: content
-                    (<!>                      name: tree               highlight-edited?: #f tab-press-handler: {Event-Handler :form on-tab-press}
-                      (<!>                    name: descendant         title: "Subject"))))))))
-        (<Layout-View>                        name: right              location: second layout-type: fill
-          (<Splitter-View>                    name: editor-splitter    position: {Point 289 0} size: {Dimension 360 366} orientation: vert mode: relative division: 60
-            (<Layout-View>                    name: details-pane       location: first layout-type: fill
-              (<Border-View>                  name: details-border     size: {Dimension 100 300} border-type: edge style: entry
-                (<Grid-Tree-Editor>           name: details)))
-            (<Layout-View>                    name: bottom-right       location: second layout-type: fill
-              (<Border-View>                  name: card-border        border-type: edge style: entry)))))))
+    (<install>                                               size: {Dimension 650 400} layout-type: border layout-insets: {Rect 0 2 0 0}
+      (<Layout-View>                name: toolbar            size: {Dimension 300 33} layout-type: flow layout-insets: {Rect 0 7 0 0} location: north
+        (<Push-Tool>                name: new                size: {Dimension 22 22} location: tail enabled?: #f tooltip?: #t tooltip-text: "New" resource: {Image-Resource "New"} portfolio: :images action-handler: {Event-Handler :form on-new}))
+      (<Splitter-View>              name: splitter           size: {Dimension 650 367} location: center orientation: horz mode: absolute division: 250
+        (<Border-View>              name: descendants-border position: {Point 2 4} size: {Dimension 278 338} location: first border-type: edge style: entry
+          (<Descendants-Editor>     name: descendants
+            (<!>                    name: border
+              (<!>                  name: scroller
+                (<!>                name: content
+                  (<!>              name: header
+                    (<!>            name: content
+                      (<!>          name: tree               highlight-edited?: #f tab-press-handler: {Event-Handler :form on-tab-press}
+                        (<!>        name: descendant         title: "Subject")))))))))
+        (<Layout-View>              name: right              location: second layout-type: fill
+          (<Splitter-View>          name: editor-splitter    position: {Point 289 0} size: {Dimension 360 366} orientation: vert mode: relative division: 60
+            (<Layout-View>          name: details-pane       location: first layout-type: fill
+              (<Border-View>        name: details-border     size: {Dimension 100 300} border-type: edge style: entry
+                (<Grid-Tree-Editor> name: details)))
+            (<Layout-View>          name: bottom-right       location: second layout-type: fill
+              (<Border-View>        name: card-border        border-type: edge style: entry)))))))
   
   
   ;;;
@@ -104,7 +103,7 @@
            (manager (get-guest~ frame))
            (newbase (localize "New"))
            (newname (unique-domain-name newbase (collect-names manager)))
-           (controller (get-controller~ manager)))
+           (controller (get-document-controller~ manager)))
       (set-newname~ controller newname)
       (update-status~ controller)
       (let ((client (instantiate~ (<form> (<Canvas-Base> name: newname)))))
@@ -130,7 +129,7 @@
   ;;;
 
 
-  (method override (new-controller)
+  (method override (new-document-controller)
     (new Canvas-Manager-Controller self))
 
   
@@ -188,17 +187,18 @@
   
   
   (method override (on-editor evt)
-    (nextmethod evt)
-    (case (get-kind~ evt)
-      ((:selection-changing)
-       (let ((selection (get-selection~ evt)))
-         (let ((component (if (null? selection) #f (car selection))))
-           (setup-details component)
-           (setup-card component))))
-      ((:saving)
-       (let ((current (get-card)))
-         (when (is? current Custom-Card)
-           (save-client~ current))))))
+    (unless (destroying?)
+      (nextmethod evt)
+      (case (get-kind~ evt)
+        ((:selection-changing)
+         (let ((selection (get-selection~ evt)))
+           (let ((component (if (null? selection) #f (car selection))))
+             (setup-details component)
+             (setup-card component))))
+        ((:saving)
+         (let ((current (get-card)))
+           (when (is? current Custom-Card)
+             (save-client~ current)))))))
   
 
   ;;;
@@ -224,7 +224,7 @@
               (set-editor~ card self)
               (set-designer~ card designer)
               (when (is? card Details-Card)
-                (set-filter~ (get-tree~ card) 'categorized))
+                (set-filter~ (get-tree~ card) 'standard))
               (card-update card))))))))
   
   
@@ -256,7 +256,7 @@
               (set-editor~ card self)
               (set-designer~ card designer)
               (when (is? card Properties-Card)
-                (set-filter~ (get-tree~ card) 'categorized))
+                (set-filter~ (get-tree~ card) 'standard))
               (card-update card)))))))
   
   
@@ -299,10 +299,7 @@
   
   (method override (on-tab-press evt)
     (let ((tree (get-tree~ (locate 'card))))
-      (acquire-focus~ tree)
-      (let ((rank (get-single-selection~ tree)))
-        (when rank
-          (auto-select~ (get-row~ tree rank))))))
+      (acquire-focus~ tree)))
   
   
   ;;;

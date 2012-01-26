@@ -1262,20 +1262,20 @@
 
 
 ;;;
-;;;; Construct
+;;;; Allocate
 ;;;
 
 
-(jazz:define-class-runtime jazz:Construct)
+(jazz:define-class-runtime jazz:Allocate)
 
 
-(define (jazz:new-construct class values)
-  (jazz:allocate-construct jazz:Construct #f #f class values))
+(define (jazz:new-allocate class values)
+  (jazz:allocate-allocate jazz:Allocate #f #f class values))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Construct expression) declaration environment)
-  (let ((class (%%get-construct-class expression))
-        (values (%%get-construct-values expression)))
+(jazz:define-method (jazz:emit-expression (jazz:Allocate expression) declaration environment)
+  (let ((class (%%get-allocate-class expression))
+        (values (%%get-allocate-values expression)))
     (jazz:new-code
       `(%%object ,(jazz:sourcified-form (jazz:emit-expression class declaration environment))
          ,@(jazz:codes-forms (jazz:emit-expressions values declaration environment)))
@@ -1283,13 +1283,13 @@
       #f)))
 
 
-(jazz:define-method (jazz:fold-expression (jazz:Construct expression) f k s)
+(jazz:define-method (jazz:fold-expression (jazz:Allocate expression) f k s)
   (f expression
-     (k (jazz:fold-expression (%%get-construct-class expression) f k s)
-        (jazz:fold-expressions (%%get-construct-values expression) f k s s))))
+     (k (jazz:fold-expression (%%get-allocate-class expression) f k s)
+        (jazz:fold-expressions (%%get-allocate-values expression) f k s s))))
 
 
-(jazz:encapsulate-class jazz:Construct)
+(jazz:encapsulate-class jazz:Allocate)
 
 
 ;;;
@@ -1523,12 +1523,13 @@
       (let ((type (jazz:specifier->type walker resume declaration environment specifier)))
         (let ((signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
           (let ((effective-type (if parameters (jazz:build-function-type signature type) type)))
-            (let ((new-declaration (or (jazz:find-child-declaration declaration name)
+            (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                        (jazz:new-definition-declaration name effective-type access compatibility '() declaration expansion signature))))
               (%%set-declaration-source new-declaration form-src)
               (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
                 (%%when (%%eq? expansion 'inline)
                   (let ((new-environment (%%cons effective-declaration environment)))
+                    (%%set-definition-declaration-signature effective-declaration signature)
                     (%%set-definition-declaration-value effective-declaration
                                                         (jazz:walk walker resume effective-declaration new-environment value))))
                 effective-declaration))))))))
@@ -1812,7 +1813,7 @@
       (receive (ascendant ascendant-relation ascendant-base) (jazz:lookup-ascendant walker resume declaration environment ascendant-name)
         (let ((metaclass (jazz:lookup-metaclass walker resume declaration environment ascendant metaclass-name))
               (interfaces (if (jazz:unspecified? interface-names) '() (map (lambda (interface-name) (jazz:lookup-reference walker resume declaration environment interface-name)) (jazz:listify interface-names)))))
-          (let ((new-declaration (or (jazz:find-child-declaration declaration name)
+          (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                      (jazz:new-class-declaration name type access compatibility attributes declaration implementor metaclass ascendant ascendant-relation ascendant-base interfaces))))
             (%%set-declaration-source new-declaration form-src)
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -1907,7 +1908,7 @@
       (%%assertion (%%class-is? declaration jazz:Module-Declaration) (jazz:walk-error walker resume declaration form-src "Interfaces can only be defined at the module level: {s}" name)
         (let ((metaclass (if (or (jazz:unspecified? metaclass-name) (%%eq? metaclass-name 'Interface)) #f (jazz:lookup-reference walker resume declaration environment metaclass-name)))
               (ascendants (if (jazz:unspecified? ascendant-names) '() (map (lambda (ascendant-name) (jazz:lookup-reference walker resume declaration environment ascendant-name)) (jazz:listify ascendant-names)))))
-          (let ((new-declaration (or (jazz:find-child-declaration declaration name)
+          (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                      (jazz:new-interface-declaration name type access compatibility attributes declaration implementor metaclass ascendants))))
             (%%set-declaration-source new-declaration form-src)
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -2036,7 +2037,7 @@
       (%%assertion (%%class-is? declaration jazz:Class-Declaration) (jazz:walk-error walker resume declaration form-src "Slots can only be defined inside classes: {s}" name)
         (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
               (new (if (%%eq? (%%car form) '%property) jazz:new-property-declaration jazz:new-slot-declaration)))
-          (let ((new-declaration (or (jazz:find-child-declaration declaration name)
+          (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                      (new name type access compatibility '() declaration #f getter-name setter-name))))
             (%%set-declaration-source new-declaration form-src)
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -2134,7 +2135,7 @@
                 (jazz:walk-parameters walker resume declaration environment parameters #t #f)
                 (jazz:unspecified)))
           (let* ((root-declaration (find-root-declaration name))
-                 (new-declaration (or (jazz:find-child-declaration declaration name)
+                 (new-declaration (or (jazz:find-declaration-child declaration name)
                                       (jazz:new-method-declaration name type access compatibility '() declaration root-declaration propagation abstraction expansion remote synchronized signature))))
             (%%set-declaration-source new-declaration form-src)
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -2226,16 +2227,16 @@
 
 
 ;;;
-;;;; Construct
+;;;; Allocate
 ;;;
 
 
-(define (jazz:walk-construct walker resume declaration environment form-src)
+(define (jazz:walk-allocate walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (let ((class (%%cadr form))
           (values (%%cddr form)))
-      (jazz:new-construct (jazz:walk walker resume declaration environment class)
-                          (jazz:walk-list walker resume declaration environment values)))))
+      (jazz:new-allocate (jazz:walk walker resume declaration environment class)
+                         (jazz:walk-list walker resume declaration environment values)))))
 
 
 ;;;
@@ -2618,7 +2619,7 @@
     ((jazz.platform.windows.com:VARIANT_BOOL) (error "cotype VARIANT_BOOL has no default value"))
     ((jazz.platform.windows.com:VARIANT_BOOL*) #f)
     ((jazz.platform.windows.com:VARIANT) (error "cotype VARIANT has no default value"))
-    ((jazz.platform.windows.com:VARIANT*) '())
+    ((jazz.platform.windows.com:VARIANT*) ''())
     ((jazz.platform.windows.com:IUnknown*) (error "cotype IUnknown* has no default value"))
     ((jazz.platform.windows.com:IUnknown**) #f)
     ((jazz.platform.windows.WinTypes:INT*) 0)
@@ -2789,7 +2790,7 @@
 
 (define (jazz:walk-c-named-declare-declaration walker resume declaration environment form-src)
   (receive (name type access compatibility code) (jazz:parse-c-named-declare walker resume declaration (%%cdr (%%desourcify form-src)))
-    (let ((new-declaration (or (jazz:find-child-declaration declaration name)
+    (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                (jazz:new-c-named-declare-declaration name type access compatibility '() declaration code))))
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
           effective-declaration))))
@@ -2849,7 +2850,7 @@
                                     (%%cons (jazz:resolve-c-named-declare-reference walker resume declaration environment declare) inclusions)
                                   (jazz:walk-error walker resume declaration form-src "{s} defined with c-to-scheme and scheme-to-c but expansion is not a string: {s}" name expansion))
                               inclusions)))
-            (let ((new-declaration (or (jazz:find-child-declaration declaration name)
+            (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                        (jazz:new-c-type-declaration name type access compatibility '() declaration kind expansion base-type-declaration inclusions c-to-scheme scheme-to-c declare))))
               (%%when base-type-declaration
                 (%%set-c-type-declaration-pointer-types base-type-declaration (%%cons new-declaration (%%get-c-type-declaration-pointer-types base-type-declaration))))
@@ -2956,7 +2957,7 @@
     (receive (name type access compatibility parameters parameter-types result-type c-name scope body) (jazz:parse-c-definition walker resume declaration (%%cdr form))
       (let ((resolve-access (lambda (type) (jazz:expand-c-type-reference walker resume declaration environment type)))
             (signature (jazz:walk-parameters walker resume declaration environment parameters #f #f)))
-        (let ((new-declaration (or (jazz:find-child-declaration declaration name)
+        (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                    (jazz:new-c-definition-declaration name type access compatibility '() declaration signature (map resolve-access parameter-types) (resolve-access result-type) c-name scope))))
           (%%set-declaration-source new-declaration form-src)
           (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -3220,7 +3221,7 @@
 (jazz:define-walker-special with-dynamic-self    jazz jazz:walk-with-dynamic-self)
 (jazz:define-walker-special with-local-variables jazz jazz:walk-with-local-variables)
 (jazz:define-walker-special cast                 jazz jazz:walk-cast)
-(jazz:define-walker-special construct            jazz jazz:walk-construct)
+(jazz:define-walker-special allocate             jazz jazz:walk-allocate)
 (jazz:define-walker-special time                 jazz jazz:walk-time)
 (jazz:define-walker-macro   remotable-stub       jazz jazz:expand-remotable-stub)
 (jazz:define-walker-syntax  assert               jazz jazz:expand-assert)

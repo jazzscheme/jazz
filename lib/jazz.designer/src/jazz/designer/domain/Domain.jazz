@@ -39,7 +39,8 @@
 
 
 (import (jazz.library)
-        (jazz.locale))
+        (jazz.locale)
+        (jazz.designer))
 
 
 (class Domain extends Component
@@ -53,24 +54,50 @@
   ;;;
   
   
-  (method public virtual (validate property value component root client context manager)
+  (method public virtual (validate property value component root editor context manager)
     (if (not value)
         (when (not nullable?)
-          (add-violation~ manager (new Integrity-Violation message: (format "Property '{a}' is mandatory" (localize (property-presentation~ (class-of component) property))) property: (field-name property)) component root client))
-      (validate-value property value component root client context manager)))
+          (add-violation~ manager (new Integrity-Violation message: (format "Property '{a}' is mandatory" (localize (property-presentation~ (class-of component) property))) property: (field-name property)) component root editor))
+      (validate-value property value component root editor context manager)))
   
   
-  (method public virtual (validate-value property value component root client context manager)
+  (method public virtual (validate-value property value component root editor context manager)
     )
+  
+  
+  (method virtual (get-violation-message exception)
+    #f)
+  
+  
+  (method (validate-nil)
+    (unless (get-nullable?)
+      (new Property-Violation message: "This field is not nullable.")))
   
   
   (method public virtual (validate-text text)
-    )
+    (if (parse-nil? text)
+        (validate-nil)
+      (with-exception-filter
+        (lambda (exception)
+          #t)
+        (lambda (exception)
+          (new Property-Violation message: (get-violation-message exception)))
+        (lambda ()
+          (parse text)
+          #f))))
   
   
   ;;;
   ;;;; Presentation
   ;;;
+  
+  
+  (method virtual (get-nil-presentation)
+    "")
+  
+  
+  (method (parse-nil? text)
+    (and (get-nullable?) (string=? text (get-nil-presentation))))
   
   
   (method public virtual (present value)
@@ -134,4 +161,27 @@
   
   
   (method public virtual (set-property-modified? view value)
-    (set-modified?~ (get-entry~ view) value))))
+    (set-modified?~ (get-entry~ view) value))
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Domain-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer))
+
+
+(class Domain-Descriptor extends Component-Descriptor)))

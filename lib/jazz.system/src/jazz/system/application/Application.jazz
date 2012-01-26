@@ -49,7 +49,6 @@
         (jazz.library.listener)
         (jazz.library.template)
         (jazz.locale)
-        (jazz.platform)
         (jazz.profile)
         (jazz.runtime)
         (jazz.system)
@@ -71,11 +70,6 @@
 
 
   (slot toplevel                 initialize #f)
-  (slot profile-name             initialize #f)
-  (slot profile-unit             initialize #f)
-  (slot profile-class            initialize #f)
-  (slot profile-bindings         initialize #f)
-  (slot profile                  initialize #f                        getter generate)
   (slot focus-listeners          initialize '())
   (slot application-listeners    initialize (make-table test: eq?))
   (slot selected-owner           initialize #f                        getter generate)
@@ -106,6 +100,10 @@
 
   (method override (get-toplevel)
     toplevel)
+  
+  
+  (method override (is-application?)
+    #t)
 
 
   ;;;
@@ -120,14 +118,17 @@
     (set-bindings (new Application-Bindings)))
 
 
-  (method override (prepare-environment)
+  (method override (prepare-profile)
     (nextmethod)
     (set-application self)
     (setup-shortcuts)
     (initialize-windowing get-setting)
     (initialize-system)
-    (prepare-skins)
-    (prepare-profile)
+    (prepare-skins))
+
+
+  (method override (prepare-environment)
+    (nextmethod)
     (prepare-colors)
     (prepare-fonts)
     (prepare-formats)
@@ -219,10 +220,7 @@
     (when toplevel
       (close~ toplevel)
       (set! toplevel #f)
-      (set! profile-name #f)
-      (set! profile-unit #f)
       (set! profile-class #f)
-      (set! profile-bindings #f)
       (set! profile #f)))
 
 
@@ -257,11 +255,6 @@
   (method override (start-loop)
     (setup-events)
     (process-events))
-  
-  
-  (method override (resume-loop-action)
-    (when toplevel
-      (select-foreground~ toplevel)))
 
 
   ;;;
@@ -446,53 +439,38 @@
   ;;;
   
   
-  (method protected virtual (prepare-profile)
-    (when (use-profile?)
-      (install-profiles)
-      (log-profile)))
-  
-  
-  (method protected virtual (use-profile?)
-    #f)
-  
-  
   (method protected virtual (use-profile-logging?)
     #f)
   
   
-  (method protected virtual (install-profiles)
-    )
-  
-  
-  (method (log-profile)
-    (define (install-profile)
+  (method override (log-profile)
+    (define (install-profile name unit bindings)
       (let ((source (find-unit-source profile-class)))
         (when (not source)
-          (install-new-profile)
+          (install-new-profile name unit bindings)
           (set! source (find-unit-source profile-class)))
         (register-alias 'Profile (get-list~ (get-parent~ source)))))
     
-    (define (install-new-profile)
+    (define (install-new-profile name unit bindings)
       (let ((associations (list (cons 'jazz-settings-version (present-version jazz-settings-version))
                                 (cons 'settings-version (present-version (settings-version)))
-                                (cons 'profile profile-name)
-                                (cons 'profile-lowercase (downcase (symbol->string profile-name)))
-                                (cons 'profile-unit profile-unit)
-                                (cons 'profile-bindings (or profile-bindings 'jazz))
+                                (cons 'profile name)
+                                (cons 'profile-lowercase (downcase (symbol->string name)))
+                                (cons 'profile-unit unit)
+                                (cons 'profile-bindings (or bindings 'jazz))
                                 (cons 'active-skin (case kernel-windowing ((carbon) 'mac) ((x11) 'x11) (else 'jazz))))))
         (copy-template (new-directory~ (templates-directory) "profile")
                        {Directory Home}
                        associations
                        non-expanded-nodes: '("catalogs")))
       (let ((repository (find-repository 'Profiles)))
-        (let ((package-name profile-unit)
-              (package-path (concatenate (repository-library-directory repository) (format "{a}/.package" profile-unit))))
+        (let ((package-name unit)
+              (package-path (concatenate (repository-library-directory repository) (format "{a}/.package" unit))))
           (repository-add-package repository (load-package repository #f package-name package-path)))))
     
     (define (login-profile)
       (receive (name unit bindings always-use?) (choose-profile-login)
         (let ((one-shoot? (shift-down?)))
-          (set! profile-bindings bindings)
           (when settings
             (unless one-shoot?
               (set-setting~ settings 'profile (if always-use? (->string name) #f)))
@@ -502,15 +480,16 @@
                                    name))
               (set-setting~ settings 'profile-warned? #t))
             (save-content~ settings))
-          (values name unit))))
+          (values name unit bindings))))
     
     (define (standard-profile title)
       (let ((name (string->symbol title))
-            (unit-name (string->symbol (format "profile.{a}" (downcase title)))))
-        (values name unit-name)))
+            (unit-name (string->symbol (format "profile.{a}" (downcase title))))
+            (bindings 'jazz))
+        (values name unit-name bindings)))
     
     (define (system-profile)
-      (values 'Me 'jazz.profile)
+      (values 'Me 'jazz.profile 'jazz)
       @convert
       (standard-profile (get-system-user-name)))
     
@@ -526,13 +505,11 @@
     
     (let ((use-logging? (use-profile-logging?)))
       (let ((profile-arg (and (or (not use-logging?) (not (shift-down?))) (or (jazz-profile) (profile-parameter)))))
-        (receive (name unit) (cond (profile-arg (standard-profile (->string profile-arg)))
-                                   (use-logging? (login-profile))
-                                   (else (system-profile)))
-          (set! profile-name name)
-          (set! profile-unit unit)
+        (receive (name unit bindings) (cond (profile-arg (standard-profile (->string profile-arg)))
+                                            (use-logging? (login-profile))
+                                            (else (system-profile)))
           (set! profile-class (compose-identifier unit name))
-          (install-profile)
+          (install-profile name unit bindings)
           (load-profile-jazzini)))))
   
   
@@ -558,7 +535,6 @@
     (close-all-no-confirm)
     (save-bindings)
     (save-workspaces)
-    @wait
     (save-page-setup)
     (nextmethod))
   
@@ -568,7 +544,7 @@
       (and (is? frame Host-View)
            (let ((guest (get-guest~ frame)))
              (and (is? guest Document)
-                  (let ((controller (get-controller~ guest)))
+                  (let ((controller (get-document-controller~ guest)))
                     (dependent-document?~ controller))))))
     
     (for-each (lambda (frame)
@@ -627,6 +603,10 @@
   ;;;
   ;;;; Help
   ;;;
+  
+  
+  (method public virtual (show-help)
+    #f)
   
   
   (method package (on-about evt)
@@ -712,26 +692,27 @@
                  (when (is? view Frame-Host)
                    (let ((guest (get-guest~ view)))
                      (when (is? guest Document)
-                       (let ((controller (get-controller~ guest)))
+                       (let ((controller (get-document-controller~ guest)))
                          (when (needs-reload?~ controller)
                            controller))))))
                (all-frames include-invisibles?: #t)))
     
     (let ((reloads (collect-reloads)))
       (when (not-null? reloads)
-        (let ((code (message-box (format "Files have been modified. Do you want to reload them?")
-                                 title: "File Status"
-                                 type: 'question)))
-          (for-each (lambda (controller)
-                      (propose-reload-action~ controller code))
-                    reloads)))))
+        (let ((partition (partition reloads key: class-of test: eq?)))
+          (for-each (lambda (category)
+                      (let ((code (propose-multiple-reloads~ (car category))))
+                        (for-each (lambda (controller)
+                                    (propose-reload-action~ controller code))
+                                  (cdr category))))
+                    partition)))))
   
   
   (method public (verify-reload moniker)
     (let ((frame (find-document moniker)))
       (when frame
         (let ((document (get-guest~ frame)))
-          (verify-reload~ (get-controller~ document))))))
+          (verify-reload~ (get-document-controller~ document))))))
 
 
   ;;;
@@ -881,17 +862,17 @@
     (let* ((focus (get-focus))
            (view? (and focus (is? focus View))))
       (when preferences-designer
-        (set-action-enabled? {Action view undo} (and view? (can-undo?~ focus)))
-        (set-action-enabled? {Action view redo} (and view? (can-redo?~ focus)))
-        (set-action-enabled? {Action view cut} (and view? (can-cut?~ focus)))
-        (set-action-enabled? {Action view copy} (and view? (can-copy?~ focus)))
-        (set-action-enabled? {Action application copy-formatted} (and view? (can-copy?~ focus)))
-        (set-action-enabled? {Action view paste} (and view? (can-paste?~ focus)))
-        (set-action-enabled? {Action application paste-cycle-stack} (and view? (can-paste?~ focus) (not-null? Clipboard-Stack)))
-        (set-action-enabled? {Action application paste-cycle-stack-reversed} (and view? (can-paste?~ focus) (not-null? Clipboard-Stack)))
-        (set-action-enabled? {Action view paste-properties} (and view? (can-paste-properties?~ focus)))
-        (set-action-enabled? {Action view delete} (and view? (can-delete?~ focus)))
-        (set-action-enabled? {Action view select-all} (and view? (can-select-all?~ focus)))
+        (set-action-enabled? {Action view undo} (and view? (can-view-undo?~ focus)))
+        (set-action-enabled? {Action view redo} (and view? (can-view-redo?~ focus)))
+        (set-action-enabled? {Action view cut} (and view? (can-view-cut?~ focus)))
+        (set-action-enabled? {Action view copy} (and view? (can-view-copy?~ focus)))
+        (set-action-enabled? {Action application copy-formatted} (and view? (can-view-copy?~ focus)))
+        (set-action-enabled? {Action view paste} (and view? (can-view-paste?~ focus)))
+        (set-action-enabled? {Action application paste-cycle-stack} (and view? (can-view-paste?~ focus) (not-null? Clipboard-Stack)))
+        (set-action-enabled? {Action application paste-cycle-stack-reversed} (and view? (can-view-paste?~ focus) (not-null? Clipboard-Stack)))
+        (set-action-enabled? {Action view paste-properties} (and view? (can-view-paste-properties?~ focus)))
+        (set-action-enabled? {Action view delete} (and view? (can-view-delete?~ focus)))
+        (set-action-enabled? {Action view select-all} (and view? (can-view-select-all?~ focus)))
         (when view?
           (focus-update-actions~ focus)))))
   
@@ -1168,7 +1149,7 @@
           (let ((active (or (get-active-bindings~ (get-preferences #f)) 'jazz)))
             (let ((trait (locate-component~ bindings active)))
               (when (is? trait Trait)
-                (set-active-trait~ bindings trait))))))
+                (set-base-traits~ bindings (list trait)))))))
       continue-handler:
       (lambda (err)
         (set-bindings/designer (default-bindings)))))
@@ -1195,11 +1176,6 @@
   ;;;
   
   
-  (method (prepare-skins)
-    (let ((skins (default-skins)))
-      (set-skin (child~ skins (default-skin)))))
-  
-  
   (method (install-skins)
     (with-safe-execution "loading the skins"
       (lambda ()
@@ -1213,10 +1189,6 @@
           (set-skin (child~ skins (default-skin)))))))
   
   
-  (method protected virtual (default-skin)
-    (get-setting 'jazz.ui.skin 'jazz))
-  
-  
   (method protected virtual (skins-file)
     {File Profile "settings" "Skins.jml"})
   
@@ -1226,15 +1198,6 @@
       (if (and (is-alias? 'Profile) (exists?~ file))
           (instantiate~ (read-form file))
         (default-skins))))
-  
-  
-  (method protected virtual (default-skins)
-    (instantiate~
-      (<form>
-        (<Skins>
-          (<Default-Skin> name: default)
-          (<Jazz-Skin>    name: jazz)
-          (<Windows-Skin> name: windows)))))
   
   
   (method protected (set-skins-designer skins)
@@ -1405,7 +1368,6 @@
       ((:focus)       (get-focus))
       ((:focus-host)  (focused-host))
       ((:focus-guest) (focused-guest))
-      ((:profile)     (get-profile))
       ((:images)      (get-images-portfolio))
       ((:bindings)    (get-bindings))
       (else (cond ((and (pair? name) (eq? (car name) :menu)) (find-menu (cadr name)))
@@ -1598,42 +1560,28 @@
   
   
   (method package (on-zoom-horizontally evt)
-    (with-locked-update
-      (lambda ()
-        (let ((started? #f))
-          (continuation-capture
-            (lambda (return)
-              (for-each-splitter (current-stage-border)
-                (lambda (splitter host)
-                  (if (eq? (get-orientation~ splitter) 'vert)
-                      (when started?
-                        (continuation-return return))
-                    (if (eq? (get-state~ splitter) 'split)
-                        (if (workspace-zoomable?~ splitter host)
-                            (zoom~ splitter host)
-                          (continuation-return return))
-                      (unzoom~ splitter))
-                    (set! started? #t))))))))))
+    (zoom-direction 'horz))
   
   
   (method package (on-zoom-vertically evt)
+    (zoom-direction 'vert))
+  
+  
+  (method package (zoom-direction direction)
     (with-locked-update
       (lambda ()
-        (let ((started? #f)
-              (border (current-stage-border)))
-          (continuation-capture
-            (lambda (return)
-              (for-each-splitter border
-                (lambda (splitter host)
-                  (if (eq? (get-orientation~ splitter) 'horz)
-                      (when started?
-                        (continuation-return return))
-                    (if (eq? (get-state~ splitter) 'split)
-                        (zoom~ splitter host)
-                      (unzoom~ splitter))
-                    (set! started? #t))
-                  (when (eq? host border)
-                    (continuation-return return))))))))))
+        (let ((stage (current-stage)))
+          (receive (preference view) (find-top-stage stage)
+            (continuation-capture
+              (lambda (return)
+                (for-each-splitter view
+                  (lambda (splitter host)
+                    (when (and (eq? (get-orientation~ splitter) direction)
+                               (get-zoomable?~ splitter))
+                      (if (eq? (get-state~ splitter) 'split)
+                          (zoom~ splitter host)
+                        (unzoom~ splitter))
+                      (continuation-return return)))))))))))
   
   
   (method package (on-maximize/restore evt)
@@ -1641,6 +1589,23 @@
       (if (get-maximized?~ stage)
           (restore~ stage)
         (maximize~ stage))))
+  
+  
+  (method package (on-full-stage evt)
+    (let ((stage (current-stage)))
+      (receive (preference view) (find-top-stage stage)
+        (if (is-not? preference Splitter-Preferences)
+            (bell)
+          (let ((zoom?  (eq? (get-state~ view) 'split)))
+            (continuation-capture
+              (lambda (return)
+                (for-each-splitter (get-border~ stage)
+                  (lambda (splitter host)
+                    (if zoom?
+                        (zoom~ splitter host)
+                      (unzoom~ splitter))
+                    (when (eq? splitter view)
+                      (continuation-return return #f)))))))))))
   
   
   (method package (on-full-screen evt)
@@ -1680,15 +1645,16 @@
             (set-fullscreen?~ toplevel fullscreen?)
             (when stage
               (set-fullscreen?~ stage fullscreen?))
-            (for-each-splitter host
-              (lambda (splitter host)
-                (let ((preferences (get-preferences~ splitter)))
-                  (when (and preferences (eq? (get-name~ preferences) 'top))
-                    (fix-top-splitter-insets splitter)))
-                (set-full?~ splitter fullscreen?)
-                (if fullscreen?
-                    (zoom~ splitter host)
-                  (unzoom~ splitter)))))))))
+            (receive (preference view) (find-top-stage stage)
+              (for-each-splitter view
+                (lambda (splitter host)
+                  (let ((preferences (get-preferences~ splitter)))
+                    (when (and preferences (eq? (get-name~ preferences) 'top))
+                      (fix-top-splitter-insets splitter)))
+                  (set-full?~ splitter fullscreen?)
+                  (if fullscreen?
+                      (zoom~ splitter host)
+                    (unzoom~ splitter))))))))))
   
   
   (method public (on-delete-stage evt)
@@ -1713,6 +1679,14 @@
   
   (method public (on-clone-frame evt)
     (clone-frame))
+  
+  
+  (method public (on-tie-frame-model evt)
+    (tie-frame-model))
+  
+  
+  (method public (on-untie-stage evt)
+    (untie-stage))
 
 
   ;;;
@@ -1862,17 +1836,16 @@
   
   ;; This needs cleanup as it cannot be done for every application
   (method public (update-search-actions)
-    (let* ((frames (all-frames))
-           (count (length frames))
+    (let* ((document (current-document))
            (result (active-search-result))
            (results (get-search-results))
            (resultset (get-current-resultset~ results))
            (results-count (get-visible-count~ (get-tree~ results))))
-      (set-action-enabled? {Action application find-forward} (and result (>= count 1)))
-      (set-action-enabled? {Action application find-backward} (and result (>= count 1)))
-      (set-action-enabled? {Action application replace} (and result (>= count 1)))
-      (set-action-enabled? {Action application replace&find-forward} (and result (>= count 1)))
-      (set-action-enabled? {Action application replace-all} (and result (>= count 1)))
+      (set-action-enabled? {Action application find-forward} (and result document))
+      (set-action-enabled? {Action application find-backward} (and result document))
+      (set-action-enabled? {Action application replace} (and result document))
+      (set-action-enabled? {Action application replace&find-forward} (and result document))
+      (set-action-enabled? {Action application replace-all} (and result document))
       (set-action-enabled? {Action application edit-next} (>= results-count 1))
       (set-action-enabled? {Action application edit-previous} (>= results-count 1))
       (set-action-enabled? {Action application edit-current} (>= results-count 1))
@@ -2036,7 +2009,7 @@
     (or (get-command-text)
         (begin
           (message-box "This workspace doesn't contain a command text")
-          (throw-cancel))))
+          (signal-cancel))))
   
   
   (method public (require-unzoomed-command-text)
@@ -2127,7 +2100,7 @@
       (lambda (guest)
         (and (is? guest Document)
              (or (not class) (is? guest class))
-             (let ((guest-moniker (get-moniker~ (get-controller~ guest))))
+             (let ((guest-moniker (get-moniker~ (get-document-controller~ guest))))
                (and guest-moniker
                     (pathname=? guest-moniker moniker)))))))
   
@@ -2147,13 +2120,17 @@
       (if (not (exists?~ moniker))
           (error "Unable to locate document: {t}" moniker)
         (let ((file moniker))
-          (let* ((frame (if force-new? #f (find-document file class: class)))
-                 (result (lambda (frame new?) (if return-new? (values frame new?) frame))))
+          (let ((frame (if force-new? #f (find-document file class: class))))
+            (define (return frame new?)
+              (if return-new?
+                  (values frame new?)
+                frame))
+            
             (if (not frame)
                 (let ((class (or class (file-frame-class file))))
                   (with-cursor :wait
                     (lambda ()
-                      (result (new-frame class
+                      (return (new-frame class
                                          kind: kind
                                          host-workspace: workspace
                                          host-visible?: visible?
@@ -2162,22 +2139,26 @@
                                                        (let ((text? (is? document Text-View)))
                                                          (when text?
                                                            (set-char-encoding~ (get-model~ document) char-encoding))
-                                                         (set-moniker~ (get-controller~ document) moniker)
+                                                         (set-moniker~ (get-document-controller~ document) moniker)
                                                          (when text?
                                                            (when wrap?
                                                              (set-wrap?~ (get-model~ document) #t))
                                                            (when selection
                                                              (end-completion~ document)
-                                                             (set-selection-safe~ document selection ensure-displayed?: 'center-caret))))))
+                                                             (set-selection-safe~ document selection reposition: 'vertical ensure-displayed?: 'center-caret))))))
                               #t))))
               (when selection
                 (let ((document (get-guest~ frame)))
                   (end-completion~ document)
-                  (set-selection-safe~ document selection ensure-displayed?: 'center-caret)))
+                  (set-selection-safe~ document selection ensure-displayed?: #f)
+                  (ensure-displayed~ document force-vertical: 'head)))
+              (when (and workspace (neq? workspace (get-workspace~ frame)))
+                (set-workspace~ frame workspace)
+                (apply-preferences~ (get-workspace workspace) restore-focus?: #f))
               (when (and visible? activate-focus?)
                 (focus-host~ frame))
-              (verify-reload~ (get-controller~ (get-guest~ frame)))
-              (result frame #f)))))))
+              (verify-reload~ (get-document-controller~ (get-guest~ frame)))
+              (return frame #f)))))))
   
   
   (method public (edit-help-document moniker)
@@ -2193,15 +2174,11 @@
           (error "Unable to locate filename: {t}" filename)
         (let* ((frame (edit-document (get-source~ project-file)))
                (text (get-guest~ frame)))
-          (verify-reload~ (get-controller~ text))))))
-  
-  
-  (method public virtual (edit-category name)
-    )
+          (verify-reload~ (get-document-controller~ text))))))
   
   
   (method package virtual (on-close evt)
-    (let ((frame (first-frame)))
+    (let ((frame (front-frame)))
       (when frame
         (close-host~ frame))))
 
@@ -2210,7 +2187,7 @@
     (for-each (lambda (view)
                 (when (is? view Frame-Host)
                   (let ((guest (get-guest~ view)))
-                    (when (or (is-not? guest Document) (close-on-close-all?~ (get-controller~ guest)))
+                    (when (or (is-not? guest Document) (close-on-close-all?~ (get-document-controller~ guest)))
                       (confirm-close~ view)
                       (close-host~ view)))))
               (all-frames)))
@@ -2246,11 +2223,11 @@
                           (when (is? host Frame-Host)
                             (let ((guest (get-guest~ host)))
                               (when (is? guest Document)
-                                (let ((controller (get-controller~ guest)))
+                                (let ((controller (get-document-controller~ guest)))
                                   (when (and (is? guest class)
                                              (or save-unanchored? (get-moniker~ guest))
                                              (xor main-documents? (dependent-document?~ controller))
-                                             (get-modified?~ (get-controller~ guest)))
+                                             (get-modified?~ controller))
                                     (save~ guest)))))))
                         (all-frames include-invisibles?: #t)))))
       ;; saving dependent documents will make their main document modified
@@ -2313,8 +2290,9 @@
     (new Application-Preferences))
   
   
-  (method protected virtual (toolbox-file)
-    {File Profile "settings" "Toolbox.jml"})
+  (method protected virtual (toolbox-file toolbox)
+    (new-file~ {Directory Profile "settings"}
+      (or toolbox "Toolbox.jml")))
 
   
   ;;;
@@ -2325,38 +2303,46 @@
   (definition Default-Page-Setup
     #f)
   
-  (definition Default-Page-Setup-Designer
+  (definition Default-Page-Setup-Form
     #f)
   
-  (definition Default-Page-Setup-Form
-    (<form>
-      (<Page-Setup>)))
+  (definition Default-Page-Setup-Designer
+    #f)
   
   (definition Default-Page-Setup-File
     {File Profile "settings" "PageSetup.jml"})
   
   
-  (method public undocumented (set-default-page-setup page-setup)
-    (set! Default-Page-Setup page-setup))
-  
-  
-  (method public undocumented (default-page-setup)
+  (method public (default-page-setup)
     (when (not Default-Page-Setup)
       (setup-page-setup))
     Default-Page-Setup)
   
   
-  (method public undocumented (default-page-setup-designer)
+  (method public (default-page-setup-designer)
     (when (not Default-Page-Setup-Designer)
       (setup-page-setup))
     Default-Page-Setup-Designer)
   
   
+  (method public (default-page-setup-parcel designer)
+    (when (not Default-Page-Setup)
+      (setup-page-setup))
+    (package-component~ designer (default-page-setup)))
+  
+  
+  (method public (default-apply-page-setup designer form page-setup)
+    (when form
+      (apply-form~ designer form (default-page-setup))))
+  
+  
   (method virtual (setup-page-setup)
     (let* ((file Default-Page-Setup-File)
-           (form (if (and (is-alias? 'Profile) (exists?~ file)) (read-form file) Default-Page-Setup-Form)))
-      (set! Default-Page-Setup (instantiate~ form))
-      (set! Default-Page-Setup-Designer (new Designer form: (get-form~ Default-Page-Setup) reference: Default-Page-Setup))))
+           (form (if (and (is-alias? 'Profile) (exists?~ file)) (read-form file) (<form> (<Page-Setup>))))
+           (reference (instantiate~ form)))
+      (set! Default-Page-Setup reference)
+      (set! Default-Page-Setup-Form form)
+      (set! Default-Page-Setup-Designer (new Designer form: form reference: reference))))
   
   
   (method virtual (save-page-setup)
@@ -2382,38 +2368,26 @@
   
   
   (method (on-zoom-out evt)
-    (let ((view (scaled-view (get-property~ evt what:))))
-      (if (not view)
-          (bell)
-        (let ((scaling (get-scaling~ view)))
-          (scale-view view (- scaling 0.25) #t)))))
+    (scale-view (get-property~ evt what:) 0.75))
   
   
   (method (on-zoom-in evt)
-    (let ((view (scaled-view (get-property~ evt what:))))
-      (if (not view)
-          (bell)
-        (let ((scaling (get-scaling~ view)))
-          (scale-view view (+ scaling 0.25) #t)))))
+    (scale-view (get-property~ evt what:) 1.25))
   
   
   (method (on-unzoom evt)
-    (let ((view (scaled-view (get-property~ evt what:))))
-      (if (not view)
-          (bell)
-        (scale-view view 1.0 #f))))
+    (scale-view (get-property~ evt what:) #f))
   
   
-  (method (scaled-view what)
-    (case what
-      ((document) (current-document))
-      ((mouse-view) (mouse-view))))
-  
-  
-  (method (scale-view view scaling scaled?)
-    (user-message "Scaling set to {a}" scaling)
-    (set-scaling~ view scaling)
-    (set-scaled?~ view scaled?))
+  (method (scale-view what factor)
+    (define (scaled-view what)
+      (case what
+        ((document) (current-document))
+        ((mouse-view) (mouse-view))))
+    
+    (let ((view (scaled-view what)))
+      (scale-view~ view factor)
+      (user-message "Scaling set to {a}" (get-scaling~ view))))
 
 
   ;;;
@@ -2485,14 +2459,15 @@
   
   
   (method public (update-window-actions)
-    (let ((frames (length (all-frames)))
+    (let ((all-frames (length (all-frames)))
+          (frames (length (current-stage-frames)))
           (stages (length (get-active-stages)))
           (in-modal? (in-modal?)))
       (set-action-enabled? {Action application close}             (and (>= frames 1) (not in-modal?)))
-      (set-action-enabled? {Action application close-all}         (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application close-all}         (and (>= all-frames 1) (not in-modal?)))
       (set-action-enabled? {Action guest save}                    (and (>= frames 1) (not in-modal?)))
       (set-action-enabled? {Action guest save-as}                 (and (>= frames 1) (not in-modal?)))
-      (set-action-enabled? {Action application save-all}          (and (>= frames 1) (not in-modal?)))
+      (set-action-enabled? {Action application save-all}          (and (>= all-frames 1) (not in-modal?)))
       (set-action-enabled? {Action guest revert-saved}            (and (>= frames 1) (not in-modal?)))
       (set-action-enabled? {Action guest compare-saved}           (and (>= frames 1) (not in-modal?)))
       (set-action-enabled? {Action application page-setup}        (and (>= frames 1) (not in-modal?)))
@@ -2511,13 +2486,15 @@
   (method package virtual (on-next-frame evt)
     (let ((first (first-frame)))
       (send-frame-to-back first)
-      (focus-host~ (current-frame))))
+      (send-to-back~ first)
+      (focus-host~ (front-frame))))
   
   
   (method package virtual (on-previous-frame evt)
     (let ((last (last-frame)))
       (bring-frame-to-front last)
-      (focus-host~ (current-frame))))
+      (bring-to-front~ last)
+      (focus-host~ (front-frame))))
   
   
   (method package virtual (on-current-frame evt)
@@ -2526,32 +2503,16 @@
   
   
   (method package (on-next-stage evt)
-    (navigate-next-stage))
+    (or (navigate-next-stage)
+        (bell)))
   
   
   (method package (on-previous-stage evt)
-    (navigate-previous-stage))
+    (or (navigate-previous-stage)
+        (bell)))
   
   
   (method package virtual (on-tile-horizontally evt)
-    (let* ((stage (current-stage))
-           (frames (get-views~ stage))
-           (count (length frames))
-           (width (get-width~ stage))
-           (height (get-height~ stage))
-           (h (quotient height count))
-           (t 0))
-      (with-locked-update
-        (lambda ()
-          (restore~ stage)
-          (for-each (lambda (frame)
-                      (set-position~ frame (new Point 0 t))
-                      (set-size~ frame (new Dimension width h))
-                      (increase! t h))
-                    frames)))))
-  
-  
-  (method package virtual (on-tile-vertically evt)
     (let* ((stage (current-stage))
            (frames (get-views~ stage))
            (count (length frames))
@@ -2566,6 +2527,24 @@
                       (set-position~ frame (new Point l 0))
                       (set-size~ frame (new Dimension w height))
                       (increase! l w))
+                    frames)))))
+  
+  
+  (method package virtual (on-tile-vertically evt)
+    (let* ((stage (current-stage))
+           (frames (get-views~ stage))
+           (count (length frames))
+           (width (get-width~ stage))
+           (height (get-height~ stage))
+           (h (quotient height count))
+           (t 0))
+      (with-locked-update
+        (lambda ()
+          (restore~ stage)
+          (for-each (lambda (frame)
+                      (set-position~ frame (new Point 0 t))
+                      (set-size~ frame (new Dimension width h))
+                      (increase! t h))
                     frames)))))
   
   

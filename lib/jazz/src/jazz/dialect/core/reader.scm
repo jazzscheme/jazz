@@ -231,6 +231,12 @@
 (define (jazz:readtable-char-class-set! readtable c delimiter? handler)
   (%%readtable-char-class-set! readtable c delimiter? handler))
 
+(define (jazz:readtable-escaped-char-table readtable)
+  (%%readtable-escaped-char-table readtable))
+
+(define (jazz:readtable-escaped-char-table-set! readtable table)
+  (%%readtable-escaped-char-table-set! readtable table))
+
 
 ;;;
 ;;;; General

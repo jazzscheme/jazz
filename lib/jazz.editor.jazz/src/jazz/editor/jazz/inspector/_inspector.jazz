@@ -38,7 +38,7 @@
 (module jazz.editor.jazz.inspector jazz
 
 
-(import (jazz.editor.jazz))
+(import (jazz.jrm))
 
 
 ;;;
@@ -75,12 +75,13 @@
         str)))
   
   (let ((serial (object->serial value)))
+    (gc-protect value)
     (let* ((unbound? (eq? value Unbound))
            (raw? (eq? kind :raw))
            (class (category-identifier (class-of value)))
            (presentation (cond (unbound? "<unbound>")
                                (raw? (truncate (->string value)))
-                               (else (present-object value (or max-width presentation-limit)))))
+                               (else (safe-present-object value (or max-width presentation-limit)))))
            (more? (cond ((or unbound? raw?) #f)
                         ((memq? kind '(frame: context:)) #t)
                         (else (more-value? value)))))
@@ -92,70 +93,74 @@
 ;;;
 
 
-(constant inspect-rank-limit
+(constant inspect-max-content
   256)
 
 
-(definition public (inspect-value value (max-width: max-width #f) (max-content: max-content inspect-rank-limit) (packager: packager package-info))
+(definition public (inspect-value value (max-width: max-width #f) (max-content: max-content inspect-max-content) (packager: packager package-info))
   (define (inspect-structure struct)
     (let ((kind (structure-kind struct)))
       (map (lambda (info)
-             (bind (name index) info
-               (cons name (packager (structure-ref struct index kind)))))
+             (bind (name rank) info
+               (cons (list #f name rank) (packager (structure-ref struct rank kind)))))
            (cached-kind-fields kind))))
   
   (define (inspect-list lst)
-    (let (iter (scan lst)
-               (rank 0))
-      (cond ((>= rank max-content)
-             (list (inspect-limit rank (+ rank (proper-length scan)))))
-            ((pair? scan)
-             (cons (cons rank (packager (car scan)))
-                   (iter (cdr scan) (+ rank 1))))
-            ((not (null? scan))
-             (list (cons 'rest (packager scan))))
-            (else
-             '()))))
+    (define (proper-length l n)
+      (cond ((null? l) n)
+            ((pair? l) (proper-length (cdr l) (+ n 1)))
+            (else (+ n 1))))
+    
+    (let ((total (proper-length lst 0))
+          (content (let (iter (scan lst)
+                              (rank 0))
+                     (cond ((or (null? scan) (and max-content (>= rank max-content)))
+                            '())
+                           ((pair? scan)
+                            (cons (cons (list #f rank rank) (packager (car scan)))
+                                  (iter (cdr scan) (+ rank 1))))
+                           (else
+                            (list (cons (list #f 'rest rank) (packager scan))))))))
+      (add-missing total content)))
   
   (define (inspect-table table)
-    (let ((limit? (> (table-length table) max-content)))
-      (let ((content (map (lambda (pair)
-                            (bind (key . value) pair
-                              (cons (present-object key max-width)
-                                    (packager value))))
-                          (let ((lst (table->list table)))
-                            (if limit?
-                                (subseq lst 0 max-content)
-                              lst)))))
-        (let ((sorted (sort string<? content key: car)))
-          (if limit?
-              (append sorted (list (inspect-limit max-content (table-length table))))
-            sorted)))))
+    (let ((total (table-length table))
+          (content (let (iter (scan (table->list table))
+                              (rank 0))
+                     (if (or (null? scan) (and max-content (>= rank max-content)))
+                         '()
+                       (bind (key . value) (car scan)
+                         (cons (cons (list #f (safe-present-object key max-width) rank) (packager value))
+                               (iter (cdr scan) (+ rank 1))))))))
+      (let ((sorted (sort string<? content key: (lambda (info) (second (car info))))))
+        (add-missing total sorted))))
   
   (define (inspect-object object)
-    (define (class-slots class)
+    (define (class-slot-info class)
       (if (not class)
           '()
-        (append (get-slots~ class) (class-slots (get-ascendant~ class)))))
+        (let ((class-name (category-name class)))
+          (append (map (lambda (slot) (cons class-name slot)) (get-slots~ class))
+                  (class-slot-info (get-ascendant~ class))))))
     
-    (let ((infos (collect (lambda (slot)
-                            ;; when we forget to redefine core classes in jazz, slots are symbols
-                            (if (symbol? slot)
-                                (cons slot (packager "<core slot>" kind: :raw))
-                              (let ((value (slot-value object (field-name slot))))
-                                (if (and (unspecified? value) (property? slot))
-                                    (cons (field-name slot)
-                                          (packager (read-property object slot) kind: :raw))
-                                  (cons (field-name slot)
-                                        (packager value))))))
-                          (class-slots (class-of object)))))
-      @when-we-have-sorting-through-the-ui
-      infos
-      (sort string-ci<? infos key: (lambda (info) (symbol->string (car info))))))
+    (let ((slot-infos (class-slot-info (class-of object))))
+      (map (lambda (slot-info rank)
+             (bind (class . slot) slot-info
+               (if (symbol? slot)
+                   (cons (list class slot rank) (packager "<core slot>" kind: :raw))
+                 (cons (list class (field-name slot) rank)
+                       (let ((offset (get-offset~ slot)))
+                         (if (not offset)
+                             (packager (safe-present-property object slot) kind: :raw)
+                           (packager (get-object-slot object offset))))))))
+           slot-infos
+           (naturals 0 (length slot-infos)))))
   
-  (define (inspect-limit displayed total)
-    (let ((missing (- total displayed)))
-      (cons "..." (packager (format "{a} missing of {a}" missing total) kind: :raw))))
+  (define (add-missing total content)
+    (let ((missing (- total (length content))))
+      (if (> missing 0)
+          (cons (cons (list #f #f -1) (packager (format "{a} missing of {a}" missing total) kind: :raw)) content)
+        content)))
   
   (cond ((null/pair? value) (inspect-list value))
         ((table? value) (inspect-table value))

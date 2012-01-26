@@ -41,20 +41,20 @@
 (import (jazz.graphic)
         (jazz.jml)
         (jazz.library)
-        (jazz.ui)
-        (jazz.ui.dialog))
+        (jazz.ui))
 
 
 (class undocumented List-Request extends View
 
 
-  (property present initialize #f  accessors generate)
-  (property content initialize '() accessors explicit)
+  (property present             initialize #f  accessors generate)
+  (property content             initialize '() accessors explicit)
+  (property multiple-selection? initialize #f  accessors explicit)
   
   
   (form
     (<install>                                    size: {Dimension 782 350}
-      (<Label-View>               name: invite    title: "Select an element from the list" position: {Point 10 9} size: {Dimension 191 16} font: {Font Label})
+      (<Label-View>               name: invite    title: "Select an element from the list" position: {Point 10 9} size: {Dimension 281 16} font: {Font Label})
       (<Border-View>              name: border    position: {Point 7 33} size: {Dimension 766 254} border-type: edge
         (<Scroller-View>                          hscroll?: #t vscroll?: #t
           (<!>                    name: content   layout-type: fill
@@ -92,22 +92,38 @@
   ;;;
   
   
-  (method (get-content)
+  (method public (get-content)
     content)
   
   
-  (method (set-content value)
+  (method public (set-content value)
     (set! content value)
     (let ((tree (get-tree)))
       (setup-content tree)
       (setup-selection tree)))
   
   
-  (method (set-selected selected)
+  (method public (get-multiple-selection?)
+    multiple-selection?)
+  
+  
+  (method public (set-multiple-selection? flag)
+    (set! multiple-selection? flag)
     (let ((tree (get-tree)))
-      (let ((row (user-data-row~ tree selected)))
-        (when row
-          (set-single-selection~ tree (row->line~ tree row))))))
+      (set-multiple-selection?~ tree flag)))
+  
+  
+  (method public (set-selected selected)
+    (let ((tree (get-tree)))
+      (cond (multiple-selection?
+             (let ((rows (user-data-rows~ tree selected)))
+               (set-selection~ tree (map (lambda (row)
+                                           (row->line~ tree row))
+                                         rows))))
+            (else
+             (let ((row (user-data-row~ tree selected)))
+               (when row
+                 (set-single-selection~ tree (row->line~ tree row))))))))
 
   
   ;;;
@@ -171,10 +187,11 @@
     (remove-every-row~ tree)
     (with-update-locked~ tree
       (lambda ()
-        (for-each (lambda (element)
-                    (let ((title ((or present ->string) element)))
-                      (add-row~ tree children: (list (new Tree-Node title: title)) user-data: element)))
-                  content))))
+        (let ((present (or present ->string)))
+          (for-each (lambda (element)
+                      (let ((title (present element)))
+                        (add-row~ tree children: (list (new Tree-Node title: title)) user-data: element)))
+                    content)))))
   
   
   (method (setup-selection tree)
@@ -189,4 +206,6 @@
   
   (method override (get-modal-result)
     (let ((tree (get-tree)))
-      (get-single-selected-data~ tree)))))
+      (if multiple-selection?
+          (get-selected-data~ tree)
+        (get-single-selected-data~ tree))))))

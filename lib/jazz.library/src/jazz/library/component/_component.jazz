@@ -41,6 +41,7 @@
 (import (jazz.io)
         (jazz.jml)
         (jazz.library)
+        (jazz.runtime)
         (jazz.system)
         (jazz.ui.dialog))
 
@@ -59,19 +60,28 @@
 ;;;
 
 
+(definition public (form->eval-expr form)
+  (parameterize ((walk-for 'eval))
+    (with-jazz-readtable
+      (lambda ()
+        (read-string-element
+          (format "{s}" (->jml~ (form->node form))))))))
+
+
 (definition public (open-form)
   (read-form (choose-file multiple-selection?: #f)))
 
 
 (definition public (read-form file)
-  (call-with-input-file (path-settings file char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
-    (lambda (input)
-      (let ((expr (read input)))
-        (if (eof-object? expr)
-            (error "No expression found in form file: {a}" (parse~ file))
-          (let ((form (parse-form expr file)))
-            (set-origin~ form file)
-            form))))))
+  (parameterize ((walk-for #f))
+    (call-with-input-file (path-settings file char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
+      (lambda (input)
+        (let ((expr (read input)))
+          (if (eof-object? expr)
+              (error "No expression found in form file: {a}" (parse~ file))
+            (let ((form (parse-form expr file)))
+              (set-origin~ form file)
+              form)))))))
 
 
 (definition public (parse-form expr (file #f))
@@ -83,10 +93,12 @@
   
   (define (parse-data expr proc)
     (bind (data dialect . info) expr
-      (let ((import (assq 'import info))
+      (let ((version (assq 'version info))
+            (import (assq 'import info))
             (form (assq 'form info)))
         (assert form)
         (proc (new Data
+                version
                 dialect
                 (if import (cdr import) #f)
                 (if file (new Alias (get-list~ (get-parent~ file))) #f))
@@ -171,6 +183,145 @@
                             (continuation-return return (deserialize-runtime-reference reference)))))))
                   imports)
         #f))))
+
+
+;;;
+;;;; Imports
+;;;
+
+
+(definition public (form-imports form)
+  (define (collect-nodes form)
+    (let ((factory (new List-Factory)))
+      (iterate-nodes form (~ put factory))
+      (get-output~ factory)))
+  
+  (define (collect-symbols form)
+    (let* ((nodes (collect-nodes form))
+           (client-forms (collect (lambda (node)
+                                    (get-property~ node client-form:))
+                                  nodes))
+           (nodes (append nodes (append-map collect-nodes client-forms)))
+           (properties (append-map get-properties~ nodes))
+           (new-nodes (collect-if (lambda (action) (eq? action 'new))
+                                  nodes
+                                  key: get-action~)))
+      (append
+        (collect (lambda (val)
+                   (and (is? val Reference)
+                        (get-symbol~ val)))
+                 (map-property (lambda (_ value) value) properties))
+        (map get-model~ new-nodes))))
+  
+  (define (symbol-import symbol)
+    (let ((context (get-context~ form)))
+      (first (parse-runtime-reference (get-reference~ context symbol)))))
+  
+  (let ((symbols (collect-symbols form)))
+    (remove-duplicates (collect symbol-import symbols))))
+
+
+;;;
+;;;; Components
+;;;
+
+
+(definition public (collect-oldest-ancestors components common-ancestor)
+  (collect-if (lambda (component)
+                (or (eq? component common-ancestor)
+                    (let ((ancestry (component-ancestry (get-parent~ component) common-ancestor)))
+                      (every? (lambda (ancestor)
+                                (not (memq? ancestor components)))
+                              ancestry))))
+              components))
+
+
+(definition public (component-owned? component form ancestor)
+  (let ((form (component-owned-form component form ancestor)))
+    (and form (eq? (get-action~ form) 'new))))
+
+
+(definition public (component-ancestry component ancestor)
+  (define (end? scan)
+    (if scan
+        (eq? scan ancestor)
+      (error "{t} is not a descendant of the reference component {t}" component ancestor)))
+  
+  (unfold-right end? identity get-parent-component~ component))
+
+
+(definition public (component-owned-form component form ancestor)
+  (owned-form form (component-ancestry component ancestor)))
+
+
+(definition public (owned-form form ancestry)
+  (if (null? ancestry)
+      form
+    (let ((cpn (car ancestry)))
+      (let ((subforms (get-children~ form))
+            (cpn-form (get-form~ cpn))
+            (name (get-name~ cpn)))
+        (cond ((not cpn-form)
+               #f)
+              ((memq? cpn-form subforms)
+               (owned-form cpn-form (cdr ancestry)))
+              ((not name)
+               #f)
+              (else
+               (let ((subform (find-in subforms name key: get-name~ test: equal?)))
+                 (and subform (owned-form subform (cdr ancestry))))))))))
+
+
+(definition public (ownership-level owned-form)
+  (and owned-form
+       (case (get-action~ owned-form)
+          ((new install) 'create)
+          (else (if (null? (get-properties~ owned-form))
+                    'traverse
+                  'modify)))))
+
+
+(definition public (first-ancestry-owned-form component ascendant form)
+  (let (loop (cur component))
+    (if (eq? component ascendant)
+        form
+      (let ((owned-form (owned-form form (component-ancestry cur ascendant))))
+        (or owned-form (loop (get-parent~ cur)))))))
+
+
+(definition public (ancestry-traits-owned-forms component ascendant form)
+  (let (loop (current-form (first-ancestry-owned-form (get-parent~ component) ascendant form))
+             (traits-owned-forms '()))
+    (if current-form
+        (let ((traits (get-traits~ current-form component)))
+          (loop (get-parent~ current-form)
+                (append traits-owned-forms
+                        (collect (lambda (trait)
+                                   (let ((trait-form (get-client-form~ trait)))
+                                     (owned-form trait-form (component-ancestry component ascendant))))
+                                 traits))))
+      traits-owned-forms)))
+
+
+(definition public (component-ascendant-owned-forms component ascendant)
+  (let (loop (class (class-of ascendant))
+             (forms '()))
+    (if (and class (subtype? class Component))
+        (let* ((class-form (get-class-form~ class))
+               (owned-form (and class-form (owned-form class-form (component-ancestry component ascendant))))
+               (traits-forms (map get-client-form~ (if owned-form (get-traits~ owned-form component) '())))
+               (ancestry-traits-forms (if class-form (ancestry-traits-owned-forms component ascendant class-form) '())))
+          (loop (get-ascendant~ class) (append ancestry-traits-forms traits-forms (if owned-form (list owned-form) '()) forms)))
+      forms)))
+
+
+(definition public (component-forms component)
+  (let (loop (ascendant (get-parent~ component))
+             (forms '()))
+    (if ascendant
+        (loop (get-parent~ ascendant)
+              (append forms (component-ascendant-owned-forms component ascendant)))
+        forms)))
 
 
 ;;;

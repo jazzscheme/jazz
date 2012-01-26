@@ -38,9 +38,7 @@
 (module protected jazz.library.component.Component jazz
 
 
-(import (jazz.designer)
-        (jazz.io)
-        (jazz.jml)
+(import (jazz.io)
         (jazz.library)
         (jazz.library.component)
         (jazz.locale))
@@ -66,8 +64,10 @@
   
   (slot name                         initialize #f)
   (slot parent                       initialize #f)
-  (slot traits                       initialize #f)
+  (slot base-traits                  initialize #f)
+  (slot default-traits               initialize #f)
   (slot branch                       initialize #f)   ;; the immediatly installed branch
+  (slot base-branch                  initialize #f)   ;; the branch set by base-traits and used when replacing the default-traits
   (slot form                         initialize #f)   ;; the form that created the component
   (slot creator                      initialize #f)   ;; the root component of the class form (used for indexing and as inner class instantiation context)
   (slot creator-branch               initialize #f)   ;; the branch that created the component (#f if none)
@@ -285,6 +285,7 @@
     (finish rest)
     (install-in-parent)
     (set-finished? #t)
+    (setup-component)
     (conclude rest)
     (set-initialized? #t)
     (let ((visible? (get-visible?)))
@@ -316,7 +317,9 @@
       (let ((init-name (or (getf initargs name:) (default-name))))
         (when init-name
           (set-name init-name)))
-      (set-form (or (getf initargs form:) (get-class-form~ (class-of self))))
+      (set-form (or (getf initargs form:)
+                    (getf initargs class-form:)
+                    (get-class-form~ (class-of self))))
       (set-creator (getf initargs creator:))
       (set-creator-branch (getf initargs creator-branch:)))
     
@@ -326,7 +329,11 @@
 
   (method protected chained (install initargs <Object>)
     (define (install-component)
-      (install-inherited (get-class-forms~ (class-of self))))
+      (let ((alternative-class-form (getf initargs class-form:))
+            (class-forms (get-class-forms~ (class-of self))))
+        (install-inherited (if alternative-class-form
+                               (cons alternative-class-form (cdr class-forms))
+                             class-forms))))
     
     (define (install-inherited forms)
       (when (not-null? forms)
@@ -336,25 +343,45 @@
     (install-component))
   
   
-  (method (install-traits initargs)
-    (let ((traits (or (getf initargs 'traits) (getf initargs traits:))))
-      (when traits
-        (set-active-traits (listify traits)))))
-  
-  
   (method public (install-form form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
+    (define (install-base-traits properties)
+      (let ((traits (or (getf properties 'base-traits) (getf properties base-traits:))))
+        (when traits
+          (set-base-traits traits))))
+    
+    (define (install-properties properties <Object> restore-form <Object>)
+      (let (iter (scan properties))
+        (when (not-null? scan)
+          (let ((expr (car scan))
+                (value (cadr scan)))
+            (unless (initer-property? expr)
+              (when (symbol? expr)
+                (set! expr (component-property (class-of self) expr))
+                (set-car! scan expr))
+              (when restore-form
+                (remember-property~ restore-form self expr))
+              (write-property-to self expr value)))
+          (iter (cddr scan)))))
+    
+    (define (install-children children <Object> creator <Object> creator-branch <Object> restore-form <Object>)
+      (loop (for child in children)
+            (do (install-child child creator creator-branch restore-form))))
+    
+    (define (install-default-traits properties)
+      (let ((traits (or (getf properties 'default-traits) (getf properties default-traits:))))
+        (when traits
+          (set-default-traits traits))))
+    
     (when form
-      (install-traits (get-properties~ form))
-      (install-properties (get-properties~ form) restore-form)
-      (install-children (get-children~ form) creator creator-branch restore-form)))
+      (let ((properties (get-properties~ form))
+            (children (get-children~ form)))
+        (install-base-traits properties)
+        (install-properties properties restore-form)
+        (install-children children creator creator-branch restore-form)
+        (install-default-traits properties))))
   
   
-  (method protected virtual (install-children children <Object> creator <Object> creator-branch <Object> restore-form <Object>)
-    (loop (for child in children)
-          (do (install-child child creator creator-branch restore-form))))
-  
-  
-  (method public virtual (install-child form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
+  (method protected virtual (install-child form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
     (let ((action (get-action~ form))
           (name (get-name~ form)))
       (define (new-component)
@@ -393,23 +420,10 @@
         (else
          (error "Unknown form action: {t} in {t}" action form)))))
   
-
-  (method (install-properties properties <Object> restore-form <Object>)
-    (while (not-null? properties)
-      (let ((expr (car properties))
-            (value (cadr properties)))
-        (unless (initer-property? expr)
-          (when (symbol? expr)
-            (set! expr (component-property (class-of self) expr))
-            (set-car! properties expr))
-          (when restore-form
-            (remember-property~ restore-form self expr))
-          (write-property-to self expr value)))
-      (set! properties (cddr properties))))
-  
   
   (method public virtual (find-to-modify name <Object> test <procedure>)
-    (or (find-component-with name test)
+    (or (widget-part name)
+        (find-component-with name test)
         (locate name)))
   
   
@@ -420,25 +434,27 @@
 
 
   (method protected chained (finish initargs <Object>)
+    (define (write-properties properties <Object>)
+      (define (write-initarg-to object <Object> property <Object> value <Object>)
+        (let ((property-name (keyword->symbol property)))
+          (unless (initer-property? property-name)
+            (write-property-to object (component-property (class-of object) property-name) value))))
+      
+      (loop (for (property value) in-properties properties)
+            (do (write-initarg-to self property value))))
+    
     (bind-keywords ((form #f) (creator #f) . others) initargs
       (when form
         ;; setting the creator to #t is a service for Form instantiate
         (if (neq? creator #t)
             (install-form form creator #f #f)
-          (install-form form self #f #f)
-          (set! creator~self self)))
-      (install-traits initargs)
+          (set! creator~self self)
+          (install-form form self #f #f)))
       (write-properties initargs)))
   
   
-  (method public (write-properties properties <Object>)
-    (define (write-initarg-to object <Object> property <Object> value <Object>)
-      (let ((property-name (keyword->symbol property)))
-        (unless (initer-property? property-name)
-          (write-property-to object (component-property (class-of object) property-name) value))))
-    
-    (loop (for (property value) in-properties properties)
-          (do (write-initarg-to self property value))))
+  (method protected chained (setup-component)
+    )
   
   
   ;; Only done after the component is fully initialized so as not to install
@@ -451,12 +467,7 @@
       (let ((surrogate (get-surrogate~ parent)))
         (when surrogate
           (remove-surrogate)
-          (install-surrogate (get-editor~ surrogate)))))
-    (parent-add-child))
-  
-  
-  (method public (parent-add-child)
-    (when parent
+          (install-surrogate (get-editor~ surrogate))))
       (add-child~ parent self)))
 
 
@@ -553,8 +564,10 @@
     (list->table
       '((name . #t)
         (parent . #t)
-        (traits . #t)
+        (base-traits . #t)
+        (default-traits . #t)
         (form . #t)
+        (class-form . #t)
         (creator . #t)
         (creator-branch . #t))))
   
@@ -584,32 +597,25 @@
         (error "Property {s} has no setter" property))))
   
   
-  (method public (get-filtered-properties (filter: filter 'categorized))
-    (define (get-all-properties filter)
-      (sort (lambda (x y)
-              (let ((xr (get-rank~ (get-category~ (class-of self) x)))
-                    (yr (get-rank~ (get-category~ (class-of self) y))))
-                (or (< xr yr)
-                    (and (= xr yr)
-                         (string<? (symbol->string (field-name x)) (symbol->string (field-name y)))))))
-            (collect-if (lambda (property)
+  (method public (get-filtered-properties (filter: filter 'standard))
+    (define (collect-properties filter)
+      (collect-if (lambda (property)
                           (display-filtered-property? property filter))
-                        (mop-instance-slots~ (class-of self) self))))
+                        (mop-instance-slots~ (class-of self) self)))
     
     (define (display-filtered-property? property filter)
       (and (property? property)
            (property-getter property)
-           (or (memq? filter '(all categorized))
+           (or (memq? filter '(all standard))
                (let ((name (get-name~ (get-category~ (class-of self) property))))
                  (if (symbol? filter)
                      (eq? name filter)
-                   (memq? name filter))))
-           (display-property? property)))
+                   (memq? name filter))))))
     
-    (if (eq? filter 'categorized)
-        (let ((properties (get-categorized-properties)))
+    (if (eq? filter 'standard)
+        (let ((properties (get-standard-properties)))
           (if (eq? properties #t)
-              (get-all-properties '(infos properties))
+              (collect-properties '(infos properties))
             (let ((class (class-of self)))
               (define (standardize object)
                 (cond ((string? object)
@@ -621,7 +627,7 @@
                        (map standardize object))))
               
               (standardize properties))))
-      (get-all-properties filter)))
+      (collect-properties filter)))
 
 
   ;;;
@@ -741,6 +747,13 @@
               (when process
                 (process-alias~ process name))))))
 
+  
+  (method public (find-path path)
+    (if (null? path)
+        self
+      (let ((child (find-child (car path))))
+        (and child (find-path~ child (cdr path))))))
+  
 
   (method public (find-child name <Object>)
     (find-if (lambda (child)
@@ -830,15 +843,11 @@
         (car visible))))
   
   
-  (method public (get-ancestry root)
-    (let ((ancestry '())
-          (scan self))
-      (while (neq? scan root)
-        (set! ancestry (cons scan ancestry))
-        (set! scan (get-parent~ scan))
-        (when (null? scan)
-          (error "{t} is not a descendant of the root component {t}" self root)))
-      ancestry))
+  (method public (get-ancestry)
+    (let (iter (scan self) (ancestry '()))
+      (if (not scan)
+          ancestry
+        (iter (get-parent~ scan) (cons scan ancestry)))))
 
 
   ;;;
@@ -884,7 +893,7 @@
   
   
   ;;;
-  ;;;; Outer
+  ;;;; Widget
   ;;;
   
   
@@ -897,8 +906,35 @@
       component))
   
   
+  (method public (outer? limit)
+    (eq? self (outer-component limit)))
+  
+  
   (method public virtual (inner? component)
     #f)
+  
+  
+  (method public virtual (inner-widget)
+    self)
+  
+  
+  (method public (locate-part name)
+    (or (widget-part name)
+        (error "Unable to locate part: {s}" name)))
+  
+  
+  (method public virtual (widget-part name)
+    #f)
+  
+  
+  (method public (iterate-parts proc)
+    (for-each (lambda (name)
+                (proc name (locate-part name)))
+              (widget-parts)))
+  
+  
+  (method public virtual (widget-parts)
+    '())
   
   
   ;;;
@@ -953,6 +989,18 @@
 
 
   ;;;
+  ;;;; Clone
+  ;;;
+  
+  
+  (method public (clone-component . rest)
+    (let ((tag-reference (get-tag-reference~ form)))
+      (if tag-reference
+          (apply instantiate-file tag-reference rest)
+        (apply instantiate~ form rest))))
+
+
+  ;;;
   ;;;; Database
   ;;;
   
@@ -987,6 +1035,12 @@
     (if (null? children)
         #f
       (car children)))
+  
+  
+  (method public (second-child)
+    (if (>= (length children) 2)
+        (second children)
+      #f))
   
   
   (method public (last-child)
@@ -1033,26 +1087,8 @@
   ;;;
   
   
-  (method public (get-traits)
-    traits)
-  
-  
-  (method public (set-traits value)
-    (set! traits (listify value))
-    (set-active-traits traits))
-  
-  
-  (method public (child-traits)
-    (collect-type Trait children))
-
-
-  ;;;
-  ;;;; Branches
-  ;;;
-  
-  
   (method public (branch-installed?)
-    branch)
+    (boolean branch))
   
   
   (method public (get-active-branch)
@@ -1062,6 +1098,16 @@
         (if (get-branch~ branch)
             (iterate (get-branch~ branch))
           branch))))
+  
+  
+  (method public (get-active-trait)
+    (let ((branch (get-active-branch)))
+      (when branch
+        (get-trait~ branch))))
+  
+  
+  (method public (set-active-trait trait)
+    (replace-traits #f (if trait (list trait) '())))
   
   
   (method public (get-active-trait-name)
@@ -1077,34 +1123,40 @@
         (get-presentation-property~ trait))))
   
   
-  (method public (get-active-trait)
-    (let ((branch (get-active-branch)))
-      (when branch
-        (get-trait~ branch))))
+  (method public (get-base-traits)
+    base-traits)
   
   
-  (method public (set-active-trait trait)
-    (set-active-traits (if trait (list trait) '())))
+  (method public (set-base-traits traits)
+    (let ((traits (listify traits)))
+      (set! base-traits traits)
+      (let ((preserve (and base-branch (get-active-trait))))
+        (replace-traits #f traits)
+        (set! base-branch (get-active-branch))
+        (when preserve
+          (push-trait preserve)))))
   
   
-  (method public (set-active-traits traits)
-    (replace-traits #f traits))
+  (method public (get-default-traits)
+    default-traits)
+  
+  
+  (method public (set-default-traits traits)
+    (let ((traits (listify traits)))
+      (set! default-traits traits)
+      (replace-traits base-branch traits)))
   
   
   (method public (push-trait trait)
-    (replace-traits (get-active-branch) (list trait)))
+    (replace-traits base-branch (list trait)))
   
   
   (method public (pop-trait)
-    (let ((active (get-active-branch)))
-      (assert active)
-      (let ((traits (compute-effective-traits~ (get-trait~ active))))
-        (for-each-reversed (lambda (trait)
-                             (if (and (neq? active self) (eq? trait (get-trait~ active)))
-                                 (set! active (get-parent~ active))
-                               (error "Cannot pop trait")))
-                           traits)
-        (replace-traits active '()))))
+    (replace-traits base-branch '()))
+  
+  
+  (method public (replace-active-trait trait)
+    (replace-traits base-branch (if trait (list trait) '())))
   
   
   (method public (replace-traits target-branch traits)
@@ -1193,6 +1245,22 @@
         form
       (get-class-form~ (class-of self))))
   
+  
+  (method public (child-traits)
+    (collect-type Trait children))
+  
+  
+  (method public (trait-spine trait)
+    (let (iter (trait trait) (spine (list trait)))
+      (let ((parent (get-parent~ trait)))
+        (if (is? parent Trait)
+            (iter parent (cons parent spine))
+          spine))))
+  
+  
+  (method public (trait-fullname trait)
+    (apply compose-identifier (map get-name~ (trait-spine trait))))
+  
 
   ;;;
   ;;;; Session
@@ -1212,19 +1280,72 @@
     #f)
   
   
-  (method public virtual (validate-component root client context manager)
+  (method public virtual (validate-component validation-context)
     (for-each (lambda (symbol)
                 (let ((property (property-field (class-of self) symbol)))
-                  (validate-property property root client context manager)))
-              (get-categorized-properties)))
+                  (validate-property property
+                                     (get-root~ validation-context)
+                                     (get-editor~ validation-context)
+                                     (get-context~ validation-context)
+                                     (get-manager~ validation-context))))
+              (get-filtered-properties))
+    (validate-children validation-context))
   
   
-  (method public virtual (validate-property property root client context manager)
+  (method public virtual (validate-property property root editor context manager)
     (let ((domain (property-domain property))
           (value (read-property self property)))
-      (validate~ domain property value self root client context manager)))
-
-
+      (validate~ domain property value self root editor context manager)))
+  
+  
+  (method (validate-children validation-context)
+    (define (validate-child addable-classes child)
+      (unless (some? (lambda (addable-class)
+                       (is? child addable-class))
+                     addable-classes)
+        (let ((violation (new Integrity-Violation
+                           message: (format "Class {a} cannot have children of type {a}"
+                                            (category-name (class-of self))
+                                            (category-name (class-of child)))
+                           component: child)))
+          (add-violation~ (get-manager~ validation-context) violation child (get-root~ validation-context) (get-editor~ validation-context)))))
+    
+    (define (validate-child-descriptor child child-descriptor)
+      (unless (some? (lambda (class-ref)
+                       (is? child (resolve-reference~ class-ref)))
+                     (get-classes~ child-descriptor))
+        (let ((violation (new Integrity-Violation
+                           message: (format "Child named {a} cannot be of type {a}"
+                                            (get-name~ child)
+                                            (category-name (class-of child)))
+                           component: child)))
+          (add-violation~ (get-manager~ validation-context) violation child (get-root~ validation-context) (get-editor~ validation-context)))))
+    
+    (let ((addable-classes (map resolve-runtime-reference (flatten (get-categorized-addable-classes))))
+          (children-descriptor (get-children-descriptor~ (get-class-descriptor~ (class-of self)))))
+      (for-each (lambda (child)
+                  (let ((name (get-name~ child)))
+                    (let ((child-descriptor (and name
+                                                 (find-if (lambda (child-descriptor)
+                                                            (eq? (get-target~ child-descriptor)
+                                                                 name))
+                                                          (get-children~ children-descriptor)))))
+                      (if child-descriptor
+                          (validate-child-descriptor child child-descriptor)
+                        (validate-child addable-classes child)))))
+                children)
+      (for-each (lambda (child-descriptor)
+                  (when (get-mandatory?~ child-descriptor)
+                    (let ((child (find-child (get-target~ child-descriptor))))
+                      (unless child
+                        (let ((violation (new Integrity-Violation
+                                           message: (format "Missing child named {a}"
+                                                            (get-target~ child-descriptor))
+                                           component: self)))
+                          (add-violation~ (get-manager~ validation-context) violation self (get-root~ validation-context) (get-editor~ validation-context)))))))
+                (get-children~ children-descriptor))))
+  
+  
   ;;;
   ;;;; Search
   ;;;
@@ -1304,10 +1425,10 @@
           (scan self))
       (while (neq? scan root)
         (let ((name (get-name~ scan)))
-          (if (not name)
+          (if #f;(not name)
               (error "Component {t} must be named to be part of a path" scan)
             (when (present-in-path?~ scan)
-              (set! pres (cons name pres)))
+              (set! pres (cons (if name (->string name) "{}") (or pres '()))))
             (set! path (cons name path))
             (set! scan (get-parent-component~ scan))
             (when (null? scan)
@@ -1358,6 +1479,15 @@
 
 
   ;;;
+  ;;;; Toolbox
+  ;;;
+
+
+  (method meta public virtual (show-in-toolbox?)
+    #t)
+
+
+  ;;;
   ;;;; Descriptor
   ;;;
 
@@ -1372,6 +1502,10 @@
   
   (method meta public virtual (get-category property)
     (class-get-category~ (get-descriptor self) self property))
+  
+  
+  (method meta public virtual (get-standard? property)
+    (class-get-standard?~ (get-descriptor self) self property))
   
   
   (method meta public (get-class-presentation)
@@ -1478,8 +1612,8 @@
     (component-can-delete-component?~ (get-descriptor (class-of self)) self))
   
   
-  (method public (can-move-component?)
-    (component-can-move-component?~ (get-descriptor (class-of self)) self))
+  (method public (can-relocate-component?)
+    (component-can-relocate-component?~ (get-descriptor (class-of self)) self))
   
   
   (method public (can-view-properties?)
@@ -1534,12 +1668,8 @@
     (component-get-default-property~ (get-properties-descriptor (class-of self)) self))
   
   
-  (method public (get-categorized-properties)
-    (component-get-categorized-properties~ (get-properties-descriptor (class-of self)) self))
-  
-  
-  (method public (display-property? property)
-    (component-display-property?~ (get-descriptor (class-of self)) self property))
+  (method public (get-standard-properties)
+    (component-get-standard-properties~ (get-properties-descriptor (class-of self)) self))
   
   
   (method public (property-domain property)
@@ -1596,6 +1726,10 @@
   
   (method public (get-custom-card)
     (component-get-custom-card~ (get-descriptor (class-of self)) self))
+  
+  
+  (method public (add-component-menu menu)
+    (component-add-component-menu~ (get-descriptor (class-of self)) self menu))
   
   
   (method public (save-component-properties designer)

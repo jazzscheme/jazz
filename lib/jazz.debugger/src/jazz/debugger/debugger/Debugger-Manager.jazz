@@ -41,8 +41,9 @@
 (import (jazz.debuggee)
         (jazz.debugger)
         (jazz.graphic)
-        (jazz.io)
+        (jazz.jrm)
         (jazz.media)
+        (jazz.system)
         (jazz.system.access)
         (jazz.ui)
         (jazz.ui.view))
@@ -55,17 +56,46 @@
 (class Debugger-Manager extends Object
   
   
-  (slot active-stops    initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot unvisited-stops initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot focused-process initialize #f getter generate)
+  (slot active-stops     initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot unvisited-stops  initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot unzoomed-stops   initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot liveliness-cache initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot focused-mode?    initialize #f getter generate)
+  (slot focused-process  initialize #f getter generate)
   
-  (slot process         initialize #f getter generate)
-  (slot thread          initialize #f getter generate)
-  (slot frame           initialize #f getter generate)
+  (slot process          initialize #f getter generate)
+  (slot thread           initialize #f getter generate)
+  (slot frame            initialize #f getter generate)
+  
+  
+  (method override (initialize)
+    (nextmethod)
+    (set! focused-mode? (get-focused-mode?~ (get-preferences 'debug))))
   
   
   (method public (debugging?)
     (/= 0 (table-length active-stops)))
+  
+  
+  (method public (selected-process)
+    (let ((processes-view (get-processes-view)))
+      (if processes-view
+          (selected-process~ processes-view)
+        process)))
+  
+  
+  (method public (selected-thread)
+    (let ((threads-view (get-threads-view)))
+      (if threads-view
+          (selected-thread~ threads-view)
+        thread)))
+  
+  
+  (method public (selected-frame)
+    (let ((frames-view (get-frames-view)))
+      (if frames-view
+          (selected-frame~ frames-view)
+        frame)))
   
   
   ;;;
@@ -77,6 +107,12 @@
     (unless (debugged-visited? debugged)
       (table-set! unvisited-stops debugged)
       (update-status)
+      #t))
+  
+  
+  (method public (unzoom-debugged debugged)
+    (unless (debugged-zoomed? debugged)
+      (table-set! unzoomed-stops debugged)
       #t))
   
   
@@ -108,6 +144,10 @@
     (not (table-ref unvisited-stops debugged #f)))
   
   
+  (method (debugged-zoomed? debugged)
+    (not (table-ref unzoomed-stops debugged #f)))
+  
+  
   (method public (get-active-stops debugged)
     (table-ref active-stops debugged '()))
   
@@ -117,22 +157,37 @@
   ;;;
   
   
+  (method public (toggle-focused-mode)
+    (set! focused-mode? (not focused-mode?))
+    (let ((processes-view (get-processes-view)))
+      (when processes-view
+        (update-focused-mode~ processes-view focused-mode?)
+        (update~ processes-view)))
+    (focused-process-update))
+  
+  
   (method public (require-focused-process)
     (or (get-focused-process)
         (begin
           (message-box "There is no focused process")
-          (throw-cancel))))
+          (signal-cancel))))
   
   
   (method public (focus-process process)
-    (unless (debugged=? focused-process process)
-      (set-focus-process process)
-      (when (get-processes-view)
-        (update~ (get-processes-view)))))
+    (set! focused-mode? #t)
+    (set-focused-process process)
+    (let ((processes-view (get-processes-view)))
+      (when processes-view
+        (update-focused-mode~ processes-view focused-mode?)
+        (update~ processes-view))))
   
   
-  (method (set-focus-process process)
+  (method (set-focused-process process)
     (set! focused-process process)
+    (focused-process-update))
+  
+  
+  (method (focused-process-update)
     (let ((focus-status-view (find-status-bar~ (get-application))))
       (when focus-status-view
         (update-focused-process~ focus-status-view))))
@@ -145,7 +200,7 @@
   
   (method public (attach-process process focus?)
     (when (and focus? (focusable?~ process))
-      (set-focus-process process))
+      (set-focused-process process))
     (when (get-processes-view)
       (update~ (get-processes-view))))
   
@@ -171,7 +226,7 @@
     (when (debugged=? focused-process process)
       (let ((best-process (best-process)))
         (unless (debugged=? best-process process)
-          (set-focus-process best-process))))
+          (set-focused-process best-process))))
     (close-process-debugger-resources process)
     (cleanup-stops active-stops)
     (cleanup-stops unvisited-stops)
@@ -180,18 +235,31 @@
         (update~ view)
         (unless (selected-process~ view)
           (process-changed #f))))
+    (update-variables-zoom)
     (update-status))
   
   
-  (method public (for-each-process proc)
+  (method public (for-each-process proc (live-test?: live-test? #t))
     (for-each (lambda (debugger)
                 (for-each (lambda (process)
                             (let ((debugged-process (new Debugged-Process debugger process process)))
-                              (let ((live? (live?~ debugged-process))
+                              (let ((live? (if live-test? (live?~ debugged-process) (get-alive? debugged-process)))
                                     (focused? (debugged=? focused-process debugged-process)))
                                 (proc debugger debugged-process live? focused?))))
                           (get-processes~ debugger)))
               (get-debuggers)))
+  
+  
+  (method public (get-process-debugger target)
+    (continuation-capture
+      (lambda (return)
+        (for-each (lambda (debugger)
+                    (for-each (lambda (process)
+                                (when (eq? process target)
+                                  (continuation-return return debugger)))
+                              (get-processes~ debugger)))
+                  (get-debuggers))
+        #f)))
   
   
   (method public (find-live-process process)
@@ -205,7 +273,7 @@
   
   
   (method public (process-changed new-process)
-    (let ((new-process (when (and new-process (get-alive?~ new-process)) new-process)))
+    (let ((new-process (when (and new-process (get-alive? new-process)) new-process)))
       (unless (debugged=? process new-process)
         (catch (Cancel-Signal exc
                  (when (get-processes-view)
@@ -223,6 +291,19 @@
   (definition (update-processes-highlight process)
     (when (get-processes-view)
       (update-highlight~ (get-processes-view) process)))
+    
+  
+  ;;;
+  ;;;; Liveliness
+  ;;;
+
+  
+  (method public (get-alive? process)
+    (table-ref liveliness-cache process #t))
+
+  
+  (method public (set-alive? process alive?)
+    (table-set! liveliness-cache process alive?))
   
   
   ;;;
@@ -233,15 +314,15 @@
   (method public (for-each-thread proc (detailed?: detailed? #f))
     (define system-threads
       '(message-pump
-         debuggee-console-pump
-         debugger-console-pump
-         remote-listener
-         remote-connection
-         catalog
-         autorepeat
-         autoscroll
-         caret
-         hovering))
+        debuggee-console-pump
+        debugger-console-pump
+        remote-listener
+        remote-connection
+        catalog
+        autorepeat
+        autoscroll
+        caret
+        hovering))
     
     (define (system-thread? thread)
       (let ((name (get-name~ thread)))
@@ -260,14 +341,20 @@
                       (get-threads~ process)))))))
   
   
-  (method public (thread-changed new-thread)
+  (method public (thread-changed new-thread (user-origin: user-origin #f))
     (unless (debugged=? thread new-thread)
       (set! thread new-thread)
       (when (and (get-threads-view) (view-visible?~ (get-threads-view)))
         (when (visit-debugged thread)
           (update-threads-highlight thread)))
-      (when (get-frames-view)
-        (thread-changed~ (get-frames-view) thread))
+      (let ((frames-view (get-frames-view)))
+        (when frames-view
+          (thread-changed~ frames-view thread)
+          (when (and user-origin
+                     (view-visible?~ frames-view)
+                     (get-variables-view)
+                     (unzoom-debugged thread))
+            (ensure-unzoomed (get-host~ (get-variables-view))))))
       (when (get-restarts-view)
         (thread-changed~ (get-restarts-view) thread))
       (when (get-exception-view)
@@ -299,8 +386,12 @@
   (method public (frame-changed new-frame (user-origin: user-origin #f))
     (set! frame new-frame)
     (when (and (get-frames-view) (or (not frame) (view-visible?~ (get-frames-view))))
-      (when (get-variables-view)
-        (frame-changed~ (get-variables-view) frame))
+      (let ((variables-view (get-variables-view)))
+        (when variables-view
+          (frame-changed~ variables-view frame)
+          (when (and user-origin
+                     (unzoom-debugged thread))
+            (ensure-unzoomed (get-host~ variables-view)))))
       (when (or user-origin (not frame))
         (edit-frame frame)))
     (when (and thread (get-active-stop~ thread))
@@ -325,7 +416,7 @@
   
   (method public (register-stop process thread stop (step?: step? #f)) ;; to test the stepper
     (define (update-process)
-      (let ((empty? (not process~self))
+      (let ((empty? (not (selected-process)))
             (view (get-processes-view)))
         (when empty?
           (if view
@@ -334,21 +425,21 @@
         (update-processes-highlight process)))
     
     (define (update-thread)
-      (when (debugged=? process process~self)
-        (let ((empty? (not thread~self))
+      (when (debugged=? process (selected-process))
+        (let ((empty? (not (selected-thread)))
               (view (get-threads-view)))
           (when view
-            (process-changed~ view process~self))
+            (process-changed~ view (selected-process)))
           (when empty?
             (if view
                 (set-selected-thread~ view thread)
-              (thread-changed process)))
+              (thread-changed thread)))
           (when (and view (view-visible?~ view))
-            (when (visit-debugged thread)
+            (when (visit-debugged process)
               (update-threads-highlight thread))))))
     
     (define (update-others)
-      (when (debugged=? thread thread~self)
+      (when (debugged=? thread (selected-thread))
         (when (get-frames-view)
           (thread-changed~ (get-frames-view) thread))
         (when (get-restarts-view)
@@ -363,10 +454,14 @@
     (define (add-unvisited-stops debugged)
       (table-set! unvisited-stops debugged #t))
     
+    (define (add-unzoomed-stops debugged)
+      (table-set! unzoomed-stops debugged #t))
+    
     (add-active-stop process stop)
     (add-active-stop thread stop)
     (add-unvisited-stops process)
     (add-unvisited-stops thread)
+    (add-unzoomed-stops thread)
     (unless step?
       (error-sound))
     (update-process)
@@ -374,15 +469,27 @@
     (update-others))
   
   
+  (method public (update-variables-zoom)
+    (when (= (table-length unvisited-stops) 0)
+      (let ((variables-view (get-variables-view)))
+        (when variables-view
+          (let ((variables-parent (get-parent~ variables-view)))
+            (let ((variables-target (if (is? variables-parent Splitter-View) variables-view variables-parent)))
+              (let ((variables-splitter (get-parent~ variables-target)))
+                (when (is? variables-splitter Splitter-View)
+                  (zoom~ variables-splitter (brother-view~ variables-splitter variables-target))))))))))
+  
+  
   (method public (unregister-stop process thread stop)
     (define (update-others)
-      (when (debugged=? thread thread~self)
+      (when (debugged=? thread (selected-thread))
         (when (get-frames-view)
           (thread-changed~ (get-frames-view) thread))
         (when (get-restarts-view)
           (thread-changed~ (get-restarts-view) thread))
         (when (get-exception-view)
           (thread-changed~ (get-exception-view) thread)))
+      (update-variables-zoom)
       (update-status))
     
     (define (remove-active-stop debugged stop)
@@ -398,12 +505,61 @@
                           (table-ref active-stops debugged '())))
         (table-set! unvisited-stops debugged)))
     
+    (define (remove-unzoomed-stops debugged)
+      (table-set! unzoomed-stops debugged))
+    
     (remove-active-stop process stop)
     (remove-active-stop thread stop)
     (remove-unvisited-stops process)
     (remove-unvisited-stops thread)
+    (remove-unzoomed-stops thread)
     (update-processes-highlight process)
     (let ((view (get-threads-view)))
       (when view
-        (process-changed~ view process~self)))
-    (update-others))))
+        (process-changed~ view (selected-process))))
+    (update-others))
+  
+  
+  ;;;
+  ;;;; Filenames
+  ;;;
+  
+  
+  (method public (filename-processes filename)
+    (if focused-mode?
+        (if focused-process
+            (list focused-process)
+          '())
+      (determine-filename-processes filename)))
+  
+  
+  (method public (determine-filename-processes filename)
+    (let ((queue (new-queue)))
+      (for-each (lambda (debugger)
+                  (add-filename-processes~ debugger queue filename))
+                (get-debuggers))
+      (collect-if get-alive? (queue-list queue))))
+  
+  
+  (method public (process-received-filenames? process)
+    (let ((process (get-reference~ process)))
+      (let ((debugger (get-process-debugger process)))
+        (and debugger (received-runtime-filenames?~ debugger process)))))
+  
+  
+  (method public (evaluate-filename-expressions filename syntax str container line col)
+    (let ((processes (filename-processes filename)))
+      (if (null? processes)
+          (let ((ide (get-application)))
+            (when (get-local-debugger~ ide)
+              (let ((controller-debugger (get-controller-debugger)))
+                (when (remote-proxy? controller-debugger)
+                  (let ((targets (evaluation-processes~ ide)))
+                    (let ((processes (evaluate-expressions-to~ controller-debugger targets filename syntax str container line col)))
+                      (when (not-null? processes)
+                        processes)))))))
+        (let ((cookie (register-debugger-cookie #f)))
+          (for-each (lambda (process)
+                      (evaluate-expressions~ process syntax str container line col cookie))
+                    processes))
+        (map get-reference~ processes))))))

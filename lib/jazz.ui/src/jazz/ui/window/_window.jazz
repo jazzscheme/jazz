@@ -62,13 +62,13 @@
 (definition desktop #f)
 
 
-(definition Desktop-DC #f)
+(definition Desktop-Surface #f)
   
 
-(definition public (desktop-dc)
-  (unless Desktop-DC
-    (set! Desktop-DC (new Memory-Surface #f {Dimension 0 0})))
-  Desktop-DC)
+(definition public (desktop-surface)
+  (unless Desktop-Surface
+    (set! Desktop-Surface (new Memory-Surface #f {Dimension 0 0})))
+  Desktop-Surface)
 
 
 (definition public (get-desktop)
@@ -109,8 +109,8 @@
 (definition public (process-events)
   (define (process-events-single-threaded)
     (declare (proper-tail-calls))
-    (let (loop)
-      (with-restart-catcher 'resume-loop (present-event-loop-restart) #f
+    (let (restart-loop)
+      (with-restart-catcher 'resume-loop (present-event-loop-restart)
         (lambda ()
           (catch Cancel-Signal
             (process-messages-single-threaded
@@ -121,7 +121,7 @@
                       (with-exception-debugger (get-exception-debugger)
                         thunk)
                       (loop)))))))))
-      (loop)))
+      (restart-loop)))
   
   (define (process-events-multi-threaded)
     (declare (proper-tail-calls))
@@ -130,14 +130,16 @@
         (thread-start-loop pump)
         (thread-start! pump))
       (unwind-protect
-          (let (loop)
-            (with-restart-catcher 'resume-loop (present-event-loop-restart) #f
+          (let (restart-loop)
+            (with-restart-catcher 'resume-loop (present-event-loop-restart)
               (lambda ()
                 (catch Cancel-Signal
-                  (let ((thunk (thread-read)))
-                    (with-exception-debugger (get-exception-debugger)
-                      thunk)))))
-            (loop))
+                  (let (loop)
+                    (let ((thunk (thread-read)))
+                      (with-exception-debugger (get-exception-debugger)
+                        thunk))
+                    (loop)))))
+            (restart-loop))
         (when pump
           (thread-stop-loop pump)))))
   
@@ -285,8 +287,8 @@
 
 (definition public (unregister-frame frame)
   (set-frames (remove! frame (get-frames))))
-
-
+ 
+ 
 (definition public (bring-frame-to-front frame)
   (set-frames (cons frame (remove! frame (get-frames)))))
 

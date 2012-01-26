@@ -58,6 +58,7 @@
   
   (method (start-edit)
     (set! edit? #t)
+    (acquire-focus~ client)
     (invalidate-view~ client))
   
   
@@ -71,18 +72,18 @@
   ;;;
   
   
-  (method override (focus-gained)
+  (method override (on-focus-gained evt)
     (if (editing?)
         (focus-gained~ client)
-      (nextmethod)))
+      (nextmethod evt)))
   
   
-  (method override (focus-lose)
+  (method override (on-focus-lose evt)
     (if (editing?)
         (begin
           (focus-lose~ client)
           (stop-edit))
-      (nextmethod)))
+      (nextmethod evt)))
 
 
   ;;;
@@ -90,10 +91,10 @@
   ;;;
   
   
-  (method override (cursor-update pos)
+  (method override (on-cursor-update evt)
     (if (editing?)
-        (cursor-update~ client pos)
-      (nextmethod pos)))
+        (cursor-update~ client (get-position~ evt))
+      (nextmethod evt)))
 
 
   ;;;
@@ -101,43 +102,43 @@
   ;;;
   
   
-  (method override (mouse-down pos)
+  (method override (on-mouse-down evt)
     (if (editing?)
         (begin
           (when (select?)
-            (select-in-editor))
-          (mouse-down~ client pos))
-      (nextmethod pos)))
+            (select~ editor client))
+          (mouse-down~ client (get-position~ evt)))
+      (nextmethod evt)))
   
   
-  (method override (mouse-up pos)
+  (method override (on-mouse-up evt)
     (if (editing?)
-        (mouse-up~ client pos)
-      (nextmethod pos)))
+        (mouse-up~ client (get-position~ evt))
+      (nextmethod evt)))
   
   
-  (method override (drag-move pos)
+  (method override (on-drag-move evt)
     (if (editing?)
-        (drag-move~ client pos)
-      (nextmethod pos)))
+        (drag-move~ client (get-position~ evt))
+      (nextmethod evt)))
   
   
-  (method override (drag-up pos . rest)
+  (method override (on-drag-up evt)
     (if (editing?)
-        (apply (~ drag-up client) pos rest)
-      (apply nextmethod pos rest)))
+        (drag-up~ client (get-position~ evt))
+      (nextmethod evt)))
   
   
-  (method override (double-click pos)
+  (method override (on-double-click evt)
     (if (editing?)
-        (double-click~ client pos)
+        (double-click~ client (get-position~ evt))
       (start-edit)))
 
 
-  (method override (context-menu pos)
+  (method override (on-context-menu evt)
     (if (editing?)
-        (context-menu~ client pos)
-      (nextmethod pos)))
+        (context-menu~ client (get-position~ evt))
+      (nextmethod evt)))
 
 
   ;;;
@@ -145,13 +146,13 @@
   ;;;
   
   
-  (method override (key-press key)
+  (method override (on-key-press evt)
     (if (editing?)
-        (key-press~ client key)
-      (nextmethod key)))
+        (key-press~ client (get-key~ evt))
+      (nextmethod evt)))
   
   
-  (method override (return-press key)
+  (method override (on-return-press evt)
     (if (editing?)
-        (return-press~ client key)
+        (return-press~ client (get-key~ evt))
       (start-edit)))))

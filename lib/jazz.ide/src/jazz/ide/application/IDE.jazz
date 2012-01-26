@@ -49,6 +49,7 @@
         (jazz.editor.lisp)
         (jazz.editor.sql)
         (jazz.editor.sql.view)
+        (jazz.git.ui)
         (jazz.groupware)
         (jazz.ide)
         (jazz.ide.login)
@@ -58,8 +59,6 @@
         (jazz.library)
         (jazz.library.component)
         (jazz.locale)
-        (jazz.network)
-        (jazz.platform)
         (jazz.project)
         (jazz.recorder)
         (jazz.system)
@@ -133,6 +132,11 @@
     ;; do this at the last moment possible because any error beyond this point
     ;; will be handled by the IDE itself which must thus be fully functional
     (when (and (use-local-debugger?) (not (get-controller-debugger)))
+      (add-debugger-release 'modal
+        (lambda ()
+          (enable-window~ (get-toplevel))
+          (set-current-modal #f)
+          (update-modal-actions)))
       (attach-to-controller (get-local-register) #t)
       (with-system-exception-debugger
         (lambda ()
@@ -421,7 +425,7 @@
           @wait
           (project-file (let ((guest (current-document)))
                           (when (and guest (is? guest Document))
-                            (let ((moniker (get-moniker~ (get-controller~ guest))))
+                            (let ((moniker (get-moniker~ (get-document-controller~ guest))))
                               (when moniker
                                 (let ((workbench (get-workbench)))
                                   (find-source~ workbench moniker)))))))
@@ -429,7 +433,7 @@
           ;; so files from different languages can be build in their own ways
           (unit-name (let ((guest (current-document)))
                        (when (and guest (is? guest Document))
-                         (let ((moniker (get-moniker~ (get-controller~ guest))))
+                         (let ((moniker (get-moniker~ (get-document-controller~ guest))))
                            (when moniker
                              (find-pathname-unit (parse~ moniker))))))))
       @wait (set-action-enabled? {Action ide edit-project} project)
@@ -549,6 +553,15 @@
     (nextmethod)
     (when (use-local-debugger?)
       (register-object~ (get-local-register) 'debugger (new Jazz-Debugger-Local-Proxy local-debugger))))
+  
+  
+  ;;;
+  ;;;; Runtime
+  ;;;
+  
+  
+  (method override (evaluation-processes)
+    (list (get-local-process)))
 
   
   ;;;
@@ -654,14 +667,20 @@
     (define (filter-entries entries class)
       entries)
     
-    (let ((name (->string object)))
-      (let ((definitions (filter-entries (get-coalesced-definitions~ (get-cataloguer) name context: context) class)))
-        (if (null? definitions)
-            (bell)
-          (add-history history-item)
-          (case (length definitions)
-            ((1) (edit~ (car definitions) workspace: workspace))
-            (else (edit-definitions~ (get-search-manager) (new Projects-Search 'definitions name #f) definitions)))))))
+    (if (and (symbol? object)
+             (composite-reference? object))
+        (let ((entry (locator->entry object)))
+          (if (not entry)
+              (bell)
+            (edit~ entry)))
+      (let ((name (->string object)))
+        (let ((definitions (filter-entries (get-coalesced-definitions~ (get-cataloguer) name context: context) class)))
+          (if (null? definitions)
+              (bell)
+            (add-history history-item)
+            (case (length definitions)
+              ((1) (edit~ (car definitions) workspace: workspace))
+              (else (edit-definitions~ (get-search-manager) (new Projects-Search 'definitions name #f) definitions))))))))
 
   
   (method override (edit-references object (context: context #f) (history-item: history-item #f))
@@ -675,6 +694,31 @@
             (else (edit-references~ (get-search-manager) (new Projects-Search 'references (make-search-context name whole-words?: #t) #f) definitions)))))))
 
 
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method public virtual (view-editor-class)
+    View-Editor)
+  
+  
+  (method public virtual (component-editor-class)
+    Grid-Component-Editor)
+  
+  
+  (method public virtual (default-designer-imports)
+    '(jazz.jml))
+  
+  
+  (method public virtual (make-traits-toolbox class)
+    (instantiate~
+      (parse-form
+        `(data jazz.ide.data.toolbox
+         (form
+           (<Toolbox> title: "Traits"))))))
+  
+  
   ;;;
   ;;;; Documentation
   ;;;
@@ -710,11 +754,28 @@
           (new-frame class client: (get-documentation-catalog) entry: info)
         (set-entry~ editor info)
         (bring-to-front~ (get-host~ editor)))))
+  
+  
+  ;;;
+  ;;;; Results
+  ;;;
+  
+  
+  (method override (navigable-results)
+    (list
+      (get-guest~ (singleton-docked Search-Results #f))
+      @wait
+      (get-guest~ (singleton-docked Output-Log #f))
+      (get-guest~ (singleton-docked Violations-Manager #f))))
 
 
   ;;;
   ;;;; Events
   ;;;
+  
+  
+  (method (on-new-project evt)
+    (add-project-to~ (get-workbench-manager) (get-workbench)))
   
 
   (method package (on-open-text evt)
@@ -890,6 +951,10 @@
     (view-log~ (get-workbench-manager)))
   
   
+  (method package (on-configure-project evt)
+    (configure-current~ (get-workbench-manager)))
+  
+  
   (method package (on-test-project evt)
     (test-current~ (get-workbench-manager)))
   
@@ -1045,6 +1110,10 @@
     @convert/wait
     (new-frame Compare-Databases))
   
+  
+  (method package (on-git-explorer evt)
+    (new-frame Git-Explorer))
+  
 
   ;;;
   ;;;; Catalogs
@@ -1065,5 +1134,7 @@
           (lambda (project)
             (let ((catalog (get-catalog~ project)))
               (when catalog
-                (update~ catalog)))))))
-    (user-feedback "Done"))))
+                (post-catalog
+                  (lambda ()
+                    (update~ catalog)
+                    (user-feedback "Done"))))))))))))

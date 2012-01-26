@@ -46,14 +46,9 @@
         (jazz.jml)
         (jazz.library)
         (jazz.locale)
-        (jazz.platform)
-        (jazz.runtime)
-        (jazz.runtime.ui)
         (jazz.system)
         (jazz.ui)
-        (jazz.ui.clipboard)
-        (jazz.ui.view)
-        (jazz.ui.window))
+        (jazz.ui.view))
 
 
 (class Jazz-Text-View extends Lisp-Text-View
@@ -100,7 +95,7 @@
   
   (method override (get-context-menu)
     (let* ((menu (new Jazz-Text-Menu))
-           (controller (get-controller))
+           (controller (get-document-controller))
            (moniker (get-moniker~ controller)))
       @waiting
       (when (or (not moniker) (read/write?~ moniker))
@@ -285,9 +280,11 @@
   ;;;; Location
   ;;;
   
+  
   @unused
   (method (current-location)
     (position->location (get-start)))
+  
   
   @unused
   (method (position->location pos)
@@ -510,7 +507,33 @@
     @convert
     (when (in-manifest? symbol)
       (edit-class~ (get-application) symbol)
-      #t)))
+      #t))
+  
+  
+  ;;;
+  ;;;; Reprint Form
+  ;;;
+  
+  
+  (method public (on-reprint-current-form evt)
+    (reprint-current-form))
+  
+  
+  (method public (reprint-current-form (space-properties?: space-properties? #t) (align-name?: align-name? #t))
+    (let* ((range (declaration-range (get-end)))
+           (str (get-string range))
+           (form (jml->form (second (with-jazz-readtable (lambda () (read-string-element str)))))))
+      (if (is-not? form Form)
+          (bell)
+        (let* ((designer (new Designer form: form))
+               (output (saved-form~ designer 2 space-properties?: space-properties? align-name?: align-name?)))
+          (if (string=? str output)
+              (user-message "No changes to current form")
+            (with-update-locked
+              (lambda ()
+                (set-selection range)
+                (insert-string output)
+                (user-message "Current form reprinted")))))))))
 
 
 ;;;

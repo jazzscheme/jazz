@@ -118,12 +118,14 @@
 
 
 (define (make-profile label profiler depth)
-  (let ((count 0)
-        (duration 0)
+  (let ((frames-count 0)
+        (frames-duration 0)
+        (calls-count 0)
+        (calls-duration 0)
         (start-info #f)
         (stop-info #f)
         (calls (%%make-table test: equal?)))
-    (%%vector 'profile label profiler depth count duration start-info stop-info calls)))
+    (%%vector 'profile label profiler depth frames-count frames-duration calls-count calls-duration start-info stop-info calls)))
 
 
 (define (profile-label profile)
@@ -141,40 +143,52 @@
 (define (profile-depth-set! profile depth)
   (%%vector-set! profile 3 depth))
 
-(define (profile-calls-count profile)
+(define (profile-frames-count profile)
   (%%vector-ref profile 4))
 
-(define (profile-calls-count-set! profile total)
-  (%%vector-set! profile 4 total))
+(define (profile-frames-count-set! profile count)
+  (%%vector-set! profile 4 count))
 
-(define (profile-calls-duration profile)
+(define (profile-frames-duration profile)
   (%%vector-ref profile 5))
 
-(define (profile-calls-duration-set! profile total)
-  (%%vector-set! profile 5 total))
+(define (profile-frames-duration-set! profile count)
+  (%%vector-set! profile 5 count))
 
-(define (profile-process-start-info profile)
+(define (profile-calls-count profile)
   (%%vector-ref profile 6))
 
-(define (profile-process-start-info-set! profile time)
-  (%%vector-set! profile 6 time))
+(define (profile-calls-count-set! profile total)
+  (%%vector-set! profile 6 total))
 
-(define (profile-process-stop-info profile)
+(define (profile-calls-duration profile)
   (%%vector-ref profile 7))
 
-(define (profile-process-stop-info-set! profile time)
-  (%%vector-set! profile 7 time))
+(define (profile-calls-duration-set! profile total)
+  (%%vector-set! profile 7 total))
 
-(define (profile-calls profile)
+(define (profile-process-start-info profile)
   (%%vector-ref profile 8))
 
+(define (profile-process-start-info-set! profile time)
+  (%%vector-set! profile 8 time))
+
+(define (profile-process-stop-info profile)
+  (%%vector-ref profile 9))
+
+(define (profile-process-stop-info-set! profile time)
+  (%%vector-set! profile 9 time))
+
+(define (profile-calls profile)
+  (%%vector-ref profile 10))
+
 (define (profile-calls-set! profile calls)
-  (%%vector-set! profile 8 calls))
+  (%%vector-set! profile 10 calls))
 
 
 (define (new-profile #!key (label #f) (profiler #f) (depth #f))
   (let ((profiler (or profiler (jazz:require-service (default-profiler)))))
-   (make-profile label profiler (or depth (profiler-default-depth profiler)))))
+    (make-profile label profiler (or depth (profiler-default-depth profiler)))))
 
 
 ;;;
@@ -220,6 +234,19 @@
   (find-profile (get-selected-profile)))
 
 
+(define (find/new-profile label . rest)
+  (or (find-profile label)
+      (let ((profile (apply new-profile label: label rest)))
+        (register-profile profile)
+        profile)))
+
+
+(define (with-profile label thunk . rest)
+  (let ((profile (apply find/new-profile label rest)))
+    (with-profiling profile
+      thunk)))
+
+
 (define (register-profile profile)
   (%%table-set! *profiles* (profile-label profile) profile))
 
@@ -250,8 +277,11 @@
       (profile-profiler-set! profile profiler))
   (if depth
       (profile-depth-set! profile depth))
+  (profile-frames-count-set! profile 0)
+  (profile-frames-duration-set! profile 0)
   (profile-calls-count-set! profile 0)
   (profile-calls-duration-set! profile 0)
+  (profile-process-stop-info-set! profile #f)
   (profile-calls-set! profile (%%make-table test: equal?)))
 
 
@@ -301,24 +331,29 @@
 
 (define (stop-profiler profile)
   (profile-process-stop-info-set! profile (process-statistics))
+  (profile-frames-count-set! profile (+ (profile-frames-count profile) 1))
+  (let ((real-time (secs->msecs
+                     (##- (##f64vector-ref (profile-process-stop-info profile) 2)
+                          (##f64vector-ref (profile-process-start-info profile) 2)))))
+    (profile-frames-duration-set! profile (+ (profile-frames-duration profile) real-time)))
   (let ((stop (profiler-stop-func (profile-profiler profile))))
     (if stop
         (stop profile))))
 
 
 (define (profile-process-info profile)
-  (define (secs->msecs x)
-    (##inexact->exact (##round (##* x 1000))))
-  
   (let ((at-start (profile-process-start-info profile)))
     (if at-start
-        (let ((at-end (or (profile-process-stop-info profile) (process-statistics))))
+        (let ((at-end (or (profile-process-stop-info profile) at-start)))
           (let ((user-time (secs->msecs
                              (##- (##f64vector-ref at-end 0)
                                   (##f64vector-ref at-start 0))))
                 (sys-time (secs->msecs
                             (##- (##f64vector-ref at-end 1)
                                  (##f64vector-ref at-start 1))))
+                (real-time (secs->msecs
+                             (##- (##f64vector-ref at-end 2)
+                                  (##f64vector-ref at-start 2))))
                 (gc-real-time (secs->msecs
                                 (##- (##f64vector-ref at-end 5)
                                      (##f64vector-ref at-start 5))))
@@ -326,8 +361,12 @@
                                    (##- (##- (##f64vector-ref at-end 7)
                                              (##f64vector-ref at-start 7))
                                         (##f64vector-ref at-end 9)))))
-            (list user-time sys-time gc-real-time bytes-allocated)))
-      (list 0 0 0 0))))
+            (list user-time sys-time real-time gc-real-time bytes-allocated)))
+      (list 0 0 0 0 0))))
+
+
+(define (secs->msecs x)
+  (##inexact->exact (##round (##* x 1000))))
 
 
 ;;;

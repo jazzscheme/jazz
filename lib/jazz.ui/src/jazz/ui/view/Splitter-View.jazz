@@ -42,25 +42,30 @@
         (jazz.graphic)
         (jazz.jml)
         (jazz.library)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.skin)
+        (jazz.ui.view)
         (jazz.ui.window))
+
+
+;;;
+;;;; Splitter-View
+;;;
 
 
 (class Splitter-View extends View
 
 
-  (property separator     initialize 'resize        accessors generate)
-  (property state         initialize 'split         accessors generate)
-  (property target        initialize #f             accessors generate)
-  (property orientation   initialize 'horz          accessors generate)
-  (property mode          initialize 'absolute      accessors generate)
-  (property division      initialize 100            accessors generate)
-  (property insets        initialize {Rect 0 0 0 0} accessors generate)
-  (property full?         initialize #f             accessors generate)
+  (property separator     initialize 'resize        accessors explicit)
+  (property state         initialize 'split         accessors explicit)
+  (property target        initialize #f             accessors explicit)
+  (property orientation   initialize 'horz          accessors explicit)
+  (property mode          initialize 'relative      accessors explicit)
+  (property division      initialize 50             accessors explicit)
+  (property insets        initialize {Rect 0 0 0 0} accessors explicit)
   (property after-handler initialize #f             accessors generate)
   (property preferences   initialize #f             accessors generate)
-  (property style         initialize #f             accessors generate)
   
   
   (slot split-layout     initialize (new Split-Layout))
@@ -68,6 +73,90 @@
   (slot dragging?        initialize #f)
   (slot previous         initialize #f)
   (slot preserved-insets initialize #f accessors generate)
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-separator)
+    separator)
+  
+  
+  (method public (set-separator value)
+    (set! separator value)
+    (when (get-finished?)
+      (layout-view)))
+  
+  
+  (method public (get-state)
+    state)
+  
+  
+  (method public (set-state value)
+    (set! state value)
+    (when (get-finished?)
+      (layout-view)))
+  
+  
+  (method public (get-target)
+    target)
+  
+  
+  (method public (set-target value)
+    (set! target value)
+    (when (get-finished?)
+      (layout-view)))
+  
+  
+  (method public (get-orientation)
+    orientation)
+  
+  
+  (method public (set-orientation value)
+    (set! orientation value)
+    (when (get-finished?)
+      (layout-view)))
+  
+  
+  (method public (get-mode)
+    mode)
+  
+  
+  (method public (set-mode value)
+    (set! mode value)
+    (when (get-finished?)
+      (layout-view)))
+  
+  
+  (method public (get-division)
+    division)
+  
+  
+  (method public (set-division value)
+    (set! division value)
+    (when (get-finished?)
+      (layout-view)))
+  
+  
+  (method public (get-insets)
+    insets)
+  
+  
+  (method public (set-insets value)
+    (set! insets value)
+    (when (get-finished?)
+      (layout-view)))
+
+  
+  ;;;
+  ;;;; View
+  ;;;
+  
+  
+  (method override (default-size)
+    {Dimension 400 200})
 
   
   ;;;
@@ -84,7 +173,7 @@
     (unless (null? children)
       (let ((size (get-size))
             (mode (if dragging? 'absolute mode)))
-        (set! bar-bounds (layout~ split-layout children (get-width~ size) (get-height~ size) separator: separator state: state target: target orientation: orientation mode: mode division: division insets: insets)))))
+        (set! bar-bounds (layout~ split-layout self children (get-width~ size) (get-height~ size) separator: separator state: state target: target orientation: orientation mode: mode division: division insets: insets)))))
 
   
   ;;;
@@ -105,6 +194,16 @@
                   (when (is? child Host-View)
                     (host-uninstall~ (get-guest~ child)))))
               children))
+
+  
+  ;;;
+  ;;;; Widget
+  ;;;
+  
+  
+  @not-correct
+  (method override (inner? view)
+    (memq? view children))
   
   
   ;;;
@@ -113,20 +212,26 @@
   
   
   (method public (workspace-zoomable? view)
-    (define (get-brother view)
-      (find-if (lambda (child)
-                 (neq? child view))
-               children))
-    
-    (let ((brother (get-brother view)))
+    (let ((brother (brother-view view)))
       (or (is-not? brother Host-View)
           (let ((guest (get-guest~ brother)))
             (workspace-minimisable?~ guest)))))
+  
+  
+  (method public (brother-view view)
+    (find-if (lambda (child)
+               (neq? child view))
+             children))
 
   
   ;;;
   ;;;; Zoom
   ;;;
+  
+  
+  (method public (get-zoomable?)
+    (assert preferences)
+    (get-zoomable?~ preferences))
   
   
   (method public (zoom view)
@@ -169,12 +274,12 @@
   ;;;
   
   
-  (method override (draw surface context lh lv)
+  (method override (draw surface context)
     (let ((look (get-look)))
       (let ((background (get-background~ look)))
         (when (and (eq? state 'split) bar-bounds)
           (if background
-              (fill-rect~ surface bar-bounds background)
+              (fill-rect~ surface bar-bounds (if (debug-paint?) (cycle-debug-color!) background))
             (case separator
               ((resize)
                (fill-rect~ surface bar-bounds {Color Medium}))
@@ -187,7 +292,7 @@
                  ((horz) (draw-edge~ surface bar-bounds inner: 'raised edges: '(left)))
                  ((vert) (draw-edge~ surface bar-bounds inner: 'raised edges: '(top))))))))
         (when (not (empty-rect? insets))
-          (fill-insets~ surface (get-bounds) insets (or background {Color Medium}))))))
+          (fill-insets~ surface (get-bounds) insets (if (debug-paint?) (cycle-debug-color!) (or background {Color Medium})))))))
   
   
   ;;;
@@ -244,17 +349,25 @@
              (delta (- n previous)))
         (increase! division delta)
         (set! previous n)
-        (layout-view)
-        (update-view)
+        (parameterize ((inhibit-layouts? #t)
+                       (inhibit-invalidates? #t))
+          (layout-view))
+        (redraw-view)
         (call-after-handler))))
   
   
   (method override (drag-up pos . rest)
+    (define (save-preferences)
+      (let ((designer (get-workspaces-designer~ (get-application))))
+        (when (and preferences designer)
+          (set-property~ designer preferences 'division division))))
+    
     (when dragging?
       (release-capture)
       (when (eq? mode 'relative)
         (set! division (absolute->relative division)))
-      (set! dragging? #f)))
+      (set! dragging? #f)
+      (save-preferences)))
  
   
   ;;;
@@ -291,20 +404,34 @@
   
   
   (form
-    (<install>
+    (<install>                                     image: {Image-Resource "TileVertically"}
       (<properties~>
-        (<Property-Descriptor> name: separator title: "Separator")
-        (<Property-Descriptor> name: state title: "State")
-        (<Property-Descriptor> name: target title: "Target")
-        (<Property-Descriptor> name: orientation title: "Orientation")
-        (<Property-Descriptor> name: mode title: "Mode")
-        (<Property-Descriptor> name: division title: "Division")
-        (<Property-Descriptor> name: insets title: "Insets")
-        (<Property-Descriptor> name: full? title: "Full")
-        (<Property-Descriptor> name: after-handler title: "After Handler")
-        (<Property-Descriptor> name: preferences title: "Preferences"))))
-  
-  
-  @too-many-icons!
-  (method override (class-image class)
-    {Image-Resource "TileVertically"}))))
+        (<Property-Descriptor> name: separator
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: state
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: target
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: orientation
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: mode
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: division
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: insets
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: preferences   standard?: #f
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: after-handler category: handler
+          (<Value-Domain>      name: domain)))))))
+
+
+;;;
+;;;; Splitter-View.Standard
+;;;
+
+
+(define-form Splitter-View.Standard
+  (<Splitter-View>
+    (<Layout-View> layout-type: fill location: first)
+    (<Layout-View> layout-type: fill location: second))))

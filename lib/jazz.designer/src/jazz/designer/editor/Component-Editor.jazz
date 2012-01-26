@@ -40,14 +40,12 @@
 
 (import (jazz.designer)
         (jazz.designer.view)
-        (jazz.editor.jazz)
         (jazz.io)
-        (jazz.jml)
         (jazz.library)
         (jazz.library.component)
         (jazz.library.listener)
         (jazz.locale)
-        (jazz.platform)
+        (jazz.runtime)
         (jazz.ui)
         (jazz.ui.view)
         (jazz.system))
@@ -56,15 +54,18 @@
 (class undocumented Component-Editor extends Layout-View implements Document
 
   
-  (property client initialize #f accessors explicit)
+  (property client              initialize #f  accessors explicit)
+  (property application-select? initialize #t  accessors generate)
+  (property violations          initialize '() accessors generate)
   
   
-  (slot designer   initialize #f getter generate)
-  (slot listeners  initialize '())
-  (slot undoer     initialize #f)
-  (slot selection  initialize '())
-  (slot controller initialize #f)
-  (slot rights     initialize #f accessors generate)
+  (slot designer            initialize #f getter generate)
+  (slot listeners           initialize '())
+  (slot selection           initialize '())
+  (slot document-controller initialize #f)
+  (slot rights              initialize #f accessors generate)
+  (slot selection-locked?   initialize #f accessors generate)
+  (slot violations-factory  initialize (new List-Factory))
   
   
   (method override (get-component-editor)
@@ -86,7 +87,7 @@
   
   (method override (install-in-host host)
     (nextmethod host)
-    (update-status~ (get-controller)))
+    (update-status~ (get-document-controller)))
   
   
   (method (install-scroller)
@@ -110,7 +111,26 @@
     (acquire-focus))
   
   
-  (method override (current-history-item));;abstract
+  (method override (current-history-item)
+    #f)
+  
+  
+  (method override (get-page-setup)
+    (get-page-setup~ client))
+  
+  
+  (method override (get-page-setup-designer)
+    (if (custom-page-setup?~ client)
+        designer
+      (get-page-setup-designer~ client)))
+  
+  
+  (method override (get-page-setup-parcel designer)
+    (get-page-setup-parcel~ client designer))
+  
+  
+  (method override (apply-page-setup designer form page-setup)
+    (apply-page-setup~ client designer form page-setup))
   
   
   ;;;
@@ -118,26 +138,26 @@
   ;;;
 
 
-  (method override (get-controller)
-    (unless controller
-      (set! controller (new-controller)))
-    controller)
+  (method override (get-document-controller)
+    (unless document-controller
+      (set! document-controller (new-document-controller)))
+    document-controller)
 
 
-  (method override (new-controller)
+  (method override (new-document-controller)
     (new Component-Editor-Controller self))
   
   
   (method override (save)
-    (save~ (get-controller)))
+    (save~ (get-document-controller)))
   
   
   (method override (save-as)
-    (save-as~ (get-controller)))
+    (save-as~ (get-document-controller)))
   
   
   (method public virtual (save-all)
-    (save-all~ (get-controller)))
+    (save-all~ (get-document-controller)))
   
   
   (method override (install-scroller?)
@@ -145,11 +165,11 @@
 
 
   (method (get-moniker)
-    (get-moniker~ (get-controller)))
+    (get-moniker~ (get-document-controller)))
 
 
   (method (set-moniker moniker)
-    (set-moniker~ (get-controller) moniker))
+    (set-moniker~ (get-document-controller) moniker))
 
 
   (method override (load-content moniker)
@@ -167,27 +187,27 @@
 
 
   (method override (get-modified?)
-    (get-modified?~ (get-controller)))
+    (get-modified?~ (get-document-controller)))
 
 
   (method override (set-modified? state)
-    (set-modified?~ (get-controller) state))
+    (set-modified?~ (get-document-controller) state))
   
   
-  (method protected virtual (set-controller-modified? state)
-    (set-modified?~ (get-controller) state))
+  (method protected virtual (set-document-controller-modified? state)
+    (set-modified?~ (get-document-controller) state))
   
   
   (method (update-status)
-    (update-status~ (get-controller)))
+    (update-status~ (get-document-controller)))
   
   
   (method (update-moniker-time moniker)
-    (update-moniker-time~ (get-controller) moniker))
+    (update-moniker-time~ (get-document-controller) moniker))
   
   
   (method override (confirm-close . rest)
-    (confirm-close~ (get-controller)))
+    (confirm-close~ (get-document-controller)))
   
   
   (method override (compare-moniker moniker)
@@ -288,20 +308,19 @@
           (edit-component component)))))
 
   
+  (method (setup-components)
+    (for-each-descendant~ client (lambda (component _)
+                                   (setup-component~ component))))
+  
+  
   ;;;
   ;;;; Properties
   ;;;
   
   
-  (method protected (property-change trait component property value undoable?)
-    (when undoable?
-      (let ((category (get-category~ (class-of component) property))
-            (property (symbolize-property property)))
-        (unless (or (= (get-rank~ category) 0) (find-changed-property trait component property))
-          (register-undo~ undoer (list trait component property))))))
-  
-  
   (method protected (find-changed-property trait component property)
+    #f
+    @convert
     (let ((property (symbolize-property property))
           (undo-list (get-undo-list~ undoer)))
       (find-if (lambda (action)
@@ -329,20 +348,15 @@
     selection)
 
 
-  (method public (set-selection new (origin: origin #f) (force-parent?: force-parent? #f) (force?: force? #f) (focus?: focus? #t))
+  (method virtual public (set-selection new (origin: origin #f) (force-parent?: force-parent? #f) (force?: force? #f) (focus?: focus? #t))
     (let ((appl (get-application))
           (old selection))
-      (process-selection-changing old new origin force-parent? force? focus?)
-      (process-selection-changed old new origin force-parent? force? focus?)
-      (set-selected~ appl self new force?: force?)
-      (update-focus-actions~ appl)))
-  
-  
-  (method protected (outer-selection)
-    (let ((reference (get-reference)))
-      (map (lambda (component)
-             (outer-component~ component reference))
-           selection)))
+      (unless (and (equal? old new) (eq? (get-selected-owner~ appl) self))
+        (process-selection-changing old new origin force-parent? force? focus?)
+        (process-selection-changed old new origin force-parent? force? focus?)
+        (when application-select?
+          (set-selected~ appl self new force?: force?)
+          (update-focus-actions~ appl)))))
   
   
   (method (close-application-selected)
@@ -359,16 +373,22 @@
   
   
   (method public (select component (focus?: focus? #t))
-    (if (or (control-down?) (shift-down?))
-        (if (memq? component selection)
-            (set-selection (remove component selection) origin: self focus?: focus?)
-          (set-selection (append selection (list component)) origin: self focus?: focus?))
-      (if (memq? component selection)
-          (set-selection (cons component (remove component selection)) origin: self focus?: focus?)
-        (set-selection (list component) origin: self focus?: focus?))))
+    (unless selection-locked?
+      (if (or (control-down?) (shift-down?))
+          (if (selected? component)
+              (set-selection (remove component selection) origin: self focus?: focus?)
+            (set-selection (append selection (list component)) origin: self focus?: focus?))
+        (if (selected? component)
+            (set-selection (cons component (remove component selection)) origin: self focus?: focus?)
+          (set-selection (list component) origin: self focus?: focus?)))))
+  
+  
+  (method public (selected? component)
+    (memq? component selection))
   
   
   (method protected virtual (selection-changed old new origin force-parent? focus?)
+    (assert (every? (lambda (component) (is? component Component)) new))
     (set! selection new)
     (for-each (lambda (component)
                 (when (is? component Component)
@@ -385,25 +405,38 @@
               (naturals 0 (length selection))))
   
   
-  (method override (delete-selection)
+  (method (with-common-parent-reselect proc)
+    (let ((parent (components-parent selection)))
+      (set-selection '() origin: self)
+      (proc)
+      (set-selection (if parent (list parent) '()) origin: self)))
+  
+  
+  (method override (copy-selection)
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (copy-components~ designer selection)))
+  
+  
+  (method override (cut-selection)
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (with-common-parent-reselect
+        (lambda ()
+          (cut-components~ designer selection)))))
+  
+  
+  (method override (delete-selection (message: message "Delete selected objects?"))
     (define (confirm-close)
-      (confirm-action "Delete selected objects?"))
-    
-    (define (confirm-action text)
-      (let ((code (message-box (localize text) type: 'confirmation)))
+      (let ((code (message-box (localize message) type: 'confirmation)))
         (case code
           ((yes) #t)
           ((no) #f)
-          ((cancel) (throw-cancel)))))
+          ((cancel) (signal-cancel)))))
     
-    (let ((components (outer-selection)))
-      (when (confirm-close)
-        (let ((parent (components-parent components)))
-          (for-each (lambda (component)
-                      (let ((surrogate (get-surrogate~ component)))
-                        (remove-child~ (get-designer~ (get-editor~ surrogate)) (get-client~ surrogate))))
-                    components)
-          (set-selection (if parent (list parent) '()) origin: self)))))
+    (when (confirm-close)
+      (let ((selection (collect-oldest-ancestors selection client)))
+        (with-common-parent-reselect
+          (lambda ()
+            (remove-components~ designer selection))))))
   
   
   (method package (components-parent components)
@@ -419,6 +452,10 @@
       (set-selection (collect-if (lambda (component)
                                    (not (destroyed?~ component)))
                                  selection))))
+  
+  
+  (method public (toggle-lock-selection)
+    (set! selection-locked? (not selection-locked?)))
   
   
   ;;;
@@ -437,33 +474,125 @@
     (process-saved))
   
   
-  ;; temp patch to make saving in the view designer work
-  (method public (save-content-patch moniker)
+  (method (refresh)
+    (define (confirm-refresh)
+      (let ((code (message-box "You must save before refreshing. Save changes?"
+                               type: 'confirmation)))
+        (case code
+          ((yes) #t)
+          ((no) (signal-cancel))
+          ((cancel) (signal-cancel)))))
+    
+    (let ((destination (if (get-modified?)
+                           (when (confirm-refresh)
+                             (designer-save))
+                         (get-origin~ (get-form~ designer)))))
+      (set-modified? #f)
+      (reset-client destination)))
+  
+  
+  (method public (reset-client target)
+    (set-client
+      (typecase target
+        ((File) (instantiate~ (read-form target)))
+        ((Class) (make-class-edition-instance target))
+        ((Runtime-Reference)
+         (let ((obj (resolve-runtime-reference target)))
+           (if (is? obj Trait)
+               (make-trait-edition-instance target)
+             (error "Incompatible object"))))))
+    (select client))
+  
+  
+  (method public (save-patch thunk)
     (process-saving)
-    (designer-save)
-    (update-moniker-time moniker)
-    (if (not (get-modified?))
-        (update-status)
-      (set-modified? #f)))
+    (let* ((origin (get-origin~ (get-form~ designer)))
+           (destination (thunk)))
+      (if (not (get-modified?))
+          (update-status)
+        (set-modified? #f))
+      (unless (origin-equal? origin destination)
+        (reset-client destination))))
   
   
-  (method (revert-content _)
-    (revert~ designer))
+  (method public (save-content-patch)
+    (save-patch designer-save))
+  
+  
+  (method public (save-content-as-patch)
+    (save-patch designer-save-as))
   
   
   (method protected virtual (designer-save)
     (save~ designer))
-
+  
+  
+  (method protected virtual (designer-save-as)
+    (save-as~ designer))
+  
+  
+  ;;;
+  ;;;; Try Out
+  ;;;
+  
+  
+  (method protected virtual (toggle-try-out)
+    )
+  
+  
+  (method protected virtual (trying-out?)
+    #f)
+  
   
   ;;;
   ;;;; Edit
   ;;;
   
   
-  (method (view-component)
+  (method (view-component (workspace: workspace #f))
     (if (not designer)
         (bell)
-      (edit-form~ designer)))
+      (edit-form~ designer workspace: workspace)))
+  
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method (can-modify? pred)
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (and (every? (lambda (component) (neq? component client)) selection)
+           (every? (~ component-owned-by-reference? designer) selection)
+           (pred selection))))
+  
+  
+  (method public (can-delete-selection?)
+    (can-modify? can-delete-components?))
+  
+  
+  (method public (can-cut-selection?)
+    (can-modify? can-cut-components?))
+  
+  
+  (method public (can-copy-selection?)
+    (let ((selection (collect-oldest-ancestors selection client)))
+      (and (every? (lambda (component) (neq? component client)) selection)
+           (can-copy-components? selection))))
+  
+  
+  (method public (can-rename-selection?)
+    (and (= (length selection) 1)
+         (component-owned-by-reference?~ designer (car selection))
+         (can-rename-component?~ (car selection))))
+  
+  
+  (method public (can-send-selection-to-back?)
+    (can-modify? (const #t)))
+  
+  
+  (method public (can-bring-selection-to-front?)
+    (can-modify? (const #t)))
   
   
   ;;;
@@ -502,14 +631,14 @@
   
   (method public (set-client clt)
     (when (neq? clt client)
+      (set-selection '())
       (let ((old client))
         (when old
           (remove-surrogate~ old))
         (set! client clt)
-        (set! undoer (and client (new Editor-Undoer)))
         (client-update)
-        (process-client-change old client)
         (edit-component client)
+        (process-client-change old client)
         (client-updated))))
   
   
@@ -539,27 +668,35 @@
   
   
   (method public (edit-component component (form: form #f))
-    (define (get-edited-form component)
-      (when component
-        (let ((component-form (get-form~ component)))
-          (if (and component-form (let ((origin (get-origin~ component-form)))
-                                    (or (not origin)
-                                        (file? origin))))
-              component-form
-            (get-class-form~ (class-of component))))))
-    
     (when (neq? component (get-reference))
-      (let ((old designer)
-            (form (or form (get-edited-form component))))
+      (let ((old designer))
         (uninstall-current-designer)
         (when component
-          (install-current-designer component form))
+          (let ((form (or form (get-form~ component))))
+            (install-current-designer component form)))
         (process-designer-change old designer)
         (update-status))))
   
   
   (method protected virtual (install-current-designer component form)
+    (define (setup-undoer)
+      (let ((undoer (get-undoer~ designer)))
+        (set-preserve-state~ undoer preserve-state)
+        (set-restore-state~ undoer restore-state)
+        (set-reset-modified~ undoer reset-modified)))
+    
+    (define (preserve-state)
+      (get-selection))
+    
+    (define (restore-state state)
+      (set-selection state))
+    
+    (define (reset-modified)
+      (reset-modified?~ designer)
+      (set-modified? #f))
+      
     (set! designer (new (get-designer-class) form: form reference: component))
+    (setup-undoer)
     (add-designer-listener~ designer (new Event-Handler target: self method-name: 'on-designer))
     (install-designer~ client designer))
   
@@ -576,10 +713,77 @@
     (let ((kind (get-kind~ evt)))
       (case kind
         ((:property-change)
-         (property-change (get-property~ evt trait:) (get-property~ evt component:) (get-property~ evt property:) (get-property~ evt value:) (get-property~ evt undoable?:))
-         (set-controller-modified? #t))
-        ((:child-add :child-remove :send-before)
-         (set-controller-modified? #t)))))
+         (set-document-controller-modified? #t))
+        ((:child-remove)
+         (let ((child (get-property~ evt child:)))
+           (set-selection (remove child selection test: eq?))
+           (set-document-controller-modified? #t)))
+        ((:child-add :child-relocate :send-before)
+         (set-document-controller-modified? #t))
+        ((:refresh)
+         (set-selection '())))
+      (setup-components)))
+
+
+  ;;;
+  ;;;; Integrity
+  ;;;
+  
+  
+  (method override (get-integrity-manager)
+    (new Integrity-Manager))
+  
+  
+  (method public (validate-integrity (context: context #f) (reporter: reporter #f) (report?: report? #t))
+    (clear-violations)
+    (let ((integrity-manager (get-integrity-manager)))
+      (setup-components)
+      (validate-integrity~ integrity-manager client self context: context reporter: reporter)
+      (set! violations (get-output~ violations-factory))
+      (when report?
+        (when reporter
+          (user-message~ reporter "Displaying violations..."))
+        (let ((presentation (get-presentation-property~ client)))
+          (update~ (get-violations-manager))
+          (if (null? violations)
+              (message-box (format "Found no integrity violations in {a}" presentation))
+            (let ((count (length violations)))
+              (message-box (format "Found {a} integrity violation{a} in {a}" count (format-plural count) presentation) @convert icon: @convert IDI_ERROR)
+              (select-violations-manager)))))
+      violations))
+
+
+  (method (get-violations-manager)
+    (get-guest~ (singleton-docked (violations-manager-class) #f)))
+  
+  
+  (method public (select-violations-manager)
+    (let ((manager (get-violations-manager)))
+      (select-resultset~ manager)
+      (select-first~ manager))
+    (select-docked (violations-manager-class) workspace: (violations-manager-workspace) focus?: #t))
+  
+  
+  (method protected virtual (violations-manager-class)
+    Violations-Manager)
+  
+  
+  (method protected virtual (violations-manager-workspace)
+    #f)
+  
+  
+  ;;;
+  ;;;; Violations
+  ;;;
+  
+  
+  (method public (add-violation violation)
+    (put~ violations-factory violation))
+  
+  
+  (method public (clear-violations)
+    (reset~ violations-factory)
+    (set! violations '()))
   
   
   ;;;
@@ -676,16 +880,4 @@
     (let ((reference (get-reference)))
       (if (not reference)
           "Component Editor"
-        (format "Component Editor - {s}" (category-identifier (class-of reference)))))))
-
-
-;;;
-;;;; Editor-Undoer
-;;;
-
-
-(class Editor-Undoer extends Undoer
-  
-  
-  (method override (play-action action)
-    (unimplemented 'play-action))))
+        (format "Component Editor - {s}" (category-identifier (class-of reference))))))))

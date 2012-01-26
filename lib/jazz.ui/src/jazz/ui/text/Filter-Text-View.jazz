@@ -38,15 +38,9 @@
 (module protected jazz.ui.text.Filter-Text-View jazz
 
 
-(import (jazz.git)
-        (jazz.graphic)
-        (jazz.io)
-        (jazz.jml)
-        (jazz.library)
+(import (jazz.jml)
         (jazz.ui)
-        (jazz.ui.dialog)
-        (jazz.ui.view)
-        (jazz.git.ui)) ;; should go away
+        (jazz.ui.view))
 
 
 ;;;
@@ -57,7 +51,7 @@
 (class Filter-Text-View extends Plain-Text-View
   
   
-  (property target-name initialize {} accessors generate)
+  (property target-name initialize #f accessors generate)
   
   
   (form
@@ -74,8 +68,10 @@
   
   
   (method (find-target)
-    (when target-name
-      (locate~ (get-guest) target-name)))
+    (let ((creator (get-creator)))
+      (if (not target-name)
+          creator
+        (locate~ creator target-name))))
     
   
   ;;;
@@ -85,32 +81,16 @@
   
   (method override (return-press key)
     (filter-target))
+    
+  
+  ;;;
+  ;;;; Filter
+  ;;;
   
   
   (method public (filter-target)
-    (define (determine-visible? row filter)
-      (some? (lambda (cell)
-               (when (get-title~ cell)
-                 (search (get-title~ cell) filter ignore-case?: #t)))
-             (get-children~ row)))
-    
-    (define (make-row-visible row visible?)
-      (set-visible?~ row visible?)
-      (when visible?
-        (let loop ((node (get-father~ row)))
-             (when node
-               (set-visible?~ node #t)
-               (loop (get-father~ node))))))
-    
-    (let ((target (find-target))
-          (filter (->search-set (make-search-context (get-string-content) ignore-case?: #t))))
+    (let ((target (find-target)))
       (when target
         (with-cursor :wait
           (lambda ()
-            ;; quicky
-            (set-selection~ target '())
-            (with-update-locked~ target
-              (lambda ()
-                (for-each-row~ target
-                  (lambda (row rank)
-                    (make-row-visible row (determine-visible? row filter)))))))))))))
+            (filter~ target (->search-set (make-search-context (get-string-content) ignore-case?: #t))))))))))

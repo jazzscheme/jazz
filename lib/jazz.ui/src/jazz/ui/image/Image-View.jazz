@@ -54,12 +54,13 @@
   (property moniker        initialize #f          accessors explicit)
   (property image-position initialize {Point 0 0} accessors explicit)
   (property image-size     initialize #f          accessors explicit)
+  (property fill-mode      initialize 'position   accessors explicit)
 
 
-  (slot image         initialize (new Image) getter generate)
-  (slot dragging?     initialize #f)
-  (slot base-position initialize #f)
-  (slot controller    initialize #f)
+  (slot image               initialize (new Image) getter generate)
+  (slot dragging?           initialize #f)
+  (slot base-position       initialize #f)
+  (slot document-controller initialize #f)
   
   
   (method override (save-content moniker));;abstract
@@ -72,6 +73,11 @@
   
   (method meta override (external-name . rest)
     'image-view)
+  
+  
+  (method override (finish rest)
+    (set-size~ image size)
+    (nextmethod rest))
   
   
   (method override (destroy)
@@ -106,13 +112,13 @@
   ;;;
 
 
-  (method override (get-controller)
-    (unless controller
-      (set! controller (new-controller)))
-    controller)
+  (method override (get-document-controller)
+    (unless document-controller
+      (set! document-controller (new-document-controller)))
+    document-controller)
 
 
-  (method override (new-controller)
+  (method override (new-document-controller)
     (new Document-Controller self))
   
   
@@ -121,12 +127,12 @@
   
   
   (method (get-moniker)
-    (get-moniker~ (get-controller)))
+    (get-moniker~ (get-document-controller)))
   
   
   (method (set-moniker moniker)
     (set-moniker~ image moniker)
-    (set-moniker~ (get-controller) moniker))
+    (set-moniker~ (get-document-controller) moniker))
   
   
   (method override (load-content moniker)
@@ -143,19 +149,19 @@
 
 
   (method override (get-modified?)
-    (get-modified?~ (get-controller)))
+    (get-modified?~ (get-document-controller)))
 
 
   (method override (set-modified? state)
-    (set-modified?~ (get-controller) state))
+    (set-modified?~ (get-document-controller) state))
   
   
   (method (update-status)
-    (update-status~ (get-controller)))
+    (update-status~ (get-document-controller)))
   
   
   (method (update-moniker-time moniker)
-    (update-moniker-time~ (get-controller) moniker))
+    (update-moniker-time~ (get-document-controller) moniker))
 
 
   (method override (tool-update tool?)
@@ -171,12 +177,12 @@
   ;;;
 
 
-  (method override (draw surface context lh lv)
+  (method override (draw surface context)
     (draw-at surface context 0 0)
     (unless (view-enabled?)
       (let ((color (or background (copy-object~ {Color Medium} #f))))
         (set-alpha~ color 0.85)
-        (fill-rect~ surface (get-rect) color))))
+        (fill-rect~ surface (get-bounds) color))))
   
   
   (method protected virtual (draw-at surface context h v)
@@ -184,7 +190,7 @@
 
 
   (method (draw-image surface context h v)
-    (draw~ image surface context h v))
+    (fill-at~ image surface context h v (get-bounds)))
     
   
   ;;;
@@ -250,6 +256,15 @@
   (method public (set-image-size size)
     (set-size~ image size)
     (invalidate-view))
+
+
+  (method public (get-fill-mode)
+    (get-fill-mode~ image))
+
+
+  (method public (set-fill-mode mode)
+    (set-fill-mode~ image mode)
+    (invalidate-view))
   
   
   (method public (set-handle handle)
@@ -306,12 +321,17 @@
   
   
   (form
-    (<install>
+    (<install>                                       image: {Image-Resource "BlueRed"}
       (<properties~>
-        (<Property-Descriptor> name: portfolio title: "Portfolio"
-          (<Portfolio-Domain>  name: domain))
-        (<Property-Descriptor> name: resource title: "Resource"
-          (<String-Domain>     name: domain))
-        (<Property-Descriptor> name: moniker title: "Moniker")
-        (<Property-Descriptor> name: image-position title: "Image Position")
-        (<Property-Descriptor> name: image-size title: "Image Size")))))))
+        (<Property-Descriptor>  name: portfolio
+          (<Portfolio-Domain>   name: domain))
+        (<Property-Descriptor>  name: resource
+          (<String-Domain>      name: domain))
+        (<Property-Descriptor>  name: moniker
+          (<Value-Domain>       name: domain))
+        (<Property-Descriptor>  name: image-position
+          (<Value-Domain>       name: domain))
+        (<Property-Descriptor>  name: image-size
+          (<Value-Domain>       name: domain))
+        (<Property-Descriptor>  name: fill-mode
+          (<Enumeration-Domain> name: domain         choices: ((position "Position") (center "Center") (fill "Fill") (fit "Fit") (stretch "Stretch") (tile "Tile"))))))))))

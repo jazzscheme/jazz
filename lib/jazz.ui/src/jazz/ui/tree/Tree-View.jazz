@@ -2792,26 +2792,32 @@
             (col (get-col~ cell)))
         (when (or (not validate?) (< line (get-visible-count)))
           (new Cell line col)))))
-    
+  
   
   (method public (cell-left cell)
-    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
-      (let ((line (get-line~ cell))
-            (col (- (if merge-cell
-                        (get-first-col~ merge-cell)
-                      (get-col~ cell)) 1)))
-        (when (>= col 0)
-          (new Cell line col)))))
-
+    (let* ((merge-cell (safe-get-merge-cell (cell->site cell)))
+           (col (- (or (and merge-cell (get-first-col~ merge-cell))
+                       (get-col~ cell))
+                   1))
+           (cell (new Cell (get-line~ cell) col)))
+      (cond ((< col 0) #f)
+            ((get-visible?~ (get-column col))
+             cell)
+            (else
+             (cell-left cell)))))
+  
   
   (method public (cell-right cell)
-    (let ((merge-cell (safe-get-merge-cell (cell->site cell))))
-      (let ((line (get-line~ cell))
-            (col (+ (if merge-cell
-                        (get-first-col~ merge-cell)
-                      (get-col~ cell)) 1)))
-        (when (< col (get-columns-count))
-          (new Cell line col)))))
+    (let* ((merge-cell (safe-get-merge-cell (cell->site cell)))
+           (col (+ (or (and merge-cell (get-first-col~ merge-cell))
+                       (get-col~ cell))
+                   1))
+           (cell (new Cell (get-line~ cell) col)))
+      (cond ((>= col (get-columns-count)) #f)
+            ((get-visible?~ (get-column col))
+             cell)
+            (else
+             (cell-right cell)))))
   
   
   (method public (select-up cell)

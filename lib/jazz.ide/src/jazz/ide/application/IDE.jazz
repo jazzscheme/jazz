@@ -253,6 +253,7 @@
   (method override (edit-file file)
     (let ((ext (get-extension~ file)))
       (cond ((extension=? ext "snapshot") (edit-snapshot file))
+            ((extension=? ext "jlog") (edit-log file))
             (else (nextmethod file)))))
   
   
@@ -264,6 +265,17 @@
   (method (edit-snapshot file)
     (open-snapshot~ (get-processes-view) file)
     (select-workspace 'debugger))
+  
+  
+  ;;;
+  ;;;; Log
+  ;;;
+  
+  
+  (method (edit-log file)
+    (let ((manager (get-logs-manager)))
+      (open-log~ manager file)
+      (acquire-focus~ (get-tree~ manager))))
   
   
   ;;;
@@ -549,6 +561,10 @@
   ;;;
   ;;;; Log
   ;;;
+  
+  
+  (method override (get-logs-manager)
+    (get-guest~ (singleton-docked Logs-Manager #f)))
   
   
   (method override (get-output-log)
@@ -1030,6 +1046,10 @@
   
   (method package (on-profile-results evt)
     (select-docked Profile-Results focus?: #t))
+
+  
+  (method package (on-log-details evt)
+    (select-docked Logs-Manager focus?: #t))
   
   
   (method package (on-servers evt)

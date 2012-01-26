@@ -38,7 +38,8 @@
 (module protected jazz.debuggee.view.Log-View jazz
 
 
-(import (jazz.jml)
+(import (jazz.debuggee)
+        (jazz.jml)
         (jazz.library)
         (jazz.ui))
 
@@ -50,15 +51,12 @@
 
 
   (form
-    (<install>                                      layout-type: fill
-      (<Scroller-View>               name: scroller style: document vscroll?: #t style: tool
-        (<!>                         name: content  layout-type: fill
-          (<Tree-Header>             name: header   style: document shown?: #t style: tool
-            (<!>                     name: content
-              (<Tree-View>           name: log-tree filled-column: message portfolio: :images
-                (<Tree-Node-Column>  name: name     title: "Name" width: 200)
-                (<Tree-Label-Column> name: message  title: "Message")
-                (<Tree-Label-Column> name: data     title: "Data" width: 200))))))))
+    (<install>                           layout-type: fill
+      (<Scroller-View>    name: scroller style: document vscroll?: #t style: tool
+        (<!>              name: content  layout-type: fill
+          (<Tree-Header>  name: header   style: document shown?: #t style: tool
+            (<!>          name: content
+              (<Log-Tree> name: log-tree)))))))
   
   
   ;;;
@@ -76,10 +74,7 @@
 
 
   (method public (clear)
-    (if (null? log)
-        (bell)
-      (clear~ log)
-      (update)))
+    (clear~ (get-tree)))
   
   
   ;;;
@@ -88,9 +83,7 @@
   
   
   (method public (update (reload?: reload? #t))
-    (when (and reload? log (get-file~ log))
-      (reload~ log))
-    (view-content))
+    (update~ (get-tree) reload?: reload?))
   
   
   (method protected virtual (extract-log-content log)
@@ -104,35 +97,4 @@
   
   (method public (view-log log)
     (set! log~self log)
-    (view-content))
-  
-  
-  (method (view-content)
-    (let ((tree (get-tree)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
-        (lambda ()
-          (when log
-            (for-each-reversed (lambda (node)
-                                 (insert-node tree #f node))
-                               (extract-log-content log)))))))
-
-
-  (method (insert-node tree father node)
-    (define (node-image node)
-      (case (get-tag~ node)
-        ((resources) {Image-Resource "Red"})
-        ((problem) {Image-Resource "Red"})
-        (else {Image-Resource "Blue"})))
-    
-    (case (get-tag~ node)
-      ((resources))
-      (else
-       (let* ((name (->string (or (get-property~ node 'name) "")))
-              (image (node-image node))
-              (message (or (get-property~ node 'message) ""))
-              (data (or (get-property~ node 'data) ""))
-              (subfather (add-row~ tree father: father children: (list (new Tree-Node title: name image: image) (new Tree-Label title: message) (new Tree-Label title: data)) user-data: node)))
-         (for-each (lambda (subnode)
-                     (insert-node tree subfather subnode))
-                   (get-children~ node))))))))
+    (view-log~ (get-tree) log))))

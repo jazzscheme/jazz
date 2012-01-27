@@ -41,6 +41,7 @@
 (import (jazz.designer)
         (jazz.editor.jazz)
         (jazz.io)
+        (jazz.jml)
         (jazz.library)
         (jazz.library.component)
         (jazz.locale)
@@ -177,8 +178,17 @@
       (error "Target is not a trait: {s}" resolved))))
 
 
-(definition public (insert-new-form text class-name)
-  (insert-string~ (get-model~ text) (location-range~ text (list class-name :new-form)) "\n\n\n  (form\n    (<install>))"))
+(definition public (insert-new-form text class-name (form #f))
+  (let ((form-string (if form
+                         (form->string form 1)
+                       "(form\n    (<install>))")))
+    (insert-string~ (get-model~ text) (location-range~ text (list class-name :new-form)) (format "{%}{%}{%}{a}" form-string))))
+
+
+(definition public (insert-class text class-name super-class-name)
+  (let ((explorer (new Jazz-Explorer (get-model~ text))))
+    (set-caret~ text (find-namespace-insertion-point~ explorer))
+    (insert-string~ text (format "{%}{%}{%}(class {a} extends {a})" class-name super-class-name))))
 
 
 (definition (check-class-form class)

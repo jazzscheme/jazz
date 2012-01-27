@@ -2,12 +2,20 @@
 
 
 (import (jazz.designer)
+        (jazz.designer.view)
         (jazz.editor.jazz)
         (jazz.jml)
         (jazz.library)
         (jazz.library.component)
+        (jazz.runtime)
         (jazz.ui)
         (jazz.ui.view))
+
+
+(definition (serialize-origin origin)
+  (if (is? origin Class)
+      (serialize-class origin)
+    (serialize-runtime-reference origin)))
 
 
 (class Jazz-Text-Editor-View extends Jazz-Text-View
@@ -31,11 +39,37 @@
       ((:designer-change) (set-designer (get-property~ evt designer:)))))
   
   
-  (method (make-trait-form-expr old-form form-expr)
-    (let ((component-symbol (string->symbol (format "<{a}>" (get-model~ old-form)))))
-      `(,component-symbol
-         (<Trait>
-           ,form-expr))))
+  (method (get-imports-expression)
+    (let ((explorer (new Jazz-Explorer model)))
+      (forward-namespace~ explorer)
+      (find-import~ explorer)
+      (read-marked~ explorer)))
+  
+  
+  (method (get-class-form-expression class-name)
+    (let ((explorer (new Jazz-Explorer model)))
+      (forward-location~ explorer (list class-name :form))
+      (parameterize ((walk-for #f))
+        (with-readtable jazz-readtable
+          (lambda ()
+            (read-marked~ explorer))))))
+  
+  
+  (method (get-trait-form-expression trait-name)
+    (let ((explorer (new Jazz-Explorer model)))
+      (forward-location~ explorer (list trait-name 3))
+      (list (string->symbol (format "<{a}>" (get-model~ (get-form~ designer))))
+            (parameterize ((walk-for #f))
+              (with-readtable jazz-readtable
+                (lambda ()
+                  (read-marked~ explorer)))))))
+  
+  
+  (method (make-new-form origin locator)
+    (bind (module symbol) (cdr (serialize-origin origin))
+      (if (is? origin Class)
+          (construct-form (cadr (get-class-form-expression symbol)) locator)
+        (construct-form (get-trait-form-expression symbol) locator))))
   
   
   (method (evaluate-form)
@@ -46,21 +80,15 @@
             (lambda (exc)
               #t)
             (lambda ()
-              (parameterize ((walk-for #f))
-                (with-readtable jazz-readtable
-                  (lambda ()
-                    (let ((old-form (get-form~ designer)))
-                      (bind (imports form-expr) (read-string-content (get-string-content))
-                        (let* ((locator (imports-locator (cdr imports)))
-                               (new-form (construct-form (if (designing-trait?~ designer)
-                                                             (make-trait-form-expr old-form form-expr)
-                                                           (cadr form-expr))
-                                                         locator)))
-                          (setup-context~ new-form new-form)
-                          (set-origin~ new-form (get-origin~ old-form))
-                          (set-form~ designer new-form)
-                          (set-modified?~ editor #t)
-                          (set-modified? #f)))))))))))))
+              (let ((origin (get-origin~ (get-form~ designer)))
+                    (locator (imports-locator (cdr (get-imports-expression)))))
+                (bind (module symbol) (cdr (serialize-origin origin))
+                  (let ((new-form (make-new-form origin locator)))
+                    (setup-context~ new-form new-form)
+                    (set-origin~ new-form origin)
+                    (set-form~ designer new-form)
+                    (set-modified?~ editor #t)
+                    (set-modified? #f))))))))))
   
   
   (method override (evaluate-range range)
@@ -101,26 +129,23 @@
   
   (method override (client-updated)
     (when client
-      (let ((text (locate 'text))
-            (form (get-form~ designer)))
-        (set-string-content~ text "(module #f jazz)")
-        (insert-imports text (form-imports form))
-        (let* ((model (get-model~ text))
-               (ending (text-ending~ model))
-               (end-range (new Range$Cell$ (previous-cell~ model ending) ending)))
-          (delete-range~ model end-range)
-          (delete-range~ model (selection-line~ text 0))
-          (delete-range~ model (selection-line~ text 0))
-          (delete-range~ model (selection-line~ text 0)))
-        (goto-end~ text #t #f)
-        (let* ((effective-form (if (designing-trait?~ designer)
-                                   (get-property~ (car (get-children~ form)) 'client-form)
-                                 form))
-               (form-string (form->string effective-form 1)))
-          (insert-string~ text (format "{%}{%}{%}{a}" form-string)))
-        (set-modified?~ text #f)
-        (goto-home~ text #t #f)
-        (reset~ (get-undoer~ (get-model~ text))))))
+      (let* ((text (locate 'text))
+             (form (get-form~ designer))
+             (origin (get-origin~ form)))
+        (bind (unit symbol) (cdr (serialize-origin origin))
+          (set-string-content~ text (format "(module {a} jazz)" unit))
+          (insert-imports text (form-imports form))
+          (if (is? origin Class)
+              (begin
+                (insert-class text symbol (category-name (class-ascendant origin)))
+                (insert-new-form text symbol form))
+            (let* ((trait (resolve-runtime-reference origin))
+                   (model (get-model~ text))
+                   (range (find-namespace-insertion-range~ (new Jazz-Explorer model))))
+              (insert-string~ model range (format "{%}{%}{%}(define-trait {a} {a}{%}{a})" symbol (category-name (get-client-type~ trait)) (form->string (car (get-children~ form)) 1 include-form?: #f)))))
+          (set-modified?~ text #f)
+          (goto-home~ text #t #f)
+          (reset~ (get-undoer~ (get-model~ text)))))))
   
   
   (method override (install rest)

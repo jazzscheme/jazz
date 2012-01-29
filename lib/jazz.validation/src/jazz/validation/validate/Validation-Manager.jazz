@@ -39,6 +39,7 @@
 
 
 (import (jazz.jml)
+        (jazz.log)
         (jazz.validation))
 
 
@@ -49,19 +50,20 @@
   (slot feedback-port)
   (slot report-success?)
   (slot report-results?)
-  (slot failures)
+  (slot log)
   
   
   (method override (initialize (feedback: feedback #f)
                                (feedback-port: feedback-port #f)
                                (report-success?: report-success? #t)
-                               (report-results?: report-results? #t))
+                               (report-results?: report-results? #t)
+                               (log: log #f))
     (nextmethod)
     (set! feedback~self (or feedback default-feedback))
     (set! feedback-port~self (or feedback-port :terminal))
     (set! report-success?~self report-success?)
     (set! report-results?~self report-results?)
-    (set! failures~self (new List-Factory)))
+    (set! log~self (or log (new Log name: 'validate))))
   
   
   (method (default-feedback format-string . rest)
@@ -83,24 +85,23 @@
       (report-results)))
   
   
-  (method public virtual (assertion-failed suite tester section message location)
-    (put~ failures (new Validation-Failure suite: suite tester: tester section: section message: message)))
+  (method public (assertion-failed suite tester section message location)
+    (log-entry~ log 'failure (format "{a} {a}{?.{a}~}" (get-title~ suite) tester section) message #f location: location))
   
   
-  (method public (collect-failures)
-    (get-output~ failures))
+  (method public (get-failures)
+    (get-toplevel-nodes~ log))
   
   
   (method public (report-results)
-    (let ((failures (collect-failures)))
+    (let ((failures (get-failures)))
       (if (null? failures)
           (when report-success?
             (format feedback-port "Test suite completed successfully.{%}"))
         (format feedback-port "{%}********************************")
         (format feedback-port "{%}The following assertions failed:{%}{%}")
         (for-each (lambda (failure)
-                    (let ((tester (get-tester~ failure))
-                          (section (get-section~ failure))
+                    (let ((name (get-name~ failure))
                           (message (get-message~ failure)))
-                      (format feedback-port "{a}{?.{a}~} : {a}{%}" tester section message)))
+                      (format feedback-port "{a} : {a}{%}" name message)))
                   failures))))))

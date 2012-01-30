@@ -745,7 +745,7 @@
       (else (let ((process (find-process)))
               (when process
                 (process-alias~ process name))))))
-
+  
   
   (method public (find-path path)
     (if (null? path)
@@ -1308,8 +1308,7 @@
         (let ((violation (new Integrity-Violation
                            message: (format "Class {a} cannot have children of type {a}"
                                             (category-name (class-of self))
-                                            (category-name (class-of child)))
-                           component: child)))
+                                            (category-name (class-of child))))))
           (add-violation~ (get-manager~ validation-context) violation child (get-root~ validation-context) (get-editor~ validation-context)))))
     
     (define (validate-child-descriptor child child-descriptor)
@@ -1319,8 +1318,7 @@
         (let ((violation (new Integrity-Violation
                            message: (format "Child named {a} cannot be of type {a}"
                                             (get-name~ child)
-                                            (category-name (class-of child)))
-                           component: child)))
+                                            (category-name (class-of child))))))
           (add-violation~ (get-manager~ validation-context) violation child (get-root~ validation-context) (get-editor~ validation-context)))))
     
     (let ((addable-classes (map resolve-runtime-reference (flatten (get-categorized-addable-classes))))
@@ -1342,8 +1340,7 @@
                       (unless child
                         (let ((violation (new Integrity-Violation
                                            message: (format "Missing child named {a}"
-                                                            (get-target~ child-descriptor))
-                                           component: self)))
+                                                            (get-target~ child-descriptor)))))
                           (add-violation~ (get-manager~ validation-context) violation self (get-root~ validation-context) (get-editor~ validation-context)))))))
                 (get-children~ children-descriptor))))
   
@@ -1427,14 +1424,12 @@
           (scan self))
       (while (neq? scan root)
         (let ((name (get-name~ scan)))
-          (if #f;(not name)
-              (error "Component {t} must be named to be part of a path" scan)
-            (when (present-in-path?~ scan)
-              (set! pres (cons (if name (->string name) "{}") (or pres '()))))
-            (set! path (cons name path))
-            (set! scan (get-parent-component~ scan))
-            (when (null? scan)
-              (error "{t} is not a descendant of the root component {t}" self root)))))
+          (when (present-in-path?~ scan)
+            (set! pres (cons (if name (->string name) "{}") (or pres '()))))
+          (set! path (cons (or name (child-rank~ (get-parent~ scan) scan)) path))
+          (set! scan (get-parent-component~ scan))
+          (when (null? scan)
+            (error "{t} is not a descendant of the root component {t}" self root))))
       (values (new Path path) pres)))
   
   

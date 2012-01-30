@@ -69,7 +69,6 @@
   (method public (add-violation (message: message #f))
     (let ((violation (new Integrity-Violation
                        message: message
-                       component: component
                        property: property)))
       (add-violation~ manager violation component root editor)))
   
@@ -177,15 +176,14 @@
   
   
   (method public virtual (add-violation violation component root editor)
-    (if violation-adder
-        (violation-adder violation component root editor)
-      (let* ((trait (get-active-trait~ root))
-             (trait-name (and trait (get-name~ trait)))
-             (trait-presentation (and trait (get-presentation-property~ trait))))
-        (receive (path presentation) (present-path~ component root)
-          (set-component~ violation component)
-          (set-trait~ violation trait-name)
-          (set-trait-presentation~ violation trait-presentation)
-          (set-path~ violation path)
-          (set-path-presentation~ violation (if trait (cons trait-presentation presentation) presentation))
+    (let* ((trait (get-active-trait~ root))
+           (trait-name (and trait (get-name~ trait)))
+           (trait-presentation (and trait (get-presentation-property~ trait))))
+      (receive (path presentation) (present-path~ component root)
+        (set-trait~ violation trait-name)
+        (set-trait-presentation~ violation trait-presentation)
+        (set-path~ violation path)
+        (set-path-presentation~ violation (if trait (cons trait-presentation presentation) presentation))
+        (if violation-adder
+            (violation-adder violation component root editor)
           (add-violation~ editor violation)))))))

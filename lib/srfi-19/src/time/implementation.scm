@@ -714,6 +714,17 @@
     ))
 
 
+(define system-timezone
+  #f)
+
+(set! system-timezone
+      (lambda ()
+        0))
+
+(define (system-timezone-set! proc)
+  (set! system-timezone proc))
+
+
 (define local-timezone
   #f)
 

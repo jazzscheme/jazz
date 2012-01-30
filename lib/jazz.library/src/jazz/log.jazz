@@ -101,14 +101,16 @@
   
   (method (load-toplevel-nodes)
     (reset~ toplevel-nodes)
-    (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
-      (lambda (port)
-        (let (iterate)
-          (let ((expr (read port)))
-            (when (not (eof-object? expr))
-              (let ((node (parse-jml expr)))
-                (put~ toplevel-nodes node))
-              (iterate)))))))
+    (with-jazz-readtable
+      (lambda ()
+        (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
+          (lambda (port)
+            (let (iterate)
+              (let ((expr (read port)))
+                (when (not (eof-object? expr))
+                  (let ((node (parse-jml expr)))
+                    (put~ toplevel-nodes node))
+                  (iterate)))))))))
   
   
   @convert
@@ -198,16 +200,19 @@
       node))
   
   
-  (method public (log-entry tag name message data (location: location #f))
-    (log-node (new-entry tag name message data location: location)))
+  (method public (log-entry tag name message (class: class #f) (data: data #f) (location: location #f) (properties: properties #f))
+    (log-node (new-entry tag name message class: class data: data location: location properties: properties)))
   
   
-  (method public (new-entry tag name message data (location: location #f))
+  (method public (new-entry tag name message (class: class #f) (data: data #f) (location: location #f) (properties: properties #f))
     (let ((entry (new JML-Element #f (or tag 'entry))))
       (set-property~ entry 'name name)
       (set-property~ entry 'message message)
+      (set-property~ entry 'class class)
       (set-property~ entry 'data data)
       (set-property~ entry 'location location)
+      (when properties
+        (add-properties~ entry properties))
       entry))
   
   
@@ -273,7 +278,7 @@
 
 
 (definition public (with-node proc (node: node #f) (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
-  (let ((node (or node (new-entry~ log tag name message data))))
+  (let ((node (or node (new-entry~ log tag name message data: data))))
     (with-node~ log node proc)))
 
 
@@ -282,7 +287,7 @@
 
 
 (definition public (log-entry (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
-  (log-entry~ log tag name message data))
+  (log-entry~ log tag name message data: data))
 
 
 (definition public (log-properties properties (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
@@ -299,7 +304,7 @@
 
 
 (definition public (new-log-node (tag: tag #f) (name: name #f) (message: message #f) (data: data #f) (log: log (effective-log)))
-  (new-entry~ log tag name message data))
+  (new-entry~ log tag name message data: data))
 
 
 ;;;
@@ -317,7 +322,7 @@
         (set! result (proc node))
         (log-profile name: 'after log: log)
         result))
-    node: (or node (new-entry~ log tag name message data))))
+    node: (or node (new-entry~ log tag name message data: data))))
 
 
 @wait

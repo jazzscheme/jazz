@@ -38,7 +38,8 @@
 (module protected jazz.debuggee.view.Log-Tree jazz
 
 
-(import (jazz.debugger)
+(import (jazz.debuggee)
+        (jazz.debugger)
         (jazz.graphic)
         (jazz.io)
         (jazz.jml)
@@ -59,9 +60,8 @@
 
   (form
     (<install>                           filled-column: message portfolio: :images double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press}
-      (<Tree-Node-Column>  name: name    title: "Name" width: 200)
-      (<Tree-Label-Column> name: message title: "Message")
-      (<Tree-Label-Column> name: data    title: "Data" width: 200)))
+      (<Tree-Node-Column>  name: name    title: "Name" width: 200 toplevel-controls?: #f)
+      (<Tree-Label-Column> name: message title: "Message")))
   
   
   ;;;
@@ -100,7 +100,6 @@
 
 
   (method (on-double-click evt)
-    (debug 'YO)
     (edit-selection))
   
   
@@ -141,6 +140,21 @@
   
   
   ;;;
+  ;;;; Log Node
+  ;;;
+  
+  
+  (method (new-log-node node)
+    (define (log-node-class)
+      (let ((class (get-property~ node 'class)))
+        (if class
+            (resolve-runtime-reference (deserialize-runtime-reference class))
+          Log-Node)))
+    
+    (new (log-node-class) node))
+  
+  
+  ;;;
   ;;;; Edit
   ;;;
   
@@ -148,15 +162,12 @@
   (method (edit-selection)
     (let ((selection (get-single-selection)))
       (when selection
-        (let ((node (get-user-data~ (get-row selection))))
-          (edit-data node)))))
+        (let ((log-node (get-user-data~ (get-row selection))))
+          (edit-location log-node)))))
   
   
-  (method (edit-data node)
-    (let ((location (get-property~ node 'location)))
-      (if (not location)
-          (bell)
-        (edit-location~ (get-frame-indicator) location select?: #t))))
+  (method (edit-location log-node)
+    (edit-location~ log-node (get-frame-indicator)))
   
   
   (method (get-frame-indicator)
@@ -181,26 +192,21 @@
     (with-update-locked
       (lambda ()
         (when log
-          (for-each-reversed (lambda (node)
-                               (insert-node #f node))
-                             (extract-log-content log))))))
+          ;; for-each-reversed ;; wait because of validations
+          (for-each (lambda (node)
+                      (insert-node #f node))
+                    (extract-log-content log))))))
 
 
   (method (insert-node father node)
-    (define (node-image node)
-      (case (get-tag~ node)
-        ((resources) {Image-Resource "Red"})
-        ((problem) {Image-Resource "Red"})
-        (else {Image-Resource "Blue"})))
-    
     (case (get-tag~ node)
       ((resources))
       (else
-       (let* ((name (->string (or (get-property~ node 'name) "")))
-              (image (node-image node))
-              (message (or (get-property~ node 'message) ""))
-              (data (or (get-property~ node 'data) ""))
-              (subfather (add-row father: father children: (list (new Tree-Node title: name image: image) (new Tree-Label title: message) (new Tree-Label title: data)) user-data: node)))
+       (let* ((log-node (new-log-node node))
+              (name (node-name~ log-node))
+              (image (node-image~ log-node))
+              (message (node-message~ log-node))
+              (subfather (add-row father: father children: (list (new Tree-Node title: name image: image) (new Tree-Label title: message)) user-data: log-node)))
          (for-each (lambda (subnode)
                      (insert-node subfather subnode))
                    (get-children~ node))))))))

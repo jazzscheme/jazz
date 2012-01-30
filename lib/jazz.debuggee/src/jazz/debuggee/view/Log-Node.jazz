@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Explorer Tests
+;;;; Log Nodes
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,30 +35,43 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.validate.suite.Explorer-Tester jazz
+(module protected jazz.debuggee.view.Log-Node jazz
 
 
-(import (jazz.jml)
-        (jazz.validation))
+(import (jazz.debuggee)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.log))
 
 
-(class Explorer-Tester extends Tester
+(class Log-Node extends Object
   
   
-  (form
-    (<install> title: "Explorer"))
-
-
-  (method override (test)
-    (invoke #f test-sequence-explorer))
+  (slot node getter generate)
   
   
-  ;;;
-  ;;;; Sequence
-  ;;;
+  (method override (initialize node)
+    (nextmethod)
+    (set! node~self node))
+  
+  
+  (method public virtual (node-name)
+    (->string (or (get-property~ node 'name) "")))
+  
+  
+  (method public virtual (node-image)
+    (case (get-tag~ node)
+      ((resources) {Image-Resource "Red"})
+      ((problem) {Image-Resource "Red"})
+      (else {Image-Resource "Blue"})))
+  
+  
+  (method public virtual (node-message)
+    (or (get-property~ node 'message) ""))
 
 
-  (method (test-sequence-explorer)
-    (validate (equal? (gather (new Sequence-Explorer '(a b c))) '(a b c)))
-    (validate (equal? (gather (new Sequence-Explorer "Hello" start: 2) type: String) "llo"))
-    (validate (equal? (gather (new Sequence-Explorer "Hello" direction: 'backward) type: String) "olleH")))))
+  (method public virtual (edit-location frame-indicator)
+    (let ((location (get-property~ node 'location)))
+      (if (not location)
+          (bell)
+        (edit-location~ frame-indicator location select?: #t))))))

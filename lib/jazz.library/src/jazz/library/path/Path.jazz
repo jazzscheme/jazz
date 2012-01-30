@@ -44,11 +44,6 @@
   (slot path accessors generate)
   
   
-  @convert-literal
-  (method meta (construct-literal context . path)
-    (new self path))
-  
-  
   (method override (initialize path)
     (nextmethod)
     (set! path~self path))
@@ -64,7 +59,7 @@
   
   
   (method override (print output readably)
-    (format output "~{{a}{?:{l}~}}"
+    (format output "~{{a}{?: {l}~}}"
             (category-name (class-of self))
             (not-null? path)
             path))
@@ -94,9 +89,24 @@
   
   
   (method public virtual (follow-component root)
-    (if (null? path)
-        root
-      (child~ root path)))
+    (define (follow component path)
+      (cond ((null? path)
+             (error "Invalid path: {t}" path))
+            ((integer? path)
+             (let ((children (get-children~ component)))
+               (when (< path (length children))
+                 (element children path))))
+            ((pair? path)
+             (let ((sub (follow component (car path))))
+               (when sub
+                 (let ((next (cdr path)))
+                   (if (null? next)
+                       sub
+                     (follow sub next))))))
+            (else
+             (find-child~ component path))))
+    
+    (follow root path))
   
   
   (method public virtual (follow-form form)

@@ -75,10 +75,17 @@
   (method (evaluate-form)
     (with-cursor :wait
       (lambda ()
+        (sleep .1)
         (when (get-modified?)
-          (with-catched-exception
-            (lambda (exc)
-              #t)
+          (with-exception-catcher
+            (lambda (obj)
+              (let* ((exc (wrap-exception obj))
+                     (msg (format "Form evaluation failed: {a}" (exception-reason exc)))
+                     (result (message-box msg yes: "Correct errors" no: "Revert changes")))
+                (case result
+                  ((no)
+                   (reset-form)))
+                (signal-cancel)))
             (lambda ()
               (let ((origin (get-origin~ (get-form~ designer)))
                     (locator (imports-locator (cdr (get-imports-expression)))))
@@ -86,9 +93,36 @@
                   (let ((new-form (make-new-form origin locator)))
                     (setup-context~ new-form new-form)
                     (set-origin~ new-form origin)
+                    (create-client~ editor new-form)
                     (set-form~ designer new-form)
                     (set-modified?~ editor #t)
                     (set-modified? #f))))))))))
+  
+  
+  (method (reset-form)
+    (let* ((form (get-form~ designer))
+           (origin (get-origin~ form)))
+      (bind (unit symbol) (cdr (serialize-origin origin))
+        (set-string-content (format "(module {a} jazz)" unit))
+        (insert-imports self (form-imports form))
+        (if (is? origin Class)
+            (begin
+              (insert-class self symbol (category-name (class-ascendant origin)))
+              (insert-new-form self symbol form))
+          (let* ((trait (resolve-runtime-reference origin))
+                 (range (find-namespace-insertion-range~ (new Jazz-Explorer model))))
+            (insert-string~ model range (format "{%}{%}{%}(define-trait {a} {a}{%}{a})" symbol (category-name (get-client-type~ trait)) (form->string (car (get-children~ form)) 1 include-form?: #f)))))
+        (set-modified? #f)
+        (goto-home #t #f)
+        (reset~ (get-undoer~ model)))))
+  
+  
+  (method override (get-modified?)
+    (get-text-modified?~ editor))
+  
+  
+  (method override (set-modified? flag)
+    (set-text-modified?~ editor flag))
   
   
   (method override (evaluate-range range)
@@ -101,6 +135,33 @@
   
   (method override (evaluate-buffer)
     (evaluate-form)))
+
+
+(class Text-Editor-Controller extends Component-Editor-Controller
+  
+  
+  (slot form-modified? initialize #f)
+  (slot text-modified? initialize #f)
+  
+  
+  (method override (get-modified?)
+    (or form-modified? text-modified?))
+  
+  
+  (method override (set-modified? flag)
+    (when (neq? flag form-modified?)
+      (set! form-modified? flag)
+      (update-status)))
+  
+  
+  (method public (get-text-modified?)
+    text-modified?)
+  
+  
+  (method public (set-text-modified? flag)
+    (when (neq? flag text-modified?)
+      (set! text-modified? flag)
+      (update-status))))
 
 
 (class Text-Editor extends Component-Editor
@@ -117,38 +178,38 @@
     (locate 'text))
   
   
+  (method override (new-document-controller)
+    (new Text-Editor-Controller self))
+  
+  
+  (method public (set-text-modified? flag)
+    (set-text-modified?~ (get-document-controller) flag))
+  
+  
+  (method public (get-text-modified?)
+    (get-text-modified?~ (get-document-controller)))
+  
+  
+  (method public (create-client form)
+    (set! client (recreate-client form)))
+  
+  
   (method override (prepare-mode-switch)
-    (with-catched-exception
-      (lambda (exc)
-        #t)
-      (lambda ()
-        (evaluate-buffer~ (locate 'text))
-        (set! client (recreate-client))
-        (nextmethod))))
+    (evaluate-buffer~ (get-text-view))
+    (nextmethod))
+  
+  
+  (method override (save-content-patch)
+    (evaluate-buffer~ (get-text-view))
+    (nextmethod))
   
   
   (method override (client-updated)
     (when client
-      (let* ((text (locate 'text))
-             (form (get-form~ designer))
-             (origin (get-origin~ form)))
-        (bind (unit symbol) (cdr (serialize-origin origin))
-          (set-string-content~ text (format "(module {a} jazz)" unit))
-          (insert-imports text (form-imports form))
-          (if (is? origin Class)
-              (begin
-                (insert-class text symbol (category-name (class-ascendant origin)))
-                (insert-new-form text symbol form))
-            (let* ((trait (resolve-runtime-reference origin))
-                   (model (get-model~ text))
-                   (range (find-namespace-insertion-range~ (new Jazz-Explorer model))))
-              (insert-string~ model range (format "{%}{%}{%}(define-trait {a} {a}{%}{a})" symbol (category-name (get-client-type~ trait)) (form->string (car (get-children~ form)) 1 include-form?: #f)))))
-          (set-modified?~ text #f)
-          (goto-home~ text #t #f)
-          (reset~ (get-undoer~ (get-model~ text)))))))
+      (reset-form~ (get-text-view))))
   
   
   (method override (install rest)
     (nextmethod rest)
-    (set-editor~ (locate 'text) self)
-    (set-designer~ (locate 'text) designer))))
+    (set-editor~ (get-text-view) self)
+    (set-designer~ (get-text-view) designer))))

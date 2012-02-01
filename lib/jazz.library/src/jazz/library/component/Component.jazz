@@ -954,14 +954,21 @@
     (when name
       (when (not index)
         (set! index (new-index)))
-      (if (table-ref index name #f)
-          (table-set! index name #t)
-        (table-set! index name component))))
+      (let ((ref (table-ref index name #f)))
+        (table-set! index name (cond ((list? ref) (cons component ref))
+                                     (ref (list component ref))
+                                     (else component))))))
   
   
   (method public virtual (remove-from-index name <Object> component <Component>)
     (when (and name index)
-      (table-clear index name)))
+      (let ((ref (table-ref index name #f)))
+        (if (list? ref)
+            (let ((removed (remove component ref)))
+              (table-set! index name (if (= 1 (length removed))
+                                         (car removed)
+                                       removed)))
+          (table-clear index name)))))
   
   
   (method protected virtual (new-index)
@@ -971,7 +978,14 @@
   (method public virtual (locate name <Object>)
     (let ((component (locate-component name)))
       (cond ((not component) (error "Unable to locate {t}" name))
-            ((eq? #t component) (error "Ambigious name: {t}" name))
+            ((list? component) (error "Ambigious name: {t}" name))
+            (else component))))
+  
+  
+  (method public (locate-recursive name <Object>)
+    (let ((component (locate-component-recursive name)))
+      (cond ((not component) (error "Unable to locate {t}" name))
+            ((list? component) (error "Ambigious name: {t}" name))
             (else component))))
   
   
@@ -985,6 +999,24 @@
                    (locate-component~ sub next))))))
           (else
            (and index (table-ref index name #f)))))
+  
+  
+  (method public (locate-component-recursive name <Object>)
+    (define (is-descendant? component)
+      (find-descendant
+        (lambda (c)
+          (and (eq? c component)
+               (not (eq? self c))))))
+    
+    (let (loop (creator self))
+      (and creator
+           (let ((components (collect-if is-descendant? (listify (locate-component~ creator name)))))
+             (cond ((null? components)
+                    (loop (get-creator)))
+                   ((> (length components) 1)
+                    components)
+                   (else
+                    (car components)))))))
 
 
   ;;;

@@ -1035,13 +1035,14 @@
   
   
   (method override (writable?)
-    (unimplemented 'writable?)
-    @windows-specific
-    (let ((handle (CreateFile (parse) GENERIC_WRITE 0 NULL OPEN_EXISTING FILE_ATTRIBUTE_NORMAL NULL)))
-      (if (= handle INVALID_HANDLE_VALUE)
-          #f
-        (CloseHandle handle)
-        #t)))
+    (and (exists?)
+         (with-exception-filter
+           os-exception?
+           (lambda (exception) #f)
+           (lambda ()
+             (call-with-output-file (path-settings self append: #t)
+               (lambda (port)
+                 #t))))))
   
   
   (method public (clone-file extension)

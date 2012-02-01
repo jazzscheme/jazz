@@ -39,6 +39,8 @@
 
 
 (import (jazz.graphic)
+        (jazz.ide)
+        (jazz.ide.login)
         (jazz.io)
         (jazz.jml)
         (jazz.library)
@@ -66,8 +68,8 @@
         (<Scroller-View>                                    hscroll?: #f vscroll?: #f
           (<!>                      name: content           layout-type: fill
             (<Name-Text-View>       name: new-profile       accepts-returns?: #f show-unfocused-selection?: #f tooltip?: #t tooltip-text: "Profile name. Can contain letters, digits, dashes, underscores and periods" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change}))))
-      (<Label-View>                 name: bindings-label    title: "Bindings:" position: {Point 136 114} size: {Dimension 60 16} visible?: #f font: {Font Label})
-      (<Combo-Widget>               name: bindings          position: {Point 194 110} size: {Dimension 175 22} visible?: #f)
+      (<Label-View>                 name: template-label    title: "Template:" position: {Point 136 114} size: {Dimension 60 16} visible?: #f font: {Font Label})
+      (<Combo-Widget>               name: template          position: {Point 194 110} size: {Dimension 175 22} visible?: #f)
       (<Border-View>                name: existing-border   position: {Point 140 64} size: {Dimension 251 92} visible?: #f border-type: edge style: entry
         (<Scroller-View>                                    vscroll?: #t style: document
           (<!>                      name: content           layout-type: fill
@@ -81,8 +83,8 @@
         (<install>
           (<!>                      name: new-label         visible?: #t)
           (<!>                      name: new-border        visible?: #t)
-          (<!>                      name: bindings-label    visible?: #t)
-          (<!>                      name: bindings          visible?: #t)))
+          (<!>                      name: template-label    visible?: #t)
+          (<!>                      name: template          visible?: #t)))
       (<Trait>                      name: existing
         (<install>
           (<!>                      name: existing-border   visible?: #t)))))
@@ -101,7 +103,7 @@
   
   (method (setup-new-profile)
     (set-string-content~ (locate 'new-profile) (user-name))
-    (setup-bindings))
+    (setup-templates))
   
   
   (method override (focus-default)
@@ -110,15 +112,13 @@
       ((existing) (focus-existing))))
   
   
-  (definition Bindings
-    '((jazz "Jazz")
-      (emacs "Emacs")))
-  
-  
-  (method (setup-bindings)
-    (let ((combo (locate '(bindings box))))
-      (set-choices~ combo Bindings)
-      (set-value~ combo 'jazz)))
+  (method (setup-templates)
+    (let ((kinds (parse-jml (get-profile-kinds)))
+          (combo (locate '(template box))))
+      (set-choices~ combo (map (lambda (kind)
+                                 (list kind (get-property~ kind 'name)))
+                               (get-children~ kinds)))
+      (set-value~ combo (find-property~ kinds 'name "Jazz"))))
   
   
   (method (setup-existing-profiles)
@@ -148,21 +148,21 @@
   
   
   (method override (get-modal-result)
-    (let ((bindings (get-value~ (locate '(bindings box))))
+    (let ((template (get-property~ (get-value~ (locate '(template box))) 'template))
           (always-use? (get-checked?~ (locate 'always-use))))
       (case (get-active-trait-name)
         ((new)
          (let ((content (get-string-content~ (locate 'new-profile))))
            (let ((name (string->symbol (capitalize content)))
                  (unit (string->symbol (profile-unit-name content))))
-             (values name unit bindings always-use?))))
+             (values name unit template always-use?))))
         ((existing)
          (let* ((tree (locate 'profiles))
                 (rank (get-single-selection~ tree)))
            (if (not rank)
                (values #f #f #f)
              (let ((profile (get-user-data~ (get-row~ tree rank))))
-               (values (profile-name profile) (profile-unit profile) bindings always-use?))))))))
+               (values (profile-name profile) (profile-unit profile) template always-use?))))))))
   
   
   (definition (profile-unit-name name)

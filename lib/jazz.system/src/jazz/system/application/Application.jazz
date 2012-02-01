@@ -444,22 +444,21 @@
   
   
   (method override (log-profile)
-    (define (install-profile name unit bindings)
+    (define (install-profile name unit template)
       (let ((source (find-unit-source profile-class)))
         (when (not source)
-          (install-new-profile name unit bindings)
+          (install-new-profile name unit template)
           (set! source (find-unit-source profile-class)))
         (register-alias 'Profile (get-list~ (get-parent~ source)))))
     
-    (define (install-new-profile name unit bindings)
+    (define (install-new-profile name unit template)
       (let ((associations (list (cons 'jazz-settings-version (present-version jazz-settings-version))
                                 (cons 'settings-version (present-version (settings-version)))
                                 (cons 'profile name)
                                 (cons 'profile-lowercase (downcase (symbol->string name)))
                                 (cons 'profile-unit unit)
-                                (cons 'profile-bindings (or bindings 'jazz))
                                 (cons 'active-skin (case kernel-windowing ((carbon) 'mac) ((x11) 'x11) (else 'jazz))))))
-        (copy-template (new-directory~ (templates-directory) "profile")
+        (copy-template (new-directory~ (templates-directory) (list "profile" template))
                        {Directory Home}
                        associations
                        non-expanded-nodes: '("catalogs")))
@@ -469,7 +468,7 @@
           (repository-add-package repository (load-package repository #f package-name package-path)))))
     
     (define (login-profile)
-      (receive (name unit bindings always-use?) (choose-profile-login)
+      (receive (name unit template always-use?) (choose-profile-login)
         (let ((one-shoot? (shift-down?)))
           (when settings
             (unless one-shoot?
@@ -480,13 +479,13 @@
                                    name))
               (set-setting~ settings 'profile-warned? #t))
             (save-content~ settings))
-          (values name unit bindings))))
+          (values name unit template))))
     
     (define (standard-profile title)
       (let ((name (string->symbol title))
             (unit-name (string->symbol (format "profile.{a}" (downcase title))))
-            (bindings 'jazz))
-        (values name unit-name bindings)))
+            (template "jazz"))
+        (values name unit-name template)))
     
     (define (system-profile)
       (values 'Me 'jazz.profile 'jazz)
@@ -505,11 +504,11 @@
     
     (let ((use-logging? (use-profile-logging?)))
       (let ((profile-arg (and (or (not use-logging?) (not (shift-down?))) (or (jazz-profile) (profile-parameter)))))
-        (receive (name unit bindings) (cond (profile-arg (standard-profile (->string profile-arg)))
+        (receive (name unit template) (cond (profile-arg (standard-profile (->string profile-arg)))
                                             (use-logging? (login-profile))
                                             (else (system-profile)))
           (set! profile-class (compose-identifier unit name))
-          (install-profile name unit bindings)
+          (install-profile name unit template)
           (load-profile-jazzini)))))
   
   

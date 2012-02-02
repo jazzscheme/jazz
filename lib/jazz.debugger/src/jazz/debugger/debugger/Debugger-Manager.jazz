@@ -527,11 +527,21 @@
   
   
   (method public (filename-processes filename)
-    (if focused-mode?
-        (if focused-process
-            (list focused-process)
-          '())
-      (determine-filename-processes filename)))
+    (let ((filename-processes (determine-filename-processes filename)))
+      (if focused-mode?
+          (let ((processes
+                  (if focused-process
+                      (list focused-process)
+                    '())))
+            (let ((effective-processes (intersection processes filename-processes)))
+              (if (not-null? effective-processes)
+                  effective-processes
+                (case (message-box (format "No focused process contains this file ({a}).{%}{%}Do you want to force evaluation?" filename) type: 'question yes: "Force" no: "Cancel")
+                  ((yes)
+                   processes)
+                  ((no)
+                   (signal-cancel))))))
+        filename-processes)))
   
   
   (method public (determine-filename-processes filename)
@@ -557,8 +567,10 @@
                 (when (remote-proxy? controller-debugger)
                   (let ((targets (evaluation-processes~ ide)))
                     (let ((processes (evaluate-expressions-to~ controller-debugger targets filename syntax str container line col)))
-                      (when (not-null? processes)
-                        processes)))))))
+                      (if (not-null? processes)
+                          processes
+                        (message-box (format "No process found that contains this file ({a})" filename))
+                        #f)))))))
         (let ((cookie (register-debugger-cookie #f)))
           (for-each (lambda (process)
                       (evaluate-expressions~ process syntax str container line col cookie))

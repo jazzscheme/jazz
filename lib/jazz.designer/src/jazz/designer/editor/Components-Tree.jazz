@@ -509,8 +509,12 @@
         ((Toolbox-Tree)
          (let* ((tool (selected-component~ view))
                 (class (get-class~ tool))
-                (component (get-user-data~ row)))
-           (when (and class (addable-class?~ component class))
+                (component (get-user-data~ row))
+                (missing-named-classes (map (lambda (element)
+                                              (resolve-runtime-reference (cadr element)))
+                                            (missing-named-children component))))
+           (when (and class (or (addable-class?~ component class)
+                                (member? class missing-named-classes test: subclass?)))
              (new Tree-Drop-Target view: self row: row))))
         @wait
         ((Descendants-Tree)
@@ -523,10 +527,13 @@
     (define (receive-model target)
       (let* ((tool (selected-component~ sender))
              (ref (get-reference~ tool))
-             (parent (get-user-data~ (get-row~ target))))
+             (parent (get-user-data~ (get-row~ target)))
+             (named-child (find (missing-named-children parent) (get-class~ tool) test: subclass? key: (lambda (element) (resolve-runtime-reference (cadr element))) return: 'item)))
         (with-update-locked
           (lambda ()
-            (add-component-class ref parent: parent)))))
+            (if named-child
+                (add-component-class ref presentation: (symbol->string (car named-child)) parent: parent)
+              (add-component-class ref parent: parent))))))
     
     (let ((source (get-source~ drag-drop))
           (target (get-target~ drag-drop)))

@@ -207,9 +207,13 @@
               (imports (get-imports tool)))
           (call-with-text (find-unit-source (get-unit~ tool))
             (lambda (text)
-              (let* ((code-string (get-string~ text (location-range~ text (list (get-model~ tool)))))
-                     (clipboard-text (format "{s}" `(,(get-model~ tool) ,type ,imports ,code-string))))
-                (set-clipboard-text clipboard-text format: 'jazz-tool))))))))
+              (let ((model (get-model~ text))
+                    ;; Should probably use a guid
+                    (placeholder '%%TOOLBOX-COPY-PLACEHOLDER%%))
+                (replace-range~ model (find-name-location text tool) (list (symbol->string placeholder)))
+                (let* ((code-string (get-string~ text (location-range~ text (list placeholder))))
+                       (clipboard-text (format "{s}" (list placeholder type imports code-string))))
+                  (set-clipboard-text clipboard-text format: 'jazz-tool)))))))))
   
   
   (method override (copy-selection)
@@ -221,13 +225,13 @@
   
   
   (method virtual (paste-tool tool parent)
-    (bind (old-name type imports string) tool
+    (bind (placeholder type imports string) tool
       (let* ((module-name (get-module-name~ parent))
              (name (request-unique-name-in-module module-name)))
         (call-with-saved-text (find-unit-source module-name)
           (lambda (text)
             (let ((model (get-model~ text))
-                  (new-tool (new (resolve-runtime-reference (deserialize-runtime-reference type)) unit: module-name model: old-name)))
+                  (new-tool (new (resolve-runtime-reference (deserialize-runtime-reference type)) unit: module-name model: placeholder)))
               (insert-imports text (remove module-name imports))
               (set-caret~ text (find-namespace-insertion-point~ (new Jazz-Explorer model)))
               (insert-string~ text (format "{%}{%}{%}{a}" string))

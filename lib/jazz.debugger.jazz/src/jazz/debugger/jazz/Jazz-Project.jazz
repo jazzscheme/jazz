@@ -66,6 +66,20 @@
 
 
   ;;;
+  ;;;; Action
+  ;;;
+  
+  
+  (method override (project-action launch-action . rest)
+    (case launch-action
+      ((run) (apply project-run rest))
+      ((debug) (apply project-debug rest))
+      ((test) (apply project-test rest))
+      ((validate) (apply project-validate rest))
+      (else (error "Unknown launch action: {s}" launch-action))))
+
+
+  ;;;
   ;;;; Run
   ;;;
   
@@ -91,7 +105,7 @@
   
   (method override (project-debug (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (debugger-cookie: debugger-cookie #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
     (if debug-script
-        (parameterize ((current-script-arguments (cons self (or script-arguments '()))))
+        (parameterize ((current-script-arguments `(debug ,self ,@(or script-arguments '()))))
           (load-script (parse~ debug-script)))
       (if product
           (launch
@@ -137,7 +151,7 @@
   
   (method override (project-validate (executable: executable #f) (debugger-interactive?: debugger-interactive? #f) (debugger-cookie: debugger-cookie #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f))
     (if validate-script
-        (parameterize ((current-script-arguments (cons self (or script-arguments '()))))
+        (parameterize ((current-script-arguments `(validate ,self ,@(or script-arguments '()))))
           (load-script (parse~ validate-script)))
       (if product
           (launch

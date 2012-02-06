@@ -143,43 +143,6 @@
 
 
 ;;;
-;;;; Cookies
-;;;
-
-
-(definition public (register-debugger-cookie proc)
-  (let ((cookie *current-debugger-cookie*))
-    (table-set! *debugger-cookies* cookie proc)
-    (increase! *current-debugger-cookie*)
-    cookie))
-
-
-(definition public (get-registered-cookie cookie)
-  (prog1 (table-ref *debugger-cookies* cookie #f)
-    (table-set! *debugger-cookies* cookie #f)))
-
-
-(definition *processes*
-  (make-table test: equal?))
-
-
-(definition package (registered-processes)
-  *processes*)
-
-
-(definition public (register-process key process)
-  (table-set! *processes* key process))
-
-(definition public (registered-process key)
-  (table-ref *processes* key #f))
-
-
-(definition public (registered-process-live? key)
-  (let ((process (registered-process key)))
-    (and process (find-live-process~ (get-debugger-manager) process))))
-
-
-;;;
 ;;;; Debugged
 ;;;
 
@@ -219,6 +182,57 @@
                           (get-processes~ debugger validate-liveness?: #t)))
               (get-debuggers))
     (queue-list queue)))
+
+
+;;;
+;;;; Cookies
+;;;
+
+
+(definition public (register-debugger-cookie proc)
+  (let ((cookie *current-debugger-cookie*))
+    (table-set! *debugger-cookies* cookie proc)
+    (increase! *current-debugger-cookie*)
+    cookie))
+
+
+(definition public (get-registered-cookie cookie)
+  (prog1 (table-ref *debugger-cookies* cookie #f)
+    (table-set! *debugger-cookies* cookie #f)))
+
+
+(definition *process-configurations*
+  (make-table test: debugged=? hash: debugged-hash))
+
+
+(definition package (registered-process-configurations)
+  *process-configurations*)
+
+
+(definition public (register-process-configuration process configuration)
+  (table-set! *process-configurations* process configuration))
+
+(definition public (registered-process-configuration process)
+  (table-ref *process-configurations* process #f))
+
+
+(definition public (registered-processes target)
+  (collect (lambda (kv)
+             (bind (process . configuration) kv
+               (when (equal? configuration target)
+                 process)))
+           (table->list *process-configurations*)))
+
+
+(definition public (registered-process-live? configuration)
+  (let ((processes (registered-processes configuration)))
+    (some? (lambda (process)
+             (find-live-process~ (get-debugger-manager) process))
+           processes)))
+
+
+(definition package (cleanup-process-configurations process)
+  (table-clear *process-configurations* process))
 
 
 ;;;

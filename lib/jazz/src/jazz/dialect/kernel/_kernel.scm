@@ -1225,6 +1225,7 @@
 
 (native jazz:analysis-mode?)
 (native jazz:analysis-data)
+(native jazz:call-walk-error)
 (native jazz:new-walk-context)
 (native jazz:specifier?)
 (native jazz:binding-specifier)

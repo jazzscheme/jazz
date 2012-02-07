@@ -1809,6 +1809,17 @@
 ;;;
 
 
+(define jazz:walk-error-proc
+  (make-parameter #f))
+
+
+(define (jazz:call-walk-error fmt-string . rest)
+  (let ((proc (jazz:walk-error-proc)))
+    (if proc
+        (proc fmt-string rest)
+      (jazz:error "There is no active walk error proc"))))
+
+
 (jazz:define-class-runtime jazz:Syntax-Declaration)
 
 
@@ -1829,7 +1840,9 @@
       (let ((parent-declaration (%%get-declaration-parent binding)))
         (jazz:load-unit (%%get-declaration-locator (%%get-declaration-toplevel parent-declaration)))
         (let ((expander (jazz:need-macro locator)))
-          (expander form-src))))))
+          (parameterize ((jazz:walk-error-proc (lambda (fmt-string rest)
+                                                 (apply jazz:walk-error walker resume declaration form-src fmt-string rest))))
+            (expander form-src)))))))
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Syntax-Declaration declaration) environment)

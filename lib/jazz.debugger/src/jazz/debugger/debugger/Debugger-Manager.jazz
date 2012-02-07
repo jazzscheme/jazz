@@ -528,35 +528,29 @@
   
   
   (method public (filename-processes filename)
-    (let ((filename-processes (determine-filename-processes filename)))
-      (if focused-mode?
-          (let ((processes
-                  (if focused-process
-                      (let ((debugger (get-debugger~ focused-process)))
-                        (map (lambda (process)
-                               (new Debugged-Process debugger process process))
-                             (determine-process-processes~ debugger (get-reference~ focused-process))))
-                    '())))
-            (let ((effective-processes (intersection test: debugged=? processes filename-processes)))
-              (if (not-null? effective-processes)
-                  effective-processes
-                (case (message-box (format "No focused process contains this file ({a}).{%}{%}Do you want to force evaluation?" filename) type: 'question yes: "Force" no: "Cancel")
-                  ((yes)
-                   processes)
-                  ((no)
-                   (signal-cancel))))))
-        (filter-unfocused-processes~ (get-application) filename-processes))))
+    (let ((processes (effective-filename-processes filename)))
+      (when (and (null? processes)
+                 focused-mode?)
+        (case (message-box (format "No focused process contains this file ({a}).{%}{%}Do you want to force evaluation?" filename) type: 'question yes: "Force" no: "Cancel")
+          ((no)
+           (signal-cancel))))
+      processes))
   
   
   (method public (effective-filename-processes filename)
-    (let ((filename-processes (determine-filename-processes filename)))
+    (let ((appl (get-application))
+          (filename-processes (determine-filename-processes filename)))
       (if focused-mode?
           (let ((processes
                   (if focused-process
-                      (list focused-process)
+                      (filter-focused-processes~ appl
+                        (let ((debugger (get-debugger~ focused-process)))
+                          (map (lambda (process)
+                                 (new Debugged-Process debugger process process))
+                               (determine-process-processes~ debugger (get-reference~ focused-process)))))
                     '())))
             (intersection test: debugged=? processes filename-processes))
-        (filter-unfocused-processes~ (get-application) filename-processes))))
+        (filter-unfocused-processes~ appl filename-processes))))
   
   
   (method public (determine-filename-processes filename)

@@ -72,6 +72,7 @@
         (localize (cadr choice))))
                                   
     (unless (or choices-handler
+                (and nullable? (not value))
                 (member? value choices key: car))
       (add-violation~ manager (new Integrity-Violation message: (format "Property {a} must be one of {a}: {t}" (field-name property) (join (map present-choice choices) ", ") value) property: property) component root editor)))
  
@@ -107,7 +108,7 @@
   
   (method (make-choices-list client)
     (if (not choices-handler)
-        choices
+        (if nullable? (cons (list #f (get-nil-presentation)) choices) choices)
       (let ((dynamic-choices (map (lambda (value) (list value (value->text value))) ((resolve-reference~ choices-handler) client))))
         (sort string<=? (if nullable? (cons (list #f (get-nil-presentation)) dynamic-choices) dynamic-choices) key: cadr))))
   

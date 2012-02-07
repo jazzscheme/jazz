@@ -53,8 +53,10 @@
 (class Jazz-Debugger extends Debugger
 
   
-  (slot processes         initialize '())
-  (slot process-filenames initialize (make-table test: process=? hash: process-hash))
+  (slot processes          initialize '())
+  (slot process-filenames  initialize (make-table test: process=? hash: process-hash))
+  (slot process-processes  initialize (make-table test: process=? hash: process-hash))
+  (slot process-properties initialize (make-table test: process=? hash: process-hash))
   
   
   ;;;
@@ -150,10 +152,10 @@
     #t)
   
   
-  (method override (transmit-runtime-filenames process)
+  (method override (transmit-runtime-information process)
     (with-jrm-exception-handler
       (lambda ()
-        (transmit-runtime-filenames~ process))))
+        (transmit-runtime-information~ process))))
   
   
   (method override (evaluate-expressions process syntax str container line col cookie)
@@ -424,7 +426,7 @@
   
   
   (method (ready-process process cookie)
-    (transmit-runtime-filenames process)
+    (transmit-runtime-information process)
     (execute-event
       (lambda ()
         (when cookie
@@ -448,17 +450,19 @@
       (execute-event
         (lambda ()
           (set! processes (remove! process processes test: process=?))
-          (clear-runtime-filenames process)
+          (clear-runtime-information process)
           (detach-process~ (get-debugger-manager) (new Debugged-Process self process process))))))
   
   
   ;;;
-  ;;;; Runtime
+  ;;;; Filenames
   ;;;
   
   
-  (method (receive-runtime-filenames process filenames)
+  (method (receive-runtime-information process filenames processes properties)
     (table-set! process-filenames process filenames)
+    (table-set! process-processes process processes)
+    (table-set! process-properties process properties)
     (when (get-processes-view)
       (update~ (get-processes-view))))
   
@@ -477,9 +481,32 @@
     (for-each add-process processes))
   
   
-  (method override (clear-runtime-filenames process)
-    (table-clear process-filenames process))
-    
+  (method override (clear-runtime-information process)
+    (table-clear process-filenames process)
+    (table-clear process-processes process))
+  
+  
+  ;;;
+  ;;;; Processes
+  ;;;
+  
+  
+  (method override (determine-process-child? process child)
+    (member? child (table-ref process-processes process '()) test: process=?))
+  
+  
+  ;;;
+  ;;;; Properties
+  ;;;
+  
+  
+  (method override (determine-process-properties process)
+    (table-ref process-properties process '()))
+  
+  
+  (method override (determine-process-property process property default)
+    (getf (determine-process-properties process) property not-found: default))
+  
   
   ;;;
   ;;;; Evaluation

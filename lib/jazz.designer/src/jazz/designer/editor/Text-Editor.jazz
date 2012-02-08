@@ -18,6 +18,21 @@
     (serialize-runtime-reference origin)))
 
 
+(class Comment-Exception extends Exception)
+
+
+(definition (invalid-comment . _)
+  (throw (new Comment-Exception)))
+
+
+(definition jazz-readtable-no-comments
+  (let ((readtable (make-jazz-readtable)))
+    (readtable-char-class-set! readtable #\@ #t invalid-comment)
+    (readtable-char-class-set! readtable #\; #t invalid-comment)
+    (readtable-char-sharp-handler-set! readtable #\; invalid-comment)
+    readtable))
+
+
 (class Jazz-Text-Editor-View extends Jazz-Text-View
   
   
@@ -50,7 +65,7 @@
     (let ((explorer (new Jazz-Explorer model)))
       (forward-location~ explorer (list class-name :form))
       (parameterize ((walk-for #f))
-        (with-readtable jazz-readtable
+        (with-readtable jazz-readtable-no-comments
           (lambda ()
             (read-marked~ explorer))))))
   
@@ -60,16 +75,23 @@
       (forward-location~ explorer (list trait-name 3))
       (list (string->symbol (format "<{a}>" (get-model~ (get-form~ designer))))
             (parameterize ((walk-for #f))
-              (with-readtable jazz-readtable
+              (with-readtable jazz-readtable-no-comments
                 (lambda ()
                   (read-marked~ explorer)))))))
   
   
   (method (make-new-form origin locator)
-    (bind (module symbol) (cdr (serialize-origin origin))
-      (if (class? origin)
-          (construct-form (cadr (get-class-form-expression symbol)) locator)
-        (construct-form (get-trait-form-expression symbol) locator))))
+    (with-exception-filter
+      (lambda (exc)
+        (is? exc Comment-Exception))
+      (lambda (exc)
+        (message-box "Comments area not allowed in this editor, please remove them.")
+        (signal-cancel))
+      (lambda ()
+        (bind (module symbol) (cdr (serialize-origin origin))
+          (if (class? origin)
+              (construct-form (cadr (get-class-form-expression symbol)) locator)
+            (construct-form (get-trait-form-expression symbol) locator))))))
   
   
   (method (evaluate-form)
@@ -77,7 +99,9 @@
       (lambda ()
         (sleep .1)
         (when (get-modified?)
-          (with-exception-catcher
+          (with-exception-filter
+            (lambda (obj)
+              (is-not? obj Cancel-Signal))
             (lambda (obj)
               (let* ((exc (wrap-exception obj))
                      (msg (format "Form evaluation failed: {a}" (exception-reason exc)))

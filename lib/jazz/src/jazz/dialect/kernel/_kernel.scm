@@ -874,6 +874,7 @@
 
 (native jazz:readtable?)
 (native current-readtable)
+(native jazz:make-jazz-readtable)
 (native jazz:make-standard-readtable)
 (native jazz:readtable-copy)
 (native jazz:readtable-char-delimiter?)

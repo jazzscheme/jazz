@@ -569,23 +569,21 @@
   
   
   (method public (evaluate-filename-expressions filename syntax str container line col)
-    (let ((processes (filename-processes filename)))
-      (if (null? processes)
-          (let ((appl (get-application)))
-            (when (get-local-debugger~ appl)
-              (let ((controller-debugger (get-controller-debugger)))
-                (when (remote-proxy? controller-debugger)
-                  (let ((targets (evaluation-processes~ appl)))
-                    (let ((processes (evaluate-expressions-to~ controller-debugger targets filename syntax str container line col)))
-                      (if (not-null? processes)
-                          processes
-                        (message-box (format "No process found that contains this file ({a})" filename))
-                        #f)))))))
-        (let ((cookie (register-debugger-cookie)))
-          (for-each (lambda (process)
-                      (evaluate-expressions~ process syntax str container line col cookie))
-                    processes))
-        (map get-reference~ processes))))
+    (define (evaluate-to-controller)
+      (let ((appl (get-application)))
+        (when (get-local-debugger~ appl)
+          (let ((controller-debugger (get-controller-debugger)))
+            (when (remote-proxy? controller-debugger)
+              (let ((targets (evaluation-processes~ appl)))
+                (evaluate-expressions-to~ controller-debugger targets filename syntax str container line col)))))))
+    
+    (let ((controller-processes (or (evaluate-to-controller) '()))
+          (processes (filename-processes filename)))
+      (let ((cookie (register-debugger-cookie)))
+        (for-each (lambda (process)
+                    (evaluate-expressions~ process syntax str container line col cookie))
+                  processes))
+      (union test: proxy-server=? controller-processes (map get-reference~ processes))))
   
   
   ;;;

@@ -393,19 +393,26 @@
     (get-output~ fact)))
 
 
-(definition public (fit pos <fx> alternate <fx+> size <fx> max <fx> padding <fx>)
-  (cond ((> size max) 0)
-        ((<= (+ pos size padding) max) (+ pos padding))
-        ((and alternate (<= (+ alternate size padding) max)) (+ alternate padding))
-        ((>= (- pos size) 0) (- pos size))
-        ((and alternate (>= (- alternate size) 0)) (- alternate size))
-        (else (- max size))))
+(definition public (fit-in-range pos <fx> alternate <fx+> size <fx> min-pos <fx> max-pos <fx> padding <fx>)
+  (define (low-fit? position <fx>) (<= (+ min-pos padding) position))
+  (define (high-fit? position <fx>) (<= (+ position size) (- max-pos padding)))
+  
+  (cond ((> size max-pos)
+         min-pos)
+        ((and (low-fit? pos) (high-fit? pos))
+         (+ pos padding))
+        ((and alternate (low-fit? alternate) (high-fit? alternate))
+         (+ alternate padding))
+        (else
+         (if (low-fit? (max pos (or alternate pos)))
+             (- max-pos size)
+           min-pos))))
 
 
-(definition public (fit-point pos <Point> alternate <Point+> size <Dimension> max <Dimension> padding <Dimension>)
+(definition public (fit-point pos <Point> alternate <Point+> size <Dimension> limits <Rect> padding <Dimension>)
   (new Point
-    (fit (get-h~ pos) (and alternate (get-h~ alternate)) (get-width~ size) (get-width~ max) (get-width~ padding))
-    (fit (get-v~ pos) (and alternate (get-v~ alternate)) (get-height~ size) (get-height~ max) (get-height~ padding))))
+    (fit-in-range (get-h~ pos) (and alternate (get-h~ alternate)) (get-width~ size) (get-left~ limits) (get-right~ limits) (get-width~ padding))
+    (fit-in-range (get-v~ pos) (and alternate (get-v~ alternate)) (get-height~ size) (get-top~ limits) (get-bottom~ limits) (get-height~ padding))))
 
 
 (definition public (scalar-product a <Point> b <Point>)

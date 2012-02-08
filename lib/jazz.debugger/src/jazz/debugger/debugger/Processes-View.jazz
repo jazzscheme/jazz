@@ -209,40 +209,38 @@
   
   
   (method public (update (user-origin: user-origin #f))
-    (define (process-image debugger process live? focused? focused-mode? manager)
+    (define (process-image debugger process live? processes manager)
       (cond ((standard-process-image~ debugger)
              => identity)
             ((not live?)
              {Image-Resource "ProcessDead"})
-            ((not focused-mode?)
-             (cond ((not (process-received-filenames?~ manager process))
-                    {Image-Resource "Link"})
-                   ((not client)
-                    {Image-Resource "Process"})
-                   (else
-                    (let ((moniker (get-moniker~ client)))
-                      (if (not moniker)
-                          {Image-Resource "Process"}
-                        (let ((filename (parse~ moniker)))
-                          (let ((processes (effective-filename-processes~ manager filename)))
-                            (if (member? process processes test: debugged=?)
-                                {Image-Resource "Script"}
-                              {Image-Resource "Process"}))))))))
-            (focused?
+            ((not (process-received-filenames?~ manager process))
+             {Image-Resource "Link"})
+            ((member? process processes test: debugged=?)
              {Image-Resource "Script"})
             (else
-             (let ((focused-process (get-focused-process~ manager)))
-               (if (and focused-process (determine-process-child?~ debugger (get-reference~ focused-process) (get-reference~ process)))
-                   {Image-Resource "Script"}
-                 (or (get-icon~ process) {Image-Resource "Process"}))))))
+             (or (get-icon~ process)
+                 {Image-Resource "Process"}))))
+    
+    (define (effective-processes manager)
+      (define (client-filename)
+        (when client
+          (let ((moniker (get-moniker~ client)))
+            (when moniker
+              (parse~ moniker)))))
+      
+      (let ((filename (client-filename)))
+        (if (not filename)
+            (determine-focused-processes~ manager)
+          (effective-filename-processes~ manager filename))))
     
     (define (update-processes tree)
       (let ((manager (get-debugger-manager)))
-        (let ((focused-mode? (get-focused-mode?~ manager)))
+        (let ((processes (or (effective-processes manager) '())))
           (for-each-process~ manager
             (lambda (debugger process live? focused?)
               (let ((title (present~ process))
-                    (image (process-image debugger process live? focused? focused-mode? manager))
+                    (image (process-image debugger process live? processes manager))
                     (frame-color (get-stopped-frame-color~ manager process))
                     (background (get-visited-highlight-color~ manager process)))
                 (set-alive?~ manager process live?)

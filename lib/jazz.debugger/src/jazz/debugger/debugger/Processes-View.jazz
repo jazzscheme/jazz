@@ -209,11 +209,13 @@
   
   
   (method public (update (user-origin: user-origin #f))
-    (define (process-image debugger process live? processes manager)
+    (define (process-image debugger process live? focused? processes manager)
       (cond ((standard-process-image~ debugger)
              => identity)
             ((not live?)
              {Image-Resource "ProcessDead"})
+            ((and (get-focused-mode?~ manager) focused?)
+             {Image-Resource "Script"})
             ((not (process-received-filenames?~ manager process))
              {Image-Resource "Link"})
             ((member? process processes test: debugged=?)
@@ -230,8 +232,7 @@
               (parse~ moniker)))))
       
       (let ((filename (client-filename)))
-        (if (not filename)
-            (determine-focused-processes~ manager)
+        (when filename
           (effective-filename-processes~ manager filename))))
     
     (define (update-processes tree)
@@ -240,7 +241,7 @@
           (for-each-process~ manager
             (lambda (debugger process live? focused?)
               (let ((title (present~ process))
-                    (image (process-image debugger process live? processes manager))
+                    (image (process-image debugger process live? focused? processes manager))
                     (frame-color (get-stopped-frame-color~ manager process))
                     (background (get-visited-highlight-color~ manager process)))
                 (set-alive?~ manager process live?)

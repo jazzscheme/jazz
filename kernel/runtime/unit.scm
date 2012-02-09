@@ -765,6 +765,12 @@
 (define (jazz:profile-title profile)
   (%%symbol->string (jazz:profile-name profile)))
 
+(define (jazz:profile-appl profile)
+  (let ((pair (%%assq 'appl (%%cdr profile))))
+    (if (%%not pair)
+        #f
+      (%%cadr pair))))
+
 (define (jazz:profile-unit profile)
   (let ((pair (%%assq 'unit (%%cdr profile))))
     (if (%%not pair)

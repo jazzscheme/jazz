@@ -43,27 +43,37 @@
          (core.module))
 
 
-(define (jazz:for-each-subunit parent-name proc)
-  (let iter ((unit-name parent-name) (phase #f) (toplevel? #t))
-    (define (process-require require)
-      (jazz:parse-require require
-        (lambda (unit-name feature-requirement phase)
-          (iter unit-name phase #f))))
-    
-    (let ((declaration (jazz:outline-unit unit-name)))
-      (if (or toplevel? (%%eq? (%%get-declaration-access declaration) 'protected))
-          (begin
-            (if (and (%%not toplevel?) (%%not (jazz:descendant-unit? parent-name unit-name)))
-                (jazz:error "Illegal access from {a} to protected unit {a}" parent-name unit-name))
-            (proc unit-name declaration phase)
-            (if (jazz:is? declaration jazz:Unit-Declaration)
-                (for-each process-require (%%get-unit-declaration-requires declaration))
-              (begin
-                (for-each process-require (%%get-module-declaration-requires declaration))
-                (for-each (lambda (export)
-                            (let ((reference (%%get-module-invoice-module export)))
-                              (if reference
-                                  (let ((name (%%get-declaration-reference-name reference))
-                                        (phase (%%get-module-invoice-phase export)))
-                                    (iter name phase #f)))))
-                          (%%get-module-declaration-exports declaration))))))))))
+(define (jazz:for-each-subunit toplevel-name proc)
+  (let ((subunits (%%make-table test: eq?)))
+    (let iter ((unit-name toplevel-name) (declaration (jazz:outline-unit toplevel-name)) (phase #f))
+      (define (process-require require)
+        (jazz:parse-require require
+          (lambda (name feature-requirement phase)
+            (iterate unit-name name phase))))
+      
+      (define (process-export export)
+        (let ((reference (%%get-module-invoice-module export)))
+          (if reference
+              (let ((name (%%get-declaration-reference-name reference))
+                    (phase (%%get-module-invoice-phase export)))
+                (iterate unit-name name phase)))))
+      
+      (define (iterate parent-name unit-name phase)
+        (let ((declaration (jazz:outline-unit unit-name)))
+          (if (%%eq? (%%get-declaration-access declaration) 'protected)
+              (if (%%not (jazz:descendant-unit? toplevel-name unit-name))
+                  (jazz:error "Illegal access from {a} to protected unit {a}" toplevel-name unit-name)
+                #; ;; debugging
+                (let ((actual (%%table-ref subunits unit-name #f)))
+                  (if actual
+                      (jazz:debug 'duplicate 'export 'for unit-name '-> actual parent-name)))
+                (begin
+                  (%%table-set! subunits unit-name parent-name)
+                  (iter unit-name declaration phase))))))
+      
+      (proc unit-name declaration phase)
+      (if (jazz:is? declaration jazz:Unit-Declaration)
+          (for-each process-require (%%get-unit-declaration-requires declaration))
+        (begin
+          (for-each process-require (%%get-module-declaration-requires declaration))
+          (for-each process-export (%%get-module-declaration-exports declaration))))))))

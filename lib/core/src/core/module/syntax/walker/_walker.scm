@@ -5369,15 +5369,19 @@
 (define (jazz:call-with-catalog-entry-lock unit-name thunk)
   (jazz:call-with-load-lock
     (lambda ()
-      (dynamic-wind
-        (lambda ()
-          (jazz:set-catalog-entry-status unit-name ':walking)
-          (jazz:push-load-stack ':walk unit-name))
-        thunk
-        (lambda ()
-          (jazz:pop-load-stack)
-          (if (%%pair? (jazz:get-catalog-entry unit-name))
-              (jazz:set-catalog-entry-status unit-name #f)))))))
+      (let ((entry (jazz:get-catalog-entry unit-name)))
+        (if (%%pair? entry)
+            (jazz:circular-dependency-error unit-name (map cdr jazz:Load-Stack))
+          (or entry
+              (dynamic-wind
+                (lambda ()
+                  (jazz:set-catalog-entry-status unit-name ':walking)
+                  (jazz:push-load-stack ':walk unit-name))
+                thunk
+                (lambda ()
+                  (jazz:pop-load-stack)
+                  (if (%%pair? (jazz:get-catalog-entry unit-name))
+                      (jazz:set-catalog-entry-status unit-name #f))))))))))
 
 
 (define jazz:outline-feedback
@@ -5408,23 +5412,21 @@
   
   (if (not use-catalog?)
       (load-toplevel-declaration)
-    (let ((entry (jazz:get-catalog-entry unit-name)))
-      (let ((status (if (%%pair? entry) (%%car entry) #f))
-            (declaration (if (%%pair? entry) (%%cdr entry) entry)))
-        (if status
-            (jazz:circular-dependency-error unit-name (map cdr jazz:Load-Stack))
-          (or declaration
-              (jazz:call-with-catalog-entry-lock unit-name
-                (lambda ()
-                  (let ((feedback (jazz:outline-feedback)))
-                    (if feedback
-                        (feedback unit-name)))
-                  (let ((declaration (load-toplevel-declaration)))
-                    (if (%%not declaration)
-                        (if error?
-                            (jazz:error "Unable to locate unit declaration: {s}" unit-name))
-                      (jazz:set-catalog-entry unit-name declaration))
-                    declaration)))))))))
+    (or (let ((declaration (jazz:get-catalog-entry unit-name)))
+          (if (%%pair? declaration)
+              #f
+            declaration))
+        (jazz:call-with-catalog-entry-lock unit-name
+          (lambda ()
+            (let ((feedback (jazz:outline-feedback)))
+              (if feedback
+                  (feedback unit-name)))
+            (let ((declaration (load-toplevel-declaration)))
+              (if (%%not declaration)
+                  (if error?
+                      (jazz:error "Unable to locate unit declaration: {s}" unit-name))
+                (jazz:set-catalog-entry unit-name declaration))
+              declaration))))))
 
 
 (define (jazz:outline-module unit-name #!key (error? #t))

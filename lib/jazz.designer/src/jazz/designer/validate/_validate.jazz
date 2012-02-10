@@ -65,7 +65,7 @@
       (define (walk-with-catch unit-name)
         (catch (Walk-Problems exc
                  (debug exc))
-          (let ((namespace-declaration (walk-unit unit-name)))
+          (let ((namespace-declaration (outline-unit unit-name)))
             (when (is? namespace-declaration Module-Declaration)
               (for-each (lambda (declaration)
                           (when (and (subtype? declaration component-declaration)
@@ -76,11 +76,13 @@
                             (increase! total)
                             (let ((metaclass-declaration (get-metaclass~ declaration)))
                               (unless (find-declaration-child metaclass-declaration 'get-class-descriptor)
-                                (debug (get-name~ declaration))
+                                (let ((locator (get-locator~ declaration)))
+                                  (validation-failed (format "Class {a} has no descriptor" locator) location: locator))
                                 (increase! missing)))))
                         (queue-list (get-children~ namespace-declaration)))))))
       
       (iterate-units walk-with-catch repositories: repositories)
+      @debug
       (debug total: total missing: missing)))
   )
 )

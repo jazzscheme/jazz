@@ -170,23 +170,24 @@
   
   
   (method public (transmit-runtime-information)
-    (thread-start!
-      (new-thread
-        (lambda ()
-          (let ((queue (new-queue)))
-            (define (add-unit unit)
-              (let ((resource (find-unit-src unit #f)))
-                (when resource
-                  (enqueue queue (resource-pathname resource)))))
-            
-            (let ((process (get-process)))
-              (for-each add-unit (product-units (runtime-product~ process)))
-              (for-each add-unit (runtime-units~ process))
-              (let ((filenames (queue-list queue))
-                    (processes (evaluation-processes~ process))
-                    (properties (runtime-properties~ process)))
-                (transmit-information filenames processes properties)))))
-        'runtime-information)))
+    (let ((process (get-process)))
+      (unless (validate-process?~ process)
+        (thread-start!
+          (new-thread
+            (lambda ()
+              (let ((queue (new-queue)))
+                (define (add-unit unit)
+                  (let ((resource (find-unit-src unit #f)))
+                    (when resource
+                      (enqueue queue (resource-pathname resource)))))
+                
+                (for-each add-unit (product-units (runtime-product~ process)))
+                (for-each add-unit (runtime-units~ process))
+                (let ((filenames (queue-list queue))
+                      (processes (evaluation-processes~ process))
+                      (properties (runtime-properties~ process)))
+                  (transmit-information filenames processes properties))))
+            'runtime-information)))))
   
   
   ;;;

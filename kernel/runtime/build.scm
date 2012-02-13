@@ -148,6 +148,7 @@
           (source jazz:kernel-source)
           (destination jazz:kernel-destination)
           (destination-directory jazz:kernel-install)
+          (executable #f)
           (resources #f)
           (image #f)
           (kernel? #f)
@@ -581,8 +582,8 @@
       
       (define (image-file)
         (if library-image?
-            (build-file (jazz:add-extension product-name "o1"))
-          (build-file (jazz:add-extension product-name (jazz:executable-extension platform)))))
+            (build-file (jazz:add-extension (or executable product-name) "o1"))
+          (build-file (jazz:add-extension (or executable product-name) (jazz:executable-extension platform)))))
       
       ;;;
       ;;;; Configuration

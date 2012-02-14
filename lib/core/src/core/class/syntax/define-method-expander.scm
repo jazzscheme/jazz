@@ -46,7 +46,8 @@
          (extra-parameters (%%cdr parameters))
          (implementation-name (jazz:method-implementation-name class-name name))
          (rank-name (jazz:method-rank-name implementation-name))
-         (is-test (if bootstrap-type? 'jazz:bootstrap-type? '%%class-is?)))
+         (is-test (if bootstrap-type? 'jazz:bootstrap-type? '%%class-is?))
+         (object (jazz:generate-symbol "object")))
     #; ;; experimental non-functional but cleaner version of the following quasiquote
     (let ((proc (lambda (object-parameter object-symbol)
                   `(%%core-assertion (,is-test ,object-symbol ,class-name) (jazz:error ,(jazz:format "{s} expected in calling {s}: {s}" class-name name object-parameter))
@@ -66,10 +67,10 @@
                      ,object-parameter
                      ,@extra-parameters))
          (jazz:with-uniqueness ,object-parameter
-           (lambda (obj)
-             (%%list '%%core-assertion (%%list ',is-test obj ',class-name) (%%list 'jazz:error (jazz:format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter))
-               (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%get-object-class obj)) ',rank-name)
-                       obj
+           (lambda (,object)
+             (%%list '%%core-assertion (%%list ',is-test ,object ',class-name) (%%list 'jazz:error (jazz:format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter))
+               (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%get-object-class ,object)) ',rank-name)
+                       ,object
                        ,@extra-parameters))))))))
 
 

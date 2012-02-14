@@ -5372,16 +5372,15 @@
       (let ((entry (jazz:get-catalog-entry unit-name)))
         (if (%%pair? entry)
             (jazz:circular-dependency-error unit-name (map cdr jazz:Load-Stack))
-          (or entry
-              (dynamic-wind
-                (lambda ()
-                  (jazz:set-catalog-entry-status unit-name ':walking)
-                  (jazz:push-load-stack ':walk unit-name))
-                thunk
-                (lambda ()
-                  (jazz:pop-load-stack)
-                  (if (%%pair? (jazz:get-catalog-entry unit-name))
-                      (jazz:set-catalog-entry-status unit-name #f))))))))))
+          (dynamic-wind
+            (lambda ()
+              (jazz:set-catalog-entry-status unit-name ':walking)
+              (jazz:push-load-stack ':walk unit-name))
+            thunk
+            (lambda ()
+              (jazz:pop-load-stack)
+              (if (%%pair? (jazz:get-catalog-entry unit-name))
+                  (jazz:set-catalog-entry-status unit-name #f)))))))))
 
 
 (define jazz:outline-feedback

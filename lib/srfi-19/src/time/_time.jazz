@@ -42,10 +42,28 @@
 (import (time.exports))
 
 
+(definition (date/time-literal-parameter-list time/date getters defaults)
+  (if (and (not-null? getters) 
+           (memq? #f (map (lambda (getter-fn default) (equal? (getter-fn time/date) default)) getters defaults)))
+      (concatenate " " 
+                   (->string ((car getters) time/date))
+                   (date/time-literal-parameter-list time/date (cdr getters) (cdr defaults)))
+    ""))
+  	
+              
+  
 (class Time-Class extends Class)
 
 
 (class primitive Time metaclass Time-Class extends Object
+   
+  
+  (method override (print output readably)
+    (format output "~{{a}{a}}"
+      (category-name (class-of self))
+      (date/time-literal-parameter-list self 
+                                        (list time-second time-nanosecond time-type)
+                                        (list 00 0000 (time-type (current-time))))))
   
   
   (method override (compare-object target)
@@ -60,6 +78,14 @@
 
 
 (class primitive Date metaclass Date-Class extends Object
+  
+  
+  (method override (print output readably)
+    (format output "~{{a}{a}}"
+      (category-name (class-of self))
+      (date/time-literal-parameter-list self 
+                                        (list date-year date-month date-day date-hour date-minute date-second date-nanosecond date-zone-offset)
+                                        (list 2000 01 01 00 00 00 0000 (date-zone-offset (current-date))))))
   
   
   (method override (compare-object target)

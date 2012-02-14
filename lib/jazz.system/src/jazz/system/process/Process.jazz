@@ -44,6 +44,7 @@
         (jazz.jrm)
         (jazz.library)
         (jazz.library.component)
+        (jazz.library.template)
         (jazz.network)
         (jazz.platform)
         (jazz.platform.crash)
@@ -321,6 +322,15 @@
     (when (and preferences-designer (persist-preferences?) (file? (get-origin~ (get-form~ preferences-designer))))
       (save~ preferences-designer)))
 
+  
+  ;;;
+  ;;;; Templates
+  ;;;
+  
+  
+  (method protected virtual (templates-directory)
+    )
+
 
   ;;;
   ;;;; Profile
@@ -342,26 +352,48 @@
   
   
   (method protected virtual (log-profile)
-    (define (install-profile name unit bindings)
-      (let ((source (find-unit-source profile-class)))
-        (register-alias 'Profile (get-list~ (get-parent~ source)))))
-    
-    (define (standard-profile title)
-      (let ((name (string->symbol title))
-            (unit-name (string->symbol (format "profile.{a}" (downcase title))))
-            (bindings 'jazz))
-        (values name unit-name bindings)))
-    
-    (define (profile-parameter)
-      (let ((profile (string-parameter "profile" 'profile #f)))
-        (when profile
-          (capitalize (->string profile)))))
-    
     (let ((profile-arg (profile-parameter)))
       (when profile-arg
         (receive (name unit bindings) (standard-profile (->string profile-arg))
           (set! profile-class (compose-identifier unit name))
           (install-profile name unit bindings)))))
+  
+  
+  (method (profile-parameter)
+    (let ((profile (string-parameter "profile" 'profile #f)))
+      (when profile
+        (capitalize (->string profile)))))
+  
+  
+  (method (standard-profile title)
+    (let ((name (string->symbol title))
+          (unit-name (string->symbol (format "profile.{a}" (downcase title))))
+          (template (get-default-profile-kind)))
+      (values name unit-name template)))
+  
+  
+  (method (install-profile name unit template)
+    (define (install-new-profile name unit template)
+      (let ((associations (list (cons 'jazz-settings-version (present-version jazz-settings-version))
+                                (cons 'settings-version (present-version (settings-version)))
+                                (cons 'profile name)
+                                (cons 'profile-lowercase (downcase (symbol->string name)))
+                                (cons 'profile-unit unit)
+                                (cons 'active-skin (case kernel-windowing ((carbon) 'mac) ((x11) 'x11) (else 'jazz))))))
+        (copy-template (new-directory~ (templates-directory) (list "profile" template))
+                       {Directory Home}
+                       associations
+                       non-expanded-nodes: '("catalogs")))
+      (let ((repository (find-repository 'Profiles)))
+        (let ((package-name unit)
+              (package-path (concatenate (repository-library-directory repository) (format "{a}/.package" unit))))
+          (repository-add-package repository (load-package repository #f package-name package-path)))))
+    
+    (let ((source (find-unit-source profile-class)))
+      (when (not source)
+        (install-new-profile name unit template)
+        (set! source (find-unit-source profile-class)))
+      (register-alias 'Profile (get-list~ (get-parent~ source)))))
   
   
   ;;;

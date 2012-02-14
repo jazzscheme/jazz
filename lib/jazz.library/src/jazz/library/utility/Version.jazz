@@ -48,14 +48,16 @@
   (slot minor    getter generate)
   (slot stage    getter generate)
   (slot revision getter generate)
+  (slot build    getter generate)
     
     
-  (method override (initialize major minor (revision 0) (stage #f))
+  (method override (initialize major minor (revision 0) (build 0) (stage #f))
     (nextmethod)
     (set! major~self major)
     (set! minor~self minor)
     (set! revision~self revision)
-    (set! stage~self stage))
+    (set! stage~self stage)
+    (set! build~self build))
   
   
   (method override (compare-object target)
@@ -69,25 +71,30 @@
         (or (try major (get-major~ target))
             (try minor (get-minor~ target))
             (try revision (get-revision~ target))
+            (try build (get-build~ target))
             :equal))))
   
   
   (method override (print output readably)
-    (format output "~{{a} {a} {a}{?: {a}~}{?: {a}~}}"
+    (format output "~{{a} {a} {a}{?: {a}~}{?: {a}~}{?: {a}~}}"
             (category-name (class-of self))
             major
             minor
-            (/= revision 0) revision
+            (or (/= build 0) (/= revision 0)) revision
+            (/= build 0) build
             stage stage))
   
   
   (method public (present)
-    (format "{a}.{a}{a}{a}"
+    (format "{a}.{a}{a}{a}{a}"
             major
             minor
-            (if (= revision 0)
+            (if (and (= build 0) (= revision 0))
                 ""
               (format ".{a}" revision))
+            (if (= build 0)
+                ""
+              (format ".{a}" build))
             (if (not stage)
                 ""
               (format " {a}"
@@ -101,7 +108,8 @@
          (= minor (get-minor~ version))))
   
   
-  (method public (->32-bit-integer)
-    (+ (* major 100000)
-       (* minor 1000)
-       revision))))
+  (method public (->64-bit-integer)
+    (+ (* major (arithmetic-shift 1 48))
+       (* minor (arithmetic-shift 1 32))
+       (* revision (arithmetic-shift 1 16))
+       build))))

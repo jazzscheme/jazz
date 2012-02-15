@@ -61,8 +61,16 @@
 
 (definition public (collect-date-values args)
   (assert (<= (length args) 8))
-  (let ((values (reverse (collect-date/time-values args (make-default-date) (list date-year date-month date-day date-hour date-minute date-second date-nanosecond date-zone-offset)))))
-    (append (cdr values) (list (car values)))))
+  (let* ((default-date (make-default-date))
+         (date-values (collect-date/time-values args default-date (list date-year date-month date-day date-hour date-minute date-second date-nanosecond)))
+         (zone-offset (if (< (length args) 8) 
+                          (date-zone-offset default-date)
+                        (let ((time-zone (last args)))
+                          (cond ((and (symbol? time-zone) (eq? 'Z time-zone)) 0)
+                                ((number? time-zone) time-zone)
+                                ((and (string? time-zone) (= 5 (string-length time-zone))) (* 60 (+ (* 60 (string->number (substring time-zone 0 3))) (string->number (substring time-zone 3 5)))))
+                                (else (error "badly formed time zone")))))))
+    (reverse (cons zone-offset date-values))))
 
 
 (definition public (collect-time-values args)
@@ -106,10 +114,9 @@
   (method override (print output readably)
     (format output "~{{a}{a}}"
       (category-name (class-of self))
-      (date/time-literal-parameter-list self (make-default-date) (append (map (lambda (format-string) 
-                                                                                (lambda (date) (date->string date format-string))) 
-                                                                              '("~Y" "~m" "~d" "~H" "~M" "~S" "~N"))
-                                                                         (list (compose ->string date-zone-offset))))))
+      (date/time-literal-parameter-list self (make-default-date) (map (lambda (format-string) 
+                                                                        (lambda (date) (date->string date format-string))) 
+                                                                      '("~Y" "~m" "~d" "~H" "~M" "~S" "~N" "\"~z\"")))))
   
   
   (method override (compare-object target)

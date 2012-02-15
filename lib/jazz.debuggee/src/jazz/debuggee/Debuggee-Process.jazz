@@ -180,12 +180,16 @@
                   (enqueue queue (resource-pathname resource)))))
             
             (let ((process (get-process)))
-              (for-each add-unit (product-units (runtime-product~ process)))
-              (for-each add-unit (runtime-units~ process))
-              (let ((filenames (queue-list queue))
-                    (processes (evaluation-processes~ process))
-                    (properties (runtime-properties~ process)))
-                (transmit-information filenames processes properties)))))
+              (let ((properties (runtime-properties~ process)))
+                ;; immediately transmit properties before doing
+                ;; the potentially long computation of filenames
+                (transmit-information #f #f properties)
+                (for-each add-unit (product-units (runtime-product~ process)))
+                (for-each add-unit (runtime-units~ process))
+                (let ((filenames (queue-list queue))
+                      (processes (evaluation-processes~ process))
+                      (properties (runtime-properties~ process)))
+                  (transmit-information filenames processes properties))))))
         'runtime-information)))
   
   

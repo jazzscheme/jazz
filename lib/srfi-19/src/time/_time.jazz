@@ -42,15 +42,40 @@
 (import (time.exports))
 
 
-(definition (date/time-literal-parameter-list time/date getters defaults)
-  (if (and (not-null? getters) 
-           (memq? #f (map (lambda (getter-fn default) (equal? (getter-fn time/date) default)) getters defaults)))
-      (concatenate " " 
-                   (->string ((car getters) time/date))
-                   (date/time-literal-parameter-list time/date (cdr getters) (cdr defaults)))
+(definition public (make-default-date)
+  (make-date 0 0 0 0 0 0 0 (date-zone-offset (current-date))))
+
+
+(definition public (make-default-time)
+  (make-time (time-type (current-time)) 0 0))
+
+
+(definition (collect-date/time-values args default-date/time default-getters)
+  (cond ((null? default-getters)
+         '())
+        ((null? args)
+         (cons ((car default-getters) default-date/time) (collect-date/time-values '() default-date/time (cdr default-getters))))
+        (else
+         (cons (car args) (collect-date/time-values (cdr args) default-date/time (cdr default-getters))))))
+
+
+(definition public (collect-date-values args)
+  (assert (<= (length args) 8))
+  (let ((values (reverse (collect-date/time-values args (make-default-date) (list date-year date-month date-day date-hour date-minute date-second date-nanosecond date-zone-offset)))))
+    (append (cdr values) (list (car values)))))
+
+
+(definition public (collect-time-values args)
+  (assert (<= (length args) 3))
+  (reverse (collect-date/time-values args (make-default-time) (list time-second time-nanosecond time-type))))
+
+
+(definition (date/time-literal-parameter-list time/date default-time/date printers)
+  (if (and (not-null? printers)
+           (find-if (lambda (printer) (not (string=? (printer time/date) (printer default-time/date)))) printers))
+      (concatenate " " ((car printers) time/date) (date/time-literal-parameter-list time/date default-time/date (cdr printers)))
     ""))
-  	
-              
+
   
 (class Time-Class extends Class)
 
@@ -61,9 +86,7 @@
   (method override (print output readably)
     (format output "~{{a}{a}}"
       (category-name (class-of self))
-      (date/time-literal-parameter-list self 
-                                        (list time-second time-nanosecond time-type)
-                                        (list 00 0000 (time-type (current-time))))))
+      (date/time-literal-parameter-list self (make-default-time) (map (lambda (proc) (compose ->string proc)) (list time-second time-nanosecond time-type)))))
   
   
   (method override (compare-object target)
@@ -83,9 +106,10 @@
   (method override (print output readably)
     (format output "~{{a}{a}}"
       (category-name (class-of self))
-      (date/time-literal-parameter-list self 
-                                        (list date-year date-month date-day date-hour date-minute date-second date-nanosecond date-zone-offset)
-                                        (list 2000 01 01 00 00 00 0000 (date-zone-offset (current-date))))))
+      (date/time-literal-parameter-list self (make-default-date) (append (map (lambda (format-string) 
+                                                                                (lambda (date) (date->string date format-string))) 
+                                                                              '("~Y" "~m" "~d" "~H" "~M" "~S" "~N"))
+                                                                         (list (compose ->string date-zone-offset))))))
   
   
   (method override (compare-object target)

@@ -38,74 +38,15 @@
 (module protected jazz.ui.locale.Localized-Domain jazz
 
 
-(import (jazz.designer))
+(import (jazz.designer)
+        (jazz.library)
+        (jazz.locale))
 
 
-(class undocumented Localized-Domain extends String-Domain)
+(class undocumented Localized-Domain extends String-Domain
+  
+  
+  (method override (validate-value property value component root editor context manager)
+    (unless (or (string? value) (is? value Locales))
+      (add-violation~ manager (new Integrity-Violation message: (format "Property {a} must be a string or a Locales object: {t}" (field-name property) value) property: property) component root editor)))))
 
-
-@convert (
-(class undocumented Localized-Domain extends Value-Domain
-  
-  
-  (slot localized? initialize #f)
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method override (present value)
-    (if (is? value Locales)
-        (format "{l}" (get-locales~ value))
-      (format "{a}" value)))
-  
-  
-  ;;;
-  ;;;; Edition
-  ;;;
-  
-  
-  (method override (get-edited-value)
-    (if (not localized?)
-        (get-string-content~ editor)
-      (let ((fact (new List-Factory)))
-        (iterate (get-sons)
-                 (lambda (subrow)
-                   (put~ fact (get-user-data~ subrow))
-                   (put~ fact (get-value~ subrow))))
-        (apply new Locales (get-output~ fact)))))
-  
-  
-  (method override (get-edited-modified?)
-    (if (not localized?)
-        (nextmethod)
-      (get-list-edited-modified?)))
-  
-  
-  (method override (set-edited-modified? flag)
-    (if (not localized?)
-        (nextmethod flag)
-      (set-list-edited-modified? flag)))
-  
-  
-  (method override (edit)
-    (set! localized? (is? value Locales))
-    (if (not localized?)
-        (edit-in-cell)
-      (for-each (lambda (locale)
-                  (add-row self locale (get-locale~ value locale) class: Locale-Row user-data: locale))
-                (get-locales)))
-    (expand/collapse~ (get-tree) self))
-  
-  
-  (method override (close-editor)
-    (if (not localized?)
-        (close-in-cell-editor)
-      (close-in-list-editor)))
-  
-  
-  (method override (in-edition?)
-    (or (nextmethod)
-        (and localized? (> (cardinality (get-sons)) 0)))))))

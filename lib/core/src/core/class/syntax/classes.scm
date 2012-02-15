@@ -127,6 +127,9 @@
    (interface-table    () ())))
 
 
+(jazz:define-virtual (jazz:write-object (jazz:Class class) we obj))
+
+
 (jazz:define-macro (%%class-subtype? target class)
   (jazz:with-uniqueness target
     (lambda (trg)

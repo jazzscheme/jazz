@@ -618,6 +618,13 @@
 (jazz:define-class-runtime jazz:Class)
 
 
+(jazz:define-virtual-runtime (jazz:write-object (jazz:Class class) we obj))
+
+
+(jazz:define-method (jazz:write-object (jazz:Class class) we obj)
+  (##default-wr we obj))
+
+
 (define (jazz:new-class class-of-class identifier ascendant interfaces)
   (define (compute-class-ancestors class ascendant interfaces)
     (let ((ancestors '()))

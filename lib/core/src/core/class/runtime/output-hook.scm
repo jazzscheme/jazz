@@ -50,6 +50,7 @@
           (lambda (we obj)
             (cond ((and (##jazz? obj) jazz:print-hook)
                    (jazz:print-hook obj (jazz:writeenv-port we) (jazz:writeenv-style we)))
-                  (else (##default-wr we obj))))))
+                  (else
+                   (jazz:write-object (jazz:class-of obj) we obj))))))
   
   (else)))

@@ -71,6 +71,11 @@
   `(time? ,value))
 
 
+(jazz:define-method (jazz:write-object (time:Time-Class type) we obj)
+  (let ((detail (if (eq? (jazz:writeenv-style we) 'display) ':human ':reader)))
+    (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
+
+
 (jazz:encapsulate-class time:Time-Class)
 
 
@@ -104,6 +109,11 @@
 
 (jazz:define-method (jazz:emit-test (time:Date-Class type) value source-declaration environment)
   `(date? ,value))
+
+
+(jazz:define-method (jazz:write-object (time:Date-Class type) we obj)
+  (let ((detail (if (eq? (jazz:writeenv-style we) 'display) ':human ':reader)))
+    (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
 
 
 (jazz:encapsulate-class time:Date-Class)

@@ -39,6 +39,7 @@
 
 
 (import (jazz.debugger)
+        (jazz.graphic)
         (jazz.io)
         (jazz.jml)
         (jazz.library)
@@ -209,13 +210,11 @@
   
   
   (method public (update (user-origin: user-origin #f))
-    (define (process-image debugger process live? focused? processes manager)
+    (define (process-image debugger process live? processes manager)
       (cond ((standard-process-image~ debugger)
              => identity)
             ((not live?)
              {Image-Resource "ProcessDead"})
-            ((and (get-focused-mode?~ manager) focused?)
-             {Image-Resource "Script"})
             ((not (process-received-filenames?~ manager process))
              {Image-Resource "Link"})
             ((member? process processes test: debugged=?)
@@ -241,11 +240,12 @@
           (for-each-process~ manager
             (lambda (debugger process live? focused?)
               (let ((title (present~ process))
-                    (image (process-image debugger process live? focused? processes manager))
+                    (image (process-image debugger process live? processes manager))
+                    (font (and (get-focused-mode?~ manager) focused? {Font Link-Small}))
                     (frame-color (get-stopped-frame-color~ manager process))
                     (background (get-visited-highlight-color~ manager process)))
                 (set-alive?~ manager process live?)
-                (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: process)))
+                (add-row~ tree children: (list (new Tree-Node title: title font: font image: image frame-color: frame-color background: background)) user-data: process)))
             live-test?: user-origin))))
     
     (with-system-exception-debugger
@@ -336,13 +336,20 @@
       (let ((manager (get-debugger-manager))
             (menu (new Process-Menu client: self)))
         (let ((alive? (get-alive?~ manager object))
+              (evaluate (process-evaluate-when~ manager object))
               (focusable? (focusable?~ object)))
+          (define (update-evaluate state evaluate)
+            (set-selected?~ (locate~ menu state) (eq? state evaluate)))
+          
           (unless (and focusable? alive?)
             (set-visible?~ (locate~ menu 'focus) #f))
           (when (and focusable? alive?)
             (set-title~ (locate~ menu 'exit) "Exit"))
           (when (not alive?)
-            (set-title~ (locate~ menu 'exit) "Remove Process")))
+            (set-title~ (locate~ menu 'exit) "Remove Process"))
+          (update-evaluate 'never evaluate)
+          (update-evaluate 'known evaluate)
+          (update-evaluate 'always evaluate))
         (cleanup-separators~ menu)
         (layout-menu~ menu)
         menu))
@@ -368,6 +375,16 @@
   
   (method (focus-selected-process)
     (focus-process~ (get-debugger-manager) (selected-process)))
+  
+  
+  (method (evaluate-never-process)
+    (process-evaluate-never~ (get-debugger-manager) (selected-process)))
+  
+  (method (evaluate-known-process)
+    (process-evaluate-known~ (get-debugger-manager) (selected-process)))
+  
+  (method (evaluate-always-process)
+    (process-evaluate-always~ (get-debugger-manager) (selected-process)))
   
   
   (method (refresh-selected-process)
@@ -414,6 +431,10 @@
     (<install>
       (<Label-Item>     name: focus   title: "Focus" default?: #t icon: {Image-Resource "Script"} action-handler: {Event-Handler :form on-focus})
       (<Separator-Item>)
+      (<Radio-Item>     name: never   title: "Evaluate Never" icon: {Image-Resource "ServerStopped"} action-handler: {Event-Handler :form on-evaluate-never})
+      (<Radio-Item>     name: known   title: "Evaluate Known" icon: {Image-Resource "ServerClosing"} action-handler: {Event-Handler :form on-evaluate-known})
+      (<Radio-Item>     name: always  title: "Evaluate Always" icon: {Image-Resource "ServerRunning"} action-handler: {Event-Handler :form on-evaluate-always})
+      (<Separator-Item>)
       (<Label-Item>     name: refresh title: "Refresh Information" icon: {Image-Resource "Refresh"} action-handler: {Event-Handler :form on-refresh})
       (<Separator-Item>)
       (<Label-Item>     name: exit    title: "Close" action-handler: {Event-Handler :form on-exit})))
@@ -421,6 +442,16 @@
   
   (method (on-focus evt)
     (focus-selected-process~ client))
+  
+  
+  (method (on-evaluate-never evt)
+    (evaluate-never-process~ client))
+  
+  (method (on-evaluate-known evt)
+    (evaluate-known-process~ client))
+  
+  (method (on-evaluate-always evt)
+    (evaluate-always-process~ client))
   
   
   (method (on-refresh evt)

@@ -56,16 +56,17 @@
 (class Debugger-Manager extends Object
   
   
-  (slot active-stops     initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot unvisited-stops  initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot unzoomed-stops   initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot liveliness-cache initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot focused-mode?    initialize #f getter generate)
-  (slot focused-process  initialize #f getter generate)
+  (slot active-stops        initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot unvisited-stops     initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot unzoomed-stops      initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot liveliness-cache    initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot evaluated-processes initialize (make-table test: debugged=? hash: debugged-hash))
+  (slot focused-mode?       initialize #f getter generate)
+  (slot focused-process     initialize #f getter generate)
   
-  (slot process          initialize #f getter generate)
-  (slot thread           initialize #f getter generate)
-  (slot frame            initialize #f getter generate)
+  (slot process             initialize #f getter generate)
+  (slot thread              initialize #f getter generate)
+  (slot frame               initialize #f getter generate)
   
   
   (method override (initialize)
@@ -150,6 +151,25 @@
   
   (method public (get-active-stops debugged)
     (table-ref active-stops debugged '()))
+  
+  
+  ;;;
+  ;;;; Evaluate
+  ;;;
+  
+  
+  (method public (process-evaluate-when process)
+    (table-ref evaluated-processes process 'known))
+  
+  
+  (method public (process-evaluate-never process)
+    (table-set! evaluated-processes process 'never))
+  
+  (method public (process-evaluate-known process)
+    (table-set! evaluated-processes process 'known))
+  
+  (method public (process-evaluate-always process)
+    (table-set! evaluated-processes process 'always))
   
   
   ;;;
@@ -538,11 +558,11 @@
   
   
   (method public (effective-filename-processes filename)
-    (let ((filename-processes (determine-filename-processes filename)))
+    (let ((processes (determine-filename-processes filename)))
       (if focused-mode?
           (let ((focused-processes (or (determine-focused-processes) '())))
-            (intersection test: debugged=? focused-processes filename-processes))
-        (filter-unfocused-processes~ (get-application) filename-processes))))
+            (intersection test: debugged=? focused-processes processes))
+        (filter-unfocused-processes~ (get-application) processes))))
   
   
   (method public (determine-focused-processes)

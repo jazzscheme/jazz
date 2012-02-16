@@ -154,7 +154,7 @@
   
   
   ;;;
-  ;;;; Evaluate
+  ;;;; Evaluation
   ;;;
   
   
@@ -548,30 +548,56 @@
   
   
   (method public (filename-processes filename)
-    (let ((processes (effective-filename-processes filename)))
-      (when (and (null? processes)
-                 focused-mode?)
-        (case (message-box (format "No focused process contains this file ({a}).{%}{%}Do you want to force evaluation?" filename) type: 'question yes: "Force" no: "Cancel")
-          ((no)
-           (signal-cancel))))
-      processes))
+    (let ((always (collect-always-processes))
+          (processes (effective-filename-processes-except-always filename)))
+      (let ((forced (difference always processes test: debugged=?)))
+        (if (not-null? forced)
+            (case (message-box (format "Some processes do not contain the current file: {a}.{%}{%}Do you want to force evaluation?" filename) type: 'confirmation yes: "Force" no: "Known")
+              ((yes)
+               (union test: debugged=? always processes))
+              ((no)
+               processes)
+              ((cancel)
+               (signal-cancel)))
+          processes))))
+  
+  
+  (method public (effective-filename-processes-except-always filename)
+    (remove-never-processes
+      (let ((processes (determine-filename-processes filename)))
+        (if focused-mode?
+            (let ((focused-processes (or (determine-focused-processes) '())))
+              (intersection test: debugged=? focused-processes processes))
+          processes))))
   
   
   (method public (effective-filename-processes filename)
-    (let ((processes (determine-filename-processes filename)))
-      (if focused-mode?
-          (let ((focused-processes (or (determine-focused-processes) '())))
-            (intersection test: debugged=? focused-processes processes))
-        (filter-unfocused-processes~ (get-application) processes))))
+    (union test: debugged=?
+      (effective-filename-processes-except-always filename)
+      (collect-always-processes)))
   
   
   (method public (determine-focused-processes)
     (when (and focused-mode? focused-process)
-      (filter-focused-processes~ (get-application)
-        (let ((debugger (get-debugger~ focused-process)))
-          (map (lambda (process)
-                 (new Debugged-Process debugger process process))
-               (determine-process-processes~ debugger (get-reference~ focused-process)))))))
+      (let ((debugger (get-debugger~ focused-process)))
+        (map (lambda (process)
+               (new Debugged-Process debugger process process))
+             (determine-process-processes~ debugger (get-reference~ focused-process))))))
+  
+  
+  (method (remove-never-processes processes)
+    (collect-if (lambda (process)
+                  (neq? (process-evaluate-when process) 'never))
+                processes))
+  
+  
+  (method (collect-always-processes)
+    (let ((queue (new-queue)))
+      (for-each-process
+        (lambda (debugger debugged-process live? focused?)
+          (when (eq? (process-evaluate-when debugged-process) 'always)
+            (enqueue queue debugged-process))))
+      (queue-list queue)))
   
   
   (method public (determine-filename-processes filename)

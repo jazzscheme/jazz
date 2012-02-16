@@ -152,21 +152,22 @@
   
   
   (method (insert-processes)
-    (define (process-image process live? focused?) ;; dup from processes update
+    (define (process-image manager process live?) ;; dup from processes update
       (cond ((not live?)
              {Image-Resource "ProcessDead"})
-            ((not focused?)
-             (or (get-icon~ process) {Image-Resource "Process"}))
+            ((not (process-received-filenames?~ manager process))
+             {Image-Resource "Link"})
             (else
              {Image-Resource "Script"})))
     
-    (for-each-process~ (get-debugger-manager)
-      (lambda (debugger process live? focused?)
-        (let ((title (present~ process))
-              (icon (process-image process live? focused?)))
-          (let ((item (new Radio-Item parent: self title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list process: process)))))
-            (set-enabled?~ item live?)
-            (set-selected?~ item focused?))))))
+    (let ((manager (get-debugger-manager)))
+      (for-each-process~ manager
+        (lambda (debugger process live? focused?)
+          (let ((title (present~ process))
+                (icon (process-image manager process live?)))
+            (let ((item (new Radio-Item parent: self title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list process: process)))))
+              (set-enabled?~ item live?)
+              (set-selected?~ item focused?)))))))
   
   
   (method (on-action evt)

@@ -206,6 +206,15 @@
       form-src)))
 
 
+(syntax public (local-context form-src)
+  (let ((names (cdr (source-code form-src))))
+    (sourcify-if
+      `(list ,@(map (lambda (name)
+                      `(cons ',(source-code name) ,name))
+                    names))
+      form-src)))
+
+
 ;; @macro (push! x (f)) @expansion (set! x (cons x (f)))
 
 (define (expand-push! location value)

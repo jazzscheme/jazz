@@ -87,7 +87,30 @@
                      (write-char c out))))
                 ((#\{)
                  (if context
-                     (binding-directive (read-parameters input) context output?)
+                     (let ((parameters (read-parameters input)))
+                       (assert (not-null? parameters)
+                         (let ((name (car parameters)))
+                           (cond ((noarg-letter->directive name)
+                                  => (lambda (directive)
+                                       (let ((parameters (cdr parameters)))
+                                         (dispatch-directive directive parameters output?))))
+                                 ((enumerator? name)
+                                  (let ((name (enumerator->symbol name)))
+                                    (let ((directive (name->directive name))
+                                          (parameters (cdr parameters)))
+                                      (dispatch-directive directive parameters output?))))
+                                 (else
+                                  (let ((binding (assv name context)))
+                                    (if binding
+                                        (let ((value (cdr binding))
+                                              (parameters (cdr parameters)))
+                                          (add-argument value)
+                                          (if (null? parameters)
+                                              (dispatch-directive #\a parameters output?)
+                                            (let ((directive (name->directive (enumerator->symbol (car parameters))))
+                                                  (parameters (cdr parameters)))
+                                              (dispatch-directive directive parameters output?))))
+                                      (error "Unable to find binding: {s}" name))))))))
                    (let ((c (peek-char input)))
                      (case c
                        ((#\?)
@@ -101,30 +124,64 @@
                        (else
                         (let ((directive (read-char input))
                               (parameters (read-parameters input)))
-                          (case directive
-                            ((#\a) (display-directive parameters output?))
-                            ((#\s) (write-directive parameters output?))
-                            ((#\t) (text-directive parameters output?))
-                            ((#\p) (print-directive parameters output?))
-                            ((#\c) (char-directive parameters output?))
-                            ((#\u) (unsigned-directive parameters output?))
-                            ((#\b) (binary-directive parameters output?))
-                            ((#\x) (hexadecimal-directive parameters output?))
-                            ((#\r) (real-directive parameters output?))
-                            ((#\l) (list-directive parameters output?))
-                            ((#\k) (properties-directive parameters output?))
-                            ((#\_) (column-directive parameters output?))
-                            ((#\&) (tab-directive parameters output?))
-                            ((#\%) (newline-directive parameters output?))
-                            ((#\$) (freshline-directive parameters output?))
-                            ((#\!) (force-directive parameters output?))
-                            ((#\z) (localize-directive parameters output?))
-                            (else (error "Unknown format directive ~{{c}}" directive)))))))))
+                          (if (eqv? directive #\:)
+                              (assert (not-null? parameters)
+                                (bind (name . parameters) parameters
+                                  (dispatch-directive (name->directive name) parameters output?)))
+                            (dispatch-directive directive parameters output?))))))))
                 (else
                  (when output?
                    (write-char c out))))))))
       (when (and (toplevel? input) (not (arguments-empty?)))
         (error "Too many format arguments")))
+    
+    (define (dispatch-directive directive parameters output?)
+      (case directive
+        ((#\a) (display-directive parameters output?))
+        ((#\s) (write-directive parameters output?))
+        ((#\t) (text-directive parameters output?))
+        ((#\p) (print-directive parameters output?))
+        ((#\c) (char-directive parameters output?))
+        ((#\u) (unsigned-directive parameters output?))
+        ((#\b) (binary-directive parameters output?))
+        ((#\x) (hexadecimal-directive parameters output?))
+        ((#\r) (real-directive parameters output?))
+        ((#\l) (list-directive parameters output?))
+        ((#\k) (properties-directive parameters output?))
+        ((#\_) (column-directive parameters output?))
+        ((#\&) (tab-directive parameters output?))
+        ((#\%) (newline-directive parameters output?))
+        ((#\$) (freshline-directive parameters output?))
+        ((#\!) (force-directive parameters output?))
+        (else (error "Unknown format directive ~{{c}}" directive))))
+    
+    (define (noarg-letter->directive letter)
+      (case letter
+        ((_) #\_)
+        ((&) #\&)
+        ((%) #\%)
+        (($) #\$)
+        ((!) #\!)
+        (else #f)))
+    
+    (define (name->directive name)
+      (case name
+        ((display)     #\a)
+        ((write)       #\s)
+        ((text)        #\t)
+        ((print)       #\p)
+        ((char)        #\c)
+        ((unsigned)    #\u)
+        ((binary)      #\b)
+        ((hexadecimal) #\x)
+        ((real)        #\r)
+        ((list)        #\l)
+        ((properties)  #\k)
+        ((column)      #\_)
+        ((tab)         #\&)
+        ((newline)     #\%)
+        ((freshline)   #\$)
+        ((force)       #\!)))
     
     (define (read-parameters input)
       (read-delimited input "format parameter" #\}))
@@ -314,27 +371,6 @@
     (define (force-directive parameters output?)
       (when output?
         (force-output out)))
-
-    (define (binding-directive parameters context output?)
-      (assert (not-null? parameters)
-        (let ((name (car parameters)))
-          (let ((binding (assv name context)))
-            (if binding
-                (let ((value (cdr binding)))
-                  (when output?
-                    (with-justification (cdr parameters)
-                      (lambda (output)
-                        (display value output)))))
-              (error "Unable to find binding: {s}" name))))))
-    
-    (define (localize-directive parameters output?)
-      (unimplemented 'localize-directive)
-      @unimpl
-      (let ((argument (localize (next-argument))))
-        (when output?
-          (with-justification parameters
-            (lambda (output)
-              (display argument output))))))
     
     ;;;
     ;;;; Justification
@@ -437,6 +473,9 @@
           (error "Not enough format arguments for {t}" control-string)
         (prog1 (car arguments-scan)
           (set! arguments-scan (cdr arguments-scan)))))
+    
+    (define (add-argument arg)
+      (set! arguments-scan (cons arg arguments-scan)))
     
     (process control-reader #f #t))
   

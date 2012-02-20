@@ -115,7 +115,7 @@
             ;; end of the last line
             ((and (= rs re) (not end))
              (let* ((line <Line> (last lines))
-                    (beginning (get-h~ (col->view~ line re #f)))
+                    (beginning (get-h~ (col->view~ line re)))
                     (right (+ left-padding (- width left)))
                     (rect (new Rect (+ left beginning) (+ top (get-top~ line)) (+ left right) (+ top (get-bottom~ line))))
                     (offset (offset-rect rect left top)))
@@ -559,29 +559,43 @@
   
   
   (method protected (col->view col <fx>) <Point>
-    (let ((last (last lines)))
+    (let ((last-line (last lines)))
       (continuation-capture
         (lambda (return)
+          (define (view->point view)
+            (new Point
+              (+ (paragraph-left) (get-h~ view))
+              (get-v~ view)))
+          
           (for-each (lambda (line <Line>)
-                      (let* ((strict? (neq? line last))
-                             (view (col->view~ line (- col (get-offset~ line)) strict?)))
-                        (when view
-                          (continuation-return return (new Point (+ (paragraph-left) (get-h~ view)) (get-v~ view))))))
+                      (when (neq? line last-line)
+                        (let ((offset-col (- col (get-offset~ line))))
+                          (let ((view (col->view-strict~ line offset-col)))
+                            (when view
+                              (continuation-return return (view->point view)))))))
                     lines)
-          #f))))
+          (let ((offset-col (- col (get-offset~ last-line))))
+            (view->point (col->view~ last-line offset-col)))))))
   
   
   (method protected (col->view-extended col <fx>)
-    (let ((last (last lines)))
+    (let ((last-line (last lines)))
       (continuation-capture
         (lambda (return)
+          (define (view->point view)
+            (new Point
+              (+ (paragraph-left) (get-h~ view))
+              (get-v~ view)))
+          
           (for-each (lambda (line <Line>)
-                      (let* ((strict? (neq? line last))
-                             (view (col->view~ line (- col (get-offset~ line)) strict?)))
-                        (when view
-                          (continuation-return return (cons line (new Point (+ (paragraph-left) (get-h~ view)) (get-v~ view)))))))
+                      (when (neq? line last-line)
+                        (let ((offset-col (- col (get-offset~ line))))
+                          (let ((view (col->view-strict~ line offset-col)))
+                            (when view
+                              (continuation-return return (cons line (view->point view))))))))
                     lines)
-          #f))))
+          (let ((offset-col (- col (get-offset~ last-line))))
+            (cons last-line (view->point (col->view~ last-line offset-col))))))))
   
   
   (method protected (col->text col <fx>) <Cell>

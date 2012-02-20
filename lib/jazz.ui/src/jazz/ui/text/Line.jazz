@@ -111,8 +111,8 @@
 
 
   (method protected (range-region paragraph-left paragraph-top paragraph-width start end paragraph transformer)
-    (let ((left (get-h~ (col->view (or start 0) #f)))
-          (right (if (not end) paragraph-width (get-h~ (col->view end #f)))))
+    (let ((left (get-h~ (col->view (or start 0))))
+          (right (if (not end) paragraph-width (get-h~ (col->view end)))))
       (let ((rect (new Rect left top right (get-bottom))))
         (let ((offset-rect (offset-rect rect paragraph-left paragraph-top)))
           (new Region keep-rectangles?: #t rect: (transformer offset-rect))))))
@@ -177,7 +177,7 @@
             (get-length))))))
   
   
-  (method protected (col->view col <fx> strict? <bool>) <Point>
+  (method protected (col->view col <fx>) <Point>
     (let ((rightmost 0))
       (continuation-capture
         (lambda (return)
@@ -190,8 +190,17 @@
           ;; center or right justification to be correctly aligned.
           (unless (not-null? runs)
             (set! rightmost left))
-          (unless strict?
-            (new Point rightmost top))))))
+          (new Point rightmost top)))))
+  
+  
+  (method protected (col->view-strict col <fx>) <Point+>
+    (continuation-capture
+      (lambda (return)
+        (scan #f
+          (lambda (c n left mid right)
+            (when (= n col)
+              (continuation-return return (new Point left top)))))
+        #f)))
   
   
   (method protected (col->text col <fx>) <Cell+>

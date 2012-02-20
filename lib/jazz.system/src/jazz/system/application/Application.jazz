@@ -273,79 +273,75 @@
 
 
   ;;;
-  ;;;; Clipboard Stack
+  ;;;; Clipboard Ring
   ;;;
 
   
-  (definition Clipboard-Stack
+  (definition Clipboard-Ring
     '())
   
-  (definition Max-Stack
+  (definition Max-Ring
     256)
   
   
-  (method public (get-clipboard-stack)
-    Clipboard-Stack)
+  (method public (get-clipboard-ring)
+    Clipboard-Ring)
   
   
-  (method public (empty-clipboard-stack?)
-    (null? Clipboard-Stack))
+  (method public (empty-clipboard-ring?)
+    (null? Clipboard-Ring))
   
   
   (method public (add-clipboard)
     (let ((clipboard (get-clipboard)))
       (when clipboard
-        (set! Clipboard-Stack (cons clipboard Clipboard-Stack))
+        (set! Clipboard-Ring (cons clipboard Clipboard-Ring))
         (trim-clipboard)
         (update-focus-actions))))
   
   
   (method public (push-clipboard-list list)
     (let ((pushed (length list)))
-      (if (> pushed Max-Stack)
-          (error "Unable to push list of {a} onto the clipboard stack" pushed)
-        (set! Clipboard-Stack (append list Clipboard-Stack))
+      (if (> pushed Max-Ring)
+          (error "Unable to push list of {a} onto the clipboard ring" pushed)
+        (set! Clipboard-Ring (append list Clipboard-Ring))
         (trim-clipboard)
         (update-focus-actions))))
   
   
   (definition (trim-clipboard)
-    (when (> (length Clipboard-Stack) Max-Stack)
-      (set-cdr! (tail Clipboard-Stack (- Max-Stack 1)) '())))
+    (when (> (length Clipboard-Ring) Max-Ring)
+      (set-cdr! (tail Clipboard-Ring (- Max-Ring 1)) '())))
   
   
   (method (pop-clipboard)
-    (let ((clipboard (car Clipboard-Stack)))
-      (set! Clipboard-Stack (cdr Clipboard-Stack))
+    (let ((clipboard (car Clipboard-Ring)))
+      (set! Clipboard-Ring (cdr Clipboard-Ring))
       (set-clipboard clipboard)
       (update-focus-actions)
       clipboard))
-  
-  
-  (method public (cycle-clipboard)
-    (let ((clipboard (get-clipboard)))
-      (let ((res (pop-clipboard)))
-        (if (null? Clipboard-Stack)
-            (set! Clipboard-Stack (list clipboard))
-          (set-cdr! (last-pair Clipboard-Stack) (list clipboard)))
-        res)))
-  
-  
-  (method public (cycle-clipboard-reversed)
-    (let ((clipboard (get-clipboard)))
-      (let ((res (last Clipboard-Stack)))
-        (set! Clipboard-Stack (cons clipboard (butlast Clipboard-Stack)))
-        (set-clipboard res)
-        res)))
 
   
-  (method package (paste-cycle-stack reversed?)
-    (if (null? Clipboard-Stack)
+  (method package (paste-cycle-ring reversed?)
+    (define (cycle-clipboard actual-clipboard)
+      (let ((res (pop-clipboard)))
+        (if (null? Clipboard-Ring)
+            (set! Clipboard-Ring (list actual-clipboard))
+          (set-cdr! (last-pair Clipboard-Ring) (list actual-clipboard)))
+        res))
+    
+    (define (cycle-clipboard-reversed actual-clipboard)
+      (let ((res (last Clipboard-Ring)))
+        (set! Clipboard-Ring (cons actual-clipboard (butlast Clipboard-Ring)))
+        (set-clipboard res)
+        res))
+    
+    (if (null? Clipboard-Ring)
         (bell)
       (let ((focus (get-focus))
-            (actual-clipboard (get-clipboard))
-            (clipboard (if reversed? (cycle-clipboard-reversed) (cycle-clipboard))))
-        (cycle-paste-clipboard~ focus actual-clipboard clipboard))))
+            (actual-clipboard (get-clipboard)))
+        (let ((clipboard (if reversed? (cycle-clipboard-reversed actual-clipboard) (cycle-clipboard actual-clipboard))))
+          (cycle-paste-clipboard~ focus actual-clipboard clipboard)))))
   
   
   (method package (on-copy-formatted evt)
@@ -355,12 +351,12 @@
         (copy-formatted-selection~ focus))))
   
   
-  (method package (on-paste-cycle-stack evt)
-    (paste-cycle-stack #f))
+  (method package (on-paste-cycle-ring evt)
+    (paste-cycle-ring #f))
 
 
-  (method package (on-paste-cycle-stack-reversed evt)
-    (paste-cycle-stack #t))
+  (method package (on-paste-cycle-ring-reversed evt)
+    (paste-cycle-ring #t))
   
   
   ;;;
@@ -821,8 +817,8 @@
         (set-action-enabled? {Action view copy} (and view? (can-view-copy?~ focus)))
         (set-action-enabled? {Action application copy-formatted} (and view? (can-view-copy?~ focus)))
         (set-action-enabled? {Action view paste} (and view? (can-view-paste?~ focus)))
-        (set-action-enabled? {Action application paste-cycle-stack} (and view? (can-view-paste?~ focus) (not-null? Clipboard-Stack)))
-        (set-action-enabled? {Action application paste-cycle-stack-reversed} (and view? (can-view-paste?~ focus) (not-null? Clipboard-Stack)))
+        (set-action-enabled? {Action application paste-cycle-ring} (and view? (can-view-paste?~ focus) (not-null? Clipboard-Ring)))
+        (set-action-enabled? {Action application paste-cycle-ring-reversed} (and view? (can-view-paste?~ focus) (not-null? Clipboard-Ring)))
         (set-action-enabled? {Action view paste-properties} (and view? (can-view-paste-properties?~ focus)))
         (set-action-enabled? {Action view delete} (and view? (can-view-delete?~ focus)))
         (set-action-enabled? {Action view select-all} (and view? (can-view-select-all?~ focus)))

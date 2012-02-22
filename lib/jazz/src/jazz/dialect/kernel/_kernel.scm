@@ -46,7 +46,6 @@
 
 (native jazz:get-autoload)
 (native jazz:autoload)
-(native jazz:autoreload)
 
 
 ;;;

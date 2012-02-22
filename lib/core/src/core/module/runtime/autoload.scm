@@ -64,6 +64,7 @@
 
 
 (define (jazz:register-autoload name unit-name loader)
+  #f #;
   (let ((actual (jazz:get-autoload name)))
     (if (or (%%not actual) (%%eq? (%%car actual) unit-name))
         (jazz:set-autoload name unit-name loader)
@@ -71,11 +72,6 @@
 
 
 (define (jazz:autoload name)
+  (pp name)
   (let ((autoload-info (jazz:require-autoload name)))
-    ((%%cdr autoload-info))))
-
-
-(define (jazz:autoreload name)
-  (let ((autoload-info (jazz:require-autoload name)))
-    (jazz:reload-unit (%%car autoload-info))
     ((%%cdr autoload-info)))))

@@ -39,39 +39,4 @@
 ;; to classes by name for forms. This problem has to be well thought out...
 
 
-(unit protected core.module.runtime.autoload
-
-
-(define jazz:Autoloads
-  (%%make-table test: eq?))
-
-
-(define (jazz:get-autoloads)
-  jazz:Autoloads)
-
-
-(define (jazz:get-autoload name)
-  (%%table-ref jazz:Autoloads name #f))
-
-
-(define (jazz:set-autoload name unit-name loader)
-  (%%table-set! jazz:Autoloads name (%%cons unit-name loader)))
-
-
-(define (jazz:require-autoload name)
-  (or (jazz:get-autoload name)
-      (jazz:error "Unable to find autoload {s}" name)))
-
-
-(define (jazz:register-autoload name unit-name loader)
-  #f #;
-  (let ((actual (jazz:get-autoload name)))
-    (if (or (%%not actual) (%%eq? (%%car actual) unit-name))
-        (jazz:set-autoload name unit-name loader)
-      (jazz:error "Conflict detected for autoload {s} between {s} and {s}" name (%%car actual) unit-name))))
-
-
-(define (jazz:autoload name)
-  (pp name)
-  (let ((autoload-info (jazz:require-autoload name)))
-    ((%%cdr autoload-info)))))
+(unit protected core.module.runtime.autoload)

@@ -43,6 +43,5 @@
          (core.exception)
          
          (core.module.syntax)
-         (core.module.runtime.autoload)
          (core.module.runtime)
          (core.module.initialize)))

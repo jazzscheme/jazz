@@ -40,15 +40,6 @@
 
 
 ;;;
-;;;; Autoload
-;;;
-
-
-(native jazz:get-autoload)
-(native jazz:autoload)
-
-
-;;;
 ;;;; Boolean
 ;;;
 

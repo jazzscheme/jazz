@@ -37,7 +37,6 @@
 
 (define jazz:Kernel
   (list
-    "kernel/runtime/product"
     "kernel/syntax/header"
     "kernel/syntax/macro"
     "kernel/syntax/block"

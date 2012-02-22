@@ -38,7 +38,8 @@
 (module protected jazz.editor.jazz.tools.Class-Browser jazz
 
 
-(import (jazz.ide)
+(import (jazz.catalog)
+        (jazz.ide)
         (jazz.jml)
         (jazz.library)
         (jazz.system)
@@ -129,31 +130,21 @@
   
   
   (method (on-browse evt)
-    (define (get-root-class)
-      #f
-      @convert-autoload
+    (define (get-class-entry)
       (let ((text (get-text)))
         (if (empty-string? text)
-            Object
-          (let ((name (string->symbol text)))
-            (if (get-autoload name)
-                (autoload name)
-              (if (global-bound? name)
-                  (let ((value (global-ref name)))
-                    (if (category? value)
-                        value
-                      #f))
-                #f))))))
+            (find-entry "Object" 'class)
+          (find-entry text 'class))))
     
-    (let ((root (get-root-class)))
-      (cond ((not root)
-             (message-box (format "Unable to find class: {a}" (get-string-content~ (locate 'name)))))
-            ((not (class? root))
-             (message-box (format "Can only browse classes: {s}" root)))
-            (else
-             (with-cursor :wait
-               (lambda ()
-                 (browse-inheritance-tree root: (get-root-class))))))))
+    (let ((entry (get-class-entry)))
+      (if (not entry)
+          (message-box (format "Unable to find class: {a}" (get-string-content~ (locate 'name))))
+        (let ((kind (get-kind~ entry)))
+          (if (neq? kind 'class)
+              (message-box (format "Can only browse classes: {s}" kind))
+            (with-cursor :wait
+              (lambda ()
+                (browse-inheritance-tree entry))))))))
   
   
   (method override (on-return-press evt)
@@ -165,9 +156,9 @@
            (selection (get-single-selection~ tree)))
       (when selection
         (let* ((row (get-row~ tree selection))
-               (type (get-user-data~ row))
+               (entry (get-user-data~ row))
                (appl (get-application)))
-          (edit-definitions~ appl (category-name type))))))
+          (edit-definitions~ appl (get-name~ entry))))))
 
   
   ;;;
@@ -175,19 +166,21 @@
   ;;;
   
   
-  (method (browse-inheritance-tree (root: root Object))
+  (method (browse-inheritance-tree entry)
     (let ((tree (locate 'classes)))
       (define (upward type)
         (let* ((state 'expanded)
-               (title (->string (category-identifier type)))
-               (ascendant (class-ascendant type))
+               (title (->string (get-name~ type)))
+               (ascendant (class-entry-ascendant type))
                (father (and ascendant (upward ascendant))))
           (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Image-Resource "Class"})) user-data: type)))
       
       (define (downward type father)
         (let* ((state 'expanded)
-               (title (->string (category-identifier type)))
+               (title (->string (get-name~ type)))
                (father (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Image-Resource "Class"})) user-data: type)))
+          #f
+          @w
           (for-each (lambda (subtype)
                       (downward subtype father))
                     (sort string<? (category-descendants type) key: (lambda (type)
@@ -196,8 +189,8 @@
       (remove-every-row~ tree)
       (with-update-locked~ tree
         (lambda ()
-          (let ((ascendant (class-ascendant root)))
-            (downward root (and ascendant (upward ascendant))))))))
+          (let ((ascendant (class-entry-ascendant entry)))
+            (downward entry (and ascendant (upward ascendant))))))))
 
   
   ;;;

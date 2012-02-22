@@ -4488,10 +4488,18 @@
 
 (jazz:define-method (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src)
   (let ((symbol (jazz:source-code symbol-src)))
-    (cond ((jazz:enumerator? symbol)
-           (jazz:walk-enumerator walker symbol))
-          (else
-           (jazz:walk-symbol-reference walker resume declaration environment symbol-src)))))
+    (if (jazz:enumerator? symbol)
+        (jazz:walk-enumerator walker symbol)
+      (let ((binding (jazz:lookup-symbol walker resume declaration environment symbol-src)))
+        (if binding
+            (cond ((or (jazz:walk-binding-walkable? binding)
+                       (jazz:walk-binding-expandable? binding))
+                   (jazz:walk-error walker resume declaration symbol-src "Illegal access to syntax: {s}" symbol))
+                  (else
+                   (if (%%class-is? binding jazz:Variable)
+                       (jazz:walk-binding-referenced binding))
+                   (jazz:new-binding-reference symbol-src binding)))
+          (jazz:walk-free-reference walker resume declaration symbol-src))))))
 
 
 (define (jazz:walk-setbang walker resume declaration environment form-src)
@@ -4569,16 +4577,6 @@
 ;;;
 
 
-(define (jazz:walk-symbol-reference walker resume declaration environment symbol-src)
-  (let ((binding (jazz:lookup-symbol walker resume declaration environment symbol-src)))
-    (if binding
-        (begin
-          (if (%%class-is? binding jazz:Variable)
-              (jazz:walk-binding-referenced binding))
-          (jazz:new-binding-reference symbol-src binding))
-        (jazz:walk-free-reference walker resume declaration symbol-src))))
-
-
 (jazz:define-virtual-runtime (jazz:walk-free-reference (jazz:Walker walker) resume declaration symbol-src))
 
 
@@ -4633,15 +4631,16 @@
                         (%%class-is? ref jazz:Declaration))
                     ref)))
             (else #f))))
-      ;; special form
-      (if (and binding (jazz:walk-binding-walkable? binding))
-          (jazz:walk-binding-walk-form binding walker resume declaration environment form-src)
-          ;; macro
-          (if (and binding (jazz:walk-binding-expandable? binding))
-              (let ((expansion (jazz:walk-binding-expand-form binding walker resume declaration environment form-src)))
-                (jazz:walk walker resume declaration environment expansion))
-              ;; call
-              (jazz:walk-call walker resume declaration environment binding form-src))))))
+      (cond ;; special form
+            ((and binding (jazz:walk-binding-walkable? binding))
+             (jazz:walk-binding-walk-form binding walker resume declaration environment form-src))
+            ;; macro
+            ((and binding (jazz:walk-binding-expandable? binding))
+             (let ((expansion (jazz:walk-binding-expand-form binding walker resume declaration environment form-src)))
+               (jazz:walk walker resume declaration environment expansion)))
+            ;; call
+            (else
+             (jazz:walk-call walker resume declaration environment binding form-src))))))
 
 
 ;;;

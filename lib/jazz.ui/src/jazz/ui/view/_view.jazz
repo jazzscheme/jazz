@@ -230,27 +230,25 @@
 
 (definition public (new-dialog guest-class . rest)
   (bind-keywords ((host-title #f) (host-sizable? #f) (host-closable? #t) (host-visible? #t) (guest #f) (initialize #f) . others) rest
-    (let* ((player (new (dialog-class~ guest-class) sizable?: host-sizable? closable?: host-closable? visible?: #f))
-           (host (get-root~ player))
-           (guest (or guest (new-guest guest-class others)))
-           (size (or (host-size~ guest-class) (get-size~ guest)))
-           (pos (or (host-position~ guest-class) (position-dialog size))))
-      (set-title~ player (or host-title (host-title~ guest-class) "Dialog"))
-      (set-size~ player size)
-      (set-position~ player pos)
-      (set-guest~ host guest)
-      ;; Should initialisations done here generate errors, at least
-      ;; parent install is still not done at this point.
+    (let ((guest (or guest (new-guest guest-class others))))
       (when initialize
-        (initialize host guest))
-      (if (has-dialog-result?~ guest)
-          (values #f (get-modal-result~ player))
-        (when host-visible?
-          (set-visible?~ player #t))
-        @is-this-really-necessary?
-        (select-foreground~ player)
-        (focus-host~ host)
-        (values #t host)))))
+        (initialize guest))
+      (let* ((player (new (dialog-class~ guest-class) sizable?: host-sizable? closable?: host-closable? visible?: #f))
+             (host (get-root~ player))
+             (size (or (host-size~ guest-class) (get-size~ guest)))
+             (pos (or (host-position~ guest-class) (position-dialog size))))
+        (set-title~ player (or host-title (host-title~ guest-class) "Dialog"))
+        (set-size~ player size)
+        (set-position~ player pos)
+        (set-guest~ host guest)
+        (if (has-dialog-result?~ guest)
+            (values #f (get-modal-result~ player))
+          (when host-visible?
+            (set-visible?~ player #t))
+          @is-this-really-necessary?
+          (select-foreground~ player)
+          (focus-host~ host)
+          (values #t host))))))
 
 
 (definition public (position-dialog size)
@@ -280,22 +278,20 @@
 
 (definition public (new-palette guest-class . rest)
   (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-visible? #t) (guest #f) (initialize #f) . others) rest
-    (let* ((player (new (palette-class~ guest-class) visible?: #f))
-           (host (get-root~ player))
-           (size (or host-size (get-size~ host)))
-           (pos (or host-position (position-palette size))))
-      (set-title~ player (or host-title (host-title~ guest-class) "Palette"))
-      (set-position~ player pos)
-      (when host-size
-        (set-size~ player host-size))
-      ;; It is important to set the palette's size before installing the guest
-      ;; in order to minimize layouting by having the size right the first time!
-      (let ((guest (or guest (new-guest guest-class others))))
+    (let ((guest (or guest (new-guest guest-class others))))
+      (when initialize
+        (initialize guest))
+      (let* ((player (new (palette-class~ guest-class) visible?: #f))
+             (host (get-root~ player))
+             (size (or host-size (get-size~ host)))
+             (pos (or host-position (position-palette size))))
+        (set-title~ player (or host-title (host-title~ guest-class) "Palette"))
+        (set-position~ player pos)
+        (when host-size
+          (set-size~ player host-size))
+        ;; It is important to set the palette's size before installing the guest
+        ;; in order to minimize layouting by having the size right the first time!
         (set-guest~ host guest)
-        ;; Should initialisations done here generate errors, at least
-        ;; parent install is still not done at this point
-        (when initialize
-          (initialize host guest))
         (layout-view~ host)
         (when host-visible?
           (fade-in~ player)
@@ -309,7 +305,7 @@
          (palette (get-player~ host))
          (initialize (getf rest initialize:)))
     (when initialize
-      (initialize palette guest))
+      (initialize guest))
     (client-activate~ guest)
     (let ((visible? (get-visible?~ palette)))
       (bring-to-front~ palette)
@@ -900,6 +896,8 @@
               (current-stage)))))
       
       (let ((guest (or guest (new-guest guest-class others))))
+        (when initialize
+          (initialize guest))
         (let ((host (new Internal-Frame-Host parent: (determine-stage) visible?: #f)))
           (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
           (set-position~ host (or host-position (cascade-frame-position host guest)))
@@ -907,10 +905,6 @@
           (when host-workspace
             (set-workspace~ host host-workspace))
           (set-guest~ host guest)
-          ;; Should initialisations done here generate errors, at least
-          ;; parent install is still not done at this point
-          (when initialize
-            (initialize host guest))
           (when host-visible?
             (ensure-displayed~ host)
             (bring-to-front~ host)
@@ -942,21 +936,19 @@
   (let ((guest-class (if (class? guest/class) guest/class (class-of guest/class)))
         (guest (if (class? guest/class) #f guest/class)))
     (bind-keywords ((host-title #f) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace #f) (host-visible? #t) (host-focus? #t) (initialize #f) . others) rest
-      (let* ((player (new External-Frame visible?: #f))
-             (host (get-root~ player)))
-        (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
-        (when host-position
-          (set-position~ player host-position))
-        (when host-size
-          (set-size~ player host-size))
-        ;; It is important to set the frame's size before installing the guest
-        ;; in order to minimize layouting by having the size right the first time!
-        (let ((guest (or guest (new-guest guest-class others))))
+      (let ((guest (or guest (new-guest guest-class others))))
+        (when initialize
+          (initialize guest))
+        (let* ((player (new External-Frame visible?: #f))
+               (host (get-root~ player)))
+          (set-title~ host (or host-title (host-title~ guest-class) "Frame"))
+          (when host-position
+            (set-position~ player host-position))
+          (when host-size
+            (set-size~ player host-size))
+          ;; It is important to set the frame's size before installing the guest
+          ;; in order to minimize layouting by having the size right the first time!
           (set-guest~ host guest)
-          ;; Should initialisations done here generate errors, at least
-          ;; parent install is still not done at this point
-          (when initialize
-            (initialize host guest))
           (layout-view~ host)
           (when host-visible?
             (fade-in~ player)

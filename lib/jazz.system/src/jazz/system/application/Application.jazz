@@ -2029,12 +2029,27 @@
       (let ((class (cond ((alt-down?) jazz.editor.jazz:Jazz-Plain-Text-View)
                          ((shift-down?) jazz.editor.jazz:Jazz-Text-View)
                          (else #f))))
-        (for-each (lambda (pathname)
-                    (when (file? pathname)
-                      (if class
-                          (edit-document pathname class: class)
-                        (edit-file pathname))))
-                  pathnames))))
+        (let ((queue (new-queue)))
+          (for-each (lambda (pathname)
+                      (when (file? pathname)
+                        (with-exception-filter
+                          (lambda (exc)
+                            #t)
+                          (lambda (exc)
+                            (enqueue queue pathname))
+                          (lambda ()
+                            (if class
+                                (edit-document pathname class: class)
+                              (edit-file pathname))))))
+                    pathnames)
+          (let ((unreadable (queue-list queue)))
+            (when (not-null? unreadable)
+              (message-box
+                `((,(format "The following file{a} could not be read:" (format-plural (length unreadable))))
+                  ,@(map (lambda (pathname)
+                           `(:bulleted ,(parse~ pathname)))
+                         unreadable))
+                title: "Problems")))))))
   
   
   (method public virtual (edit-file file . rest)

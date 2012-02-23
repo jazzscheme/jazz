@@ -43,10 +43,30 @@
         (jazz.locale))
 
 
-(class undocumented Localized-Domain extends String-Domain
+(class undocumented Localized-Domain extends Value-Domain
+
+  
+  ;;;
+  ;;;; Validation
+  ;;;
   
   
   (method override (validate-value property value component root editor context manager)
-    (unless (or (string? value) (is? value Locales))
-      (add-violation~ manager (new Integrity-Violation message: (format "Property {a} must be a string or a Locales object: {t}" (field-name property) value) property: property) component root editor)))))
+    (cond ((or (string? value) (is? value Locales)))
+          ((symbol? value)
+           (unless (find-child~ component value)
+             (add-violation~ manager (new Integrity-Violation message: (format "Cannot find child named {t}" (field-name property) value) property: property) component root editor)))
+          (else
+           (add-violation~ manager (new Integrity-Violation message: (format "Property {a} can only be a string, a Locales object, or a child Component name: {t}" (field-name property) value) property: property) component root editor))))
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method override (present value)
+    (if (not value)
+        "{}"
+      (->string value :reader)))))
 

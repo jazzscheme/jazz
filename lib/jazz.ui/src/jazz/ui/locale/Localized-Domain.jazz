@@ -39,6 +39,7 @@
 
 
 (import (jazz.designer)
+        (jazz.jml)
         (jazz.library)
         (jazz.locale))
 
@@ -46,18 +47,20 @@
 (class undocumented Localized-Domain extends Value-Domain
 
   
+  (form
+    (<install> nullable?: #f))
+  
+  
   ;;;
   ;;;; Validation
   ;;;
   
   
   (method override (validate-value property value component root editor context manager)
-    (cond ((or (string? value) (is? value Locales)))
-          ((symbol? value)
-           (unless (find-child~ component value)
-             (add-violation~ manager (new Integrity-Violation message: (format "Cannot find child named {t}" (field-name property) value) property: property) component root editor)))
-          (else
-           (add-violation~ manager (new Integrity-Violation message: (format "Property {a} can only be a string, a Locales object, or a child Component name: {t}" (field-name property) value) property: property) component root editor))))
+    (when value
+      (unless (or (string? value) (is? value Locales))
+        (add-violation~ manager (new Integrity-Violation message: (format "Property {a} can only be a string or a Locales object: {t}" (field-name property) value) property: property) component root editor)))
+    (nextmethod property value component root editor context manager))
   
   
   ;;;

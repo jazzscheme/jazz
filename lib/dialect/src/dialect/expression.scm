@@ -165,11 +165,11 @@
                                (if (jazz:match-signature? arguments types function-type)
                                    (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration environment backend)
                                        (begin
-                                         (jazz:add-to-module-references (%%get-declaration-toplevel declaration) specializer)
+                                         (jazz:add-to-module-references (jazz:get-declaration-toplevel declaration) specializer)
                                          (jazz:new-code
-                                           (let ((locator (%%get-declaration-locator specializer)))
+                                           (let ((locator (jazz:get-declaration-locator specializer)))
                                              `(,locator ,@(jazz:codes-forms arguments-codes)))
-                                           (%%get-function-type-result function-type)
+                                           (jazz:get-function-type-result function-type)
                                            #f)))
                                  (iter (%%cdr scan))))))))))
             #f)))))

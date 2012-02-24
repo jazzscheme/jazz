@@ -337,7 +337,7 @@
                   (jazz:debug 'Warning: 'In (jazz:get-declaration-locator declaration) 'unable 'to 'find 'dispatch 'method name))
               #f)
           (begin
-            (add-to-module-references declaration method-declaration)
+            (jazz:add-to-module-references declaration method-declaration)
             method-declaration))))
     
     (define (jazz:with-code-value code proc)

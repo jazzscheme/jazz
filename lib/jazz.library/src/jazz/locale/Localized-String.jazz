@@ -1,0 +1,142 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Localized Strings
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.locale.Localized-String jazz
+
+
+(import (jazz.library)
+        (jazz.locale)
+        (jazz.ui))
+
+
+;;;
+;;;; Localized-String
+;;;
+
+
+(class Localized-String extends Component
+  
+  
+  (property contents    initialize #f accessors generate)
+  
+  
+  (method override (validate-component validation-context)
+    (unless (null? children)
+      (add-violation~ validation-context message: "Localized-String cannot have children"))
+    (nextmethod validation-context))
+  
+
+  (method meta override (get-class-descriptor)
+    (new Localized-String-Descriptor))
+  )
+
+
+;;;
+;;;; Localized-String-Group
+;;;
+
+
+(class Localized-String-Group extends Component
+   
+  
+  (method public (get-contents)
+    (let ((alist (map (lambda (string)
+                        (let ((name (get-name~ string)))
+                          (list (and name (string->symbol (concatenate (symbol->string name) ":")))
+                                (get-contents~ string))))
+                      (collect-descendants Localized-String))))
+      (and (pair? alist)
+           (let ((locales (new Locales)))
+             (set-locales~ locales (fold-right append '() alist))
+             locales))))
+  
+  
+  (method override (validate-component validation-context)
+    (when (pair? children)
+      (unless (every? (lambda (component) (is? component Localized-String)) children)
+        (add-violation~ validation-context message: "not all children are Localized-String")))
+    (nextmethod validation-context))
+      
+  
+  (method meta override (get-class-descriptor)
+    (new Localized-String-Group-Descriptor))
+  )
+
+
+;;;
+;;;; Helper function
+;;;
+
+
+(definition public (localized-strings component group-name)
+  (assert (is? component Component))
+  (let ((group (find-if (lambda (maybe-group) 
+                          (and (equal? group-name (get-name~ maybe-group)) 
+                               (is? maybe-group Localized-String-Group)))
+                        (get-children~ component))))               
+    (and group
+         (get-contents~ group))))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.jml)
+        (jazz.designer))
+
+
+(class Localized-String-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: contents
+          (<String-Domain>     name: domain))))))
+
+
+(class Localized-String-Group-Descriptor extends Component-Descriptor
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    `((,(reference Localized-String)))))))
+

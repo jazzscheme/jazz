@@ -51,10 +51,12 @@
 (class Localized-String extends Component
   
   
-  (property contents    initialize #f accessors generate)
+  (property string initialize #f accessors generate)
   
   
   (method override (validate-component validation-context)
+    (unless (get-name)
+      (add-violation~ validation-context message: "Localized-String name must specify a language and cannot be #f"))
     (unless (null? children)
       (add-violation~ validation-context message: "Localized-String cannot have children"))
     (nextmethod validation-context))
@@ -74,15 +76,14 @@
    
   
   (method public (get-contents)
-    (let ((alist (map (lambda (string)
-                        (let ((name (get-name~ string)))
-                          (list (and name (string->symbol (concatenate (symbol->string name) ":")))
-                                (get-contents~ string))))
+    (let ((alist (collect (lambda (localized-string)
+                            (when (get-name~ localized-string)
+                              (list (standardize-locale (get-name~ localized-string)) (get-string~ localized-string))))
                       (collect-descendants Localized-String))))
-      (and (pair? alist)
-           (let ((locales (new Locales)))
-             (set-locales~ locales (fold-right append '() alist))
-             locales))))
+      (when (pair? alist)
+        (let ((locales (new Locales)))
+          (set-locales~ locales (fold-right append '() alist))
+          locales))))
   
   
   (method override (validate-component validation-context)
@@ -130,7 +131,7 @@
   (form
     (<install>
       (<properties~>
-        (<Property-Descriptor> name: contents
+        (<Property-Descriptor> name: string
           (<String-Domain>     name: domain))))))
 
 

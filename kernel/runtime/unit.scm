@@ -1602,7 +1602,8 @@
                        (for-each end-port/echo free-processes)
                        (exit))))
       (make name))
-    (for-each end-port/echo free-processes)))
+    (for-each end-port/echo free-processes)
+    (if stop-build? 1 0)))
 
 
 (define (jazz:subprocess-build-products port)

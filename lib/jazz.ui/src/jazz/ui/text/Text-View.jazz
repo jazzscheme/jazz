@@ -824,6 +824,7 @@
         (set! previous-position #f)
         (update-caret)
         (set! selection-mode 'char)
+        (process-selection-change)
         @cant-replace-a-selection-by-pasting!
         (mouse-select-copy
           (lambda ()
@@ -857,7 +858,7 @@
                (player (get-player)))
           (with-transformation-surface
             (lambda (surface)
-              (change-selection pos)
+              (change-selection pos generate-event?: #f)
               (with ((region (multi-part-region parts (lambda (rect) (logical->device~ surface rect)))))
                 (when region
                   (if final?
@@ -1651,7 +1652,12 @@
     (get-range~ selection))
   
   
-  (method override (set-selection range <Range$Cell$> (force?: force? #f) (reposition: reposition #f) (ensure-displayed?: ensure-displayed? #t) (set-anchor?: set-anchor? #t))
+  (method override (set-selection range <Range$Cell$>
+                                  (force?: force? #f)
+                                  (reposition: reposition #f)
+                                  (ensure-displayed?: ensure-displayed? #t)
+                                  (generate-event?: generate-event? #t)
+                                  (set-anchor?: set-anchor? #t))
     (validate-range range)
     (when (or force? (/= (cast <Range$Cell$> (get-selection)) range))
       (hide-caret)
@@ -1663,7 +1669,8 @@
         (ensure-displayed reposition: reposition center?: (eq? ensure-displayed? 'center-caret)))
       (unless (and mouse-down? (eq? (get-mouse-in) self))
         (update-focus-actions~ (get-application)))
-      (process-selection-change)))
+      (when generate-event?
+        (process-selection-change))))
   
   
   (method public (update-selection range <Range$Cell$>)

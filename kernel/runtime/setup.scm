@@ -234,129 +234,128 @@
         (%%string->symbol arg)
       arg))
   
-  (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "install" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
-    (lambda (options remaining)
-      (let ((nosource? (jazz:get-option "nosource" options))
-            (debug? (jazz:get-option "debug" options))
-            (force? (jazz:get-option "force" options))
-            (subbuild? (jazz:get-option "subbuild" options))
-            (keep-c? (jazz:get-option "keep-c" options))
-            (expansion? (jazz:get-option "expansion" options))
-            (emit? (jazz:get-option "emit" options))
-            (dry? (jazz:get-option "dry" options))
-            (build-repository (jazz:get-option "build-repository" options))
-            (jazz-repository (jazz:get-option "jazz-repository" options))
-            (repositories (jazz:get-option "repositories" options))
-            (ev (jazz:get-option "eval" options))
-            (load (jazz:get-option "load" options))
-            (test (jazz:get-option "test" options))
-            (run (jazz:get-option "run" options))
-            (update (jazz:get-option "update" options))
-            (make (jazz:get-option "make" options))
-            (build (jazz:get-option "build" options))
-            (install (jazz:get-option "install" options))
-            (compile (jazz:get-option "compile" options))
-            (debugger (jazz:get-option "debugger" options))
-            (link (symbol-argument (jazz:get-option "link" options)))
-            (jobs (number-argument (jazz:get-option "jobs" options)))
-            (port (number-argument (jazz:get-option "port" options))))
-        (define (setup-kernel)
-          (if jazz:kernel-install
-              (let ((gambcdir (jazz:absolutize-directory jazz:kernel-install jazz:gambit-dir)))
-                (if (and gambcdir (jazz:directory-exists? gambcdir))
-                    (##set-gambcdir! gambcdir))))
-          (set! ##allow-inner-global-define? #t)
-          (set! jazz:debugger debugger)
-          (if nosource?
-              (set! jazz:kernel-source-access? #f))
-          (if jazz:kernel-source-access?
-              (begin
-                (jazz:setup-settings)
-                (jazz:process-jazzini #t))))
-        
-        (define (setup-repositories)
-          (if build-repository (jazz:build-repository build-repository))
-          (if jazz-repository (jazz:jazz-repository jazz-repository))
-          (if repositories (jazz:repositories repositories))
-          (jazz:prepare-repositories)
-          (jazz:setup-repositories))
-          
-        (define (setup-runtime)
-          (setup-kernel)
-          (setup-repositories)
-          (jazz:load-libraries))
-        
-        (define (setup-build)
-          (setup-kernel)
-          (jazz:process-buildini #t)
-          (setup-repositories)
-          (set! jazz:link (or link (jazz:build-link)))
-          (set! jazz:link-options (jazz:parse-link jazz:link))
-          (set! jazz:jobs jobs)
-          (if (or debug? (%%eqv? jobs 0) dry?)
-              (jazz:debug-build? #t))
-          (if keep-c?
-              (set! jazz:compile-options (%%cons 'keep-c jazz:compile-options)))
-          (if expansion?
-              (set! jazz:compile-options (%%cons 'expansion jazz:compile-options)))
-          (if emit?
-              (jazz:save-emit? #t))
-          (if dry?
-              (jazz:dry-run? #t)))
-        
-        (define (setup-install)
-          (setup-build))
-        
-        (define (run-scripts lst)
-          (jazz:load-foundation)
-          (for-each (lambda (path)
-                      (if (file-exists? path)
-                          (jazz:load-script path)))
-                    lst))
-        
-        (cond (ev
-               (setup-runtime)
-               (eval (call-with-input-string ev read)))
-              (load
-               (setup-runtime)
-               (jazz:load-unit (%%string->symbol load)))
-              (test
-               (setup-runtime)
-               (jazz:test-product (%%string->symbol test)))
-              (run
-               (setup-runtime)
-               (jazz:run-product (%%string->symbol run)))
-              (jazz:product
-               (setup-runtime)
-               (jazz:run-product jazz:product))
-              (compile
-               (setup-build)
-               (jazz:custom-compile-unit (%%string->symbol compile) force?: force?))
-              (update
-               (setup-build)
-               (jazz:update-product (%%string->symbol update)))
-              (make
-               (setup-build)
-               (jazz:make-product (%%string->symbol make)))
-              (subbuild?
-               (setup-build)
-               (jazz:subprocess-build-products port))
-              (build
-               (setup-build)
-               (jazz:build-product (%%string->symbol build)))
-              (install
-               (setup-install)
-               (jazz:install-product (%%string->symbol install)))
-              ((%%not (%%null? remaining))
-               (setup-runtime)
-               (run-scripts remaining))
-              (else
-               (if debug?
-                   (setup-build)
-                 (setup-runtime))
-               (jazz:repl-main))))))
-  
-  (exit))
+  (let ((exit-code (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "install" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
+                     (lambda (options remaining)
+                       (let ((nosource? (jazz:get-option "nosource" options))
+                             (debug? (jazz:get-option "debug" options))
+                             (force? (jazz:get-option "force" options))
+                             (subbuild? (jazz:get-option "subbuild" options))
+                             (keep-c? (jazz:get-option "keep-c" options))
+                             (expansion? (jazz:get-option "expansion" options))
+                             (emit? (jazz:get-option "emit" options))
+                             (dry? (jazz:get-option "dry" options))
+                             (build-repository (jazz:get-option "build-repository" options))
+                             (jazz-repository (jazz:get-option "jazz-repository" options))
+                             (repositories (jazz:get-option "repositories" options))
+                             (ev (jazz:get-option "eval" options))
+                             (load (jazz:get-option "load" options))
+                             (test (jazz:get-option "test" options))
+                             (run (jazz:get-option "run" options))
+                             (update (jazz:get-option "update" options))
+                             (make (jazz:get-option "make" options))
+                             (build (jazz:get-option "build" options))
+                             (install (jazz:get-option "install" options))
+                             (compile (jazz:get-option "compile" options))
+                             (debugger (jazz:get-option "debugger" options))
+                             (link (symbol-argument (jazz:get-option "link" options)))
+                             (jobs (number-argument (jazz:get-option "jobs" options)))
+                             (port (number-argument (jazz:get-option "port" options))))
+                         (define (setup-kernel)
+                           (if jazz:kernel-install
+                               (let ((gambcdir (jazz:absolutize-directory jazz:kernel-install jazz:gambit-dir)))
+                                 (if (and gambcdir (jazz:directory-exists? gambcdir))
+                                     (##set-gambcdir! gambcdir))))
+                           (set! ##allow-inner-global-define? #t)
+                           (set! jazz:debugger debugger)
+                           (if nosource?
+                               (set! jazz:kernel-source-access? #f))
+                           (if jazz:kernel-source-access?
+                               (begin
+                                 (jazz:setup-settings)
+                                 (jazz:process-jazzini #t))))
+                         
+                         (define (setup-repositories)
+                           (if build-repository (jazz:build-repository build-repository))
+                           (if jazz-repository (jazz:jazz-repository jazz-repository))
+                           (if repositories (jazz:repositories repositories))
+                           (jazz:prepare-repositories)
+                           (jazz:setup-repositories))
+                         
+                         (define (setup-runtime)
+                           (setup-kernel)
+                           (setup-repositories)
+                           (jazz:load-libraries))
+                         
+                         (define (setup-build)
+                           (setup-kernel)
+                           (jazz:process-buildini #t)
+                           (setup-repositories)
+                           (set! jazz:link (or link (jazz:build-link)))
+                           (set! jazz:link-options (jazz:parse-link jazz:link))
+                           (set! jazz:jobs jobs)
+                           (if (or debug? (%%eqv? jobs 0) dry?)
+                               (jazz:debug-build? #t))
+                           (if keep-c?
+                               (set! jazz:compile-options (%%cons 'keep-c jazz:compile-options)))
+                           (if expansion?
+                               (set! jazz:compile-options (%%cons 'expansion jazz:compile-options)))
+                           (if emit?
+                               (jazz:save-emit? #t))
+                           (if dry?
+                               (jazz:dry-run? #t)))
+                         
+                         (define (setup-install)
+                           (setup-build))
+                         
+                         (define (run-scripts lst)
+                           (jazz:load-foundation)
+                           (for-each (lambda (path)
+                                       (if (file-exists? path)
+                                           (jazz:load-script path)))
+                                     lst))
+                         
+                         (cond (ev
+                                 (setup-runtime)
+                                 (eval (call-with-input-string ev read)))
+                               (load
+                                 (setup-runtime)
+                                 (jazz:load-unit (%%string->symbol load)))
+                               (test
+                                 (setup-runtime)
+                                 (jazz:test-product (%%string->symbol test)))
+                               (run
+                                 (setup-runtime)
+                                 (jazz:run-product (%%string->symbol run)))
+                               (jazz:product
+                                 (setup-runtime)
+                                 (jazz:run-product jazz:product))
+                               (compile
+                                 (setup-build)
+                                 (jazz:custom-compile-unit (%%string->symbol compile) force?: force?))
+                               (update
+                                 (setup-build)
+                                 (jazz:update-product (%%string->symbol update)))
+                               (make
+                                 (setup-build)
+                                 (jazz:make-product (%%string->symbol make)))
+                               (subbuild?
+                                 (setup-build)
+                                 (jazz:subprocess-build-products port))
+                               (build
+                                 (setup-build)
+                                 (jazz:build-product (%%string->symbol build)))
+                               (install
+                                 (setup-install)
+                                 (jazz:install-product (%%string->symbol install)))
+                               ((%%not (%%null? remaining))
+                                (setup-runtime)
+                                (run-scripts remaining))
+                               (else
+                                (if debug?
+                                    (setup-build)
+                                  (setup-runtime))
+                                (jazz:repl-main))))))))
+    (exit (if (integer? exit-code) exit-code 0))))
 
 
 (define (jazz:repl-main)

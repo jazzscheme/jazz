@@ -837,11 +837,11 @@
                            symbols)))
              (if (not (null? scan))
                  (let ((symbol (car scan)))
-                   (make-symbol symbol link jobs)
-                   (let ((tail (cdr scan)))
-                     (if (not (null? tail))
-                         (newline (console-port)))
-                     (iter tail)))))))))
+                   (and (make-symbol symbol link jobs)
+                        (let ((tail (cdr scan)))
+                          (if (not (null? tail))
+                              (newline (console-port)))
+                          (iter tail))))))))))
 
 
 (define (jazz:make symbol)
@@ -1114,13 +1114,13 @@
 
 (define (jazz:make-product product configuration link jobs)
   (jazz:make-kernel configuration #f #f)
-  (jazz:call-process
-     (list
-       path: (string-append (jazz:configuration-directory configuration) "kernel")
-       arguments: `("-make"
-                    ,(symbol->string product) "-:daqD"
-                    ,@(if link `("-link" ,(symbol->string link)) '())
-                    ,@(if jobs `("-jobs" ,(number->string jobs)) '())))))
+  (= 0 (jazz:invoke-process
+         (list
+           path: (string-append (jazz:configuration-directory configuration) "kernel")
+           arguments: `("-make"
+                        ,(symbol->string product) "-:daqD"
+                        ,@(if link `("-link" ,(symbol->string link)) '())
+                        ,@(if jobs `("-jobs" ,(number->string jobs)) '()))))))
 
 
 (define (jazz:install-product product configuration)
@@ -1474,8 +1474,9 @@
                      (unknown-option (car remaining))))))
               ((equal? action "make")
                (jazz:setup-kernel-build)
-               (jazz:make-symbols (map read-argument arguments) #t)
-               (exit))
+               (if (jazz:make-symbols (map read-argument arguments) #t)
+                   (exit 0)
+                 (exit 1)))
               ((equal? action "install")
                (jazz:setup-kernel-install)
                (jazz:install-symbols (map read-argument arguments) #t)

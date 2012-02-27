@@ -200,11 +200,13 @@
   (method public (set-client clt)
     (when (neq? clt client)
       (when client
-        (preserve-state client))
+        (preserve-state client)
+        (remove-text-listener~ client self))
       (set! client clt)
       (update)
       (when client
-        (restore-state client))))
+        (restore-state client)
+        (add-text-listener~ client (new Event-Handler execute: (lambda (evt) (highlight-selection)))))))
   
   
   (method (update)
@@ -259,6 +261,28 @@
         (with-update-locked~ tree
           (lambda ()
             (insert-children tree #f (build-tree client)))))))
+
+  
+  ;;;
+  ;;;; Highlight
+  ;;;
+  
+  
+  (method (highlight-selection)
+    (let ((start (get-line~ (get-start~ client)))
+          (tree (locate 'chapters))
+          (min-rank #f)
+          (min-distance #f))
+      (for-each-visible-row~ tree
+        (lambda (row rank)
+          (let ((line (get-line~ (get-user-data~ row))))
+            (when (>= start line)
+              (let ((distance (- start line)))
+                (when (or (not min-distance) (< distance min-distance))
+                  (set! min-rank rank)
+                  (set! min-distance distance)))))))
+      (when min-rank
+        (set-single-selection~ tree min-rank generate-event?: #f))))
   
   
   ;;;

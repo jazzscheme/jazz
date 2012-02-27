@@ -251,12 +251,14 @@
   (method public (set-client/entry clt entry)
     (when (neq? entry client-entry)
       (when client
-        (preserve-state client))
+        (preserve-state client)
+        (remove-text-listener~ client self))
       (set! client clt)
       (set! client-entry entry)
       (update)
       (when client
-        (restore-state client))))
+        (restore-state client)
+        (add-text-listener~ client (new Event-Handler execute: (lambda (evt) (highlight-selection)))))))
   
   
   (method (update)
@@ -332,6 +334,31 @@
              (with-update-locked~ tree
                (lambda ()
                  (insert-entry-definition tree client-entry)))))))
+
+  
+  ;;;
+  ;;;; Highlight
+  ;;;
+  
+  
+  (method (highlight-selection)
+    (let ((start (get-line~ (get-start~ client)))
+          (tree (locate 'definitions))
+          (min-row #f)
+          (min-distance #f))
+      (for-each-row~ tree
+        (lambda (row rank)
+          (let ((data (get-user-data~ row)))
+            (when (is? data Cell)
+              (let ((line (get-line~ (get-start~ data))))
+                (when (>= start line)
+                  (let ((distance (- start line)))
+                    (when (or (not min-distance) (< distance min-distance))
+                      (set! min-row row)
+                      (set! min-distance distance)))))))))
+      (when min-row
+        (ensure-expanded~ tree min-row)
+        (set-single-selection~ tree (row->line~ tree min-row) generate-event?: #f))))
   
   
   ;;;

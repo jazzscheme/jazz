@@ -197,6 +197,7 @@
                 (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
                   (lambda (port)
                     ;; make load resilient to corrupted files
+                    ;; replace #t with #f to debug a catalog loading problem
                     (with-exception-filter
                       (lambda (exc)
                         #t)
@@ -361,21 +362,25 @@
 
   
   (method protected (scan-file file report?)
-    (define (scan file time report?)
+    (define (scan file digest report?)
       (when report?
         (user-feedback "Parsing {a}" file))
       (let ((dialect (get-parser-dialect (get-extension~ file))))
-        (parse~ (get-parser dialect) file time dialect)))
+        (parse~ (get-parser dialect) file digest dialect)))
     
-    (define (unmodified-file-entry file time)
+    (define (unmodified-file-entry file digest)
       (let ((actual (get-file-entry file)))
-        (when (and actual (= (time->seconds (get-time~ actual)) (time->seconds time)))
-          actual)))
+        (when actual
+          (let ((actual-digest (get-digest~ actual)))
+            ;; for backward compatibility with the old format of using times
+            (when (string? actual-digest)
+              (when (string=? actual-digest digest)
+                actual))))))
     
     (when (scan-file? file)
       (if (exists?~ file)
-          (let ((time (get-modification-time~ file)))
-            (let ((file-entry (unmodified-file-entry file time)))
+          (let ((digest (digest-file (parse~ file) 'SHA-1)))
+            (let ((file-entry (unmodified-file-entry file digest)))
               (if file-entry
                   (begin
                     (set-marked?~ file-entry #t)
@@ -386,7 +391,7 @@
                   (lambda (exc)
                     (wrap-exception exc))
                   (lambda ()
-                    (scan file time report?))))))
+                    (scan file digest report?))))))
         (format :console "{%}Unable to catalog inexistant file: {a}" (parse~ file))
         #f)))
   

@@ -780,14 +780,14 @@
           (set! mouse-selecting? #t)
           (set! selection-mode 'char)
           (unless (or (shift-down?) (not focus?))
-            (reset-caret pos))
+            (reset-caret pos generate-event?: #f))
           (let ((par (get-paragraph (get-line~ pos))))
             (if (< (get-h~ view) (paragraph-left~ par))
-                (set-selection (selection-line (get-line~ pos)) set-anchor?: #t)
+                (set-selection (selection-line (get-line~ pos)) generate-event?: #f set-anchor?: #t)
               (when (or focus? (not focus-selects-all?))
                 (if (shift-down?)
-                    (change-selection pos)
-                  (set-caret pos))
+                    (change-selection pos generate-event?: #f)
+                  (set-caret pos generate-event?: #f))
                 (update-caret)))
             (reset-mode)
             (set! previous-position pos))))))
@@ -1692,8 +1692,8 @@
                     (invalidate-region~ player new))))))))))
   
   
-  (method public (reset-caret pos <Cell> (force?: force? #f))
-    (set-selection (new Range$Cell$ pos pos) force?: force?))
+  (method public (reset-caret pos <Cell> . rest)
+    (apply set-selection (new Range$Cell$ pos pos) rest))
   
   
   (method (fit-range range <Range$Cell$>)
@@ -1740,7 +1740,7 @@
     (get-start))
   
   
-  (method public (set-caret pos (force?: force? #f))
+  (method public (set-caret pos . rest)
     (when pos
       ;; lisp tabulate can return negative col
       (let* ((line (min (max 0 (get-line~ pos)) (get-limit)))
@@ -1751,7 +1751,7 @@
                         (= col (get-col~ pos)))
                    pos
                  (new Cell line col))))
-        (reset-caret caret force?: force?))))
+        (apply reset-caret caret rest))))
   
   
   (method protected virtual (selection-change)

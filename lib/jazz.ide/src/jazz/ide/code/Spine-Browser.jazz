@@ -39,6 +39,9 @@
 
 
 (import (jazz.catalog)
+        (jazz.catalog.entry)
+        (jazz.editor.lisp)
+        (jazz.graphic)
         (jazz.ide)
         (jazz.io)
         (jazz.jml)
@@ -66,13 +69,12 @@
   (form
     (<install>                                        layout-type: fill
       (<Layout-View>                name: tools
-        (<Toggle-Tool>              name: occurence?  size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Order by Occurence" resource: {Image-Resource "FindNext"} portfolio: :images action-handler: {Event-Handler :guest on-toggle-occurence})
         (<Push-Tool>                name: update      size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-update}))
       (<Scroller-View>              name: scroller    vscroll?: #t hscroll?: #t style: tool
         (<!>                        name: content     layout-type: fill
           (<Tree-Header>            name: header      shown?: #f
             (<!>                    name: content
-              (<Spine-Tree>     name: definitions portfolio: :images show-header?: #f always-select?: #t selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+              (<Spine-Tree>         name: definitions portfolio: :images show-header?: #f always-select?: #t selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
                 (<Tree-Node-Column>                   title: "Spine" width: 329))))))))
   
   
@@ -86,11 +88,11 @@
   
   
   (method meta override (host-icon)
-    {Image-Resource "Components"})
+    {Image-Resource "AnalysisManager"})
   
   
   (method meta override (host-title)
-    "Spine")
+    "Summary")
   
   
   (method override (client-activate)
@@ -133,19 +135,6 @@
   (method override (focus-default)
     (let ((tree (locate 'definitions)))
       (acquire-focus~ tree)))
- 
-
-  ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  (method (get-occurence?)
-    (get-selected?~ (locate 'occurence?)))
-  
-  
-  (method (get-sorted?)
-    (not (get-occurence?)))
   
   
   ;;;
@@ -163,21 +152,7 @@
   ;;;
   
   
-  (method (on-toggle-occurence evt)
-    (set-sort?~ (locate 'definitions) (get-sorted?))
-    (update))
-  
-  
   (method (on-update evt)
-    (define (reload-jml)
-      (let ((moniker (get-moniker~ (get-document-controller~ client))))
-        (if moniker
-            (set! client-entry (safe-read-form moniker))
-          (set! client-entry #f))))
-    
-    (when (or (is? client-entry Exception) (is? client-entry Form))
-      (reload-jml))
-    (update)
     (highlight-selection))
 
 
@@ -253,86 +228,10 @@
         (remove-text-listener~ client self))
       (set! client clt)
       (set! client-entry entry)
-      (update)
       (when client
         (restore-state client)
         (when (get-highlight-hierarchy?~ (get-preferences 'documents))
           (add-text-listener~ client (new Event-Handler execute: (lambda (evt) (highlight-selection))))))))
-  
-  
-  (method (update)
-    (define (get-entry-title entry)
-      (if (is? entry JML-Node)
-          "JML"
-        (get-title~ entry)))
-    
-    ;; All this should be abstracted into an Hierarchy-Client class
-    ;; with Hierarchy-Catalog-Client and Hierarchy-JML-Client subclasses
-    
-    (define (insert-entry-definition tree entry)
-      (if (is? entry JML-Node)
-          (insert-jml-definition tree #f 0 entry (get-sorted?))
-        (insert-definition~ tree #f 0 entry (get-sorted?))))
-    
-    (define (insert-jml-definition tree father level node sort?)
-      (define (insert-definition father level node sort?)
-        (let ((row (insert-jml-self father level node)))
-          (insert-jml-self-definitions row level node sort?)))
-      
-      (define (insert-jml-self father level node)
-        (let* ((model (get-jml-model father node))
-               (image (if (and model (subtype? model Component)) (get-class-image~ model) {Image-Resource "Slot"}))
-               (title (cond ((get-property~ node 'title) => identity) ((get-name~ node) => ->string) (else (->string (get-model~ node)))))
-               (state (if (< level 1) 'expanded 'collapsed)))
-          (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: node)))
-      
-      (define (get-jml-model father node)
-        #f
-        @convert-autoload
-        (let ((model (get-model~ node)))
-          (when (and model (get-autoload model))
-            (autoload model))))
-      
-      (define (insert-jml-self-definitions father level node sort?)
-        (insert-jml-definitions father level (get-jml-named-children node) sort?))
-      
-      (define (insert-jml-definitions father level definitions sort?)
-        (let ((ordered (if sort? (sort-jml-definitions definitions) definitions)))
-          (for-each (lambda (definition)
-                      (insert-definition father (+ level 1) definition sort?))
-                    ordered)))
-      
-      (define (get-jml-named-children node)
-        (define (named? node)
-          (and (is? node JML-Element)
-               (or (get-name~ node)
-                   (get-property~ node 'title))))
-        
-        (when (is? node JML-Element)
-          (collect-if (lambda (child)
-                        (and (is? child JML-Element)
-                             (or (named? child)
-                                 (some? named? (get-children~ child)))))
-                      (get-children~ node))))
-      
-      (define (sort-jml-definitions definitions)
-        (sort string<? definitions key: (lambda (definition) (->string (get-name~ definition)))))
-      
-      (insert-definition father level node sort?))
-    
-    (let ((tree (locate 'definitions)))
-      (cond ((not client-entry)
-             (set-title "Class Browser")
-             (remove-every-row~ tree))
-            ((is? client-entry Exception)
-             (remove-every-row~ tree)
-             (add-row~ tree children: (list (new Tree-Node title: (exception-reason client-entry) image: {Image-Resource "Debugger"})) user-data: client-entry))
-            (else
-             (set-title (format "Class {a}" (get-entry-title client-entry)))
-             (remove-every-row~ tree)
-             (with-update-locked~ tree
-               (lambda ()
-                 (insert-entry-definition tree client-entry)))))))
 
   
   ;;;
@@ -341,23 +240,55 @@
   
   
   (method (highlight-selection)
-    (let ((start (get-line~ (get-start~ client)))
-          (tree (locate 'definitions))
-          (min-row #f)
-          (min-distance #f))
-      (for-each-row~ tree
-        (lambda (row rank)
-          (let ((data (get-user-data~ row)))
-            (when (is? data Catalog-Entry)
-              (let ((line (get-line~ (get-start~ data))))
-                (when (>= start line)
-                  (let ((distance (- start line)))
-                    (when (or (not min-distance) (< distance min-distance))
-                      (set! min-row row)
-                      (set! min-distance distance)))))))))
-      (when min-row
-        (ensure-expanded~ tree min-row)
-        (set-single-selection~ tree (row->line~ tree min-row) generate-event?: #f))))
+    (define (insert-entry tree entry child)
+      (let ((parent (get-parent~ entry)))
+        (when (and parent (is-not? parent File-Entry))
+          (insert-entry tree parent entry)
+          (add-row~ tree children: (list (new Tree-Node title: ""))))
+        (typecase entry
+          ((Lisp-Entry) (insert-lisp-entry tree entry child))
+          (else (insert-default-entry tree entry child)))))
+    
+    (define (insert-lisp-entry tree entry child)
+      (case (get-kind~ entry)
+        ((module) (insert-module-entry tree entry child))
+        ((class) (insert-class-entry tree entry child))
+        ((method) (insert-method-entry tree entry child))
+        (else (insert-default-entry tree entry child))))
+    
+    (define (insert-module-entry tree entry child)
+      (insert-default-entry tree entry child image: {Image-Resource "Class"}))
+    
+    (define (insert-class-entry tree entry child (father: father #f))
+      (let ((father (let ((ascendant (class-entry-ascendant entry)))
+                      (when ascendant
+                        (insert-class-entry tree ascendant child)))))
+        (let ((method (and child (eq? (get-kind~ child) 'method) (find-definition~ entry (->string (get-name~ child))))))
+          (let ((font (if method {Font Label-Bold} #f))
+                (color (if method
+                           (cond ((eq? entry (get-parent~ child)) {Color Dark-Green})
+                                 ((memq? 'virtual (get-modifiers~ method)) {Color Dark-Red})
+                                 (else {Color Dark-Blue}))
+                         #f)))
+            (insert-default-entry tree entry child font: font color: color image: {Image-Resource "BlueRed"} father: father)))))
+    
+    (define (insert-method-entry tree entry child)
+      (insert-default-entry tree entry child image: {Image-Resource "Link"}))
+    
+    (define (insert-default-entry tree entry child (title: title #f) (font: font #f) (color: color #f) (image: image #f) (father: father #f))
+      (let* ((title (or title (get-name~ entry)))
+             (image (or image {Image-Resource "Slot"})))
+        (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title font: font color: color image: image)) user-data: entry)))
+    
+    (let ((file (get-file~ client-entry))
+          (start (get-start~ client)))
+      (let ((entry (location->entry (list file (get-line~ start) (get-col~ start)))))
+        (when entry
+          (let ((tree (locate 'definitions)))
+            (remove-every-row~ tree)
+            (with-update-locked~ tree
+              (lambda ()
+                (insert-entry tree entry #f))))))))
   
   
   ;;;

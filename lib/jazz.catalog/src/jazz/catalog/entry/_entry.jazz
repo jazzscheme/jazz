@@ -38,7 +38,8 @@
 (module jazz.catalog.entry jazz
 
 
-(import (jazz.editor.lisp)
+(import (jazz.catalog)
+        (jazz.editor.lisp)
         (jazz.io)
         (jazz.system))
 
@@ -90,6 +91,24 @@
 (definition public (require-entry name)
   (or (find-entry name)
       (error "Unable to find entry: {s}" name)))
+
+
+(definition public (location->entry location)
+  (bind (file line col) location
+    (let ((file-entry (get-file-entry~ (entry-cataloguer) file)))
+      (when file-entry
+        (let ((min-entry #f)
+              (min-distance #f))
+          (for-each-descendant-entry~ file-entry
+            (lambda (entry)
+              (when (is? entry Indexed-Entry)
+                (let ((entry-line (get-line~ (get-start~ entry))))
+                  (when (>= line entry-line)
+                    (let ((distance (- line entry-line)))
+                      (when (or (not min-distance) (< distance min-distance))
+                        (set! min-entry entry)
+                        (set! min-distance distance))))))))
+          min-entry)))))
 
 
 ;;;

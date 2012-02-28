@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Hierarchy Browser
+;;;; Spine Browser
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,11 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ide.code.Hierarchy-Browser jazz
+(module protected jazz.ide.code.Spine-Browser jazz
 
 
 (import (jazz.catalog)
-        (jazz.catalog.entry)
         (jazz.ide)
         (jazz.io)
         (jazz.jml)
@@ -50,7 +49,7 @@
         (jazz.ui.view))
 
 
-(class Hierarchy-Browser extends Layout-View
+(class Spine-Browser extends Layout-View
 
 
   (property client initialize #f accessors generate)
@@ -73,12 +72,12 @@
         (<!>                        name: content     layout-type: fill
           (<Tree-Header>            name: header      shown?: #f
             (<!>                    name: content
-              (<Hierarchy-Tree>     name: definitions portfolio: :images show-header?: #f always-select?: #t selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
-                (<Tree-Node-Column>                   title: "Hierarchy" width: 329))))))))
+              (<Spine-Tree>     name: definitions portfolio: :images show-header?: #f always-select?: #t selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+                (<Tree-Node-Column>                   title: "Spine" width: 329))))))))
   
   
   (method meta override (external-name . rest)
-    'Hierarchy)
+    'Spine)
 
 
   ;;;
@@ -91,7 +90,7 @@
   
   
   (method meta override (host-title)
-    "Hierarchy")
+    "Spine")
   
   
   (method override (client-activate)
@@ -155,7 +154,7 @@
   
 
   (method override (guest-actions)
-    (cons (find-actions 'hierarchy-browser)
+    (cons (find-actions 'spine-browser)
           (nextmethod)))
  
 
@@ -342,15 +341,23 @@
   
   
   (method (highlight-selection)
-    (let ((file (get-file~ client-entry))
-          (start (get-start~ client)))
-      (let ((entry (location->entry (list file (get-line~ start) (get-col~ start)))))
-        (when entry
-          (let ((tree (locate 'definitions)))
-            (let ((row (user-data-row~ tree entry include-invisibles?: #t)))
-              (when row
-                (ensure-expanded~ tree row)
-                (set-single-selection~ tree (row->line~ tree row) generate-event?: #f))))))))
+    (let ((start (get-line~ (get-start~ client)))
+          (tree (locate 'definitions))
+          (min-row #f)
+          (min-distance #f))
+      (for-each-row~ tree
+        (lambda (row rank)
+          (let ((data (get-user-data~ row)))
+            (when (is? data Catalog-Entry)
+              (let ((line (get-line~ (get-start~ data))))
+                (when (>= start line)
+                  (let ((distance (- start line)))
+                    (when (or (not min-distance) (< distance min-distance))
+                      (set! min-row row)
+                      (set! min-distance distance)))))))))
+      (when min-row
+        (ensure-expanded~ tree min-row)
+        (set-single-selection~ tree (row->line~ tree min-row) generate-event?: #f))))
   
   
   ;;;
@@ -389,11 +396,11 @@
 
 
 ;;;
-;;;; Hierarchy-Tree
+;;;; Spine-Tree
 ;;;
 
 
-(class Hierarchy-Tree extends Code-Tree
+(class Spine-Tree extends Code-Tree
   
   
   (method override (focus-gained)

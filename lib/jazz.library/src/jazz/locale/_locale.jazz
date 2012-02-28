@@ -38,12 +38,6 @@
 (module jazz.locale jazz
 
 
-(export (jazz.locale.autoload))
-
-
-(import (jazz.locale.autoload))
-
-
 ;;;
 ;;;; Locale
 ;;;
@@ -84,8 +78,18 @@
     
     
   (method override (initialize . rest)
+    (define (uniquify-locales remaining uniquified)
+      (if (null? remaining)
+          (reverse uniquified)
+        (assert (not-null? (cdr remaining)))
+        (bind (locale string . new-remaining) remaining
+          (assert (keyword? locale))
+          (uniquify-locales new-remaining (if (memq? locale uniquified)
+                                              uniquified
+                                            (cons string (cons locale uniquified)))))))
+    
     (nextmethod)
-    (set! locales rest))
+    (set! locales (uniquify-locales rest '())))
   
   
   (method override (print output readably)
@@ -94,6 +98,34 @@
             (if locales " " "")
             locales))
   
+  
+  (method override (compare-object target)
+    (define (recursive-compare plist1 plist2 type)
+      (cond ((and (null? plist1) (null? plist2))
+             #t)
+            ((not (eq? (null? plist1) (null? plist2)))
+             #f)
+            ((eq? type 'keyword)
+             (let ((head1 (car plist1))
+                   (head2 (car plist2)))
+               (and (keyword? head1)
+                    (eq? head1 head2)
+                    (recursive-compare (cdr plist1) (cdr plist2) 'string))))
+            (else 
+             (let ((head1 (car plist1))
+                   (head2 (car plist2)))
+               (and (or (and (not head1) (not head2))
+                        (and (string? head1)
+                             (string? head2)
+                             (string=? head1 head2)))
+                    (recursive-compare (cdr plist1) (cdr plist2) 'keyword))))))
+    
+    (cond ((is-not? target Locales)
+           :incompatible)
+          ((recursive-compare locales (get-locales~ target) 'keyword)
+           :equal)
+          (else
+           :not-equal)))
   
   ;;;
   ;;;; Access

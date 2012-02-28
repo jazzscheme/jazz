@@ -41,15 +41,16 @@
 (import (jazz.designer)
         (jazz.jml)
         (jazz.library)
-        (jazz.locale))
+        (jazz.locale)
+        (jazz.locale.components))
 
 
 (class undocumented Localized-Domain extends Value-Domain
 
-  
+   
   (form
     (<install> nullable?: #t))
-  
+    
   
   ;;;
   ;;;; Validation
@@ -71,5 +72,116 @@
   (method override (present value)
     (if (not value)
         "{}"
-      (->string value :reader)))))
+      (->string value :reader)))
+    
+  
+  ;;;
+  ;;;; Entry
+  ;;;
+  
+  
+  (method override (setup-entry view client)
+    (new Localized-Entry parent: view domain: self setup-entry-client: client)))
 
+
+;;;
+;;;; Localized-Entry
+;;;
+
+
+(class undocumented Localized-Entry extends Value-Entry
+  
+  
+  (property setup-entry-client initialize '() accessors generate)
+  
+  
+  (method (get-property-name)
+    (get-name~ (get-parent~ domain)))
+  
+  
+  (method override (get-value)
+    (let* ((content (get-string-content~ (locate 'text)))
+           (string/locales (and (not (empty-string? content))
+                                (not (string=? (substring content 0 2) "{}"))
+                                (read-string-safe content))))
+      (cond ((not string/locales)
+             #f)
+            ((string? string/locales)
+             string/locales)
+            ((is-not? string/locales Locales)
+             #f)
+            (else
+             (let* ((alist (plist->alist (get-locales~ string/locales)))
+                    (locales (map car alist)))
+               (define (not-locale-subset? group <Localized-String-Group>)
+                 (let ((group-locales (collect get-locale~ (collect-type Localized-String (get-children~ group)))))
+                   (some? (lambda (locale) (not (memq? locale group-locales))) locales)))
+               
+               (define (update-group group <Localized-String-Group>)
+                 (let ((designer <Designer> (car (get-designers~ (get-parent~ group)))))
+                   (for-each (lambda (child <Localized-String>)
+                               (let ((new-string (let ((pair (assq (get-locale~ child) alist))) (and pair (cdr pair)))))
+                                 (unless (string=? new-string (get-string~ child))
+                                   (set-property~ designer child 'string new-string))))
+                             (collect-type Localized-String (get-children~ group)))))
+                                
+               (and (or (null? locales)
+                        (let ((groups (collect-localized-string-groups (get-property-name) setup-entry-client)))
+                          (or (not groups)
+                              (some? not-locale-subset? groups))
+                              (prog1 #f 
+                                (for-each update-group groups))))
+                    string/locales))))))  
+  
+  
+  (method override (set-value value)
+    (set-string-content~ (locate 'text)
+      (if value
+          (->string value :reader)
+        (let ((groups (collect-localized-string-groups (get-property-name) setup-entry-client)))
+          (if (not groups)
+              ""
+            (bind (first . rest) (map get-contents~ groups)
+              (if (and (is? first Locales)
+                       (or (null? rest)
+                           (every? (lambda (object) (compare~ first object)) rest)))
+                  (->string first :reader)
+                (set-editable? #f)
+                "{not editable}")))))))
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Localized-Entry-Descriptor)))
+
+  
+(definition (collect-localized-string-groups property-name components (groups '()))
+  (if (null? components)
+      groups
+    (bind (component . rest) components
+      (let ((group (find-localized-string-group component property-name)))
+        (if group
+            (collect-localized-string-groups property-name rest (cons group groups))
+          #f)))))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.designer.entry.Property-Entry))
+
+
+(class Localized-Entry-Descriptor extends Property-Entry-Descriptor
+  
+  
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: setup-entry-client
+          (<Value-Domain>      name: domain             nullable?: #f))))))))

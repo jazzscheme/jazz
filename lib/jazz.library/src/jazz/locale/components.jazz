@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.locale.Localized-String jazz
+(module jazz.locale.components jazz
 
 
 (import (jazz.library)
@@ -52,6 +52,11 @@
   
   
   (property string initialize #f accessors generate)
+  
+  
+  (method public (get-locale)
+    (catch (Error err #f)
+      (standardize-locale (get-name))))
   
   
   (method override (validate-component validation-context)
@@ -76,20 +81,29 @@
    
   
   (method public (get-contents)
-    (let ((alist (collect (lambda (localized-string)
-                            (when (get-name~ localized-string)
-                              (list (standardize-locale (get-name~ localized-string)) (get-string~ localized-string))))
-                      (collect-descendants Localized-String))))
-      (when (pair? alist)
-        (let ((locales (new Locales)))
-          (set-locales~ locales (fold-right append '() alist))
-          locales))))
+    (let ((strings (collect-if get-locale~ (collect-type Localized-String children))))
+      (and (pair? strings)
+           (apply new Locales (alist->plist (map (lambda (child <Localized-String>)
+                                                   (cons (get-locale~ child) (get-string~ child)))
+                                                 strings))))))
   
   
   (method override (validate-component validation-context)
+    (define (get-duplicates locale remaining duplicates)
+      (if (null? remaining)
+          duplicates
+        (get-duplicates (car remaining) (cdr remaining) (if (and (not (memq? locale duplicates))
+                                                                 (memq? locale remaining))
+                                                            (cons locale duplicates)
+                                                          duplicates))))
+    
     (when (pair? children)
-      (unless (every? (lambda (component) (is? component Localized-String)) children)
-        (add-violation~ validation-context message: "not all children are Localized-String")))
+      (let ((localized-strings (collect-type Localized-String children)))
+        (when (< (length localized-strings) (length children))
+          (add-violation~ validation-context message: "expects all children to be Localized-String"))
+        (map (lambda (locale)
+               (add-violation~ validation-context message: (format "expects unique child names: {a}" locale)))
+             (get-duplicates #f (collect get-locale~ children) '()))))
     (nextmethod validation-context))
       
   
@@ -99,16 +113,19 @@
 
 
 ;;;
-;;;; Helper function
+;;;; Helper functions
 ;;;
 
 
-(definition public (localized-strings component group-name)
-  (assert (is? component Component))
-  (let ((group (find-if (lambda (maybe-group) 
-                          (and (equal? group-name (get-name~ maybe-group)) 
-                               (is? maybe-group Localized-String-Group)))
-                        (get-children~ component))))               
+(definition public (find-localized-string-group component <Component> group-name)
+  (find-if (lambda (maybe-group) 
+             (and (equal? group-name (get-name~ maybe-group)) 
+                  (is? maybe-group Localized-String-Group)))
+           (get-children~ component)))
+
+
+(definition public (get-localized-strings component group-name)
+  (let ((group (find-localized-string-group component group-name)))
     (and group
          (get-contents~ group))))
 

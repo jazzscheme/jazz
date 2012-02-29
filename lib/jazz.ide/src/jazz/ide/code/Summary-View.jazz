@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Spine Browser
+;;;; Summary View
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ide.code.Spine-Browser jazz
+(module protected jazz.ide.code.Summary-View jazz
 
 
 (import (jazz.catalog)
@@ -52,7 +52,11 @@
         (jazz.ui.view))
 
 
-(class Spine-Browser extends Layout-View
+(definition inhibit-summaries?
+  (make-parameter #f))
+
+
+(class Summary-View extends Layout-View
 
 
   (property client initialize #f accessors generate)
@@ -61,25 +65,22 @@
   (slot client-entry     initialize #f)
   (slot client-selection initialize #f)
   (slot client-position  initialize #f)
-  
-  
-  (slot preserved-states initialize (make-table test: eq? weak-keys: #t))
+  (slot displayed-line   initialize #f)
   
 
   (form
-    (<install>                                        layout-type: fill
-      (<Layout-View>                name: tools
-        (<Push-Tool>                name: update      size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-update}))
-      (<Scroller-View>              name: scroller    vscroll?: #t hscroll?: #t style: tool
-        (<!>                        name: content     layout-type: fill
-          (<Tree-Header>            name: header      shown?: #f
+    (<install>                                     layout-type: fill
+      (<Layout-View>                name: tools)
+      (<Scroller-View>              name: scroller vscroll?: #t hscroll?: #t style: tool
+        (<!>                        name: content  layout-type: fill
+          (<Tree-Header>            name: header   shown?: #f
             (<!>                    name: content
-              (<Spine-Tree>         name: definitions portfolio: :images show-header?: #f always-select?: #t selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
-                (<Tree-Node-Column>                   title: "Spine" width: 329))))))))
+              (<Summary-Tree>       name: summary  portfolio: :images show-header?: #f always-select?: #t selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+                (<Tree-Node-Column>                title: "Summary" width: 329))))))))
   
   
   (method meta override (external-name . rest)
-    'Spine)
+    'Summary)
 
 
   ;;;
@@ -106,11 +107,12 @@
                 (let ((cataloguer (get-cataloguer~ (get-application))))
                   (get-file-entry~ cataloguer moniker context: (get-context~ guest)))))))))
     
-    (let ((guest (current-document)))
-      (let ((entry (client-entry guest)))
-        (if (not entry)
-            (set-client/entry #f #f)
-          (set-client/entry guest entry)))))
+    (unless (inhibit-summaries?)
+      (let ((guest (current-document)))
+        (let ((entry (client-entry guest)))
+          (if (not entry)
+              (set-client/entry #f #f)
+            (set-client/entry guest entry))))))
   
   
   (method override (client-deactivate)
@@ -133,7 +135,7 @@
   
   
   (method override (focus-default)
-    (let ((tree (locate 'definitions)))
+    (let ((tree (locate 'summary)))
       (acquire-focus~ tree)))
   
   
@@ -143,31 +145,27 @@
   
 
   (method override (guest-actions)
-    (cons (find-actions 'spine-browser)
+    (cons (find-actions 'summary-view)
           (nextmethod)))
  
 
   ;;;
   ;;;; Events
   ;;;
-  
-  
-  (method (on-update evt)
-    (highlight-selection))
 
 
   (method (on-selection-change evt)
     (let ((sender (get-sender~ evt)))
       (case (get-name~ sender)
-        ((definitions)
-         (selection-change sender #f)))))
+        ((summary)
+         (selection-change sender 'select)))))
 
 
   (method (on-double-click evt)
     (let ((sender (get-sender~ evt)))
       (case (get-name~ sender)
-        ((definitions)
-         (selection-change sender #t)))))
+        ((summary)
+         (selection-change sender 'finish)))))
   
   
   (method override (on-return-press key)
@@ -183,37 +181,15 @@
   
   
   (method (finish-focus)
-    (when client
-      (acquire-focus~ client)))
+    (selection-change (locate 'summary) 'finish))
   
   
   (method (cancel-focus)
     (when client
       (when client-selection
-        (set-selection-safe~ client client-selection ensure-displayed?: #f)
+        (set-selection-safe~ client client-selection force?: #t ensure-displayed?: #f)
         (scroll-to~ client client-position))
       (acquire-focus~ client)))
-  
-  
-  ;;;
-  ;;;; Delegate
-  ;;;
-  
-  
-  (method (edit-definitions definition)
-    (define (edit-jml-definition definition)
-      (let* ((appl (get-application))
-             (moniker (get-origin~ client-entry))
-             (frame (edit-document~ appl moniker visible?: #f))
-             (text (get-guest~ frame))
-             (location (append (get-location~ definition) (list 0)))
-             (range (location-range~ text location)))
-        (set-selection-safe~ text range ensure-displayed?: 'center-caret)
-        (focus-host~ frame)))
-    
-    (if (is? definition JML-Node)
-        (edit-jml-definition definition)
-      (edit~ definition activate-focus?: #f)))
   
   
   ;;;
@@ -224,14 +200,13 @@
   (method public (set-client/entry clt entry)
     (when (neq? entry client-entry)
       (when client
-        (preserve-state client)
         (remove-text-listener~ client self))
       (set! client clt)
       (set! client-entry entry)
+      (set! displayed-line #f)
+      (highlight-selection)
       (when client
-        (restore-state client)
-        (when (get-highlight-hierarchy?~ (get-preferences 'documents))
-          (add-text-listener~ client (new Event-Handler execute: (lambda (evt) (highlight-selection))))))))
+        (add-text-listener~ client (new Event-Handler execute: (lambda (evt) (highlight-selection)))))))
 
   
   ;;;
@@ -266,44 +241,45 @@
         (let ((method (and child (eq? (get-kind~ child) 'method) (find-definition~ entry (->string (get-name~ child))))))
           (let ((font (if method {Font Label-Bold} #f))
                 (color (if method
-                           (cond ((eq? entry (get-parent~ child)) {Color Dark-Green})
-                                 ((memq? 'virtual (get-modifiers~ method)) {Color Dark-Red})
-                                 (else {Color Dark-Blue}))
+                           (cond ((eq? entry (get-parent~ child))
+                                  {Color Dark-Green})
+                                 ((or (memq? 'virtual (get-modifiers~ method))
+                                      (memq? 'chained (get-modifiers~ method)))
+                                  {Color Dark-Red})
+                                 (else
+                                  {Color Dark-Blue}))
                          #f)))
-            (insert-default-entry tree entry child font: font color: color image: {Image-Resource "BlueRed"} father: father)))))
+            (insert-default-entry tree entry child father: father font: font color: color image: {Image-Resource "BlueRed"} user-data: (or method entry))))))
     
     (define (insert-method-entry tree entry child)
       (insert-default-entry tree entry child image: {Image-Resource "Link"}))
     
-    (define (insert-default-entry tree entry child (title: title #f) (font: font #f) (color: color #f) (image: image #f) (father: father #f))
+    (define (insert-default-entry tree entry child (father: father #f) (title: title #f) (font: font #f) (color: color #f) (image: image #f) (user-data: user-data #f))
       (let* ((title (or title (get-name~ entry)))
-             (image (or image {Image-Resource "Slot"})))
-        (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title font: font color: color image: image)) user-data: entry)))
+             (image (or image {Image-Resource "Slot"}))
+             (user-data (or user-data entry)))
+        (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title font: font color: color image: image)) user-data: user-data)))
     
-    (let ((file (get-file~ client-entry))
-          (start (get-start~ client)))
-      (let ((entry (location->entry (list file (get-line~ start) (get-col~ start)))))
-        (when entry
-          (let ((tree (locate 'definitions)))
-            (remove-every-row~ tree)
-            (with-update-locked~ tree
-              (lambda ()
-                (insert-entry tree entry #f))))))))
-  
-  
-  ;;;
-  ;;;; State
-  ;;;
-  
-  
-  (method (preserve-state client)
-    (table-set! preserved-states client (get-view-state~ (locate 'definitions) use: 'text)))
-  
-  
-  (method (restore-state client)
-    (let ((state (table-ref preserved-states client #f)))
-      (when state
-        (set-view-state~ (locate 'definitions) state))))
+    (unless (inhibit-summaries?)
+      (let ((tree (locate 'summary)))
+        (if (is-not? client-entry File-Entry)
+            (begin
+              (remove-every-row~ tree)
+              (set! displayed-line #f))
+          (let ((file (get-file~ client-entry))
+                (start (get-start~ client)))
+            (let ((line (get-line~ start))
+                  (col (get-col~ start)))
+              (when (or (not displayed-line) (/= line displayed-line))
+                (let ((entry (location->entry (list file line col))))
+                  (remove-every-row~ tree)
+                  (with-update-locked~ tree
+                    (lambda ()
+                      (if (not entry)
+                          ;; put back when we display the file entry
+                          #f;(insert-entry tree client-entry #f)
+                        (insert-entry tree entry #f)))))
+                (set! displayed-line line))))))))
   
   
   ;;;
@@ -311,10 +287,7 @@
   ;;;
   
   
-  (method (selection-change tree double-click?)
-    (define (same-file? definition moniker)
-      (and moniker (pathname=? (get-file~ (get-file-definition~ definition)) moniker)))
-    
+  (method (selection-change tree origin)
     (let ((guest (current-document)))
       (when guest
         (let ((moniker (get-moniker~ (get-document-controller~ guest)))
@@ -322,16 +295,51 @@
           (when selection
             (let ((definition (get-user-data~ (get-row~ tree selection))))
               (unless (is? definition Exception)
-                (when (and definition (or double-click? (is-not? definition Indexed-Entry) (same-file? definition moniker)))
-                  (edit-definitions definition))))))))))
+                (when definition
+                  (edit-definitions definition origin)))))))))
+  
+  
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method (edit-definitions definition origin)
+    (define (edit-jml-definition definition)
+      (let* ((appl (get-application))
+             (moniker (get-origin~ client-entry))
+             (frame (edit-document~ appl moniker visible?: #f))
+             (text (get-guest~ frame))
+             (location (append (get-location~ definition) (list 0)))
+             (range (location-range~ text location)))
+        (set-selection-safe~ text range ensure-displayed?: 'center-caret)
+        (focus-host~ frame)))
+    
+    (when (eq? origin 'select)
+      (let ((appl (get-application)))
+        (add-history~ appl (current-history-item~ appl))))
+    (when (neq? origin 'select)
+      (set! displayed-line #f))
+    (if (is? definition JML-Node)
+        (edit-jml-definition definition)
+      (case origin
+        ((select)
+         (parameterize ((inhibit-summaries? #t))
+           (edit~ definition)
+           (acquire-focus~ (locate 'summary))))
+        ((finish)
+         (edit~ definition force-selection?: #t)
+         (client-activate))
+        ((cancel)
+         (edit~ definition force-selection?: #t))))))
 
 
 ;;;
-;;;; Spine-Tree
+;;;; Summary-Tree
 ;;;
 
 
-(class Spine-Tree extends Code-Tree
+(class Summary-Tree extends Code-Tree
   
   
   (method override (focus-gained)

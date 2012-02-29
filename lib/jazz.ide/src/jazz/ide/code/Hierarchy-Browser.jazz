@@ -59,8 +59,7 @@
   (slot client-entry     initialize #f)
   (slot client-selection initialize #f)
   (slot client-position  initialize #f)
-  
-  
+  (slot displayed-line   initialize #f)
   (slot preserved-states initialize (make-table test: eq? weak-keys: #t))
   
 
@@ -222,27 +221,6 @@
   
   
   ;;;
-  ;;;; Delegate
-  ;;;
-  
-  
-  (method (edit-definitions definition)
-    (define (edit-jml-definition definition)
-      (let* ((appl (get-application))
-             (moniker (get-origin~ client-entry))
-             (frame (edit-document~ appl moniker visible?: #f))
-             (text (get-guest~ frame))
-             (location (append (get-location~ definition) (list 0)))
-             (range (location-range~ text location)))
-        (set-selection-safe~ text range ensure-displayed?: 'center-caret)
-        (focus-host~ frame)))
-    
-    (if (is? definition JML-Node)
-        (edit-jml-definition definition)
-      (edit~ definition activate-focus?: #f)))
-  
-  
-  ;;;
   ;;;; Client
   ;;;
 
@@ -342,30 +320,20 @@
   
   
   (method (highlight-selection)
-    (let ((file (get-file~ client-entry))
-          (start (get-start~ client)))
-      (let ((entry (location->entry (list file (get-line~ start) (get-col~ start)))))
-        (when entry
-          (let ((tree (locate 'definitions)))
-            (let ((row (user-data-row~ tree entry include-invisibles?: #t)))
-              (when row
-                (ensure-expanded~ tree row)
-                (set-single-selection~ tree (row->line~ tree row) generate-event?: #f))))))))
-  
-  
-  ;;;
-  ;;;; State
-  ;;;
-  
-  
-  (method (preserve-state client)
-    (table-set! preserved-states client (get-view-state~ (locate 'definitions) use: 'text)))
-  
-  
-  (method (restore-state client)
-    (let ((state (table-ref preserved-states client #f)))
-      (when state
-        (set-view-state~ (locate 'definitions) state))))
+    (when (is? client-entry File-Entry)
+      (let ((file (get-file~ client-entry))
+            (start (get-start~ client)))
+        (let ((line (get-line~ start))
+              (col (get-col~ start)))
+          (when (or (not displayed-line) (/= line displayed-line))
+            (let ((entry (location->entry (list file line col))))
+              (when entry
+                (let ((tree (locate 'definitions)))
+                  (let ((row (user-data-row~ tree entry include-invisibles?: #t)))
+                    (when row
+                      (ensure-expanded~ tree row)
+                      (set-single-selection~ tree (row->line~ tree row) generate-event?: #f))))))
+            (set! displayed-line line))))))
   
   
   ;;;
@@ -385,7 +353,43 @@
             (let ((definition (get-user-data~ (get-row~ tree selection))))
               (unless (is? definition Exception)
                 (when (and definition (or double-click? (is-not? definition Indexed-Entry) (same-file? definition moniker)))
-                  (edit-definitions definition))))))))))
+                  (edit-definitions definition double-click?)))))))))
+  
+  
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method (edit-definitions definition double-click?)
+    (define (edit-jml-definition definition)
+      (let* ((appl (get-application))
+             (moniker (get-origin~ client-entry))
+             (frame (edit-document~ appl moniker visible?: #f))
+             (text (get-guest~ frame))
+             (location (append (get-location~ definition) (list 0)))
+             (range (location-range~ text location)))
+        (set-selection-safe~ text range ensure-displayed?: 'center-caret)
+        (focus-host~ frame)))
+    
+    (if (is? definition JML-Node)
+        (edit-jml-definition definition)
+      (edit~ definition activate-focus?: double-click?)))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method (preserve-state client)
+    (table-set! preserved-states client (get-view-state~ (locate 'definitions) use: 'text)))
+  
+  
+  (method (restore-state client)
+    (let ((state (table-ref preserved-states client #f)))
+      (when state
+        (set-view-state~ (locate 'definitions) state)))))
 
 
 ;;;

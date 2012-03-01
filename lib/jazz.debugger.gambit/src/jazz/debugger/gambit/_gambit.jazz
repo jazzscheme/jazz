@@ -38,4 +38,156 @@
 (module jazz.debugger.gambit jazz
 
 
-(export (jazz.debugger.gambit.autoload)))
+(require (jazz.debugger.gambit.debugger))
+
+(export (jazz.debugger.gambit.autoload))
+
+(import (jazz.console)
+        (jazz.debugger))
+
+
+(native rdi-init)
+(native rdi-console-table)
+(native rdi-create-server)
+(native rdi-force-connection)
+(native rdi-remote-call)
+
+
+;;;
+;;;; Main
+;;;
+
+
+(definition public (rdi-main (port #f))
+  (set! rdi (rdi-create-server (and port (string->number port))))
+  (rdi-force-connection rdi))
+
+
+;;;
+;;;; Dispatch
+;;;
+
+
+(definition public rdi
+  #f)
+
+
+(definition public (rdi-debugger-init)
+  (set! rdi (rdi-create-server #f))
+  (rdi-force-connection rdi))
+
+
+(definition public (rdi-function fn)
+  (case fn
+    ((register-console)
+     rdi-register-console)
+    ((console-output)
+     rdi-console-output)
+    (else
+     (error "unknown function"))))
+
+
+(rdi-init rdi-function)
+
+
+;;;
+;;;; Console
+;;;
+
+
+(definition public console-no
+  1)
+
+
+(definition public (open-console-window)
+  (let ((manager (get-console-manager))
+        (title (format "Gambit {s}" console-no)))
+    (increase! console-no)
+    (let ((text (register-console~ manager title #t process-title: title)))
+      (setup-debugger-console-ports text)
+      (values text (setup-debugger-console-ports text)))))
+
+
+@comment
+(method public (register-console process thread)
+  (call-event
+    (lambda ()
+      (let ((debugged-process (new Debugged-Process self process process))
+            (text (register-debugger-console process thread)))
+        (let ((console (new Debugger-Resource
+                         debugged-process
+                         text
+                         (lambda ()
+                           (unregister-debugger-console text)))))
+          (register-debugger-resource debugged-process console)
+          (object->serial console))))))
+
+
+(definition public (setup-debugger-console-ports text)
+  (receive (head tail) (open-string-pipe (list permanent-close: #f))
+    (set-console-port~ text head)
+    tail))
+
+
+@comment
+(definition public (setup-debugger-console-ports text process-proxy thread-proxy)
+  (receive (head tail) (open-string-pipe (list permanent-close: #f))
+    (set-console-port~ text head)
+    (set-console-pump~ text (start-debugger-console-pump tail process-proxy thread-proxy))))
+
+
+(definition unique-console-id
+  0)
+
+
+(definition public (rdi-register-console ignore)
+  (receive (console-text console-port) (open-console-window)
+    (let ((console-id unique-console-id))
+      (increase! unique-console-id)
+      (table-set! (rdi-console-table rdi) console-id console-text)
+      (rdi-console-input-pump-start! rdi console-id console-port)
+      (terminal 'register console-id)
+      console-id)))
+
+
+;; need to implement ctrl-c by calling rdi-user-interrupt
+(definition public (rdi-console-input-pump-start! rdi console-id console-port)
+  (thread-start!
+    (new-system-thread
+      (lambda ()
+        (start-pump console-port
+          (lambda (str)
+            (if (not str)
+                (rdi-console-input-eof rdi console-id)
+              (rdi-console-input rdi console-id str)))))
+      'gambit-console-pump)))
+
+
+(definition public (rdi-console-output console-id output)
+  (terminal 'console-output console-id output)
+  (let ((console-text
+          (table-ref (rdi-console-table rdi) console-id #f)))
+    (if console-text
+        (debugger-console-output console-text output)))
+  #t)
+
+
+;;;
+;;;; Methods
+;;;
+
+
+(definition public (rdi-console-input rdi console-id text)
+  (rdi-remote-call rdi 'console-input console-id text))
+
+(definition public (rdi-console-input-eof rdi console-id)
+  (rdi-remote-call rdi 'console-input console-id ""))
+
+(definition public (rdi-user-interrupt rdi console-id)
+  (rdi-remote-call rdi 'user-interrupt console-id))
+
+(definition public (rdi-get-threads rdi)
+  (rdi-remote-call rdi 'get-threads))
+
+(definition public (rdi-get-external-representation rdi $obj max-length)
+  (rdi-remote-call rdi 'get-external-representation $obj max-length)))

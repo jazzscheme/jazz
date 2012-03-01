@@ -39,34 +39,6 @@
 
 
 ;;;
-;;;; Locale
-;;;
-
-
-(class Locale extends Object
-  
-  
-  (slot name   getter generate)
-  (slot titles getter generate)
-  
-  
-  (method override (initialize name titles)
-    (nextmethod)
-    (set! name~self name)
-    (set! titles~self titles))
-  
-  
-  (method override (print output readably)
-    (print-unreadable self output
-      (lambda (output)
-        (format output "{a}" name))))
-  
-  
-  (method public (present)
-    (or (getf titles (get-locale)) (second titles))))
-
-
-;;;
 ;;;; Locales
 ;;;
 
@@ -141,8 +113,8 @@
   ;;;
   
   
-  (method public virtual (localize (locale *active-locale*))
-    (or (getf locales locale) (second locales))))
+  (method public virtual (localize locale)
+    (getf locales locale)))
 
 
 ;;;
@@ -172,7 +144,7 @@
   ;;;
   
   
-  (method override (localize (locale *active-locale*))
+  (method override (localize locale)
     (format "{^:~}" (localize~ locales locale) context)))
 
 
@@ -181,12 +153,44 @@
 
 
 ;;;
+;;;; Locale
+;;;
+
+
+(class Locale extends Object
+  
+  
+  (slot name        getter generate)
+  (slot parent-name getter generate)
+  (slot titles      getter generate)
+  
+  
+  (method override (initialize name <Keyword> parent-name titles <Locales>)
+    (nextmethod)
+    (set! name~self name)
+    (set! parent-name~self parent-name)
+    (set! titles~self titles))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" name))))
+  
+  
+  (method public (present)
+    (localize titles)))
+
+
+;;;
 ;;;; Global
 ;;;
 
 
 (definition *locale-table*
-  (make-table test: eq?))
+  (let ((table (make-table test: eq?)))
+    (table-set! table root: (new Locale root: #f (new Locales english: "root" french: "racine")))
+    table))
 
 (definition *active-locale*
   english:)
@@ -195,12 +199,21 @@
 (definition public (get-locales)
   (sort string<? (table-keys *locale-table*) key: keyword->string))
 
+
 (definition public (registered-locale name)
-  (table-ref *locale-table* name #f))
+  (or (table-ref *locale-table* name #f)
+      (error "unregistered locale")))
+
 
 (definition public (register-locale locale)
   (let ((name (get-name~ locale)))
-    (table-set! *locale-table* name locale)))
+    (cond ((table-ref *locale-table* name #f)
+           (error "a locale has already been registered under this name"))
+          ((not (table-ref *locale-table* (get-parent-name~ locale) #f))
+           (error "locale parent name is not registered"))
+          (else
+           (table-set! *locale-table* name locale)))))
+
 
 (definition public (unregister-locale locale)
   (let ((name (get-name~ locale)))
@@ -219,15 +232,13 @@
 
 
 (definition public (set-locale loc (update?: update? #t))
-  (define (call-locale-changes loc update?)
-    (for-each (lambda (proc)
-                (proc loc update?))
-              locale-changes))
-  
   (let ((loc (standardize-locale loc)))
-    (when (neq? loc *active-locale*)
+    (assert (registered-locale loc))
+    (unless (eq? loc *active-locale*)
       (set! *active-locale* loc)
-      (call-locale-changes loc update?))))
+      (for-each (lambda (proc)
+                  (proc loc update?))
+                locale-changes))))
 
 
 (definition locale-changes
@@ -242,11 +253,13 @@
   (set! locale-changes (remove! proc locale-changes)))
 
 
-(definition public (localize object)
-  (if (is? object Locales)
-      (localize~ object *active-locale*)
-    object))
+(definition public (localize object (loc *active-locale*))
+  (let ((locale (registered-locale loc)))
+    (or (and (is? object Locales)
+             (or (localize~ object loc)
+                 (localize object (get-parent-name~ locale))))
+        object)))
 
 
-(definition public (present-locale locale)
-  (present~ (registered-locale locale))))
+(definition public (present-locale loc)
+  (present~ (registered-locale loc))))

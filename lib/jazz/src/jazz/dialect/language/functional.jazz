@@ -1950,7 +1950,7 @@
           (when (is? (apply-key key object) type)
             (increase! total)))
     total))
-
+            
 
 (definition public (find seq target (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f) (return: return 'position))
   (if (and (null/pair? seq) (not reversed?))
@@ -2291,6 +2291,10 @@
     (map car (collect-if (lambda (partition)
                            (> (length (cdr partition)) 1))
                          partition))))
+
+
+
+
 
 
 (definition public (remove-false seq <Object>)
@@ -2723,15 +2727,15 @@
       (let* ((min (minimum (map car (remove-false scan)) key: key :compare compare))
              (min-key (apply-key key min))
              (res (new List-Factory)))
-        (for-each-pair (lambda (pair)
-                         (let* ((list (car pair))
-                                (object (car list)))
-                           (if (or (not object)
-                                   (neq? (compare (apply-key key object) min-key) :equal))
-                               (put~ res #f)
-                             (put~ res object)
-                             (set-car! pair (cdr list)))))
-                       scan)
+        (for-each-pair scan
+                       proc: (lambda (pair)
+                               (let* ((list (car pair))
+                                      (object (car list)))
+                                 (if (or (not object)
+                                         (neq? (compare (apply-key key object) min-key) :equal))
+                                     (put~ res #f)
+                                   (put~ res object)
+                                   (set-car! pair (cdr list))))))
         (proc min-key (get-output~ res))))))
 
 
@@ -3366,10 +3370,13 @@
       plist)))
 
 
-(definition public (for-each-pair proc lst)
-  (let (iterate (lst lst))
-    (when (not-null? lst)
-      (proc lst)
+(definition public (for-each-pair lst (proc: proc #f) (test: test #f))
+  (let (iterate (lst lst))  
+    (if (or (null? lst)
+            (and test (not (test lst))))
+        lst
+      (when proc 
+        (proc lst))
       (iterate (cdr lst)))))
 
 

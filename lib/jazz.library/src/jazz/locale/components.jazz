@@ -161,6 +161,8 @@
   
   (method override (validate-component validation-context)
     (nextmethod validation-context)
+    (unless name
+      (add-violation~ validation-context message: "unnamed Locale-Node"))
     (unless (find-ascendant Locale-Tree include-self?: #t)
       (add-violation~ validation-context message: "Locale-Node must descend from Locale-Tree")))
   
@@ -174,11 +176,27 @@
 ;;;
 
 
-(class Locale-Tree extends Locale-Node
+(class Locale-Tree extends Locale-Node implements Locales-Provider
+  
   
   (form
     (<install>                  name: root
-      (<title~> name: root string: ""))))
+      (<title~> name: root string: "")))
+  
+  
+  (method override (validate-component validation-context)
+    (nextmethod validation-context)
+    (let ((result (for-each-pair (provide-locales)
+                                 test: (lambda (sublist)
+                                         (not (memq? (car sublist) (cdr sublist)))))))
+      (unless (null? result)
+        (add-violation~ validation-context message: (format "multiple descendants named {a}" (car result)))))
+    (unless (find-ascendant Locale-Tree include-self?: #t)
+      (add-violation~ validation-context message: "Locale-Node must descend from Locale-Tree")))  
+  
+  
+  (method override (provide-locales)
+    (map (compose symbol->keyword get-name~) (collect-descendants Locale-Node))))
 
 
 ;;;

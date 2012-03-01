@@ -153,11 +153,22 @@
 
 
 ;;;
+;;;; Locale-Provider
+;;;
+
+
+(interface Locales-Provider
+  
+  (method public virtual abstract (provide-locales)))
+    
+
+
+;;;
 ;;;; Locale
 ;;;
 
 
-(class Locale extends Object
+(class Locale extends Object implements Locales-Provider
   
   
   (slot name        getter generate)
@@ -178,6 +189,10 @@
         (format output "{a}" name))))
   
   
+  (method override (provide-locales)
+    (list (symbol->keyword name)))
+  
+  
   (method public (present)
     (localize titles)))
 
@@ -185,6 +200,30 @@
 ;;;
 ;;;; Global
 ;;;
+
+@w (method public (get-supported-locales)
+    (cond ((and (not supported-locales) (not parent))
+           #f)
+          ((not supported-locales)
+           (get-supported-locales~ parent))
+          (else 
+           (let ((locales (if (list? supported-locales)
+                              supported-locales
+                            (assert (is? supported-locales Reference))
+                            (let ((ref-value (resolve-reference~ supported-locales)))
+                              (typecase ref-value
+                                ((Class) (assert (subtype ref-value Locales-Provider))
+                                 (provide-locales~ (new ref-value)))
+                                ((Locales-Provider) 
+                                 (provide-locales~ ref-value))
+                                ((Procedure)
+                                 (ref-value))
+                                (else
+                                 ref-value))))))
+             (assert (pair? locales))
+             (assert (every? keyword? locales))
+             locales))))
+
 
 
 (definition *locale-table*

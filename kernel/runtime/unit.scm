@@ -946,7 +946,7 @@
         (if src
             (begin
               (display "source hash: ")
-              (display (digest-file (jazz:resource-pathname src) 'sha-1))
+              (display (digest-file (jazz:resource-pathname src) 'SHA-1))
               (newline))
           (begin (display "source file not found") (newline)))
         (display "obj-uptodate? ") (display obj-uptodate?) (newline)
@@ -967,7 +967,7 @@
 
 
 (define (jazz:image-unit-uptodate-src? image-unit src)
-  (let ((source-hash (digest-file (jazz:resource-pathname src) 'sha-1)))
+  (let ((source-hash (digest-file (jazz:resource-pathname src) 'SHA-1)))
     (%%string=? (%%image-unit-compile-time-hash image-unit) source-hash)))
 
 

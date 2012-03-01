@@ -522,7 +522,7 @@
         #f
       (begin
         (%%digest-time-set! digest time)
-        (%%digest-hash-set! digest (digest-file src-filepath 'sha-1))
+        (%%digest-hash-set! digest (digest-file src-filepath 'SHA-1))
         #t))))
 
 

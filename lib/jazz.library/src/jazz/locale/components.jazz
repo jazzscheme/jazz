@@ -38,7 +38,8 @@
 (module jazz.locale.components jazz
 
 
-(import (jazz.library)
+(import (jazz.jml)
+        (jazz.library)
         (jazz.locale)
         (jazz.ui))
 
@@ -68,8 +69,7 @@
   
 
   (method meta override (get-class-descriptor)
-    (new Localized-String-Descriptor))
-  )
+    (new Localized-String-Descriptor)))
 
 
 ;;;
@@ -108,8 +108,7 @@
       
   
   (method meta override (get-class-descriptor)
-    (new Localized-String-Group-Descriptor))
-  )
+    (new Localized-String-Group-Descriptor)))
 
 
 ;;;
@@ -131,6 +130,58 @@
 
 
 ;;;
+;;;; Locale-Node
+;;;
+
+
+(class Locale-Node extends Component
+  
+  
+  (form
+    (<install>
+      (<Localized-String-Group> name: title)))
+  
+  
+  (property title initialize #f accessors generate)
+    
+  
+  (method public (register-locale override? recursive?)
+    (register-locale (new Locale 
+                       (symbol->keyword name) 
+                       (and (is? parent Locale-Node)
+                            (symbol->keyword (get-name~ parent)))
+                       (get-contents~ (find-type Localized-String-Group)))
+                     override?)
+    (when recursive?
+      (for-each (lambda (child)
+                  (when (is? child Locale-Node)
+                    (register-locale~ child override? #t)))
+                children)))
+  
+  
+  (method override (validate-component validation-context)
+    (nextmethod validation-context)
+    (unless (find-ascendant Locale-Tree include-self?: #t)
+      (add-violation~ validation-context message: "Locale-Node must descend from Locale-Tree")))
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Locale-Node-Descriptor)))
+
+
+;;;
+;;;; Locale-Tree
+;;;
+
+
+(class Locale-Tree extends Locale-Node
+  
+  (form
+    (<install>                  name: root
+      (<title~> name: root string: ""))))
+
+
+;;;
 ;;;; Design
 ;;;
 
@@ -138,15 +189,14 @@
 (submodule design
 
 
-(import (jazz.jml)
-        (jazz.designer))
+(import (jazz.designer))
 
 
 (class Localized-String-Descriptor extends Component-Descriptor
   
   
   (form
-    (<install>
+    (<install>                              image: {Image-Resource "All"} can-rename?: #f
       (<properties~>
         (<Property-Descriptor> name: string
           (<String-Domain>     name: domain))))))
@@ -156,5 +206,20 @@
   
   
   (method override (component-get-categorized-addable-classes component)
-    `((,(reference Localized-String)))))))
+    `((,(reference Localized-String)))))
 
+
+(class Locale-Node-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: title
+          (<Localized-Domain>  name: domain)))
+      (<children~>
+        (<Child-Descriptor>                 target: title title: "Title" classes: ({Reference Localized-String-Group})))))
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    `((,(reference Locale-Node)))))))

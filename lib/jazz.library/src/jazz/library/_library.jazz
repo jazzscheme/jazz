@@ -238,6 +238,11 @@
 ;;;
 
 
+(definition public (jazz-version)
+  (receive (major minor revision) (split-version kernel-version)
+    (new Version major minor revision)))
+
+
 (definition public (64-bit-integer->version version)
   (let ((major (arithmetic-shift version -48))
         (minor (modulo (arithmetic-shift version -32) 65536))
@@ -517,6 +522,20 @@
         (lambda (input2)
           (not (wi= (read-content-string input1)
                     (read-content-string input2))))))))
+
+
+;;;
+;;;; File Digest
+;;;
+
+
+(definition public (file-digest file (digest #f))
+  (let ((digest-time (and digest (get-time~ digest)))
+        (file-time (time->seconds (get-modification-time~ file))))
+    (if (and digest-time (= digest-time file-time))
+        digest
+      (let ((file-hash (digest-file (parse~ file) 'SHA-1)))
+        (new File-Digest file-hash file-time)))))
 
 
 ;;;

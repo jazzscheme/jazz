@@ -196,15 +196,9 @@
               (lambda ()
                 (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
                   (lambda (port)
-                    (table-load content-index port #t)
-                    @good-idea-but-creates-problems-when-developing-by-hidding-exceptions
-                    ;; make load resilient to corrupted files
-                    (with-exception-filter
-                      (lambda (exc)
-                        #t)
-                      (lambda (exc)
-                        )
-                      (lambda ()
+                    (let ((version (read port)))
+                      (when (and (is? version Version)
+                                 (compatible?~ version catalog-version))
                         (table-load content-index port #t)))))))
             (update-catalog-indexes report?)
             (setup-content)
@@ -229,6 +223,7 @@
         (create-directories~ file)
         (call-with-output-file (path-settings file)
           (lambda (output)
+            (format output "{s}{%}{%}" catalog-version)
             (for-each (lambda (info)
                         (bind (name . definitions) info
                           (when (not-null? definitions)
@@ -369,30 +364,26 @@
       (let ((dialect (get-parser-dialect (get-extension~ file))))
         (parse~ (get-parser dialect) file digest dialect)))
     
-    (define (unmodified-file-entry file digest)
-      (let ((actual (get-file-entry file)))
-        (when actual
-          (let ((actual-digest (get-digest~ actual)))
-            ;; for backward compatibility with the old format of using times
-            (when (string? actual-digest)
-              (when (string=? actual-digest digest)
-                actual))))))
-    
     (when (scan-file? file)
       (if (exists?~ file)
-          (let ((digest (digest-file (parse~ file) 'SHA-1)))
-            (let ((file-entry (unmodified-file-entry file digest)))
-              (if file-entry
-                  (begin
-                    (set-marked?~ file-entry #t)
-                    #f)
-                (with-exception-filter
-                  (lambda (exc)
-                    #t)
-                  (lambda (exc)
-                    (wrap-exception exc))
-                  (lambda ()
-                    (scan file digest report?))))))
+          (let ((actual-entry (get-file-entry file)))
+            (let ((actual-digest (and actual-entry (get-digest~ actual-entry))))
+              (let ((updated-digest (file-digest file actual-digest)))
+                (cond ((and actual-digest (nu=? actual-digest updated-digest))
+                       (set-marked?~ actual-entry #t)
+                       #f)
+                      ((and actual-digest (string=? (get-hash~ actual-digest) (get-hash~ updated-digest)))
+                       (set-digest~ actual-entry updated-digest)
+                       (set-marked?~ actual-entry #t)
+                       actual-entry)
+                      (else
+                       (with-exception-filter
+                         (lambda (exc)
+                           #t)
+                         (lambda (exc)
+                           (wrap-exception exc))
+                         (lambda ()
+                           (scan file updated-digest report?))))))))
         (format :console "{%}Unable to catalog inexistant file: {a}" (parse~ file))
         #f)))
   

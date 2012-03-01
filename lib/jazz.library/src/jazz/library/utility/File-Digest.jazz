@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; File Parser
+;;;; File Digest
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,48 +35,37 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.catalog.parser.File-Parser jazz
+(module protected jazz.library.utility.File-Digest jazz
 
 
-(class File-Parser extends Object
+(import (jazz.library))
+
+
+(class File-Digest extends Object
   
   
-  ;;;
-  ;;;; Constituent
-  ;;;
-  
-  
-  (method meta protected virtual (get-match-test)
-    #f)
-  
-  
-  (method meta protected virtual (get-constituent-test)
-    #f)
-  
-  
-  ;;;
-  ;;;; Parser
-  ;;;
-  
-  
-  (slot catalog)
-  (slot char-encoding)
-  (slot heuristics)
-  (slot references?)
-  
-  
-  (method override (initialize catalog (char-encoding: char-encoding #f) (heuristics: heuristics #f) (references?: references? #f))
+  (slot hash getter generate)
+  (slot time getter generate)
+    
+    
+  (method override (initialize hash time)
     (nextmethod)
-    (set! catalog~self catalog)
-    (set! char-encoding~self char-encoding)
-    (set! heuristics~self heuristics)
-    (set! references?~self references?))
+    (set! hash~self hash)
+    (set! time~self time))
   
   
-  (method (get-heuristic name)
-    (when heuristics
-      (getf heuristics name)))
+  (method override (compare-object target)
+    (cond ((is-not? target File-Digest)
+           :incompatible)
+          ((and (string=? hash (get-hash~ target))
+                (= time (get-time~ target)))
+           :equal)
+          (else
+           :not-equal)))
   
   
-  (method public virtual abstract (parse file digest dialect)
-    )))
+  (method override (print output readably)
+    (format output "~{{a} {s} {s}}"
+            (category-name (class-of self))
+            hash
+            time))))

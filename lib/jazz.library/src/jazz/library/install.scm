@@ -48,6 +48,7 @@
 (jazz:define-literal Box                jazz.library.literals:construct-box)
 (jazz:define-literal Date               jazz.library.literals:construct-date)
 (jazz:define-literal Time               jazz.library.literals:construct-time)
+(jazz:define-literal File-Digest        jazz.library.literals:construct-file-digest)
 (jazz:define-literal Path               jazz.library.literals:construct-path)
 (jazz:define-literal Manifest           jazz.library.literals:construct-manifest)
 (jazz:define-literal Directory-Group    jazz.library.literals:construct-directory-group)

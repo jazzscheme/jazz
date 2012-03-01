@@ -258,9 +258,6 @@
 (jazz:define-macro (%%digest-pathname digest)
   `(%%vector-ref ,digest 1))
 
-(jazz:define-macro (%%digest-pathname-set! digest pathname)
-  `(%%vector-set! ,digest 1 ,pathname))
-
 (jazz:define-macro (%%digest-hash digest)
   `(%%vector-ref ,digest 2))
 

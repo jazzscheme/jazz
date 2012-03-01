@@ -39,13 +39,10 @@
 
 
 (import @wait (gambit)
-        (jazz.debugger))
-
-
-(class Gambit-Debugger extends Debugger)
-
-
-@WAIT (
+        (jazz.console)
+        (jazz.debugger)
+        (jazz.debugger.gambit)
+        (jazz.system))
 
 
 (class Gambit-Debugger extends Debugger
@@ -56,7 +53,7 @@
   ;;;
   
   
-  (method (start-debugger)
+  (method override (start-debugger)
     (user-message "Starting gambit debugger...")
     (rdi-init rdi-function)
     (thread-start!
@@ -66,15 +63,15 @@
         'gambit-debugger-server)))
   
   
-  (method (stop-debugger)
+  (method override (stop-debugger)
     )
   
   
-  (method (get-processes (validate-liveness?: validate-liveness? #f))
+  (method override (get-processes (validate-liveness?: validate-liveness? #f))
     )
   
   
-  (method public (detach-processes)
+  (method override (detach-processes)
     )
   
   
@@ -83,39 +80,39 @@
   ;;;
   
   
-  (method (process=? x y)
+  (method override (process=? x y)
     )
   
   
-  (method (process-live? process)
+  (method override (process-live? process)
     )
   
   
-  (method (process-title process)
+  (method override (process-title process)
     )
   
   
-  (method (process-icon process)
+  (method override (process-icon process)
     )
   
   
-  (method (process-threads process)
+  (method override (process-threads process)
     )
   
   
-  (method (present-process process)
+  (method override (present-process process)
     )
   
   
-  (method (evaluate-expressions process syntax string container line col walk-debugger walk-cookie)
+  (method override (evaluate-expressions process syntax string container line col walk-debugger walk-cookie)
     )
   
   
-  (method (process-detach process)
+  (method override (process-detach process)
     )
   
   
-  (method (process-exit process)
+  (method override (process-exit process)
     )
   
   
@@ -124,23 +121,23 @@
   ;;;
   
   
-  (method (thread-name thread)
+  (method override (thread-name thread)
     )
   
   
-  (method (thread-state thread)
+  (method override (thread-state thread)
     )
   
   
-  (method (thread-stops thread)
+  (method override (thread-stops thread)
     )
   
   
-  (method (break-thread process thread)
+  (method override (break-thread process thread)
     )
   
   
-  (method (terminate-thread process thread)
+  (method override (terminate-thread process thread)
     )
   
   
@@ -149,7 +146,7 @@
   ;;;
 
   
-  (method (restart-stop process restart)
+  (method override (restart-stop process restart)
     )
   
   
@@ -158,23 +155,23 @@
   ;;;
   
   
-  (method (stop-kind stop)
+  (method override (stop-kind stop)
     )
   
   
-  (method (stop-reason stop)
+  (method override (stop-reason stop)
     )
   
   
-  (method (stop-frames stop)
+  (method override (stop-frames stop)
     )
   
   
-  (method (continue-stop process stop)
+  (method override (continue-stop process stop)
     )
   
   
-  (method (step-stop process stop command)
+  (method override (step-stop process stop command)
     )
   
   
@@ -183,148 +180,21 @@
   ;;;
   
   
-  (method (frame-name frame)
+  (method override (frame-name frame)
     )
   
   
-  (method (frame-location frame)
+  (method override (frame-location frame)
     )
   
   
-  (method (frame-variables frame)
+  (method override (frame-variables frame)
     )
   
   
-  (method (frame-variable-name frame variable)
+  (method override (frame-variable-name frame variable)
     )
   
   
-  (method (frame-variable-value frame variable)
-    ))
-
-
-;;;
-;;;; Console
-;;;
-
-
-(definition console-no
-  1)
-
-
-(definition (open-console-window)
-  (let ((manager (get-console-manager))
-        (title (format "Gambit {s}" console-no)))
-    (increase! console-no)
-    (let ((text (register-console~ manager title)))
-      (values text (setup-debugger-console-ports text)))))
-
-
-@comment
-(method public (register-console process thread)
-  (call-event
-    (lambda ()
-      (let ((debugged-process (new Debugged-Process self process process))
-            (text (register-debugger-console process thread)))
-        (let ((console (new Debugger-Resource
-                         debugged-process
-                         text
-                         (lambda ()
-                           (unregister-debugger-console text)))))
-          (register-debugger-resource debugged-process console)
-          (object->serial console))))))
-
-
-(definition (setup-debugger-console-ports text)
-  (receive (head tail) (open-string-pipe (list permanent-close: #f))
-    (set-console-port~ text head)
-    tail))
-
-
-@comment
-(definition (setup-debugger-console-ports text process-proxy thread-proxy)
-  (receive (head tail) (open-string-pipe (list permanent-close: #f))
-    (set-console-port~ text head)
-    (set-console-pump~ text (start-debugger-console-pump tail process-proxy thread-proxy))))
-
-
-;;;
-;;;; Dispatch
-;;;
-
-
-(definition rdi
-  #f)
-
-
-(definition (rdi-debugger-init)
-  (set! rdi (rdi-create-server #f))
-  (rdi-force-connection rdi))
-
-
-(definition (rdi-function fn)
-  (case fn
-    ((register-console)
-     rdi-register-console)
-    ((console-output)
-     rdi-console-output)
-    (else
-     (error "unknown function"))))
-
-
-;;;
-;;;; Console
-;;;
-
-
-(definition rdi-console-table
-  (make-table))
-
-
-(definition (rdi-register-console console-id)
-  (receive (console-text console-port) (open-console-window)
-    (table-set! rdi-console-table console-id console-text)
-    (rdi-console-input-pump-start! console-id console-port)
-    #f))
-
-
-;; need to implement ctrl-c by calling rdi-user-interrupt
-(definition (rdi-console-input-pump-start! console-id console-port)
-  (thread-start!
-    (new-system-thread
-      (lambda ()
-        (start-pump console-port
-          (lambda (str)
-            (if (not str)
-                (rdi-console-input-eof rdi console-id)
-              (rdi-console-input rdi console-id str)))))
-      'gambit-console-pump)))
-
-
-(definition (rdi-console-output console-id output)
-  (let ((console-text
-          (table-ref rdi-console-table console-id #f)))
-    (if console-text
-        (debugger-console-output console-text output)))
-  #t)
-
-
-;;;
-;;;; Methods
-;;;
-
-
-(definition (rdi-console-input rdi console-id text)
-  (rdi-remote-call rdi 'console-input console-id text))
-
-(definition (rdi-console-input-eof rdi console-id)
-  (rdi-remote-call rdi 'console-input console-id ""))
-
-(definition (rdi-user-interrupt rdi console-id)
-  (rdi-remote-call rdi 'user-interrupt console-id))
-
-(definition (rdi-get-threads rdi)
-  (rdi-remote-call rdi 'get-threads))
-
-(definition (rdi-get-external-representation rdi $obj max-length)
-  (rdi-remote-call rdi 'get-external-representation $obj max-length))))
+  (method override (frame-variable-value frame variable)
+    )))

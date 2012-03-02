@@ -41,7 +41,8 @@
 (import (jazz.designer)
         (jazz.designer.view)
         (jazz.jml)
-        (jazz.library))
+        (jazz.library)
+        (jazz.locale.components))
 
 
 (class undocumented Toolbox-Module extends Toolbox-Group
@@ -49,10 +50,11 @@
   
   (property module-name        initialize #f accessors generate)
   (property addable-references initialize #f accessors generate)
+  (property locale-tree-class  initialize #f getter generate)
   
   
   (method override (copy-object deep?)
-    (new Toolbox-Module name: name title: title module-name: module-name addable-references: addable-references))
+    (new Toolbox-Module name: name title: title module-name: module-name addable-references: addable-references locale-tree-class: locale-tree-class))
   
   
   ;;;
@@ -95,6 +97,8 @@
                          (require-module module-name))))
              (valid-names (collect-valid-names (table-keys (get-exports~ module))))
              (plists (sort-elements (collect-valid-elements-properties valid-names))))
+        (when locale-tree-class
+          (register-locale-info module-name (resolve-reference~ locale-tree-class)))
         (for-each add (map get-element-class plists) plists))))
   
   
@@ -123,12 +127,14 @@
   
   
   (form
-    (<install>                                   title: "Module" image: {Image-Resource "Library"}
+    (<install>                                          title: "Module" image: {Image-Resource "Library"}
       (<properties~>
         (<Property-Descriptor> name: module-name
           (<Value-Domain>      name: domain))
         (<Property-Descriptor> name: addable-references
-          (<Value-Domain>      name: domain)))))
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: locale-tree-class
+          (<Value-Domain>      name: domain             nullable?: #t)))))
   
   
   (method override (component-determine-paster component (try-parent? #t))

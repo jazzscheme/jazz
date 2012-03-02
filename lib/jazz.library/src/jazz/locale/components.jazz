@@ -137,26 +137,15 @@
 (class Locale-Node extends Component
   
   
-  (form
-    (<install>
-      (<Localized-String-Group> name: title)))
-  
-  
   (property title initialize #f accessors generate)
     
   
-  (method public (register-locale override? recursive?)
-    (register-locale (new Locale 
-                       (symbol->keyword name) 
-                       (and (is? parent Locale-Node)
-                            (symbol->keyword (get-name~ parent)))
-                       (get-contents~ (find-type Localized-String-Group)))
-                     override?)
-    (when recursive?
-      (for-each (lambda (child)
-                  (when (is? child Locale-Node)
-                    (register-locale~ child override? #t)))
-                children)))
+  (method protected (register-node-locale locale-state)
+    (register-locale~ locale-state (new Locale (symbol->keyword name) (symbol->keyword (get-name~ parent)) title))
+    (for-each (lambda (child)
+                (when (is? child Locale-Node)
+                  (register-node-locale~ child locale-state)))
+              children))
   
   
   (method override (validate-component validation-context)
@@ -180,8 +169,11 @@
   
   
   (form
-    (<install>                  name: root
-      (<title~> name: root string: "")))
+    (<install> name: all title: ""))
+  
+  
+  (method override (default-name)
+    'all)
   
   
   (method override (validate-component validation-context)
@@ -192,12 +184,51 @@
       (unless (null? result)
         (add-violation~ validation-context message: (format "multiple descendants named {a}" (car result)))))
     (unless (find-ascendant Locale-Tree include-self?: #t)
-      (add-violation~ validation-context message: "Locale-Node must descend from Locale-Tree")))  
+      (add-violation~ validation-context message: "Locale-Node must descend from Locale-Tree")))
+  
+  
+  (method public (register-locales locale-state)
+    (for-each-descendant 
+      (lambda (component level)
+        (when (is? component Locale-Node)
+          (let ((parent-name (get-name~ (get-parent~ component))))
+            (register-locale~ locale-state (new Locale (symbol->keyword (get-name~ component)) (and parent-name (symbol->keyword parent-name)) (get-title~ component))))))
+      include-self?: #f))
   
   
   (method override (provide-locales)
     (map (compose symbol->keyword get-name~) (collect-descendants Locale-Node))))
 
+
+;;;
+;;;; Design
+;;;
+
+
+
+
+(definition *tree-class-table* (make-table))
+(definition *unit-table* (make-table))
+
+
+(definition public (registered-locale-info unit)  
+  (let ((maybe-tree-class (table-ref *unit-table* unit #f)))
+    (if maybe-tree-class
+        (bind (state . tree) (table-ref *tree-class-table* maybe-tree-class #f)
+          (values state tree))
+      (values *locale-state* #f))))
+
+
+(definition public (register-locale-info unit tree-class)
+  (assert (not (table-ref *unit-table* unit #f)))
+  (assert (subtype? tree-class Locale-Tree))
+  (unless (table-ref *tree-class-table* tree-class #f)
+    (let ((tree (new tree-class))
+          (state (new Locale-State)))
+      (register-locales~ tree state)
+      (table-set! *tree-class-table* tree-class (cons state tree))))
+  (table-set! *unit-table* unit tree-class))
+  
 
 ;;;
 ;;;; Design
@@ -234,9 +265,7 @@
     (<install>
       (<properties~>
         (<Property-Descriptor> name: title
-          (<Localized-Domain>  name: domain)))
-      (<children~>
-        (<Child-Descriptor>                 target: title title: "Title" classes: ({Reference Localized-String-Group})))))
+          (<Localized-Domain>  name: domain)))))
   
   
   (method override (component-get-categorized-addable-classes component)

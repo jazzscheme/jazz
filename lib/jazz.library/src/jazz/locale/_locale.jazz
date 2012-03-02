@@ -39,11 +39,22 @@
 
 
 ;;;
+;;;; Locales-Provider
+;;;
+
+
+(interface Locales-Provider
+  
+  (method public virtual abstract (provide-locales)))
+
+
+
+;;;
 ;;;; Locales
 ;;;
 
 
-(class Locales extends Object
+(class Locales extends Object implements Locales-Provider
   
   
   (slot locales accessors generate)
@@ -104,8 +115,12 @@
   ;;;
   
   
+  (method override (provide-locales)
+    (map-property (lambda (locale value) locale) locales))
+  
+  
   (method public (get-locale locale)
-    (getf locales locale))
+    (getf locales (standardize-locale locale)))
   
   
   ;;;
@@ -114,7 +129,7 @@
   
   
   (method public virtual (localize locale)
-    (getf locales locale)))
+    (getf locales (standardize-locale locale))))
 
 
 ;;;
@@ -153,17 +168,6 @@
 
 
 ;;;
-;;;; Locale-Provider
-;;;
-
-
-(interface Locales-Provider
-  
-  (method public virtual abstract (provide-locales)))
-    
-
-
-;;;
 ;;;; Locale
 ;;;
 
@@ -198,107 +202,100 @@
 
 
 ;;;
+;;;; Locale-State
+;;;
+
+
+(class Locale-State extends Object implements Locales-Provider
+  
+  
+  (slot table)
+  (slot changes        getter generate)      
+  (slot current-locale getter generate setter explicit)
+  
+  
+  (method override (initialize)
+    (nextmethod)
+    (set! changes '())
+    (set! current-locale~self all:)
+    (set! table (make-table))
+    (table-set! table all: (new Locale all: #f (new Locales all: "" english: "root" french: "racine"))))
+  
+  
+  (method public (localize object (name current-locale~self))
+    (if (is? object Locales)    
+        (let ((locale (registered-locale (standardize-locale name)) current-locale))
+          (or (localize~ object (get-name~ locale))
+              (localize object (get-parent-name~ locale))))
+      object))
+  
+  
+  (method override (provide-locales)
+    (sort string<? (table-keys table) key: keyword->string))
+  
+  
+  (method public (register-locale locale)
+    (let ((name (get-name~ locale)))
+      (cond ((not (table-ref table (get-parent-name~ locale) #f))
+             (signal (new Locale-Registration-Error message: "locale parent name has not been registered")))
+            ((table-ref table name #f)
+             (signal (new Locale-Registration-Error message: "a locale has already been registered under this name")))
+            (else
+             (table-set! table name locale)))))
+  
+  
+  (method public (unregister-locale name)
+    (table-clear table (standardize-locale name)))
+  
+  
+  (method public (registered-locale name)
+    (or (table-ref table (standardize-locale name) #f)
+        (signal (new Locale-Registration-Error message: "unregistered locale"))))
+  
+  
+  (method public (present-locale name)
+    (present~ (registered-locale (standardize-locale name))))
+  
+  
+  (method public (set-current-locale name (apply-changes?: apply-changes? #f) (change-procs-arg: change-procs-arg #f))
+    (let ((name (standardize-locale name)))     
+      (unless (eq? name current-locale)
+        (assert (registered-locale name))
+        (set! current-locale name)
+        (when apply-changes?
+          (for-each (lambda (proc)
+                      (proc name change-procs-arg))
+                    changes)))))
+  
+  
+  (method public (register-locale-change proc <Procedure>)
+    (set! changes (cons proc changes)))
+  
+  
+  (method public (unregister-locale-change proc <Procedure>)
+    (set! changes (remove! proc changes))))
+
+
+;;;
 ;;;; Global
 ;;;
 
-@w (method public (get-supported-locales)
-    (cond ((and (not supported-locales) (not parent))
-           #f)
-          ((not supported-locales)
-           (get-supported-locales~ parent))
-          (else 
-           (let ((locales (if (list? supported-locales)
-                              supported-locales
-                            (assert (is? supported-locales Reference))
-                            (let ((ref-value (resolve-reference~ supported-locales)))
-                              (typecase ref-value
-                                ((Class) (assert (subtype ref-value Locales-Provider))
-                                 (provide-locales~ (new ref-value)))
-                                ((Locales-Provider) 
-                                 (provide-locales~ ref-value))
-                                ((Procedure)
-                                 (ref-value))
-                                (else
-                                 ref-value))))))
-             (assert (pair? locales))
-             (assert (every? keyword? locales))
-             locales))))
 
-
-
-(definition *locale-table*
-  (let ((table (make-table test: eq?)))
-    (table-set! table root: (new Locale root: #f (new Locales english: "root" french: "racine")))
-    table))
-
-(definition *active-locale*
-  english:)
-
-
-(definition public (get-locales)
-  (sort string<? (table-keys *locale-table*) key: keyword->string))
-
-
-(definition public (registered-locale name)
-  (or (table-ref *locale-table* name #f)
-      (error "unregistered locale")))
-
-
-(definition public (register-locale locale (override? #f))
-  (let ((name (get-name~ locale)))
-    (cond ((not (table-ref *locale-table* (get-parent-name~ locale) #f))
-           (error "locale parent name is not registered"))
-          ((and (not override?) (table-ref *locale-table* name #f))
-           (error "a locale has already been registered under this name"))
-          (else
-           (table-set! *locale-table* name locale)))))
-
-
-(definition public (unregister-locale locale)
-  (let ((name (get-name~ locale)))
-    (table-clear *locale-table* name)))
-
-
-(definition public (get-locale)
-  *active-locale*)
+(class Localization-Error extends Error)
+(class Locale-Registration-Error extends Error)
 
 
 (definition public (standardize-locale loc)
   (cond ((keyword? loc) loc)
         ((enumerator? loc) (symbol->keyword (enumerator->symbol loc)))
         ((symbol? loc) (symbol->keyword loc))
-        (else (error "Invalid locale: {s}" loc))))
+        (else (signal (new Localization-Error message: (format "Invalid locale: {s}" loc))))))
 
 
-(definition public (set-locale loc (update?: update? #t))
-  (let ((loc (standardize-locale loc)))
-    (assert (registered-locale loc))
-    (unless (eq? loc *active-locale*)
-      (set! *active-locale* loc)
-      (for-each (lambda (proc)
-                  (proc loc update?))
-                locale-changes))))
+(definition public *locale-state* (new Locale-State))
 
 
-(definition locale-changes
-  '())
+(definition public (localize object)
+  (localize~ *locale-state* object)))
 
 
-(definition public (register-locale-change proc)
-  (set! locale-changes (cons proc locale-changes)))
-
-
-(definition public (unregister-locale-change proc)
-  (set! locale-changes (remove! proc locale-changes)))
-
-
-(definition public (localize object (loc *active-locale*))
-  (let ((locale (registered-locale loc)))
-    (or (and (is? object Locales)
-             (or (localize~ object loc)
-                 (localize object (get-parent-name~ locale))))
-        object)))
-
-
-(definition public (present-locale loc)
-  (present~ (registered-locale loc))))

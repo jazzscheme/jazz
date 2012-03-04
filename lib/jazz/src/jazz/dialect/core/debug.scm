@@ -54,4 +54,13 @@
 (define (resume)
   (let ((get-process (jazz:global-ref 'jazz.system.access:get-process))
         (invoke-resume-loop (jazz:global-ref 'jazz.system.process.Process:Process:invoke-resume-loop)))
-    (invoke-resume-loop (get-process)))))
+    (invoke-resume-loop (get-process))))
+
+
+;; start a scheme repl
+(define (start-scheme-repl)
+  (jazz:load-unit 'jazz)
+  (jazz:load-unit 'jazz.debuggee)
+  (jazz.debuggee:set-default-context #f)
+  (jazz.debuggee:transmit-information '() '() '())
+  ((jazz:module-ref 'jazz 'start-repl))))

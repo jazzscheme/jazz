@@ -58,15 +58,28 @@
   
   
   (method override (validate-value property value component root editor context manager)
-    (when value
-      (receive (state tree) (registered-locale-info (cadr (serialize-origin (class-of (get-root-parent~ component)))))
-        ;; TODO
-        (unless (or (string? value) (is? value Locales))
-          (add-violation~ manager (new Integrity-Violation message: (format "Property {a} can only be a string or a Locales object: {t}" (field-name property) value) property: property) component root editor)))
-      )
+    (define (add-violation format-string . rest)
+      (add-violation~ manager 
+        (new Integrity-Violation message: (apply format (concatenate "Property {a} " format-string) (field-name property) rest) property: property) 
+        component root editor))
+    
+    (if (or (string? value) (is? value Locales))
+        (receive (state tree) (registered-locale-info (cadr (serialize-origin (class-of root))))
+          (cond ((not tree))
+                ((string? value)
+                 (add-violation "needs to be localized according to {a}" (get-name~ (class-of tree))))
+                (else
+                 (let ((missing-locales (collect-if (lambda (locale-name) 
+                                                      (and (neq? locale-name all:)
+                                                           (not (localize~ value locale-name))))
+                                                    (provide-locales~ tree))))
+                   (unless (null? missing-locales)
+                     (add-violation "expects localization for: {a}" (join (map keyword->symbol missing-locales) ", ")))))))
+      
+      (add-violation "expects string or Locales: {t}" value))
     (nextmethod property value component root editor context manager))
-  
-  
+
+
   ;;;
   ;;;; Presentation
   ;;;
@@ -84,8 +97,9 @@
   
   
   (method override (setup-entry view client)
-    (new String-Entry parent: view domain: self)
-   @wait (new Localized-Entry parent: view domain: self setup-entry-client: client)))
+    (let ((creators (remove-duplicates (map (compose class-of get-creator~) client))))
+      (when (and (pair? creators) (null? (cdr creators)))
+        (new Localized-Entry parent: view domain: self unit: (cadr (serialize-origin (car creators))))))))
 
 
 ;;;
@@ -96,76 +110,22 @@
 (class undocumented Localized-Entry extends Value-Entry
   
   
-  (property setup-entry-client initialize '() accessors generate)
+  (property unit initialize #f)
   
   
-  (method (get-property-name)
-    (get-name~ (get-parent~ domain)))
+  (slot locale-state)
+  (slot locale-tree)
   
   
-  (method override (get-value)
-    (let* ((content (get-string-content~ (locate 'text)))
-           (string/locales (and (not (empty-string? content))
-                                (not (string=? (substring content 0 2) "{}"))
-                                (read-string-safe content))))
-      (cond ((not string/locales)
-             #f)
-            ((string? string/locales)
-             string/locales)
-            ((is-not? string/locales Locales)
-             #f)
-            (else
-             (let* ((alist (plist->alist (get-locales~ string/locales)))
-                    (locales (map car alist)))
-               (define (not-locale-subset? group <Localized-String-Group>)
-                 (let ((group-locales (collect get-locale~ (collect-type Localized-String (get-children~ group)))))
-                   (some? (lambda (locale) (not (memq? locale group-locales))) locales)))
-               
-               (define (update-group group <Localized-String-Group>)
-                 (let ((designer <Designer> (car (get-designers~ (get-parent~ group)))))
-                   (for-each (lambda (child <Localized-String>)
-                               (let ((new-string (let ((pair (assq (get-locale~ child) alist))) (and pair (cdr pair)))))
-                                 (unless (string=? new-string (get-string~ child))
-                                   (set-property~ designer child 'string new-string))))
-                             (collect-type Localized-String (get-children~ group)))))
-                                
-               (and (or (null? locales)
-                        (let ((groups (collect-localized-string-groups (get-property-name) setup-entry-client)))
-                          (or (not groups)
-                              (some? not-locale-subset? groups))
-                              (prog1 #f 
-                                (for-each update-group groups))))
-                    string/locales))))))  
-  
-  
-  (method override (set-value value)
-    (set-string-content~ (locate 'text)
-      (if value
-          (->string value :reader)
-        (let ((groups (collect-localized-string-groups (get-property-name) setup-entry-client)))
-          (if (not groups)
-              ""
-            (bind (first . rest) (map get-contents~ groups)
-              (if (and (is? first Locales)
-                       (or (null? rest)
-                           (every? (lambda (object) (compare~ first object)) rest)))
-                  (->string first :reader)
-                (set-editable? #f)
-                "{not editable}")))))))
+  (method override (finish rest)
+    (nextmethod rest)
+    (receive (state tree) (registered-locale-info unit)
+      (set! locale-state~self state)
+      (set! locale-tree~self tree)))
   
   
   (method meta override (get-class-descriptor)
     (new Localized-Entry-Descriptor)))
-
-  
-(definition (collect-localized-string-groups property-name components (groups '()))
-  (if (null? components)
-      groups
-    (bind (component . rest) components
-      (let ((group (find-localized-string-group component property-name)))
-        (if group
-            (collect-localized-string-groups property-name rest (cons group groups))
-          #f)))))
 
 
 ;;;
@@ -187,5 +147,5 @@
   (form
     (<install>
       (<properties~>
-        (<Property-Descriptor> name: setup-entry-client
+        (<Property-Descriptor> name: unit
           (<Value-Domain>      name: domain             nullable?: #f))))))))

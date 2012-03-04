@@ -230,9 +230,15 @@
             thunk))))
     
     
-    (define (jazz:repl)
+    (define (jazz:repl #!optional (write-reason #f))
       (begin
-        (%%repl)
+        (%%repl write-reason)
+        #f))
+    
+    
+    (define (jazz:repl-debug #!optional (write-reason #f) (toplevel? #f))
+      (begin
+        (%%repl-debug write-reason toplevel?)
         #f))
     
     

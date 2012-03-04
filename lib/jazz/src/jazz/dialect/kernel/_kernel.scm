@@ -332,6 +332,7 @@
 (native os-exception-message)
 (native os-exception-procedure)
 (native os-exception?)
+(native system-version-string)
 
 
 ;;;
@@ -913,6 +914,7 @@
 (native jazz:with-repl-context)
 (native jazz:inspect-repl-context)
 (native jazz:repl)
+(native jazz:repl-debug)
 (native jazz:eval-within-no-winding)
 (native jazz:repl-result-history-add)
 (native repl-result-history-ref)

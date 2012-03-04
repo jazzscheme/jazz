@@ -865,6 +865,9 @@
     (jazz:define-macro (%%repl #!optional (write-reason #f))
       `(##repl ,write-reason))
     
+    (jazz:define-macro (%%repl-debug #!optional (write-reason #f) (toplevel? #f))
+      `(##repl-debug ,write-reason ,toplevel?))
+    
     (jazz:define-macro (%%thread-repl-context-get!)
       `(##thread-repl-context-get!))
     

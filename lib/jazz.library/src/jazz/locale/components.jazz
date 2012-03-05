@@ -45,91 +45,6 @@
 
 
 ;;;
-;;;; Localized-String
-;;;
-
-
-(class Localized-String extends Component
-  
-  
-  (property string initialize #f accessors generate)
-  
-  
-  (method public (get-locale)
-    (catch (Error err #f)
-      (standardize-locale (get-name))))
-  
-  
-  (method override (validate-component validation-context)
-    (unless (get-name)
-      (add-violation~ validation-context message: "Localized-String name must specify a language and cannot be #f"))
-    (unless (null? children)
-      (add-violation~ validation-context message: "Localized-String cannot have children"))
-    (nextmethod validation-context))
-  
-
-  (method meta override (get-class-descriptor)
-    (new Localized-String-Descriptor)))
-
-
-;;;
-;;;; Localized-String-Group
-;;;
-
-
-(class Localized-String-Group extends Component
-   
-  
-  (method public (get-contents)
-    (let ((strings (collect-if get-locale~ (collect-type Localized-String children))))
-      (and (pair? strings)
-           (apply new Locales (alist->plist (map (lambda (child <Localized-String>)
-                                                   (cons (get-locale~ child) (get-string~ child)))
-                                                 strings))))))
-  
-  
-  (method override (validate-component validation-context)
-    (define (get-duplicates locale remaining duplicates)
-      (if (null? remaining)
-          duplicates
-        (get-duplicates (car remaining) (cdr remaining) (if (and (not (memq? locale duplicates))
-                                                                 (memq? locale remaining))
-                                                            (cons locale duplicates)
-                                                          duplicates))))
-    
-    (when (pair? children)
-      (let ((localized-strings (collect-type Localized-String children)))
-        (when (< (length localized-strings) (length children))
-          (add-violation~ validation-context message: "expects all children to be Localized-String"))
-        (map (lambda (locale)
-               (add-violation~ validation-context message: (format "expects unique child names: {a}" locale)))
-             (get-duplicates #f (collect get-locale~ children) '()))))
-    (nextmethod validation-context))
-      
-  
-  (method meta override (get-class-descriptor)
-    (new Localized-String-Group-Descriptor)))
-
-
-;;;
-;;;; Helper functions
-;;;
-
-
-(definition public (find-localized-string-group component <Component> group-name)
-  (find-if (lambda (maybe-group) 
-             (and (equal? group-name (get-name~ maybe-group)) 
-                  (is? maybe-group Localized-String-Group)))
-           (get-children~ component)))
-
-
-(definition public (get-localized-strings component group-name)
-  (let ((group (find-localized-string-group component group-name)))
-    (and group
-         (get-contents~ group))))
-
-
-;;;
 ;;;; Locale-Node
 ;;;
 
@@ -141,7 +56,7 @@
     
   
   (method protected (register-node-locale locale-state)
-    (register-locale~ locale-state (new Locale (symbol->keyword name) (symbol->keyword (get-name~ parent)) title))
+    (register-locale~ locale-state (new Locale name (and parent (get-name~ parent)) title))
     (for-each (lambda (child)
                 (when (is? child Locale-Node)
                   (register-node-locale~ child locale-state)))
@@ -191,8 +106,7 @@
     (for-each-descendant 
       (lambda (component level)
         (when (is? component Locale-Node)
-          (let ((parent-name (get-name~ (get-parent~ component))))
-            (register-locale~ locale-state (new Locale (symbol->keyword (get-name~ component)) (and parent-name (symbol->keyword parent-name)) (get-title~ component))))))
+          (register-locale~ locale-state (new Locale (get-name~ component) (get-name~ (get-parent~ component)) (get-title~ component)))))
       include-self?: #f))
   
   
@@ -239,23 +153,6 @@
 
 
 (import (jazz.designer))
-
-
-(class Localized-String-Descriptor extends Component-Descriptor
-  
-  
-  (form
-    (<install>                              image: {Image-Resource "All"} can-rename?: #f
-      (<properties~>
-        (<Property-Descriptor> name: string
-          (<String-Domain>     name: domain))))))
-
-
-(class Localized-String-Group-Descriptor extends Component-Descriptor
-  
-  
-  (method override (component-get-categorized-addable-classes component)
-    `((,(reference Localized-String)))))
 
 
 (class Locale-Node-Descriptor extends Component-Descriptor

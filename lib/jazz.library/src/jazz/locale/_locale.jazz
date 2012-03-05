@@ -48,7 +48,6 @@
   (method public virtual abstract (provide-locales)))
 
 
-
 ;;;
 ;;;; Locales
 ;;;
@@ -82,34 +81,6 @@
             locales))
   
   
-  (method override (compare-object target)
-    (define (recursive-compare plist1 plist2 type)
-      (cond ((and (null? plist1) (null? plist2))
-             #t)
-            ((not (eq? (null? plist1) (null? plist2)))
-             #f)
-            ((eq? type 'keyword)
-             (let ((head1 (car plist1))
-                   (head2 (car plist2)))
-               (and (keyword? head1)
-                    (eq? head1 head2)
-                    (recursive-compare (cdr plist1) (cdr plist2) 'string))))
-            (else 
-             (let ((head1 (car plist1))
-                   (head2 (car plist2)))
-               (and (or (and (not head1) (not head2))
-                        (and (string? head1)
-                             (string? head2)
-                             (string=? head1 head2)))
-                    (recursive-compare (cdr plist1) (cdr plist2) 'keyword))))))
-    
-    (cond ((is-not? target Locales)
-           :incompatible)
-          ((recursive-compare locales (get-locales~ target) 'keyword)
-           :equal)
-          (else
-           :not-equal)))
-  
   ;;;
   ;;;; Access
   ;;;
@@ -117,10 +88,6 @@
   
   (method override (provide-locales)
     (map-property (lambda (locale value) locale) locales))
-  
-  
-  (method public (get-locale locale)
-    (getf locales (standardize-locale locale)))
   
   
   ;;;
@@ -180,10 +147,10 @@
   (slot titles      getter generate)
   
   
-  (method override (initialize name <Keyword> parent-name titles <Locales>)
+  (method override (initialize name <Symbol> parent-name titles <Locales>)
     (nextmethod)
-    (set! name~self name)
-    (set! parent-name~self parent-name)
+    (set! name~self (standardize-locale name))
+    (set! parent-name~self (and parent-name (standardize-locale parent-name)))
     (set! titles~self titles))
   
   
@@ -210,24 +177,24 @@
   
   
   (slot table)
-  (slot changes        getter generate)      
+  (slot changes        initialize '() getter generate)
   (slot current-locale getter generate setter explicit)
   
   
   (method override (initialize)
     (nextmethod)
-    (set! changes '())
     (set! current-locale~self all:)
-    (set! table (make-table))
-    (table-set! table all: (new Locale all: #f (new Locales all: "" english: "root" french: "racine"))))
+    (set! table~self (make-table))
+    (table-set! table~self all: (new Locale 'all #f (new Locales all: ""))))
   
 
   (method public (localize object (name current-locale~self))
-    (if (is? object Locales)    
-        (let ((locale (registered-locale (standardize-locale name)) current-locale))
-          (or (localize~ object (get-name~ locale))
-              (localize object (get-parent-name~ locale))))
-      object))
+    (and name
+         (if (is? object Locales)
+             (let ((locale (registered-locale (standardize-locale name)) current-locale))
+               (or (localize~ object (get-name~ locale))
+                   (localize~ self object (get-parent-name~ locale))))
+           object)))
   
   
   (method override (provide-locales)
@@ -237,9 +204,9 @@
   (method public (register-locale locale)
     (let ((name (get-name~ locale)))
       (cond ((not (table-ref table (get-parent-name~ locale) #f))
-             (signal (new Locale-Registration-Error message: "locale parent name has not been registered")))
+             (signal (new Locale-Registration-Error message: "Locale parent name has not been registered")))
             ((table-ref table name #f)
-             (signal (new Locale-Registration-Error message: "a locale has already been registered under this name")))
+             (signal (new Locale-Registration-Error message: "A locale has already been registered under this name")))
             (else
              (table-set! table name locale)))))
   
@@ -250,7 +217,7 @@
   
   (method public (registered-locale name)
     (or (table-ref table (standardize-locale name) #f)
-        (signal (new Locale-Registration-Error message: "unregistered locale"))))
+        (signal (new Locale-Registration-Error message: "Unregistered locale"))))
   
   
   (method public (present-locale name)

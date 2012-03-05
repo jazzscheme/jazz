@@ -39,10 +39,12 @@
 
 
 (import (jazz.designer)
+        (jazz.graphic)
         (jazz.jml)
         (jazz.library)
         (jazz.locale)
-        (jazz.locale.components))
+        (jazz.locale.components)
+        (jazz.ui))
 
 
 (class undocumented Localized-Domain extends Value-Domain
@@ -68,13 +70,14 @@
           (cond ((not tree))
                 ((string? value)
                  (add-violation "needs to be localized according to {a}" (get-name~ (class-of tree))))
+                ((localize~ value all:))
                 (else
                  (let ((missing-locales (collect-if (lambda (locale-name) 
                                                       (and (neq? locale-name all:)
-                                                           (not (localize~ value locale-name))))
+                                                           (not (localize~ state value locale-name))))
                                                     (provide-locales~ tree))))
                    (unless (null? missing-locales)
-                     (add-violation "expects localization for: {a}" (join (map keyword->symbol missing-locales) ", ")))))))
+                     (add-violation "expects localization for: {a}" (join (map keyword->string missing-locales) ", ")))))))
       
       (add-violation "expects string or Locales: {t}" value))
     (nextmethod property value component root editor context manager))
@@ -97,11 +100,17 @@
   
   
   (method override (setup-entry view client)
-    (let ((creators (remove-duplicates (map (compose class-of get-creator~) client))))
-      (when (and (pair? creators) (null? (cdr creators)))
-        (new Localized-Entry parent: view domain: self unit: (cadr (serialize-origin (car creators))))))))
+    (new Localized-Entry
+      parent: view
+      domain: self
+      locales: (let ((creators (remove-duplicates (map (compose class-of get-creator~) client))))
+                 (and (pair? creators)
+                      (null? (cdr creators))
+                      (receive (state tree) (registered-locale-info (cadr (serialize-origin (car creators))))
+                        (and tree
+                             (provide-locales~ tree))))))))
 
-
+  
 ;;;
 ;;;; Localized-Entry
 ;;;
@@ -110,19 +119,35 @@
 (class undocumented Localized-Entry extends Value-Entry
   
   
-  (property unit initialize #f)
+  (property locales initialize #f)
   
   
-  (slot locale-state)
-  (slot locale-tree)
+  ;;;
+  ;;;; Value
+  ;;;
   
   
-  (method override (finish rest)
-    (nextmethod rest)
-    (receive (state tree) (registered-locale-info unit)
-      (set! locale-state~self state)
-      (set! locale-tree~self tree)))
+  (method (localize value)
+    (or (and (pair? locales)
+             (string? value)
+             (new Locales all: value))
+        value))
   
+ 
+  (method override (get-value)
+    (localize (nextmethod)))
+  
+  
+  (method override (set-value value)
+    (nextmethod (if value
+                    (localize value)
+                  "{}")))
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+
   
   (method meta override (get-class-descriptor)
     (new Localized-Entry-Descriptor)))
@@ -136,9 +161,7 @@
 (submodule design
 
 
-(import (jazz.designer)
-        (jazz.jml)
-        (jazz.designer.entry.Property-Entry))
+(import (jazz.designer.entry.Property-Entry))
 
 
 (class Localized-Entry-Descriptor extends Property-Entry-Descriptor
@@ -147,5 +170,5 @@
   (form
     (<install>
       (<properties~>
-        (<Property-Descriptor> name: unit
-          (<Value-Domain>      name: domain             nullable?: #f))))))))
+        (<Property-Descriptor> name: locales
+          (<List-Domain>       name: domain  nullable?: #t))))))))

@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -864,6 +864,9 @@
   (gambit
     (jazz:define-macro (%%repl #!optional (write-reason #f))
       `(##repl ,write-reason))
+    
+    (jazz:define-macro (%%repl-debug #!optional (write-reason #f) (toplevel? #f))
+      `(##repl-debug ,write-reason ,toplevel?))
     
     (jazz:define-macro (%%thread-repl-context-get!)
       `(##thread-repl-context-get!))

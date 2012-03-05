@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -550,7 +550,7 @@
   (method public (filename-processes filename)
     (let ((always (collect-always-processes))
           (processes (evaluation-filename-processes filename)))
-      (let ((forced (difference always processes test: debugged=?)))
+      (let ((forced (collect-if has-information? (difference always processes test: debugged=?))))
         (if (not-null? forced)
             (case (message-box (format "Some processes do not contain the current file: {a}.{%}{%}Do you want to force evaluation?" filename) type: 'confirmation yes: "Force" no: "Known")
               ((yes)
@@ -562,6 +562,12 @@
           processes))))
   
   
+  (method public (effective-filename-processes filename)
+    (union test: debugged=?
+      (evaluation-filename-processes filename)
+      (collect-always-processes)))
+  
+  
   (method public (evaluation-filename-processes filename)
     (remove-never-processes
       (let ((processes (determine-filename-processes filename)))
@@ -570,12 +576,6 @@
                   (focused-processes (or (determine-focused-processes) '())))
               (intersection test: debugged=? (union always focused-processes) processes))
           processes))))
-  
-  
-  (method public (effective-filename-processes filename)
-    (union test: debugged=?
-      (evaluation-filename-processes filename)
-      (collect-always-processes)))
   
   
   (method public (determine-focused-processes)
@@ -623,6 +623,10 @@
                     (evaluate-expressions~ process syntax str container line col walk-debugger walk-cookie))
                   processes))
       (map get-reference~ processes)))
+  
+  
+  (method public (has-information? process)
+    (determine-process-information?~ (get-debugger~ process) process))
   
   
   ;;;

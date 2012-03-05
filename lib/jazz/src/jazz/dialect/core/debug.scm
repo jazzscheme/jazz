@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -54,4 +54,13 @@
 (define (resume)
   (let ((get-process (jazz:global-ref 'jazz.system.access:get-process))
         (invoke-resume-loop (jazz:global-ref 'jazz.system.process.Process:Process:invoke-resume-loop)))
-    (invoke-resume-loop (get-process)))))
+    (invoke-resume-loop (get-process))))
+
+
+;; start a scheme repl
+(define (start-scheme-repl)
+  (jazz:load-unit 'jazz)
+  (jazz:load-unit 'jazz.debuggee)
+  ((jazz:module-ref 'jazz.debuggee 'set-default-context) #f)
+  ((jazz:module-ref 'jazz.debuggee 'transmit-information-unavailable))
+  ((jazz:module-ref 'jazz 'start-repl))))

@@ -53,10 +53,11 @@
 (class Jazz-Debugger extends Debugger
 
   
-  (slot processes          initialize '())
-  (slot process-filenames  initialize (make-table test: process=? hash: process-hash))
-  (slot process-processes  initialize (make-table test: process=? hash: process-hash))
-  (slot process-properties initialize (make-table test: process=? hash: process-hash))
+  (slot processes            initialize '())
+  (slot process-filenames    initialize (make-table test: process=? hash: process-hash))
+  (slot process-processes    initialize (make-table test: process=? hash: process-hash))
+  (slot process-properties   initialize (make-table test: process=? hash: process-hash))
+  (slot process-information? initialize (make-table test: process=? hash: process-hash))
   
   
   ;;;
@@ -458,10 +459,21 @@
   ;;;
   
   
+  (method (unavailable-runtime-information process)
+    (table-set! process-filenames process '())
+    (table-set! process-processes process '())
+    (table-set! process-properties process '())
+    (table-set! process-information? process #f)
+    (process-evaluate-always~ (get-debugger-manager) (new Debugged-Process self process process))
+    (when (get-processes-view)
+      (update~ (get-processes-view))))
+  
+  
   (method (receive-runtime-information process filenames processes properties)
     (table-set! process-filenames process filenames)
     (table-set! process-processes process processes)
     (table-set! process-properties process properties)
+    (table-set! process-information? process #t)
     (when (get-processes-view)
       (update~ (get-processes-view))))
   
@@ -509,7 +521,16 @@
   
   (method override (determine-process-property process property default)
     (getf (determine-process-properties process) property not-found: default))
-    
+      
+  
+  ;;;
+  ;;;; Information
+  ;;;
+  
+  
+  (method override (determine-process-information? process)
+    (table-ref process-information? process #f))
+
   
   ;;;
   ;;;; Problems

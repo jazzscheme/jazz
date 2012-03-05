@@ -62,5 +62,5 @@
   (jazz:load-unit 'jazz)
   (jazz:load-unit 'jazz.debuggee)
   ((jazz:module-ref 'jazz.debuggee 'set-default-context) #f)
-  ((jazz:module-ref 'jazz.debuggee 'transmit-information) '() '() '())
+  ((jazz:module-ref 'jazz.debuggee 'transmit-information-unavailable))
   ((jazz:module-ref 'jazz 'start-repl))))

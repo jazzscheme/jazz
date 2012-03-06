@@ -55,20 +55,27 @@
   #f)
 
 
+(definition public recording-level
+  (make-parameter #f))
+
+
 (class Macro-Recorder extends Object
   
   
-  (slot recording?  initialize #f getter generate)
-  (slot playing?    initialize #f getter generate)
-  (slot event-hook? initialize #f getter generate)
+  (slot recording?   initialize #f getter generate)
+  (slot playing?     initialize #f getter generate)
   
   
   ;;;
-  ;;;; Hook
+  ;;;; Hooks
   ;;;
   
   
   (method (event-hook action/handler event)
+    )
+  
+  
+  (method (action-hook action/handler event)
     (when recording?
       (record action/handler event)))
     
@@ -83,9 +90,8 @@
       (user-message "Recording...")
       (set! recording? #t)
       (set! Recording-Factory (new List-Factory))
-      (when (not event-hook?)
-        (register-event-hook event-hook)
-        (set! event-hook? #t))))
+      (register-event-hook event-hook)
+      (register-action-hook action-hook)))
   
   
   (method (on-stop-recording evt)
@@ -94,7 +100,9 @@
       (set! recording? #f)
       @buggy-with-translate-key
       (set! Recording-Factory (coalesce-actions (get-output~ Recording-Factory)))
-      (set! Active-Recording #f)))
+      (set! Active-Recording #f)
+      (unregister-event-hook event-hook)
+      (unregister-action-hook action-hook)))
 
   
   (method (on-resume-recording evt)

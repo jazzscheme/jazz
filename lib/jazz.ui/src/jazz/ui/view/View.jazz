@@ -184,7 +184,7 @@
     (let ((mouse-in (get-mouse-in)))
       (when (and mouse-in (has-ascendant?~ mouse-in self))
         (reset-mouse-in)
-        (call-mouse-leave~ mouse-in))))
+        (dispatch-mouse-leave~ mouse-in))))
   
   
   (method protected (detach-view-focus)
@@ -2046,21 +2046,21 @@
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when view
-        (hook-event view (lambda () (new Mouse-Event :mouse-down self position: pos))
-          (lambda ()
-            (close-popups~ view event: 'mouse-down)
-            (let ((actual-focus (get-focus))
-                  (acquired (acquire~ view self pos)))
-              (set-mouse-down? #t)
-              (set-mouse-down-view view)
-              (set-mouse-down-point acquired)
-              (unless (and (alt-down?) actual-focus (mouse-copy~ view acquired actual-focus))
-                (when (mouse-activate?~ view)
-                  (let ((host (get-host~ view)))
-                    (when (and host (mouse-activate?~ host) (not (focused-host? host)))
-                      (mouse-activate~ host))))
-                (call-mouse-down~ view acquired)
-                (call-cursor-update~ view acquired))))))))
+        (let ((acquired (acquire~ view self pos)))
+          (hook-event view (lambda () (new Mouse-Event :mouse-down self position: acquired))
+            (lambda ()
+              (close-popups~ view event: 'mouse-down)
+              (let ((actual-focus (get-focus)))
+                (set-mouse-down? #t)
+                (set-mouse-down-view view)
+                (set-mouse-down-point acquired)
+                (unless (and (alt-down?) actual-focus (mouse-copy~ view acquired actual-focus))
+                  (when (mouse-activate?~ view)
+                    (let ((host (get-host~ view)))
+                      (when (and host (mouse-activate?~ host) (not (focused-host? host)))
+                        (mouse-activate~ host))))
+                  (call-mouse-down~ view acquired)
+                  (call-cursor-update~ view acquired)))))))))
 
   
   (method public (call-mouse-down pos)
@@ -2077,13 +2077,13 @@
             (when (and player (is-not? (get-overlapped) Tooltip))
               (when (neq? view (get-mouse-in))
                 (when (get-mouse-in)
-                  (call-mouse-leave~ (get-mouse-in))
+                  (dispatch-mouse-leave~ (get-mouse-in))
                   (cancel-mouse-leave-tracking (get-handle~ player))
                   (unless (or (is? player Tooltip) (in-tooltip? pos))
                     (cancel-tooltip-tracking)))
                 (set-mouse-in view)
                 (when (get-mouse-in)
-                  (call-mouse-enter~ (get-mouse-in)))
+                  (dispatch-mouse-enter~ (get-mouse-in)))
                 (track-mouse-leave (get-handle~ player)))
               (unless (or *current-tooltip-context* (current-drag-drop))
                 (track-tooltip~ (get-mouse-in)))
@@ -2110,15 +2110,15 @@
   
   (method protected (dispatch-mouse-up h v)
     (let* ((pos (new Point h v))
-           (view (find-mouse-view pos)))
+           (view (find-mouse-view pos))
+           (acquired (and view (acquire~ view self pos))))
+      (when view
+        (hook-event view (lambda () (new Mouse-Event :mouse-up self position: acquired))))
       (when mouse-down?
         (process-drag-up~ mouse-down-view (acquire~ mouse-down-view self pos)))
       (when view
-        (hook-event view (lambda () (new Mouse-Event :mouse-up self position: pos))
-          (lambda ()
-            (let ((acquired (acquire~ view self pos)))
-              (call-cursor-update~ view acquired)
-              (process-mouse-up~ view acquired))))))
+        (call-cursor-update~ view acquired)
+        (process-mouse-up~ view acquired)))
     (when (get-delayed-mouse-action)
       (let ((action (get-delayed-mouse-action)))
         (set-delayed-mouse-action #f)
@@ -2177,16 +2177,18 @@
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when view
-        (close-popups~ view event: 'double-click)
-        (let ((acquired (acquire~ view self pos)))
-          (set-mouse-down? #t)
-          (set-mouse-down-view view)
-          (set-mouse-down-point acquired)
-          (when (mouse-activate?~ view)
-            (let ((host (get-host~ view)))
-              (when (and host (mouse-activate?~ host) (not (focused-host? host)))
-                (mouse-activate~ host))))
-          (call-double-click~ view (acquire~ view self pos))))))
+        (hook-event view (lambda () (new Mouse-Event :double-click self position: pos))
+          (lambda ()
+            (close-popups~ view event: 'double-click)
+            (let ((acquired (acquire~ view self pos)))
+              (set-mouse-down? #t)
+              (set-mouse-down-view view)
+              (set-mouse-down-point acquired)
+              (when (mouse-activate?~ view)
+                (let ((host (get-host~ view)))
+                  (when (and host (mouse-activate?~ host) (not (focused-host? host)))
+                    (mouse-activate~ host))))
+              (call-double-click~ view (acquire~ view self pos))))))))
   
   
   (method public virtual (call-double-click pos)
@@ -2199,8 +2201,10 @@
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when (and view (view-enabled?~ view))
-        (close-popups~ view event: 'context-menu)
-        (call-context-menu~ view (acquire~ view self pos)))))
+        (hook-event view (lambda () (new Mouse-Event :context-menu self position: pos))
+          (lambda ()
+            (close-popups~ view event: 'context-menu)
+            (call-context-menu~ view (acquire~ view self pos)))))))
   
   
   (method public (call-context-menu pos)
@@ -2239,10 +2243,22 @@
         (right-mouse-up~ view (acquire~ view self pos)))))
   
   
+  (method (dispatch-mouse-enter)
+    (hook-event self (lambda () (new Mouse-Event :mouse-enter self))
+      (lambda ()
+        (call-mouse-enter))))
+  
+  
   (method (call-mouse-enter)
     (if mouse-enter-handler
         (invoke-handler self mouse-enter-handler (new Mouse-Event :mouse-enter self))
       (mouse-enter)))
+  
+  
+  (method (dispatch-mouse-leave)
+    (hook-event self (lambda () (new Mouse-Event :mouse-leave self))
+      (lambda ()
+        (call-mouse-leave))))
   
   
   (method (call-mouse-leave)
@@ -2633,7 +2649,7 @@
       (set-position~ border {Point 0 0})
       (set-size~ border (get-size~ popup))
       (set-parent~ view border)
-      (set-guest~ (get-host~ view) view)
+      (set-guest~ (get-host~ view) border)
       (set-visible?~ view #t)
       (layout-view~ border)
       (set-effect~ (get-root~ popup) effect)
@@ -2948,7 +2964,9 @@
           (complete-drag-up #t))
       (let ((view (get-focus)))
         (when view
-          (call-key-press~ view key)))))
+          (hook-event :focus (lambda () (new Event :char self content: key))
+            (lambda ()
+              (call-key-press~ view key)))))))
 
 
   ;;;

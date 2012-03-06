@@ -55,15 +55,12 @@
   #f)
 
 
-(definition public recording-level
-  (make-parameter #f))
-
-
 (class Macro-Recorder extends Object
   
   
-  (slot recording?   initialize #f getter generate)
-  (slot playing?     initialize #f getter generate)
+  (slot recording? initialize #f getter generate)
+  (slot playing?   initialize #f getter generate)
+  (slot hooked?    initialize #f getter generate)
   
   
   ;;;
@@ -71,12 +68,21 @@
   ;;;
   
   
-  (method (event-hook action/handler event)
-    )
+  (method (event-hook object event)
+    (define (identify)
+      (and (is? object View)
+           (let ((guest (get-guest~ object)))
+             (and guest
+                  (identify-component~ guest object)))))
+    
+    (when (and recording? (eq? (effective-recording-level) 'event))
+      (let ((identifier (identify)))
+        (debug identifier)
+        (put~ Recording-Factory (cons identifier event)))))
   
   
   (method (action-hook action/handler event)
-    (when recording?
+    (when (and recording? (eq? (effective-recording-level) 'action))
       (record action/handler event)))
     
   
@@ -90,8 +96,10 @@
       (user-message "Recording...")
       (set! recording? #t)
       (set! Recording-Factory (new List-Factory))
-      (register-event-hook event-hook)
-      (register-action-hook action-hook)))
+      (when (not hooked?)
+        (register-event-hook event-hook)
+        (register-action-hook action-hook)
+        (set! hooked? #t))))
   
   
   (method (on-stop-recording evt)
@@ -101,8 +109,10 @@
       @buggy-with-translate-key
       (set! Recording-Factory (coalesce-actions (get-output~ Recording-Factory)))
       (set! Active-Recording #f)
+      ;; this doesn't work yet because getting method value twice doesn't return eq? objects
+      @wait (
       (unregister-event-hook event-hook)
-      (unregister-action-hook action-hook)))
+      (unregister-action-hook action-hook))))
 
   
   (method (on-resume-recording evt)

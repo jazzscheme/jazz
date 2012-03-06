@@ -405,15 +405,6 @@
   (format "{a}.{a}" base extension))
 
 
-(definition public (get-tmp-directory)
-  (unimplemented 'get-tmp-directory)
-  @windows-specific
-  (let* ((size (GetTempPath 0 NULL))
-         (path (make-string size)))
-    (GetTempPath size path)
-    (new Directory (tokenise-windows path))))
-
-
 ;;;
 ;;;; Moniker
 ;;;
@@ -1090,19 +1081,6 @@
             file))))))
 
 
-(definition public (create-temporary-file (directory: directory #f) (prefix: prefix "JZZ"))
-  (unimplemented 'create-temporary-file)
-  @windows-specific
-  (let* ((directory (or directory (get-tmp-directory)))
-         (dir (parse~ directory)))
-    (if (empty-string? dir)
-        (error "Unable to use {t} as a temporary directory" directory)
-      (let ((filename (make-string MAX_PATH)))
-        (GetTempFileName (parse~ directory) prefix 0 filename)
-        (adjust-string filename)
-        (new File (tokenise-windows filename))))))
-
-
 ;;;
 ;;;; Directory
 ;;;
@@ -1385,7 +1363,7 @@
       (method override (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
         (define (enumerate-drives)
           (reverse!
-            (let (loop (drives (jazz.platform.windows:GetLogicalDrives))
+            (let (loop (drives (jazz.platform:GetLogicalDrives))
                        (letter (char->integer #\A))
                        (result '()))
               (if (= drives 0)

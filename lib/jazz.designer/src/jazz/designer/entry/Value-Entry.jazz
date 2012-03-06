@@ -38,11 +38,20 @@
 (module protected jazz.designer.entry.Value-Entry jazz
 
 
-(import (jazz.designer))
+(import (jazz.designer)
+        (jazz.library))
+
+
+;;;
+;;;; Value-Entry
+;;;
 
 
 (class Value-Entry extends String-Entry
     
+  
+  (property is initialize #f accessors generate)
+  
   
   ;;;
   ;;;; Value
@@ -53,11 +62,47 @@
     (let ((content (get-string-content~ (locate 'text))))
       (and (not (empty-string? content))
            (not (string=? content "{}"))
-           (read-string-safe content))))
+           (let ((value (read-string-safe content)))
+             (and (or (is-not? is~self Class-Reference)
+                      (is? value (resolve-reference~ is~self)))
+                  value)))))
+  
   
   
   (method override (set-value value)
     (set-string-content~ (locate 'text)
       (if (not value)
           "{}"
-        (->string value :reader))))))
+        (->string value :reader))))
+
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+
+
+  (method meta override (get-class-descriptor)
+    (new Value-Entry-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer.entry.Property-Entry)
+        (jazz.jml))
+
+
+(class Value-Entry-Descriptor extends Property-Entry-Descriptor
+  
+  
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor>      name: is
+          (<Class-Reference-Domain> name: domain nullable?: #t))))))))
+  

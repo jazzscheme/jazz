@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Boolean Domains
+;;;; Choices Domains
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,41 +35,45 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.domain.Boolean-Domain jazz
+(module protected jazz.designer.domain.Choices-Domain jazz
 
 
 (import (jazz.designer)
-        (jazz.library))
+        (jazz.library)
+        (jazz.locale)
+        (jazz.locale.components))
 
 
-(class Boolean-Domain extends Domain
+(class Choices-Domain extends Value-Domain
   
   
   ;;;
   ;;;; Validation
   ;;;
+
   
-  
-  (method override (validate property value component root editor context manager)
-    (unless (boolean? value)
-      ((make-add-property-violation-proc property component root editor manager) "must be #t or #f")))
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method override (present value)
-    (if value
-        "True"
-      "False"))
-  
-  
-  ;;;
-  ;;;; Entry
-  ;;;
-  
-  
-  (method override (setup-entry view client)
-    (new Boolean-Entry parent: view domain: self))))
+  (method override (validate-value property value component root editor context manager)
+    (define (validate-presentation presentation)
+      (define (add-presentation-violation format-string . rest)
+        (add-violation~ manager
+          (new Integrity-Violation 
+            message: (apply format (append (list (concatenate "Presentation {t} in property '{a}' " format-string) 
+                                                 presentation 
+                                                 (localize (property-presentation~ (class-of component) property)))
+                                           rest))
+            property: (field-name property))
+          component root editor))
+      
+      (validate-locales presentation (class-of root) add-presentation-violation))
+      
+    (cond ((null? value))
+          ((or (not (list? value))
+               (not (every? (lambda (elt) 
+                              (and (list? elt) 
+                                   (= 2 (length elt))))
+                            value)))
+           ((make-add-property-violation-proc property component root editor manager) "must be an association list"))
+          (else
+           (for-each (lambda (elt)
+                       (validate-presentation (cadr elt)))
+                     value))))))

@@ -54,11 +54,22 @@
   ;;;
   
   
+  (method protected virtual (make-add-property-violation-proc property component root editor manager)
+    (lambda (format-string . rest)
+      (add-violation~ manager
+        (new Integrity-Violation
+          message: (apply format (append (list (concatenate "Property '{a}' " format-string)
+                                               (localize (property-presentation~ (class-of component) property)))
+                                         rest))
+          property: (field-name property))
+        component root editor)))
+  
+  
   (method public virtual (validate property value component root editor context manager)
-    (if (not value)
-        (when (not nullable?)
-          (add-violation~ manager (new Integrity-Violation message: (format "Property '{a}' is mandatory" (localize (property-presentation~ (class-of component) property))) property: (field-name property)) component root editor))
-      (validate-value property value component root editor context manager)))
+    (cond (value
+           (validate-value property value component root editor context manager))
+          ((not nullable?)
+           ((make-add-property-violation-proc property component root editor manager) "is mandatory"))))
   
   
   (method public virtual (validate-value property value component root editor context manager)

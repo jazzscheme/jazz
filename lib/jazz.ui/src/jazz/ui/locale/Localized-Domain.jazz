@@ -47,6 +47,11 @@
         (jazz.ui))
 
 
+;;;
+;;;; Localized-Domain
+;;;
+
+
 (class undocumented Localized-Domain extends Value-Domain
 
    
@@ -60,29 +65,9 @@
   
   
   (method override (validate-value property value component root editor context manager)
-    (define (add-violation format-string . rest)
-      (add-violation~ manager 
-        (new Integrity-Violation message: (apply format (concatenate "Property {a} " format-string) (field-name property) rest) property: property) 
-        component root editor))
-    
-    (if (or (string? value) (is? value Locales))
-        (receive (state tree) (registered-locale-info (class-of root))
-          (cond ((not tree))
-                ((string? value)
-                 (add-violation "needs to be localized according to {a}" (get-name~ (class-of tree))))
-                ((localize~ value all:))
-                (else
-                 (let ((missing-locales (collect-if (lambda (locale-name) 
-                                                      (and (neq? locale-name all:)
-                                                           (not (localize~ state value locale-name))))
-                                                    (provide-locales~ tree))))
-                   (unless (null? missing-locales)
-                     (add-violation "expects localization for: {a}" (join (map keyword->string missing-locales) ", ")))))))
-      
-      (add-violation "expects string or Locales: {t}" value))
-    (nextmethod property value component root editor context manager))
-
-
+    (validate-locales value (class-of root) (make-add-property-violation-proc property component root editor manager)))
+  
+  
   ;;;
   ;;;; Presentation
   ;;;
@@ -171,4 +156,4 @@
     (<install>
       (<properties~>
         (<Property-Descriptor> name: locales
-          (<List-Domain>       name: domain  nullable?: #t))))))))
+          (<Value-Domain>      name: domain  nullable?: #t))))))))

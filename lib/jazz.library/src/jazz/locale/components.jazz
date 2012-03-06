@@ -115,7 +115,7 @@
 
 
 ;;;
-;;;; Design
+;;;; Registration
 ;;;
 
 
@@ -145,6 +145,29 @@
       (table-set! *tree-class-table* tree-class (cons state tree))))
   (table-set! *unit-table* unit tree-class))
   
+
+;;;
+;;;; Validation
+;;;
+
+
+(definition public (validate-locales value root-class/unit violation-adder)
+  (receive (state tree) (registered-locale-info root-class/unit)
+    (cond ((not tree)
+           (unless (or (string? value)
+                       (is? value Locales))
+             (violation-adder "must be a string or a Locales object")))
+          ((is-not? value Locales)
+           (violation-adder "must be a Locales object localized according to {a}" (get-name~ (class-of tree))))
+          ((localize~ value all:))
+          (else
+           (let ((missing-locales (collect-if (lambda (locale-name)
+                                                (and (neq? locale-name all:)
+                                                     (not (localize~ state value locale-name))))
+                                              (provide-locales~ tree))))
+             (unless (null? missing-locales)
+               (violation-adder "must, according to {a}, be localized for: {a}" (get-name~ (class-of tree)) (join (map keyword->string missing-locales) ", "))))))))
+
 
 ;;;
 ;;;; Design

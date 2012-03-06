@@ -50,11 +50,31 @@
   
   (property module-name        initialize #f accessors generate)
   (property addable-references initialize #f accessors generate)
-  (property locale-tree-class  initialize #f getter generate)
+  (property locale-tree-class  initialize #f getter generate setter explicit)
+  
+  
+  ;;;
+  ;;;; Accessors etc.
+  ;;;
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (set-locale-tree-class locale-tree-class))
   
   
   (method override (copy-object deep?)
     (new Toolbox-Module name: name title: title module-name: module-name addable-references: addable-references locale-tree-class: locale-tree-class))
+  
+  
+  (method public (set-locale-tree-class reference)
+    (set! locale-tree-class (and (is? reference Reference)
+                                 (let ((new-class (resolve-reference~ reference)))
+                                   (and (class? new-class)
+                                        (subclass? new-class Locale-Tree)
+                                        reference))))
+    (when (and module-name locale-tree-class)
+      (register-locale-info module-name (resolve-reference~ locale-tree-class))))
   
   
   ;;;
@@ -97,8 +117,6 @@
                          (require-module module-name))))
              (valid-names (collect-valid-names (table-keys (get-exports~ module))))
              (plists (sort-elements (collect-valid-elements-properties valid-names))))
-        (when locale-tree-class
-          (register-locale-info module-name (resolve-reference~ locale-tree-class)))
         (for-each add (map get-element-class plists) plists))))
   
   

@@ -119,14 +119,18 @@
 ;;;
 
 
-
-
 (definition *tree-class-table* (make-table))
 (definition *unit-table* (make-table))
 
 
-(definition public (registered-locale-info unit)  
-  (let ((maybe-tree-class (table-ref *unit-table* unit #f)))
+(definition public (registered-locale-info arg)
+  (let* ((unit (if (not (class? arg))
+                   arg
+                 (let ((origin (catch (Exception err #f)
+                                 (serialize-origin arg))))
+                   (and origin
+                        (cadr origin)))))
+         (maybe-tree-class (and unit (table-ref *unit-table* unit #f))))
     (if maybe-tree-class
         (bind (state . tree) (table-ref *tree-class-table* maybe-tree-class #f)
           (values state tree))
@@ -134,8 +138,6 @@
 
 
 (definition public (register-locale-info unit tree-class)
-  (assert (not (table-ref *unit-table* unit #f)))
-  (assert (subtype? tree-class Locale-Tree))
   (unless (table-ref *tree-class-table* tree-class #f)
     (let ((tree (new tree-class))
           (state (new Locale-State)))

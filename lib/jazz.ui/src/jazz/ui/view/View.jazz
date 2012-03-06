@@ -3228,15 +3228,17 @@
 
 
   (method public virtual (get-tooltip-text)
-    (let ((text (localize tooltip-text)))
-      (if (not text)
-          #f
-        (let ((shortcut (and (is? action-handler Action) (get-shortcut~ (require-action-item action-handler)))))
-          (if (not shortcut)
-              text
-            (format "{a} ({a})" text (present-shortcut~ shortcut)))))))
-
-
+    (and tooltip-text
+         (let* ((shortcut (and (is? action-handler Action)
+                               (get-shortcut~ (require-action-item action-handler))))
+                (add-shortcut (if shortcut (lambda (text) (format "{a} ({a})" text (present-shortcut~ shortcut))) identity)))
+           (if (string? tooltip-text)
+               (add-shortcut tooltip-text)
+             (apply new Locales (alist->plist (map (lambda (locale-name)
+                                                     (cons locale-name (add-shortcut (localize~ tooltip-text locale-name))))
+                                                   (provide-locales~ tooltip-text))))))))
+  
+  
   (method public virtual (set-tooltip-text text)
     (set! tooltip-text text))
   

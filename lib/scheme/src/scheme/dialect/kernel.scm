@@ -406,6 +406,7 @@
 (native make-table)
 (native table-copy)
 (native table-for-each)
+(native table-search)
 (native table-merge)
 (native table-merge!)
 (native table-ref)

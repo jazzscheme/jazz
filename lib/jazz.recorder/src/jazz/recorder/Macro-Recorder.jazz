@@ -63,22 +63,89 @@
   (slot hooked?    initialize #f getter generate)
   
   
+  (slot mouse-enter initialize #f)
+  
+  
   ;;;
   ;;;; Hooks
   ;;;
   
   
+  ;; Todo
+  ;; - identify consoles in console manager
+  ;; - identify menus in menubar
+  ;;
+  ;; Host
+  ;; - :menubar
+  ;; - :toolbar
+  ;; - :status-bar
+  ;; - :docked name
+  ;; - :frame
+  
+  
   (method (event-hook object event)
     (define (identify)
-      (and (is? object View)
-           (let ((guest (get-guest~ object)))
-             (and guest
-                  (identify-component~ guest object)))))
+      (cond ((enumerator? object)
+             (list object))
+            ((is? object View)
+             (identify-view object))
+            (else
+             #f)))
+    
+    (define (identify-view view)
+      (let ((host (get-host~ object)))
+        (when host
+          (let ((host-identifier (identify-host host)))
+            (if host-identifier
+                (let ((view-identifier (identify-in host view)))
+                  (if view-identifier
+                      (cons host-identifier view-identifier)
+                    (let ((guest (get-guest~ host)))
+                      (when guest
+                        (let ((view-identifier (identify-in guest view)))
+                          (if view-identifier
+                              (append host-identifier (cons :guest view-identifier))
+                            (unidentifiable guest view)
+                            #f))))))
+              (unidentifiable 'host host)
+              #f)))))
+    
+    (define (identify-host host)
+      (let ((appl (get-application))
+            (guest (get-guest~ host)))
+        (cond ((eq? guest (find-menubar~ appl)) (list :menubar))
+              ((eq? guest (find-toolbar~ appl)) (list :toolbar))
+              ((eq? guest (find-status-bar~ appl)) (list :status-bar))
+              ((eq? host (current-frame)) (list :frame))
+              ((singleton-docked-name host) => (lambda (name) (list :docked name)))
+              (else #f))))
+    
+    (define (identify-in in view)
+      (if (eq? view in)
+          (list)
+        (identify-component~ in view)))
+    
+    (define (unidentifiable . rest)
+      @debug
+      (apply debug 'unidentifiable rest))
     
     (when (and recording? (eq? (effective-recording-level) 'event))
       (let ((identifier (identify)))
-        (debug identifier)
-        (put~ Recording-Factory (cons identifier event)))))
+        (when identifier
+          (user-message "{s} {s}" identifier event)
+          (let ((action (cons identifier event)))
+            (case (get-kind~ event)
+              ((:mouse-enter)
+               (set! mouse-enter (cons object action)))
+              ((:mouse-leave)
+               (if (and mouse-enter (eq? object (car mouse-enter)))
+                   (set! mouse-enter #f)
+                 (put~ Recording-Factory action)))
+              (else
+               (when mouse-enter
+                 (put~ Recording-Factory (cdr mouse-enter))
+                 (set! mouse-enter #f))
+               (put~ Recording-Factory action))))))))
   
   
   (method (action-hook action/handler event)
@@ -95,6 +162,7 @@
     (when (not recording?)
       (user-message "Recording...")
       (set! recording? #t)
+      (set! mouse-enter #f)
       (set! Recording-Factory (new List-Factory))
       (when (not hooked?)
         (register-event-hook event-hook)
@@ -106,6 +174,7 @@
     (when recording?
       (user-message "Stopped")
       (set! recording? #f)
+      (set! mouse-enter #f)
       @buggy-with-translate-key
       (set! Recording-Factory (coalesce-actions (get-output~ Recording-Factory)))
       (set! Active-Recording #f)
@@ -284,6 +353,10 @@
   ;;;
   ;;;; Playback
   ;;;
+  
+  
+  (method public (get-current-recording)
+    (get-output~ Recording-Factory))
   
   
   (method public (play-current-recording)

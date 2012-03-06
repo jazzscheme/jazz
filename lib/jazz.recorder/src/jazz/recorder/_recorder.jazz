@@ -40,6 +40,7 @@
 
 (export (jazz.recorder.autoload))
 (import (jazz.recorder.autoload)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.view))
 
@@ -69,10 +70,57 @@
 
 
 (definition public (play-action action)
-  (bind (action/handler . event) action
-    (typecase action/handler
+  (bind (identifier/action/handler . event) action
+    (typecase identifier/action/handler
+      ((Pair)
+       ;; for tests
+       (parameterize ((testing? #t))
+         (play-event identifier/action/handler event)))
       ((Action)
-       (call-action action/handler #f '() event: event))
+       (call-action identifier/action/handler #f '() event: event))
       (else
        (let ((target (get-focus)))
-         (invoke~ action/handler target event)))))))
+         (invoke~ identifier/action/handler target event))))))
+
+
+(definition (play-event identifier event)
+  (define (play host path)
+    (assert host)
+    (if (and (pair? path) (eq? (car path) :guest))
+        (play-in (get-guest~ host) (cdr path))
+      (play-in host path)))
+  
+  (define (play-in in path)
+    (assert in)
+    (let ((view (if (null? path) in (locate~ in path))))
+      (if (not view)
+          (error "Unable to locate '{s} in: {s}" path in)
+        (play-event view event))))
+  
+  (define (play-event view event)
+    (case (get-kind~ event)
+      ((:char)         (dispatch-key-press~ view (get-property~ event content:)))
+      ((:mouse-enter)  (play-mouse-event view event (lambda (root h v) (dispatch-mouse-enter~ view))))
+      ((:mouse-down)   (play-mouse-event view event (lambda (root h v) (dispatch-mouse-down~ root h v))))
+      ((:mouse-up)     (play-mouse-event view event (lambda (root h v) (dispatch-mouse-up~ root h v))))
+      ((:mouse-leave)  (play-mouse-event view event (lambda (root h v) (dispatch-mouse-leave~ view))))
+      ((:double-click) (play-mouse-event view event (lambda (root h v) (dispatch-double-click~ root h v))))
+      ((:context-menu) (play-mouse-event view event (lambda (root h v) (dispatch-context-menu~ root h v))))))
+  
+  (define (play-mouse-event view event proc)
+    (let ((root (get-root~ view)))
+      (assert root)
+      (let ((pos (get-position~ event)))
+        (if (not pos)
+            (proc root #f #f)
+          (let ((acquired (acquire~ root view pos)))
+            (proc root (get-h~ acquired) (get-v~ acquired)))))))
+  
+  (case (car identifier)
+    ((:focus) (play-in (get-focus) (cdr identifier)))
+    ((:menubar) (play (find-menubar~ (get-application)) (cdr identifier)))
+    ((:toolbar) (play (find-toolbar~ (get-application)) (cdr identifier)))
+    ((:status-bar) (play (find-status-bar~ (get-application)) (cdr identifier)))
+    ((:docked) (play (singleton-docked-named (cadr identifier)) (cddr identifier)))
+    ((:frame) (play (current-frame) (cdr identifier)))
+    (else (error "Unknown host: {s}" (car identifier))))))

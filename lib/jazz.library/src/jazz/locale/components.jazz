@@ -38,7 +38,8 @@
 (module jazz.locale.components jazz
 
 
-(import (jazz.jml)
+(import (jazz.designer.view)
+        (jazz.jml)
         (jazz.library)
         (jazz.locale)
         (jazz.ui))
@@ -54,6 +55,11 @@
   
   (property title initialize #f accessors generate)
     
+  
+  (method public (get-locale)
+    (and name
+         (symbol->keyword name)))
+  
   
   (method protected (register-node-locale locale-state)
     (register-locale~ locale-state (new Locale name (and parent (get-name~ parent)) title))
@@ -102,6 +108,22 @@
       (add-violation~ validation-context message: "Locale-Node must descend from Locale-Tree")))
   
   
+  (method public (collect-missing-localizations object)
+    (if (is-not? object Locales-Provider)
+        (collect-if (lambda (locale) (neq? all: locale)) (provide-locales))
+      (let ((object-locales (provide-locales~ object))
+            (result '()))
+        (unless (memq? all: object-locales)
+          (for-each-descendant
+            do-nothing
+            stop-test: (lambda (locale-node)
+                         (let ((node-locale (get-locale~ locale-node)))
+                           (unless (memq? node-locale object-locales)
+                             (set! result (cons node-locale result))
+                             #t)))))
+        result)))
+  
+
   (method public (register-locales locale-state)
     (for-each-descendant 
       (lambda (component level)
@@ -115,36 +137,32 @@
 
 
 ;;;
-;;;; Registration
+;;;; Locale-Tree singleton cache
 ;;;
 
 
-(definition *tree-class-table* (make-table))
-(definition *unit-table* (make-table))
+(definition *locale-tree-cache* (make-table))
 
 
-(definition public (registered-locale-info arg)
-  (let* ((unit (if (not (class? arg))
-                   arg
-                 (let ((origin (catch (Exception err #f)
-                                 (serialize-origin arg))))
-                   (and origin
-                        (cadr origin)))))
-         (maybe-tree-class (and unit (table-ref *unit-table* unit #f))))
-    (if maybe-tree-class
-        (bind (state . tree) (table-ref *tree-class-table* maybe-tree-class #f)
-          (values state tree))
-      (values (get-locale-state) #f))))
+(definition public (find-locale-tree root-class/unit)
+  (let ((unit (if (not (class? root-class/unit))
+                  root-class/unit
+                (let ((origin (catch (Exception err #f)
+                                (serialize-origin root-class/unit))))
+                  (and origin
+                       (cadr origin))))))
+    (when unit
+      (let ((toolbox-module (find (append-map get-toolbox-modules~ (get-toolbox-managers)) unit key: get-module-name~ return: 'item)))
+        (when toolbox-module
+          (let ((locale-tree-class-reference (get-locale-tree-class~ toolbox-module)))
+            (when (is? locale-tree-class-reference Class-Reference)
+              (let ((locale-tree-class (resolve-reference~ locale-tree-class-reference)))
+                (when (subclass? locale-tree-class Locale-Tree)
+                  (or (table-ref *locale-tree-cache* locale-tree-class #f)
+                      (let ((locale-tree (new locale-tree-class)))
+                        (table-set! *locale-tree-cache* locale-tree-class locale-tree)
+                        locale-tree)))))))))))
 
-
-(definition public (register-locale-info unit tree-class)
-  (unless (table-ref *tree-class-table* tree-class #f)
-    (let ((tree (new tree-class))
-          (state (new Locale-State)))
-      (register-locales~ tree state)
-      (table-set! *tree-class-table* tree-class (cons state tree))))
-  (table-set! *unit-table* unit tree-class))
-  
 
 ;;;
 ;;;; Validation
@@ -152,21 +170,16 @@
 
 
 (definition public (validate-locales value root-class/unit violation-adder)
-  (receive (state tree) (registered-locale-info root-class/unit)
-    (cond ((not tree)
-           (unless (or (string? value)
-                       (is? value Locales))
-             (violation-adder "must be a string or a Locales object")))
-          ((is-not? value Locales)
-           (violation-adder "must be a Locales object localized according to {a}" (get-name~ (class-of tree))))
-          ((localize~ value all:))
-          (else
-           (let ((missing-locales (collect-if (lambda (locale-name)
-                                                (and (neq? locale-name all:)
-                                                     (not (localize~ state value locale-name))))
-                                              (provide-locales~ tree))))
-             (unless (null? missing-locales)
-               (violation-adder "must, according to {a}, be localized for: {a}" (get-name~ (class-of tree)) (join (map keyword->string missing-locales) ", "))))))))
+  (let ((tree (find-locale-tree root-class/unit)))
+    (cond (tree
+           (let ((missing-locales (collect-missing-localizations~ tree value)))
+             (cond ((null? missing-locales))
+                   ((null? (cdr missing-locales))
+                    (violation-adder "requires localization in {a}" (keyword->string (car missing-locales))))
+                   (else
+                    (violation-adder "requires localizations in: {a}" (join (map keyword->string missing-locales) ", "))))))
+          ((not (or (string? value) (is? value Locales)))
+           (violation-adder "must be a string or a Locales object")))))
 
 
 ;;;

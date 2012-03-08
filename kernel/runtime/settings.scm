@@ -112,6 +112,9 @@
 (jazz:define-setting jazz:debug-build?
   #f)
 
+(jazz:define-setting jazz:build-configure
+  #f)
+
 (jazz:define-setting jazz:build-setup
   #f)
 

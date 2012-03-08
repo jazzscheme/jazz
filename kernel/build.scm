@@ -1081,40 +1081,41 @@
 (define (jazz:make-kernel configuration image local?)
   (define (build-kernel configuration image)
     (define (build configuration)
-      (let ((name (jazz:configuration-name configuration))
-            (system (jazz:configuration-system configuration))
-            (platform (jazz:configuration-platform configuration))
-            (windowing (jazz:configuration-windowing configuration))
-            (safety (jazz:configuration-safety configuration))
-            (optimize? (jazz:configuration-optimize? configuration))
-            (debug-environments? (jazz:configuration-debug-environments? configuration))
-            (debug-location? (jazz:configuration-debug-location? configuration))
-            (debug-source? (jazz:configuration-debug-source? configuration))
-            (mutable-bindings? (jazz:configuration-mutable-bindings? configuration))
-            (kernel-interpret? (jazz:configuration-kernel-interpret? configuration))
-            (source jazz:source)
-            (destination (jazz:configuration-destination configuration))
-            (destination-directory (jazz:configuration-directory configuration))
-            (properties (jazz:configuration-properties configuration)))
-        (jazz:build-image #f
-                          system:                system
-                          platform:              platform
-                          windowing:             windowing
-                          safety:                safety
-                          optimize?:             optimize?
-                          debug-environments?:   debug-environments?
-                          debug-location?:       debug-location?
-                          debug-source?:         debug-source?
-                          mutable-bindings?:     mutable-bindings?
-                          include-compiler?:     #t
-                          kernel-interpret?:     kernel-interpret?
-                          source:                source
-                          destination:           destination
-                          destination-directory: destination-directory
-                          properties:            properties
-                          image:                 image
-                          kernel?:               #t
-                          console?:              #t)))
+      (let ((configuration (jazz:invoke-build-configure configuration)))
+        (let ((name (jazz:configuration-name configuration))
+              (system (jazz:configuration-system configuration))
+              (platform (jazz:configuration-platform configuration))
+              (windowing (jazz:configuration-windowing configuration))
+              (safety (jazz:configuration-safety configuration))
+              (optimize? (jazz:configuration-optimize? configuration))
+              (debug-environments? (jazz:configuration-debug-environments? configuration))
+              (debug-location? (jazz:configuration-debug-location? configuration))
+              (debug-source? (jazz:configuration-debug-source? configuration))
+              (mutable-bindings? (jazz:configuration-mutable-bindings? configuration))
+              (kernel-interpret? (jazz:configuration-kernel-interpret? configuration))
+              (source jazz:source)
+              (destination (jazz:configuration-destination configuration))
+              (destination-directory (jazz:configuration-directory configuration))
+              (properties (jazz:configuration-properties configuration)))
+          (jazz:build-image #f
+                            system:                system
+                            platform:              platform
+                            windowing:             windowing
+                            safety:                safety
+                            optimize?:             optimize?
+                            debug-environments?:   debug-environments?
+                            debug-location?:       debug-location?
+                            debug-source?:         debug-source?
+                            mutable-bindings?:     mutable-bindings?
+                            include-compiler?:     #t
+                            kernel-interpret?:     kernel-interpret?
+                            source:                source
+                            destination:           destination
+                            destination-directory: destination-directory
+                            properties:            properties
+                            image:                 image
+                            kernel?:               #t
+                            console?:              #t))))
     
     (jazz:feedback "make kernel")
     (let ((configuration (or configuration (jazz:require-default-configuration))))
@@ -1137,6 +1138,13 @@
   (if local?
       (build-kernel configuration image)
     (build-recursive 'kernel configuration image)))
+
+
+(define (jazz:invoke-build-configure configuration)
+  (let ((proc (jazz:build-configure)))
+    (if proc
+        (proc configuration)
+      configuration)))
 
 
 ;;;

@@ -145,23 +145,21 @@
 
 
 (definition public (find-locale-tree root-class/unit)
-  (let ((unit (if (not (class? root-class/unit))
-                  root-class/unit
-                (let ((origin (catch (Exception err #f)
-                                (serialize-origin root-class/unit))))
-                  (and origin
-                       (cadr origin))))))
+  (let ((unit (if (class? root-class/unit)
+                  (string->symbol (car (split (symbol->string (get-name~ root-class/unit)) ":")))
+                root-class/unit)))
     (when unit
       (let ((toolbox-module (find (append-map get-toolbox-modules~ (get-toolbox-managers)) unit key: get-module-name~ return: 'item)))
-        (when toolbox-module
-          (let ((locale-tree-class-reference (get-locale-tree-class~ toolbox-module)))
-            (when (is? locale-tree-class-reference Class-Reference)
+        (if toolbox-module
+            (let ((locale-tree-class-reference (get-locale-tree-class~ toolbox-module)))
+              (assert (is? locale-tree-class-reference Class-Reference))
               (let ((locale-tree-class (resolve-reference~ locale-tree-class-reference)))
-                (when (subclass? locale-tree-class Locale-Tree)
-                  (or (table-ref *locale-tree-cache* locale-tree-class #f)
-                      (let ((locale-tree (new locale-tree-class)))
-                        (table-set! *locale-tree-cache* locale-tree-class locale-tree)
-                        locale-tree)))))))))))
+                (assert (subclass? locale-tree-class Locale-Tree))
+                (or (table-ref *locale-tree-cache* locale-tree-class #f)
+                    (let ((locale-tree (new locale-tree-class)))
+                      (table-set! *locale-tree-cache* locale-tree-class locale-tree)
+                      locale-tree))))
+          (error "Unit {a} is not referred to by any toolbox modules in any toolbox managers" unit))))))
 
 
 ;;;
@@ -173,13 +171,10 @@
   (let ((tree (find-locale-tree root-class/unit)))
     (cond (tree
            (let ((missing-locales (collect-missing-localizations~ tree value)))
-             (cond ((null? missing-locales))
-                   ((null? (cdr missing-locales))
-                    (violation-adder "requires localization in {a}" (keyword->string (car missing-locales))))
-                   (else
-                    (violation-adder "requires localizations in: {a}" (join (map keyword->string missing-locales) ", "))))))
-          ((not (or (string? value) (is? value Locales)))
-           (violation-adder "must be a string or a Locales object")))))
+             (unless (null? missing-locales)
+               (violation-adder "must be localized in: {a}" (join (map keyword->string missing-locales) ", "))))
+           ((not (or (string? value) (is? value Locales)))
+            (violation-adder "must be a string or a Locales object"))))))
 
 
 ;;;

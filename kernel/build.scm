@@ -145,7 +145,7 @@
   #f)
 
 (jazz:define-option jazz:default-properties
-  #f)
+  '())
 
 
 (jazz:define-option jazz:default-target
@@ -758,7 +758,7 @@
 
 
 (define (jazz:validate-properties properties)
-  (if (or (not properties) (list? properties))
+  (if (list? properties)
       properties
     (jazz:error "Invalid properties: {s}" properties)))
 
@@ -1573,7 +1573,7 @@
   #f)
 
 (define jazz:kernel-properties
-  #f)
+  '())
 
 
 (define (jazz:load-kernel-base)

@@ -39,8 +39,9 @@
 
 
 (import (jazz.platform.types)
-        (jazz.platform.windows.WinTypes)
         (jazz.platform.windows.WinBase)
+        (jazz.platform.windows.WinDef)
+        (jazz.platform.windows.WinTypes)
         (profiler))
 
   
@@ -128,8 +129,6 @@
 (c-external (GetProcAddress                          HINSTANCE STR) VOID*)
 ;; tofix GetComputerName -> WinBase
 (c-external (GetComputerName                         LPWSTR PDWORD) BOOL                                                                                                 "GetComputerNameW")
-(c-external (GetTempPath                             DWORD WCHAR*) DWORD                                                                                                  "GetTempPathW")
-(c-external (GetTempFileName                         CWSTR CWSTR UINT WCHAR*) UINT                                                                                       "GetTempFileNameW")
 (c-external (FileTimeToSystemTime                    FILETIME* SYSTEMTIME*) BOOL)
 (c-external (FileTimeToLocalFileTime                 FILETIME* FILETIME*) BOOL)
 (c-external (LocalFileTimeToFileTime                 FILETIME* FILETIME*) BOOL)
@@ -175,6 +174,28 @@
 (c-external (MulDiv                                  INT INT INT) INT)
 (c-external (CreateToolhelp32Snapshot                DWORD DWORD) HANDLE)
 (c-external (Process32First                          HANDLE PROCESSENTRY32*) BOOL)
+
+
+;;;
+;;;; GetTempPath
+;;;
+
+
+(definition public (GetTempPath)
+  (let* ((GetTempPath (c-function (DWORD WCHAR*) DWORD "GetTempPathW"))
+         (size (GetTempPath 0 #f))
+         (buffer (WCHAR-array-make size)))
+    (GetTempPath size buffer)
+    (prog1 (WCHAR-string buffer)
+      (WCHAR-array-free buffer))))
+
+
+(definition public (GetTempFileName directory prefix uunique)
+  (let* ((GetTempFileName (c-function (CWSTR CWSTR UINT WCHAR*) UINT "GetTempFileNameW"))
+         (buffer (WCHAR-array-make MAX_PATH))
+         (result (GetTempFileName directory prefix uunique buffer)))
+    (values result (prog1 (WCHAR-string buffer)
+                     (WCHAR-array-free buffer)))))
 
 
 ;;;

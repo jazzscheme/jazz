@@ -56,23 +56,6 @@
           (iter (%%cdr scan)))))))
 
 
-(define (jazz:getprop plist target)
-  (let iter ((scan plist))
-    (cond ((%%null? scan)
-           #f)
-          ((%%eqv? (%%car scan) target)
-           scan)
-          (else
-           (iter (%%cddr scan))))))
-
-
-(define (jazz:getf plist target #!key (not-found #f))
-  (let ((pair (jazz:getprop plist target)))
-    (if pair
-        (%%cadr pair)
-      not-found)))
-
-
 (define jazz:reverse!
   reverse)
 

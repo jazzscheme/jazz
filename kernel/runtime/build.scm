@@ -148,6 +148,7 @@
           (source jazz:kernel-source)
           (destination jazz:kernel-destination)
           (destination-directory jazz:kernel-install)
+          (properties jazz:kernel-properties)
           (executable #f)
           (resources #f)
           (image #f)
@@ -308,7 +309,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
                   (lambda (output)
-                    (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)))
+                    (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination properties output)))
                 #t)
             #f)))
       
@@ -594,7 +595,7 @@
           (if (%%not (file-exists? file))
               (begin
                 (jazz:feedback "; generating {a}..." file)
-                (jazz:save-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination file jazz:kernel-platform)))))
+                (jazz:save-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination properties file jazz:kernel-platform)))))
       
       ;;;
       ;;;; Kernel Interpret
@@ -630,7 +631,7 @@
                     (print "  (path-directory (path-normalize (car (command-line)))))" output)
                     (newline output)
                     (newline output)
-                    (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)
+                    (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination properties output)
                     (newline output)
                     (jazz:print-variable 'jazz:product #f output)
                     (newline output)
@@ -658,7 +659,7 @@
                     (display "(load (string-append jazz:source \"kernel/boot\"))" output)
                     (newline output)))))))
       
-      (jazz:invoke-build-setup platform safety optimize? source destination)
+      (jazz:invoke-build-setup platform safety optimize? source destination properties)
       
       (jazz:create-directories product-dir feedback: feedback)
       (jazz:create-directories (kernel-file "syntax/") feedback: feedback)
@@ -679,10 +680,10 @@
 ;;;
 
 
-(define (jazz:invoke-build-setup platform safety optimize? source destination)
+(define (jazz:invoke-build-setup platform safety optimize? source destination properties)
   (let ((proc (jazz:build-setup)))
     (if proc
-        (proc platform safety optimize? source destination))))
+        (proc platform safety optimize? source destination properties))))
 
 
 (define (jazz:determine-binary-repositories destination-directory)
@@ -945,7 +946,7 @@
               (build-library)))))))
 
 
-(define (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination output)
+(define (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination properties output)
   (jazz:print-variable 'jazz:kernel-system system output)
   (newline output)
   (jazz:print-variable 'jazz:kernel-platform platform output)
@@ -965,6 +966,8 @@
   (jazz:print-variable 'jazz:kernel-mutable-bindings? mutable-bindings? output)
   (newline output)
   (jazz:print-variable 'jazz:kernel-destination destination output)
+  (newline output)
+  (jazz:print-variable 'jazz:kernel-properties properties output)
   (newline output)
   (jazz:print-variable 'jazz:kernel-version (jazz:get-jazz-version-number) output))
 

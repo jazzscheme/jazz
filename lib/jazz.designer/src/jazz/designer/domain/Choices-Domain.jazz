@@ -53,29 +53,20 @@
   ;;;
 
   
-  (method override (validate-value property value component root editor context manager)
-    (define (validate-presentation presentation)
-      (define (add-presentation-violation format-string . rest)
-        (add-violation~ manager
-          (new Integrity-Violation 
-            message: (apply format (append (list (concatenate "Presentation {t} in property '{a}' " format-string) 
-                                                 presentation 
-                                                 (localize (property-presentation~ (class-of component) property)))
-                                           rest))
-            property: (field-name property))
-          component root editor))
-      
-      (validate-locales presentation (class-of root) add-presentation-violation))
+  (method override (validate-data value (validation-context: validation-context #f))
+    (define (validate-presentation pair)
+      (let* ((presentation (cadr pair))
+             (module-metadata (and validation-context (get-module-metadata~ validation-context)))
+             (locale-tree (and (is? module-metadata Toolbox-Module) (get-locale-tree~ module-metadata))))
+        (validate-locales presentation locale-tree (lambda (format-string . rest)
+                                                     (add-violation "Presentation {t}: {a}" presentation (apply format format-string rest))))))
     
-    (nextmethod property value component root editor context manager)
-    (cond ((null? value))
-          ((or (not (list? value))
-               (not (every? (lambda (elt) 
-                              (and (list? elt) 
-                                   (= 2 (length elt))))
-                            value)))
-           ((make-add-property-violation-proc property component root editor manager) "must be an association list"))
-          (else
-           (for-each (lambda (elt)
-                       (validate-presentation (cadr elt)))
-                     value))))))
+    (or (nextmethod value validation-context: validation-context)
+        (if (not (every? (lambda (elt)
+                           (and (list? elt)
+                                (= 2 (length elt))))
+                         value))
+            (add-violation "must be an association list")
+          (for-each validate-presentation value)
+          (not-null? data-violations))))))
+

@@ -38,23 +38,27 @@
 (module protected jazz.designer.domain.Dimension-Domain jazz
 
 
-(import (jazz.designer))
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.library))
 
 
-(class Dimension-Domain extends Text-Domain
+(class Dimension-Domain extends Literal-Domain
   
+  
+  (form
+    (<install> is: {Class-Reference Dimension}))
+
   
   ;;;
   ;;;; Presentation
   ;;;
   
   
-  (method override (present size)
-    (if (not size)
+  (method override (present value)
+    (if (not value)
         "{}"
-      (format "{a}, {a}"
-              (get-width~ size)
-              (get-height~ size))))
+      (format "{a}, {a}" (get-width~ value) (get-height~ value))))
   
   
   ;;;
@@ -63,7 +67,18 @@
   
   
   (method override (parse text)
-    (bind (width height) (read-composite-value text expected: 2)
-      (assert (integer? width)
-        (assert (integer? height)
-          (new Dimension width height)))))))
+    (if (string=? text "{}")
+        #f
+      (bind (width height) (read-composite-value text expected: 2)
+        (assert (integer? width)
+          (assert (integer? height)
+            (new Dimension width height))))))
+  
+  
+  ;;;
+  ;;;; Entry
+  ;;;
+  
+  
+  (method override (setup-entry view client)
+    (new Text-Entry parent: view size: (get-size~ view) domain: self))))

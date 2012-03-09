@@ -46,51 +46,8 @@
 (class List-Domain extends Value-Domain
   
   
-  (form
-    (<install> is: {Class-Reference List}))
-  
-  
-  (property domain initialize #f accessors generate))
-
-
-@convert-domain
-(class List-Domain extends Domain
-  
-  
-  (property domain initialize (new Value-Domain) accessors generate)
-  
-  
-  ;;;
-  ;;;; Validation
-  ;;;
-  
-  
-  (method override (validate-value property value component root editor context manager)
-    (if (not (pair? value))
-        (add-violation~ manager (new Integrity-Violation message: (format "Property {a} must be a list: {t}" (field-name property) value) property: property) component root editor)
-      (for-each (lambda (subvalue)
-                  (validate-value~ domain property subvalue component root editor context manager))
-                value)))
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method override (present value)
-    (if (not value)
-        "{}"
-      (join (map (lambda (value)
-                   (present~ domain value))
-                 value)
-            ", ")))
-  
-  
-  ;;;
-  ;;;; Entry
-  ;;;
-  
-  
-  (method override (setup-entry view client)
-    (setup-list-entry~ domain view client))))
+  (method override (validate-data value (validation-context: validation-context #f))
+    (or (nextmethod value validation-context: validation-context)
+        (if (list? value)
+            (null? value)
+          (add-violation "must be a list"))))))

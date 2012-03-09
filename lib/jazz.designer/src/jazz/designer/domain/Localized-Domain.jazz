@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.locale.Localized-Domain jazz
+(module protected jazz.designer.domain.Localized-Domain jazz
 
 
 (import (jazz.designer)
@@ -53,7 +53,7 @@
 ;;;
 
 
-(class undocumented Localized-Domain extends Domain
+(class undocumented Localized-Domain extends Value-Domain
 
    
   (form
@@ -64,20 +64,12 @@
   ;;;; Validation
   ;;;
   
-  
-  (method override (validate-value property value component root editor context manager)
-    (validate-locales value (class-of root) (make-add-property-violation-proc property component root editor manager)))
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method override (present value)
-    (if (not value)
-        "{}"
-      (->string value :reader)))
+    
+  (method override (validate-data value (validation-context: validation-context #f))
+    (or (nextmethod value validation-context: validation-context)
+        (let* ((toolbox-module (and validation-context (get-module-metadata~ validation-context)))
+               (locale-tree (and toolbox-module (get-locale-tree~ toolbox-module))))
+          (validate-locales value locale-tree add-violation))))
   
   
   ;;;
@@ -89,75 +81,4 @@
     (new Localized-Entry
       parent: view
       domain: self
-      locales: (let ((roots (remove-duplicates (map (lambda (component)
-                                                         (class-of (or (get-creator~ component)
-                                                                       component)))
-                                                       client))))
-                 (and (pair? roots)
-                      (null? (cdr roots))
-                      (let ((locale-tree (find-locale-tree (car roots))))
-                        (and locale-tree
-                             (provide-locales~ locale-tree))))))))
-
-
-;;;
-;;;; Localized-Entry
-;;;
-
-
-(class undocumented Localized-Entry extends Value-Entry
-  
-  
-  (property locales initialize #f)
-  
-  
-  ;;;
-  ;;;; Value
-  ;;;
-  
-  
-  (method (localize value)
-    (or (and (pair? locales)
-             (string? value)
-             (new Locales all: value))
-        value))
-  
- 
-  (method override (get-value)
-    (localize~ self (nextmethod)))
-  
-  
-  (method override (set-value value)
-    (nextmethod (if value
-                    (localize~ self value)
-                  "{}")))
-  
-  
-  ;;;
-  ;;;; Descriptor
-  ;;;
-
-  
-  (method meta override (get-class-descriptor)
-    (new Localized-Entry-Descriptor)))
-
-
-;;;
-;;;; Design
-;;;
-
-
-(submodule design
-
-
-(import (jazz.designer.entry.Property-Entry))
-
-
-(class Localized-Entry-Descriptor extends Property-Entry-Descriptor
-  
-  
-  (form
-    (<install>
-      (<properties~>
-        (<Property-Descriptor> name: locales
-          (<Value-Domain>      name: domain  nullable?: #t))))))))
+      locales: '()))))

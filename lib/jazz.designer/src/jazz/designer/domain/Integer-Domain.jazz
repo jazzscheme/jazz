@@ -42,7 +42,7 @@
         (jazz.library))
 
 
-(class Integer-Domain extends Text-Domain
+(class Integer-Domain extends Number-Domain
   
   
   (property upper-limit initialize #f accessors generate)
@@ -53,26 +53,14 @@
   ;;;; Validation
   ;;;
   
-  
-  (method override (validate-value property value component root editor context manager)
-    (let ((add (make-add-property-violation-proc property component root editor manager)))
-      (cond ((not (integer? value))
-             (add "must be an integer"))
-            ((and upper-limit (> value upper-limit))
-             (add "must be lesser than {t}" upper-limit))
-            ((and lower-limit (< value lower-limit))
-             (add "must be greater than {t}" lower-limit)))))
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method override (present value)
-    (if (not value)
-        "{}"
-      (->string value)))
+  (method override (validate-data value (validation-context: validation-context #f))
+    (or (nextmethod value validation-context: validation-context)
+        (cond ((not (integer? value))
+               (add-violation "must be an integer"))
+              ((and upper-limit (> value upper-limit))
+               (add-violation "must be lesser than {t}" upper-limit))
+              ((and lower-limit (< value lower-limit))
+               (add-violation "must be greater than {t}" lower-limit)))))
   
   
   ;;;

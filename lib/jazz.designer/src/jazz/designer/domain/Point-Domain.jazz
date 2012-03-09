@@ -38,10 +38,16 @@
 (module protected jazz.designer.domain.Point-Domain jazz
 
 
-(import (jazz.designer))
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.library))
 
 
-(class Point-Domain extends Text-Domain
+(class Point-Domain extends Literal-Domain
+  
+  
+  (form
+    (<install> is: {Class-Reference Point}))
   
   
   ;;;
@@ -49,12 +55,10 @@
   ;;;
   
   
-  (method override (present pos)
-    (if (not pos)
+  (method override (present value)
+    (if (not value)
         "{}"
-      (format "{a}, {a}"
-              (get-h~ pos)
-              (get-v~ pos))))
+      (format "{a}, {a}" (get-h~ value) (get-v~ value))))
   
   
   ;;;
@@ -63,7 +67,18 @@
   
   
   (method override (parse text)
-    (bind (h v) (read-composite-value text expected: 2)
-      (assert (integer? h)
-        (assert (integer? v)
-          (new Point h v)))))))
+    (if (string=? text "{}")
+        #f
+      (bind (h v) (read-composite-value text expected: 2)
+        (assert (integer? h)
+          (assert (integer? v)
+            (new Point h v))))))
+  
+  
+  ;;;
+  ;;;; Entry
+  ;;;
+  
+  
+  (method override (setup-entry view client)
+    (new Text-Entry parent: view size: (get-size~ view) domain: self))))

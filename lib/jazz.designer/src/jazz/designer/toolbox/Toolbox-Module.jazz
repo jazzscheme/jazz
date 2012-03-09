@@ -50,12 +50,28 @@
   
   (property module-name        initialize #f accessors generate)
   (property addable-references initialize #f accessors generate)
-  (property locale-tree-class  initialize #f accessors generate)
+  (property locale-tree-class  initialize #f getter generate setter explicit)
+  
+  
+  (slot locale-tree initialize #f getter generate)
   
   
   ;;;
   ;;;; Accessors etc.
   ;;;
+  
+  
+  (method public (set-locale-tree-class locale-tree-class)
+    (set! locale-tree-class~self locale-tree-class)
+    (let ((tree-class (and (is? locale-tree-class Class-Reference)
+                           (resolve-reference~ locale-tree-class))))
+      (when (and tree-class (subtype? tree-class Locale-Tree))
+        (set! locale-tree (new tree-class)))))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (set-locale-tree-class locale-tree-class))
   
   
   (method override (copy-object deep?)
@@ -137,7 +153,7 @@
         (<Property-Descriptor> name: addable-references
           (<Value-Domain>      name: domain))
         (<Property-Descriptor> name: locale-tree-class
-          (<Value-Domain>      name: domain             nullable?: #t is: {Class-Reference Class-Reference})))))
+          (<Literal-Domain>    name: domain             nullable?: #t is: {Class-Reference Class-Reference})))))
   
   
   (method override (component-determine-paster component (try-parent? #t))

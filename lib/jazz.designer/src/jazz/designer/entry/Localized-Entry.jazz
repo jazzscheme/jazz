@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Font Domains
+;;;; Handler Entry
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,59 +35,69 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.domain.Font-Domain jazz
+(module protected jazz.designer.entry.Localized-Entry jazz
 
 
 (import (jazz.designer)
-        (jazz.library)
+        (jazz.graphic)
+        (jazz.jml)
         (jazz.locale)
-        (jazz.graphic))
+        (jazz.ui))
 
 
-(class Font-Domain extends Domain
+(class undocumented Localized-Entry extends Text-Entry
   
   
-  (property width      initialize 100 accessors generate)
-  (property choices    initialize '() accessors generate)
-  (property condensed? initialize #f  accessors generate)
-  (property strict?    initialize #f  accessors generate)
-  (property limit      initialize #f  accessors generate)
+  (property locales initialize #f)
   
   
   ;;;
-  ;;;; Validation
+  ;;;; Value
   ;;;
   
   
-  (method override (validate-data value (validation-context: validation-context #f))
-    (or (nextmethod value validation-context: validation-context)
-        (let ((values (map car choices)))
-          (unless (member? (get-base~ value) values key: get-base~)
-            (add-violation "must be one of: {a}" (join (map ->string (if nullable? (cons #f values) values)) ", "))))))
+  (method (localize value)
+    (or (and (pair? locales)
+             (string? value)
+             (new Locales all: value))
+        value))
+  
+ 
+  (method override (get-value)
+    (localize~ self (nextmethod)))
+  
+  
+  (method override (set-value value)
+    (nextmethod (if value
+                    (localize~ self value)
+                  "{}")))
   
   
   ;;;
-  ;;;; Presentation
+  ;;;; Descriptor
   ;;;
+
+  
+  (method meta override (get-class-descriptor)
+    (new Localized-Entry-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer.entry.Property-Entry))
+
+
+(class Localized-Entry-Descriptor extends Property-Entry-Descriptor
   
   
-  (method override (present value)
-    (localize (if (not value)
-                  {Locales all: ""}
-                (assq-value value choices (->string value)))))
-  
-  
-  ;;;
-  ;;;; Entry
-  ;;;
-  
-  
-  (method override (setup-entry view client)
-    (set! choices~self (cons (list #f "None")
-                             (map (lambda (name)
-                                    (let ((font (symbolic-font name))
-                                          (title (->string name)))
-                                      (list font title)))
-                                  (sort nu<? (symbolic-fonts) key: symbol->string))))
-    (let ((entry (new Enumeration-Entry parent: view size: (new Dimension width 19) domain: self)))
-      (set-choices~ (locate~ entry 'combo) choices)))))
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: locales
+          (<Value-Domain>      name: domain  nullable?: #t))))))))

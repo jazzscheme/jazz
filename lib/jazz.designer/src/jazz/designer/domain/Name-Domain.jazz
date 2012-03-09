@@ -46,7 +46,6 @@
   
   
   (property limit      initialize #f accessors generate)
-  (property predicate? initialize #f accessors generate)
   
   
   ;;;
@@ -54,10 +53,15 @@
   ;;;
   
   
-  (method override (validate-value property value component root editor context manager)
-    (when (and (not (symbol? value)) (not (string? value)))
-      ((make-add-property-violation-proc property component root editor manager) "must be a symbol or a string")))
-  
+  (method override (validate-data value (validation-context: validation-context #f))
+    (or (nextmethod value validation-context: validation-context)
+        (cond ((not (or (symbol? value)
+                        (string? value)))
+               (add-violation "must be a symbol or a string"))
+              ((and limit
+                    (< limit (string-length (->string value))))
+               (add-violation "must contain at most {a} characters" limit)))))
+    
   
   ;;;
   ;;;; Presentation
@@ -65,7 +69,18 @@
   
   
   (method override (present value)
-    (->string value))
+    (if (not value)
+        "{}"
+      (->string value :reader)))
+  
+  
+  ;;;
+  ;;;; Parse
+  ;;;
+
+  
+  (method override (parse text)
+    (or (read-string-safe text) text))
   
   
   ;;;
@@ -74,4 +89,4 @@
   
   
   (method override (setup-entry view client)
-    (new Name-Entry parent: view size: (get-size~ view) domain: self))))
+    (new Text-Entry parent: view size: (get-size~ view) domain: self))))

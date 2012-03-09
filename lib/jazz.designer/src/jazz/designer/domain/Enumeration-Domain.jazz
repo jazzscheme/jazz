@@ -39,6 +39,7 @@
 
 
 (import (jazz.designer)
+        (jazz.jml)
         (jazz.library)
         (jazz.locale))
 
@@ -47,13 +48,17 @@
 (class Enumeration-Domain extends Domain
   
   
+  (form
+    (<install> nullable?: #t))
+  
+  
   (property choices                     initialize '() accessors generate)
   (property choices-handler             initialize #f  accessors generate)
   (property value->presentation-handler initialize #f  accessors generate)
   (property condensed?                  initialize #f  accessors generate)
   (property strict?                     initialize #f  accessors generate)
   (property limit                       initialize #f  accessors generate)
-  (property nil-presentation            initialize #f  getter explicit)
+  (property nil-presentation            initialize {Locales all: "{}"} accessors generate)
     
   
   ;;;
@@ -61,21 +66,13 @@
   ;;;
   
   
-  (method override (validate property value component root editor context manager)
-    (validate-value property value component root editor context manager))
-  
-  
-  (method override (validate-value property value component root editor context manager)
-    (define (present-choice choice)
-      (if (not (cdr choice))
-          (car choice)
-        (localize (cadr choice))))
-                                  
-    (unless (or choices-handler
-                (and nullable? (not value))
-                (member? value choices key: car))
-      ((make-add-property-violation-proc property component root editor manager) "must be one of: {a}" (join (map present-choice choices) ", "))))
-  
+  (method override (validate-data value (validation-context: validation-context #f))
+    (or (nextmethod value validation-context: validation-context)
+        choices-handler
+        (let ((values (map car choices)))
+          (unless (member? value values)
+            (add-violation "must be one of: {a}" (join (map ->string (if nullable? (cons #f values) values)) ", "))))))
+
   
   ;;;
   ;;;; Presentation
@@ -88,18 +85,14 @@
       (->string value)))
   
   
-  (method override (get-nil-presentation)
-    (or nil-presentation {Locales all: "{}"}))
-  
-  
   (method override (present value)
-    (if (not value)
-        (localize (get-nil-presentation))
-      (let ((pair (unless choices-handler (assq value choices))))
-        (if (not pair)
-            (value->text value)
-          (localize (cadr pair))))))
-  
+    (localize (if (not value)
+                  nil-presentation
+                (let ((pair (and (not choices-handler) (assq value choices))))
+                  (if (not pair)
+                      (value->text value)
+                    (cadr pair))))))
+    
   
   ;;;
   ;;;; Entry
@@ -108,9 +101,20 @@
   
   (method (make-choices-list client)
     (if (not choices-handler)
-        (if nullable? (cons (list #f (get-nil-presentation)) choices) choices)
-      (let ((dynamic-choices (map (lambda (value) (list value (value->text value))) ((resolve-reference~ choices-handler) client))))
-        (sort string<=? (if nullable? (cons (list #f (get-nil-presentation)) dynamic-choices) dynamic-choices) key: cadr))))
+        (map (lambda (pair)
+               (bind (value presentation) pair
+                 (list value (localize presentation))))
+             (if nullable? 
+                 (cons (list #f nil-presentation) choices)
+               choices))
+      (let ((dynamic-choices (map (lambda (value) 
+                                    (list value (localize (value->text value))))
+                                  ((resolve-reference~ choices-handler) client))))
+        (sort string<=?
+              (if nullable? 
+                  (cons (list #f (localize nil-presentation)) dynamic-choices) 
+                dynamic-choices)
+              key: cadr))))
   
   
   (method override (setup-entry view client)

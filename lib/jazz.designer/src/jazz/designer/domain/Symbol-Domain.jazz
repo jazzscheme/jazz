@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Font Domains
+;;;; Symbol Domains
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,23 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.domain.Font-Domain jazz
+(module protected jazz.designer.domain.Symbol-Domain jazz
 
 
-(import (jazz.designer)
-        (jazz.library)
-        (jazz.locale)
-        (jazz.graphic))
+(import (jazz.designer))
 
 
-(class Font-Domain extends Domain
-  
-  
-  (property width      initialize 100 accessors generate)
-  (property choices    initialize '() accessors generate)
-  (property condensed? initialize #f  accessors generate)
-  (property strict?    initialize #f  accessors generate)
-  (property limit      initialize #f  accessors generate)
+(class Symbol-Domain extends Value-Domain
   
   
   ;;;
@@ -61,9 +51,8 @@
   
   (method override (validate-data value (validation-context: validation-context #f))
     (or (nextmethod value validation-context: validation-context)
-        (let ((values (map car choices)))
-          (unless (member? (get-base~ value) values key: get-base~)
-            (add-violation "must be one of: {a}" (join (map ->string (if nullable? (cons #f values) values)) ", "))))))
+        (unless (symbol? value)
+          (add-violation "must be a symbol"))))
   
   
   ;;;
@@ -72,22 +61,17 @@
   
   
   (method override (present value)
-    (localize (if (not value)
-                  {Locales all: ""}
-                (assq-value value choices (->string value)))))
+    (if (not value)
+        "{}"
+      (->string value :reader)))
   
   
   ;;;
-  ;;;; Entry
+  ;;;; Parse
   ;;;
+
   
-  
-  (method override (setup-entry view client)
-    (set! choices~self (cons (list #f "None")
-                             (map (lambda (name)
-                                    (let ((font (symbolic-font name))
-                                          (title (->string name)))
-                                      (list font title)))
-                                  (sort nu<? (symbolic-fonts) key: symbol->string))))
-    (let ((entry (new Enumeration-Entry parent: view size: (new Dimension width 19) domain: self)))
-      (set-choices~ (locate~ entry 'combo) choices)))))
+  (method override (parse text)
+    (if (string=? text "{}")
+        #f
+      (read-string-safe text)))))

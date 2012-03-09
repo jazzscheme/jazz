@@ -117,15 +117,17 @@
           (for-each-descendant
             do-nothing
             stop-test: (lambda (locale-node)
-                         (let ((node-locale (get-locale~ locale-node)))
-                           (unless (memq? node-locale object-locales)
-                             (set! result (cons node-locale result))
-                             #t)))))
+                         (cond ((memq? (get-locale~ locale-node) object-locales) #t)
+                               ((every? (lambda (remaining)
+                                          (not (memq? (get-locale~ remaining) object-locales)))
+                                        (collect-descendants~ locale-node))
+                                (set! result (cons (get-locale~ locale-node) result))
+                                #t)))))
         result)))
   
 
   (method public (register-locales locale-state)
-    (for-each-descendant 
+    (for-each-descendant
       (lambda (component level)
         (when (is? component Locale-Node)
           (register-locale~ locale-state (new Locale (get-name~ component) (get-name~ (get-parent~ component)) (get-title~ component)))))
@@ -137,44 +139,21 @@
 
 
 ;;;
-;;;; Locale-Tree singleton cache
-;;;
-
-
-(definition *locale-tree-cache* (make-table))
-
-
-(definition public (find-locale-tree root-class/unit)
-  (let ((unit (if (class? root-class/unit)
-                  (string->symbol (car (split (symbol->string (get-name~ root-class/unit)) ":")))
-                root-class/unit)))
-    (when unit
-      (let ((toolbox-module (find (append-map get-toolbox-modules~ (get-toolbox-managers)) unit key: get-module-name~ return: 'item)))
-        (if toolbox-module
-            (let ((locale-tree-class-reference (get-locale-tree-class~ toolbox-module)))
-              (assert (is? locale-tree-class-reference Class-Reference))
-              (let ((locale-tree-class (resolve-reference~ locale-tree-class-reference)))
-                (assert (subclass? locale-tree-class Locale-Tree))
-                (or (table-ref *locale-tree-cache* locale-tree-class #f)
-                    (let ((locale-tree (new locale-tree-class)))
-                      (table-set! *locale-tree-cache* locale-tree-class locale-tree)
-                      locale-tree))))
-          (error "Unit {a} is not referred to by any toolbox modules in any toolbox managers" unit))))))
-
-
-;;;
 ;;;; Validation
 ;;;
 
 
-(definition public (validate-locales value root-class/unit violation-adder)
-  (let ((tree (find-locale-tree root-class/unit)))
-    (if tree
-        (let ((missing-locales (collect-missing-localizations~ tree value)))
-          (unless (null? missing-locales)
-            (violation-adder "must be localized in: {a}" (join (map keyword->string missing-locales) ", "))))
-      (unless (or (string? value) (is? value Locales))
-        (violation-adder "must be a string or a Locales object")))))
+(definition public (validate-locales value locale-tree violation-adder)
+  (if locale-tree
+      (let ((missing-locales (collect-missing-localizations~ locale-tree value)))
+        (if (null? missing-locales)
+            #f
+          (violation-adder "must be localized in: {a}" (join (map keyword->string missing-locales) ", "))
+          #t))
+    (if (or (string? value) (is? value Locales))
+        #f
+      (violation-adder "must be a string or a Locales object")
+      #t)))
 
 
 ;;;

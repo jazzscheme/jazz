@@ -38,7 +38,8 @@
 (module protected jazz.library.integrity.Integrity-Manager jazz
 
 
-(import (jazz.library))
+(import (jazz.library)
+        (jazz.locale))
 
 
 ;;;
@@ -49,21 +50,23 @@
 (class undocumented Validation-Context extends Object
   
   
-  (slot manager   initialize #f getter generate)
-  (slot root      initialize #f getter generate)
-  (slot editor    initialize #f getter generate)
-  (slot context   initialize #f getter generate)
-  (slot component initialize #f getter generate)
-  (slot property  initialize #f getter generate)
+  (slot manager         initialize #f getter generate)
+  (slot root            initialize #f getter generate)
+  (slot editor          initialize #f getter generate)
+  (slot context         initialize #f getter generate)
+  (slot component       initialize #f getter generate)
+  (slot property        initialize #f getter generate)
+  (slot module-metadata initialize #f getter generate)
   
   
-  (method override (initialize manager root editor context component property)
+  (method override (initialize manager root module-metadata editor context component property)
     (set! manager~self manager)
     (set! root~self root)
     (set! editor~self editor)
     (set! context~self context)
     (set! component~self component)
-    (set! property~self property))
+    (set! property~self property)
+    (set! module-metadata~self module-metadata))
   
   
   (method public (add-violation (message: message #f))
@@ -73,8 +76,12 @@
       (add-violation~ manager violation component root editor)))
   
   
+  (method public (add-property-violation format-string . format-args)
+    (add-violation message: (apply format (cons (concatenate "Property '{a}': " format-string) (cons (field-name property) format-args)))))
+  
+  
   (method public (refine (component: component #f) (property: property #f))
-    (new Validation-Context manager root editor context (or component component~self) (or property property~self)))
+    (new Validation-Context manager root module-metadata editor context (or component component~self) (or property property~self)))
   )
 
 
@@ -128,26 +135,26 @@
   ;;;
   
   
-  (method public (validate-integrity root editor (context: context #f) (reporter: reporter #f))
-    (validate-all root editor context reporter))
+  (method public (validate-integrity root module-metadata editor (context: context #f) (reporter: reporter #f))
+    (validate-all root module-metadata editor context reporter))
   
   
-  (method protected virtual (validate-all root editor context reporter)
-    (validate-hierarchy root root editor context reporter))
+  (method protected virtual (validate-all root module-metadata editor context reporter)
+    (validate-hierarchy root root module-metadata editor context reporter))
   
   
-  (method protected virtual (validate-hierarchy component root editor context reporter)
+  (method protected virtual (validate-hierarchy component root module-metadata editor context reporter)
     (when reporter
       (report-progress component root reporter))
-    (unless (eq? (validate component root editor context) 'stop-descent)
+    (unless (eq? (validate component root module-metadata editor context) 'stop-descent)
       (for-each (lambda (child)
-                  (validate-hierarchy child root editor context reporter))
+                  (validate-hierarchy child root module-metadata editor context reporter))
                 (get-children~ component))))
   
   
-  (method public (validate component root editor context)
+  (method public (validate component root module-metadata editor context)
     (let ((new-context (validation-context component root context)))
-      (if (eq? (validate-component~ component (new Validation-Context self root editor context component #f))
+      (if (eq? (validate-component~ component (new Validation-Context self root module-metadata editor context component #f))
                'stop-descent)
           'stop-descent
         (continuation-capture

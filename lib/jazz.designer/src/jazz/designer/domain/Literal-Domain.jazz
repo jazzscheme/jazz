@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Font Domains
+;;;; Value Domains
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,46 +35,27 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.designer.domain.Font-Domain jazz
+(module protected jazz.designer.domain.Literal-Domain jazz
 
 
-(import (jazz.designer)
-        (jazz.library)
-        (jazz.locale)
-        (jazz.graphic))
+(import (jazz.designer))
 
 
-(class Font-Domain extends Domain
+(class Literal-Domain extends Value-Domain
   
   
-  (property width      initialize 100 accessors generate)
-  (property choices    initialize '() accessors generate)
-  (property condensed? initialize #f  accessors generate)
-  (property strict?    initialize #f  accessors generate)
-  (property limit      initialize #f  accessors generate)
+  (property is initialize #f)
   
   
   ;;;
-  ;;;; Validation
+  ;;;; Override
   ;;;
   
   
   (method override (validate-data value (validation-context: validation-context #f))
     (or (nextmethod value validation-context: validation-context)
-        (let ((values (map car choices)))
-          (unless (member? (get-base~ value) values key: get-base~)
-            (add-violation "must be one of: {a}" (join (map ->string (if nullable? (cons #f values) values)) ", "))))))
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method override (present value)
-    (localize (if (not value)
-                  {Locales all: ""}
-                (assq-value value choices (->string value)))))
+        (unless (is? value (resolve-reference~ is))
+          (add-violation "must be of type {a}" (category-name (resolve-reference~ is))))))
   
   
   ;;;
@@ -83,11 +64,37 @@
   
   
   (method override (setup-entry view client)
-    (set! choices~self (cons (list #f "None")
-                             (map (lambda (name)
-                                    (let ((font (symbolic-font name))
-                                          (title (->string name)))
-                                      (list font title)))
-                                  (sort nu<? (symbolic-fonts) key: symbol->string))))
-    (let ((entry (new Enumeration-Entry parent: view size: (new Dimension width 19) domain: self)))
-      (set-choices~ (locate~ entry 'combo) choices)))))
+    (new Text-Entry parent: view domain: self))
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Literal-Domain-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(import (jazz.designer)
+        (jazz.designer.domain.Domain)
+        (jazz.jml)
+        (jazz.library))
+
+
+(class Literal-Domain-Descriptor extends Domain-Descriptor
+  
+
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: is
+          (<Literal-Domain>    name: domain nullable?: #f is: {Class-Reference Class-Reference}))))))))

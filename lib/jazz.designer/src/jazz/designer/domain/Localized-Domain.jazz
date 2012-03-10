@@ -65,8 +65,8 @@
   ;;;
   
     
-  (method override (validate-data value (validation-context: validation-context #f))
-    (or (nextmethod value validation-context: validation-context)
+  (method override (validate-value value (validation-context #f))
+    (or (nextmethod value validation-context)
         (let* ((toolbox-module (and validation-context (get-module-metadata~ validation-context)))
                (locale-tree (and toolbox-module (get-locale-tree~ toolbox-module))))
           (validate-locales value locale-tree add-violation))))
@@ -78,7 +78,15 @@
   
   
   (method override (setup-entry view client)
-    (new Localized-Entry
-      parent: view
-      domain: self
-      locales: '()))))
+    (let ((unit-names (remove-duplicates (map (lambda (component)
+                                                (string->symbol (car (split (symbol->string (get-name~ (class-of (or (get-creator~ component) component)))) ":"))))
+                                              client)))
+          (toolbox-modules (append-map get-toolbox-modules~ (get-toolbox-managers))))
+      (new Localized-Entry
+        parent: view
+        domain: self
+        locales: (or (and (= 1 (length unit-names))
+                          (let ((toolbox-module (find toolbox-modules (car unit-names) key: get-module-name~ test: eq? return: 'item)))
+                            (and toolbox-module
+                                 (provide-locales~ (get-locale-tree~ toolbox-module)))))
+                   '()))))))

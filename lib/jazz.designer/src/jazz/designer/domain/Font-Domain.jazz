@@ -39,55 +39,33 @@
 
 
 (import (jazz.designer)
+        (jazz.graphic)
+        (jazz.jml)
         (jazz.library)
-        (jazz.locale)
-        (jazz.graphic))
+        (jazz.locale))
 
 
-(class Font-Domain extends Domain
+(definition public (collect-symbolic-fonts client)
+  (map symbolic-font (symbolic-fonts)))
+
+
+(class Font-Domain extends Enumeration-Domain
   
   
-  (property width      initialize 100 accessors generate)
-  (property choices    initialize '() accessors generate)
-  (property condensed? initialize #f  accessors generate)
-  (property strict?    initialize #f  accessors generate)
-  (property limit      initialize #f  accessors generate)
+  (form
+    (<install> condensed?: #f nil-presentation: {Locales english: "None" french: "Aucune"} choices-handler: {Reference collect-symbolic-fonts}))
   
   
-  ;;;
-  ;;;; Validation
-  ;;;
-  
-  
-  (method override (validate-data value (validation-context: validation-context #f))
-    (or (nextmethod value validation-context: validation-context)
-        (let ((values (map car choices)))
-          (unless (member? (get-base~ value) values key: get-base~)
-            (add-violation "must be one of: {a}" (join (map ->string (if nullable? (cons #f values) values)) ", "))))))
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method override (present value)
-    (localize (if (not value)
-                  {Locales all: ""}
-                (assq-value value choices (->string value)))))
+  (property width initialize 100 accessors generate)
   
   
   ;;;
   ;;;; Entry
   ;;;
   
-  
   (method override (setup-entry view client)
-    (set! choices~self (cons (list #f "None")
-                             (map (lambda (name)
-                                    (let ((font (symbolic-font name))
-                                          (title (->string name)))
-                                      (list font title)))
-                                  (sort nu<? (symbolic-fonts) key: symbol->string))))
-    (let ((entry (new Enumeration-Entry parent: view size: (new Dimension width 19) domain: self)))
-      (set-choices~ (locate~ entry 'combo) choices)))))
+    (let ((entry (new Enumeration-Entry parent: view size: (new Dimension width 19)  domain: self)))
+      (let ((combo (locate~ entry 'combo)))
+        (set-condensed?~ combo condensed?)
+        (set-choices~ combo (collect-choices client)))
+      entry))))

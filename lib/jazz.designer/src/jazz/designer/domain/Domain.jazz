@@ -46,7 +46,10 @@
 (class Domain extends Component
   
   
-  (property nullable? initialize #f accessors generate)
+  (property nullable?                   initialize #f                  accessors generate)
+  (property nil-presentation            initialize {Locales all: "{}"} accessors generate)
+  (property value->presentation-handler initialize #f                  accessors generate)
+  (property presentation->value-handler initialize #f                  accessors generate)
   
   
   (slot data-violations initialize '())
@@ -56,40 +59,117 @@
   ;;;; Validation
   ;;;
   
-  
-  (method (add-violation format-string . rest)
-    (set! data-violations (cons (new Property-Violation message: (apply format (cons format-string rest))) data-violations))
-    #t)
+
+  (method public (valid? text)
+    (null? (collect-violations text)))
   
 
-  (method public (collect-data-violations value validation-context)
+  (method public (valid-presentation? text)
+    (boolean (presentation-violation text)))
+  
+  
+  (method public (valid-value? value)
+    (null? (collect-value-violations value #f)))
+  
+  
+  (method public (collect-violations text (validation-context #f))
+    (receive (value violation) (strict-parse text)
+      (if violation
+          (list violation)
+        (collect-value-violations value validation-context))))
+  
+  
+  (method public (collect-value-violations value (validation-context #f))
     (set! data-violations '())
-    (validate-data value validation-context: validation-context)
+    (validate-value value validation-context)
     (prog1 data-violations
       (set! data-violations '())))
   
-    
-  (method public virtual (validate-data value (validation-context: validation-context #f))
+  
+  (method public (presentation-violation text)
+    (receive (value violation) (strict-parse text)
+      violation))
+  
+  
+  (method virtual (validate-value value (validation-context #f))
     (and (not value)
          (or nullable?
-             (add-violation~ self "must be set"))))
+             (add-violation~ self (localize {Locales english: "Value required" french: "Valeur requise"})))))
+  
+  
+  (method (add-violation format-string . rest)
+    (let ((violation (new Property-Violation message: (apply format (cons format-string rest)))))
+      (set! data-violations (cons violation data-violations))
+      violation))
+  
+  
+  (method override (validate-component validation-context)
+    (nextmethod validation-context)
+    (when (and nullable? (not nil-presentation))
+      (add-violation~ validation-context message: (format "Nil presentation must be set in a nullable domain"))))
   
   
   ;;;
   ;;;; Presentation
   ;;; 
- 
-  (method public virtual (present value)
-    (error "{t} class does not define a present method" (category-name (class-of self))))
   
+  
+  (method public (present value)
+    (localize (cond ((not value)
+                     nil-presentation)
+                    ((not value->presentation-handler)
+                     (present-value value))
+                    (else
+                     ((resolve-reference~ value->presentation-handler) value)))))
+  
+  
+  (method virtual (present-value value)
+    (error "{t} class does not define a present-value method" (category-name (class-of self))))
+
   
   ;;;
   ;;;; Parse
   ;;;
   
- 
-  (method public virtual (parse text)
-    (error "{t} class does not define a parse method" (category-name (class-of self))))
+
+  (method virtual (parse-presentation text)
+    (error "{t} class does not define a parse-presentation method" (category-name (class-of self))))
+  
+  
+  (method virtual (make-parse-error-message exception)
+    #f)
+  
+  
+  (method public (parse text)
+    (receive (value violation) (parse-with text #f (lambda (exception) #f))
+      value))
+  
+  
+  (method (parse-with text <String> nullable-violation exception-catcher)
+    (let ((value #f))
+      (let ((violation (if (and nil-presentation
+                                (string=? text (localize nil-presentation)))
+                           (and (not nullable?)
+                                nullable-violation)
+                         (with-exception-filter
+                           (lambda (exception) #t)
+                           exception-catcher
+                           (lambda ()
+                             (set! value (if presentation->value-handler
+                                             ((resolve-reference~ presentation->value-handler) text)
+                                           (parse-presentation text)))
+                             #f)))))
+        (values value violation))))
+  
+  
+  (method (strict-parse text)
+    (parse-with text
+                (new Property-Violation message: "This field is not nullable")
+                (lambda (exception)
+                  (new Property-Violation message: (or (make-parse-error-message exception)
+                                                       (and (is? exception Exception)
+                                                            (get-message~ exception))
+                                                       (->string exception))))))
   
   
   ;;;
@@ -108,39 +188,6 @@
   
   (method public virtual (setup-entry view client)
     (new Text-Entry parent: view size: (get-size~ view) domain: self))
-  
-  
-  (method public virtual (setup-list-entry view client)
-    (error "Must override setup-list-entry"))
-  
-  
-  ;;;
-  ;;;; Value
-  ;;;
-  
-  
-  (method public virtual (get-property-presentation view)
-    (get-presentation~ (get-entry~ view)))
-  
-  
-  (method public virtual (set-property-presentation view presentation)
-    (set-presentation~ (get-entry~ view) presentation))
-  
-  
-  (method public virtual (get-property-value view)
-    (get-value~ (get-entry~ view)))
-  
-  
-  (method public virtual (set-property-value view value)
-    (set-value~ (get-entry~ view) value))
-  
-  
-  (method public virtual (get-property-modified? view)
-    (get-modified?~ (get-entry~ view)))
-  
-  
-  (method public virtual (set-property-modified? view value)
-    (set-modified?~ (get-entry~ view) value))
   
   
   ;;;
@@ -171,4 +218,10 @@
     (<install>
       (<properties~>
         (<Property-Descriptor> name: nullable?
-          (<Boolean-Domain>    name: domain))))))))
+          (<Boolean-Domain>    name: domain))
+        (<Property-Descriptor> name: nil-presentation
+          (<Localized-Domain>  name: domain                      nullable?: #t))
+        (<Property-Descriptor> name: value->presentation-handler category: handler
+          (<Handler-Domain>    name: domain))
+        (<Property-Descriptor> name: presentation->value-handler category: handler
+          (<Handler-Domain>    name: domain))))))))

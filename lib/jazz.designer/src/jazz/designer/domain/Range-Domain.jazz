@@ -55,8 +55,8 @@
   ;;;
 
   
-  (method override (validate-data value (validation-context: validation-context #f))
-    (or (nextmethod value validation-context: validation-context)
+  (method override (validate-value value (validation-context #f))
+    (or (nextmethod value validation-context)
         (cond ((is-not? (get-start~ value) Cell)
                (add-violation "Range start must be a Cell object"))
               ((is-not? (get-end~ value) Cell)
@@ -68,16 +68,10 @@
   ;;;
   
   
-  (method override (present range)
-    (if (not range)
-        "{}"
-      (let ((start (get-start~ range))
-            (end (get-end~ range)))
-        (format "{a}, {a}, {a}, {a}"
-                (get-line~ start)
-                (get-col~ start)
-                (get-line~ end)
-                (get-col~ end)))))
+  (method override (present-value range)
+    (let ((start (get-start~ range))
+          (end (get-end~ range)))
+      (format "{a}, {a}, {a}, {a}" (get-line~ start) (get-col~ start) (get-line~ end) (get-col~ end))))
   
   
   ;;;
@@ -85,22 +79,10 @@
   ;;;
   
   
-  (method override (parse text)
-    (if (equal? text "{}")
-        #f
-      (bind (start-line start-col end-line end-col) (read-composite-value text expected: 4)
-        (assert (integer? start-line)
-          (assert (integer? start-col)
-            (assert (integer? end-line)
-              (assert (integer? end-col)
-                (new Range
-                  (new Cell start-line start-col)
-                  (new Cell end-line end-col)))))))))
-  
-  ;;;
-  ;;;; Entry
-  ;;;
-  
-  
-  (method override (setup-entry view client)
-    (new Text-Entry parent: view size: (get-size~ view) domain: self))))
+  (method override (parse-presentation text)
+    (bind (start-line start-col end-line end-col) (read-composite-value text expected: 4)
+      (assert (integer? start-line)
+        (assert (integer? start-col)
+          (assert (integer? end-line)
+            (assert (integer? end-col)
+              (new Range (new Cell start-line start-col) (new Cell end-line end-col))))))))))

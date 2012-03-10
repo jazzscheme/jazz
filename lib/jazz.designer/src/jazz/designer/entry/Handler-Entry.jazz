@@ -70,19 +70,6 @@
   
   
   ;;;
-  ;;;; Validate
-  ;;;
-  
-  
-  (method override (validate domain)
-    (let ((content (get-string-content~ (locate-component 'text))))
-      (if (and (empty-string? content)
-               (not (get-nullable?~ domain)))
-          (new Property-Violation message: "This field is mandatory")
-        #f)))
-  
-  
-  ;;;
   ;;;; Value
   ;;;
   
@@ -100,27 +87,11 @@
   
   
   (method override (get-value)
-    (let ((content (get-string-content~ (locate 'text))))
-      (if (string=? content "{}")
-          #f
-        (let ((list (read-string-content content)))
-          (case (length list)
-            ((1) (new Event-Handler target-name: :form method-name: (first list)))
-            ((2) (new Event-Handler target-name: (first list) method-name: (second list))))))))
+    (parse~ domain (get-string-content~ (locate 'text))))
   
   
   (method override (set-value value)
-    (define (present-handler handler)
-      (if (not handler)
-          "{}"
-        (let ((target (get-target-name~ handler))
-              (method (get-method-name~ handler)))
-          (if (eq? target :form)
-              (->string method)
-            (format "{s} {s}" target method)))))
-    
-    (set-string-content~ (locate 'text)
-      (present-handler (if (is? value Surrogate-Handler) (get-preserved~ value) value))))
+    (set-string-content~ (locate 'text) (present~ domain value)))
   
   
   ;;;

@@ -234,7 +234,9 @@
   
   (method public virtual (setup-profile)
     (define (create-profile)
-      (set! profile (new (load-profile-class profile-class))))
+      (if (and kernel-source-access? (find-unit-source profile-class))
+          (set! profile (new (load-profile-class profile-class)))
+        (new Me)))
     
     (when (and (use-profile?) profile-class)
       (create-profile)))
@@ -255,7 +257,8 @@
   
   (method (conclude-phase)
     (conclude-environment)
-    (conclude-process))
+    (conclude-process)
+    (conclude-debuggee))
   
   
   (method protected virtual (conclude-environment)
@@ -263,6 +266,10 @@
   
   
   (method public virtual (conclude-process)
+    )
+  
+  
+  (method public virtual (conclude-debuggee)
     (when (get-controller-debugger)
       (select-console)
       (start-repl-thread (current-thread) #f (get-console-port))))
@@ -383,7 +390,7 @@
   
   (method (install-profile name unit template)
     (define (install-new-profile name unit template)
-      (let ((associations (list (cons 'jazz-settings-version (present-version jazz-settings-version))
+      (let ((associations (list (cons 'jazz-settings-version (and jazz-settings-version (present-version jazz-settings-version)))
                                 (cons 'settings-version (present-version (settings-version)))
                                 (cons 'profile name)
                                 (cons 'profile-lowercase (downcase (symbol->string name)))
@@ -392,7 +399,7 @@
         (copy-template (new-directory~ (templates-directory) (list "profile" template))
                        {Directory Home}
                        associations
-                       non-expanded-nodes: '("catalogs")))
+                       ignored-nodes: (if jazz-settings-version '() '(".jazz"))))
       (let ((repository (find-repository 'Profiles)))
         (let ((package-name unit)
               (package-path (concatenate (repository-library-directory repository) (format "{a}/.package" unit))))

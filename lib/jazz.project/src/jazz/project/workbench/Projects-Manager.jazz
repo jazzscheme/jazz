@@ -160,12 +160,15 @@
       (insert-project tree #f (get-workbench) 0))
     
     (define (insert-project tree row project level)
-      (let ((catalog (get-catalog~ project))
-            (handler (new Event-Handler execute: (lambda (evt) (set-active? tree project (get-checked?~ (get-sender~ evt)))))))
+      (let ((catalog (get-catalog~ project)))
         (let ((state (if (= level 0) 'expanded 'collapsed))
-              (c0 (new Check-Box title: (get-presentation-property~ project) checked?: (get-active?~ project) content-change-handler: handler))
+              (c0 (new Check-Box title: (get-presentation-property~ project) checked?: (get-active?~ project)))
               (c1 (new Tree-Label title: (if catalog (get-statistics~ catalog) ""))))
           (let ((row (add-row~ tree father: row state: state children: (list c0 c1) user-data: project)))
+            (define (content-change evt)
+              (set-active? tree row project (get-checked?~ (get-sender~ evt))))
+            
+            (set-content-change-handler~ c0 (new Event-Handler execute: content-change))
             (insert-children tree row project (+ level 1))))))
     
     (define (insert-children tree row component level)
@@ -173,26 +176,42 @@
                   (cond ((and (is? child Project)
                               (has-content?~ child))
                          (insert-project tree row child level))
-                        ((is? child Project-Group)
+                        ((and (is? child Project-Group)
+                              (is-not? child Project-Directory))
                          (let ((row (add-row~ tree father: row state: 'expanded children: (list (new Tree-Node title: (->string (catalog-name~ child)) image: {Image-Resource "OpenedFolder"}) (new Tree-Label title: "")))))
                            (insert-children tree row child level)))))
                 (get-children~ component)))
     
-    (define (set-active? tree project flag)
+    (define (set-active? tree row project flag)
       (let ((workbench-manager (get-workbench-manager~ (get-application))))
         (when workbench-manager
           (with-cursor :wait
             (lambda ()
               (set-project-active?~ workbench-manager project flag)
-              (for-each-project~ project
-                (lambda (project)
-                  (update-statistics tree project))))))))
+              (for-each-subproject tree row
+                (lambda (project row line)
+                  (update-statistics tree project row line))))))))
     
     (let ((tree (get-tree)))
       (remove-every-row~ tree)
       (with-update-locked~ tree
         (lambda ()
           (insert-workbench tree)))))
+  
+  
+  (method (for-each-subproject tree row proc)
+    (let ((root row))
+      (for-each-descendant-row~ tree row (row->line~ tree row)
+        (lambda (row line)
+          (let ((project (get-user-data~ row)))
+            (when (is? project Project)
+              (when (or (eq? row root)
+                        (get-active?~ project))
+                (proc project row line)))))
+        stop-test: (lambda (row)
+                     (let ((project (get-user-data~ row)))
+                       (and (is? project Project)
+                            (not (get-active?~ project))))))))
 
 
   (method package (on-update evt)
@@ -213,39 +232,25 @@
   
   (method (update-selection)
     (let ((tree (get-tree)))
-      (define (effective-rows)
-        (let ((selected-rows (get-selected-rows~ tree)))
-          (if (null? selected-rows)
-              (collect-rows~ tree)
-            selected-rows)))
-      
-      (post-catalog
-        (lambda ()
-          (define (update-project project)
-            (let ((catalog (get-catalog~ project)))
-              (when catalog
-                (update~ catalog)
+      (let ((workbench-row (get-row~ tree 0)))
+        (post-catalog
+          (lambda ()
+            (for-each-subproject tree workbench-row
+              (lambda (project row line)
                 (execute-event
                   (lambda ()
-                    (update-statistics tree project))))))
-          
-          (for-each (lambda (row)
-                      (let ((project (get-user-data~ row)))
-                        (for-each-project~ project update-project)))
-                    (effective-rows))
-          (user-feedback "Done")))))
+                    (update-statistics tree project row line))))))))))
   
   
-  (method (update-statistics tree project)
-    (let ((row (user-data-row~ tree project include-invisibles?: #t)))
+  (method (update-statistics tree project row line)
+    (let ((row (or row (user-data-row~ tree project include-invisibles?: #t))))
       (when row
         (let ((catalog (get-catalog~ project))
               (data (second (get-children~ row))))
           (set-title~ data (if catalog (get-statistics~ catalog) "")))
-        (let ((line (row->line~ tree row)))
-          (when line
-            (let ((cell (new Cell line 1)))
-              (invalidate-cell~ tree cell)))))))
+        (when line
+          (let ((cell (new Cell line 1)))
+            (invalidate-cell~ tree cell))))))
   
   
   (method (update-buttons)

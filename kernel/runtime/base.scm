@@ -371,9 +371,13 @@
         (map jazz:convert-configuration-205001 configurations)))
     205001)
   
+  (define (convert-205001)
+    205002)
+  
   (case old
     ((#f) (convert-initial))
     ((205000) (convert-205000))
+    ((205001) (convert-205001))
     (else #f)))
 
 

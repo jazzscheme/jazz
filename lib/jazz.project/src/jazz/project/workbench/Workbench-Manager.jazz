@@ -94,11 +94,7 @@
         (let ((active-project (get-active-project~ preferences))
               (active-traits (get-active-traits~ preferences)))
           (when (and workbench active-project)
-            (let ((project (find-project~ workbench active-project error?: #f)))
-              (when project
-                (activate-project project traits: active-traits)
-                (when active-traits
-                  (update-project-title project))))))))
+            (activate-descendant workbench active-project active-traits)))))
     
     (setup-active-project))
   
@@ -805,7 +801,12 @@
             (set-color~ node (component-color~ tree project owned))
             (let ((line (row->line~ tree row)))
               (when line
-                (invalidate-cell~ tree (new Cell line 0)))))))))
+                (invalidate-cell~ tree (new Cell line 0))))))))
+    (when flag
+      (let ((active-project (get-active-project~ project))
+            (active-traits (get-active-traits~ project)))
+        (when active-project
+          (activate-descendant project active-project active-traits)))))
   
   
   ;;;
@@ -854,7 +855,15 @@
           (highlight-component~ tree (get-active-project))))
       (let ((appl (get-application)))
         (update-project-actions~ appl))))
+    
   
+  (method (activate-descendant project active-project active-traits)
+    (let ((descendant (find-project~ project active-project error?: #f)))
+      (when descendant
+        (activate-project descendant traits: active-traits)
+        (when active-traits
+          (update-project-title descendant)))))
+
   
   ;;;
   ;;;; Catalog

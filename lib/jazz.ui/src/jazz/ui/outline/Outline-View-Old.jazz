@@ -717,21 +717,28 @@
   
   
   (method public (for-each-row proc)
-    (let ((line 0))
-      (define (recurse row visible?)
-        (let* ((visible? (and visible? (get-visible-flag~ row)))
-               (son-visible? (and visible? (expanded?~ row))))
-          (proc row (and visible? line))
-          (when visible?
-            (increase! line))
-          (recurse-sons row son-visible?)))
-      
-      (define (recurse-sons row son-visible?)
+    (for-each-descendant-row root-row -1 proc include-self?: #f))
+  
+  
+  (method public (for-each-descendant-row row line proc (include-self?: include-self? #t) (stop-test: stop-test #f))
+    (define (recurse row visible?)
+      (let* ((visible? (and visible? (get-visible-flag~ row)))
+             (son-visible? (and visible? (expanded?~ row))))
+        (proc row (and visible? line))
+        (when visible?
+          (increase! line))
+        (recurse-sons row son-visible?)))
+    
+    (define (recurse-sons row son-visible?)
+      (unless (and stop-test (stop-test row))
         (iterate (get-sons~ row)
                  (lambda (row)
-                   (recurse row son-visible?))))
-      
-      (recurse-sons root-row #t)))
+                   (recurse row son-visible?)))))
+    
+    (when include-self?
+      (proc row line))
+    (increase! line)
+    (recurse-sons row (expanded?~ row)))
   
   
   (method public (for-each-visible-row proc (start: start #f) (end: end #f) (wrap?: wrap? #f))

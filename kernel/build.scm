@@ -144,6 +144,9 @@
 (jazz:define-option jazz:default-destination
   #f)
 
+(jazz:define-option jazz:default-properties
+  '())
+
 
 (jazz:define-option jazz:default-target
   'all)
@@ -155,8 +158,8 @@
 ;;;
 
 
-(define (jazz:make-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination)
-  (vector 'configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination))
+(define (jazz:make-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination properties)
+  (vector 'configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination properties))
 
 (define (jazz:configuration-name configuration)
   (vector-ref configuration 1))
@@ -194,6 +197,9 @@
 (define (jazz:configuration-destination configuration)
   (vector-ref configuration 12))
 
+(define (jazz:configuration-properties configuration)
+  (vector-ref configuration 13))
+
 
 (define (jazz:new-configuration
           #!key
@@ -208,7 +214,8 @@
           (debug-source? (jazz:unspecified-option))
           (mutable-bindings? (jazz:unspecified-option))
           (kernel-interpret? (jazz:unspecified-option))
-          (destination (jazz:unspecified-option)))
+          (destination (jazz:unspecified-option))
+          (properties (jazz:unspecified-option)))
   (let* ((name (jazz:validate-name (jazz:require-name name)))
          (system (jazz:validate-system (jazz:require-system system)))
          (platform (jazz:validate-platform (jazz:require-platform platform)))
@@ -220,7 +227,8 @@
          (debug-source? (jazz:validate-debug-source? (jazz:require-debug-source? debug-source?)))
          (mutable-bindings? (jazz:validate-mutable-bindings? (jazz:require-mutable-bindings? mutable-bindings?)))
          (kernel-interpret? (jazz:validate-kernel-interpret? (jazz:require-kernel-interpret? kernel-interpret?)))
-         (destination (jazz:validate-destination (jazz:require-destination destination))))
+         (destination (jazz:validate-destination (jazz:require-destination destination)))
+         (properties (jazz:validate-properties (jazz:require-properties properties))))
   (jazz:make-configuration
     name
     system
@@ -233,7 +241,8 @@
     debug-source?
     mutable-bindings?
     kernel-interpret?
-    destination)))
+    destination
+    properties)))
 
 
 ;;;
@@ -375,6 +384,7 @@
       (jazz:configuration-mutable-bindings? configuration)
       (jazz:configuration-kernel-interpret? configuration)
       (jazz:configuration-destination configuration)
+      (jazz:configuration-properties configuration)
       file
       system-platform))
   
@@ -392,6 +402,7 @@
       (jazz:configuration-mutable-bindings? configuration)
       (jazz:configuration-kernel-interpret? configuration)
       (jazz:configuration-destination configuration)
+      (jazz:configuration-properties configuration)
       output))
   
   (receive (anonymous named) (split-configurations jazz:configurations)
@@ -423,7 +434,8 @@
         (debug-source? (jazz:configuration-debug-source? configuration))
         (mutable-bindings? (jazz:configuration-mutable-bindings? configuration))
         (kernel-interpret? (jazz:configuration-kernel-interpret? configuration))
-        (destination (jazz:configuration-destination configuration)))
+        (destination (jazz:configuration-destination configuration))
+        (properties (jazz:configuration-properties configuration)))
     (jazz:feedback "{a}" (or name "<default>"))
     (jazz:feedback "  system: {s}" system)
     (jazz:feedback "  platform: {s}" platform)
@@ -435,7 +447,8 @@
     (jazz:feedback "  debug-source?: {s}" debug-source?)
     (jazz:feedback "  mutable-bindings?: {s}" mutable-bindings?)
     (jazz:feedback "  kernel-interpret?: {s}" kernel-interpret?)
-    (jazz:feedback "  destination: {s}" destination)))
+    (jazz:feedback "  destination: {s}" destination)
+    (jazz:feedback "  properties: {s}" properties)))
 
 
 ;;;
@@ -456,7 +469,8 @@
           (debug-source? (jazz:unspecified-option))
           (mutable-bindings? (jazz:unspecified-option))
           (kernel-interpret? (jazz:unspecified-option))
-          (destination (jazz:unspecified-option)))
+          (destination (jazz:unspecified-option))
+          (properties (jazz:unspecified-option)))
   (let ((configuration
           (jazz:new-configuration
             name: name
@@ -470,7 +484,8 @@
             debug-source?: debug-source?
             mutable-bindings?: mutable-bindings?
             kernel-interpret?: kernel-interpret?
-            destination: destination)))
+            destination: destination
+            properties: properties)))
     (jazz:register-configuration configuration)
     (jazz:describe-configuration configuration)))
 
@@ -731,6 +746,21 @@
 (define (jazz:configuration-file configuration)
   (let ((dir (jazz:configuration-directory configuration)))
     (string-append dir ".configuration")))
+
+
+;;;
+;;;; Properties
+;;;
+
+
+(define (jazz:require-properties properties)
+  (jazz:or-option properties (jazz:default-properties)))
+
+
+(define (jazz:validate-properties properties)
+  (if (list? properties)
+      properties
+    (jazz:error "Invalid properties: {s}" properties)))
 
 
 ;;;
@@ -1051,38 +1081,41 @@
 (define (jazz:make-kernel configuration image local?)
   (define (build-kernel configuration image)
     (define (build configuration)
-      (let ((name (jazz:configuration-name configuration))
-            (system (jazz:configuration-system configuration))
-            (platform (jazz:configuration-platform configuration))
-            (windowing (jazz:configuration-windowing configuration))
-            (safety (jazz:configuration-safety configuration))
-            (optimize? (jazz:configuration-optimize? configuration))
-            (debug-environments? (jazz:configuration-debug-environments? configuration))
-            (debug-location? (jazz:configuration-debug-location? configuration))
-            (debug-source? (jazz:configuration-debug-source? configuration))
-            (mutable-bindings? (jazz:configuration-mutable-bindings? configuration))
-            (kernel-interpret? (jazz:configuration-kernel-interpret? configuration))
-            (source jazz:source)
-            (destination (jazz:configuration-destination configuration))
-            (destination-directory (jazz:configuration-directory configuration)))
-        (jazz:build-image #f
-                          system:                system
-                          platform:              platform
-                          windowing:             windowing
-                          safety:                safety
-                          optimize?:             optimize?
-                          debug-environments?:   debug-environments?
-                          debug-location?:       debug-location?
-                          debug-source?:         debug-source?
-                          mutable-bindings?:     mutable-bindings?
-                          include-compiler?:     #t
-                          kernel-interpret?:     kernel-interpret?
-                          source:                source
-                          destination:           destination
-                          destination-directory: destination-directory
-                          image:                 image
-                          kernel?:               #t
-                          console?:              #t)))
+      (let ((configuration (jazz:invoke-build-configure configuration)))
+        (let ((name (jazz:configuration-name configuration))
+              (system (jazz:configuration-system configuration))
+              (platform (jazz:configuration-platform configuration))
+              (windowing (jazz:configuration-windowing configuration))
+              (safety (jazz:configuration-safety configuration))
+              (optimize? (jazz:configuration-optimize? configuration))
+              (debug-environments? (jazz:configuration-debug-environments? configuration))
+              (debug-location? (jazz:configuration-debug-location? configuration))
+              (debug-source? (jazz:configuration-debug-source? configuration))
+              (mutable-bindings? (jazz:configuration-mutable-bindings? configuration))
+              (kernel-interpret? (jazz:configuration-kernel-interpret? configuration))
+              (source jazz:source)
+              (destination (jazz:configuration-destination configuration))
+              (destination-directory (jazz:configuration-directory configuration))
+              (properties (jazz:configuration-properties configuration)))
+          (jazz:build-image #f
+                            system:                system
+                            platform:              platform
+                            windowing:             windowing
+                            safety:                safety
+                            optimize?:             optimize?
+                            debug-environments?:   debug-environments?
+                            debug-location?:       debug-location?
+                            debug-source?:         debug-source?
+                            mutable-bindings?:     mutable-bindings?
+                            include-compiler?:     #t
+                            kernel-interpret?:     kernel-interpret?
+                            source:                source
+                            destination:           destination
+                            destination-directory: destination-directory
+                            properties:            properties
+                            image:                 image
+                            kernel?:               #t
+                            console?:              #t))))
     
     (jazz:feedback "make kernel")
     (let ((configuration (or configuration (jazz:require-default-configuration))))
@@ -1105,6 +1138,13 @@
   (if local?
       (build-kernel configuration image)
     (build-recursive 'kernel configuration image)))
+
+
+(define (jazz:invoke-build-configure configuration)
+  (let ((proc (jazz:build-configure)))
+    (if proc
+        (proc configuration)
+      configuration)))
 
 
 ;;;
@@ -1349,7 +1389,7 @@
   
   (define (help-command arguments output)
     (jazz:print "Commands:" output)
-    (jazz:print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [mutable-bindings?:] [kernel-interpret?:] [destination:]" output)
+    (jazz:print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [mutable-bindings?:] [kernel-interpret?:] [destination:] [properties:]" output)
     (jazz:print "  make [target | clean | cleankernel | cleanobject | cleanlibrary]@[configuration]:[image]" output)
     (jazz:print "  install [target]" output)
     (jazz:print "  list" output)
@@ -1434,6 +1474,12 @@
             (else
              (fatal (jazz:format "Invalid boolean argument for option: {a}" name))))))
   
+  (define (list-option name options)
+    (let ((opt (jazz:get-option name options)))
+      (if (not opt)
+          (jazz:unspecified-option)
+        opt)))
+  
   (define (unknown-option opt)
     (fatal (jazz:format "Unknown option: {a}" opt)))
   
@@ -1454,7 +1500,7 @@
                  (jazz:list-configurations))
                (exit))
               ((equal? action "configure")
-               (jazz:split-command-line arguments '() '("name" "system" "platform" "windowing" "safety" "optimize" "debug-environments" "debug-location" "debug-source" "mutable-bindings" "kernel-interpret" "destination") missing-argument-for-option
+               (jazz:split-command-line arguments '() '("name" "system" "platform" "windowing" "safety" "optimize" "debug-environments" "debug-location" "debug-source" "mutable-bindings" "kernel-interpret" "destination" "properties") missing-argument-for-option
                  (lambda (options remaining)
                    (if (null? remaining)
                        (let ((name (symbol-option "name" options))
@@ -1468,8 +1514,9 @@
                              (debug-source (boolean-option "debug-source" options))
                              (mutable-bindings (boolean-option "mutable-bindings" options))
                              (kernel-interpret (boolean-option "kernel-interpret" options))
-                             (destination (string-option "destination" options)))
-                         (jazz:configure name: name system: system platform: platform windowing: windowing safety: safety optimize?: optimize debug-environments?: debug-environments debug-location?: debug-location debug-source?: debug-source mutable-bindings?: mutable-bindings kernel-interpret?: kernel-interpret destination: destination)
+                             (destination (string-option "destination" options))
+                             (properties (list-option "properties" options)))
+                         (jazz:configure name: name system: system platform: platform windowing: windowing safety: safety optimize?: optimize debug-environments?: debug-environments debug-location?: debug-location debug-source?: debug-source mutable-bindings?: mutable-bindings kernel-interpret?: kernel-interpret destination: destination properties: properties)
                          (exit))
                      (unknown-option (car remaining))))))
               ((equal? action "make")
@@ -1484,7 +1531,7 @@
               ((or (equal? action "help") (equal? action "?"))
                (let ((console (console-port)))
                  (jazz:print "Usage:" console)
-                 (jazz:print "  jam configure [-name] [-system] [-platform] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-kernel-interpret] [-destination]" console)
+                 (jazz:print "  jam configure [-name] [-system] [-platform] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-kernel-interpret] [-destination] [-properties]" console)
                  (jazz:print "  jam make [target | clean | cleankernel | cleanobject | cleanlibrary]@[configuration]:[image]" console)
                  (jazz:print "  jam list" console)
                  (jazz:print "  jam delete [configuration]" console)
@@ -1532,6 +1579,9 @@
 
 (define jazz:kernel-destination
   #f)
+
+(define jazz:kernel-properties
+  '())
 
 
 (define (jazz:load-kernel-base)

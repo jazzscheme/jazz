@@ -226,39 +226,36 @@
     
     (define (insert-lisp-entry tree entry child)
       (case (get-kind~ entry)
+        ((block unit) (insert-unit-entry tree entry child))
         ((module) (insert-module-entry tree entry child))
+        ((define definition) (insert-definition-entry tree entry child))
         ((class) (insert-class-entry tree entry child))
         ((method) (insert-method-entry tree entry child))
         (else (insert-default-entry tree entry child))))
     
+    (define (insert-unit-entry tree entry child)
+      (insert-default-entry tree entry child image: {Image-Resource "TypeInterface"}))
+    
     (define (insert-module-entry tree entry child)
       (insert-default-entry tree entry child image: {Image-Resource "Class"}))
     
-    (define (insert-class-entry tree entry child (father: father #f))
+    (define (insert-definition-entry tree entry child)
+      (insert-default-entry tree entry child image: {Image-Resource "Slot"}))
+    
+    (define (insert-class-entry tree entry child)
       (let ((father (let ((ascendant (class-entry-ascendant entry)))
                       (when ascendant
-                        (insert-class-entry tree ascendant child)))))
-        (let ((method (and child (eq? (get-kind~ child) 'method) (find-definition~ entry (->string (get-name~ child))))))
-          (let ((font (if method {Font Label-Bold} #f))
-                (color (if method
-                           (cond ((eq? entry (get-parent~ child))
-                                  {Color Dark-Green})
-                                 ((or (memq? 'virtual (get-modifiers~ method))
-                                      (memq? 'chained (get-modifiers~ method)))
-                                  {Color Dark-Red})
-                                 (else
-                                  {Color Dark-Blue}))
-                         #f)))
-            (insert-default-entry tree entry child father: father font: font color: color image: {Image-Resource "BlueRed"} user-data: (or method entry))))))
+                        (insert-class-ascendant tree ascendant child)))))
+        (insert-class-node tree entry child father: father state: 'dynamic)))
+    
+    (define (insert-class-ascendant tree entry child)
+      (let ((father (let ((ascendant (class-entry-ascendant entry)))
+                      (when ascendant
+                        (insert-class-ascendant tree ascendant child)))))
+        (insert-class-node tree entry child father: father)))
     
     (define (insert-method-entry tree entry child)
       (insert-default-entry tree entry child image: {Image-Resource "Link"}))
-    
-    (define (insert-default-entry tree entry child (father: father #f) (title: title #f) (font: font #f) (color: color #f) (image: image #f) (user-data: user-data #f))
-      (let* ((title (or title (get-name~ entry)))
-             (image (or image {Image-Resource "Slot"}))
-             (user-data (or user-data entry)))
-        (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title font: font color: color image: image)) user-data: user-data)))
     
     (unless (inhibit-summaries?)
       (let ((tree (locate 'summary)))
@@ -280,6 +277,55 @@
                           #f;(insert-entry tree client-entry #f)
                         (insert-entry tree entry #f)))))
                 (set! displayed-line line))))))))
+  
+  
+  (method (insert-class-node tree entry child (father: father #f) (state: state #f) (font: font #f) (color: color #f))
+    (let ((method (and child (eq? (get-kind~ child) 'method) (find-definition~ entry (->string (get-name~ child))))))
+      (let ((font (if method {Font Label-Bold} #f))
+            (color (if method
+                       (cond ((eq? entry (get-parent~ child))
+                              {Color Dark-Green})
+                             ((or (memq? 'virtual (get-modifiers~ method))
+                                  (memq? 'chained (get-modifiers~ method)))
+                              {Color Dark-Red})
+                             (else
+                              {Color Dark-Blue}))
+                     #f)))
+        (insert-default-entry tree entry child father: father state: state font: font color: color image: {Image-Resource "BlueRed"} user-data: (or method entry)))))
+  
+  
+  (method (insert-default-entry tree entry child (father: father #f) (state: state #f) (title: title #f) (font: font #f) (color: color #f) (image: image #f) (user-data: user-data #f))
+    (let* ((state (or state 'expanded))
+           (title (or title (get-name~ entry)))
+           (image (or image {Image-Resource "Slot"}))
+           (user-data (or user-data entry)))
+      (add-row~ tree father: father state: state children: (list (new Tree-Node title: title font: font color: color image: image)) user-data: user-data)))
+
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (tree-update-row tree row)
+    (define (insert-entry tree father entry)
+      (case (get-kind~ entry)
+        ((method)
+         (insert-entry tree father (get-parent~ entry)))
+        ((class)
+         (insert-class-descendants tree father entry))))
+    
+    (define (insert-class-descendants tree father entry)
+      (for-each (lambda (subclass)
+                  (let ((subdescendants (class-entry-descendants subclass)))
+                    (let ((state (if (null? subdescendants) 'expanded 'dynamic))
+                          (title (->string (get-name~ subclass))))
+                      (insert-class-node tree subclass #f father: father state: state))))
+                (sort string<? (class-entry-descendants entry) key: get-name~)))
+    
+    (let ((entry (get-user-data~ row)))
+      (when (is? entry Lisp-Entry)
+        (insert-entry tree row entry))))
   
   
   ;;;
@@ -344,4 +390,8 @@
   
   (method override (focus-gained)
     (nextmethod)
-    (tree-focus-gained~ (get-guest)))))
+    (tree-focus-gained~ (get-guest)))
+  
+  
+  (method override (update-row row)
+    (tree-update-row~ (get-guest) self row))))

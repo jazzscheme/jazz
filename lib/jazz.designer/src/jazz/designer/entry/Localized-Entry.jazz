@@ -45,10 +45,39 @@
         (jazz.ui))
 
 
-(class undocumented Localized-Entry extends Text-Entry
+(class undocumented Localized-Entry extends String-Entry
   
   
-  (property locales initialize #f)
+  (property active-locale initialize #f accessors generate)
+  
+  
+  (slot locales-object)
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (set! locales-object #f))
+  
+  
+  ;;;
+  ;;;; Value
+  ;;;
+  
+  
+  (method override (get-value)
+    (if (and active-locale locales-object)
+        (let ((new-value (with-exception-filter
+                             (lambda (e) #t)
+                             (lambda (e) locales-object)
+                             (lambda () (apply new Locales (addf (get-locales~ locales-object) active-locale (nextmethod)))))))
+          (set! locales-object new-value)
+          new-value)
+      (nextmethod)))
+  
+  
+  (method override (set-value value)
+    (set! locales-object (and active-locale (is? value Locales) value))
+    (nextmethod value))
   
    
   ;;;
@@ -77,5 +106,5 @@
   (form
     (<install>
       (<properties~>
-        (<Property-Descriptor> name: locales
+        (<Property-Descriptor> name: active-locale
           (<Value-Domain>      name: domain  nullable?: #t))))))))

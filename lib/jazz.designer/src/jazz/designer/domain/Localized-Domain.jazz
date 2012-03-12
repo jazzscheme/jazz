@@ -53,11 +53,39 @@
 ;;;
 
 
-(class undocumented Localized-Domain extends Value-Domain
+(class undocumented Localized-Domain extends Domain
 
+  
+  (property active-locale initialize #f getter generate setter explicit)
+  
    
   (form
     (<install> nullable?: #t))
+  
+  
+  (method public (set-active-locale value)
+    (set! active-locale (and value (standardize-locale value))))
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method override (present-value value)
+    (if (and active-locale (is? value Locales))
+        (or (localize~ value active-locale) "")
+      (->string value :reader)))
+  
+  
+  (method override (parse-presentation text)
+    (let ((maybe-locales-object (read-string-safe text)))
+      (cond ((is? maybe-locales-object Locales)
+             maybe-locales-object)
+            ((empty-string? text)
+             #f)
+            (else
+             text))))
   
   
   ;;;
@@ -78,15 +106,31 @@
   
   
   (method override (setup-entry view client)
-    (let ((unit-names (remove-duplicates (map (lambda (component)
-                                                (string->symbol (car (split (symbol->string (get-name~ (class-of (or (get-creator~ component) component)))) ":"))))
-                                              client)))
-          (toolbox-modules (append-map get-toolbox-modules~ (get-toolbox-managers))))
-      (new Localized-Entry
-        parent: view
-        domain: self
-        locales: (or (and (= 1 (length unit-names))
-                          (let ((toolbox-module (find toolbox-modules (car unit-names) key: get-module-name~ test: eq? return: 'item)))
-                            (and toolbox-module
-                                 (provide-locales~ (get-locale-tree~ toolbox-module)))))
-                   '()))))))
+    (new Localized-Entry parent: view domain: self active-locale: active-locale))
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Localized-Domain-Descriptor)))
+
+
+;;;
+;;;; Design
+;;;
+
+
+(submodule design
+
+
+(class Localized-Domain-Descriptor extends Domain-Descriptor
+  
+  
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: active-locale
+          (<Value-Domain>      name: domain  nullable?: #t))))))))

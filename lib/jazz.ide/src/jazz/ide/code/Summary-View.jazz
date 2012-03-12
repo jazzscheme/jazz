@@ -182,6 +182,12 @@
   
   
   (method (on-context-menu evt)
+    (define (menu-class entry)
+      (case (get-kind~ entry)
+        ((class) Class-Menu)
+        ((method) Method-Menu)
+        (else #f)))
+    
     (let* ((sender (get-sender~ evt))
            (pos (get-position~ evt))
            (acquired (acquire sender pos)))
@@ -191,10 +197,10 @@
             (when row
               (let ((entry (get-user-data~ row)))
                 (when (is? entry Lisp-Entry)
-                  (case (get-kind~ entry)
-                    ((method)
-                     (let ((menu (new Method-Menu client: self)))
-                       (track-popup-menu menu acquired))))))))))))
+                  (let ((menu-class (menu-class entry)))
+                    (when menu-class
+                      (let ((menu (new menu-class client: self)))
+                        (track-popup-menu menu acquired))))))))))))
   
   
   (method (finish-focus)
@@ -404,6 +410,15 @@
   ;;;
   
   
+  (method (search-classes)
+    (let ((tree (locate 'summary)))
+      (let ((entry (get-single-selected-data~ tree)))
+        (let ((search (new Projects-Search 'references (->string (get-name~ entry)) #f))
+              (classes (sort di<? (class-entry-descendants-recursive entry) key: get-name~))
+              (results (get-search-results~ (get-application))))
+          (select-results~ results (make-definition-search-resultset search classes))))))
+  
+  
   (method (search-methods)
     (let ((tree (locate 'summary)))
       (let ((entry (get-single-selected-data~ tree)))
@@ -428,6 +443,25 @@
   
   (method override (update-row row)
     (tree-update-row~ (get-guest) self row)))
+
+
+;;;
+;;;; Class-Menu
+;;;
+
+
+(class Class-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: search title: "Search Classes" action-handler: {Event-Handler :form on-search-classes})))
+  
+  
+  (method (on-search-classes evt)
+    (with-cursor :wait
+      (lambda ()
+        (search-classes~ client)))))
 
 
 ;;;

@@ -56,10 +56,10 @@
   (property client initialize #f accessors generate)
   
   
-  (slot client-entry     initialize #f)
+  (slot client-root      initialize #f)
   (slot client-selection initialize #f)
   (slot client-position  initialize #f)
-  (slot displayed-line   initialize #f)
+  (slot client-entry     initialize #f)
   (slot preserved-states initialize (make-table test: eq? weak-keys: #t))
   
 
@@ -94,7 +94,7 @@
   
   
   (method override (client-activate)
-    (define (client-entry guest)
+    (define (client-root guest)
       (when (is? guest Code-Text-View)
         (let ((moniker (get-moniker~ (get-document-controller~ guest))))
           (when moniker
@@ -105,14 +105,14 @@
                   (get-file-entry~ cataloguer moniker context: (get-context~ guest)))))))))
     
     (let ((guest (current-document)))
-      (let ((entry (client-entry guest)))
-        (if (not entry)
-            (set-client/entry #f #f)
-          (set-client/entry guest entry)))))
+      (let ((root (client-root guest)))
+        (if (not root)
+            (set-client/root #f #f)
+          (set-client/root guest root)))))
   
   
   (method override (client-deactivate)
-    (set-client/entry #f #f))
+    (set-client/root #f #f))
   
   
   (method (tree-focus-gained)
@@ -172,10 +172,10 @@
     (define (reload-jml)
       (let ((moniker (get-moniker~ (get-document-controller~ client))))
         (if moniker
-            (set! client-entry (safe-read-form moniker))
-          (set! client-entry #f))))
+            (set! client-root (safe-read-form moniker))
+          (set! client-root #f))))
     
-    (when (or (is? client-entry Exception) (is? client-entry Form))
+    (when (or (is? client-root Exception) (is? client-root Form))
       (reload-jml))
     (update)
     (highlight-selection))
@@ -225,13 +225,13 @@
   ;;;
 
  
-  (method public (set-client/entry clt entry)
-    (when (neq? entry client-entry)
+  (method public (set-client/root clt root)
+    (when (neq? root client-root)
       (when client
         (preserve-state client)
         (remove-text-listener~ client self))
       (set! client clt)
-      (set! client-entry entry)
+      (set! client-root root)
       (update)
       (when client
         (restore-state client)
@@ -300,18 +300,18 @@
       (insert-definition father level node sort?))
     
     (let ((tree (locate 'definitions)))
-      (cond ((not client-entry)
+      (cond ((not client-root)
              (set-title "Class Browser")
              (remove-every-row~ tree))
-            ((is? client-entry Exception)
+            ((is? client-root Exception)
              (remove-every-row~ tree)
-             (add-row~ tree children: (list (new Tree-Node title: (exception-reason client-entry) image: {Image-Resource "Debugger"})) user-data: client-entry))
+             (add-row~ tree children: (list (new Tree-Node title: (exception-reason client-root) image: {Image-Resource "Debugger"})) user-data: client-root))
             (else
-             (set-title (format "Class {a}" (get-entry-title client-entry)))
+             (set-title (format "Class {a}" (get-entry-title client-root)))
              (remove-every-row~ tree)
              (with-update-locked~ tree
                (lambda ()
-                 (insert-entry-definition tree client-entry)))))))
+                 (insert-entry-definition tree client-root)))))))
 
   
   ;;;
@@ -320,20 +320,21 @@
   
   
   (method (highlight-selection)
-    (when (is? client-entry File-Entry)
-      (let ((file (get-file~ client-entry))
+    (when (is? client-root File-Entry)
+      (let ((tree (locate 'definitions))
+            (file (get-file~ client-root))
             (start (get-start~ client)))
         (let ((line (get-line~ start))
               (col (get-col~ start)))
-          (when (or (not displayed-line) (/= line displayed-line))
-            (let ((entry (location->entry (list file line col))))
-              (when entry
-                (let ((tree (locate 'definitions)))
-                  (let ((row (user-data-row~ tree entry include-invisibles?: #t)))
-                    (when row
-                      (ensure-expanded~ tree row)
-                      (set-single-selection~ tree (row->line~ tree row) generate-event?: #f))))))
-            (set! displayed-line line))))))
+          (let ((entry (location->entry (list file line col))))
+            (when (neq? entry client-entry)
+              (set! client-entry entry)
+              (if (not entry)
+                  (set-selection~ tree '())
+                (let ((row (user-data-row~ tree entry include-invisibles?: #t)))
+                  (when row
+                    (ensure-expanded~ tree row)
+                    (set-single-selection~ tree (row->line~ tree row) generate-event?: #f))))))))))
   
   
   ;;;
@@ -364,7 +365,7 @@
   (method (edit-definitions definition double-click?)
     (define (edit-jml-definition definition)
       (let* ((appl (get-application))
-             (moniker (get-origin~ client-entry))
+             (moniker (get-origin~ client-root))
              (frame (edit-document~ appl moniker visible?: #f))
              (text (get-guest~ frame))
              (location (append (get-location~ definition) (list 0)))

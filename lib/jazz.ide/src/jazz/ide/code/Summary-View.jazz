@@ -62,10 +62,10 @@
   (property client initialize #f accessors generate)
   
   
-  (slot client-entry     initialize #f)
+  (slot client-root      initialize #f)
   (slot client-selection initialize #f)
   (slot client-position  initialize #f)
-  (slot displayed-entry  initialize #f)
+  (slot client-entry     initialize #f)
   
 
   (form
@@ -97,7 +97,7 @@
   
   
   (method override (client-activate)
-    (define (client-entry guest)
+    (define (client-root guest)
       (when (is? guest Code-Text-View)
         (let ((moniker (get-moniker~ (get-document-controller~ guest))))
           (when moniker
@@ -109,14 +109,14 @@
     
     (unless (inhibit-summaries?)
       (let ((guest (current-document)))
-        (let ((entry (client-entry guest)))
-          (if (not entry)
-              (set-client/entry #f #f)
-            (set-client/entry guest entry))))))
+        (let ((root (client-root guest)))
+          (if (not root)
+              (set-client/root #f #f)
+            (set-client/root guest root))))))
   
   
   (method override (client-deactivate)
-    (set-client/entry #f #f))
+    (set-client/root #f #f))
   
   
   (method (tree-focus-gained)
@@ -197,13 +197,13 @@
   ;;;
 
  
-  (method public (set-client/entry clt entry)
-    (when (neq? entry client-entry)
+  (method public (set-client/root clt root)
+    (when (neq? root client-root)
       (when client
         (remove-text-listener~ client self))
       (set! client clt)
-      (set! client-entry entry)
-      (set! displayed-entry #f)
+      (set! client-root root)
+      (set! client-entry #f)
       (highlight-selection)
       (when client
         (add-text-listener~ client (new Event-Handler execute: (lambda (evt) (highlight-selection)))))))
@@ -215,75 +215,75 @@
   
   
   (method (highlight-selection)
-    (define (insert-entry tree entry child)
+    (define (insert-entry tree entry)
       (let ((parent (get-parent~ entry)))
         (when (and parent (is-not? parent File-Entry))
-          (insert-entry tree parent entry)
+          (insert-entry tree parent)
           (add-row~ tree children: (list (new Tree-Node title: ""))))
         (typecase entry
-          ((Lisp-Entry) (insert-lisp-entry tree entry child))
-          (else (insert-default-entry tree entry child)))))
+          ((Lisp-Entry) (insert-lisp-entry tree entry))
+          (else (insert-default-entry tree entry)))))
     
-    (define (insert-lisp-entry tree entry child)
+    (define (insert-lisp-entry tree entry)
       (case (get-kind~ entry)
-        ((block unit) (insert-unit-entry tree entry child))
-        ((module) (insert-module-entry tree entry child))
-        ((define definition) (insert-definition-entry tree entry child))
-        ((class) (insert-class-entry tree entry child))
-        ((method) (insert-method-entry tree entry child))
-        (else (insert-default-entry tree entry child))))
+        ((block unit) (insert-unit-entry tree entry))
+        ((module) (insert-module-entry tree entry))
+        ((define definition) (insert-definition-entry tree entry))
+        ((class) (insert-class-entry tree entry))
+        ((method) (insert-method-entry tree entry))
+        (else (insert-default-entry tree entry))))
     
-    (define (insert-unit-entry tree entry child)
-      (insert-default-entry tree entry child image: {Image-Resource "TypeInterface"}))
+    (define (insert-unit-entry tree entry)
+      (insert-default-entry tree entry image: {Image-Resource "TypeInterface"}))
     
-    (define (insert-module-entry tree entry child)
-      (insert-default-entry tree entry child image: {Image-Resource "Class"}))
+    (define (insert-module-entry tree entry)
+      (insert-default-entry tree entry image: {Image-Resource "Class"}))
     
-    (define (insert-definition-entry tree entry child)
-      (insert-default-entry tree entry child image: {Image-Resource "Slot"}))
+    (define (insert-definition-entry tree entry)
+      (insert-default-entry tree entry image: {Image-Resource "Slot"}))
     
-    (define (insert-class-entry tree entry child)
+    (define (insert-class-entry tree entry)
       (let ((father (let ((ascendant (class-entry-ascendant entry)))
                       (when ascendant
-                        (insert-class-ascendant tree ascendant child)))))
-        (insert-class-node tree entry child father: father state: 'dynamic)))
+                        (insert-class-ascendant tree ascendant)))))
+        (insert-class-node tree entry father: father state: 'dynamic)))
     
-    (define (insert-class-ascendant tree entry child)
+    (define (insert-class-ascendant tree entry)
       (let ((father (let ((ascendant (class-entry-ascendant entry)))
                       (when ascendant
-                        (insert-class-ascendant tree ascendant child)))))
-        (insert-class-node tree entry child father: father)))
+                        (insert-class-ascendant tree ascendant)))))
+        (insert-class-node tree entry father: father)))
     
-    (define (insert-method-entry tree entry child)
-      (insert-default-entry tree entry child image: {Image-Resource "Link"}))
+    (define (insert-method-entry tree entry)
+      (insert-default-entry tree entry image: {Image-Resource "Link"}))
     
     (unless (inhibit-summaries?)
       (let ((tree (locate 'summary)))
-        (if (is-not? client-entry File-Entry)
+        (if (is-not? client-root File-Entry)
             (begin
               (remove-every-row~ tree)
-              (set! displayed-entry #f))
-          (let ((file (get-file~ client-entry))
+              (set! client-entry #f))
+          (let ((file (get-file~ client-root))
                 (start (get-start~ client)))
             (let ((line (get-line~ start))
                   (col (get-col~ start)))
               (let ((entry (location->entry (list file line col))))
-                (when (or (not displayed-entry) (neq? entry displayed-entry))
+                (when (neq? entry client-entry)
+                  (set! client-entry entry)
                   (remove-every-row~ tree)
                   (with-update-locked~ tree
                     (lambda ()
                       (if (not entry)
                           ;; put back when we display the file entry
-                          #f;(insert-entry tree client-entry #f)
-                        (insert-entry tree entry #f)))))
-                (set! displayed-entry entry))))))))
+                          #f;(insert-entry tree client-root)
+                        (insert-entry tree entry))))))))))))
   
   
-  (method (insert-class-node tree entry child (father: father #f) (state: state #f) (font: font #f) (color: color #f))
-    (let ((method (and child (eq? (get-kind~ child) 'method) (find-definition~ entry (->string (get-name~ child))))))
+  (method (insert-class-node tree entry (father: father #f) (state: state #f) (font: font #f) (color: color #f))
+    (let ((method (and client-entry (eq? (get-kind~ client-entry) 'method) (find-definition~ entry (->string (get-name~ client-entry))))))
       (let ((font (if method {Font Label-Bold} #f))
             (color (if method
-                       (cond ((eq? entry (get-parent~ child))
+                       (cond ((eq? entry (get-parent~ client-entry))
                               {Color Dark-Green})
                              ((or (memq? 'virtual (get-modifiers~ method))
                                   (memq? 'chained (get-modifiers~ method)))
@@ -291,10 +291,10 @@
                              (else
                               {Color Dark-Blue}))
                      #f)))
-        (insert-default-entry tree entry child father: father state: state font: font color: color image: {Image-Resource "BlueRed"} user-data: (or method entry)))))
+        (insert-default-entry tree entry father: father state: state font: font color: color image: {Image-Resource "BlueRed"} user-data: (or method entry)))))
   
   
-  (method (insert-default-entry tree entry child (father: father #f) (state: state #f) (title: title #f) (font: font #f) (color: color #f) (image: image #f) (user-data: user-data #f))
+  (method (insert-default-entry tree entry (father: father #f) (state: state #f) (title: title #f) (font: font #f) (color: color #f) (image: image #f) (user-data: user-data #f))
     (let* ((state (or state 'expanded))
            (title (or title (get-name~ entry)))
            (image (or image {Image-Resource "Slot"}))
@@ -320,7 +320,7 @@
                   (let ((subdescendants (class-entry-descendants subclass)))
                     (let ((state (if (null? subdescendants) 'expanded 'dynamic))
                           (title (->string (get-name~ subclass))))
-                      (insert-class-node tree subclass #f father: father state: state))))
+                      (insert-class-node tree subclass father: father state: state))))
                 (sort string<? (class-entry-descendants entry) key: get-name~)))
     
     (let ((entry (get-user-data~ row)))
@@ -353,7 +353,7 @@
   (method (edit-definitions definition origin)
     (define (edit-jml-definition definition)
       (let* ((appl (get-application))
-             (moniker (get-origin~ client-entry))
+             (moniker (get-origin~ client-root))
              (frame (edit-document~ appl moniker visible?: #f))
              (text (get-guest~ frame))
              (location (append (get-location~ definition) (list 0)))
@@ -365,7 +365,7 @@
       (let ((appl (get-application)))
         (add-history~ appl (current-history-item~ appl))))
     (when (neq? origin 'select)
-      (set! displayed-entry #f))
+      (set! client-entry #f))
     (if (is? definition JML-Node)
         (edit-jml-definition definition)
       (case origin

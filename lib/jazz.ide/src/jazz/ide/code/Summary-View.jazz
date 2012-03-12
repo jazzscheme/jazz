@@ -65,7 +65,7 @@
   (slot client-entry     initialize #f)
   (slot client-selection initialize #f)
   (slot client-position  initialize #f)
-  (slot displayed-line   initialize #f)
+  (slot displayed-entry  initialize #f)
   
 
   (form
@@ -203,7 +203,7 @@
         (remove-text-listener~ client self))
       (set! client clt)
       (set! client-entry entry)
-      (set! displayed-line #f)
+      (set! displayed-entry #f)
       (highlight-selection)
       (when client
         (add-text-listener~ client (new Event-Handler execute: (lambda (evt) (highlight-selection)))))))
@@ -262,13 +262,13 @@
         (if (is-not? client-entry File-Entry)
             (begin
               (remove-every-row~ tree)
-              (set! displayed-line #f))
+              (set! displayed-entry #f))
           (let ((file (get-file~ client-entry))
                 (start (get-start~ client)))
             (let ((line (get-line~ start))
                   (col (get-col~ start)))
-              (when (or (not displayed-line) (/= line displayed-line))
-                (let ((entry (location->entry (list file line col))))
+              (let ((entry (location->entry (list file line col))))
+                (when (or (not displayed-entry) (neq? entry displayed-entry))
                   (remove-every-row~ tree)
                   (with-update-locked~ tree
                     (lambda ()
@@ -276,7 +276,7 @@
                           ;; put back when we display the file entry
                           #f;(insert-entry tree client-entry #f)
                         (insert-entry tree entry #f)))))
-                (set! displayed-line line))))))))
+                (set! displayed-entry entry))))))))
   
   
   (method (insert-class-node tree entry child (father: father #f) (state: state #f) (font: font #f) (color: color #f))
@@ -365,7 +365,7 @@
       (let ((appl (get-application)))
         (add-history~ appl (current-history-item~ appl))))
     (when (neq? origin 'select)
-      (set! displayed-line #f))
+      (set! displayed-entry #f))
     (if (is? definition JML-Node)
         (edit-jml-definition definition)
       (case origin

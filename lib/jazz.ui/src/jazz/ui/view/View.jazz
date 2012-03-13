@@ -1763,7 +1763,7 @@
 
   (method (call-content-change origin)
     (if content-change-handler
-        (invoke-handler self content-change-handler (new Event :change self (list origin: origin)))
+        (invoke-handler self content-change-handler (make-event Event :change self (list origin: origin)))
       (content-change origin)))
   
   
@@ -1778,7 +1778,7 @@
 
   (method public (call-selection-handler old selection force? user-origin)
     (when selection-handler
-      (invoke-handler self selection-handler (new Selection-Event :selection-change self old selection force?: force? user-origin: user-origin))))
+      (invoke-handler self selection-handler (new Selection-Event :selection-change self (modifiers-mask) old selection force?: force? user-origin: user-origin))))
   
   
   ;;;
@@ -1851,14 +1851,14 @@
   (method public (call-focus-gained)
     (set-focus-actions~ (get-application) (get-focus-actions self))
     (if focus-gained-handler
-        (invoke-handler self focus-gained-handler (new Event :focus-gained self))
+        (invoke-handler self focus-gained-handler (make-event Event :focus-gained self))
       (focus-gained)))
 
 
   (method public (call-focus-lose)
     (set-focus-actions~ (get-application) '())
     (if focus-lose-handler
-        (invoke-handler self focus-lose-handler (new Event :focus-lose self))
+        (invoke-handler self focus-lose-handler (make-event Event :focus-lose self))
       (focus-lose)))
   
   
@@ -1974,7 +1974,7 @@
   
   (method public (call-receive-files pos files)
     (if receive-files-handler
-        (invoke-handler self receive-files-handler (new Event :receive-files self position: pos files: files))
+        (invoke-handler self receive-files-handler (make-event Event :receive-files self position: pos files: files))
       (receive-files pos files)))
   
   
@@ -1993,7 +1993,7 @@
   
   (method public (call-cursor-update pos)
     (if cursor-update-handler
-        (invoke-handler self cursor-update-handler (new Cursor-Event :set-cursor self position: pos))
+        (invoke-handler self cursor-update-handler (make-event Cursor-Event :set-cursor self position: pos))
       (cursor-update pos)))
   
   
@@ -2036,7 +2036,7 @@
   
   (method (call-mouse-hover pos)
     (if mouse-hover-handler
-        (invoke-handler self mouse-hover-handler (new Mouse-Event :mouse-hover self position: pos))
+        (invoke-handler self mouse-hover-handler (make-event Mouse-Event :mouse-hover self position: pos))
       (mouse-hover pos))
     (when (get-tooltip?)
       (popup-tooltip pos)))
@@ -2047,7 +2047,7 @@
            (view (find-mouse-view pos)))
       (when view
         (let ((acquired (acquire~ view self pos)))
-          (hook-event view (lambda () (new Mouse-Event :mouse-down self position: acquired))
+          (hook-event view (lambda () (make-event Mouse-Event :mouse-down self position: acquired))
             (lambda ()
               (close-popups~ view event: 'mouse-down)
               (let ((actual-focus (get-focus)))
@@ -2065,7 +2065,7 @@
   
   (method public (call-mouse-down pos)
     (if mouse-down-handler
-        (invoke-handler self mouse-down-handler (new Mouse-Event :mouse-down self position: pos))
+        (invoke-handler self mouse-down-handler (make-event Mouse-Event :mouse-down self position: pos))
       (mouse-down pos)))
   
   
@@ -2104,7 +2104,7 @@
   
   (method (call-mouse-move pos)
     (if mouse-move-handler
-        (invoke-handler self mouse-move-handler (new Mouse-Event :mouse-move self position: pos))
+        (invoke-handler self mouse-move-handler (make-event Mouse-Event :mouse-move self position: pos))
       (mouse-move pos)))
   
   
@@ -2113,7 +2113,7 @@
            (view (find-mouse-view pos))
            (acquired (and view (acquire~ view self pos))))
       (when view
-        (hook-event view (lambda () (new Mouse-Event :mouse-up self position: acquired))))
+        (hook-event view (lambda () (make-event Mouse-Event :mouse-up self position: acquired))))
       (when mouse-down?
         (process-drag-up~ mouse-down-view (acquire~ mouse-down-view self pos)))
       (when view
@@ -2133,7 +2133,7 @@
   
   (method (call-mouse-up pos)
     (if mouse-up-handler
-        (invoke-handler self mouse-up-handler (new Mouse-Event :mouse-up self position: pos))
+        (invoke-handler self mouse-up-handler (make-event Mouse-Event :mouse-up self position: pos))
       (mouse-up pos)))
 
   
@@ -2155,7 +2155,7 @@
   
   (method (call-drag-move pos)
     (if drag-move-handler
-        (invoke-handler self drag-move-handler (new Mouse-Event :drag-move self position: pos))
+        (invoke-handler self drag-move-handler (make-event Mouse-Event :drag-move self position: pos))
       (drag-move pos)))
 
   
@@ -2169,7 +2169,7 @@
   
   (method (call-drag-up pos dragging?)
     (if drag-up-handler
-        (invoke-handler self drag-up-handler (new Mouse-Event :drag-up self position: pos))
+        (invoke-handler self drag-up-handler (make-event Mouse-Event :drag-up self position: pos))
       (drag-up pos dragging?)))
   
   
@@ -2177,7 +2177,7 @@
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when view
-        (hook-event view (lambda () (new Mouse-Event :double-click self position: pos))
+        (hook-event view (lambda () (make-event Mouse-Event :double-click self position: pos))
           (lambda ()
             (close-popups~ view event: 'double-click)
             (let ((acquired (acquire~ view self pos)))
@@ -2193,7 +2193,7 @@
   
   (method public virtual (call-double-click pos)
     (if double-click-handler
-        (invoke-handler self double-click-handler (new Mouse-Event :double-click self position: pos))
+        (invoke-handler self double-click-handler (make-event Mouse-Event :double-click self position: pos))
       (double-click pos)))
   
   
@@ -2201,7 +2201,7 @@
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when (and view (view-enabled?~ view))
-        (hook-event view (lambda () (new Mouse-Event :context-menu self position: pos))
+        (hook-event view (lambda () (make-event Mouse-Event :context-menu self position: pos))
           (lambda ()
             (close-popups~ view event: 'context-menu)
             (call-context-menu~ view (acquire~ view self pos)))))))
@@ -2209,7 +2209,7 @@
   
   (method public (call-context-menu pos)
     (if context-menu-handler
-        (invoke-handler self context-menu-handler (new Mouse-Event :context-menu self position: pos))
+        (invoke-handler self context-menu-handler (make-event Mouse-Event :context-menu self position: pos))
       (context-menu pos)))
   
   
@@ -2244,19 +2244,19 @@
   
   
   (method (dispatch-mouse-enter)
-    (hook-event self (lambda () (new Mouse-Event :mouse-enter self))
+    (hook-event self (lambda () (make-event Mouse-Event :mouse-enter self))
       (lambda ()
         (call-mouse-enter))))
   
   
   (method (call-mouse-enter)
     (if mouse-enter-handler
-        (invoke-handler self mouse-enter-handler (new Mouse-Event :mouse-enter self))
+        (invoke-handler self mouse-enter-handler (make-event Mouse-Event :mouse-enter self))
       (mouse-enter)))
   
   
   (method (dispatch-mouse-leave)
-    (hook-event self (lambda () (new Mouse-Event :mouse-leave self))
+    (hook-event self (lambda () (make-event Mouse-Event :mouse-leave self))
       (lambda ()
         (call-mouse-leave))))
   
@@ -2265,7 +2265,7 @@
     (cancel-hovering)
     (close-self-tooltip)
     (if mouse-leave-handler
-        (invoke-handler self mouse-leave-handler (new Mouse-Event :mouse-leave self))
+        (invoke-handler self mouse-leave-handler (make-event Mouse-Event :mouse-leave self))
       (mouse-leave)))
   
   
@@ -2800,7 +2800,7 @@
   
   (method public (call-current-drop drag-drop pos)
     (if current-drop-handler
-        (invoke-handler self current-drop-handler (new Drop-Event :drop-target self drag-drop position: pos))
+        (invoke-handler self current-drop-handler (new Drop-Event :drop-target self (modifiers-mask) drag-drop position: pos))
       (current-drop drag-drop pos)))
 
   
@@ -2834,7 +2834,7 @@
   
   (method public (call-receive-drop sender pos drag-drop)
     (if receive-drop-handler
-        (invoke-handler self receive-drop-handler (new Drop-Event :receive-drop sender drag-drop position: pos))
+        (invoke-handler self receive-drop-handler (new Drop-Event :receive-drop sender (modifiers-mask) drag-drop position: pos))
       (receive-drop sender pos drag-drop)))
   
   
@@ -2849,9 +2849,9 @@
   
   (method protected (call-key-press key)
     (if key-press-handler
-        (invoke-handler self key-press-handler (new Keyboard-Event :char self key))
+        (invoke-handler self key-press-handler (new Keyboard-Event :char self (modifiers-mask) key))
       (let ((handler {Event-Handler :focus on-insert})
-            (event (new Event (if char? :char :key) self content: key)))
+            (event (make-event Event (if char? :char :key) self content: key)))
         (hook-action handler event
           (lambda ()
             (key-press key))))))
@@ -2899,7 +2899,7 @@
   
   (method (call-escape-press key)
     (if escape-press-handler
-        (invoke-handler self escape-press-handler (new Keyboard-Event :char self key))
+        (invoke-handler self escape-press-handler (new Keyboard-Event :char self (modifiers-mask) key))
       (escape-press key)))
 
 
@@ -2913,7 +2913,7 @@
   
   (method (call-backspace-press key)
     (if backspace-press-handler
-        (invoke-handler self backspace-press-handler (new Keyboard-Event :char self key))
+        (invoke-handler self backspace-press-handler (new Keyboard-Event :char self (modifiers-mask) key))
       (backspace-press key)))
 
 
@@ -2927,7 +2927,7 @@
 
   (method (call-return-press key)
     (if return-press-handler
-        (invoke-handler self return-press-handler (new Keyboard-Event :char self key))
+        (invoke-handler self return-press-handler (new Keyboard-Event :char self (modifiers-mask) key))
       (return-press key)))
 
 
@@ -2941,7 +2941,7 @@
   
   (method (call-tab-press key)
     (if tab-press-handler
-        (invoke-handler self tab-press-handler (new Keyboard-Event :char self key))
+        (invoke-handler self tab-press-handler (new Keyboard-Event :char self (modifiers-mask) key))
       (tab-press key (modifiers-mask))))
 
 
@@ -2964,7 +2964,7 @@
           (complete-drag-up #t))
       (let ((view (get-focus)))
         (when view
-          (hook-event :focus (lambda () (new Event :char self content: key))
+          (hook-event :focus (lambda () (make-event Event :char self content: key))
             (lambda ()
               (call-key-press~ view key)))))))
 

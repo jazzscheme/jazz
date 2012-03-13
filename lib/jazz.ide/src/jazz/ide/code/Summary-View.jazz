@@ -302,21 +302,29 @@
                         (insert-entry tree entry))))))))))))
   
   
-  (method (insert-class-node tree entry (father: father #f) (state: state #f) (font: font #f) (color: color #f) (descendant?: descendant? #f))
-    (let ((method (and client-entry (eq? (get-kind~ client-entry) 'method) (find-definition~ entry (->string (get-name~ client-entry))))))
-      (let ((font (if method {Font Label-Bold} #f))
-            (color (if method
-                       (cond ((eq? entry (get-parent~ client-entry))
-                              {Color Dark-Green})
-                             ((or (memq? 'virtual (get-modifiers~ method))
-                                  (memq? 'chained (get-modifiers~ method)))
-                              {Color Dark-Red})
-                             (descendant?
-                              {Color Dark-Purple})
-                             (else
-                              {Color Dark-Blue}))
-                     #f)))
-        (insert-default-entry tree entry father: father state: state font: font color: color image: {Image-Resource "BlueRed"} user-data: (or method entry)))))
+  (method (insert-class-node tree entry (father: father #f) (state: state #f) (font: font #f) (color: color #f) (image: image #f) (descendant?: descendant? #f))
+    (let ((method-name (and client-entry (eq? (get-kind~ client-entry) 'method) (->string (get-name~ client-entry)))))
+      (unless (or descendant? (not (class-entry? entry)))
+        (let ((interfaces (class-entry-interfaces entry)))
+          (for-each (lambda (interface)
+                      (when (and method-name (find-definition~ interface method-name))
+                        (insert-class-node tree interface father: father image: {Image-Resource "Link"})))
+                    interfaces)))
+      (let ((method (and method-name (find-definition~ entry method-name))))
+        (let ((font (if method {Font Label-Bold} #f))
+              (color (if method
+                         (cond ((eq? entry (get-parent~ client-entry))
+                                {Color Dark-Green})
+                               ((or (memq? 'virtual (get-modifiers~ method))
+                                    (memq? 'chained (get-modifiers~ method)))
+                                {Color Dark-Red})
+                               (descendant?
+                                 {Color Dark-Purple})
+                               (else
+                                {Color Dark-Blue}))
+                       #f))
+              (image (or image {Image-Resource "BlueRed"})))
+          (insert-default-entry tree entry father: father state: state font: font color: color image: image user-data: (or method entry))))))
   
   
   (method (insert-default-entry tree entry (father: father #f) (state: state #f) (title: title #f) (font: font #f) (color: color #f) (image: image #f) (user-data: user-data #f))

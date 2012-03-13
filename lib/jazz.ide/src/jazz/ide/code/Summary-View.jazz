@@ -302,7 +302,7 @@
                         (insert-entry tree entry))))))))))))
   
   
-  (method (insert-class-node tree entry (father: father #f) (state: state #f) (font: font #f) (color: color #f) (descendant?: descendant? #f))
+  (method (insert-class-node tree entry (father: father #f) (state: state #f) (font: font #f) (color: color #f) (image: image #f) (descendant?: descendant? #f))
     (let ((method (and client-entry (eq? (get-kind~ client-entry) 'method) (find-definition~ entry (->string (get-name~ client-entry))))))
       (let ((font (if method {Font Label-Bold} #f))
             (color (if method
@@ -315,8 +315,17 @@
                               {Color Dark-Purple})
                              (else
                               {Color Dark-Blue}))
-                     #f)))
-        (insert-default-entry tree entry father: father state: state font: font color: color image: {Image-Resource "BlueRed"} user-data: (or method entry)))))
+                     #f))
+            (image (or image {Image-Resource "BlueRed"})))
+        (let ((row (insert-default-entry tree entry father: father state: state font: font color: color image: image user-data: (or method entry))))
+          (unless (or descendant? (not (class-entry? entry)))
+            (let ((interfaces (class-entry-interfaces entry)))
+              (for-each (lambda (interface)
+                          (when (and client-entry (eq? (get-kind~ client-entry) 'method) (find-definition~ interface (->string (get-name~ client-entry))))
+                            (insert-class-node tree interface father: row image: {Image-Resource "Interface"})
+                            (expand/collapse~ tree row)))
+                        interfaces)))
+          row))))
   
   
   (method (insert-default-entry tree entry (father: father #f) (state: state #f) (title: title #f) (font: font #f) (color: color #f) (image: image #f) (user-data: user-data #f))

@@ -41,7 +41,8 @@
 (import (jazz.graphic)
         (jazz.locale)
         (jazz.ui)
-        (jazz.ui.view))
+        (jazz.ui.view)
+        (time))
 
 
 (class Calendar-Day extends View
@@ -80,11 +81,11 @@
   
   
   (method (same-day?)
-    (= date (get-date~ (get-calendar))))
+    (= (date-day date) (date-day (get-date~ (get-calendar)))))
   
   
   (method (same-month?)
-    (= (get-month~ date) (get-month~ (get-date~ (get-calendar)))))
+    (= (date-month date) (date-month (get-date~ (get-calendar)))))
   
   
   ;;;
@@ -127,9 +128,7 @@
   
   
   (definition Current-Day-Font
-    {Font Text}
-    @convert
-    {Font font-name: "MS Sans Serif" point-size: 8 bold?: #t})
+    {Font Label-Bold})
 
   
   (method override (draw surface context)
@@ -145,22 +144,18 @@
   
   
   (method protected virtual (draw-header surface context)
-    (define (day-label same-month?)
-      (let ((day (get-day~ date)))
-        (if (and (= day 1) same-month?)
-            (format "{s} {a}" day (localize (month-abbrev~ date)))
-          (->string day))))
-    
-    (let ((bounds (get-bounds)))
-      (when selected?
-        (let ((header (new Rect 0 0 (get-right~ bounds) 14)))
-          (fill-rect~ surface header (selection-color))))
-      (set-font~ surface (if (current-day?) Current-Day-Font {Font Label}))
-      (let* ((same-month? (same-month?))
-             (day-label (day-label same-month?)))
-        (set-text-color~ surface (cond ((not same-month?) {Color White}) (selected? {Color White}) (else {Color Black})))
-        (draw-text~ surface 0 0 day-label))))
-  
+    (when selected?
+      (fill-rect~ surface (new Rect 0 0 (get-right~ (get-bounds)) (get-bottom~ (get-bounds))) (selection-color)))
+    (set-font~ surface (if (current-day?) Current-Day-Font {Font Label}))
+    (set-text-color~ surface (cond ((not (same-month?)) {Color White})
+                                   (selected? {Color Red})
+                                   (else {Color Black})))
+    (draw-text~ surface 0 0  (->string (date-day date)))
+    (set-text-color~ surface (cond ((not (same-month?)) {Color Light-Gray})
+                                   (selected? {Color Red}) 
+                                   (else {Color Dark-Gray})))
+    (draw-text~ surface 0 12 (date->string date "~a")))
+
   
   (method (selection-color)
     (if (focused?)
@@ -175,11 +170,13 @@
   
   
   (method (current-day?)
-    @convert-date
-    (= (day-date~ date) (day-date~ (local-date))))
+    (let ((today (current-date)))
+      (and (= (date-day date) (date-day today))
+           (= (date-month date) (date-month today))
+           (= (date-year date) (date-year today)))))
   
   
-  @wait
+  @convert
   (method (draw-day surface)
     (nextmethod surface)
     (let* ((calendar (get-calendar))

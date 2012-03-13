@@ -39,7 +39,8 @@
 
 
 (import (jazz.calendar)
-        (jazz.ui))
+        (jazz.ui)
+        (time))
 
 
 (class Calendar-View extends View
@@ -55,7 +56,7 @@
   
   (method override (finish rest)
     (nextmethod rest)
-    (set-date #f)
+    (set-date date)
     (install-days)
     (set-selection (find-calendar-day date)))
   
@@ -70,8 +71,7 @@
 
 
   (method public (set-date value)
-    @convert-date
-    (set! date (or value (day-date~ (local-date))))
+    (set! date (or value (current-date)))
     (when (get-finished?)
       (date-update)))
   
@@ -169,14 +169,13 @@
     (define (install-day week day date)
       (new (calendar-day-class) parent: self week: week day: day date: date))
     
-    (when date
-      (let ((date (calendar-base)))
-        (for-each (lambda (week)
-                    (for-each (lambda (day)
-                                (install-day week day date)
-                                (set! date (add~ date 'day 1)))
-                              (naturals 0 7)))
-                  (naturals 0 6)))))
+    (let ((date (calendar-base)))
+      (for-each (lambda (week)
+                  (for-each (lambda (day)
+                              (install-day week day date)
+                              (set! date (add-one-day date)))
+                            (naturals 0 7)))
+                (naturals 0 6))))
   
   
   (method protected virtual (calendar-day-class)
@@ -184,7 +183,22 @@
   
   
   (method (calendar-base)
-    (first-day-of-week~ (first-day-of-month~ date)))
+    (let (subtract (date (make-date 0 0 0 0 1 (date-month date) (date-year date) (date-zone-offset (current-date)))))
+      (if (zero? (date-week-day date))
+          date
+        (subtract (subtract-one-day date)))))
+  
+  
+  (method (add-one-day date)
+    (normalize-date (time-monotonic->date (add-duration (date->time-monotonic date) (make-time 'time-duration 0 86500)))))
+  
+  
+  (method (subtract-one-day date)
+    (normalize-date (time-monotonic->date (subtract-duration (date->time-monotonic date) (make-time 'time-duration 0 86500)))))
+  
+  
+  (method (normalize-date date)
+    (make-date 0 0 0 0 (date-day date) (date-month date) (date-year date) (date-zone-offset date)))
   
   
   ;;;
@@ -199,7 +213,7 @@
                   (for-each (lambda (day)
                               (let ((calendar-day (car scan)))
                                 (set-date~ calendar-day date)
-                                (set! date (add~ date 'day 1))
+                                (set! date (add-one-day date))
                                 (set! scan (cdr scan))))
                             (naturals 0 7)))
                 (naturals 0 6))))
@@ -239,7 +253,7 @@
   (method public (find-calendar-day date)
     (find-if (lambda (view)
                (and (is? view Calendar-Day)
-                    (= date (get-date~ view))))
+                    (nu=? date (get-date~ view))))
              children))
   
   
@@ -278,15 +292,17 @@
   ;;;; Navigation
   ;;;
   
-  
   (method public (goto-previous-month)
-    (goto-month (previous-month~ date)))
+    (goto-month date subtract-one-day))
   
   
   (method public (goto-next-month)
-    (goto-month (next-month~ date)))
+    (goto-month date add-one-day))
   
   
-  (method (goto-month month)
-    (set-date month)
-    (set-selection (find-calendar-day month)))))
+  (method (goto-month new-date proc)
+    (let ((new-date (proc new-date)))
+      (if (not (= (date-day new-date) (date-day date)))
+          (goto-month new-date proc)
+        (set-date new-date)
+        (set-selection (find-calendar-day new-date)))))))

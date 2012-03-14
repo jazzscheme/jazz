@@ -118,12 +118,6 @@
   
   (method override (client-deactivate)
     (set-client/root #f #f))
-  
-  
-  (method (tree-focus-gained)
-    (when client
-      (set! client-selection (get-selection~ client))
-      (set! client-position (get-scrolled-position~ client))))
  
 
   ;;;
@@ -210,7 +204,7 @@
   (method (cancel-focus)
     (when client
       (when client-selection
-        (set-selection-safe~ client client-selection force?: #t ensure-displayed?: #f)
+        (set-selection-safe~ client client-selection force?: #t ensure-displayed?: #f generate-event?: #f)
         (scroll-to~ client client-position))
       (acquire-focus~ client)))
   
@@ -283,25 +277,26 @@
       (insert-default-entry tree entry image: {Image-Resource "Link"}))
     
     (unless (inhibit-summaries?)
-      (let ((tree (locate 'summary)))
-        (if (is-not? client-root File-Entry)
-            (begin
-              (remove-every-row~ tree)
-              (set! client-entry #f))
-          (let ((file (get-file~ client-root))
-                (start (get-start~ client)))
-            (let ((line (get-line~ start))
-                  (col (get-col~ start)))
-              (let ((entry (location->entry (list file line col))))
-                (when (neq? entry client-entry)
-                  (set! client-entry entry)
-                  (remove-every-row~ tree)
-                  (with-update-locked~ tree
-                    (lambda ()
-                      (if (not entry)
-                          ;; put back when we display the file entry
-                          #f;(insert-entry tree client-root)
-                        (insert-entry tree entry))))))))))))
+      (when client
+        (set! client-selection (get-selection~ client))
+        (set! client-position (get-scrolled-position~ client))
+        (let ((tree (locate 'summary)))
+          (if (is-not? client-root File-Entry)
+              (begin
+                (remove-every-row~ tree)
+                (set! client-entry #f))
+            (let ((file (get-file~ client-root))
+                  (start (get-start~ client)))
+              (let ((line (get-line~ start))
+                    (col (get-col~ start)))
+                (let ((entry (location->entry (list file line col))))
+                  (when (neq? entry client-entry)
+                    (set! client-entry entry)
+                    (remove-every-row~ tree)
+                    (with-update-locked~ tree
+                      (lambda ()
+                        (when entry
+                          (insert-entry tree entry)))))))))))))
   
   
   (method (insert-class-node tree entry (father: father #f) (state: state #f) (font: font #f) (color: color #f) (image: image #f) (descendant?: descendant? #f))
@@ -444,11 +439,6 @@
 
 
 (class Summary-Tree extends Code-Tree
-  
-  
-  (method override (focus-gained)
-    (nextmethod)
-    (tree-focus-gained~ (get-guest)))
   
   
   (method override (update-row row)

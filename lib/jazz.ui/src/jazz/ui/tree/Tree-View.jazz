@@ -852,7 +852,9 @@
 
   
   (method public virtual (header-click column)
-    (sort-column column)
+    (let ((direction (next-column-sort-direction column)))
+      (set-sorted-column column direction)
+      (sort-rows column direction))
     (ensure-displayed))
   
   
@@ -905,25 +907,12 @@
                 (iter root-row))))
           ensure-displayed?: #f))))
   
-  
-  (method protected (sort-column column)
-    (define (determine-direction)
-      (let ((actual (column-sorting column)))
-        (if (not actual)
-            'ascending
-          (reverse-direction actual))))
-    
-    (define (reverse-direction direction)
-      (if (eq? direction 'ascending)
-          'descending
-        'ascending))
-    
-    (sort-column/direction column (determine-direction)))
-  
-  
-  (method public virtual (sort-column/direction column direction)
-    (set-sorted-column column direction)
-    (sort-rows column direction))
+
+  (method virtual (next-column-sort-direction column)
+    (case (column-sorting column)
+      ((ascending) 'descending)
+      ((descending) 'ascending)
+      (else 'ascending)))
   
   
   ;;;

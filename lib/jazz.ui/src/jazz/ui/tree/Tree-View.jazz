@@ -852,18 +852,27 @@
 
   
   (method public virtual (header-click column)
-    (let ((direction (next-column-sort-direction column)))
-      (set-sorted-column column direction)
-      (sort-rows column direction))
+    (update-column-sorting column (case (column-sorting column)
+                                    ((ascending) 'descending)
+                                    ((descending) 'ascending)
+                                    (else 'ascending)))
     (ensure-displayed))
   
   
-  (method public virtual (set-sorted-column column direction)
+  (method protected (update-column-sorting column new-direction)
+    (assert column)
+    (let ((current-direction (column-sorting column)))
+      (unless (eq? (column-sorting column) new-direction)
+        (set-sorted-column column new-direction)
+        (sort-rows column new-direction))))
+  
+  
+  (method virtual (set-sorted-column column direction)
     (if (not column)
         (set! sorted-columns '())
       (set! sorted-columns (list (cons column direction))))
     (invalidate-header))
-  
+
   
   (method public virtual (column-sorting column)
     (let ((pair (assq column sorted-columns)))
@@ -906,13 +915,6 @@
               (lambda ()
                 (iter root-row))))
           ensure-displayed?: #f))))
-  
-
-  (method virtual (next-column-sort-direction column)
-    (case (column-sorting column)
-      ((ascending) 'descending)
-      ((descending) 'ascending)
-      (else 'ascending)))
   
   
   ;;;

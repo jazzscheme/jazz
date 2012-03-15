@@ -181,11 +181,10 @@
             (process-messages-single-threaded
               (lambda ()
                 (let (loop)
-                  (let ((thunk (thread-read timeout: 0)))
-                    (when (not (eof-object? thunk))
-                      (with-exception-debugger (get-exception-debugger)
-                        thunk)
-                      (loop)))))))))
+                  (when (with-exception-debugger (get-exception-debugger)
+                          (lambda ()
+                            (thread-process timeout: 0)))
+                    (loop))))))))
       (restart-loop)))
   
   (define (process-events-multi-threaded)
@@ -200,9 +199,9 @@
               (lambda ()
                 (catch Cancel-Signal
                   (let (loop)
-                    (let ((thunk (thread-read)))
-                      (with-exception-debugger (get-exception-debugger)
-                        thunk))
+                    (with-exception-debugger (get-exception-debugger)
+                      (lambda ()
+                        (thread-process)))
                     (loop)))))
             (restart-loop))
         (when pump

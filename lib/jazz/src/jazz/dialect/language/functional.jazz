@@ -4098,6 +4098,10 @@
       (read-property object slot))))
 
 
+(definition public current-continuation-chain
+  (make-parameter '()))
+
+
 (definition package (thread-loop? thread)
   (thread-specific thread))
 
@@ -4110,10 +4114,9 @@
 
 (definition package (thread-loop)
   (let (loop)
-    (let ((thunk (thread-read)))
-      (thunk)
-      (when (thread-loop? (current-thread))
-        (loop)))))
+    (thread-process)
+    (when (thread-loop? (current-thread))
+      (loop))))
 
 
 (definition public (start-loop-thread . rest)
@@ -4143,16 +4146,40 @@
     (mutex-unlock! thread-ports-mutex)))
 
 
-(definition package (thread-write thread value)
+(definition package (thread-write-message thread msg)
   (let ((thread-port (get-thread-port thread)))
-    (write value thread-port)
+    (write msg thread-port)
     (force-output thread-port)))
 
 
-(definition package (thread-read (timeout: timeout +infinity))
+(definition package (thread-read-message (timeout: timeout +infinity))
   (let ((thread-port (get-thread-port (current-thread))))
     (input-port-timeout-set! thread-port timeout)
     (read thread-port)))
+
+
+(definition package (thread-write thread value)
+  (continuation-capture
+    (lambda (cont)
+      (let ((msg (cons value (cons cont (current-continuation-chain)))))
+        (thread-write-message thread msg)))))
+
+
+(definition package (thread-read (timeout: timeout +infinity))
+  (let ((msg (thread-read-message timeout: timeout)))
+    (if (eof-object? msg)
+        msg
+      (car msg))))
+
+
+(definition public (thread-process (timeout: timeout +infinity))
+  (let ((msg (thread-read-message timeout: timeout)))
+    (let ((msg? (not (eof-object? msg))))
+      (when msg?
+        (bind (thunk . chain) msg
+          (parameterize ((current-continuation-chain chain))
+            (thunk))))
+      msg?)))
 
 
 (definition public (thread-post thread name thunk)

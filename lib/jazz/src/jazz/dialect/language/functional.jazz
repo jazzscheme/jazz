@@ -3347,6 +3347,28 @@
            (iter (cddr scan))))))
 
 
+(definition public (plist-remove plist keyword)
+  (cond ((null? plist)
+         '())
+        ((eq? (car plist) keyword)
+         (cddr plist))
+        (else
+         (cons (car plist)
+               (cons (cadr plist)
+                     (plist-remove (cddr plist) keyword))))))
+
+
+(definition public (plist-add plist keyword value)
+  (cond ((null? plist)
+         '())
+        ((eq? (car plist) keyword)
+         (cons (car plist)
+               (cons value (cddr plist))))
+        (else
+         (cons (car plist)
+               (cons (cadr plist) (plist-add (cddr plist) keyword value))))))
+
+
 (definition public (getf plist <Object> target <Object> (key: key #f) (test: test #f) (not-found: not-found #f))
   (let ((pair (getprop plist target key: key test: test)))
     (if (not pair)
@@ -4723,15 +4745,12 @@
 
 
 (definition public (readable-string? string)
-  (with-exception-filter
-    (lambda (e)
-      #t)
+  (with-exception-catcher
     (lambda (e) 
       #f)
     (lambda ()
       (with-readtable jazz-readtable 
         (lambda ()
-          (declare (safe))
           (read-string-element string)
           #t)))))
 
@@ -4739,15 +4758,12 @@
 (definition public (read-string-safe string)
   (and (string? string) 
        (not (empty-string? string))
-       (with-exception-filter
-         (lambda (e)
-           #t)
+       (with-exception-catcher
          (lambda (e) 
            #f)
          (lambda ()
            (with-readtable jazz-readtable 
              (lambda () 
-               (declare (safe))
                (read-string-element string)))))))
 
 

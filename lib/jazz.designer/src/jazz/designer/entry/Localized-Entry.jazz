@@ -64,19 +64,29 @@
   ;;;
   
   
+  (method (make-locales-object new-str)
+    (let ((old-str (if locales-object (localize~ locales-object active-locale) #f)))
+      (if (equal? new-str old-str)
+          locales-object
+        (let* ((old-plist (if locales-object (get-locales~ locales-object) '()))
+               (new-plist (if new-str
+                              (plist-add old-plist active-locale new-str)
+                            (plist-remove old-plist active-locale))))
+          (if (null? new-plist)
+              #f
+            (apply new Locales new-plist))))))
+  
+  
   (method override (get-value)
-    (if (and active-locale locales-object)
-        (let ((new-value (with-exception-filter
-                             (lambda (e) #t)
-                             (lambda (e) locales-object)
-                             (lambda () (apply new Locales (addf (get-locales~ locales-object) active-locale (nextmethod)))))))
+    (if active-locale
+        (let ((new-value (make-locales-object (nextmethod))))
           (set! locales-object new-value)
           new-value)
       (nextmethod)))
   
   
   (method override (set-value value)
-    (set! locales-object (and active-locale (is? value Locales) value))
+    (set! locales-object (and active-locale value))
     (nextmethod value))
   
    

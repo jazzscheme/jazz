@@ -47,7 +47,7 @@
   
   
   (property nullable?                   initialize #f                  accessors generate)
-  (property nil-presentation            initialize {Locales all: "{}"} accessors generate)
+  (property nil-presentation            initialize {Locales all: "{}"} setter generate getter explicit)
   (property value->presentation-handler initialize #f                  accessors generate)
   (property presentation->value-handler initialize #f                  accessors generate)
   
@@ -105,7 +105,7 @@
   
   (method override (validate-component validation-context)
     (nextmethod validation-context)
-    (when (and nullable? (not nil-presentation))
+    (when (and nullable? (not (get-nil-presentation)))
       (add-violation~ validation-context message: (format "Nil presentation must be set in a nullable domain"))))
   
   
@@ -114,9 +114,13 @@
   ;;; 
   
   
+  (method public virtual (get-nil-presentation)
+    nil-presentation)
+  
+  
   (method public (present value)
     (localize (cond ((not value)
-                     nil-presentation)
+                     (get-nil-presentation))
                     ((not value->presentation-handler)
                      (present-value value))
                     (else
@@ -147,8 +151,8 @@
   
   (method (parse-with text <String> nullable-violation exception-catcher)
     (let ((value #f))
-      (let ((violation (if (and nil-presentation
-                                (string=? text (localize nil-presentation)))
+      (let ((violation (if (and (get-nil-presentation)
+                                (string=? text (localize (get-nil-presentation))))
                            (and (not nullable?)
                                 nullable-violation)
                          (with-exception-catcher

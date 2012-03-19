@@ -846,6 +846,84 @@
 
 
 ;;;
+;;;; Interface
+;;;
+
+
+(jazz:define-class-runtime jazz:Interface #t)
+
+
+(define (jazz:new-interface class identifier ascendants)
+  (define (compute-interface-ancestors interface ascendants)
+    (jazz:remove-duplicates
+      (%%apply append (%%cons (map (lambda (ascendant)
+                                     (%%vector->list (%%get-category-ancestors ascendant)))
+                                   ascendants)
+                              (%%list (%%list interface))))))
+  
+  (let ((interface (%%allocate-interface class identifier (%%make-table test: eq?) 0 #f '() ascendants jazz:new-interface-rank)))
+    (set! jazz:new-interface-rank (%%fx+ jazz:new-interface-rank 1))
+    (%%set-category-ancestors interface (%%list->vector (compute-interface-ancestors interface ascendants)))
+    (for-each (lambda (ascendant)
+                (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
+              ascendants)
+    interface))
+
+
+(define (jazz:interface? object)
+  (%%class-is? object jazz:Interface))
+
+
+;;tBool is_interface_subtype(jType target, jType type)
+;;{
+;;  jTypePtr ptr_start = target->ancestorsGet() + target->class_ancestors_sizeGet();
+;;  jTypePtr ptr = target->ancestorsGet() + target->ancestors_sizeGet();
+;;
+;;  while (--ptr >= ptr_start)
+;;      if (*ptr == type)
+;;          return true;
+;;
+;;  return false;
+;;}
+(jazz:define-method (jazz:of-type? (jazz:Interface interface) object)
+  (jazz:of-subtype? interface (jazz:class-of object)))
+
+
+(jazz:define-method (jazz:update-category (jazz:Interface interface))
+  (jazz:update-interface interface))
+
+
+(define (jazz:update-interface interface)
+  (define (update-interface-root-methods interface)
+    (let* ((interface-rank (%%get-interface-rank interface))
+           (added-methods '()))
+      (jazz:iterate-table (%%get-category-fields interface)
+        (lambda (key field)
+          (%%when (and (jazz:virtual-method? field)
+                       (%%not (%%get-method-category-rank field)))
+            (%%set-method-category-rank field interface-rank)
+            (set! added-methods (%%cons field added-methods)))))
+      added-methods))
+
+  (let ((added-methods (update-interface-root-methods interface)))
+    (%%when (%%not-null? added-methods)
+      (let ((interface-rank (%%get-interface-rank interface)))
+        (let iter ((category interface))
+             (%%when (%%class-is? category jazz:Class)
+               (let* ((interface-table (%%get-class-interface-table category))
+                      (implementation-table (jazz:resize-vector (%%vector-ref interface-table interface-rank) (%%get-category-virtual-size interface))))
+                 (for-each (lambda (field)
+                             (let ((implementation-rank (%%get-method-implementation-rank field))
+                                   (implementation (%%get-method-node-implementation (%%get-method-implementation-tree field))))
+                               (%%vector-set! implementation-table implementation-rank implementation)))
+                           added-methods)
+                 (%%vector-set! interface-table interface-rank implementation-table)))
+             (for-each (lambda (descendant)
+                         (iter descendant))
+                       (%%get-category-descendants category)))))))
+
+
+;;;
 ;;;; Class Bootstrap
 ;;;
 
@@ -857,6 +935,7 @@
 (jazz:define-class-bootstrap jazz:Object-Class)
 (jazz:define-class-bootstrap jazz:Field)
 (jazz:define-class-bootstrap jazz:Slot)
+(jazz:define-class-bootstrap jazz:Interface)
 
 
 ;;;
@@ -1834,84 +1913,6 @@
     )
   
   (else))
-
-
-;;;
-;;;; Interface
-;;;
-
-
-(jazz:define-class-runtime jazz:Interface)
-
-
-(define (jazz:new-interface class identifier ascendants)
-  (define (compute-interface-ancestors interface ascendants)
-    (jazz:remove-duplicates
-      (%%apply append (%%cons (map (lambda (ascendant)
-                                     (%%vector->list (%%get-category-ancestors ascendant)))
-                                   ascendants)
-                              (%%list (%%list interface))))))
-  
-  (let ((interface (%%allocate-interface class identifier (%%make-table test: eq?) 0 #f '() ascendants jazz:new-interface-rank)))
-    (set! jazz:new-interface-rank (%%fx+ jazz:new-interface-rank 1))
-    (%%set-category-ancestors interface (%%list->vector (compute-interface-ancestors interface ascendants)))
-    (for-each (lambda (ascendant)
-                (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
-              ascendants)
-    interface))
-
-
-(define (jazz:interface? object)
-  (%%class-is? object jazz:Interface))
-
-
-;;tBool is_interface_subtype(jType target, jType type)
-;;{
-;;  jTypePtr ptr_start = target->ancestorsGet() + target->class_ancestors_sizeGet();
-;;  jTypePtr ptr = target->ancestorsGet() + target->ancestors_sizeGet();
-;;
-;;  while (--ptr >= ptr_start)
-;;      if (*ptr == type)
-;;          return true;
-;;
-;;  return false;
-;;}
-(jazz:define-method (jazz:of-type? (jazz:Interface interface) object)
-  (jazz:of-subtype? interface (jazz:class-of object)))
-
-
-(jazz:define-method (jazz:update-category (jazz:Interface interface))
-  (jazz:update-interface interface))
-
-
-(define (jazz:update-interface interface)
-  (define (update-interface-root-methods interface)
-    (let* ((interface-rank (%%get-interface-rank interface))
-           (added-methods '()))
-      (jazz:iterate-table (%%get-category-fields interface)
-        (lambda (key field)
-          (%%when (and (jazz:virtual-method? field)
-                       (%%not (%%get-method-category-rank field)))
-            (%%set-method-category-rank field interface-rank)
-            (set! added-methods (%%cons field added-methods)))))
-      added-methods))
-
-  (let ((added-methods (update-interface-root-methods interface)))
-    (%%when (%%not-null? added-methods)
-      (let ((interface-rank (%%get-interface-rank interface)))
-        (let iter ((category interface))
-             (%%when (%%class-is? category jazz:Class)
-               (let* ((interface-table (%%get-class-interface-table category))
-                      (implementation-table (jazz:resize-vector (%%vector-ref interface-table interface-rank) (%%get-category-virtual-size interface))))
-                 (for-each (lambda (field)
-                             (let ((implementation-rank (%%get-method-implementation-rank field))
-                                   (implementation (%%get-method-node-implementation (%%get-method-implementation-tree field))))
-                               (%%vector-set! implementation-table implementation-rank implementation)))
-                           added-methods)
-                 (%%vector-set! interface-table interface-rank implementation-table)))
-             (for-each (lambda (descendant)
-                         (iter descendant))
-                       (%%get-category-descendants category)))))))
 
 
 ;;;

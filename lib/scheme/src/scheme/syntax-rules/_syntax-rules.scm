@@ -131,7 +131,7 @@
                                                                   new-vars
                                                                   ls-vars))))))
                                        `(,_let ,_lp ((,w ,v)
-                                                     ,@(map (lambda (x) (list x '())) ls-vars))
+                                                     ,@(map (lambda (x) (list x ''())) ls-vars))
                                           (,_if (,_null? ,w)
                                                 (,_let ,(map (lambda (x l) `(,(car x) (,_reverse (,_unwrap-syntactic-closure ,l))))
                                                              new-vars

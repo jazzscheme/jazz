@@ -38,5 +38,4 @@
 (unit backend.scheme.runtime
 
 
-(require (backend.scheme.runtime.syntax)
-         (backend.scheme.runtime.autoload)))
+(require (backend.scheme.runtime.syntax)))

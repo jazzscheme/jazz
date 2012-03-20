@@ -45,11 +45,6 @@
          (backend.syntax)
          (backend.runtime)
          (dialect.syntax)
-         #; ( ;; backend-merge
-         (core.module.syntax)
-         (core.module.runtime)
-         (core.module.initialize)
-         )
          (dialect.runtime)
          (dialect.expression)
          (backend.scheme.runtime)))

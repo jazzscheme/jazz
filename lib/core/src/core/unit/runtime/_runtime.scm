@@ -39,8 +39,7 @@
 (unit protected core.unit.runtime
 
 
-(require (core.base)
-         (core.module))
+(require (core.base))
 
 
 (define (jazz:for-each-subunit toplevel-name proc)

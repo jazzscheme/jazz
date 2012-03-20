@@ -55,7 +55,7 @@
   'time)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Time-Class type) value source-declaration environment backend)
+(jazz:define-method (jazz:emit-test (time:Time-Class type) value source-declaration environment backend)
   `(time? ,value))
 
 
@@ -64,7 +64,7 @@
     (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
 
 
-(jazz:define-class time:Time jazz:Object (metaclass: jazz:Time-Class)
+(jazz:define-class time:Time jazz:Object (metaclass: time:Time-Class)
   ())
 
 
@@ -91,7 +91,7 @@
   'date)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Date-Class type) value source-declaration environment backend)
+(jazz:define-method (jazz:emit-test (time:Date-Class type) value source-declaration environment backend)
   `(date? ,value))
 
 
@@ -100,7 +100,7 @@
     (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
 
 
-(jazz:define-class time:Date jazz:Object (metaclass: jazz:Date-Class)
+(jazz:define-class time:Date jazz:Object (metaclass: time:Date-Class)
   ())
 
 

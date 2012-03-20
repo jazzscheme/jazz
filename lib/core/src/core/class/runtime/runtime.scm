@@ -601,7 +601,7 @@
 (jazz:define-class-runtime jazz:Class #t)
 
 
-(jazz:define-virtual-runtime (jazz:write-object (jazz:Class class) we obj))
+(jazz:define-virtual (jazz:write-object (jazz:Class class) we obj))
 
 
 (jazz:define-method (jazz:write-object (jazz:Class class) we obj)

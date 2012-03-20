@@ -282,12 +282,6 @@
   ".repository")
 
 
-(define (jazz:repository? obj)
-  (and (%%vector? obj)
-       (%%fx> (%%vector-length obj) 0)
-       (%%eq? (%%vector-ref obj 0) 'repository)))
-
-
 (jazz:define-variable jazz:Repositories
   '())
 
@@ -626,12 +620,6 @@
 
 (define jazz:Package-Filename
   ".package")
-
-
-(define (jazz:package? obj)
-  (and (%%vector? obj)
-       (%%fx> (%%vector-length obj) 0)
-       (%%eq? (%%vector-ref obj 0) 'package)))
 
 
 (define (jazz:make-package repository name parent library-root units-root install char-encoding products profiles project)
@@ -1446,9 +1434,9 @@
 
 (define (jazz:install-product name)
   (let ((product (jazz:setup-product name)))
-    (let ((install (%%product-install product)))
+    (let ((install (%%get-product-install product)))
       (if install
-          (let ((descriptor (%%product-descriptor product)))
+          (let ((descriptor (%%get-product-descriptor product)))
             (jazz:feedback "install {a}" name)
             (jazz:load-install)
             (install descriptor))))))

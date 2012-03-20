@@ -529,7 +529,7 @@
 (define (jazz:remove-declaration-child namespace-declaration name)
   (let ((declaration (jazz:find-declaration-child namespace-declaration name)))
     (%%when declaration
-      (let ((queue (%%get-namespace-declaration-children namespace-declaration)))
+      (let ((queue (jazz:get-namespace-declaration-children namespace-declaration)))
         (let ((lst (jazz:remove! declaration (jazz:queue-list queue))))
           ;; this two-step process might be inefficient
           (jazz:reset-queue queue)

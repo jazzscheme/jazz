@@ -46,7 +46,8 @@
         while
         unwind-protect
         catch
-        ~)
+        ~
+        local-context)
 
 (import (jazz.language.runtime.kernel)
         (scheme.core.kernel)
@@ -57,13 +58,14 @@
 (native private jazz:error)
 
 
-(syntax public (submodule form-src)
-  (let ((name (cadr (source-code form-src)))
-        (body (cddr (source-code form-src))))
-    (sourcify-if
-      `(begin
-         ,@body)
-      form-src)))
+(define-syntax submodule
+  (lambda (form-src usage-environment macro-environment)
+    (let ((name (cadr (source-code form-src)))
+          (body (cddr (source-code form-src))))
+      (sourcify-if
+        `(begin
+           ,@body)
+        form-src))))
 
 
 (define-syntax constant

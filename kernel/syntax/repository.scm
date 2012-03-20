@@ -51,7 +51,7 @@
 ;; defines search precedence.
 
 
-(jazz:define-structure Repository () (constructor: %%make-repository accessors-type: macro)
+(jazz:define-structure Repository () (constructor: %%make-repository predicate: jazz:repository? accessors-type: macro)
   ((name              getter: generate)
    (directory         getter: generate)
    (library-root      getter: generate)
@@ -69,7 +69,7 @@
 ;; discovered automatically and their order within their repository should not be relevant.
 
 
-(jazz:define-structure Package () (constructor: %%make-package accessors-type: macro)
+(jazz:define-structure Package () (constructor: %%make-package predicate: jazz:package? accessors-type: macro)
   ((repository    getter: generate)
    (name          getter: generate)
    (parent        getter: generate)

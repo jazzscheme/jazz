@@ -84,7 +84,8 @@
           (debug-source? (jazz:unspecified-option))
           (mutable-bindings? (jazz:unspecified-option))
           (kernel-interpret? (jazz:unspecified-option))
-          (destination (jazz:unspecified-option)))
+          (destination (jazz:unspecified-option))
+          (properties (jazz:unspecified-option)))
   (let* ((name (jazz:validate-name (jazz:require-name name)))
          (system (jazz:validate-system (jazz:require-system system)))
          (platform (jazz:validate-platform (jazz:require-platform platform)))
@@ -96,7 +97,8 @@
          (debug-source? (jazz:validate-debug-source? (jazz:require-debug-source? debug-source?)))
          (mutable-bindings? (jazz:validate-mutable-bindings? (jazz:require-mutable-bindings? mutable-bindings?)))
          (kernel-interpret? (jazz:validate-kernel-interpret? (jazz:require-kernel-interpret? kernel-interpret?)))
-         (destination (jazz:validate-destination (jazz:require-destination destination))))
+         (destination (jazz:validate-destination (jazz:require-destination destination)))
+         (properties (jazz:validate-properties (jazz:require-properties properties))))
   (jazz:make-configuration
     name
     system
@@ -109,4 +111,5 @@
     debug-source?
     mutable-bindings?
     kernel-interpret?
-    destination))))
+    destination
+    properties))))

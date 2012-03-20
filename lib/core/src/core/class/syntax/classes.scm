@@ -126,7 +126,7 @@
    (interface-table accessors: #t)))
 
 
-(jazz:define-virtual (jazz:write-object (jazz:Class class) we obj))
+(jazz:define-virtual-syntax (jazz:write-object (jazz:Class class) we obj))
 
 
 (jazz:define-macro (%%class-subtype? target class)

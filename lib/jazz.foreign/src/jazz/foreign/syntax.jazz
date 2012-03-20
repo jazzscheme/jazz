@@ -1,0 +1,896 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Foreign Function Syntax
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.foreign.syntax jazz
+
+
+(import (jazz.core (phase syntax))
+        (jazz.dialect.classes.foundation))
+
+
+(native private jazz:walk-error)
+(native private jazz:lookup-reference)
+(native private jazz:find-declaration-child)
+(native private jazz:add-declaration-child)
+(native private jazz:require-declaration)
+(native private jazz:validate-arguments)
+(native private jazz:with-annotated-frame)
+(native private jazz:annotate-signature)
+(native private jazz:emit-signature)
+(native private jazz:walk-parameters)
+(native private jazz:walk-body)
+
+
+;;;
+;;;; C-Include
+;;;
+
+
+(class C-Include extends Expression
+  
+  
+  (slot name getter generate)
+  
+  
+  (method override (initialize name . rest)
+    (apply nextmethod rest)
+    (set! name~self name))
+  
+  
+  (method override (emit-expression declaration environment backend)
+    (new-code
+      `(c-declare ,(string-append "#include " name))
+      Any
+      #f)))
+
+
+(define (walk-c-include walker resume declaration environment form-src)
+  (let ((form (strip-syntactic-closures form-src)))
+    (bind (name) (cdr form)
+      (new C-Include name))))
+
+
+(define-walker-special c-include jazz walk-c-include)
+
+
+;;;
+;;;; C-Initialize
+;;;
+
+
+(class C-Initialize extends Expression
+  
+  
+  (slot code getter generate)
+  
+  
+  (method override (initialize code . rest)
+    (apply nextmethod rest)
+    (set! code~self code))
+  
+  
+  (method override (emit-expression declaration environment backend)
+    (new-code
+      `(c-initialize ,code)
+      Any
+      #f)))
+
+
+(define (walk-c-initialize walker resume declaration environment form-src)
+  (let ((form (strip-syntactic-closures form-src)))
+    (bind (code) (cdr form)
+      (new C-Initialize code))))
+
+
+(define-walker-special c-initialize jazz walk-c-initialize)
+
+
+;;;
+;;;; C-Declare
+;;;
+
+
+(class C-Declare extends Expression
+  
+  
+  (slot code getter generate)
+  
+  
+  (method override (initialize code . rest)
+    (apply nextmethod rest)
+    (set! code~self code))
+  
+  
+  (method override (emit-expression declaration environment backend)
+    (new-code
+      `(c-declare ,code)
+      Any
+      #f)))
+
+
+(define (walk-c-declare walker resume declaration environment form-src)
+  (let ((form (strip-syntactic-closures form-src)))
+    (bind (code) (cdr form)
+      (new C-Declare code))))
+
+
+(define-walker-special c-declare jazz walk-c-declare)
+
+
+;;;
+;;;; C-Named-Declare
+;;;
+
+
+(class C-Named-Declare-Declaration extends Declaration
+  
+  
+  (slot code getter generate)
+  
+  
+  (method override (initialize . rest)
+    (bind-keywords ((code #f) . others) rest
+      (apply nextmethod others)
+      (set! code~self code)))
+  
+  
+  (method override (emit-declaration environment backend)
+    `(begin))
+  
+  
+  (method override (expand-referenced-declaration)
+    `(c-declare ,code)))
+
+
+(define c-named-declare-modifiers
+  '(((private protected package public) . public)
+    ((deprecated undocumented uptodate) . uptodate)))
+
+
+(define (parse-c-named-declare walker resume declaration rest)
+  (receive (access compatibility rest) (parse-modifiers walker resume declaration c-named-declare-modifiers rest)
+    (bind (name code) rest
+      (let ((type Any))
+        (values name type access compatibility code)))))
+
+
+(define (resolve-c-named-declare-reference walker resume declaration environment symbol)
+  (let ((c-named-declare-declaration (lookup-reference walker resume declaration environment symbol)))
+    (if (is? c-named-declare-declaration C-Named-Declare-Declaration)
+        c-named-declare-declaration
+      (walk-error walker resume declaration #f "{s} did not resolve to a c-named-declare: {s}" symbol (get-locator~ c-named-declare-declaration)))))
+
+
+(define (walk-c-named-declare-declaration walker resume declaration environment form-src)
+  (receive (name type access compatibility code) (parse-c-named-declare walker resume declaration (cdr (strip-syntactic-closures form-src)))
+    (let ((new-declaration (or (find-declaration-child declaration name)
+                               (new C-Named-Declare-Declaration name: name type: type access: access compatibility: compatibility attributes: '() parent: declaration code: code))))
+        (let ((effective-declaration (add-declaration-child walker resume declaration new-declaration)))
+          effective-declaration))))
+
+
+(define (walk-c-named-declare walker resume declaration environment form-src)
+  (let ((form (strip-syntactic-closures form-src)))
+    (receive (name type access compatibility code) (parse-c-named-declare walker resume declaration (cdr form))
+      (let ((new-declaration (require-declaration declaration name)))
+        new-declaration))))
+
+
+(define-walker-declaration c-named-declare jazz walk-c-named-declare-declaration walk-c-named-declare)
+
+
+;;;
+;;;; C-Type
+;;;
+
+
+(class C-Type-Declaration extends Declaration
+  
+  
+  (slot kind          getter generate)
+  (slot expansion     getter generate)
+  (slot base-type     getter generate)
+  (slot pointer-types accessors generate)
+  (slot inclusions    getter generate)
+  (slot c-to-scheme   getter generate)
+  (slot scheme-to-c   getter generate)
+  (slot declare       getter generate)
+
+  
+  (method override (initialize . rest)
+    (bind-keywords ((kind #f) (expansion #f) (base-type #f) (inclusions #f) (c-to-scheme #f) (scheme-to-c #f) (declare #f) . others) rest
+      (apply nextmethod others)
+      (set! kind~self kind)
+      (set! expansion~self expansion)
+      (set! base-type~self base-type)
+      (set! pointer-types~self '())
+      (set! inclusions~self inclusions)
+      (set! c-to-scheme~self c-to-scheme)
+      (set! scheme-to-c~self scheme-to-c)
+      (set! declare~self declare)))
+  
+  
+  (method override (get-declaration-inclusions)
+    inclusions)
+  
+  
+  (method override (emit-declaration environment backend)
+    `(begin))
+  
+  
+  (method override (expand-referenced-declaration)
+    `(c-define-type ,locator ,expansion ,@(if (and c-to-scheme scheme-to-c)
+                                              (list c-to-scheme scheme-to-c #f)
+                                            '()))))
+
+
+(define c-type-modifiers
+  '(((private protected package public) . public)
+    ((deprecated undocumented uptodate) . uptodate)))
+
+
+(define (parse-c-type walker resume declaration rest)
+  (receive (access compatibility rest) (parse-modifiers walker resume declaration c-type-modifiers rest)
+    (bind (name c-type . conversions) rest
+      (let ((type Any))
+        (if (null? conversions)
+            (values name type access compatibility c-type #f #f #f)
+          (bind (c-to-scheme scheme-to-c declare) conversions
+            (values name type access compatibility c-type c-to-scheme scheme-to-c declare)))))))
+
+
+(define (walk-c-type-declaration walker resume declaration environment form-src)
+  (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (parse-c-type walker resume declaration (cdr (strip-syntactic-closures form-src)))
+    (if (is? declaration Module-Declaration)
+        (receive (kind expansion base-type-declaration inclusions) (resolve-c-type walker resume declaration environment c-type)
+          (let ((inclusions (if declare
+                                (if (string? expansion)
+                                    (cons (resolve-c-named-declare-reference walker resume declaration environment declare) inclusions)
+                                  (walk-error walker resume declaration form-src "{s} defined with c-to-scheme and scheme-to-c but expansion is not a string: {s}" name expansion))
+                              inclusions)))
+            (let ((new-declaration (or (find-declaration-child declaration name)
+                                       (new C-Type-Declaration name: name type: type access: access compatibility: compatibility attributes: '() parent: declaration kind: kind expansion: expansion base-type: base-type-declaration inclusions: inclusions c-to-scheme: c-to-scheme scheme-to-c: scheme-to-c declare: declare))))
+              (when base-type-declaration
+                (set-pointer-types~ base-type-declaration (cons new-declaration (get-pointer-types~ base-type-declaration))))
+              (let ((effective-declaration (add-declaration-child walker resume declaration new-declaration)))
+                effective-declaration))))
+      (walk-error walker resume declaration form-src "C types can only be defined at the module level: {s}" name))))
+
+
+(define (walk-c-type walker resume declaration environment form-src)
+  (let ((form (strip-syntactic-closures form-src)))
+    (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (parse-c-type walker resume declaration (cdr form))
+      (require-declaration declaration name))))
+
+
+(define (resolve-c-type walker resume declaration environment type)
+  (let ((queue (new-queue)))
+    (define (resolve type)
+      (cond ((symbol? type)
+             (let ((c-type-declaration (resolve-c-type-reference walker resume declaration environment type)))
+               (enqueue queue c-type-declaration)
+               (values 'alias (get-locator~ c-type-declaration) #f)))
+            ((string? type)
+             (values 'type type #f))
+            ((pair? type)
+             (case (car type)
+               ((native)
+                (values 'native (cadr type) #f))
+               ((type)
+                (bind (c-string . tag-rest) (cdr type)
+                  (values 'type `(type ,c-string ,@tag-rest) #f)))
+               ((pointer)
+                (bind (base-type . tag-rest) (cdr type)
+                  (values 'pointer `(pointer ,(resolve-expansion base-type) ,@tag-rest)
+                    (and (symbol? base-type) (resolve-c-type-reference walker resume declaration environment base-type)))))
+               ((function)
+                (bind (parameter-types result-type) (cdr type)
+                  (values 'function `(function ,(map resolve-expansion parameter-types) ,(resolve-expansion result-type)) #f)))
+               ((struct)
+                (bind (c-string . tag-rest) (cdr type)
+                  (values 'struct `(struct ,c-string ,@tag-rest) #f)))
+               ((union)
+                (bind (c-string . tag-rest) (cdr type)
+                  (values 'union `(union ,c-string ,@tag-rest) #f)))))
+            (else
+             (walk-error walker resume declaration #f "Ill-formed c-type: {s}" type))))
+    
+    (define (resolve-expansion type)
+      (receive (kind expansion base-type-declaration) (resolve type)
+        expansion))
+    
+    (receive (kind expansion base-type-declaration) (resolve type)
+      (values kind expansion base-type-declaration (queue-list queue)))))
+
+
+(define (resolve-c-type-reference walker resume declaration environment symbol)
+  (let ((c-type-declaration (lookup-reference walker resume declaration environment symbol)))
+    (if (is? c-type-declaration C-Type-Declaration)
+        c-type-declaration
+      (walk-error walker resume declaration #f "{s} did not resolve to a c-type: {s}" symbol (get-locator~ c-type-declaration)))))
+
+
+(define (expand-c-type-reference walker resume declaration environment type)
+  (receive (kind expansion base-type-declaration inclusions) (resolve-c-type walker resume declaration environment type)
+    (let ((module-declaration (get-toplevel~ declaration)))
+      (set-inclusions~ module-declaration (append (get-inclusions~ module-declaration) inclusions))
+      expansion)))
+
+
+(define-walker-declaration c-type jazz walk-c-type-declaration walk-c-type)
+
+
+;;;
+;;;; C-Structure
+;;;
+
+
+(define (build-pointer-symbol type)
+  (string->symbol (string-append (symbol->string type) "*")))
+
+
+(define (build-method-symbol struct . rest)
+  (string->symbol (apply string-append (symbol->string struct) "-" (map symbol->string rest))))
+
+
+(define (expand-accessor walker resume declaration environment clause struct)
+  (define (kind+type type)
+    (let loop ((declaration (resolve-c-type-reference walker resume declaration environment type)))
+         (let ((kind (get-kind~ declaration))
+               (expansion (get-expansion~ declaration))
+               (inclusions (get-inclusions~ declaration)))
+           (if (eq? kind 'alias)
+               (loop (car inclusions))
+             (values kind expansion)))))
+  
+  (let ((type (car clause))
+        (id   (cadr clause))
+        (size (let ((clause-rest (cddr clause)))
+                (and (not (null? clause-rest))
+                     (car clause-rest)))))
+    (when (and size (not (integer? size)) (not (symbol? size)))
+      (walk-error walker resume declaration #f "Illegal clause size in {a}: {a}" struct clause))
+    (receive (kind expansion) (kind+type type)
+      (let ((id-string (symbol->string id)))
+        (let ((getter-string
+                (if size
+                    (if (or (eq? expansion 'char)
+                            (eq? expansion 'wchar_t))
+                        (string-append "___result = ___arg1->" id-string ";")
+                      (string-append "___result_voidstar = ___arg1->" id-string ";"))
+                  (case kind
+                    ((native)
+                     (string-append "___result = ___arg1->" id-string ";"))
+                    ((pointer function)
+                     (string-append "___result_voidstar = ___arg1->" id-string ";"))
+                    ((type struct union)
+                     (string-append "___result_voidstar = &___arg1->" id-string ";")))))
+              (setter-string
+                (cond (size
+                        (let ((size-string (if (integer? size)
+                                               (number->string size)
+                                             (symbol->string size))))
+                          (cond ((eq? expansion 'char)
+                                 (string-append "strncpy(___arg1->" id-string ", ___arg2, " size-string ");"))
+                                ((eq? expansion 'wchar_t)
+                                 (string-append "wcsncpy(___arg1->" id-string ", ___arg2, " size-string ");"))
+                                (else
+                                 ;; We need to adjust this to get the real c-type in the expansion
+                                 (string-append "memcpy(___arg1->" id-string ", ___arg2, " size-string "*" "sizeof(" (symbol->string type) "));")))))
+                      ((or (eq? kind 'struct)
+                           (eq? kind 'union)
+                           (eq? kind 'type))
+                       #f)
+                      (else
+                       (string-append "___arg1->" id-string " = ___arg2;")))))
+          (let* ((struct* (build-pointer-symbol struct))
+                 (type* (build-pointer-symbol type))
+                 (type (cond ((and size (eq? expansion 'char)) '(native char-string))
+                             ((and size (eq? expansion 'wchar_t)) '(native wchar_t-string))
+                             (size type*)
+                             ((memq kind '(type struct union)) type*)
+                             (else type))))
+            (let ((getter `(definition public ,(build-method-symbol struct id '-ref)
+                                       (c-function (,struct*) ,type ,getter-string)))
+                  (setter (and setter-string
+                               `(definition public ,(build-method-symbol struct id '-set!)
+                                            (c-function (,struct* ,type) (native void) ,setter-string)))))
+              (values getter setter))))))))
+
+
+(define (expand-structure/union walker resume declaration environment name clauses)
+  (define (parse-structure-name name)
+    (if (symbol? name)
+        (values name (symbol->string name) '())
+      (values (car name) (cadr name) (cddr name))))
+  
+  (receive (struct c-struct-string tag-rest) (parse-structure-name name)
+    (let ((struct* (build-pointer-symbol struct))
+          (sizeof (string-append "sizeof(" c-struct-string ")"))
+          (tag*-rest (if (null? tag-rest) '() (cons (build-pointer-symbol (car tag-rest)) (cdr tag-rest)))))
+      (define (expand-acc clause)
+        (receive (getter setter) (expand-accessor walker resume declaration environment clause struct)
+          (if setter
+              (list getter setter)
+            (list getter))))
+      `(begin
+         (c-type ,struct (type ,c-struct-string ,@tag-rest))
+         (c-type ,struct* (pointer ,struct ,@tag*-rest))
+         (definition public ,(build-method-symbol struct 'make)
+           (c-function () ,struct* ,(string-append "___result_voidstar = calloc(1," sizeof ");")))
+         (definition public ,(build-method-symbol struct 'free)
+           (c-function (,struct*) (native void) "free(___arg1);"))
+         (definition public ,(build-method-symbol struct 'sizeof)
+           (c-function () (native unsigned-int) ,(string-append "___result = " sizeof ";")))
+         ,@(apply append (map expand-acc clauses))))))
+
+
+(define (expand-c-structure-array name . rest)
+  (let* ((struct name)
+         (struct* (build-pointer-symbol struct))
+         (c-struct-string (if (not (null? rest)) (car rest) (symbol->string struct))))
+    `(begin
+       (definition public ,(build-method-symbol struct 'array-make)
+         (c-function (int) ,struct* ,(string-append "___result = calloc(___arg1,sizeof(" c-struct-string "));")))
+       (definition public ,(build-method-symbol struct 'array-element)
+         (c-function (,struct* int) ,struct* ,(string-append "___result = ___arg1+___arg2;"))))))
+
+
+(syntax public c-structure
+  (lambda (form environment macro-environment)
+    (bind (name . clauses) (cdr (strip-syntactic-closures form))
+      (expand-structure/union (current-walker) (current-resume) (current-declaration) environment name clauses))))
+
+
+(syntax public c-union
+  (lambda (form environment macro-environment)
+    (bind (name . clauses) (cdr (strip-syntactic-closures form))
+      (expand-structure/union (current-walker) (current-resume) (current-declaration) environment name clauses))))
+
+
+;;;
+;;;; C-Function
+;;;
+
+
+(class C-Function extends Expression
+  
+  
+  (slot expansion getter generate)
+  
+  
+  (method override (initialize expansion . rest)
+    (apply nextmethod rest)
+    (set! expansion~self expansion))
+  
+  
+  (method override (emit-expression declaration environment backend)
+    (new-code
+      expansion
+      Any
+      #f)))
+
+
+(define (walk-c-function walker resume declaration environment form-src)
+  (let ((form (strip-syntactic-closures form-src)))
+    (assertion (and (list? form) (= 4 (length form))) (walk-error walker resume declaration form-src "Ill-formed c-function")
+      (bind (types result-type c-name-or-code) (cdr form)
+        (let ((resolve-access (lambda (type) (expand-c-type-reference walker resume declaration environment type))))
+          (new C-Function
+            `(c-lambda ,(map resolve-access types) ,(resolve-access result-type) ,c-name-or-code)))))))
+
+
+(define-walker-special c-function jazz walk-c-function)
+
+
+;;;
+;;;; C-Definition
+;;;
+
+
+(class C-Definition-Declaration extends Declaration
+  
+  
+  (slot signature       accessors generate)
+  (slot parameter-types getter generate)
+  (slot result-type     getter generate)
+  (slot c-name          getter generate)
+  (slot scope           getter generate)
+  (slot body            accessors generate)
+  
+  
+  (method override (initialize . rest)
+    (bind-keywords ((signature #f) (parameter-types #f) (result-type #f) (c-name #f) (scope #f) . others) rest
+      (apply nextmethod others)
+      (set! signature~self signature)
+      (set! parameter-types~self parameter-types)
+      (set! result-type~self result-type)
+      (set! c-name~self c-name)
+      (set! scope~self scope)
+      (set! body~self #f)))
+  
+  
+  (method override (walk-binding-validate-call walker resume source-declaration operator arguments form-src)
+    (if signature
+        (validate-arguments walker resume source-declaration self signature arguments form-src)))
+  
+  
+  (method override (emit-declaration environment backend)
+    (with-annotated-frame (annotate-signature signature)
+      (lambda (frame)
+        (let ((augmented-environment (cons frame environment)))
+          (sourcify-if
+            `(c-define ,(cons locator (emit-signature signature self augmented-environment backend)) ,parameter-types ,result-type ,c-name ,scope
+               ,@(sourcified-form (emit-expression body self augmented-environment backend)))
+            source)))))
+  
+  
+  (method override (emit-binding-reference source-declaration environment backend)
+    (new-code
+      (emit 'c-definition-reference backend self)
+      Any
+      #f)))
+
+
+(define c-definition-modifiers
+  '(((private protected package public) . public)
+    ((deprecated undocumented uptodate) . uptodate)))
+
+
+(define (parse-c-definition walker resume declaration rest)
+  (receive (access compatibility rest) (parse-modifiers walker resume declaration c-definition-modifiers rest)
+    (bind (signature parameter-types result-type c-name scope . body) rest
+      (let ((name (car signature))
+            (type Any)
+            (parameters (cdr signature)))
+        (values name type access compatibility parameters parameter-types result-type c-name scope body)))))
+
+
+(define (walk-c-definition-declaration walker resume declaration environment form-src)
+  (let ((form (desourcify form-src)))
+    (receive (name type access compatibility parameters parameter-types result-type c-name scope body) (parse-c-definition walker resume declaration (cdr form))
+      (let ((resolve-access (lambda (type) (expand-c-type-reference walker resume declaration environment type)))
+            (signature (walk-parameters walker resume declaration environment parameters #f #f)))
+        (let ((new-declaration (or (find-declaration-child declaration name)
+                                   (new C-Definition-Declaration name: name type: type access: access compatibility: compatibility attributes: '() parent: declaration signature: signature parameter-types: (map resolve-access parameter-types) result-type: (resolve-access result-type) c-name: c-name scope: scope))))
+          (set-source~ new-declaration form-src)
+          (let ((effective-declaration (add-declaration-child walker resume declaration new-declaration)))
+            effective-declaration))))))
+
+
+(define (walk-c-definition walker resume declaration environment form-src)
+  (let ((form (desourcify form-src)))
+    (receive (name type access compatibility parameters parameter-types result-type c-name scope body) (parse-c-definition walker resume declaration (cdr form))
+      (let* ((new-declaration (require-declaration declaration name)))
+        (receive (signature augmented-environment) (walk-parameters walker resume declaration environment parameters #f #t)
+          (set-signature~ new-declaration signature)
+          (set-body~ new-declaration (walk-body walker resume new-declaration augmented-environment body))
+          (set-source~ new-declaration form-src)
+          new-declaration)))))
+
+
+(define-walker-declaration c-definition jazz walk-c-definition-declaration walk-c-definition)
+
+
+;;;
+;;;; C-Constant
+;;;
+
+
+(syntax public c-constant
+  (lambda (form-src usage-environment macro-environment)
+    (let ((name (cadr (source-code form-src)))
+          (value (caddr (source-code form-src))))
+      (sourcify-if
+        `(definition public ,name ,value)
+        form-src))))
+
+
+;;;
+;;;; C-Enumeration
+;;;
+
+
+(syntax public c-enumeration
+  (lambda (form-src usage-environment macro-environment)
+    (let ((name (cadr (source-code form-src)))
+          (declarations (cddr (source-code form-src))))
+      (sourcify-if
+        (let ((definitions (map (lambda (declaration) `(definition public ,@(source-code declaration))) declarations)))
+          `(begin ,@definitions))
+        form-src))))
+
+
+;;;
+;;;; C-External
+;;;
+
+
+(macro public (c-external signature type . rest)
+  (let* ((s-name (car signature))
+         (params (cdr signature))
+         (c-name (if (null? rest) (symbol->string s-name) (car rest))))
+    `(definition public ,s-name
+       (c-function ,params ,type ,c-name))))
+
+
+;;;
+;;;; COM-External
+;;;
+
+
+;; (com-external 22 (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)) VT_HRESULT)
+#;
+(define (expand-com-external walker resume declaration environment offset signature result-type)
+  (let ((name (car signature))
+        (resolve-declaration (lambda (type) (if (symbol? type)
+                                                (resolve-c-type-reference walker resume declaration environment type)
+                                              (walk-error walker resume declaration #f "Illegal parameter type in com-external {s}: {s}" (car signature) type))))
+        (fix-locator (lambda (declaration) (if (eq? (get-kind~ declaration) 'type)
+                                               (string->symbol (string-append (symbol->string (get-locator~ declaration)) "*"))
+                                             (get-locator~ declaration)))))
+    ;; we assume coparam-types are symbols that exactly match the c type
+    (let ((resolved-result (resolve-declaration result-type))
+          (resolved-params (map resolve-declaration (map cadr (cdr signature))))
+          (lowlevel-name (string->symbol (string-append (symbol->string name) "$"))))
+      #; ;; debug
+      (apply debug name resolved-result resolved-params)
+      (if (every? (lambda (resolved) (is? resolved C-Type-Declaration)) (cons resolved-result resolved-params))
+          `(definition ,lowlevel-name
+             (c-function ,(cons 'IUnknown* (map fix-locator resolved-params))
+                         ,(get-locator~ resolved-result)
+                         ,(string-append
+                            "{typedef "
+                            (->string (get-name~ resolved-result))
+                            " (*ProcType)(IUnknown*"
+                            (apply string-append (let iter-arg ((resolved-params resolved-params))
+                                                      (if (pair? resolved-params)
+                                                          (cons ", " (cons (->string (get-name~ (car resolved-params)))
+                                                                           (iter-arg (cdr resolved-params))))
+                                                        '())))
+                            "); ProcType fn = (*(ProcType**)___arg1)["
+                            (number->string offset)
+                            "]; ___result = (*fn)(___arg1"
+                            (apply string-append (let iter-arg ((resolved-params resolved-params)
+                                                                (order 2))
+                                                      (if (pair? resolved-params)
+                                                          (cons (if (eq? (get-kind~ (car resolved-params)) 'type) ", *___arg" ", ___arg")
+                                                                (cons (number->string order)
+                                                                      (iter-arg (cdr resolved-params) (+ order 1))))
+                                                        '())))
+                            ");}")))))))
+
+
+;; (com-external (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)) VT_HRESULT)
+(define (expand-com-external walker resume declaration environment signature result-type com-interface offset)
+  (let* ((name (car signature))
+         (param-types (map cadr (cdr signature)))
+         (resolve-declaration (lambda (type) (if (symbol? type)
+                                                 (resolve-c-type-reference walker resume declaration environment type)
+                                               (walk-error walker resume declaration #f "Illegal parameter type in com-external {s}: {s}" name type)))))
+    (let ((resolved-result (resolve-declaration result-type))
+          (resolved-params (map resolve-declaration param-types))
+          (resolved-directions (map car (cdr signature)))
+          (lowlevel-name (string->symbol (string-append (symbol->string name) "$"))))
+      (let ((hresult? (eq? (get-locator~ resolved-result) 'jazz.platform.windows.com:HRESULT)))
+        (if (every? (lambda (resolved) (is? resolved C-Type-Declaration)) (cons resolved-result resolved-params))
+            `(begin
+               (definition ,lowlevel-name ,(emit-com-function offset result-type resolved-result param-types resolved-params))
+               (definition public ,name ,(emit-com-external hresult? lowlevel-name resolved-params resolved-directions com-interface)))
+          (error "Invalid com-external"))))))
+
+
+(define (emit-com-function offset result-type resolved-result param-types resolved-params)
+  (define (fix-locator type declaration)
+    (if (eq? (get-kind~ declaration) 'type)
+        (string->symbol (string-append (symbol->string type) "*"))
+      type))
+  
+  ;; we assume lexical-binding-name exactly matches the c type
+  `(c-function ,(cons 'IUnknown* (map fix-locator param-types resolved-params))
+               ,result-type
+               ,(string-append
+                  "{typedef "
+                  (->string (get-name~ resolved-result))
+                  " (*ProcType)(IUnknown*"
+                  (apply string-append (let iter ((resolved-params resolved-params))
+                                            (if (pair? resolved-params)
+                                                (cons ", " (cons (->string (get-name~ (car resolved-params)))
+                                                                 (iter (cdr resolved-params))))
+                                              '())))
+                  "); ProcType fn = (*(ProcType**)___arg1)["
+                  (number->string offset)
+                  "]; ___result = (*fn)(___arg1"
+                  (apply string-append (let iter ((resolved-params resolved-params)
+                                                  (order 2))
+                                            (if (pair? resolved-params)
+                                                (cons (if (eq? (get-kind~ (car resolved-params)) 'type) ", *___arg" ", ___arg")
+                                                      (cons (number->string order)
+                                                            (iter (cdr resolved-params) (+ order 1))))
+                                              '())))
+                  ");}")))
+
+
+(define (emit-com-external hresult? lowlevel-name resolved-params resolved-directions com-interface)
+  (define (generate-in resolved-param resolved-direction order)
+    (if (eq? resolved-direction 'out)
+        #f
+      (string->symbol (string-append "in$" (number->string order)))))
+  
+  (define (generate-low resolved-param resolved-direction order)
+    (string->symbol (string-append "low$" (number->string order))))
+  
+  (define (generate-out resolved-param resolved-direction order)
+    (if (eq? resolved-direction 'in)
+        #f
+      (string->symbol (string-append "out$" (number->string order)))))
+  
+  (define (generate-encode/enref resolved-param resolved-direction order)
+    (let ((binding (generate-low resolved-param resolved-direction order))
+          (encode/enref (get-cotype-encode/enref resolved-param))
+          (value (if (eq? resolved-direction 'out)
+                     (get-cotype-default-value resolved-param)
+                   (generate-in resolved-param resolved-direction order))))
+      (if encode/enref
+          `(,binding (,encode/enref ,value))
+        `(,binding ,value))))
+  
+  (define (generate-ref resolved-param resolved-direction order)
+    (if (eq? resolved-direction 'in)
+        #f
+      (let ((binding (generate-out resolved-param resolved-direction order))
+            (ref (get-cotype-ref resolved-param))
+            (value (generate-low resolved-param resolved-direction order)))
+        (if ref
+            `(,binding (,ref ,value))
+          `(,binding ,value)))))
+  
+  (define (generate-free resolved-param resolved-direction order)
+    (let ((free (get-cotype-free resolved-param))
+          (value (generate-low resolved-param resolved-direction order)))
+      (if free
+          `(,free ,value)
+        #f)))
+  
+  (define (generate-cotype-transform generator)
+    (let iter ((resolved-params resolved-params)
+               (resolved-directions resolved-directions)
+               (order 1))
+         (if (pair? resolved-directions)
+             (let ((generated (generator (car resolved-params) (car resolved-directions) order)))
+               (if generated
+                   (cons generated (iter (cdr resolved-params) (cdr resolved-directions) (+ order 1)))
+                 (iter (cdr resolved-params) (cdr resolved-directions) (+ order 1))))
+           '())))
+  
+  (let ((out-list (generate-cotype-transform generate-out)))
+    `(lambda (coptr ,@(generate-cotype-transform generate-in))
+               (let (,@(generate-cotype-transform generate-encode/enref))
+                 (let ((result (,lowlevel-name coptr ,@(generate-cotype-transform generate-low))))
+                   ,(if hresult?
+                        (if com-interface
+                            `(validate-hresult-with-errorinfo result coptr ,com-interface)
+                          `(validate-hresult result))
+                      '(begin))
+                   (let (,@(generate-cotype-transform generate-ref))
+                     (begin
+                       ,@(generate-cotype-transform generate-free))
+                     ,(if hresult?
+                          (case (length out-list)
+                            ((0)
+                             '(unspecified))
+                            ((1)
+                             (car out-list))
+                            (else
+                             `(values ,@out-list)))
+                        (if (= (length out-list) 0)
+                            'result
+                          `(values result ,@out-list)))))))))
+
+
+(define (get-cotype-default-value cotype)
+  (case (get-locator~ cotype)
+    ((jazz.platform.windows.com:BSTR) (error "cotype BSTR has no default value"))
+    ((jazz.platform.windows.com:BSTR*) #f)
+    ((jazz.platform.windows.com:GUID) (error "cotype GUID has no default value"))
+    ((jazz.platform.windows.com:GUID*) #f)
+    ((jazz.platform.windows.com:VARIANT_BOOL) (error "cotype VARIANT_BOOL has no default value"))
+    ((jazz.platform.windows.com:VARIANT_BOOL*) #f)
+    ((jazz.platform.windows.com:VARIANT) (error "cotype VARIANT has no default value"))
+    ((jazz.platform.windows.com:VARIANT*) ''())
+    ((jazz.platform.windows.com:IUnknown*) (error "cotype IUnknown* has no default value"))
+    ((jazz.platform.windows.com:IUnknown**) #f)
+    ((jazz.platform.windows.WinTypes:INT*) 0)
+    ((jazz.platform.windows.WinTypes:LONG*) 0)
+    (else 0)))
+
+
+(define (get-cotype-encode/enref cotype)
+  (case (get-locator~ cotype)
+    ((jazz.platform.windows.com:BSTR) 'BSTR-encode)
+    ((jazz.platform.windows.com:BSTR*) 'BSTR*-enref)
+    ((jazz.platform.windows.com:GUID) 'GUID-encode)
+    ((jazz.platform.windows.com:GUID*) 'GUID-encode)
+    ((jazz.platform.windows.com:VARIANT_BOOL) 'VARIANT_BOOL-encode)
+    ((jazz.platform.windows.com:VARIANT_BOOL*) 'VARIANT_BOOL-enref)
+    ((jazz.platform.windows.com:VARIANT) 'VARIANT-encode)
+    ((jazz.platform.windows.com:VARIANT*) 'VARIANT-encode)
+    ((jazz.platform.windows.com:IUnknown*) #f)
+    ((jazz.platform.windows.com:IUnknown**) 'IUnknown*-enref)
+    ((jazz.platform.windows.WinTypes:INT*) 'INT-enref)
+    ((jazz.platform.windows.WinTypes:LONG*) 'LONG-enref)
+    (else #f)))
+
+
+(define (get-cotype-ref cotype)
+  (case (get-locator~ cotype)
+    ((jazz.platform.windows.com:BSTR) 'BSTR-ref)
+    ((jazz.platform.windows.com:BSTR*) 'BSTR*-ref)
+    ((jazz.platform.windows.com:GUID) 'GUID-ref)
+    ((jazz.platform.windows.com:GUID*) 'GUID-ref)
+    ((jazz.platform.windows.com:VARIANT_BOOL) 'VARIANT_BOOL-decode)
+    ((jazz.platform.windows.com:VARIANT_BOOL*) 'VARIANT_BOOL*-ref)
+    ((jazz.platform.windows.com:VARIANT) 'VARIANT-ref)
+    ((jazz.platform.windows.com:VARIANT*) 'VARIANT-ref)
+    ((jazz.platform.windows.com:IUnknown*) #f)
+    ((jazz.platform.windows.com:IUnknown**) 'IUnknown**-ref)
+    ((jazz.platform.windows.WinTypes:INT*) 'INT*-ref)
+    ((jazz.platform.windows.WinTypes:LONG*) 'LONG*-ref)
+    (else #f)))
+
+
+(define (get-cotype-free cotype)
+  (case (get-locator~ cotype)
+    ((jazz.platform.windows.com:BSTR) 'BSTR-free)
+    ((jazz.platform.windows.com:BSTR*) 'BSTR*-free)
+    ((jazz.platform.windows.com:GUID) 'GUID-free)
+    ((jazz.platform.windows.com:GUID*) 'GUID-free)
+    ((jazz.platform.windows.com:VARIANT_BOOL) #f)
+    ((jazz.platform.windows.com:VARIANT_BOOL*) 'VARIANT_BOOL*-free)
+    ((jazz.platform.windows.com:VARIANT) 'VARIANT-decode)
+    ((jazz.platform.windows.com:VARIANT*) 'VARIANT-decode)
+    ((jazz.platform.windows.com:IUnknown*) #f)
+    ((jazz.platform.windows.com:IUnknown**) 'IUnknown**-free)
+    ((jazz.platform.windows.WinTypes:INT*) 'INT*-free)
+    ((jazz.platform.windows.WinTypes:LONG*) 'LONG*-free)
+    (else #f)))
+
+
+(syntax public com-external
+  (lambda (form environment macro-environment)
+    (bind (signature result-type com-interface offset) (cdr (strip-syntactic-closures form))
+      (expand-com-external (current-walker) (current-resume) (current-declaration) environment signature result-type com-interface offset)))))

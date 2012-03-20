@@ -38,6 +38,11 @@
 (unit protected core.class.syntax.object
 
 
+;;;
+;;;; Object
+;;;
+
+
 (cond-expand
   (gambit
     (define %%object-content
@@ -61,22 +66,24 @@
 
 (cond-expand
   (gambit
-    (jazz:define-macro (%%subtype-jazz)
-      7)
-    
     (jazz:define-macro (%%object? expr)
       `(##jazz? ,expr))
     
     (jazz:define-macro (%%object class . rest)
       (jazz:with-uniqueness class
         (lambda (cls)
-          `(##subtype-set! (##vector ,cls ,@rest) (%%subtype-jazz)))))
+          `(##subtype-set! (%%vector ,cls ,@rest) ,jazz:subtype-jazz))))
+    
+    (define (jazz:new-object class . rest)
+      (let ((obj (%%list->vector (%%cons class rest))))
+        (##subtype-set! obj jazz:subtype-jazz)
+        obj))
     
     (jazz:define-macro (%%make-object class size)
       (jazz:with-uniqueness class
         (lambda (cls)
           (let ((obj (jazz:generate-symbol "obj")))
-            `(let ((,obj (##subtype-set! (%%make-vector ,size (%%unspecified)) (%%subtype-jazz))))
+            `(let ((,obj (##subtype-set! (%%make-vector ,size (%%unspecified)) ,jazz:subtype-jazz)))
                (%%set-object-class ,obj ,cls)
                ,obj)))))
     
@@ -97,7 +104,7 @@
                   `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
                      (##vector-ref ,obj ,n)
                      #; ;; costly test for a very low probability class of bugs
-                     (%%core-assertion (##fixnum.< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
+                     (%%core-assertion (%%fx< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
                        (##vector-ref ,obj ,n)))))))
         `(##vector-ref ,object ,n)))
     
@@ -114,7 +121,7 @@
                       `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
                          (##vector-set! ,obj ,n ,value)
                          #; ;; costly test for a very low probability class of bugs
-                         (%%core-assertion (##fixnum.< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
+                         (%%core-assertion (%%fx< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
                            (##vector-set! ,obj ,n ,value)))))))
             `(##vector-set! ,object ,n ,value))))))
   
@@ -140,4 +147,12 @@
      `(%%vector-ref ,vector ,n))
    
    (jazz:define-macro (%%object-set! vector n value)
-     `(%%vector-set! ,vector ,n ,value)))))
+     `(%%vector-set! ,vector ,n ,value))))
+
+
+(jazz:define-macro (%%get-object-class object)
+  `(%%object-ref ,object ,jazz:object-class))
+
+
+(jazz:define-macro (%%set-object-class object class)
+  `(%%object-set! ,object ,jazz:object-class ,class)))

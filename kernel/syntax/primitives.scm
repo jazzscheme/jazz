@@ -1080,10 +1080,10 @@
            (make-table test: ,test)
          (make-table test: ,test hash: ,hash)))
     
-    (jazz:define-macro (%%table-ref table key default)
+    (jazz:define-macro (%%table-ref table key . rest)
       (if jazz:debug-core?
-          `(table-ref ,table ,key ,default)
-        `(##table-ref ,table ,key ,default)))
+          `(table-ref ,table ,key ,@rest)
+        `(##table-ref ,table ,key ,@rest)))
     
     (jazz:define-macro (%%table-set! table key value)
       (if jazz:debug-core?

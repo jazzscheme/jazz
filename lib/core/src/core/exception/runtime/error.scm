@@ -38,22 +38,20 @@
 (unit protected core.exception.runtime.error
 
 
-(jazz:define-class-runtime jazz:Error)
+(jazz:define-class jazz:Error jazz:Exception (constructor: jazz:allocate-error)
+  ((message getter: generate)))
 
 
 (define (jazz:new-error message)
-  (jazz:allocate-error jazz:Error message))
+  (jazz:allocate-error message))
 
 
-(jazz:define-method (jazz:get-message (jazz:Error error))
-  (%%get-error-message error))
+(jazz:define-method (jazz:exception-message (jazz:Error error))
+  (jazz:get-error-message error))
 
 
 (jazz:define-method (jazz:present-exception (jazz:Error error))
-  (%%get-error-message error))
-
-
-(jazz:encapsulate-class jazz:Error)
+  (jazz:get-error-message error))
 
 
 (define (jazz:raise-jazz-error fmt-string . rest)

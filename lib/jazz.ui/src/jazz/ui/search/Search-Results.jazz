@@ -38,7 +38,8 @@
 (module protected jazz.ui.search.Search-Results jazz
 
 
-(import (jazz.graphic)
+(import (jazz.git)
+        (jazz.graphic)
         (jazz.jml)
         (jazz.library)
         (jazz.system)
@@ -271,7 +272,30 @@
           (location (new Tree-Label title: (present-location~ result)))
           (type (new Tree-Label title: (present-type~ result)))
           (user-data result))
-      (add-row~ tree father: father state: state children: (list node location type) user-data: user-data))))
+      (add-row~ tree father: father state: state children: (list node location type) user-data: user-data)))
+
+
+  ;;;
+  ;;;; Depot
+  ;;;
+  
+  
+  (method (on-add-to-depot evt)
+    (let ((tree (get-tree))
+          (count 0))
+      (for-each (lambda (data)
+                  (when (is? data File-Search-Result)
+                    (let ((file (get-file~ data)))
+                      (when file
+                        (receive (depot path) (determine-file-depot file)
+                          (when depot
+                            (user-message "Adding {a}..." path)
+                            (git-add~ depot path)
+                            (increase! count)))))))
+                (get-selected-data~ tree))
+      (if (= count 0)
+          (user-message "No files added")
+        (user-message (format "Added {a} file{a}" count (format-plural count)))))))
 
 
 ;;;
@@ -379,4 +403,6 @@
   
   (form
     (<install>
-      (<Label-Item> name: copy title: "Copy" icon: {Image-Resource "Copy"} action-handler: {Event-Handler :focus on-copy})))))
+      (<Label-Item>     name: copy title: "Add to Depot" icon: {Image-Resource "Add"} action-handler: {Event-Handler :focus-guest on-add-to-depot})
+      (<Separator-Item>)
+      (<Label-Item>     name: copy title: "Copy" icon: {Image-Resource "Copy"} action-handler: {Event-Handler :focus on-copy})))))

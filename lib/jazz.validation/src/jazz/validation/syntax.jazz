@@ -38,25 +38,27 @@
 (module protected jazz.validation.syntax jazz
 
 
-(syntax public (validate form-src)
-  (let ((expr (second (source-code form-src))))
-    (let ((message (->string (desourcify expr) :text))
-          (location (locat->container/line/col (source-locat form-src))))
-      `(unless ,expr
-         (validate-failed ,message ',location)))))
+(syntax public validate
+  (lambda (form-src usage-environment macro-environment)
+    (let ((expr (second (source-code form-src))))
+      (let ((message (->string (desourcify expr) :text))
+            (location (locat->container/line/col (source-locat form-src))))
+        `(unless ,expr
+           (validate-failed ,message ',location))))))
 
 
-(syntax public (error-occurred? form-src)
-  (let ((body (cdr (source-code form-src))))
-    (sourcify-if
-      `(with-exception-filter
-         (lambda (exc)
-           #t)
-         (lambda (exc)
-           (let ((wrapped (wrap-exception exc)))
-             (or (is? wrapped System-Exception)
-                 (is? wrapped Error))))
-         (lambda ()
-           ,@body
-           #f))
-      form-src))))
+(syntax public error-occurred?
+  (lambda (form-src usage-environment macro-environment)
+    (let ((body (cdr (source-code form-src))))
+      (sourcify-if
+        `(with-exception-filter
+           (lambda (exc)
+             #t)
+           (lambda (exc)
+             (let ((wrapped (wrap-exception exc)))
+               (or (is? wrapped System-Exception)
+                   (is? wrapped Error))))
+           (lambda ()
+             ,@body
+             #f))
+        form-src)))))

@@ -35,14 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected scheme.dialect core
+(module scheme.dialect foundation
 
 
-(require (core.module)
-         (scheme.dialect.classes (phase syntax))
-         (scheme.dialect.dialect)
-         (scheme.dialect.runtime-classes (phase syntax))
-         (scheme.dialect.runtime))
-
-
-(export (scheme.dialect.kernel)))
+(require (foundation)
+         (scheme.dialect.runtime)
+         (scheme.backend.scheme.emit)))

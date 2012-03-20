@@ -42,14 +42,14 @@
   ':reader)
 
 
-(set! jazz:display
-      (lambda (value output)
-        (jazz:output-value value output ':human)))
+(jazz:define-variable-override jazz:display
+  (lambda (value output)
+    (jazz:output-value value output ':human)))
 
 
-(set! jazz:write
-      (lambda (value output)
-        (jazz:output-value value output ':reader)))
+(jazz:define-variable-override jazz:write
+  (lambda (value output)
+    (jazz:output-value value output ':reader)))
 
 
 (define (jazz:print value output detail)
@@ -155,25 +155,16 @@
 ;;;
 
 
-(define jazz.dialect.language.object:Object:call-print
-  #f)
-
-(set! jazz.dialect.language.object:Object:call-print #f)
-
-
 (define (jazz:print-jazz object output detail)
   (if (jazz:use-print?)
-      (if jazz.dialect.language.object:Object:call-print
-          ;; the rank of call-print is known to be 2 as it is the third method of Object
-          ((%%class-dispatch (jazz:class-of object) 0 2) object output detail)
-        (jazz:print-object object output detail))
+      (jazz:call-print object output detail)
     (jazz:print-serial object output)))
 
 
 (cond-expand
   (gambit
-    (set! jazz:print-hook
-          (lambda (object port style)
-            (let ((detail (if (eq? style 'display) ':human ':reader)))
-              (jazz:print-jazz object port detail)))))
+    (jazz:define-variable-override jazz:print-hook
+      (lambda (object port style)
+        (let ((detail (if (%%eq? style 'display) ':human ':reader)))
+          (jazz:print-jazz object port detail)))))
   (else)))

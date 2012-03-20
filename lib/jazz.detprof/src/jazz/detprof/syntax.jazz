@@ -38,18 +38,22 @@
 (module protected jazz.detprof.syntax jazz
 
 
+(import (scheme.syntax-rules (phase syntax)))
+
+
 (macro public (unroll n . rest)
   `(begin
      ,@(apply append (make-list n rest))))
 
 
-(syntax public (profile form-src)
-  (let ((control (source-code (cadr (source-code form-src))))
-        (body (cddr (source-code form-src))))
-    (let ((on? (getf control on?: key: source-code not-found: #t))
-          (name (getf control name: key: source-code)))
-      (sourcify-if
-        (if (not on?)
-            `(begin ,@body)
-          `(profile-code #f (lambda () ,@body)))
-        form-src)))))
+(syntax public profile
+  (lambda (form-src usage-environment macro-environment)
+    (let ((control (source-code (cadr (source-code form-src))))
+          (body (cddr (source-code form-src))))
+      (let ((on? (getf control on?: key: source-code not-found: #t))
+            (name (getf control name: key: source-code)))
+        (sourcify-if
+          (if (not on?)
+              `(begin ,@body)
+            `(profile-code #f (lambda () ,@body)))
+          form-src))))))

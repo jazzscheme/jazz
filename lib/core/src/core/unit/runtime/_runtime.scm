@@ -39,8 +39,7 @@
 (unit protected core.unit.runtime
 
 
-(require (core.base)
-         (core.module))
+(require (core.base))
 
 
 (define (jazz:for-each-subunit toplevel-name proc)
@@ -52,15 +51,15 @@
             (iterate unit-name name phase))))
       
       (define (process-export export)
-        (let ((reference (%%get-module-invoice-module export)))
+        (let ((reference (jazz:get-module-invoice-module export)))
           (if reference
-              (let ((name (%%get-declaration-reference-name reference))
-                    (phase (%%get-module-invoice-phase export)))
+              (let ((name (jazz:get-declaration-reference-name reference))
+                    (phase (jazz:get-module-invoice-phase export)))
                 (iterate unit-name name phase)))))
       
       (define (iterate parent-name unit-name phase)
         (let ((declaration (jazz:outline-unit unit-name)))
-          (if (%%eq? (%%get-declaration-access declaration) 'protected)
+          (if (%%eq? (jazz:get-declaration-access declaration) 'protected)
               (if (%%not (jazz:descendant-unit? toplevel-name unit-name))
                   (jazz:error "Illegal access from {a} to protected unit {a}" toplevel-name unit-name)
                 #; ;; debugging
@@ -73,7 +72,7 @@
       
       (proc unit-name declaration phase)
       (if (jazz:is? declaration jazz:Unit-Declaration)
-          (for-each process-require (%%get-unit-declaration-requires declaration))
+          (for-each process-require (jazz:get-unit-declaration-requires declaration))
         (begin
-          (for-each process-require (%%get-module-declaration-requires declaration))
-          (for-each process-export (%%get-module-declaration-exports declaration))))))))
+          (for-each process-require (jazz:get-module-declaration-requires declaration))
+          (for-each process-export (jazz:get-module-declaration-exports declaration))))))))

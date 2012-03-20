@@ -38,13 +38,11 @@
 (module protected jazz.dialect scheme
 
 
-(require (core.module)
-         (jazz.dialect.core (phase syntax))
-         (jazz.dialect.classes (phase syntax))
-         (jazz.dialect.dialect)
-         (jazz.dialect.runtime-classes (phase syntax))
-         (jazz.dialect.runtime))
+(require (foundation)
+         (jazz.dialect.runtime)
+         (jazz.backend.scheme)
+         (jazz.backend.scheme.runtime))
 
 
-(export (jazz.dialect.syntax (phase syntax))
+(export (jazz.language.syntax (phase syntax))
         (scheme)))

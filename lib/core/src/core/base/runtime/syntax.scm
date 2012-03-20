@@ -59,7 +59,6 @@
 
 
 (define (jazz:desourcify-all expr)
-  
   (define (desourcify-source src)
     (desourcify-all (%%source-code src)))
 
@@ -82,8 +81,8 @@
             (%%vector-set! x i (desourcify-all (%%vector-ref vect i)))
             (loop (%%fx- i 1)))))))
   
-  (define (desourcify-box box)
-    (%%box (desourcify-all (%%unbox box))))
+  (define (desourcify-box bx)
+    (%%box (desourcify-all (%%unbox bx))))
   
   (define (desourcify-all expr)
     (cond ((%%source? expr)
@@ -169,7 +168,6 @@
 
 
 (define (jazz:present-source obj)
-  
   (define (present-src src)
     (let ((code (jazz:source-code src))
           (pos (%%locat-position (%%source-locat src))))

@@ -39,7 +39,7 @@
 
 
 (jazz:kernel-declares)
-  
+
 
 (cond-expand
   (mac

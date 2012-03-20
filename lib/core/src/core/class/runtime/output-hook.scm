@@ -40,10 +40,8 @@
 
 (cond-expand
   (gambit
-    (define jazz:print-hook
+    (jazz:define-variable jazz:print-hook
       #f)
-    
-    (set! jazz:print-hook #f)
     
     
     (set! ##wr

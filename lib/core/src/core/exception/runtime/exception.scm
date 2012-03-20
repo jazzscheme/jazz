@@ -43,20 +43,21 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Exception)
+(jazz:define-class jazz:Exception jazz:Object ()
+  ())
 
 
 (jazz:define-method (jazz:print-object (jazz:Exception exception) output detail)
-  (let ((message (jazz:get-message exception)))
+  (let ((message (jazz:exception-message exception)))
     (jazz:format output "#<exception #{a}" (jazz:object->serial exception))
     (if message
         (jazz:format output " {s}" message))
     (jazz:format output ">")))
 
 
-(jazz:define-virtual-runtime (jazz:present-exception (jazz:Exception exception)))
-(jazz:define-virtual-runtime (jazz:get-message (jazz:Exception exception)))
-(jazz:define-virtual-runtime (jazz:get-detail (jazz:Exception exception)))
+(jazz:define-virtual (jazz:present-exception (jazz:Exception exception)))
+(jazz:define-virtual (jazz:exception-message (jazz:Exception exception)))
+(jazz:define-virtual (jazz:get-detail (jazz:Exception exception)))
 
 
 (jazz:define-method (jazz:present-exception (jazz:Exception exception))
@@ -65,7 +66,7 @@
     (get-output-string output)))
 
 
-(jazz:define-method (jazz:get-message (jazz:Exception exception))
+(jazz:define-method (jazz:exception-message (jazz:Exception exception))
   #f)
 
 
@@ -73,22 +74,20 @@
   #f)
 
 
-(jazz:encapsulate-class jazz:Exception)
-
-
 ;;;
 ;;;; Exception Detail
 ;;;
 
 
-(jazz:define-class-runtime jazz:Exception-Detail)
+(jazz:define-class jazz:Exception-Detail jazz:Object (constructor: jazz:allocate-exception-detail)
+  ((icon     getter: generate)
+   (title    getter: generate)
+   (location getter: generate)
+   (children getter: generate)))
 
 
 (define (jazz:new-exception-detail icon title location children)
-  (jazz:allocate-exception-detail jazz:Exception-Detail icon title location children))
-
-
-(jazz:encapsulate-class jazz:Exception-Detail)
+  (jazz:allocate-exception-detail icon title location children))
 
 
 ;;;
@@ -96,14 +95,12 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:System-Exception)
+(jazz:define-class jazz:System-Exception jazz:Exception ()
+  ((exception getter: generate)))
 
 
 (jazz:define-method (jazz:present-exception (jazz:System-Exception exception))
-  (jazz:exception-reason (%%get-system-exception-exception exception)))
-
-
-(jazz:encapsulate-class jazz:System-Exception)
+  (jazz:exception-reason (jazz:get-system-exception-exception exception)))
 
 
 ;;;

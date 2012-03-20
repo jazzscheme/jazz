@@ -115,6 +115,10 @@
          (format-to port fmt-string arguments))))))
 
 
+(define jazz:system-format
+  jazz:format)
+
+
 ;;;
 ;;;; Exception
 ;;;
@@ -278,12 +282,6 @@
   ".repository")
 
 
-(define (jazz:repository? obj)
-  (and (%%vector? obj)
-       (%%fx> (%%vector-length obj) 0)
-       (%%eq? (%%vector-ref obj 0) 'repository)))
-
-
 (jazz:define-variable jazz:Repositories
   '())
 
@@ -388,7 +386,7 @@
                         (let ((binary? (if binary-pair (%%cadr binary-pair) #f))
                               (library-root (if library-pair (%%cadr library-pair) #f)))
                           (let ((library-directory (if (%%not library-root) directory (%%string-append directory library-root "/"))))
-                            (%%make-repository name directory library-root library-directory binary?))))))))
+                            (%%make-repository name directory library-root library-directory binary? #f))))))))
             #f))
       #f))
   
@@ -429,7 +427,7 @@
     (if (%%null? repositories)
         #f
       (let ((repository (%%car repositories)))
-        (if (%%eq? (%%repository-name repository) name)
+        (if (%%eq? (%%get-repository-name repository) name)
             repository
           (iter (%%cdr repositories)))))))
 
@@ -439,7 +437,7 @@
     (if (%%null? repositories)
         #f
       (let ((repository (%%car repositories)))
-        (if (%%repository-binary? repository)
+        (if (%%get-repository-binary? repository)
             (iter (%%cdr repositories))
           (let ((package (jazz:repository-find-package repository package-name)))
             (if package
@@ -448,14 +446,14 @@
 
 
 (define (jazz:repository-pathname repository path)
-  (%%string-append (%%repository-library-directory repository)
+  (%%string-append (%%get-repository-library-directory repository)
                    path))
 
 
 (define (jazz:repository-packages-table repository)
-  (or (%%repository-packages-table repository)
+  (or (%%get-repository-packages-table repository)
       (let ((table (%%make-table test: eq?)))
-        (%%repository-packages-table-set! repository table)
+        (%%set-repository-packages-table repository table)
         (jazz:repository-install-packages repository)
         table)))
 
@@ -491,7 +489,7 @@
 
 (define (jazz:repository-install-packages repository)
   (define (repository-discover-packages repository)
-    (let ((table (%%repository-packages-table repository)))
+    (let ((table (%%get-repository-packages-table repository)))
       (define (discover-packages parent library-directory packages)
         (if (jazz:directory-exists? library-directory)
             (let iter ((dirnames (jazz:directory-directories library-directory))
@@ -506,32 +504,32 @@
                                (if (%%table-ref table package-name #f)
                                    (iter (%%cdr dirnames) packages)
                                  (let ((package (jazz:load-package repository parent package-name package-pathname)))
-                                   (iter (%%cdr dirnames) (%%cons package (let ((library-path (%%package-library-path package)))
+                                   (iter (%%cdr dirnames) (%%cons package (let ((library-path (%%get-package-library-path package)))
                                                                             (if library-path
-                                                                                (let ((library-directory (jazz:repository-pathname (%%package-repository package) (%%string-append library-path "/"))))
+                                                                                (let ((library-directory (jazz:repository-pathname (%%get-package-repository package) (%%string-append library-path "/"))))
                                                                                   (discover-packages package library-directory packages))
                                                                               packages)))))))
                            (iter (%%cdr dirnames) packages)))))))
           packages))
       
-      (discover-packages #f (%%repository-library-directory repository) '())))
+      (discover-packages #f (%%get-repository-library-directory repository) '())))
   
-  (let ((table (%%repository-packages-table repository))
+  (let ((table (%%get-repository-packages-table repository))
         (packages (repository-discover-packages repository)))
     (for-each (lambda (package)
-                (%%table-set! table (%%package-name package) package))
+                (%%table-set! table (%%get-package-name package) package))
               packages)
     packages))
 
 
 (define (jazz:repository-add-package repository package)
   (let ((table (jazz:repository-packages-table repository)))
-    (%%table-set! table (%%package-name package) package)))
+    (%%table-set! table (%%get-package-name package) package)))
 
 
 (define (jazz:repository-remove-package repository package)
   (let ((table (jazz:repository-packages-table repository)))
-    (%%table-clear table (%%package-name package))))
+    (%%table-clear table (%%get-package-name package))))
 
 
 (define (jazz:load-package repository parent package-name package-pathname)
@@ -563,16 +561,16 @@
 
 
 (define (jazz:create-build-package package)
-  (let* ((name (%%package-name package))
-         (parent (%%package-parent package))
+  (let* ((name (%%get-package-name package))
+         (parent (%%get-package-parent package))
          (bin-parent (if parent (jazz:create-build-package parent) #f))
-         (dir (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "") (%%symbol->string name) "/"))
+         (dir (%%string-append (if parent (%%string-append (%%get-package-library-path parent) "/") "") (%%symbol->string name) "/"))
          (path (%%string-append dir jazz:Package-Filename))
-         (src (jazz:repository-pathname (%%package-repository package) path))
+         (src (jazz:repository-pathname (%%get-package-repository package) path))
          (dst (jazz:repository-pathname jazz:Build-Repository path)))
     (define (load-package)
       (let ((package (jazz:load-package jazz:Build-Repository bin-parent name dst)))
-        (%%table-set! (%%repository-packages-table jazz:Build-Repository)
+        (%%table-set! (%%get-repository-packages-table jazz:Build-Repository)
                       name
                       package)
         package))
@@ -589,7 +587,7 @@
 
 
 (define (jazz:setup-package package)
-  (let ((install (%%package-install package)))
+  (let ((install (%%get-package-install package)))
     (if install
         (jazz:load-unit install))))
 
@@ -600,15 +598,15 @@
   
   (define (inspect-repository repository)
     `(:repository
-      ,(%%repository-name repository)
-      ,(%%repository-library-directory repository)
+      ,(%%get-repository-name repository)
+      ,(%%get-repository-library-directory repository)
       ,@(map inspect-package (jazz:repository-packages repository))))
   
   (define (inspect-package package)
     `(:package
-      ,(%%package-name package)
-      ,(%%package-units-root package)
-      ,(%%package-units-path package)))
+      ,(%%get-package-name package)
+      ,(%%get-package-units-root package)
+      ,(%%get-package-units-path package)))
   
   `(,(inspect-path "./")
     ,(inspect-path "~/")
@@ -624,12 +622,6 @@
   ".package")
 
 
-(define (jazz:package? obj)
-  (and (%%vector? obj)
-       (%%fx> (%%vector-length obj) 0)
-       (%%eq? (%%vector-ref obj 0) 'package)))
-
-
 (define (jazz:make-package repository name parent library-root units-root install char-encoding products profiles project)
   (let ((library-path (if (%%not library-root)
                           #f
@@ -641,29 +633,29 @@
 
 
 (define (jazz:package-root package)
-  (let ((parent (%%package-parent package)))
-    (%%string-append (let ((library-root (%%repository-library-root (%%package-repository package))))
+  (let ((parent (%%get-package-parent package)))
+    (%%string-append (let ((library-root (%%get-repository-library-root (%%get-package-repository package))))
                        (if library-root
                            (%%string-append library-root "/")
                          ""))
-                     (if parent (%%string-append (%%package-library-path parent) "/") "")
-                     (%%symbol->string (%%package-name package)))))
+                     (if parent (%%string-append (%%get-package-library-path parent) "/") "")
+                     (%%symbol->string (%%get-package-name package)))))
 
 
 (define (jazz:package-pathname package path)
-  (jazz:repository-pathname (%%package-repository package)
-                            (%%string-append (%%symbol->string (%%package-name package)) "/" path)))
+  (jazz:repository-pathname (%%get-package-repository package)
+                            (%%string-append (%%symbol->string (%%get-package-name package)) "/" path)))
 
 
 (define (jazz:package-root-pathname package path)
-  (jazz:relocate-package-pathname (%%package-repository package) package path))
+  (jazz:relocate-package-pathname (%%get-package-repository package) package path))
 
 
 (define (jazz:relocate-package-pathname repository package path)
-  (let ((parent (%%package-parent package)))
+  (let ((parent (%%get-package-parent package)))
     (jazz:repository-pathname repository
-      (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
-                       (%%package-units-path package)
+      (%%string-append (if parent (%%string-append (%%get-package-library-path parent) "/") "")
+                       (%%get-package-units-path package)
                        "/"
                        (or path "")))))
 
@@ -672,7 +664,7 @@
   (let iter-repo ((repositories jazz:Repositories))
     (if (%%not (%%null? repositories))
         (let ((repository (%%car repositories)))
-          (if (%%neq? binary? (%%repository-binary? repository))
+          (if (%%neq? binary? (%%get-repository-binary? repository))
               (iter-repo (%%cdr repositories))
             (let iter ((packages (jazz:repository-packages repository)))
               (if (%%null? packages)
@@ -728,7 +720,7 @@
 (define (jazz:find-pathname-unit pathname)
   (let ((resource (jazz:find-resource pathname)))
     (if resource
-        (jazz:path->name (%%resource-path resource))
+        (jazz:path->name (%%get-resource-path resource))
       #f)))
 
 
@@ -742,13 +734,13 @@
     (if (%%null? repositories)
         profiles
       (let ((repository (%%car repositories)))
-        (if (%%repository-binary? repository)
+        (if (%%get-repository-binary? repository)
             (iter-repo (%%cdr repositories) profiles)
           (let iter ((packages (jazz:repository-packages repository)) (profiles profiles))
             (if (%%null? packages)
                 (iter-repo (%%cdr repositories) profiles)
               (let ((package (%%car packages)))
-                (let ((package-profiles (%%package-profiles package)))
+                (let ((package-profiles (%%get-package-profiles package)))
                   (iter (%%cdr packages) (%%append (map (lambda (package-profile)
                                                           (%%cons package package-profile))
                                                         package-profiles)
@@ -787,15 +779,14 @@
   (define (first-char-of-last-name str)
     (let loop ((offset (%%fx- (%%string-length str) 1)))
          (let ((ch (%%string-ref str offset)))
-           (cond
-             ((%%char=? #\. (%%string-ref str offset))
-              (if (%%fx< (%%fx+ offset 1) (%%string-length str))
-                  (%%string-ref str (%%fx+ 1 offset))
-                (jazz:error "Unit name {a} ends with a ." str)))
-             ((%%fx= offset 0)
-              ch)
-             (else
-              (loop (%%fx- offset 1)))))))
+           (cond ((%%char=? #\. (%%string-ref str offset))
+                  (if (%%fx< (%%fx+ offset 1) (%%string-length str))
+                      (%%string-ref str (%%fx+ 1 offset))
+                    (jazz:error "Unit name {a} ends with a ." str)))
+                 ((%%fx= offset 0)
+                  ch)
+                 (else
+                  (loop (%%fx- offset 1)))))))
   
   (let ((first-char (first-char-of-last-name (%%symbol->string unit-name))))
     (and (%%char<=? #\a first-char) (%%char<=? first-char #\z))))
@@ -836,7 +827,7 @@
                     (begin
                       (jazz:cache-package jazz:*source-packages-cache* unit-name package)
                       #; ;; test
-                      (jazz:validate-repository-unicity (%%package-repository package)
+                      (jazz:validate-repository-unicity (%%get-package-repository package)
                                                         unit-name
                                                         (lambda (package)
                                                           (find-src package path)))
@@ -876,8 +867,8 @@
                           (and obj/bin
                                (jazz:load-updated-manifest
                                  unit-name
-                                 (jazz:digest-pathname (%%resource-package obj/bin) obj/bin)
-                                 (jazz:manifest-pathname (%%resource-package obj/bin) obj/bin)
+                                 (jazz:digest-pathname (%%get-resource-package obj/bin) obj/bin)
+                                 (jazz:manifest-pathname (%%get-resource-package obj/bin) obj/bin)
                                  (and src (jazz:resource-pathname src)))))))
           (let ((uptodate? (or (%%not src)
                                (and manifest
@@ -904,7 +895,7 @@
                     (begin
                       (jazz:cache-package jazz:*binary-packages-cache* unit-name package)
                       #; ;; test
-                      (jazz:validate-repository-unicity (%%package-repository package)
+                      (jazz:validate-repository-unicity (%%get-package-repository package)
                                                         unit-name
                                                         (lambda (package)
                                                           (find-bin package path)))
@@ -931,7 +922,7 @@
         (proc src
               obj
               bin
-              (if image-unit (%%image-unit-load-proc image-unit) #f)
+              (if image-unit (%%get-image-unit-load-proc image-unit) #f)
               obj-uptodate?
               bin-uptodate?
               lib-uptodate?
@@ -963,12 +954,12 @@
 
 (define (jazz:image-unit-uptodate? image-unit src manifest)
   (let ((digest (jazz:find-source-digest (jazz:resource-pathname src) manifest)))
-    (and digest (%%string=? (%%image-unit-compile-time-hash image-unit) (%%digest-hash digest)))))
+    (and digest (%%string=? (%%get-image-unit-compile-time-hash image-unit) (%%get-digest-hash digest)))))
 
 
 (define (jazz:image-unit-uptodate-src? image-unit src)
   (let ((source-hash (digest-file (jazz:resource-pathname src) 'SHA-1)))
-    (%%string=? (%%image-unit-compile-time-hash image-unit) source-hash)))
+    (%%string=? (%%get-image-unit-compile-time-hash image-unit) source-hash)))
 
 
 (define (jazz:validate-repository-unicity repository unit-name proc)
@@ -986,7 +977,7 @@
   
   (if (%%not (repository-unique? repository proc))
       (jazz:error "Found duplicate resource in {a} repository: {s}"
-                  (or (%%repository-name repository) "anonymous")
+                  (or (%%get-repository-name repository) "anonymous")
                   unit-name)))
 
 
@@ -1041,7 +1032,7 @@
 
 ;; cache every subdirectory of level 2 and every subdirectory of level 1 that contains files
 (define (jazz:cache-package-roots package)
-  (let ((cache (if (%%repository-binary? (%%package-repository package))
+  (let ((cache (if (%%get-repository-binary? (%%get-package-repository package))
                    jazz:*binary-packages-cache*
                  jazz:*source-packages-cache*))
         (toplevel-dir (jazz:package-root-pathname package "")))
@@ -1103,12 +1094,12 @@
             (if (%%null? packages)
                 (iter-repo (%%cdr repositories))
               (let ((package (%%car packages)))
-                (let ((pair (%%assq name (%%package-products package))))
+                (let ((pair (%%assq name (%%get-package-products package))))
                   (if pair
                       (let ((alias (jazz:product-descriptor-alias pair)))
                         (cond (alias
                                (jazz:find-product-descriptor alias))
-                              ((%%repository-binary? repository)
+                              ((%%get-repository-binary? repository)
                                (set! binary-package package)
                                (set! binary-descriptor pair)
                                (iter (%%cdr packages)))
@@ -1299,11 +1290,11 @@
 
 (define (jazz:setup-product name)
   (let ((product (jazz:get-product name)))
-    (let ((descriptor (%%product-descriptor product)))
+    (let ((descriptor (%%get-product-descriptor product)))
       (set! jazz:process-product name)
       (set! jazz:process-name name)
-      (set! jazz:process-title (or (%%product-title product) (jazz:product-descriptor-title descriptor)))
-      (set! jazz:process-icon (or (%%product-icon product) (jazz:product-descriptor-icon descriptor))))
+      (set! jazz:process-title (or (%%get-product-title product) (jazz:product-descriptor-title descriptor)))
+      (set! jazz:process-icon (or (%%get-product-icon product) (jazz:product-descriptor-icon descriptor))))
     (if jazz:debugger
         (jazz:load-debuggee))
     product))
@@ -1329,8 +1320,8 @@
         (jazz:error "Unable to find registered run: {s}" name)))
   
   (let ((product (jazz:setup-product name)))
-    (let ((run (%%product-run product))
-          (descriptor (%%product-descriptor product)))
+    (let ((run (%%get-product-run product))
+          (descriptor (%%get-product-descriptor product)))
       (if run
           (run descriptor)
         (run-product-descriptor descriptor)))))
@@ -1345,8 +1336,8 @@
         (jazz:error "Product is not testable: {s}" name))))
   
   (let ((product (jazz:setup-product name)))
-    (let ((test (%%product-test product))
-          (descriptor (%%product-descriptor product)))
+    (let ((test (%%get-product-test product))
+          (descriptor (%%get-product-descriptor product)))
       (if test
           (test descriptor)
         (test-product-descriptor descriptor)))))
@@ -1387,8 +1378,8 @@
 
 (define (jazz:update-product name)
   (let ((product (jazz:setup-product name)))
-    (let ((update (%%product-update product))
-          (descriptor (%%product-descriptor product)))
+    (let ((update (%%get-product-update product))
+          (descriptor (%%get-product-descriptor product)))
       (if update
           (update descriptor)
         (jazz:update-product-descriptor descriptor)))))
@@ -1402,9 +1393,9 @@
 
 (define (jazz:build-product name)
   (let ((product (jazz:setup-product name)))
-    (let ((build (%%product-build product))
-          (build-library (%%product-build-library product))
-          (descriptor (%%product-descriptor product)))
+    (let ((build (%%get-product-build product))
+          (build-library (%%get-product-build-library product))
+          (descriptor (%%get-product-descriptor product)))
       (jazz:feedback "make {a}" name)
       (jazz:load-build)
       
@@ -1443,9 +1434,9 @@
 
 (define (jazz:install-product name)
   (let ((product (jazz:setup-product name)))
-    (let ((install (%%product-install product)))
+    (let ((install (%%get-product-install product)))
       (if install
-          (let ((descriptor (%%product-descriptor product)))
+          (let ((descriptor (%%get-product-descriptor product)))
             (jazz:feedback "install {a}" name)
             (jazz:load-install)
             (install descriptor))))))
@@ -1636,20 +1627,20 @@
 
 
 (define (jazz:resource-char-encoding resource)
-  (or (%%package-char-encoding (%%resource-package resource))
+  (or (%%get-package-char-encoding (%%get-resource-package resource))
       jazz:default-char-encoding))
 
 
 (define (jazz:resource-pathname resource)
-  (jazz:package-root-pathname (%%resource-package resource)
+  (jazz:package-root-pathname (%%get-resource-package resource)
     (jazz:resource-package-pathname resource)))
 
 
 (define (jazz:resource-package-pathname resource)
-  (let ((ext (%%resource-extension resource)))
+  (let ((ext (%%get-resource-extension resource)))
     (if (%%not ext)
-        (%%resource-path resource)
-      (%%string-append (%%resource-path resource) "." ext))))
+        (%%get-resource-path resource)
+      (%%string-append (%%get-resource-path resource) "." ext))))
 
 
 (define (jazz:name->path resource-name)
@@ -1696,15 +1687,15 @@
 
 
 (define (jazz:product-library-name-base package product-name)
-  (jazz:relocate-product-library-name-base (%%package-repository package) package product-name))
+  (jazz:relocate-product-library-name-base (%%get-package-repository package) package product-name))
 
 
 (define (jazz:relocate-product-library-name-base repository package product-name)
   (define (build-dir package)
-    (let ((parent (%%package-parent package)))
+    (let ((parent (%%get-package-parent package)))
       (jazz:repository-pathname repository
-        (%%string-append (if parent (%%string-append (%%package-library-path parent) "/") "")
-                         (%%symbol->string (%%package-name package))))))
+        (%%string-append (if parent (%%string-append (%%get-package-library-path parent) "/") "")
+                         (%%symbol->string (%%get-package-name package))))))
   
   (string-append (build-dir package)
                  "/"
@@ -1718,14 +1709,14 @@
 
 (define (jazz:manifest-pathname package resource)
   (jazz:package-root-pathname package
-                              (%%string-append (%%resource-path resource)
+                              (%%string-append (%%get-resource-path resource)
                                                "."
                                                jazz:Manifest-Extension)))
 
 
 (define (jazz:digest-pathname package resource)
   (jazz:package-root-pathname package
-                              (%%string-append (%%resource-path resource)
+                              (%%string-append (%%get-resource-path resource)
                                                "."
                                                jazz:Digest-Extension)))
 
@@ -1797,30 +1788,30 @@
                    (load-proc))))
               ((and bin-uptodate? (not force-source?))
                (jazz:increment-object-load-counter)
-               (let ((quiet? (or (%%not src) (let ((ext (%%resource-extension src)))
+               (let ((quiet? (or (%%not src) (let ((ext (%%get-resource-extension src)))
                                                (and ext (%%string=? ext "jazz"))))))
                  (jazz:load-resource bin quiet?)))
               (src
-               (jazz:increment-interpreted-load-counter)
-               (let ((warn (jazz:warn-interpreted?)))
-                 (if warn
-                     (case warn
-                       ((error)
-                        (jazz:error "Loading {a} interpreted" unit-name))
-                       ((stack)
-                        (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
-                        (pp jazz:Load-Stack))
-                       (else
-                        (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
-                        (if (and (%%pair? warn) (%%memq unit-name warn))
-                            (pp jazz:Load-Stack))))))
-               (parameterize ((jazz:walk-for 'interpret)
-                              (jazz:generate-symbol-for "&")
-                              (jazz:generate-symbol-context unit-name)
-                              (jazz:generate-symbol-counter 0))
-                 (jazz:with-extension-reader (%%resource-extension src)
-                   (lambda ()
-                     (jazz:load-resource src)))))
+                (jazz:increment-interpreted-load-counter)
+                (let ((warn (jazz:warn-interpreted?)))
+                  (if warn
+                      (case warn
+                        ((error)
+                         (jazz:error "Loading {a} interpreted" unit-name))
+                        ((stack)
+                         (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
+                         (pp jazz:Load-Stack))
+                        (else
+                         (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
+                         (if (and (%%pair? warn) (%%memq unit-name warn))
+                             (pp jazz:Load-Stack))))))
+                (parameterize ((jazz:walk-for 'interpret)
+                               (jazz:generate-symbol-for "&")
+                               (jazz:generate-symbol-context unit-name)
+                               (jazz:generate-symbol-counter 0))
+                  (jazz:with-extension-reader (%%get-resource-extension src)
+                    (lambda ()
+                      (jazz:load-resource src)))))
               (else
                (if force-source?
                    (jazz:error "Unable to find unit source: {s}" unit-name)
@@ -1834,7 +1825,7 @@
 
 
 (define (jazz:load-foundation)
-  (jazz:load-unit 'core.module))
+  (jazz:load-unit 'foundation))
 
 
 (define (jazz:load-runtime)
@@ -1844,8 +1835,9 @@
 
 (define (jazz:load-build)
   (jazz:load-foundation)
+  ;; backend-rebase???
   (jazz:load-unit 'core.unit.runtime)
-  (jazz:load-unit 'core.unit.builder))
+  (jazz:load-unit 'core.unit.build))
 
 
 (define (jazz:load-install)
@@ -1862,8 +1854,8 @@
 
 
 (define (jazz:relocate-resource repository resource)
-  (let ((package (%%resource-package resource))
-        (dir (jazz:pathname-dir (%%resource-path resource))))
+  (let ((package (%%get-resource-package resource))
+        (dir (jazz:pathname-dir (%%get-resource-path resource))))
     (jazz:relocate-package-pathname repository package dir)))
 
 

@@ -147,6 +147,20 @@
     (cons (get-anchor) (get-descendant-anchors))))
 
 
+(class Unknown-Alias-Exception extends Exception
+  
+  
+  (slot alias getter generate)
+  
+  
+  (method override (initialize alias)
+    (set! alias~self alias))
+  
+  
+  (method override (get-message)
+    (format "Unknown alias: {t}" alias)))
+
+
 (definition *root-alias*
   (new Alias #f))
 
@@ -170,7 +184,7 @@
     (if result
         (get-path~ result)
       (when error?
-        (error "Unknown alias: {t}" name)))))
+        (throw (new Unknown-Alias-Exception name))))))
 
 
 (definition public (set-alias! name path)
@@ -179,7 +193,7 @@
         (table-set! (get-parent~ result)
                     (last (split-symbol name #\:))
                     path)
-      (error "Unknown alias: {t}" name))))
+      (throw (new Unknown-Alias-Exception name)))))
 
 
 (definition public (find-alias name (root: root #f) (error?: error? #f))
@@ -196,7 +210,7 @@
           (if alias
               (iterate (cdr path) alias)
             (when error?
-              (error "Unknown alias: {t}" name))))))))
+              (throw (new Unknown-Alias-Exception name)))))))))
 
 
 (definition public (require-alias name)
@@ -621,7 +635,7 @@
                  (validate-recursive path)
                  (if (pathname-alias? path)
                      (parse (pathname-alias path))
-                   (error "Unknown alias: {s}" path)))
+                   (throw (new Unknown-Alias-Exception path))))
                 ((pair? path)
                  (parse (car path))
                  (parse (cdr path)))
@@ -1416,6 +1430,9 @@
     ))
 
 (definition public Jazz-Extensions
+  '("jazz" "jml" "mnf" "dgs" "repository" "package" "configuration" "settings" "project"))
+
+(definition public Jazz-All-Extensions
   '("jazz" "jcat" "jlog" "jml" "mnf" "dgs" "repository" "package" "configuration" "settings" "snapshot" "project"))
 
 (definition public Lisp-Extensions
@@ -1441,16 +1458,21 @@
   '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe"))
 
 
-(definition public (effective-extensions extensions)
-  (case extensions
-    ((:scheme) Scheme-Extensions)
-    ((:commonlisp) CommonLisp-Extensions)
-    ((:jazz) Jazz-Extensions)
-    ((:lisp) Lisp-Extensions)
-    ((:c) C-Extensions)
-    ((:text) Text-Extensions)
-    ((:textual) Textual-Extensions)
-    (else extensions)))
+(definition public (effective-extensions obj)
+  (cond ((string? obj)
+        (list obj))
+        ((pair? obj)
+         (apply union test: extension=? (map effective-extensions obj)))
+        (else
+         (case obj
+           ((:scheme) Scheme-Extensions)
+           ((:commonlisp) CommonLisp-Extensions)
+           ((:jazz) Jazz-Extensions)
+           ((:lisp) Lisp-Extensions)
+           ((:c) C-Extensions)
+           ((:text) Text-Extensions)
+           ((:textual) Textual-Extensions)
+           (else obj)))))
 
 
 (definition Scheme-Include-Extensions

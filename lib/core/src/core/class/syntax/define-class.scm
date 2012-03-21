@@ -127,24 +127,26 @@
                   `(begin
                      ,@(cond ((%%not slot-getter)
                               '())
-                             (jazz:debug-core?
-                              '())
                              (else
                               (case accessors-type
                                 ((macro)
                                  `((jazz:define-macro (,slot-getter object)
-                                     (%%list '%%object-ref object ,rank))))
+                                     (jazz:with-uniqueness object
+                                       (lambda (obj)
+                                         `(%%assert-class ,obj ,',name
+                                            (%%object-ref ,obj ,,rank)))))))
                                 (else
                                  '()))))
                      ,@(cond ((%%not slot-setter)
-                              '())
-                             (jazz:debug-core?
                               '())
                              (else
                               (case accessors-type
                                 ((macro)
                                  `((jazz:define-macro (,slot-setter object value)
-                                     (%%list '%%object-set! object ,rank value))))
+                                     (jazz:with-uniqueness object
+                                       (lambda (obj)
+                                         `(%%assert-class ,obj ,',name
+                                            (%%object-set! ,obj ,,rank ,value)))))))
                                 (else
                                  '())))))))
               slots
@@ -172,40 +174,29 @@
                 (obj-symbol (jazz:generate-symbol "obj"))
                 (rest-symbol (jazz:generate-symbol "rest")))
             `(begin
-               ;; this is necessary as the getter/setter type assertions will refer to
-               ;; the class that is only defined later in the runtime implementation file
-               ,@(if jazz:debug-core?
-                     `((jazz:define-variable ,name))
-                   '())
                ,@(map (lambda (slot rank)
                         (jazz:bind (slot-name slot-initialize slot-getter slot-setter) slot
                           `(begin
                              ,@(cond ((%%not slot-getter)
                                       '())
-                                     (jazz:debug-core?
-                                      `((define (,slot-getter object)
-                                          (%%core-assertion (jazz:object-of-class? object ,name) (jazz:expected-error ,name object)
-                                            (%%object-ref object ,rank)))))
                                      (else
                                       (case accessors-type
                                         ((macro)
                                          '())
                                         (else
                                          `((define (,slot-getter object)
-                                             (%%object-ref object ,rank)))))))
+                                             (%%assert-class object ,name
+                                               (%%object-ref object ,rank))))))))
                              ,@(cond ((%%not slot-setter)
                                       '())
-                                     (jazz:debug-core?
-                                      `((define (,slot-setter object value)
-                                          (%%core-assertion (jazz:object-of-class? object ,name) (jazz:expected-error ,name object)
-                                            (%%object-set! object ,rank value)))))
                                      (else
                                       (case accessors-type
                                         ((macro)
                                          '())
                                         (else
                                          `((define (,slot-setter object value)
-                                             (%%object-set! object ,rank value))))))))))
+                                             (%%assert-class object ,name
+                                               (%%object-set! object ,rank value)))))))))))
                       slots
                       (jazz:naturals (%%fx+ jazz:object-size ascendant-size) instance-size))
                (define ,name

@@ -123,7 +123,11 @@
                          #; ;; costly test for a very low probability class of bugs
                          (%%core-assertion (%%fx< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
                            (##vector-set! ,obj ,n ,value)))))))
-            `(##vector-set! ,object ,n ,value))))))
+            `(##vector-set! ,object ,n ,value)))))
+    
+    (jazz:define-macro (%%assert-class object class . body)
+      `(%%core-assertion (jazz:object-of-class? ,object ,class) (jazz:expected-error ,class ,object)
+         ,@body)))
   
   (else
    (jazz:define-macro (%%object? expr)

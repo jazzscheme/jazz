@@ -46,21 +46,37 @@
     (define jazz:structure-offset
       0)
     
+    (define jazz:structure-marker
+      (list 'structure))
+    
     (define jazz:record-offset
       (%%fx+ jazz:structure-offset 1))
     
     (jazz:define-macro (%%subtype-jazz)
       7)
     
-    (jazz:define-macro (%%record? expr)
+    ;; this function is here for structure / class unification
+    (jazz:define-macro (%%jazz? expr)
       `(##jazz? ,expr))
     
-    (jazz:define-macro (%%record structure . rest)
-      `(##subtype-set! (%%vector ,structure ,@rest) (%%subtype-jazz)))
+    ;; this function is here for structure / class unification
+    (jazz:define-macro (%%jazzify expr)
+      `(##subtype-set! ,expr (%%subtype-jazz)))
     
+    #; ;; defined as functions until structure / class unification
+    (jazz:define-macro (%%record? expr)
+      `(and (##vector? ,expr)
+            (##fx> (##vector-length ,expr) 0)
+            (##symbol? (##vector-ref ,expr 0))))
+    
+    #; ;; defined as functions until structure / class unification
+    (jazz:define-macro (%%record structure . rest)
+      `(%%jazzify (%%vector ,structure ,@rest)))
+    
+    #; ;; defined as functions until structure / class unification
     (jazz:define-macro (%%make-record structure size)
       (let ((record (jazz:generate-symbol "record")))
-        `(let ((,record (##subtype-set! (%%make-vector ,size (%%unspecified)) (%%subtype-jazz))))
+        `(let ((,record (%%jazzify (%%make-vector ,size (%%unspecified)))))
            (%%set-record-structure ,record ,structure)
            ,record)))
     
@@ -116,6 +132,39 @@
 
 (jazz:define-macro (%%set-record-structure record structure)
   `(%%record-set! ,record ,jazz:structure-offset ,structure))
+
+
+;; defined as functions until structure / class unification
+(define (%%record-structure? expr)
+  (and (##pair? expr)
+       (##eq? (##cdr expr) jazz:structure-marker)))
+
+
+;; defined as functions until structure / class unification
+(define (%%make-record-structure name)
+  (%%cons name jazz:structure-marker))
+
+
+;; defined as functions until structure / class unification
+(define (%%record? expr)
+  (and (##vector? expr)
+       (##fx> (##vector-length expr) 0)
+       (%%record-structure? (##vector-ref expr 0))))
+
+
+(jazz:define-macro (%%record name . rest)
+  `(%%vector (%%make-record-structure ,name) ,@rest))
+
+
+(jazz:define-macro (%%class-record class . rest)
+  `(%%jazzify (%%vector ,class ,@rest)))
+
+
+(jazz:define-macro (%%make-record name size)
+  (let ((record (jazz:generate-symbol "record")))
+    `(let ((,record (%%make-vector ,size (%%unspecified))))
+       (%%set-record-structure ,record (%%make-record-structure ,name))
+       ,record)))
 
 
 (define (jazz:record->vector record)

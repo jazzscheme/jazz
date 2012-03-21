@@ -106,7 +106,7 @@
                `((define (,constructor ,@all-slot-names)
                    (%%record ',name ,@all-slot-names)))
              `((define (,constructor structure ,@all-slot-names)
-                 (%%record structure ,@all-slot-names)))))
+                 (%%class-record structure ,@all-slot-names)))))
        ,@(if (%%not predicate)
              '()
            `((define (,predicate obj)

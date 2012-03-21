@@ -46,7 +46,9 @@
     
     (set! ##wr
           (lambda (we obj)
-            (cond ((and (##jazz? obj) jazz:print-hook)
+            (cond ((and (##jazz? obj) (%%symbol? (%%get-object-class obj)))
+                   (##default-wr we (jazz:record->vector obj)))
+                  ((and (##jazz? obj) jazz:print-hook)
                    (jazz:print-hook obj (jazz:writeenv-port we) (jazz:writeenv-style we)))
                   (else
                    (jazz:write-object (jazz:class-of obj) we obj))))))

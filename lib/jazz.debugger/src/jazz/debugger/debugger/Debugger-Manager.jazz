@@ -219,6 +219,17 @@
   
   
   (method public (attach-process process focus?)
+    (define (add-unzoomed-stops debugged)
+      (table-set! unzoomed-stops debugged #t))
+    
+    (for-each (lambda (thread)
+                (when (not-null? (with-jrm-exception-handler
+                                   (lambda ()
+                                     (get-stops~ thread))))
+                  (add-unzoomed-stops thread)))
+              (with-jrm-exception-handler
+                (lambda ()
+                  (get-threads~ process))))
     (when (and focus? (focusable?~ process))
       (set-focused-process process))
     (when (get-processes-view)
@@ -492,7 +503,7 @@
   
   
   (method public (update-variables-zoom)
-    (when (= (table-length unvisited-stops) 0)
+    (when (= (table-length active-stops) 0)
       (let ((variables-view (get-variables-view)))
         (when variables-view
           (let ((variables-parent (get-parent~ variables-view)))
@@ -534,6 +545,7 @@
     (remove-active-stop thread stop)
     (remove-unvisited-stops process)
     (remove-unvisited-stops thread)
+    (remove-unzoomed-stops process)
     (remove-unzoomed-stops thread)
     (update-processes-highlight process)
     (let ((view (get-threads-view)))

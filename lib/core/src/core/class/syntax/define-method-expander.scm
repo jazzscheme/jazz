@@ -38,54 +38,45 @@
 (unit protected core.class.syntax.define-method-expander
 
 
-(define (jazz:expand-define-virtual signature bootstrap-type?)
-  (let* ((name (%%car signature))
+(define (jazz:expand-define-virtual-syntax signature bootstrap-type?)
+  (let* ((name (jazz:reference-name (%%car signature)))
+         (macro-name (%%car signature))
          (parameters (%%cdr signature))
          (class-name (%%caar parameters))
          (object-parameter (%%cadr (%%car parameters)))
          (extra-parameters (%%cdr parameters))
+         (class-level-name (%%compose-helper class-name 'core-level))
          (implementation-name (jazz:method-implementation-name class-name name))
-         (rank-name (jazz:method-rank-name implementation-name))
+         (method-rank-name (jazz:method-rank-name implementation-name))
          (is-test (if bootstrap-type? 'jazz:bootstrap-type? '%%class-is?))
          (object (jazz:generate-symbol "object")))
-    #; ;; experimental non-functional but cleaner version of the following quasiquote
-    (let ((proc (lambda (object-parameter object-symbol)
-                  `(%%core-assertion (,is-test ,object-symbol ,class-name) (jazz:error ,(jazz:format "{s} expected in calling {s}: {s}" class-name name object-parameter))
-                     ((%%vector-ref (%%get-class-core-vtable (%%get-object-class ,object-symbol)) ,rank-name)
-                      ,object-symbol
-                      ,@extra-parameters)))))
-      `(jazz:define-macro (,name ,object-parameter ,@extra-parameters)
-         (if (%%symbol? ,object-parameter)
-             ,(proc object-parameter object-parameter)
-           (jazz:with-uniqueness ,object-parameter
-             (lambda (obj)
-               ,(proc object-parameter 'obj))))))
-    `(jazz:define-macro (,name ,object-parameter ,@extra-parameters)
+    `(jazz:define-macro (,macro-name ,object-parameter ,@extra-parameters)
        (if (%%symbol? ,object-parameter)
            (%%list '%%core-assertion (%%list ',is-test ,object-parameter ',class-name) (%%list 'jazz:error (jazz:format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter))
-             (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%get-object-class ,object-parameter)) ',rank-name)
+             (%%list (%%list '%%class-dispatch (%%list '%%get-object-class ,object-parameter) ',class-level-name ',method-rank-name)
                      ,object-parameter
                      ,@extra-parameters))
          (jazz:with-uniqueness ,object-parameter
            (lambda (,object)
              (%%list '%%core-assertion (%%list ',is-test ,object ',class-name) (%%list 'jazz:error (jazz:format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter))
-               (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%get-object-class ,object)) ',rank-name)
+               (%%list (%%list '%%class-dispatch (%%list '%%get-object-class ,object) ',class-level-name ',method-rank-name)
                        ,object
                        ,@extra-parameters))))))))
 
 
-(define (jazz:expand-define-virtual-runtime signature)
-  (let* ((name (%%car signature))
+(define (jazz:expand-define-virtual signature)
+  (let* ((name (jazz:reference-name (%%car signature)))
          (parameters (%%cdr signature))
          (class-name (%%caar parameters))
          (implementation-name (jazz:method-implementation-name class-name name))
          (rank-name (jazz:method-rank-name implementation-name)))
-    `(define ,rank-name
-       (jazz:register-virtual-name ,class-name ',name))))
+    `(begin
+       (define ,rank-name
+         (jazz:add-core-virtual-method ,class-name ',name)))))
 
 
 (define (jazz:expand-define-method signature body)
-  (let* ((name (%%car signature))
+  (let* ((name (jazz:reference-name (%%car signature)))
          (parameters (%%cdr signature))
          (class-name (%%caar parameters))
          (object-parameter (%%cadr (%%car parameters)))
@@ -96,7 +87,7 @@
          (let ((nextmethod (jazz:find-nextmethod ,class-name ',name)))
            (lambda (,object-parameter ,@extra-parameters)
              ,@body)))
-       (jazz:register-method ,class-name ',name ,implementation-name))))
+       (jazz:add-core-method-node ,class-name ',name ,implementation-name))))
 
 
 (define (jazz:method-implementation-name class-name name)
@@ -105,50 +96,4 @@
 
 
 (define (jazz:method-rank-name implementation-name)
-  (%%string->symbol (%%string-append (%%symbol->string implementation-name) "!rank")))
-
-
-(define (jazz:inherited-name? class method-name)
-  (let ((ascendant (%%get-class-ascendant class)))
-    (and ascendant
-         (%%memq method-name (%%get-class-core-virtual-names ascendant)))))
-
-
-(define (jazz:register-virtual-name class method-name)
-  (%%set-class-core-virtual-names class
-    (%%append (%%get-class-core-virtual-names class)
-              (%%list method-name)))
-  (%%fx- (%%length (%%get-class-core-virtual-names class))
-         1))
-
-
-(define (jazz:register-method class method-name method-implementation)
-  (if (jazz:inherited-name? class method-name)
-      (%%set-class-core-method-alist class
-        (%%append (%%get-class-core-method-alist class)
-                  (%%list (%%cons method-name method-implementation))))
-    (%%set-class-core-virtual-alist class
-      (%%append (%%get-class-core-virtual-alist class)
-                (%%list (%%cons method-name method-implementation))))))
-
-
-(define (jazz:get-method-rank class method-name)
-  (let iter ((scan (%%get-class-core-virtual-names class))
-             (rank 0))
-    (if (%%null? scan)
-        (jazz:error "No method {s} for class {s}" method-name class)
-        (if (%%eq? (%%car scan) method-name)
-            rank
-            (iter (%%cdr scan) (%%fx+ rank 1))))))
-
-
-(define (jazz:get-method-implementation class method-name)
-  (%%vector-ref (%%get-class-core-vtable class)
-                (jazz:get-method-rank class method-name)))
-
-
-(define (jazz:find-nextmethod class method-name)
-  (if (jazz:inherited-name? class method-name)
-      (jazz:get-method-implementation (%%get-class-ascendant class) method-name)
-    (lambda (obj . rest)
-      (jazz:error "No nextmethod for {s} on {s}" obj method-name)))))
+  (%%compose-helper implementation-name 'rank)))

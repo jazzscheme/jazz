@@ -40,15 +40,15 @@
 
 (cond-expand
   (gambit
-    (define jazz:print-hook
+    (jazz:define-variable jazz:print-hook
       #f)
-    
-    (set! jazz:print-hook #f)
     
     
     (set! ##wr
           (lambda (we obj)
-            (cond ((and (##jazz? obj) jazz:print-hook)
+            (cond ((%%record? obj)
+                   (##default-wr we (jazz:record->vector obj)))
+                  ((and (%%jazz? obj) jazz:print-hook)
                    (jazz:print-hook obj (jazz:writeenv-port we) (jazz:writeenv-style we)))
                   (else
                    (jazz:write-object (jazz:class-of obj) we obj))))))

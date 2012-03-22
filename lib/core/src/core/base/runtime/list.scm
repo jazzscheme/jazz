@@ -56,6 +56,16 @@
           (iter (%%cdr scan)))))))
 
 
+(define (jazz:find-rank element lst)
+  (let iter ((scan lst) (rank 0))
+       (cond ((%%null? scan)
+              #f)
+             ((%%eq? (%%car scan) element)
+              rank)
+             (else
+              (iter (%%cdr scan) (%%fx+ rank 1))))))
+
+
 (define jazz:reverse!
   reverse)
 
@@ -102,6 +112,13 @@
       '())))
 
 
+(define (jazz:proper-list lst)
+  (let iter ((scan lst))
+    (if (pair? scan)
+        (cons (car scan) (iter (cdr scan)))
+      '())))
+
+
 (define (jazz:partition lst key associate)
   (let iter ((scan lst))
     (if (%%null? scan)
@@ -131,15 +148,6 @@
   (if (%%null? (%%cdr lst))
       '()
     (%%cons (%%car lst) (jazz:butlast (%%cdr lst)))))
-
-
-(define (jazz:naturals from to)
-  (let ((lst '())
-        (n from))
-    (%%while (%%fx< n to)
-      (set! lst (%%cons n lst))
-      (set! n (%%fx+ n 1)))
-    (jazz:reverse! lst)))
 
 
 (define (jazz:remove! target lst)

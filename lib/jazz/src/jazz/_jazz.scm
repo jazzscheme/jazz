@@ -41,7 +41,6 @@
 (export (scheme)
         
         (jazz.dialect (phase syntax))
-        (jazz.dialect.syntax (phase syntax))
-        (jazz.dialect.kernel)
-        (jazz.dialect.language)
-        (jazz.dialect.walker)))
+        (jazz.language.syntax (phase syntax))
+        (jazz.language.runtime)
+        (jazz.dialect.classes.jazz)))

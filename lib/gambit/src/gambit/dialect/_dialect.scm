@@ -35,13 +35,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected gambit.dialect core
+(module protected gambit.dialect scheme
 
 
-(require (core.module)
+(require (dialect)
          (scheme (phase syntax))
-         (gambit.dialect.classes (phase syntax))
-         (gambit.dialect.dialect))
+         (gambit.dialect.runtime))
 
 
 (export (gambit.dialect.kernel)))

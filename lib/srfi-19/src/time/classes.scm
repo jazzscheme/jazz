@@ -39,24 +39,12 @@
 
 
 ;;;
-;;;; Syntax
-;;;
-
-
-(jazz:define-class time:Time-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz:Class () ())
-(jazz:define-class time:Time       jazz:Object () time:Time-Class () ())
-
-
-(jazz:define-class time:Date-Class jazz:Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz:Class () ())
-(jazz:define-class time:Date       jazz:Object () time:Date-Class () ())
-
-
-;;;
 ;;;; Time
 ;;;
 
 
-(jazz:define-class-runtime time:Time-Class)
+(jazz:define-class time:Time-Class jazz:Class (metaclass: jazz:Class)
+  ())
 
 
 (jazz:define-method (jazz:of-type? (time:Time-Class class) object)
@@ -67,7 +55,7 @@
   'time)
 
 
-(jazz:define-method (jazz:emit-test (time:Time-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (time:Time-Class type) value source-declaration environment backend)
   `(time? ,value))
 
 
@@ -76,13 +64,8 @@
     (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
 
 
-(jazz:encapsulate-class time:Time-Class)
-
-
-(jazz:define-class-runtime time:Time)
-
-
-(jazz:encapsulate-class time:Time)
+(jazz:define-class time:Time jazz:Object (metaclass: time:Time-Class)
+  ())
 
 
 (%%table-set! jazz:primitive-types 'time time:Time)
@@ -96,7 +79,8 @@
 ;;;
 
 
-(jazz:define-class-runtime time:Date-Class)
+(jazz:define-class time:Date-Class jazz:Class (metaclass: jazz:Class)
+  ())
 
 
 (jazz:define-method (jazz:of-type? (time:Date-Class class) object)
@@ -107,7 +91,7 @@
   'date)
 
 
-(jazz:define-method (jazz:emit-test (time:Date-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (time:Date-Class type) value source-declaration environment backend)
   `(date? ,value))
 
 
@@ -116,13 +100,8 @@
     (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
 
 
-(jazz:encapsulate-class time:Date-Class)
-
-
-(jazz:define-class-runtime time:Date)
-
-
-(jazz:encapsulate-class time:Date)
+(jazz:define-class time:Date jazz:Object (metaclass: time:Date-Class)
+  ())
 
 
 (%%table-set! jazz:primitive-types 'date time:Date)

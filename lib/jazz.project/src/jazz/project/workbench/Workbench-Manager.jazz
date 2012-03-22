@@ -41,6 +41,8 @@
 (import (jazz.catalog)
         (jazz.designer)
         (jazz.designer.menu)
+        (jazz.git)
+        (jazz.git.ui)
         (jazz.graphic)
         (jazz.groupware)
         (jazz.io)
@@ -255,6 +257,10 @@
   
   (method (on-search-project evt)
     (search-project))
+  
+  
+  (method (on-explore-depot evt)
+    (explore-depot))
   
   
   (method (on-edit-project evt)
@@ -497,7 +503,7 @@
   (definition MaxFiles-Warning
     100)
   
-  (definition Ignored-Directories
+  (definition Ignored-Dirnames
     '(".git" ".hg"))
   
   
@@ -509,13 +515,18 @@
         (known-extension-frame-class~ (get-application) ext))))
   
   
+  (definition (filter-pathname? project pathname (filter: filter #f))
+    (and (import-filter? project pathname)
+         (or (not filter) (filter project pathname))))
+  
+  
   (method (import-directory current-directory?)
     (let* ((parent (selected-object))
            (project (ascendant-project parent))
            (directory (with-import-directory current-directory? parent
                         (lambda (directory)
                           (choose-directory directory: directory))))
-           (count (count-files~ directory ignored-directories: Ignored-Directories filter: (lambda (file) (import-filter? project file)) max-count: MaxFiles-Warning)))
+           (count (count-files~ directory ignored-dirnames: Ignored-Dirnames filter: (lambda (file) (import-filter? project file)) max-count: MaxFiles-Warning)))
       (when (or count (eq? (message-box (format "The directory you are importing contains more than {a} files. Are you sure you want to import?" MaxFiles-Warning) type: 'question) 'yes))
         (when (validate-pathnames project (list directory))
           (let ((component (import-pathname project directory parent #f)))
@@ -544,7 +555,7 @@
                       (format-plural count)))))
   
   
-  (method (import-pathname project pathname parent descendant? (recursive?: recursive? #t))
+  (method (import-pathname project pathname parent descendant? (filter: filter #f) (recursive?: recursive? #t))
     (define (import-dir dir parent descendant?)
       (let ((dir (contextualize-pathname~ (ascendant-project parent) dir)))
         (let ((subgroup (new Project-Directory directory: dir)))
@@ -574,31 +585,32 @@
              (install-project project-file parent #t)
            (import-dir pathname parent descendant?))))
       ((File)
-       (when (or (not descendant?) (import-filter? project pathname))
+       (when (and (or (not descendant?) (import-filter? project pathname))
+                  (or (not filter) (filter project pathname)))
          (let ((ext (get-extension~ pathname)))
            (if (and ext (string-ci=? ext "project"))
                (install-project pathname parent descendant?)
              (import-file pathname parent descendant?)))))))
   
   
-  (method (import-content project dir parent descendant? (recursive?: recursive? #t))
+  (method (import-content project dir parent descendant? (filter: filter #f) (recursive?: recursive? #t))
     (when recursive?
       (iterate-directory~ dir
         (lambda (pathname)
-          (import-pathname project pathname parent descendant?))
+          (import-pathname project pathname parent descendant? filter: filter))
         files?: #f
         directories?: #t
         sort?: #t
         recursive?: #f
-        ignored-directories: Ignored-Directories)
+        ignored-dirnames: Ignored-Dirnames)
       (iterate-directory~ dir
         (lambda (pathname)
-          (import-pathname project pathname parent descendant?))
+          (import-pathname project pathname parent descendant? filter: filter))
         files?: #t
         directories?: #f
         sort?: #t
         recursive?: #f
-        ignored-directories: Ignored-Directories))
+        ignored-dirnames: Ignored-Dirnames))
     (if (or (not recursive?)
             (not descendant?)
             (not-null? (get-children~ parent)))
@@ -607,7 +619,7 @@
       #f))
   
   
-  (definition (default-import-directory object (must-exist?: must-exist? #t))
+  (method (default-import-directory object (must-exist?: must-exist? #t))
     (define (default object)
       (typecase object
         ((Project)
@@ -655,59 +667,88 @@
   
   
   (method (synchronize-content)
+    (define (synchronize-filter project pathname)
+      (let ((ext (get-extension~ pathname))
+            (ignored-extensions '("project" "package")))
+        (not (member? ext ignored-extensions test: extension=?))))
+    
     (let ((object (selected-object)))
-      (let ((project (ascendant-project object))
-            (directory (default-import-directory object must-exist?: #f)))
-        (if (not (exists?~ directory))
-            (message-box (format "Directory not found: {a}" (parse~ directory)))
-          (remove-children~ designer object)
-          (import-content project directory object #f)
-          (process-refresh~ designer object 'descendants))))
-    @wait-complete
-    (let* ((object (selected-object))
-           (project (ascendant-project object))
-           (directory (default-import-directory object must-exist?: #f)))
-      (if (not (exists?~ directory))
-          (error "Directory {s} not found" directory)
-        (let ((fact (new List-Factory)))
-          (define (component-name component)
-            (->string (get-name~ component)))
-          
-          (define (pathname-name pathname)
-            (get-name~ pathname))
-          
-          (define (fold component pathname path)
-            (let ((children (get-children~ component))
-                  (content (get-content~ pathname)))
-              (merge-ordered (lambda (what key left right)
-                               (let ((path (cons key path)))
-                                 (case what
-                                   ((:left) (put~ fact (list what path)))
-                                   ((:right) (put~ fact (list what path)))
-                                   ((:same)
-                                    (when (directory? right)
-                                      (fold left right path))))))
-                             (sort ci<? children key: component-name)
-                             (sort ci<? content key: pathname-name)
-                             left-key: component-name
-                             right-key: pathname-name
-                             case-insensitive?: #t)))
-          
-          (fold object directory '())
-          (let ((out-of-synch (get-output~ fact)))
-            (if (null? out-of-synch)
-                (message-box "Content is already synchronized")
-              (let* ((border (new Synchronize-Border size: {Dimension 500 200}))
-                     (tree (locate~ border 'tree))
-                     (add
-                       (lambda (what path)
-                         (let ((c0 (new Tree-Node title: (join path "/") image: {Image-Resource "OpenedFolder"})))
-                           (add-row~ tree children: (list c0 #f #f #f))))))
-                (for-each (lambda (info)
-                            (bind (what path) info
-                              (add what (reverse path))))
-                          out-of-synch)
-                (message-box "The following elements are out of synch. Synchronize?" class: Synchronize-Box type: 'confirmation content: border))))))))
+      (if (find-descendant~ object (lambda (descendant) (is? descendant Project)) include-self?: #f)
+          (message-box "Cannot yet synchronize an element containing a project")
+        (let ((project (ascendant-project object))
+              (directory (default-import-directory object must-exist?: #f)))
+          (if (not (exists?~ directory))
+              (error "Directory {s} not found" directory)
+            (let ((fact (new List-Factory)))
+              (define (component-name component)
+                (typecase component
+                  ((Project-File)
+                   (get-name~ (get-source~ component)))
+                  ((Project-Directory)
+                   (get-name~ (get-directory~ component)))
+                  (else
+                   (->string (get-name~ component)))))
+              
+              (define (pathname-name pathname)
+                (get-name~ pathname))
+              
+              (define (fold component pathname path)
+                (let ((children (get-children~ component))
+                      (content (collect-if (lambda (pathname)
+                                             (filter-pathname? project pathname filter: synchronize-filter))
+                                           (get-content~ pathname))))
+                  (merge-ordered (lambda (what key left right)
+                                   (let ((path (cons key path)))
+                                     (case what
+                                       ((:left :right) (put~ fact (list what (reverse path) left right component)))
+                                       ((:same)
+                                        (when (directory? right)
+                                          (fold left right path))))))
+                                 (sort ci<? children key: component-name)
+                                 (sort ci<? content key: pathname-name)
+                                 left-key: component-name
+                                 right-key: pathname-name
+                                 case-insensitive?: #t)))
+              
+              (fold object directory '())
+              (let ((out-of-synch (get-output~ fact)))
+                (if (null? out-of-synch)
+                    (message-box "Content already synchronized")
+                  (let ((border (new Synchronize-Border size: {Dimension 500 200})))
+                    (let ((tree (locate~ border 'tree)))
+                      (define (add info)
+                        (bind (what path left right) info
+                          (let ((title (join path "/"))
+                                (image (if (directory? right) {Image-Resource "OpenedFolder"} {Image-Resource "File"})))
+                            (let ((c0 (new Tree-Node title: title image: image)))
+                              (add-row~ tree children: (list c0 what (cons #t info) what))))))
+                      
+                      (for-each add out-of-synch)
+                      (let ((code (message-box "The following elements are out of synch. Synchronize?" class: Synchronize-Box type: 'confirmation content: border)))
+                        (case code
+                          ((yes)
+                           (with-cursor :wait
+                             (lambda ()
+                               (let ((added 0)
+                                     (removed 0))
+                                 (for-each-visible-row~ tree
+                                   (lambda (row rank)
+                                     (let ((cell (new Cell rank 2)))
+                                       (let ((data (get-cell-data~ tree cell)))
+                                         (bind (marked? . info) data
+                                           (when marked?
+                                             (bind (what path left right parent) info
+                                               (case what
+                                                 ((:left)
+                                                  (remove-child~ designer left)
+                                                  (increase! removed))
+                                                 ((:right)
+                                                  (let ((component (import-pathname project right parent #f)))
+                                                    (process-refresh~ designer component 'descendants))
+                                                  (increase! added))))))))))
+                                 (user-message "{a} added, {a} removed"
+                                               added
+                                               removed)))))))))))))))))
   
   
   ;;;
@@ -728,7 +769,7 @@
                  directories?: #t
                  sort?: #t
                  recursive?: #f
-                 ignored-directories: Ignored-Directories))
+                 ignored-dirnames: Ignored-Dirnames))
               ((File)
                (when (import-filter? project pathname)
                  (let ((model (extension-model (get-extension~ pathname))))
@@ -906,6 +947,19 @@
                   (let ((project (selected-object))
                         (combo (locate~ projects-search 'project)))
                     (set-value~ combo project)))))
+  
+  
+  ;;;
+  ;;;; Depot
+  ;;;
+  
+  
+  (method (explore-depot)
+    (let ((project (selected-project)))
+      (let ((depot (project-depot~ project)))
+        (if (not depot)
+            (bell)
+          (new-frame Git-Explorer depot: depot)))))
   
   
   ;;;
@@ -1246,6 +1300,9 @@
               (set-title~ (locate~ menu 'edit-descriptor)
                 (cond ((ci=? name ".repository") "Edit Repository")
                       ((ci=? name ".package") "Edit Package"))))))
+        (let ((depot (and (is? object Project) (project-depot~ object))))
+          (when (not depot)
+            (set-visible?~ (locate~ menu 'explore-depot) #f)))
         (let ((content? (has-content?~ object)))
           (set-visible?~ (locate~ menu 'update-catalog) content?)
           (set-visible?~ (locate~ menu 'search-project) content?)))
@@ -1319,23 +1376,6 @@
 
 
 ;;;
-;;;; Synchronize-Border
-;;;
-
-
-(class Synchronize-Border extends Border-View
-  
-  
-  (form
-    (<install>                                     border-type: solid border-color: {Color Outline-Border}
-      (<Scroller-View>                             style: tool hscroll?: #t vscroll?: #t
-        (<!>                         name: content layout-type: fill
-          (<Tree-Header>                           style: tool
-            (<!>                     name: content
-              (<Synchronize-Tree>    name: tree))))))))
-
-
-;;;
 ;;;; Group-Menu
 ;;;
 
@@ -1350,9 +1390,7 @@
       (<Label-Item>     name: install-project       title: "Install Project..." before: cut icon: {Image-Resource "Import"} action-handler: {Action workbench-manager install-project})
       (<Label-Item>     name: import-files          title: "Import Files..." before: cut action-handler: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory      title: "Import Directory..." before: cut action-handler: {Action workbench-manager import-directory})
-      (<Label-Item>     name: synchronize-content   title: "Synchronize Content" before: cut action-handler: {Action workbench-manager synchronize-content})
-      @wait-complete
-      (<Label-Item>     name: synchronize-content   title: "Synchronize Content..." before: cut action-handler: {Action workbench-manager synchronize-content})
+      (<Label-Item>     name: synchronize-content   title: "Synchronize..." before: cut action-handler: {Action workbench-manager synchronize-content})
       (<Separator-Item>                             before: cut)
       (<Label-Item>     name: set-current-directory title: "Set as Current Directory" before: cut action-handler: {Action workbench-manager set-current-directory})
       (<Separator-Item>                             before: cut)
@@ -1377,11 +1415,12 @@
       (<Label-Item>     name: install-project     title: "Install Project..." before: cut icon: {Image-Resource "Import"} action-handler: {Action workbench-manager install-project})
       (<Label-Item>     name: import-files        title: "Import Files..." before: cut action-handler: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action-handler: {Action workbench-manager import-directory})
-      @wait-complete
-      (<Label-Item>     name: synchronize-content title: "Synchronize Content..." before: cut action-handler: {Action workbench-manager synchronize-content})
+      (<Label-Item>     name: synchronize-content title: "Synchronize..." before: cut action-handler: {Action workbench-manager synchronize-content})
       (<Separator-Item>                           before: cut)
       (<Label-Item>     name: search-project      title: "Search Project" before: cut icon: {Image-Resource "Find"} action-handler: {Action workbench-manager search-project})
       (<Label-Item>     name: update-catalog      title: "Update Catalog" before: cut icon: {Image-Resource "Catalog"} action-handler: {Action workbench-manager update-catalog})
+      (<Separator-Item>                           before: cut)
+      (<Label-Item>     name: explore-depot       title: "Explore Depot" before: cut icon: {Image-Resource "Configure"} action-handler: {Action workbench-manager explore-depot})
       (<Separator-Item>                           before: cut)
       (<!>              name: delete-selection    title: "Remove"))))
 

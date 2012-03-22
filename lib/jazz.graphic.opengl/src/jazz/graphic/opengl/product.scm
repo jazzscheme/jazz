@@ -46,7 +46,7 @@
 (cond-expand
   (windows
     (define (jazz:copy-opengl-files)
-      (let ((build (%%repository-directory jazz:Build-Repository))
+      (let ((build (%%get-repository-directory jazz:Build-Repository))
             (source jazz:kernel-source))
         (define (build-file path)
           (string-append build path))

@@ -182,7 +182,7 @@
            (iter (%%cddr scan))))))
 
 
-(define (jazz:getf plist target #!key (not-found #f))
+(define (jazz:getf plist target #!optional (not-found #f))
   (let ((pair (jazz:getprop plist target)))
     (if pair
         (%%cadr pair)
@@ -227,18 +227,6 @@
 ;;;
 
 
-(define (jazz:string-find str c #!optional (start 0))
-  (declare (proper-tail-calls))
-  (let ((len (%%string-length str)))
-    (let iter ((n start))
-      (cond ((%%fx>= n len)
-             #f)
-            ((%%char=? (%%string-ref str n) c)
-             n)
-            (else
-             (iter (%%fx+ n 1)))))))
-
-
 (define (jazz:string-find-reversed str c)
   (declare (proper-tail-calls))
   (let iter ((n (%%fx- (%%string-length str) 1)))
@@ -248,13 +236,6 @@
            n)
           (else
            (iter (%%fx- n 1))))))
-
-
-(define (jazz:string-starts-with? str target)
-  (let ((sl (%%string-length str))
-        (tl (%%string-length target)))
-    (and (%%fx>= sl tl)
-         (%%string=? (%%substring str 0 tl) target))))
 
 
 (define (jazz:string-starts-with-ci? str target)
@@ -338,15 +319,6 @@
       (%%global-var-unbind! symbol)))
   
   (else))
-
-
-(define (jazz:break-reference identifier)
-  (let ((str (%%symbol->string identifier)))
-    (let ((n (jazz:string-find str #\:)))
-      (if (%%not n)
-          (values identifier #f)
-        (values (%%string->symbol (%%substring str 0 n))
-                (%%string->symbol (%%substring str (%%fx+ n 1) (%%string-length str))))))))
 
 
 (define (jazz:compose-identifier . rest)
@@ -535,11 +507,11 @@
 
 (define (jazz:updated-digest-source? digest src-filepath)
   (let ((time (jazz:file-modification-time src-filepath)))
-    (if (= time (%%digest-time digest))
+    (if (= time (%%get-digest-time digest))
         #f
       (begin
-        (%%digest-time-set! digest time)
-        (%%digest-hash-set! digest (digest-file src-filepath 'SHA-1))
+        (%%set-digest-time digest time)
+        (%%set-digest-hash digest (digest-file src-filepath 'SHA-1))
         #t))))
 
 
@@ -588,9 +560,9 @@
 
 
 (define (jazz:save-manifest filepath manifest)
-  (let ((name (%%manifest-name manifest))
-        (version (%%manifest-version manifest))
-        (references (%%manifest-references manifest)))
+  (let ((name (%%get-manifest-name manifest))
+        (version (%%get-manifest-version manifest))
+        (references (%%get-manifest-references manifest)))
     (jazz:create-directories (jazz:pathname-dir filepath))
     (call-with-output-file (list path: filepath eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
       (lambda (output)
@@ -603,7 +575,7 @@
         (display ")" output)
         (newline output)
         (display "  (digest " output)
-        (write (%%manifest-compile-time-hash manifest) output)
+        (write (%%get-manifest-compile-time-hash manifest) output)
         (if references
             (begin
               (display ")" output)
@@ -645,19 +617,19 @@
         (for-each (lambda (digest)
                     (newline output)
                     (display "  (file " output)
-                    (write (jazz:pathname-normalize (%%digest-pathname digest)) output)
+                    (write (jazz:pathname-normalize (%%get-digest-pathname digest)) output)
                     (display " " output)
-                    (write (%%digest-hash digest) output)
+                    (write (%%get-digest-hash digest) output)
                     (display " " output)
-                    (write (%%digest-time digest) output)
+                    (write (%%get-digest-time digest) output)
                     (display ")" output))
                   digests)
         (display ")" output)
         (newline output))))
   
   (let ((existing-files-digests (filter (lambda (digest)
-                                          (file-exists? (%%digest-pathname digest)))
-                                        (%%manifest-source-digests manifest))))
+                                          (file-exists? (%%get-digest-pathname digest)))
+                                        (%%get-manifest-source-digests manifest))))
     (if (%%null? existing-files-digests)
         (delete-digest-file)
       (save-digest existing-files-digests))))
@@ -666,17 +638,17 @@
 (define (jazz:find-source-digest src-pathname manifest)
   (define (find-digest)
     (let ((pathname (jazz:pathname-normalize src-pathname)))
-      (let iter ((digests (%%manifest-source-digests manifest)))
+      (let iter ((digests (%%get-manifest-source-digests manifest)))
            (if (%%pair? digests)
                (let ((digest (%%car digests)))
-                 (if (jazz:path=? pathname (%%digest-pathname digest))
+                 (if (jazz:path=? pathname (%%get-digest-pathname digest))
                      digest
                    (iter (%%cdr digests))))
              #f))))
   
   (define (new-digest)
     (let ((digest (%%make-digest (jazz:pathname-normalize src-pathname) "" 0)))
-      (%%manifest-source-digests-set! manifest (%%cons digest (%%manifest-source-digests manifest)))
+      (%%set-manifest-source-digests manifest (%%cons digest (%%get-manifest-source-digests manifest)))
       digest))
   
   (or (find-digest) (new-digest)))
@@ -684,7 +656,7 @@
 
 (define (jazz:manifest-uptodate? src-pathname manifest)
   (let ((digest (jazz:find-source-digest (jazz:pathname-normalize src-pathname) manifest)))
-    (and (%%string=? (%%digest-hash digest) (%%manifest-compile-time-hash manifest))
+    (and (%%string=? (%%get-digest-hash digest) (%%get-manifest-compile-time-hash manifest))
          digest)))
 
 
@@ -704,12 +676,12 @@
 
 (define (jazz:update-manifest-compile-time name digest-filepath manifest-filepath src-filepath updated-references)
   (let ((manifest (jazz:load/create-manifest name digest-filepath manifest-filepath)))
-    (%%manifest-version-set! manifest jazz:kernel-version)
+    (%%set-manifest-version manifest jazz:kernel-version)
     (let ((digest (jazz:find-source-digest src-filepath manifest)))
       (jazz:updated-digest-source? digest src-filepath)
       (if updated-references
-          (%%manifest-references-set! manifest updated-references))
-      (%%manifest-compile-time-hash-set! manifest (%%digest-hash digest))
+          (%%set-manifest-references manifest updated-references))
+      (%%set-manifest-compile-time-hash manifest (%%get-digest-hash digest))
       (jazz:save-manifest manifest-filepath manifest))))
 
 

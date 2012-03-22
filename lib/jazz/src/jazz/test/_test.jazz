@@ -39,20 +39,73 @@
 
 
 ;;;
-;;;; Git
+;;;; Snapshot
 ;;;
 
 
-@git (
-(import jazz.git)
-(import jazz.git.foreign)
+@snapshot (
+(import (jazz.io)
+        (jazz.snapshot))
 
 
-;(git_libgit2_version int* int* int*)
+(initialize-aliases)
+(snapshots-directory {Directory Home})
+(debug (snapshot-process))
+(exit))
 
-(define (git_version)
-  (list 'hello 'word))
-(git_version))
+
+;;;
+;;;; Scheme Classes
+;;;
+
+
+@scheme-classes (
+(import (jazz.test.scheme))
+
+
+(let ((foo (allocate-foo Foo 2 3 5)))
+  (debug foo)
+  (debug (get-foo-x foo))
+  (set-foo-x foo 7)
+  (debug (get-foo-x foo))))
+
+
+;;;
+;;;; Special
+;;;
+
+
+@special
+(import (jazz.test.jazz)
+        (jazz.test.c))
+
+
+;;;
+;;;; JavaScript
+;;;
+
+
+@javascript (
+(require (jazz.backend.javascript)
+         (dialect.development))
+
+
+;(expand 'jazz.test.backend backend: 'javascript)
+(expand 'jazz.sample.module backend: 'javascript))
+
+
+;;;
+;;;; Backend
+;;;
+
+
+@backend (
+(require (jazz.backend.describe)
+         (dialect.development))
+
+
+;(expand 'jazz.test.backend backend: 'describe)
+(expand 'jazz.sample.module backend: 'describe))
 
 
 ;;;
@@ -164,7 +217,7 @@
 
 @local-syntax (
 
-(import jazz.test.b)
+(import (jazz.test.b (phase syntax)))
 
 @wait
 (define-local-syntax when2
@@ -189,18 +242,28 @@
              (set! ,var1 ,var2)
              (set! ,var2 value)))))))
 
-
+@wait
 (definition (test-test!)
   (let ((va 5))
     (test! - (+ 2 va) va)))
 
-
+@wait
 (definition (test-swap!)
   (let ((x 3)
         (value 4))
     (swap! x value)
     value))
 
+@wait
+(class X extends Object
+  
+  (method (foo)
+    (let ((x 3)
+          (value 4))
+      (swap! x value)
+      value)))
+
+@wait
 (definition (test-when2 x)
   (when2 x (+ x 2))
   x))
@@ -262,7 +325,7 @@
 
 (definition (expand-all-with-feedback)
   (let ((directory {Directory Home "expansions"}))
-    (load-unit 'core.module.development)
+    (load-unit 'dialect.development)
     (create-directories~ directory)
     (iterate-units
       (lambda (unit-name)

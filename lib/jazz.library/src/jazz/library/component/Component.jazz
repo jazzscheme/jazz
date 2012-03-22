@@ -386,21 +386,24 @@
       (define (new-component)
         (let ((reference (get-tag-reference~ form)))
           (if (and (eq? action 'instantiate) (file? reference))
-              (if (exists?~ reference)
-                  (let ((child (instantiate-file reference parent: self name: name form: form creator: creator creator-branch: creator-branch)))
-                    (install-form~ child form creator creator-branch restore-form)
-                    (set-form~ child form)
-                    child)
-                (let ((handler (tag-reference-not-found-handler)))
-                  (if handler
-                      (let ((child (instantiate~ (handler reference) parent: self name: name)))
-                        (set-form~ child form)
-                        child)
-                    (error "Unable to find tag-reference: {s}" reference))))
+              (catch (Unknown-Alias-Exception exc
+                       (handle-not-found reference))
+                (if (exists?~ reference)
+                    (let ((child (instantiate-file reference parent: self name: name form: form creator: creator creator-branch: creator-branch)))
+                      (install-form~ child form creator creator-branch restore-form)
+                      (set-form~ child form)
+                      child)
+                  (handle-not-found reference)))
             (let ((model (if reference (module-ref reference (get-model~ form)) (form-model~ (or creator self) form))))
               (if model
                   (new model parent: self name: name form: form creator: creator creator-branch: creator-branch)
                 (error "Unable to resolve model: {s}" (get-model~ form)))))))
+      
+      (define (handle-not-found reference)
+        (let ((handler (tag-reference-not-found-handler)))
+          (if handler
+              (instantiate~ (handler reference) parent: self name: name)
+            (error "Unable to find tag-reference: {s}" reference))))
       
       (case action
         ((new instantiate)
@@ -787,13 +790,14 @@
         parent)))
   
   
-  (method public (find-descendant predicate)
+  (method public (find-descendant predicate (include-self?: include-self? #t))
     (continuation-capture
       (lambda (return)
         (for-each-descendant
           (lambda (component level)
             (when (predicate component)
-              (continuation-return return component))))
+              (continuation-return return component)))
+          include-self?: include-self?)
         #f)))
   
   

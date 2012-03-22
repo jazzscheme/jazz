@@ -104,6 +104,7 @@
 (define jazz:subtype-pair         (macro-subtype-pair))
 (define jazz:subtype-ratnum       (macro-subtype-ratnum))
 (define jazz:subtype-cpxnum       (macro-subtype-cpxnum))
+(define jazz:subtype-jazz         (macro-subtype-jazz))
 (define jazz:subtype-symbol       (macro-subtype-symbol))
 (define jazz:subtype-keyword      (macro-subtype-keyword))
 (define jazz:subtype-continuation (macro-subtype-continuation))

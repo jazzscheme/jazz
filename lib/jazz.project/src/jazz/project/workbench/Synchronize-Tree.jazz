@@ -38,20 +38,59 @@
 (module protected jazz.project.workbench.Synchronize-Tree jazz
 
 
-(import (jazz.jml)
+(import (jazz.graphic)
+        (jazz.jml)
         (jazz.library)
+        (jazz.system)
         (jazz.ui))
+
+
+;;;
+;;;; Synchronize-Border
+;;;
+
+
+(class Synchronize-Border extends Border-View
+  
+  
+  (form
+    (<install>                                     border-type: solid border-color: {Color Outline-Border}
+      (<Scroller-View>                             style: tool hscroll?: #t vscroll?: #t
+        (<!>                         name: content layout-type: fill
+          (<Tree-Header>                           style: tool
+            (<!>                     name: content
+              (<Synchronize-Tree>    name: tree))))))))
+
+
+;;;
+;;;; Synchronize-Tree
+;;;
 
 
 (class Synchronize-Tree extends Tree-View
   
   
   (form
-    (<install>                                  portfolio: :images selection-mode: row filled-column: path multiple-selection?: #t
+    (<install>                                  portfolio: :images selection-mode: row filled-column: path multiple-selection?: #t double-click-handler: {Event-Handler :form on-double-click}
       (<Tree-Node-Column>          name: path   title: "Path" width: 200 toplevel-controls?: #f)
       (<Synchronize-Left-Column>   name: left   title: "Workbench" width: 80 justification: center)
       (<Synchronize-Action-Column> name: action title: "Action" width: 75 justification: center)
-      (<Synchronize-Right-Column>  name: right  title: "Filesystem" width: 80 justification: center))))
+      (<Synchronize-Right-Column>  name: right  title: "Filesystem" width: 80 justification: center)))
+  
+  
+  (method (on-double-click evt)
+    (toggle-marked))
+  
+  
+  (method (toggle-marked)
+    (let ((selected (get-selected-rows)))
+      (let ((rows (if (null? selected) (collect-visible-rows) selected)))
+        (for-each (lambda (row)
+                    (let ((cell (new Cell (row->line row) 2)))
+                      (let ((data (get-cell-data cell)))
+                        (set-car! data (not (car data)))
+                        (invalidate-cell cell))))
+                  rows)))))
 
 
 ;;;
@@ -64,11 +103,9 @@
   
   (method override (draw-data surface context row data width height)
     (draw-background surface context row data width height)
-    @w
-    (let ((lvl? (and (= (get-kind~ data) 'node) (get-left~ data) (get-right~ data))))
-      (when (and (not lvl?) (present? data))
-        (let ((image (present-image data)))
-          (draw-opaque-image~ (get-images-portfolio~ (get-application)) surface context image {Color White} (quotient (- width 16) 2) 0)))))
+    (when (present? data)
+      (let ((image (present-image data)))
+        (draw-image~ (get-images-portfolio~ (get-application)) surface context image (quotient (- width 16) 2) 0))))
   
   
   (method abstract protected virtual (present? data)
@@ -88,7 +125,7 @@
   
   
   (method override (present? data)
-    (get-left~ data))
+    (eq? data :left))
   
   
   (method override (present-image data)
@@ -105,12 +142,14 @@
   
   (method override (draw-data surface context row data width height)
     (draw-background surface context row data width height)
-    @w
-    (let ((action (get-action~ data)))
-      (when action
-        (let ((appl (get-application))
-              (image (action-image action (get-left~ data) (get-right~ data))))
-          (draw-opaque-image~ (get-images-portfolio~ appl) surface context image {Color White} (+ (quotient (- width 16) 2) 1) 0))))))
+    (when data
+      (bind (action? . info) data
+        (when action?
+          (let ((appl (get-application))
+                (image (case (car info)
+                         ((:left) {Image-Resource "DeleteLeft"})
+                         ((:right) {Image-Resource "AddLeft"}))))
+            (draw-image~ (get-images-portfolio~ appl) surface context image (+ (quotient (- width 16) 2) 1) 0)))))))
 
 
 ;;;
@@ -122,7 +161,7 @@
   
   
   (method override (present? data)
-    (get-right~ data))
+    (eq? data :right))
   
   
   (method override (present-image data)

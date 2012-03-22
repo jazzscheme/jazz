@@ -1,10 +1,74 @@
 (module jazz.test.b jazz
 
-#;
-(class Version extends Object)
+(import (scheme.syntax-rules (phase syntax))
+        (jazz.test.c (phase syntax)))
+
 
 #;
-(define-syntax public swap!
+(define-syntax cen
+  (sc-macro-transformer
+    (lambda (form usage-environment)
+      (let ((expr (strip-syntactic-closures form)))
+        (symbol->string (cadr expr))))))
+
+#;
+(syntax public c-ext
+  (syntax-rules ()
+    ((c-ext (name parameter ...) type)
+     (quote (list '(parameter ...) 'type (cen name))))))
+
+
+(syntax cen
+  (syntax-rules ()
+    ((_ name ...)
+     "BLAAA")))
+
+(syntax public c-ext
+  (syntax-rules ()
+    ((c-ext (name parameter ...) type)
+     (definition public name
+       (c-function (parameter ...) type (cen name))))))
+
+
+#;
+(syntax eb
+  (syntax-rules ()
+    ((_)
+     (unspecified))
+    ((_ expr ...)
+     (begin expr ...))))
+
+#;
+(syntax public when2
+  (syntax-rules ()
+    ((when2 test expr ...)
+     (if test
+         (eb expr ...)
+       #f))))
+
+#;
+(syntax c-external
+  (syntax-rules ()
+    ((c-external (name parameters) type)
+     (c-external (name parameters) type (c-external-name name)))
+    ((c-external (name parameters) type c-name)
+     (definition public name
+       (c-function parameters type c-name)))))
+
+#;
+(syntax public when2
+  (sc-macro-transformer
+    (lambda (form env)
+      (let ((form (strip-source-info form)))
+        `(if ,(make-syntactic-closure env '() (cadr form))
+             (begin
+               ,@(map (lambda (form)
+                        (make-syntactic-closure env '() form))
+                      (cddr form)))
+           #f)))))
+
+#;
+(define-syntax swap!
   (syntax-rules ()
     ((_ var1 var2)
      (let ((value var1))
@@ -12,7 +76,7 @@
        (set! var2 value)))))
 
 #;
-(define-syntax public test!
+(syntax public test!
   (sc-macro-transformer
     (lambda (form env)
       (let ((form (strip-source-info form)))
@@ -23,7 +87,7 @@
              (,func value ,var2)))))))
 
 #;
-(define-syntax public swap!
+(syntax public swap!
   (sc-macro-transformer
     (lambda (form env)
       (let ((form (strip-source-info form)))

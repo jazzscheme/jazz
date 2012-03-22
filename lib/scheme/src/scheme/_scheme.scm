@@ -35,8 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module scheme core
+(module scheme foundation
 
 
 (export (scheme.dialect)
-        (scheme.dialect (phase syntax))))
+        (scheme.dialect (phase syntax))
+        (scheme.backend.scheme.runtime)
+        (scheme.language.runtime)))

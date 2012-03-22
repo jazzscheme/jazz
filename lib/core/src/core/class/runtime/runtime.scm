@@ -71,10 +71,6 @@
        (jazz:memstring #\: (%%symbol->string symbol))))
 
 
-(define (jazz:compose-helper locator suffix)
-  (%%string->symbol (%%string-append (%%symbol->string locator) "!" (%%symbol->string suffix))))
-
-
 (define (jazz:split-symbol symbol separator)
   (%%debug-assert (%%symbol? symbol)
     (map string->symbol (jazz:split-string (%%symbol->string symbol) separator))))
@@ -258,85 +254,107 @@
           (%%make-vector 1 '#()))))))
 
 
-(define (jazz:encapsulate-class class)
-  (let ((virtual-names (%%get-class-core-virtual-names class)))
-    (let ((vtable-size (%%length virtual-names)))
-      (%%when (%%fx> vtable-size 0)
-        (let ((vtable (%%make-vector vtable-size #f)))
-          (let ((ascendant (%%get-class-ascendant class)))
-            (%%when ascendant
-              (let ((ascendant-vtable (%%get-class-core-vtable ascendant)))
-                (%%when ascendant-vtable
-                  (let iter ((n (%%fx- (%%vector-length ascendant-vtable) 1)))
-                    (%%when (%%fx>= n 0)
-                      (%%vector-set! vtable n (%%vector-ref ascendant-vtable n))
-                      (iter (%%fx- n 1))))))))
-          (for-each (lambda (method)
-                      (let ((method-name (%%car method))
-                            (method-implementation (%%cdr method)))
-                        (%%vector-set! vtable (jazz:get-method-rank class method-name) method-implementation)))
-                    (%%get-class-core-virtual-alist class))
-          (for-each (lambda (method)
-                      (let ((method-name (%%car method))
-                            (method-implementation (%%cdr method)))
-                        (%%vector-set! vtable (jazz:get-method-rank class method-name) method-implementation)))
-                    (%%get-class-core-method-alist class))
-          (%%set-class-core-vtable class vtable)
-          (jazz:update-core-class class))))))
-
-
 (define (jazz:update-class class)
   (jazz:update-class-class-table class))
 
 
-(define (jazz:update-core-class class)
-  (jazz:update-class-class-table class))
-
-
 (define (jazz:update-class-class-table class)
-  (define (update-class-class-root-methods class)
-    (let* ((class-table (%%get-class-class-table class))
-           (class-rank (%%get-class-level class))
-           (root-implementation-table (%%vector-ref class-table class-rank))
-           (added-methods '()))
-      (jazz:iterate-table (%%get-category-fields class)
-        (lambda (key field)
-          (%%when (jazz:virtual-method? field)
-            (if (%%get-method-category-rank field)
-                (let ((implementation-rank (%%get-method-implementation-rank field)))
-                  (let ((old-implementation (%%vector-ref root-implementation-table implementation-rank))
-                        (new-implementation (%%get-method-node-implementation (%%get-method-implementation-tree field))))
-                    (%%when (%%neq? old-implementation new-implementation)
-                      ;; method exists and has changed - update vtable + propagate to descendants
-                      (let iter ((class class))
-                           (let* ((class-table (%%get-class-class-table class))
-                                  (implementation-table (%%vector-ref class-table class-rank)))
-                             (%%when (%%eq? old-implementation (%%vector-ref implementation-table implementation-rank))
-                               (%%vector-set! implementation-table implementation-rank new-implementation)
-                               (for-each (lambda (descendant)
-                                           (iter descendant))
-                                         (%%get-category-descendants class))))))))
-              (begin
-                (%%set-method-category-rank field class-rank)
-                (set! added-methods (%%cons field added-methods)))))))
-      added-methods))
-  
-  (let ((added-methods (update-class-class-root-methods class)))
-    (%%when (%%not-null? added-methods)
-      (let ((class-rank (%%get-class-level class))
-            (class-virtual-size (%%get-category-virtual-size class)))
-        (let iter ((class class))
-             (let* ((class-table (%%get-class-class-table class))
-                    (implementation-table (jazz:resize-vector (%%vector-ref class-table class-rank) class-virtual-size)))
-               (for-each (lambda (field)
-                           (let ((implementation-rank (%%get-method-implementation-rank field))
-                                 (implementation (%%get-method-node-implementation (%%get-method-implementation-tree field))))
-                             (%%vector-set! implementation-table implementation-rank implementation)))
-                         added-methods)
-               (%%vector-set! class-table class-rank implementation-table))
-             (for-each (lambda (descendant)
-                         (iter descendant))
-                       (%%get-category-descendants class)))))))
+  (let ((class-table (%%get-class-class-table class))
+        (class-level (%%get-class-level class)))
+    (jazz:iterate-table (%%get-category-fields class)
+      (lambda (key field)
+        (%%when (jazz:virtual-method? field)
+          (if (%%not (%%get-method-category-rank field))
+              (%%set-method-category-rank field class-level))
+          (let ((class-virtual-size (%%get-category-virtual-size class)))
+            (%%when (%%not (%%fx= class-virtual-size (%%vector-length (%%vector-ref class-table class-level))))
+              (let iter ((class class))
+                   (let ((class-table (%%get-class-class-table class)))
+                     (let ((implementation-table (jazz:resize-vector (%%vector-ref class-table class-level) class-virtual-size)))
+                       (%%vector-set! class-table class-level implementation-table))
+                     (for-each iter (%%get-category-descendants class))))))
+          (let ((root-implementation-table (%%vector-ref class-table class-level)))
+            (let ((implementation-rank (%%get-method-implementation-rank field)))
+              (let ((old-implementation (%%vector-ref root-implementation-table implementation-rank))
+                    (new-implementation (%%get-method-node-implementation (%%get-method-implementation-tree field))))
+                (%%when (%%neq? old-implementation new-implementation)
+                  ;; method exists and has changed - update vtable + propagate to descendants
+                  (let iter ((class class))
+                       (let* ((class-table (%%get-class-class-table class))
+                              (implementation-table (%%vector-ref class-table class-level)))
+                         (%%when (%%eq? old-implementation (%%vector-ref implementation-table implementation-rank))
+                           (%%vector-set! implementation-table implementation-rank new-implementation)
+                           (for-each iter (%%get-category-descendants class))))))))))))))
+
+
+;;;
+;;;; Core
+;;;
+
+
+(define (jazz:add-slot class slot-name slot-initialize slot-allocate?)
+  (let ((actual (%%get-category-field class slot-name)))
+    (cond (actual
+           (if (%%eq? (jazz:walk-for) 'eval)
+               (%%set-slot-initialize actual slot-initialize))
+           actual)
+          (else
+           (let* ((instance-size (%%get-class-instance-size class))
+                  (slot-offset (and slot-allocate? instance-size))
+                  (slot (%%allocate-slot jazz:Slot slot-name slot-offset slot-initialize)))
+             (jazz:add-field class slot)
+             (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
+             (%%set-class-instance-slots class (%%append (%%get-class-instance-slots class) (%%list slot)))
+             (%%when slot-allocate?
+               (%%set-class-instance-size class (%%fx+ instance-size 1)))
+             slot)))))
+
+
+(define (jazz:add-core-virtual-method class method-name)
+  (%%set-class-virtual-names class
+    (%%append (%%get-class-virtual-names class)
+              (%%list method-name)))
+  (let ((method-rank (%%get-category-virtual-size class)))
+    (%%set-category-virtual-size class (%%fx+ method-rank 1))
+    method-rank))
+
+
+(define (jazz:add-core-method-node class method-name implementation)
+  (receive (root-class method-rank) (jazz:require-core-level/rank class method-name)
+    (let ((root-level (%%get-class-level root-class))
+          (root-size (%%length (%%get-class-virtual-names root-class))))
+      (let iter ((class class))
+           (let* ((class-table (%%get-class-class-table class))
+                  (implementation-table (jazz:resize-vector (%%vector-ref class-table root-level) root-size)))
+             (%%vector-set! implementation-table method-rank implementation)
+             (%%vector-set! class-table root-level implementation-table))
+           (for-each (lambda (descendant)
+                       (iter descendant))
+                     (%%get-category-descendants class))))))
+
+
+(define (jazz:find-nextmethod class method-name)
+  (receive (root-class method-rank) (jazz:require-core-level/rank class method-name)
+    (let ((root-level (%%get-class-level root-class)))
+      (if (eq? root-class class)
+          (lambda (obj . rest)
+            (jazz:error "No nextmethod for {s} on {s}" obj method-name))
+        (%%class-dispatch (%%get-class-ascendant class) root-level method-rank)))))
+
+
+(define (jazz:find-core-level/rank class method-name)
+  (let iter ((class class))
+       (if class
+           (let ((method-rank (jazz:find-rank method-name (%%get-class-virtual-names class))))
+             (if (%%not method-rank)
+                 (iter (%%get-class-ascendant class))
+               (values class method-rank)))
+         #f)))
+
+
+(define (jazz:require-core-level/rank class method-name)
+  (or (jazz:find-core-level/rank class method-name)
+      (jazz:error "Invalid core method: {s}" method-name)))
 
 
 ;;;
@@ -344,14 +362,15 @@
 ;;;
 
 
-(define (jazz:new-core-class class name fields ascendant slot-names instance-size)
+(define (jazz:new-core-class class name fields ascendant)
   (define (compute-core-class-ancestors class ascendant)
     (if (%%not ascendant)
         (%%list class)
       (%%append (%%vector->list (%%get-category-ancestors ascendant)) (%%list class))))
   
   (let ((core-class
-         (%%object
+         (%%allocate-class
+          ; Object
           class
           ; Category
           name
@@ -363,14 +382,10 @@
           ascendant
           '()
           '()
-          slot-names
-          instance-size
+          (if ascendant (%%get-class-instance-slots ascendant) '())
+          (if ascendant (%%get-class-instance-size ascendant) 1)
           (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0)
-          #f
           '()
-          '()
-          (if ascendant (%%get-class-core-virtual-names ascendant) '())
-          #f
           #f
           #f)))
     (%%set-category-ancestors core-class (%%list->vector (compute-core-class-ancestors core-class ascendant)))
@@ -380,34 +395,12 @@
     core-class))
 
 
-(define (jazz:validate-inherited-slots name ascendant inherited-slot-names)
-  (define (core-class-all-slots core-class)
-    (let ((slots (%%get-class-instance-slots core-class))
-          (ascendant (%%get-class-ascendant core-class)))
-      (if (%%not ascendant)
-          slots
-        (%%append (core-class-all-slots ascendant) slots))))
-  
-  (define (core-class-all-slot-names core-class)
-    (let ((all-slots (core-class-all-slots core-class)))
-      ;; core class has not been redefined yet
-      (if (jazz:some? symbol? all-slots)
-          all-slots
-        (map (lambda (slot)
-               (%%get-field-name slot))
-             (%%get-class-instance-slots core-class)))))
-  
-  (if (or (and (%%not ascendant) (%%not (%%null? inherited-slot-names)))
-          (and ascendant (%%not (%%equal? (core-class-all-slot-names ascendant) inherited-slot-names))))
-      (jazz:error "Inconsistant inherited slots for {s}: {s} vs {s}" name inherited-slot-names (and ascendant (core-class-all-slot-names ascendant)))))
-
-
 ;;;
 ;;;; Object
 ;;;
 
 
-(jazz:define-class-runtime jazz:Object)
+(jazz:define-class-runtime jazz:Object #t)
 
 
 (define (jazz:get-object-slot object slot-offset)
@@ -429,7 +422,23 @@
     (%%symbol->string (%%get-category-identifier class))))
 
 
-(jazz:define-virtual-runtime (jazz:print-object (jazz:Object object) output detail))
+(jazz:define-virtual (jazz:initialize (jazz:Object object)))
+(jazz:define-virtual (jazz:destroy (jazz:Object object)))
+(jazz:define-virtual (jazz:call-print (jazz:Object object) output detail))
+(jazz:define-virtual (jazz:print-object (jazz:Object object) output detail))
+(jazz:define-virtual (jazz:tree-fold (jazz:Object expression) down up here seed environment))
+
+
+(jazz:define-method (jazz:initialize (jazz:Object object))
+  #f)
+
+
+(jazz:define-method (jazz:destroy (jazz:Object object))
+  #f)
+
+
+(jazz:define-method (jazz:call-print (jazz:Object object) output detail)
+  (jazz:print-object object output detail))
 
 
 (jazz:define-method (jazz:print-object (jazz:Object object) output detail)
@@ -443,14 +452,8 @@
     (display ">" output)))
 
 
-(jazz:define-virtual-runtime (jazz:tree-fold (jazz:Object expression) down up here seed environment))
-
-
 (jazz:define-method (jazz:tree-fold (jazz:Object expression) down up here seed environment)
   (here expression seed environment))
-
-
-(jazz:encapsulate-class jazz:Object)
 
 
 ;;;
@@ -458,65 +461,51 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Type)
+(jazz:define-class-runtime jazz:Type #t)
 
 
-(jazz:define-virtual-runtime (jazz:of-type? (jazz:Type type) object))
+(jazz:define-virtual (jazz:of-type? (jazz:Type type) object))
+(jazz:define-virtual (jazz:of-subtype? (jazz:Type type) subtype))
+(jazz:define-virtual (jazz:specifiable? (jazz:Type type)))
+(jazz:define-virtual (jazz:category-type? (jazz:Type type)))
+(jazz:define-virtual (jazz:emit-specifier (jazz:Type type)))
+(jazz:define-virtual (jazz:emit-type (jazz:Type type) source-declaration environment backend))
+(jazz:define-virtual (jazz:emit-test (jazz:Type type) value source-declaration environment backend))
+(jazz:define-virtual (jazz:emit-check (jazz:Type type) value source-declaration environment backend))
 
 
 (jazz:define-method (jazz:of-type? (jazz:Type type) object)
   (jazz:of-subtype? type (jazz:class-of object)))
 
 
-(jazz:define-virtual-runtime (jazz:of-subtype? (jazz:Type type) subtype))
-
-
 (jazz:define-method (jazz:of-subtype? (jazz:Type type) subtype)
   (jazz:error "Unable to test type on: {s}" type))
-
-
-(jazz:define-virtual-runtime (jazz:specifiable? (jazz:Type type)))
 
 
 (jazz:define-method (jazz:specifiable? (jazz:Type type))
   #t)
 
 
-(jazz:define-virtual-runtime (jazz:category-type? (jazz:Type type)))
-
-
 (jazz:define-method (jazz:category-type? (jazz:Type type))
   #f)
-
-
-(jazz:define-virtual-runtime (jazz:emit-specifier (jazz:Type type)))
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Type type))
   (jazz:error "Unable to emit specifier for: {s}" type))
 
 
-(jazz:define-virtual-runtime (jazz:emit-type (jazz:Type type) source-declaration environment))
-
-
-(jazz:define-method (jazz:emit-type (jazz:Type type) source-declaration environment)
+(jazz:define-method (jazz:emit-type (jazz:Type type) source-declaration environment backend)
   (jazz:error "Unable to emit type for: {s}" type))
 
 
-(jazz:define-virtual-runtime (jazz:emit-test (jazz:Type type) value source-declaration environment))
-
-
-(jazz:define-method (jazz:emit-test (jazz:Type type) value source-declaration environment)
-  (let ((locator (jazz:emit-type type source-declaration environment)))
+(jazz:define-method (jazz:emit-test (jazz:Type type) value source-declaration environment backend)
+  (let ((locator (jazz:emit-type type source-declaration environment backend)))
     `(%%is? ,value ,locator)))
 
 
-(jazz:define-virtual-runtime (jazz:emit-check (jazz:Type type) value source-declaration environment))
-
-
-(jazz:define-method (jazz:emit-check (jazz:Type type) value source-declaration environment)
-  (let ((locator (jazz:emit-type type source-declaration environment)))
-    `(if (%%not ,(jazz:emit-test type value source-declaration environment))
+(jazz:define-method (jazz:emit-check (jazz:Type type) value source-declaration environment backend)
+  (let ((locator (jazz:emit-type type source-declaration environment backend)))
+    `(if (%%not ,(jazz:emit-test type value source-declaration environment backend))
          (jazz:type-error ,value ,locator))))
 
 
@@ -529,9 +518,6 @@
 (define (jazz:type? object)
   (and (%%object? object)
        (%%is? object jazz:Type)))
-
-
-(jazz:encapsulate-class jazz:Type)
 
 
 ;;;
@@ -561,7 +547,7 @@
 ;;;
 
 
-(jazz:define-class-runtime jazz:Category)
+(jazz:define-class-runtime jazz:Category #t)
 
 
 (define (jazz:category? object)
@@ -578,11 +564,11 @@
   #t)
 
 
-(jazz:define-method (jazz:emit-type (jazz:Category type) source-declaration environment)
+(jazz:define-method (jazz:emit-type (jazz:Category type) source-declaration environment backend)
   (%%get-category-identifier type))
 
 
-(jazz:define-virtual-runtime (jazz:update-category (jazz:Category category)))
+(jazz:define-virtual (jazz:update-category (jazz:Category category)))
 
 
 (jazz:define-method (jazz:update-category (jazz:Category category))
@@ -607,18 +593,15 @@
   (%%unspecified))
 
 
-(jazz:encapsulate-class jazz:Category)
-
-
 ;;;
 ;;;; Class
 ;;;
 
 
-(jazz:define-class-runtime jazz:Class)
+(jazz:define-class-runtime jazz:Class #t)
 
 
-(jazz:define-virtual-runtime (jazz:write-object (jazz:Class class) we obj))
+(jazz:define-virtual (jazz:write-object (jazz:Class class) we obj))
 
 
 (jazz:define-method (jazz:write-object (jazz:Class class) we obj)
@@ -643,7 +626,7 @@
              (set! ancestors (%%cons class ancestors))
              (add-classes (%%get-class-ascendant class))))
       ancestors))
-  
+
   ;; this should be made into a call to jazz:new somehow
   (let ((class (%%make-object class-of-class (%%get-class-instance-size class-of-class))))
     (%%set-category-identifier class identifier)
@@ -657,11 +640,7 @@
     (%%set-class-instance-slots class (if ascendant (%%get-class-instance-slots ascendant) '()))
     (%%set-class-instance-size class (if ascendant (%%get-class-instance-size ascendant) jazz:object-size))
     (%%set-class-level class (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0))
-    (%%set-class-dispatch-table class #f) ;; toremove - dispatch-table
-    (%%set-class-core-method-alist class #f)
-    (%%set-class-core-virtual-alist class #f)
-    (%%set-class-core-virtual-names class #f)
-    (%%set-class-core-vtable class (if ascendant (%%get-class-core-vtable ascendant) #f))
+    (%%set-class-virtual-names class '())
     (%%set-class-class-table class #f)
     (%%set-class-interface-table class #f)
     (%%set-category-ancestors class (%%list->vector (compute-class-ancestors class ascendant interfaces)))
@@ -693,9 +672,47 @@
   (jazz:update-class class))
 
 
+(define (jazz:get-class-level class)
+  (%%get-class-level class))
+
+
 (define (jazz:slot-form? form)
   (and (%%pair? form)
        (%%eq? (%%car form) 'slot)))
+
+
+(define (jazz:keyword-constructor class)
+  (%%debug-assert (%%class? class)
+    (lambda rest
+      (let ((object (%%make-object class (%%get-class-instance-size class))))
+        (jazz:initialize-object object rest)
+        object))))
+
+
+(define (jazz:new-instance class . rest)
+  (%%debug-assert (%%class? class)
+    (let ((object (%%make-object class (%%get-class-instance-size class))))
+      (jazz:initialize-object object rest)
+      object)))
+
+
+(define (jazz:initialize-object object initargs)
+  (let ((class (%%get-object-class object)))
+    (jazz:initialize-slots object)
+    (let iter ((scan initargs))
+         (if (%%not (%%null? scan))
+             (let ((key (%%car scan))
+                   (remain (%%cdr scan)))
+               (%%debug-assert (and (%%keyword? key) (%%not (%%null? remain)))
+                 (let ((value (%%car remain))
+                       (remain (%%cdr remain)))
+                   (let ((field (jazz:category-field class (%%string->symbol (%%keyword->string key)))))
+                     (%%debug-assert (%%class-is? field jazz:Slot)
+                       (let ((offset (%%get-slot-offset field)))
+                         (jazz:set-object-slot object offset value))))
+                   (iter remain))))))
+    (jazz:initialize object)
+    object))
 
 
 (define (jazz:new class . rest)
@@ -743,15 +760,12 @@
     (for-each iter (%%get-category-descendants class))))
 
 
-(jazz:encapsulate-class jazz:Class)
-
-
 ;;;
 ;;;; Object-Class
 ;;;
 
 
-(jazz:define-class-runtime jazz:Object-Class)
+(jazz:define-class-runtime jazz:Object-Class #t)
 
 
 (jazz:define-method (jazz:of-subtype? (jazz:Object-Class class) subtype)
@@ -760,7 +774,153 @@
     (nextmethod class subtype)))
 
 
-(jazz:encapsulate-class jazz:Object-Class)
+;;;
+;;;; Field
+;;;
+
+
+(jazz:define-class-runtime jazz:Field #t)
+
+
+(define (jazz:field? object)
+  (%%class-is? object jazz:Field))
+
+
+(define (jazz:field-name field)
+  (%%get-field-name field))
+
+
+(define (jazz:category-field category field-name)
+  (or (%%get-category-field category field-name)
+      (let ((ascendant (%%get-class-ascendant category)))
+        (and ascendant
+             (jazz:category-field ascendant field-name)))))
+
+
+(define (jazz:require-object-field object name)
+  (let* ((class (%%get-object-class object))
+         (field (jazz:category-field class name)))
+    (if (%%not field)
+        (jazz:error "Unknown field '{s} of {s}" name (%%get-category-identifier (%%get-object-class object)))
+      field)))
+
+
+;;;
+;;;; Slot
+;;;
+
+
+(jazz:define-class-runtime jazz:Slot #t)
+
+
+(define (jazz:new-slot slot-name slot-offset slot-initialize)
+  (jazz:allocate-slot slot-name slot-offset slot-initialize))
+
+
+(define (jazz:slot? object)
+  (%%class-is? object jazz:Slot))
+
+
+(define (jazz:slot-value object slot-name)
+  (jazz:get-object-slot object (jazz:find-slot-offset object slot-name)))
+
+
+(define (jazz:set-slot-value object slot-name value)
+  (jazz:set-object-slot object (jazz:find-slot-offset object slot-name) value))
+
+
+(define (jazz:find-slot-offset object slot-name)
+  (%%debug-assert (%%object? object)
+    (let ((slot (jazz:require-object-field object slot-name)))
+      (%%get-slot-offset slot))))
+
+
+(define (jazz:initialize-slots object)
+  (let ((slots (%%get-class-instance-slots (%%get-object-class object))))
+    (for-each (lambda (slot)
+                (let ((offset (%%get-slot-offset slot))
+                      (initialize (%%get-slot-initialize slot)))
+                  (%%when initialize
+                    (%%object-set! object offset (initialize object)))))
+              slots)))
+
+
+;;;
+;;;; Interface
+;;;
+
+
+(jazz:define-class-runtime jazz:Interface #t)
+
+
+(define (jazz:new-interface class identifier ascendants)
+  (define (compute-interface-ancestors interface ascendants)
+    (jazz:remove-duplicates
+      (%%apply append (%%cons (map (lambda (ascendant)
+                                     (%%vector->list (%%get-category-ancestors ascendant)))
+                                   ascendants)
+                              (%%list (%%list interface))))))
+  
+  (let ((interface (%%allocate-interface class identifier (%%make-table test: eq?) 0 #f '() ascendants jazz:new-interface-rank)))
+    (set! jazz:new-interface-rank (%%fx+ jazz:new-interface-rank 1))
+    (%%set-category-ancestors interface (%%list->vector (compute-interface-ancestors interface ascendants)))
+    (for-each (lambda (ascendant)
+                (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
+              ascendants)
+    interface))
+
+
+(define (jazz:interface? object)
+  (%%class-is? object jazz:Interface))
+
+
+;;tBool is_interface_subtype(jType target, jType type)
+;;{
+;;  jTypePtr ptr_start = target->ancestorsGet() + target->class_ancestors_sizeGet();
+;;  jTypePtr ptr = target->ancestorsGet() + target->ancestors_sizeGet();
+;;
+;;  while (--ptr >= ptr_start)
+;;      if (*ptr == type)
+;;          return true;
+;;
+;;  return false;
+;;}
+(jazz:define-method (jazz:of-type? (jazz:Interface interface) object)
+  (jazz:of-subtype? interface (jazz:class-of object)))
+
+
+(jazz:define-method (jazz:update-category (jazz:Interface interface))
+  (jazz:update-interface interface))
+
+
+(define (jazz:update-interface interface)
+  (define (update-interface-root-methods interface)
+    (let* ((interface-rank (%%get-interface-rank interface))
+           (added-methods '()))
+      (jazz:iterate-table (%%get-category-fields interface)
+        (lambda (key field)
+          (%%when (and (jazz:virtual-method? field)
+                       (%%not (%%get-method-category-rank field)))
+            (%%set-method-category-rank field interface-rank)
+            (set! added-methods (%%cons field added-methods)))))
+      added-methods))
+
+  (let ((added-methods (update-interface-root-methods interface)))
+    (%%when (%%not-null? added-methods)
+      (let ((interface-rank (%%get-interface-rank interface)))
+        (let iter ((category interface))
+             (%%when (%%class-is? category jazz:Class)
+               (let* ((interface-table (%%get-class-interface-table category))
+                      (implementation-table (jazz:resize-vector (%%vector-ref interface-table interface-rank) (%%get-category-virtual-size interface))))
+                 (for-each (lambda (field)
+                             (let ((implementation-rank (%%get-method-implementation-rank field))
+                                   (implementation (%%get-method-node-implementation (%%get-method-implementation-tree field))))
+                               (%%vector-set! implementation-table implementation-rank implementation)))
+                           added-methods)
+                 (%%vector-set! interface-table interface-rank implementation-table)))
+             (for-each (lambda (descendant)
+                         (iter descendant))
+                       (%%get-category-descendants category)))))))
 
 
 ;;;
@@ -768,11 +928,14 @@
 ;;;
 
 
-(%%set-object-class jazz:Type jazz:Class)
-(%%set-object-class jazz:Category jazz:Class)
-(%%set-object-class jazz:Class jazz:Class)
-(%%set-object-class jazz:Object-Class jazz:Class)
-(%%set-object-class jazz:Object jazz:Object-Class)
+(jazz:define-class-bootstrap jazz:Object)
+(jazz:define-class-bootstrap jazz:Type)
+(jazz:define-class-bootstrap jazz:Category)
+(jazz:define-class-bootstrap jazz:Class)
+(jazz:define-class-bootstrap jazz:Object-Class)
+(jazz:define-class-bootstrap jazz:Field)
+(jazz:define-class-bootstrap jazz:Slot)
+(jazz:define-class-bootstrap jazz:Interface)
 
 
 ;;;
@@ -791,17 +954,11 @@
   'bool)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Boolean-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Boolean-Class type) value source-declaration environment backend)
   `(%%boolean? ,value))
 
 
-(jazz:encapsulate-class jazz:Boolean-Class)
-
-
 (jazz:define-class-runtime jazz:Boolean)
-
-
-(jazz:encapsulate-class jazz:Boolean)
 
 
 ;;;
@@ -820,17 +977,11 @@
   'char)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Char-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Char-Class type) value source-declaration environment backend)
   `(%%char? ,value))
 
 
-(jazz:encapsulate-class jazz:Char-Class)
-
-
 (jazz:define-class-runtime jazz:Char)
-
-
-(jazz:encapsulate-class jazz:Char)
 
 
 ;;;
@@ -845,13 +996,7 @@
   'numeric)
 
 
-(jazz:encapsulate-class jazz:Numeric-Class)
-
-
 (jazz:define-class-runtime jazz:Numeric)
-
-
-(jazz:encapsulate-class jazz:Numeric)
 
 
 ;;;
@@ -870,17 +1015,11 @@
   'number)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Number-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Number-Class type) value source-declaration environment backend)
   `(%%number? ,value))
 
 
-(jazz:encapsulate-class jazz:Number-Class)
-
-
 (jazz:define-class-runtime jazz:Number)
-
-
-(jazz:encapsulate-class jazz:Number)
 
 
 ;;;
@@ -899,17 +1038,11 @@
   'complex)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Complex-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Complex-Class type) value source-declaration environment backend)
   `(%%complex? ,value))
 
 
-(jazz:encapsulate-class jazz:Complex-Class)
-
-
 (jazz:define-class-runtime jazz:Complex)
-
-
-(jazz:encapsulate-class jazz:Complex)
 
 
 ;;;
@@ -928,17 +1061,11 @@
   'real)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Real-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Real-Class type) value source-declaration environment backend)
   `(%%real? ,value))
 
 
-(jazz:encapsulate-class jazz:Real-Class)
-
-
 (jazz:define-class-runtime jazz:Real)
-
-
-(jazz:encapsulate-class jazz:Real)
 
 
 ;;;
@@ -957,17 +1084,11 @@
   'rational)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Rational-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Rational-Class type) value source-declaration environment backend)
   `(%%rational? ,value))
 
 
-(jazz:encapsulate-class jazz:Rational-Class)
-
-
 (jazz:define-class-runtime jazz:Rational)
-
-
-(jazz:encapsulate-class jazz:Rational)
 
 
 ;;;
@@ -986,17 +1107,11 @@
   'int)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Integer-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Integer-Class type) value source-declaration environment backend)
   `(%%integer? ,value))
 
 
-(jazz:encapsulate-class jazz:Integer-Class)
-
-
 (jazz:define-class-runtime jazz:Integer)
-
-
-(jazz:encapsulate-class jazz:Integer)
 
 
 ;;;
@@ -1015,17 +1130,11 @@
   'fx)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Fixnum-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Fixnum-Class type) value source-declaration environment backend)
   `(%%fixnum? ,value))
 
 
-(jazz:encapsulate-class jazz:Fixnum-Class)
-
-
 (jazz:define-class-runtime jazz:Fixnum)
-
-
-(jazz:encapsulate-class jazz:Fixnum)
 
 
 ;;;
@@ -1044,17 +1153,11 @@
   'fl)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Flonum-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Flonum-Class type) value source-declaration environment backend)
   `(%%flonum? ,value))
 
 
-(jazz:encapsulate-class jazz:Flonum-Class)
-
-
 (jazz:define-class-runtime jazz:Flonum)
-
-
-(jazz:encapsulate-class jazz:Flonum)
 
 
 ;;;
@@ -1069,13 +1172,7 @@
   'sequence)
 
 
-(jazz:encapsulate-class jazz:Sequence-Class)
-
-
 (jazz:define-class-runtime jazz:Sequence)
-
-
-(jazz:encapsulate-class jazz:Sequence)
 
 
 ;;;
@@ -1090,17 +1187,11 @@
   'list)
 
 
-(jazz:define-method (jazz:emit-test (jazz:List-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:List-Class type) value source-declaration environment backend)
   `(or (%%null? ,value) (%%pair? ,value)))
 
 
-(jazz:encapsulate-class jazz:List-Class)
-
-
 (jazz:define-class-runtime jazz:List)
-
-
-(jazz:encapsulate-class jazz:List)
 
 
 ;;;
@@ -1119,17 +1210,11 @@
   'null)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Null-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Null-Class type) value source-declaration environment backend)
   `(%%null? ,value))
 
 
-(jazz:encapsulate-class jazz:Null-Class)
-
-
 (jazz:define-class-runtime jazz:Null)
-
-
-(jazz:encapsulate-class jazz:Null)
 
 
 ;;;
@@ -1148,17 +1233,11 @@
   'pair)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Pair-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Pair-Class type) value source-declaration environment backend)
   `(%%pair? ,value))
 
 
-(jazz:encapsulate-class jazz:Pair-Class)
-
-
 (jazz:define-class-runtime jazz:Pair)
-
-
-(jazz:encapsulate-class jazz:Pair)
 
 
 ;;;
@@ -1177,17 +1256,11 @@
   'string)
 
 
-(jazz:define-method (jazz:emit-test (jazz:String-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:String-Class type) value source-declaration environment backend)
   `(%%string? ,value))
 
 
-(jazz:encapsulate-class jazz:String-Class)
-
-
 (jazz:define-class-runtime jazz:String)
-
-
-(jazz:encapsulate-class jazz:String)
 
 
 ;;;
@@ -1206,17 +1279,11 @@
   'vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Vector-Class type) value source-declaration environment backend)
   `(%%vector? ,value))
 
 
-(jazz:encapsulate-class jazz:Vector-Class)
-
-
 (jazz:define-class-runtime jazz:Vector)
-
-
-(jazz:encapsulate-class jazz:Vector)
 
 
 ;;;
@@ -1235,17 +1302,11 @@
   's8vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S8Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:S8Vector-Class type) value source-declaration environment backend)
   `(%%s8vector? ,value))
 
 
-(jazz:encapsulate-class jazz:S8Vector-Class)
-
-
 (jazz:define-class-runtime jazz:S8Vector)
-
-
-(jazz:encapsulate-class jazz:S8Vector)
 
 
 ;;;
@@ -1264,17 +1325,11 @@
   'u8vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U8Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:U8Vector-Class type) value source-declaration environment backend)
   `(%%u8vector? ,value))
 
 
-(jazz:encapsulate-class jazz:U8Vector-Class)
-
-
 (jazz:define-class-runtime jazz:U8Vector)
-
-
-(jazz:encapsulate-class jazz:U8Vector)
 
 
 ;;;
@@ -1293,17 +1348,11 @@
   's16vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S16Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:S16Vector-Class type) value source-declaration environment backend)
   `(%%s16vector? ,value))
 
 
-(jazz:encapsulate-class jazz:S16Vector-Class)
-
-
 (jazz:define-class-runtime jazz:S16Vector)
-
-
-(jazz:encapsulate-class jazz:S16Vector)
 
 
 ;;;
@@ -1322,17 +1371,11 @@
   'u16vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U16Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:U16Vector-Class type) value source-declaration environment backend)
   `(%%u16vector? ,value))
 
 
-(jazz:encapsulate-class jazz:U16Vector-Class)
-
-
 (jazz:define-class-runtime jazz:U16Vector)
-
-
-(jazz:encapsulate-class jazz:U16Vector)
 
 
 ;;;
@@ -1351,17 +1394,11 @@
   's32vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S32Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:S32Vector-Class type) value source-declaration environment backend)
   `(%%s32vector? ,value))
 
 
-(jazz:encapsulate-class jazz:S32Vector-Class)
-
-
 (jazz:define-class-runtime jazz:S32Vector)
-
-
-(jazz:encapsulate-class jazz:S32Vector)
 
 
 ;;;
@@ -1380,17 +1417,11 @@
   'u32vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U32Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:U32Vector-Class type) value source-declaration environment backend)
   `(%%u32vector? ,value))
 
 
-(jazz:encapsulate-class jazz:U32Vector-Class)
-
-
 (jazz:define-class-runtime jazz:U32Vector)
-
-
-(jazz:encapsulate-class jazz:U32Vector)
 
 
 ;;;
@@ -1409,17 +1440,11 @@
   's64vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:S64Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:S64Vector-Class type) value source-declaration environment backend)
   `(%%s64vector? ,value))
 
 
-(jazz:encapsulate-class jazz:S64Vector-Class)
-
-
 (jazz:define-class-runtime jazz:S64Vector)
-
-
-(jazz:encapsulate-class jazz:S64Vector)
 
 
 ;;;
@@ -1438,17 +1463,11 @@
   'u64vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:U64Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:U64Vector-Class type) value source-declaration environment backend)
   `(%%u64vector? ,value))
 
 
-(jazz:encapsulate-class jazz:U64Vector-Class)
-
-
 (jazz:define-class-runtime jazz:U64Vector)
-
-
-(jazz:encapsulate-class jazz:U64Vector)
 
 
 ;;;
@@ -1467,17 +1486,11 @@
   'f32vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:F32Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:F32Vector-Class type) value source-declaration environment backend)
   `(%%f32vector? ,value))
 
 
-(jazz:encapsulate-class jazz:F32Vector-Class)
-
-
 (jazz:define-class-runtime jazz:F32Vector)
-
-
-(jazz:encapsulate-class jazz:F32Vector)
 
 
 ;;;
@@ -1496,17 +1509,11 @@
   'f64vector)
 
 
-(jazz:define-method (jazz:emit-test (jazz:F64Vector-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:F64Vector-Class type) value source-declaration environment backend)
   `(%%f64vector? ,value))
 
 
-(jazz:encapsulate-class jazz:F64Vector-Class)
-
-
 (jazz:define-class-runtime jazz:F64Vector)
-
-
-(jazz:encapsulate-class jazz:F64Vector)
 
 
 ;;;
@@ -1525,17 +1532,11 @@
   'structure)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Structure-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Structure-Class type) value source-declaration environment backend)
   `(%%structure? ,value))
 
 
-(jazz:encapsulate-class jazz:Structure-Class)
-
-
 (jazz:define-class-runtime jazz:Structure)
-
-
-(jazz:encapsulate-class jazz:Structure)
 
 
 ;;;
@@ -1554,17 +1555,11 @@
   'port)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Port-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Port-Class type) value source-declaration environment backend)
   `(%%port? ,value))
 
 
-(jazz:encapsulate-class jazz:Port-Class)
-
-
 (jazz:define-class-runtime jazz:Port)
-
-
-(jazz:encapsulate-class jazz:Port)
 
 
 (jazz:register-structure-type port? jazz:Port)
@@ -1586,17 +1581,11 @@
   'continuation)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Continuation-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Continuation-Class type) value source-declaration environment backend)
   `(%%continuation? ,value))
 
 
-(jazz:encapsulate-class jazz:Continuation-Class)
-
-
 (jazz:define-class-runtime jazz:Continuation)
-
-
-(jazz:encapsulate-class jazz:Continuation)
 
 
 ;;;
@@ -1621,17 +1610,11 @@
   'procedure)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Procedure-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Procedure-Class type) value source-declaration environment backend)
   `(%%procedure? ,value))
 
 
-(jazz:encapsulate-class jazz:Procedure-Class)
-
-
 (jazz:define-class-runtime jazz:Procedure)
-
-
-(jazz:encapsulate-class jazz:Procedure)
 
 
 ;;;
@@ -1650,17 +1633,11 @@
   'symbol)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Symbol-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Symbol-Class type) value source-declaration environment backend)
   `(%%symbol? ,value))
 
 
-(jazz:encapsulate-class jazz:Symbol-Class)
-
-
 (jazz:define-class-runtime jazz:Symbol)
-
-
-(jazz:encapsulate-class jazz:Symbol)
 
 
 ;;;
@@ -1679,17 +1656,11 @@
   'keyword)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Keyword-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Keyword-Class type) value source-declaration environment backend)
   `(%%keyword? ,value))
 
 
-(jazz:encapsulate-class jazz:Keyword-Class)
-
-
 (jazz:define-class-runtime jazz:Keyword)
-
-
-(jazz:encapsulate-class jazz:Keyword)
 
 
 ;;;
@@ -1708,17 +1679,11 @@
   'table)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Table-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Table-Class type) value source-declaration environment backend)
   `(%%table? ,value))
 
 
-(jazz:encapsulate-class jazz:Table-Class)
-
-
 (jazz:define-class-runtime jazz:Table)
-
-
-(jazz:encapsulate-class jazz:Table)
 
 
 (jazz:register-structure-type table? jazz:Table)
@@ -1740,17 +1705,11 @@
   'thread)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Thread-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Thread-Class type) value source-declaration environment backend)
   `(%%thread? ,value))
 
 
-(jazz:encapsulate-class jazz:Thread-Class)
-
-
 (jazz:define-class-runtime jazz:Thread)
-
-
-(jazz:encapsulate-class jazz:Thread)
 
 
 (jazz:register-structure-type thread? jazz:Thread)
@@ -1768,13 +1727,7 @@
   'promise)
 
 
-(jazz:encapsulate-class jazz:Promise-Class)
-
-
 (jazz:define-class-runtime jazz:Promise)
-
-
-(jazz:encapsulate-class jazz:Promise)
 
 
 ;;;
@@ -1793,17 +1746,11 @@
   'foreign)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Foreign-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Foreign-Class type) value source-declaration environment backend)
   `(%%foreign? ,value))
 
 
-(jazz:encapsulate-class jazz:Foreign-Class)
-
-
 (jazz:define-class-runtime jazz:Foreign)
-
-
-(jazz:encapsulate-class jazz:Foreign)
 
 
 ;;;
@@ -1822,17 +1769,11 @@
   'values)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Values-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Values-Class type) value source-declaration environment backend)
   `(%%values? ,value))
 
 
-(jazz:encapsulate-class jazz:Values-Class)
-
-
 (jazz:define-class-runtime jazz:Values)
-
-
-(jazz:encapsulate-class jazz:Values)
 
 
 ;;;
@@ -1851,17 +1792,11 @@
   'eof)
 
 
-(jazz:define-method (jazz:emit-test (jazz:EOF-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:EOF-Class type) value source-declaration environment backend)
   `(%%eof-object? ,value))
 
 
-(jazz:encapsulate-class jazz:EOF-Class)
-
-
 (jazz:define-class-runtime jazz:EOF)
-
-
-(jazz:encapsulate-class jazz:EOF)
 
 
 ;;;
@@ -1880,17 +1815,11 @@
   'unspecified)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Unspecified-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Unspecified-Class type) value source-declaration environment backend)
   `(%%unspecified? ,value))
 
 
-(jazz:encapsulate-class jazz:Unspecified-Class)
-
-
 (jazz:define-class-runtime jazz:Unspecified)
-
-
-(jazz:encapsulate-class jazz:Unspecified)
 
 
 ;;;
@@ -1909,17 +1838,11 @@
   'marker)
 
 
-(jazz:define-method (jazz:emit-test (jazz:Marker-Class type) value source-declaration environment)
+(jazz:define-method (jazz:emit-test (jazz:Marker-Class type) value source-declaration environment backend)
   `(jazz:marker? ,value))
 
 
-(jazz:encapsulate-class jazz:Marker-Class)
-
-
 (jazz:define-class-runtime jazz:Marker)
-
-
-(jazz:encapsulate-class jazz:Marker)
 
 
 ;;;
@@ -1993,189 +1916,6 @@
 
 
 ;;;
-;;;; Interface
-;;;
-
-
-(jazz:define-class-runtime jazz:Interface)
-
-
-(define (jazz:new-interface class identifier ascendants)
-  (define (compute-interface-ancestors interface ascendants)
-    (jazz:remove-duplicates
-      (%%apply append (%%cons (map (lambda (ascendant)
-                                     (%%vector->list (%%get-category-ancestors ascendant)))
-                                   ascendants)
-                              (%%list (%%list interface))))))
-  
-  (let ((interface (jazz:allocate-interface class identifier (%%make-table test: eq?) 0 #f '() ascendants jazz:new-interface-rank)))
-    (set! jazz:new-interface-rank (%%fx+ jazz:new-interface-rank 1))
-    (%%set-category-ancestors interface (%%list->vector (compute-interface-ancestors interface ascendants)))
-    (for-each (lambda (ascendant)
-                (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
-              ascendants)
-    interface))
-
-
-(define (jazz:interface? object)
-  (%%class-is? object jazz:Interface))
-
-
-;;tBool is_interface_subtype(jType target, jType type)
-;;{
-;;  jTypePtr ptr_start = target->ancestorsGet() + target->class_ancestors_sizeGet();
-;;  jTypePtr ptr = target->ancestorsGet() + target->ancestors_sizeGet();
-;;
-;;  while (--ptr >= ptr_start)
-;;      if (*ptr == type)
-;;          return true;
-;;
-;;  return false;
-;;}
-(jazz:define-method (jazz:of-type? (jazz:Interface interface) object)
-  (jazz:of-subtype? interface (jazz:class-of object)))
-
-
-(jazz:define-method (jazz:update-category (jazz:Interface interface))
-  (jazz:update-interface interface))
-
-
-(define (jazz:update-interface interface)
-  (define (update-interface-root-methods interface)
-    (let* ((interface-rank (%%get-interface-rank interface))
-           (added-methods '()))
-      (jazz:iterate-table (%%get-category-fields interface)
-        (lambda (key field)
-          (%%when (and (jazz:virtual-method? field)
-                       (%%not (%%get-method-category-rank field)))
-            (%%set-method-category-rank field interface-rank)
-            (set! added-methods (%%cons field added-methods)))))
-      added-methods))
-
-  (let ((added-methods (update-interface-root-methods interface)))
-    (%%when (%%not-null? added-methods)
-      (let ((interface-rank (%%get-interface-rank interface)))
-        (let iter ((category interface))
-             (%%when (%%class-is? category jazz:Class)
-               (let* ((interface-table (%%get-class-interface-table category))
-                      (implementation-table (jazz:resize-vector (%%vector-ref interface-table interface-rank) (%%get-category-virtual-size interface))))
-                 (for-each (lambda (field)
-                             (let ((implementation-rank (%%get-method-implementation-rank field))
-                                   (implementation (%%get-method-node-implementation (%%get-method-implementation-tree field))))
-                               (%%vector-set! implementation-table implementation-rank implementation)))
-                           added-methods)
-                 (%%vector-set! interface-table interface-rank implementation-table)))
-             (for-each (lambda (descendant)
-                         (iter descendant))
-                       (%%get-category-descendants category)))))))
-
-
-(jazz:encapsulate-class jazz:Interface)
-
-
-;;;
-;;;; Field
-;;;
-
-
-(jazz:define-class-runtime jazz:Field)
-
-
-(define (jazz:field? object)
-  (%%class-is? object jazz:Field))
-
-
-(define (jazz:field-name field)
-  (%%get-field-name field))
-
-
-(define (jazz:category-field category field-name)
-  (or (%%get-category-field category field-name)
-      (let ((ascendant (%%get-class-ascendant category)))
-        (and ascendant
-             (jazz:category-field ascendant field-name)))))
-
-
-(define (jazz:require-object-field object name)
-  (let* ((class (%%get-object-class object))
-         (field (jazz:category-field class name)))
-    (if (%%not field)
-        (jazz:error "Unknown field '{s} of {s}" name (%%get-category-identifier (%%get-object-class object)))
-      field)))
-
-
-(jazz:encapsulate-class jazz:Field)
-
-
-;;;
-;;;; Slot
-;;;
-
-
-(jazz:define-class-runtime jazz:Slot)
-
-
-(define (jazz:new-slot slot-name slot-offset slot-initialize)
-  (jazz:allocate-slot jazz:Slot slot-name slot-offset slot-initialize))
-
-
-(define (jazz:slot? object)
-  (%%class-is? object jazz:Slot))
-
-
-(define (jazz:add-slot class slot-name slot-initialize slot-allocate?)
-  (let ((actual (%%get-category-field class slot-name)))
-    (cond (actual
-           (%%set-slot-initialize actual slot-initialize)
-           actual)
-          (else
-           (let* ((instance-size (%%get-class-instance-size class))
-                  (slot-offset (and slot-allocate? instance-size))
-                  (slot (jazz:new-slot slot-name slot-offset slot-initialize)))
-             (jazz:add-field class slot)
-             (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-             (%%set-class-instance-slots class (%%append (%%get-class-instance-slots class) (%%list slot)))
-             (%%when slot-allocate?
-               (%%set-class-instance-size class (%%fx+ instance-size 1)))
-             slot)))))
-
-
-(define (jazz:remove-own-slots class)
-  (let ((ascendant (%%get-class-ascendant class))
-        (actual (%%get-class-instance-slots class)))
-    (%%set-class-slots class '())
-    (%%set-class-instance-slots class (if ascendant (%%get-class-instance-slots ascendant) '()))
-    (%%set-class-instance-size class (%%fx- (%%get-class-instance-size class) (%%length actual)))))
-
-
-(define (jazz:slot-value object slot-name)
-  (jazz:get-object-slot object (jazz:find-slot-offset object slot-name)))
-
-
-(define (jazz:set-slot-value object slot-name value)
-  (jazz:set-object-slot object (jazz:find-slot-offset object slot-name) value))
-
-
-(define (jazz:find-slot-offset object slot-name)
-  (%%debug-assert (%%object? object)
-    (let ((slot (jazz:require-object-field object slot-name)))
-      (%%get-slot-offset slot))))
-
-
-(define (jazz:initialize-slots object)
-  (let ((slots (%%get-class-instance-slots (%%get-object-class object))))
-    (for-each (lambda (slot)
-                (let ((offset (%%get-slot-offset slot))
-                      (initialize (%%get-slot-initialize slot)))
-                  (%%when initialize
-                    (%%object-set! object offset (initialize object)))))
-              slots)))
-
-
-(jazz:encapsulate-class jazz:Slot)
-
-
-;;;
 ;;;; Property
 ;;;
 
@@ -2184,7 +1924,7 @@
 
 
 (define (jazz:new-property slot-name slot-offset slot-initialize slot-getter slot-setter)
-  (jazz:allocate-property jazz:Property slot-name slot-offset slot-initialize slot-getter slot-setter))
+  (jazz:allocate-property slot-name slot-offset slot-initialize slot-getter slot-setter))
 
 
 (define (jazz:property? object)
@@ -2225,9 +1965,6 @@
              slot)))))
 
 
-(jazz:encapsulate-class jazz:Property)
-
-
 ;;;
 ;;;; Method
 ;;;
@@ -2261,9 +1998,6 @@
                (jazz:find-in iter (%%get-class-interfaces category))))
           ((%%class-is? category jazz:Interface)
            (jazz:find-in iter (%%get-interface-ascendants category))))))
-
-
-(jazz:encapsulate-class jazz:Method)
 
 
 (define (jazz:iterate-class-overrides class proc)
@@ -2303,7 +2037,7 @@
 
 
 (define (jazz:new-final-method name implementation)
-  (jazz:allocate-method jazz:Method name 'final implementation #f #f #f))
+  (jazz:allocate-method name 'final implementation #f #f #f))
 
 
 (define (jazz:add-final-method class method-name method-implementation)
@@ -2334,7 +2068,7 @@
 
 
 (define (jazz:new-virtual-method name dispatch-type implementation-tree category-rank implementation-rank)
-  (jazz:allocate-method jazz:Method name dispatch-type #f implementation-tree category-rank implementation-rank))
+  (jazz:allocate-method name dispatch-type #f implementation-tree category-rank implementation-rank))
 
 
 (define (jazz:add-virtual-method category method-name method-implementation)
@@ -2342,12 +2076,17 @@
     (let* ((dispatch-type (if (%%class-is? category jazz:Class) 'class 'interface))
            (node (jazz:new-method-node category method-implementation #f '()))
            (method (jazz:new-virtual-method method-name dispatch-type node #f #f))
-           (virtual-size (%%get-category-virtual-size category)))
-      (%%set-method-implementation-rank method virtual-size)
-      (%%set-category-virtual-size category (%%fx+ virtual-size 1))
+           (virtual-size (%%get-category-virtual-size category))
+           (core-level/rank (and (%%class-is? category jazz:Class) (jazz:find-core-level/rank category method-name))))
+      (if core-level/rank
+          (receive (level rank) core-level/rank
+            (%%set-method-implementation-rank method rank))
+        (begin
+          (%%set-method-implementation-rank method virtual-size)
+          (%%set-category-virtual-size category (%%fx+ virtual-size 1))))
       (jazz:add-field category method)
       (jazz:update-category category)
-      virtual-size))
+      (%%get-method-implementation-rank method)))
   
   (define (update-virtual-method category method-name method-implementation)
     (let ((field (%%get-category-field category method-name)))
@@ -2465,7 +2204,7 @@
 
 (define (jazz:new-method-node category implementation next-node children)
   (let ((next-implementation (if next-node (%%get-method-node-implementation next-node) #f)))
-    (jazz:allocate-method-node jazz:Method-Node category implementation next-node next-implementation children)))
+    (jazz:allocate-method-node category implementation next-node next-implementation children)))
 
 
 (define (jazz:call-into-incoherent . rest)
@@ -2474,9 +2213,6 @@
 
 (define (jazz:call-into-abstract class method object arguments)
   (jazz:error "Cannot call abstract method {s} on a {s}" method class))
-
-
-(jazz:encapsulate-class jazz:Method-Node)
 
 
 ;;;
@@ -2488,7 +2224,7 @@
 
 
 (define (jazz:new-queue)
-  (jazz:allocate-queue jazz:Queue '() '() #f))
+  (jazz:allocate-queue '() '() #f))
 
 
 (define (jazz:enqueue queue object)
@@ -2542,7 +2278,4 @@
 (define (jazz:reset-queue queue)
   (%%set-queue-head queue '())
   (%%set-queue-tail queue '())
-  (%%set-queue-shared? queue #f))
-
-
-(jazz:encapsulate-class jazz:Queue))
+  (%%set-queue-shared? queue #f)))

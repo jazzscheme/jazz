@@ -40,6 +40,7 @@
 
 (import (jazz.debugger)
         (jazz.designer)
+        (jazz.git)
         (jazz.io)
         (jazz.jml)
         (jazz.library)
@@ -63,11 +64,13 @@
   (property catalog-extensions initialize #f accessors generate)
   (property catalog-heuristics initialize #f accessors generate)
   (property description-file   initialize #f accessors generate)
+  (property depot-directory    initialize #f accessors generate)
   (property active-project     initialize #f accessors generate)
   (property active-traits      initialize #f accessors generate)
 
 
   (slot catalog initialize #f accessors generate)
+  (slot depot   initialize #f accessors generate)
   
   
   (property deprecated catalog? initialize #t accessors generate)
@@ -215,7 +218,7 @@
   ;;;
   
   
-  (method public (for-each-project proc (include-self?: include-self? #t) (include-inactives?: include-inactives? #f) (stop-test: stop-test #f))
+  (method public (for-each-project proc (include-self?: include-self? #t) (include-inactives?: include-inactives? #f) (include-groups?: include-groups? #f) (stop-test: stop-test #f))
     (define (inactive? project)
       (and (not include-inactives?)
            (neq? project self)
@@ -224,8 +227,10 @@
     
     (for-each-descendant
       (lambda (descendant level)
-        (when (and (is? descendant Project)
-                   (not (inactive? descendant)))
+        (when (or (and (is? descendant Project)
+                       (not (inactive? descendant)))
+                  (and include-groups?
+                       (is? descendant Project-Group)))
           (proc descendant)))
       include-self?: include-self?
       stop-test: (lambda (descendant)
@@ -234,11 +239,13 @@
                             (stop-test descendant))))))
   
   
-  (method public (fold-projects proc seed (include-inactives?: include-inactives? #f))
+  (method public (fold-projects proc seed (include-inactives?: include-inactives? #f) (include-groups?: include-groups? #f))
     (define (fold x f s)
-      (let ((ps (if (and (is? x Project)
-                         (or include-inactives?
-                             (get-active?~ x)))
+      (let ((ps (if (or (and (is? x Project)
+                             (or include-inactives?
+                                 (get-active?~ x)))
+                        (and include-groups?
+                             (is? x Project-Group)))
                     (f x s)
                   s)))
         (if (eq? ps :skip)
@@ -422,6 +429,17 @@
 
   (method public virtual (project-clean)
     (message-box "This project doesn't define a project-clean method"))
+  
+  
+  ;;;
+  ;;;; Depot
+  ;;;
+  
+  
+  (method public (project-depot)
+    (or depot (and depot-directory (begin
+                                     (set! depot (new Git-Depot depot-directory))
+                                     depot))))
   
   
   ;;;

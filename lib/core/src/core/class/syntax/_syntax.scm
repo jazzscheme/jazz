@@ -40,8 +40,8 @@
 
 (require (core.class.syntax.error)
          (core.class.syntax.object)
-         (core.class.syntax.class)
          (core.class.syntax.define-class)
+         (core.class.syntax.class)
          (core.class.syntax.define-method-expander)
          (core.class.syntax.define-method)
          (core.class.syntax.classes)))

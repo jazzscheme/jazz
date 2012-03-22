@@ -43,6 +43,7 @@
         (jazz.graphic)
         (jazz.jml)
         (jazz.library)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.view))
 
@@ -77,7 +78,8 @@
               (<!>                    name: content        layout-type: fill
                 (<Filter-Text-View>   name: filter-text)))))
         (<Separator>                                       size: {Dimension 4 0})
-        (<Push-Tool>                  name: filter         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Filter" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-filter}))
+        (<Push-Tool>                  name: filter         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Filter" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-filter})
+        (<Push-Tool>                  name: conflicts      location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Find Conflicts" resource: {Image-Resource "Clone"} portfolio: :images action-handler: {Event-Handler :form on-conflicts}))
       (<Splitter-View>                                     location: center orientation: vert mode: relative division: 50
         (<Border-View>                name: diff-border    location: first border-type: edge style: entry
           (<Scroller-View>                                 style: document hscroll?: #t vscroll?: #t
@@ -119,7 +121,7 @@
   
   
   (method override (host-workspaces)
-    '(groupware))
+    '(home))
   
   
   (method override (focus-default)
@@ -156,6 +158,28 @@
   
   (method (on-filter evt)
     (filter-target~ (locate 'filter-text)))
+  
+  
+  (method (on-conflicts evt)
+    (let* ((appl (get-application))
+           (manager (get-search-manager~ appl))
+           (player (get-player~ manager)))
+      (set-selection-name~ (locate~ manager 'tab) 'directories)
+      (let ((search (locate~ manager 'directories-search)))
+        (set-string-content~ (locate~ search 'directories) (format "{l}" (get-list~ (get-directory~ depot))))
+        (set-string-content~ (locate~ search 'extensions) "")
+        (set-search-targets~ search
+          (list (list (make-string 7 #\>) "")
+                (list (make-string 7 #\<) "")))
+        (set-whole-words?~ search #f)
+        (set-ignore-case?~ search #f)
+        (set-regexp?~ search #f)
+        (set-preserve-case?~ search #f)
+        (set-play-recording?~ search #f)
+        (set-expression?~ search #f)
+        (bring-to-front~ player)
+        (set-visible?~ player #t)
+        (select-search~ search))))
   
   
   ;;;

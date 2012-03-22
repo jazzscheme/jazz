@@ -873,10 +873,10 @@
 
 
 (define (jazz:clean-toplevel-directory? dir level)
-  (define ignored-toplevel-directories
+  (define ignored-toplevel-dirnames
     '(".git"))
   
-  (not (member (jazz:pathname-name dir) ignored-toplevel-directories)))
+  (not (member (jazz:pathname-name dir) ignored-toplevel-dirnames)))
 
 
 (define (jazz:make-clean configuration)

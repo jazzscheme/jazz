@@ -80,9 +80,10 @@
       (let ((choices (new-queue)))
         (for-each-project~ workbench
           (lambda (project)
-            (when (has-content?~ project)
+            (when (not-null? (get-children~ project))
               (enqueue choices (list project (->string (get-presentation-property~ project))))))
-          include-inactives?: #t)
+          include-inactives?: #t
+          include-groups?: #t)
         (queue-list choices)))
     
     (define (setup-entries)
@@ -171,7 +172,8 @@
        (thread-start!
          (new-thread
            (lambda ()
-             (search-files))
+             (catch Cancel-Signal
+               (search-files)))
            'search)))
       ((definitions)
        (search-definitions))
@@ -185,7 +187,13 @@
   
   
   (method (selected-project)
-    (get-value~ (locate 'project))))
+    (let ((project (get-value~ (locate 'project))))
+      (if (is? project Project)
+          project
+        (execute-event
+          (lambda ()
+            (message-box "Please select a project")))
+        (signal-cancel)))))
 
 
 ;;;
@@ -248,7 +256,7 @@
   (method (setup-projects)
     (let ((tree (locate 'tree)))
       (define (insert-project project father)
-        (when (has-content?~ project)
+        (when (not-null? (get-children~ project))
           (let ((title (get-presentation-property~ project))
                 (image (get-component-image~ project))
                 (state (if (not father) 'expanded 'collapsed)))
@@ -257,7 +265,8 @@
       (fold-projects~ (get-workbench)
         insert-project
         #f
-        include-inactives?: #t)))
+        include-inactives?: #t
+        include-groups?: #t)))
   
   
   (method (on-selection-change evt)

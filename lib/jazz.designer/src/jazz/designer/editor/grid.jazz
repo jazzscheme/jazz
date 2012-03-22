@@ -43,6 +43,7 @@
         (jazz.graphic)
         (jazz.library)
         (jazz.library.component)
+        (jazz.locale)
         (jazz.jml)
         (jazz.runtime)
         (jazz.system)
@@ -100,11 +101,13 @@
     (lambda (rd cd) (column-data-component-property rd cd fail succeed))))
 
 
-(definition public (classes-properties/presentations classes)
+(definition public (classes-properties/presentations/domains classes)
   (remove-duplicates
     (append-map (lambda (class)
                   (map (lambda (property)
-                         (list (get-name~ property) (property-presentation~ class property)))
+                         (list (get-name~ property)
+                               (property-presentation~ class property)
+                               (get-domain~ class property)))
                        (class-properties class)))
                 classes)
     key: second
@@ -113,6 +116,13 @@
 
 (definition public (get-selection-columns grid)
   (collect-type Component-Provider-Selection-Data (get-columns~ grid) key: get-provider-data~))
+
+
+(definition public (get-sub-property-domain component property sub-identifier)
+  (let* ((domain (property-domain~ component property))
+         (multi-domains (get-multi-domains~ domain component))
+         (result (and multi-domains (assq-value sub-identifier multi-domains #f))))
+    (and result (second result))))
 
 
 (class Component-Row-Data extends Component
@@ -138,7 +148,14 @@
 
 (class Component-Provider-Selection-Data extends Component-Provider-Data
   
+  
   (property class-references initialize '() accessors generate))
+
+
+(class Component-Provider-Sub-Property-Data extends Component-Provider-Data
+  
+  
+  (property sub-identifier initialize #f accessors generate))
 
 
 (class Component-Provider extends Component implements Data-Provider
@@ -215,9 +232,15 @@
   
   
   (method override (get-domain row-data column-data)
-    (and (is-not? column-data Component-Provider-Selection-Data)
-         (if (class-selection?~ column-data)
-             (get-class-domain row-data column-data)
+    (cond ((is? column-data Component-Provider-Selection-Data)
+           #f)
+          ((class-selection?~ column-data)
+           (get-class-domain row-data column-data))
+          ((is? column-data Component-Provider-Sub-Property-Data)
+           (column-data-component-property row-data column-data (const #f)
+             (lambda (component property)
+               (get-sub-property-domain component property (get-sub-identifier~ column-data)))))
+          (else
            (column-data-component-property row-data column-data (const #f) property-domain~))))
   
   
@@ -585,6 +608,12 @@
       column))
   
   
+  (method (new-sub-property-column component-name component-offset parent-offset identifier sub-identifier title (read-only? #f))
+    (let ((column (new Grid-Tree-Column title: title width: Default-Property-Width)))
+      (add-child~ column (new Component-Provider-Sub-Property-Data name: 'provider-data component-name: component-name identifier: identifier sub-identifier: sub-identifier component-offset: component-offset parent-offset: parent-offset read-only?: read-only?))
+      column))
+  
+  
   (method (generate-components-lists)
     (define (make-child-lists child rest)
       (if (null? rest)
@@ -613,10 +642,17 @@
   
   (method override (make-columns)
     (define (make-property-columns component-name classes component-offset parent-offset)
-      (map (lambda (x)
-             (bind (identifier presentation) x
-               (new-property-column component-name component-offset parent-offset identifier presentation)))
-           (classes-properties/presentations classes)))
+      (append-map (lambda (x)
+                    (bind (identifier presentation domain) x
+                      (let ((multi-domains (get-multi-domains~ domain client)))
+                        (if multi-domains
+                            (map (lambda (lst)
+                                   (bind (sub-identifier title domain) lst
+                                     (let ((title (localize title)))
+                                       (new-sub-property-column component-name component-offset parent-offset identifier sub-identifier (format "{a} {a}" presentation title)))))
+                                 multi-domains)
+                          (list (new-property-column component-name component-offset parent-offset identifier presentation))))))
+                  (classes-properties/presentations/domains classes)))
     
     (define (make-component-columns component-name component-offset parent-offset classes)
       (let ((name-column (and (not component-name) (new-property-column component-name component-offset parent-offset 'name-info "Name" #t)))

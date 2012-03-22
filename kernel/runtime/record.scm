@@ -145,6 +145,10 @@
   (%%cons name jazz:structure-marker))
 
 
+(jazz:define-macro (%%record-structure-name expr)
+  `(##car (%%get-record-structure ,expr)))
+
+
 ;; defined as functions until structure / class unification
 (define (%%record? expr)
   (and (##vector? expr)

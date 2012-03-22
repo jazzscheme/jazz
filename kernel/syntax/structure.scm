@@ -110,7 +110,7 @@
        ,@(if (%%not predicate)
              '()
            `((define (,predicate obj)
-               (and (%%record? obj) (%%eq? (%%get-record-structure obj) ',name)))))
+               (and (%%record? obj) (%%eq? (%%record-structure-name obj) ',name)))))
        ,@(map (lambda (slot rank)
                 (receive (slot-name slot-getter slot-setter) (parse-slot slot accessors-prefix downcase-name)
                   `(begin

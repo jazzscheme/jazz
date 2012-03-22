@@ -673,80 +673,82 @@
         (not (member? ext ignored-extensions test: extension=?))))
     
     (let ((object (selected-object)))
-      (let ((project (ascendant-project object))
-            (directory (default-import-directory object must-exist?: #f)))
-        (if (not (exists?~ directory))
-            (error "Directory {s} not found" directory)
-          (let ((fact (new List-Factory)))
-            (define (component-name component)
-              (typecase component
-                ((Project-File)
-                 (get-name~ (get-source~ component)))
-                ((Project-Directory)
-                 (get-name~ (get-directory~ component)))
-                (else
-                 (->string (get-name~ component)))))
-            
-            (define (pathname-name pathname)
-              (get-name~ pathname))
-            
-            (define (fold component pathname path)
-              (let ((children (get-children~ component))
-                    (content (collect-if (lambda (pathname)
-                                           (filter-pathname? project pathname filter: synchronize-filter))
-                                         (get-content~ pathname))))
-                (merge-ordered (lambda (what key left right)
-                                 (let ((path (cons key path)))
-                                   (case what
-                                     ((:left :right) (put~ fact (list what (reverse path) left right component)))
-                                     ((:same)
-                                      (when (directory? right)
-                                        (fold left right path))))))
-                               (sort ci<? children key: component-name)
-                               (sort ci<? content key: pathname-name)
-                               left-key: component-name
-                               right-key: pathname-name
-                               case-insensitive?: #t)))
-            
-            (fold object directory '())
-            (let ((out-of-synch (get-output~ fact)))
-              (if (null? out-of-synch)
-                  (message-box "Content already synchronized")
-                (let ((border (new Synchronize-Border size: {Dimension 500 200})))
-                  (let ((tree (locate~ border 'tree)))
-                    (define (add info)
-                      (bind (what path left right) info
-                        (let ((title (join path "/"))
-                              (image (if (directory? right) {Image-Resource "OpenedFolder"} {Image-Resource "File"})))
-                          (let ((c0 (new Tree-Node title: title image: image)))
-                            (add-row~ tree children: (list c0 what (cons #t info) what))))))
-                    
-                    (for-each add out-of-synch)
-                    (let ((code (message-box "The following elements are out of synch. Synchronize?" class: Synchronize-Box type: 'confirmation content: border)))
-                      (case code
-                        ((yes)
-                         (with-cursor :wait
-                           (lambda ()
-                             (let ((added 0)
-                                   (removed 0))
-                               (for-each-visible-row~ tree
-                                 (lambda (row rank)
-                                   (let ((cell (new Cell rank 2)))
-                                     (let ((data (get-cell-data~ tree cell)))
-                                       (bind (marked? . info) data
-                                         (when marked?
-                                           (bind (what path left right parent) info
-                                             (case what
-                                               ((:left)
-                                                (remove-child~ designer left)
-                                                (increase! removed))
-                                               ((:right)
-                                                (let ((component (import-pathname project right parent #f)))
-                                                  (process-refresh~ designer component 'descendants))
-                                                (increase! added))))))))))
-                               (user-message "{a} added, {a} removed"
-                                             added
-                                             removed))))))))))))))))
+      (if (find-descendant~ object (lambda (descendant) (is? descendant Project)) include-self?: #f)
+          (message-box "Cannot yet synchronize an element containing a project")
+        (let ((project (ascendant-project object))
+              (directory (default-import-directory object must-exist?: #f)))
+          (if (not (exists?~ directory))
+              (error "Directory {s} not found" directory)
+            (let ((fact (new List-Factory)))
+              (define (component-name component)
+                (typecase component
+                  ((Project-File)
+                   (get-name~ (get-source~ component)))
+                  ((Project-Directory)
+                   (get-name~ (get-directory~ component)))
+                  (else
+                   (->string (get-name~ component)))))
+              
+              (define (pathname-name pathname)
+                (get-name~ pathname))
+              
+              (define (fold component pathname path)
+                (let ((children (get-children~ component))
+                      (content (collect-if (lambda (pathname)
+                                             (filter-pathname? project pathname filter: synchronize-filter))
+                                           (get-content~ pathname))))
+                  (merge-ordered (lambda (what key left right)
+                                   (let ((path (cons key path)))
+                                     (case what
+                                       ((:left :right) (put~ fact (list what (reverse path) left right component)))
+                                       ((:same)
+                                        (when (directory? right)
+                                          (fold left right path))))))
+                                 (sort ci<? children key: component-name)
+                                 (sort ci<? content key: pathname-name)
+                                 left-key: component-name
+                                 right-key: pathname-name
+                                 case-insensitive?: #t)))
+              
+              (fold object directory '())
+              (let ((out-of-synch (get-output~ fact)))
+                (if (null? out-of-synch)
+                    (message-box "Content already synchronized")
+                  (let ((border (new Synchronize-Border size: {Dimension 500 200})))
+                    (let ((tree (locate~ border 'tree)))
+                      (define (add info)
+                        (bind (what path left right) info
+                          (let ((title (join path "/"))
+                                (image (if (directory? right) {Image-Resource "OpenedFolder"} {Image-Resource "File"})))
+                            (let ((c0 (new Tree-Node title: title image: image)))
+                              (add-row~ tree children: (list c0 what (cons #t info) what))))))
+                      
+                      (for-each add out-of-synch)
+                      (let ((code (message-box "The following elements are out of synch. Synchronize?" class: Synchronize-Box type: 'confirmation content: border)))
+                        (case code
+                          ((yes)
+                           (with-cursor :wait
+                             (lambda ()
+                               (let ((added 0)
+                                     (removed 0))
+                                 (for-each-visible-row~ tree
+                                   (lambda (row rank)
+                                     (let ((cell (new Cell rank 2)))
+                                       (let ((data (get-cell-data~ tree cell)))
+                                         (bind (marked? . info) data
+                                           (when marked?
+                                             (bind (what path left right parent) info
+                                               (case what
+                                                 ((:left)
+                                                  (remove-child~ designer left)
+                                                  (increase! removed))
+                                                 ((:right)
+                                                  (let ((component (import-pathname project right parent #f)))
+                                                    (process-refresh~ designer component 'descendants))
+                                                  (increase! added))))))))))
+                                 (user-message "{a} added, {a} removed"
+                                               added
+                                               removed)))))))))))))))))
   
   
   ;;;

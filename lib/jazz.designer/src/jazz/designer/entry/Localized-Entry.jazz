@@ -40,9 +40,165 @@
 
 (import (jazz.designer)
         (jazz.graphic)
+        (jazz.ide)
         (jazz.jml)
+        (jazz.library)
         (jazz.locale)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.view))
+
+;;;
+;;;; Locales-View
+;;;
+
+
+(class Locale-View extends View
+
+  
+  (form
+    (<install>                            size: {Dimension 300 17}
+      (<Label-View>        name: label    position: {Point 0 0} size: {Dimension 100 17})
+      (<Scroller-View>     name: scroller
+        (<!>               name: content
+          (<IDE-Text-View> name: text)))))
+  
+ 
+  (method override (layout)
+    (let ((size (get-size))
+          (text (locate 'text))
+          (scroller (locate 'scroller))
+          (label (locate 'label)))
+      (let ((width (get-width~ (get-size~ label))))
+        (set-position~ label (new Point 2 0))
+        (set-size~ scroller (new Dimension (- (get-width~ size) width 2) (- (get-height~ size) 2)))
+        (set-position~ scroller (new Point width 0))))))
+
+
+;;;
+;;;; Localized-Dialog
+;;;
+
+
+(class Localized-Dialog extends Layout-View
+  
+  
+  (property locales-object initialize #f)
+  (property locale-tree    initialize #f)
+  
+  
+  (form
+    (<install>                            layout-type: border size: {Dimension 500 500}
+      (<Border-View>       name: border   location: center border-type: edge style: entry
+        (<Scroller-View>   name: scroller style: tool hscroll?: #f vscroll?: #t
+          (<!>             name: content  layout-type: fill
+            (<Layout-View> name: locales  layout-type: flow layout-justification: vertical))))
+      (<Layout-View>       name: south    location: south layout-type: border size: {Dimension 500 36}
+        (<Layout-View>                    location: south size: {Dimension 500 30} layout-type: flow
+          (<Push-Button>   name: ok       title: {Locales english: "OK" french: "OK"} location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t position: {Point 9 3})
+          (<Separator>                    location: tail size: {Dimension 3 0} location: tail)
+          (<Push-Button>   name: cancel   title: {Locales english: "Cancel" french: "Annuler"} location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel} position: {Point 97 3})
+          (<Separator>                    size: {Dimension 5 0} location: tail)))))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (let ((locales-view (locate 'locales))
+          (locales (provide-locales~ locale-tree)))
+      (for-each (lambda (locale)
+                  (let ((locale-view (new Locale-View name: (keyword->symbol locale) parent: locales-view)))
+                    (set-title~ (locate~ locale-view 'label) (->string locale))                    
+                    (set-string-content~ (locate~ locale-view 'text) (or (localize~ locales-object locale) "{}"))))
+                locales)
+      (let ((height (* 17 (length locales))))
+        (set-size~ (locate 'border) (new Dimension 500 height))
+        (set-size~ self (new Dimension 500 (+ height 36))))))
+  
+  
+  (method override (get-modal-result)
+    (let ((alist (collect (lambda (locale-view)
+                            (let ((text (get-string-content~ (locate~ locale-view 'text))))
+                              (and (not (string=? "{}" text))
+                                   (cons (symbol->keyword (get-name~ locale-view)) text))))
+                          (get-children~ (locate 'locales)))))
+      (and (pair? alist)
+           (apply new (cons Locales (alist->plist alist))))))
+  
+  
+  (method meta override (get-class-descriptor)
+    (new Localized-Dialog-Descriptor)))
+  
+
+;;;
+;;;; Localized-Combo
+;;;
+
+
+(class Localized-Combo extends Combo-Box
+  
+  
+  (slot locales-object initialize #f getter generate)
+  
+  
+  (form
+    (<install> kind: choose))
+  
+  
+  (method public (set-locales-object value)
+    (set! locales-object~self (if (string? value) (new Locales all: value) value))
+    (set-string-content~ (locate 'body) (present~ (get-domain~ parent) value)))
+  
+  
+  (method override (button-action)
+    (let ((new-locales-object (get-modal Localized-Dialog locales-object: locales-object locale-tree: (get-locale-tree~ parent))))
+      (unless (nu=? locales-object new-locales-object)
+        (set! locales-object new-locales-object)
+        (set-modified? #t)))))
+
+
+;;;
+;;;; Localized-Dialog-Entry
+;;;
+
+
+(class Localized-Dialog-Entry extends Property-Entry
+  
+  
+  (slot locale-tree initialize #f accessors generate)
+  
+  
+  (form
+    (<install>                       layout-type: border background: {Color White}
+      (<Localized-Combo> name: combo selectable?: #t location: center
+        (<!>             name: body  left-padding: 0 top-padding: 1))))
+  
+   
+  (method override (tab-view)
+    (locate '(combo body)))
+  
+  
+  (method override (get-modified?)
+    (get-modified?~ (locate 'combo)))
+  
+  
+  (method override (set-modified? value)
+    (set-modified?~ (locate 'combo) value))
+  
+  
+  (method override (set-editable? value)
+    (set-editable?~ (locate 'combo) value))
+  
+  
+  (method override (get-value)
+    (get-locales-object~ (locate 'combo)))
+  
+  
+  (method override (set-value value)
+    (set-locales-object~ (locate 'combo) value)))
+
+
+;;;
+;;;; Localized-Entry
+;;;
 
 
 (class undocumented Localized-Entry extends String-Entry
@@ -105,6 +261,18 @@
 
 
 (submodule design
+
+
+(class Localized-Dialog-Descriptor extends Layout-View-Descriptor
+  
+  
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: locales-object
+          (<Value-Domain>      name: domain  nullable?: #t))
+        (<Property-Descriptor> name: locale-tree
+          (<Value-Domain>      name: domain  nullable?: #t))))))
 
 
 (class Localized-Entry-Descriptor extends Property-Entry-Descriptor

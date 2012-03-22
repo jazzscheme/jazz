@@ -43,7 +43,12 @@
 (define (jazz:log-backtrace ignore)
   (continuation-capture
     (lambda (k)
-      (display-continuation-backtrace k (current-error-port) #f #t 500 500))))
+      (let ((file (jazz:crash-file)))
+        (if (not file)
+            (display-continuation-backtrace k (current-error-port) #f #t 500 500)
+          (call-with-output-file (list path: file append: #t eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
+            (lambda (port)
+              (display-continuation-backtrace k port #f #t 500 500))))))))
 
 
 (jazz:set-crash-reporter jazz:log-backtrace)

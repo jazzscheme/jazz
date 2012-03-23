@@ -38,6 +38,75 @@
 (module jazz.network.smtp jazz
 
 
+(import time)
+
+
+(class MIME-Message extends Object
+  
+  
+  (slot from getter generate)
+  (slot to getter generate)
+  (slot subject getter generate)
+  (slot message getter generate)
+  (slot cc getter generate)
+  (slot bcc getter generate)
+  (slot attachments getter generate)
+  
+  
+  (method override (initialize from to subject message (cc: cc '()) (bcc: bcc '()) (attachments: attachments '()))
+    (set! from~self from)
+    (set! to~self to)
+    (set! subject~self subject)
+    (set! message~self message)
+    (set! cc~self cc)
+    (set! bcc~self bcc)
+    (set! attachments~self attachments))
+  
+  
+  (method (format-mime-date date)
+    (date->string date "~d ~b ~Y ~H:~M:~S ~z"))
+  
+  
+  (method (make-mime-header)
+    (string-append (format "From: {a}{%}" from)
+                   (format "To: {a}{%}" (join to ", "))
+                   (format "{?:Cc: {a}{%}~}" (not-null? cc) (join cc ", "))
+                   (format "{?:Bcc: {a}{%}~}" (not-null? bcc) (join bcc ", "))
+                   (format "Date: {a}{%}" (format-mime-date (system-date)))
+                   (format "Subject: {a}{%}" subject)
+                   "MIME-Version: 1.0\n"))
+  
+  
+  (method (make-plain-mime-message)
+    (string-append (make-mime-header)
+                   "Content-Type: text/plain;\n\n"
+                   message
+                   "\n\n"))
+
+
+  (method (make-multipart-mime-message)
+    ;; Generate this boundary
+    (let* ((boundary "CF69BC42-C9CB-11E0-82A0-A5C34824019B")
+           (parts (append (list (format "Content-Type: multipart/mixed; boundary={a}\n" boundary)
+                                (format "Content-Type: text/plain;\n\n{a}\n\n" message))
+                          (map (lambda (file)
+                                 (string-append (format "Content-Type: application/octet-stream\n")
+                                                (format "Content-Disposition: attachment; filename={s}\n" (get-name~ file))
+                                                "Content-Transfer-Encoding: base64\n\n"
+                                                (separate-lines (file->base64-string file) 72)
+                                                "\n"))
+                               attachments))))
+      (string-append (make-mime-header)
+                     (join parts (format "--{a}\n" boundary))
+                     (format "--{a}--\n" boundary))))
+  
+  
+  (method public (format-for-delivery)
+    (if (null? attachments)
+        (make-plain-mime-message)
+      (make-multipart-mime-message))))
+
+
 (class SMTP-Client extends Object
   
   
@@ -109,48 +178,29 @@
                        (throw "Invalid credentials."))))
   
   
-  (method (send-mail origin <string> recipients content <string>)
-    (define (loop-recipient-list lst code)
-      (when (not (empty? lst))
-        (display (format "{a}: {a}" code (car lst)) port)
-        (for-each
-          (lambda (elem)
-            (display (format ", {a}" elem) port))
-          (cdr lst))
-        (newline port)))
-    
-    (display "RSET\n" port)
-    (get-reply "250")
-    
-    (display (format "MAIL FROM:<{a}>\n" origin) port)
-    (get-reply "250" 
-               (lambda () (error (format "Error adding sender {a}." origin))))
-    
-    (for-each
-      (lambda (recipient)
-        (begin
+  (method (send-mail mail <MIME-Message>)
+    (let ((mail-string (format-for-delivery~ mail)))
+      (display "RSET\n" port)
+      (get-reply "250")
+      
+      (display (format "MAIL FROM:<{a}>\n" (get-from~ mail)) port)
+      (get-reply "250" (lambda () (error (format "Error adding sender {a}." (get-from~ mail)))))
+      
+      (for-each
+        (lambda (recipient)
           (display (format "RCPT TO: {a}\n" recipient) port)
-          (get-reply "250" (lambda () (error (format "Error adding recipient {a}." recipient))))))
-      recipients)
-    
-    (display "data\n" port)
-    (get-reply "354" (lambda () (error "Error sending the message. Server not accepting data.")))
-    
-    (display content port)
-    (display "\n.\n" port)
-    (get-reply "250" (lambda () (error "Error sending the message.")))))
+          (get-reply "250" (lambda () (error (format "Error adding recipient {a}." recipient)))))
+        (get-to~ mail))
+      
+      (display "data\n" port)
+      (get-reply "354" (lambda () (error "Error sending the message. Server not accepting data.")))
+      
+      (display mail-string port)
+      (display "\n.\n" port)
+      (get-reply "250" (lambda () (error "Error sending the message."))))))
 
 
-(definition public (make-mime-header from to subject (cc: cc '()) (bcc: bcc '()))
-  (string-append (format "From: {a}\n" from)
-                 (format "To: {a}\n" (join to ", "))
-                 (format "Cc: {a}\n" (join cc ", "))
-                 (format "Bcc: {a}\n" (join bcc ", "))
-                 (format "Subject: {a}\n" subject)
-                 "MIME-Version: 1.0\n"))
-
-
-(definition (separate-lines string ch-size)
+(definition public (separate-lines string ch-size)
   (let ((length (string-length string)))
     (let (recurse (index 0))
       (cond ((>= index length)
@@ -181,41 +231,9 @@
   (u8vector->base64-string (file->u8vector file)))
 
 
-(definition public (make-plain-mime-message header body)
-  (string-append header
-                 "Content-Type: text/plain;\n\n"
-                 body
-                 "\n\n"))
-
-
-(definition public (make-multipart-mime-message header body attachments)
-  ;; Generate this boundary
-  (let* ((boundary "CF69BC42-C9CB-11E0-82A0-A5C34824019B")
-         (parts (append (list (format "Content-Type: multipart/mixed; boundary={a}\n" boundary)
-                              (format "Content-Type: text/plain;\n\n{a}\n\n" body))
-                        (map (lambda (file)
-                               (string-append (format "Content-Type: application/octet-stream\n")
-                                              (format "Content-Disposition: attachment; filename={s}\n" (get-name~ file))
-                                              "Content-Transfer-Encoding: base64\n\n"
-                                              (separate-lines (file->base64-string file) 72)
-                                              "\n"))
-                             attachments))))
-    (string-append header
-                   (join parts (format "--{a}\n" boundary))
-                   (format "--{a}--\n" boundary))))
-
-
-
-(definition public (make-mime-message from to subject message (cc: cc '()) (bcc: bcc '()) (attachments: attachments '()))
-  (let ((header (make-mime-header from to subject cc: cc bcc: bcc)))
-    (if (null? attachments)
-        (make-plain-mime-message header message)
-      (make-multipart-mime-message header message attachments))))
-
-
-(definition public (send-message message from to server (username: username "") (password: password ""))
+(definition public (send-message message server (username: username "") (password: password ""))
   (let ((client (new SMTP-Client server username: username password: password)))
-    (send-mail~ client from to message)
+    (send-mail~ client message)
     (close~ client)))
 
 

@@ -1,0 +1,248 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Threeway Text Compare
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.groupware.compare.Threeway-Compare-Texts jazz
+
+
+(import (jazz.geometry)
+        (jazz.graphic)
+        (jazz.groupware)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.platform)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view))
+
+
+(class Threeway-Compare-Texts extends Layout-View
+  
+  
+  (property save-proc initialize #f accessors generate)
+  
+  
+  (form
+    (<install>                                                    size: {Dimension 795 499} layout-type: border
+      (<Layout-View>                          name: toolbar       size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Push-Tool>                          name: next-diff     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Next Diff (F9)" resource: {Image-Resource "NextDiff"} portfolio: :images action-handler: {Event-Handler :form on-next-diff})
+        (<Push-Tool>                          name: previous-diff size: {Dimension 22 22} tooltip?: #t tooltip-text: "Previous Diff (Shift+F9)" resource: {Image-Resource "PreviousDiff"} portfolio: :images action-handler: {Event-Handler :form on-previous-diff})
+        (<Separator>                                              size: {Dimension 16 0})
+        (<Push-Tool>                          name: keep-green    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Green (F10)" resource: {Image-Resource "KeepGreen"} portfolio: :images action-handler: {Event-Handler :form on-keep-green})
+        (<Push-Tool>                          name: keep-blue     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Blue (F11)" resource: {Image-Resource "KeepBlue"} portfolio: :images action-handler: {Event-Handler :form on-keep-blue})
+        (<Push-Tool>                          name: keep-both     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Both (F12)" resource: {Image-Resource "KeepBoth"} portfolio: :images action-handler: {Event-Handler :form on-keep-both}))
+      (<Border-View>                          name: border        location: center border-type: edge style: entry layout-type: fill
+        (<Splitter-View>                                          orientation: horz mode: relative division: 33.33
+          (<Scroller-View>                                        hscroll?: #t vscroll?: #t style: document
+            (<!>                              name: content
+              (<Threeway-Compare-Text-View>   name: head)))
+          (<Splitter-View>                                        orientation: horz mode: relative division: 50
+            (<Scroller-View>                                      hscroll?: #t vscroll?: #t style: document
+              (<!>                            name: content
+                (<Threeway-Compare-Text-View> name: base)))
+            (<Scroller-View>                                      hscroll?: #t vscroll?: #t style: document
+              (<!>                            name: content
+                (<Threeway-Compare-Text-View> name: tail))))))))
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+    
+
+  (method meta override (host-icon)
+    {Image-Resource "CompareFiles"})
+  
+  
+  (method meta override (host-title)
+    "Threeway Compare")
+  
+  
+  (method meta override (host-position)
+    {Point 90 80})
+  
+  
+  (method meta override (host-size)
+    {Dimension 795 500})
+  
+  
+  (method override (focus-default)
+    (acquire-focus~ (locate 'base)))
+
+  
+  ;;;
+  ;;;; Text
+  ;;;
+  
+  
+  (method public (display-conflict text)
+    (parse-conflicts text
+      (lambda (head base tail)
+        (compare-conflicts text head base tail))))
+  
+  
+  (method (parse-conflicts text proc)
+    (define head-start-marker
+      (make-string 7 #\<))
+    (define base-start-marker
+      (make-string 7 #\|))
+    (define tail-start-marker
+      (make-string 7 #\=))
+    (define tail-end-marker
+      (make-string 7 #\>))
+    
+    (let ((model (get-model~ text)))
+      (let ((head-start (text-search~ model head-start-marker start: (get-end~ text) reversed?: #t)))
+        (if (not head-start)
+            (begin
+              (message-box "Unable to find conflict")
+              (signal-cancel))
+          (let ((base-start (text-search~ model base-start-marker start: head-start))
+                (tail-start (text-search~ model tail-start-marker start: head-start))
+                (tail-end   (text-search~ model tail-end-marker start: head-start)))
+            (assert (and tail-start tail-end (nu<? head-start tail-start tail-end)))
+            (assert (or (not base-start) (nu<? head-start base-start tail-start)))
+            (let ((head (new Range$Cell$ (nu+ head-start {Cell 1 0}) (or base-start tail-start)))
+                  (base (and base-start (new Range$Cell$ (nu+ base-start {Cell 1 0}) tail-start)))
+                  (tail (new Range$Cell$ (nu+ tail-start {Cell 1 0}) tail-end)))
+              (proc head base tail)))))))
+    
+  
+  (method (compare-conflicts text head base tail)
+    (define (save content)
+      (replace~ text (new Range$Cell$ (nu- (get-start~ head) {Cell 1 0}) (nu+ (get-end~ tail) {Cell 1 0}))
+        content))
+    
+    (let ((model (get-model~ text))
+          (head-file (get-temporary-file))
+          (base-file (get-temporary-file))
+          (tail-file (get-temporary-file)))
+      (save-lines~ head-file (range-strings~ model head))
+      (save-lines~ base-file (range-strings~ model base))
+      (save-lines~ tail-file (range-strings~ model tail))
+      (set! save-proc save)
+      (parameterize ((testing? #t))
+        (compare-monikers~ (locate 'head) (new Text-Comparer) head-file base-file)
+        (compare-monikers~ (locate 'base) (new Text-Comparer) head-file tail-file)
+        (compare-monikers~ (locate 'tail) (new Text-Comparer) tail-file base-file))))
+  
+  
+  ;;;
+  ;;;; Tab
+  ;;;
+  
+  
+  (method override (get-tab-stops)
+    (list
+      (locate 'head)
+      (locate 'base)
+      (locate 'tail)))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (focused-compare-text)
+    (let ((text (get-focus)))
+      (when (is? text Compare-Text-View)
+        text)))
+  
+  
+  (method (on-next-diff evt)
+    (let ((text (focused-compare-text)))
+      (if (not text)
+          (bell)
+        (goto-next-diff~ text))))
+  
+  
+  (method (on-previous-diff evt)
+    (let ((text (focused-compare-text)))
+      (if (not text)
+          (bell)
+        (goto-previous-diff~ text))))
+  
+  
+  (method (on-keep-green evt)
+    (let ((text (focused-compare-text)))
+      (if (not text)
+          (bell)
+        (keep-green~ text)
+        (let ((next? (if (has-property?~ evt next?:)
+                         (get-property~ evt next?:)
+                       (not (shift-down?)))))
+          (when next?
+            (goto-next-diff~ text))))))
+  
+  
+  (method (on-keep-blue evt)
+    (let ((text (focused-compare-text)))
+      (if (not text)
+          (bell)
+        (keep-blue~ text)
+        (let ((next? (if (has-property?~ evt next?:)
+                         (get-property~ evt next?:)
+                       (not (shift-down?)))))
+          (when next?
+            (goto-next-diff~ text))))))
+  
+  
+  (method (on-keep-both evt)
+    (let ((text (focused-compare-text)))
+      (if (not text)
+          (bell)
+        (keep-both~ text))))
+    
+  
+  ;;;
+  ;;;; Save
+  ;;;
+  
+  
+  (method override (save)
+    (let ((text (focused-compare-text)))
+      (if (not text)
+          (bell)
+        (save-proc (get-content~ (get-model~ text))))))
+
+  
+  (method override (save-as)
+    (let ((text (focused-compare-text)))
+      (if (not text)
+          (bell)
+        (save-as~ text))))))

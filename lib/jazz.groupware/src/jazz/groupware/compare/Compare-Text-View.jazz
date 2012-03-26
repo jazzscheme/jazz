@@ -38,7 +38,8 @@
 (module protected jazz.groupware.compare.Compare-Text-View jazz
 
 
-(import (jazz.groupware)
+(import (jazz.graphic)
+        (jazz.groupware)
         (jazz.ide)
         (jazz.jml)
         (jazz.library)
@@ -89,6 +90,40 @@
   
   (method override (edition-workspace)
     'groupware)
+  
+  
+  ;;;
+  ;;;; Compare
+  ;;;
+  
+  
+  (method public (compare-monikers compare green-moniker blue-moniker)
+    (define (colorize-output output)
+      (let* ((model (get-model))
+             (formats (list (locate-format~ model 'Base)))
+             (font {Font Code})
+             (plain (intern-style~ model (new Text-Style base: 'Base font: font)))
+             (green (intern-style~ model (new Text-Style base: 'Base font: font color: Green-Color)))
+             (blue (intern-style~ model (new Text-Style base: 'Base font: font color: Blue-Color)))
+             (styles (list plain green blue))
+             (has-differences? #f)
+             (paragraphs (map (lambda (info)
+                                (bind (rank1 rank2 line color) info
+                                  (let ((style (case color ((green) 1) ((blue) 2) (else 0))))
+                                    (when (/= style 0)
+                                      (set! has-differences? #t))
+                                    (list 0 (list (get-string~ line) style)))))
+                              output)))
+        (set-formatted-content~ model (new Formatted-Text formats: formats styles: styles paragraphs: paragraphs))
+        has-differences?))
+    
+    (clear-all)
+    (let* ((output (compare-monikers~ compare green-moniker blue-moniker))
+           (has-differences? (colorize-output output)))
+      (layout-scrollee)
+      (when has-differences?
+        (goto-first-diff))
+      has-differences?))
     
     
   ;;;
@@ -204,16 +239,12 @@
            (diff (get-diff (get-line~ pos))))
       (if (not diff)
           (bell)
-        (when (get-blue~ diff)
-          (replace-text (get-range~ (get-blue~ diff) self) '("")))
         (when (get-green~ diff)
           (for-each (lambda (n)
                       (uncolorize-row~ syntax n))
                     (naturals (get-start~ (get-green~ diff)) (+ (get-end~ (get-green~ diff)) 1))))
-        (if (not (get-green~ diff))
-            (set-caret (previous-end-of-line (get-line~ pos)))
-          (let ((range (get-range~ (get-green~ diff) self)))
-            (set-selection (new Range$Cell$ (get-start~ range) (previous-end-of-line (get-line~ (get-end~ range))))))))))
+        (when (get-blue~ diff)
+          (replace-text (get-range~ (get-blue~ diff) self) '(""))))))
   
   
   (method protected (keep-blue)
@@ -226,14 +257,7 @@
                       (uncolorize-row~ syntax n))
                     (naturals (get-start~ (get-blue~ diff)) (+ (get-end~ (get-blue~ diff)) 1))))
         (when (get-green~ diff)
-          (replace-text (get-range~ (get-green~ diff) self) '("")))
-        (if (not (get-blue~ diff))
-            (set-caret pos)
-          (let ((range (get-range~ (get-blue~ diff) self))
-                (row-count (if (not (get-green~ diff)) 0 (get-height~ (get-green~ diff) self))))
-            (set-selection (new Range$Cell$
-                             (new Cell (- (get-line~ (get-start~ range)) row-count) 0)
-                             (previous-end-of-line (- (get-line~ (get-end~ range)) row-count)))))))))
+          (replace-text (get-range~ (get-green~ diff) self) '(""))))))
   
   
   (method protected (keep-both)
@@ -260,15 +284,15 @@
   
   (form
     (<install>
-      (<Label-Item>     name: open-green    title: "Open Green" action-handler: {Action compare-text open-green})
-      (<Label-Item>     name: open-blue     title: "Open Blue" action-handler: {Action compare-text open-blue})
+      (<Label-Item>     name: open-green       title: "Open Green" action-handler: {Action compare-text open-green})
+      (<Label-Item>     name: open-blue        title: "Open Blue" action-handler: {Action compare-text open-blue})
       (<Separator-Item>)
-      (<Label-Item>     name: save          title: "Save" icon: {Image-Resource "Save"} action-handler: {Action compare-text save})
-      (<Label-Item>     name: save-as       title: "Save As..." action-handler: {Action compare-text save-as})
+      (<Label-Item>     name: save             title: "Save" icon: {Image-Resource "Save"} action-handler: {Action compare-text save})
+      (<Label-Item>     name: save-as          title: "Save As..." action-handler: {Action compare-text save-as})
       (<Separator-Item>)
-      (<Label-Item>     name: save-to-green title: "Save To Green" action-handler: {Action compare-text save-to-green})
-      (<Label-Item>     name: save-to-blue  title: "Save To Blue" action-handler: {Action compare-text save-to-blue})
-      (<Label-Item>     name: save-to-both  title: "Save To Both" action-handler: {Action compare-text save-to-both})
+      (<Label-Item>     name: save-to-green    title: "Save To Green" action-handler: {Action compare-text save-to-green})
+      (<Label-Item>     name: save-to-blue     title: "Save To Blue" action-handler: {Action compare-text save-to-blue})
+      (<Label-Item>     name: save-to-both     title: "Save To Both" action-handler: {Action compare-text save-to-both})
       (<Separator-Item>)
       (<Label-Item>     name: edit-definitions title: "Find Definitions" icon: {Image-Resource "Edit"} action-handler: {Action code-text edit-definitions})
       (<Label-Item>     name: edit-references  title: "Find References" action-handler: {Action code-text edit-references})))))

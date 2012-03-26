@@ -44,34 +44,29 @@
         (jazz.jml)
         (jazz.library)
         (jazz.locale)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.view))
 
+
 ;;;
-;;;; Locales-View
+;;;; Locale-View
 ;;;
 
 
-(class Locale-View extends View
+(class Locale-View extends Layout-View
 
   
   (form
-    (<install>                              size: {Dimension 500 17}
-      (<Label-View>          name: label    position: {Point 0 0} size: {Dimension 100 17})
-      (<Scroller-View>       name: scroller
-        (<!>                 name: content
-          (<Plain-Text-View> name: text)))))
+    (<install>                          layout-type: fill
+      (<Border-View>     name: border   border-type: none style: entry
+        (<Scroller-View> name: scroller layout-type: fill
+          (<!>           name: content
+            (<Text-View> name: text     focus-selects-all?: #t show-unfocused-selection?: #f))))))
   
- 
-  (method override (layout)
-    (let ((size (get-size))
-          (text (locate 'text))
-          (scroller (locate 'scroller))
-          (label (locate 'label)))
-      (let ((width (get-width~ (get-size~ label))))
-        (set-position~ label (new Point 2 0))
-        (set-size~ scroller (new Dimension (- (get-width~ size) width 2) (- (get-height~ size) 2)))
-        (set-position~ scroller (new Point width 0))))))
+  
+  (method override (get-text-view)
+    (locate 'text)))
 
 
 ;;;
@@ -81,47 +76,121 @@
 
 (class Localized-Dialog extends Layout-View
   
-  
+
   (property locales-object initialize #f)
   (property locale-tree    initialize #f)
   
   
+  (slot initial-focused-view initialize #f)
+  
+
   (form
-    (<install>                            layout-type: border size: {Dimension 500 500}
-      (<Border-View>       name: border   location: center border-type: edge style: entry
-        (<Scroller-View>   name: scroller style: tool hscroll?: #f vscroll?: #t
-          (<!>             name: content  layout-type: fill
-            (<Layout-View> name: locales  layout-type: flow layout-justification: vertical))))
-      (<Layout-View>       name: south    location: south layout-type: border size: {Dimension 500 36}
-        (<Layout-View>                    location: south size: {Dimension 500 30} layout-type: flow
-          (<Push-Button>   name: ok       title: {Locales english: "OK" french: "OK"} location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t position: {Point 9 3})
-          (<Separator>                    location: tail size: {Dimension 3 0} location: tail)
-          (<Push-Button>   name: cancel   title: {Locales english: "Cancel" french: "Annuler"} location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel} position: {Point 97 3})
-          (<Separator>                    size: {Dimension 5 0} location: tail)))))
+    (<install>                                        layout-type: border size: {Dimension 500 500}
+      (<Border-View>                   name: border   location: center border-type: edge style: entry
+        (<Scroller-View>               name: scroller style: tool hscroll?: #f vscroll?: #t
+          (<!>                         name: content  layout-type: fill
+            (<Tree-Header>                            style: document
+              (<!>                     name: content
+                (<Tree-View>           name: locales  font: {Font Label-User} selection-mode: row filled-column: text portfolio: :images tab-press-handler: {Event-Handler :form on-tab-press} selection-handler: {Selection-Handler :form on-selection-change}
+                  (<Tree-Node-Column>  name: name     title: {Locales english: "Locale" french: "Locale"} width: 150)
+                  (<Tree-Label-Column> name: text     title: {Locales english: "Text" french: "Texte"} width: 350)))))))
+      (<Layout-View>                   name: south    location: south layout-type: border size: {Dimension 500 36}
+        (<Layout-View>                                location: south size: {Dimension 500 30} layout-type: flow
+          (<Push-Button>               name: ok       title: {Locales english: "OK" french: "OK"} location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t position: {Point 9 3})
+          (<Separator>                                location: tail size: {Dimension 3 0} location: tail)
+          (<Push-Button>               name: cancel   title: {Locales english: "Cancel" french: "Annuler"} location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel} position: {Point 97 3})
+          (<Separator>                                size: {Dimension 5 0} location: tail)))))
+  
+  
+  ;;;
+  ;;;; Dialog
+  ;;;
   
   
   (method override (finish rest)
     (nextmethod rest)
-    (let ((locales-view (locate 'locales))
-          (locales (provide-locales~ locale-tree)))
-      (for-each (lambda (locale)
-                  (let ((locale-view (new Locale-View name: (keyword->symbol locale) parent: locales-view)))
-                    (set-title~ (locate~ locale-view 'label) (->string locale))                    
-                    (set-string-content~ (locate~ locale-view 'text) (or (and locales-object (localize~ locales-object locale)) "{}"))))
-                locales)
-      (let ((height (* 17 (length locales))))
-        (set-size~ (locate 'border) (new Dimension 500 height))
-        (set-size~ self (new Dimension 500 (+ height 36))))))
+    (let ((locales-tree (locate 'locales))
+          (father-table (make-table)))
+      (for-each-descendant~ locale-tree
+        (lambda (locale-tree-node level)
+          (let ((locale (get-locale~ locale-tree-node))
+                (parent-node (get-parent~ locale-tree-node)))
+            (let ((locale-view (new Locale-View name: (keyword->symbol locale))))
+              ;; modify text view
+              (let ((locale-text (get-text-view~ locale-view)))
+                (unless initial-focused-view
+                  (set! initial-focused-view locale-text))
+                (set-return-press-handler~ locale-text {Event-Handler :host on-ok})
+                (set-escape-press-handler~ locale-text {Event-Handler :host on-cancel})
+                (set-tab-press-handler~ locale-text (new Selection-Handler target: self method-name: 'on-text-tab-press))
+                (set-string-content~ locale-text (or (and locales-object (localize~ locales-object locale)) "{}")))
+              ;; create row
+              (table-set! father-table locale
+                (add-row~ locales-tree
+                  state: 'expanded
+                  father: (table-ref father-table (and parent-node (get-locale~ parent-node)) #f)
+                  children: (list (new Tree-Node title: (get-title~ locale-tree-node) image: {Image-Resource "Slot"})
+                                  locale-view)))))))))
+  
+  
+  (method override (focus-default)
+    (select-all~ initial-focused-view)
+    (acquire-focus~ initial-focused-view))
   
   
   (method override (get-modal-result)
     (let ((alist (collect (lambda (locale-view)
-                            (let ((text (get-string-content~ (locate~ locale-view 'text))))
+                            (let ((text (get-string-content~ (get-text-view~ locale-view))))
                               (and (not (string=? "{}" text))
                                    (cons (symbol->keyword (get-name~ locale-view)) text))))
-                          (get-children~ (locate 'locales)))))
+                          (map second-child~ (collect-rows~ (locate 'locales))))))
       (and (pair? alist)
            (apply new (cons Locales (alist->plist alist))))))
+  
+  
+  ;;;
+  ;;;; Handlers
+  ;;;
+  
+  
+  (method (on-text-tab-press evt)
+    (let ((sender (get-sender~ evt))
+          (locales-tree (locate 'locales))
+          (ok-button (locate 'ok))
+          (cancel-button (locate 'cancel)))
+      (acquire-focus~ locales-tree)
+      (let* ((current-row (find-ascendant~ sender Tree-Row))
+             (current-index (row-index~ locales-tree current-row))
+             (new-index ((if (shift-down?) - +) current-index 1)))
+        (cond ((= -1 new-index)
+               (set-single-selection~ locales-tree (- (get-visible-count~ locales-tree) 1)))
+              ((get-row~ locales-tree new-index)
+               (set-single-selection~ locales-tree new-index))
+              (else
+               (set-single-selection~ locales-tree 0))))))
+  
+  
+  (method (on-selection-change evt)
+    (let ((sender (get-sender~ evt))
+          (locales-tree (locate 'locales)))
+      (let ((selection (get-selection~ evt)))
+        (when (and (pair? selection) (null? (cdr selection)))
+          (let ((view (second-child~ (get-row~ locales-tree (car selection)))))
+            (when view
+              (acquire-focus~ (get-text-view~ view))))))))
+  
+  
+  ;;;
+  ;;;; Metaclass
+  ;;;
+
+  
+  (method meta override (host-icon)
+    {Image-Resource "Catalog"})
+  
+  
+  (method meta override (host-title)
+    {Locales english: "Localized Entry" french: "Saisie localisée"})
   
   
   (method meta override (get-class-descriptor)
@@ -152,6 +221,7 @@
     (let ((new-locales-object (get-modal Localized-Dialog locales-object: locales-object locale-tree: (get-locale-tree~ parent))))
       (unless (nu=? locales-object new-locales-object)
         (set! locales-object new-locales-object)
+        (set-value~ parent (get-value~ parent))
         (set-modified? #t)))))
 
 
@@ -194,6 +264,7 @@
   
   (method override (set-value value)
     (set-locales-object~ (locate 'combo) value)))
+  
 
 
 ;;;
@@ -270,9 +341,9 @@
     (<install>
       (<properties~>
         (<Property-Descriptor> name: locales-object
-          (<Value-Domain>      name: domain  nullable?: #t))
+          (<Value-Domain>      name: domain         nullable?: #t))
         (<Property-Descriptor> name: locale-tree
-          (<Value-Domain>      name: domain  nullable?: #t))))))
+          (<Value-Domain>      name: domain         nullable?: #t))))))
 
 
 (class Localized-Entry-Descriptor extends Property-Entry-Descriptor
@@ -282,4 +353,4 @@
     (<install>
       (<properties~>
         (<Property-Descriptor> name: active-locale
-          (<Value-Domain>      name: domain  nullable?: #t))))))))
+          (<Value-Domain>      name: domain        nullable?: #t))))))))

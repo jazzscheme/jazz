@@ -619,6 +619,9 @@
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:cdr            '((##cdr    <pair:any>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:length         '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
 
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:string-length  '((##string-length <string:int>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:string-ref     '((##string-ref    <string^int:char>)))
+
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx+              '((##fx+ <fx^fx:fx>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx-              '((##fx- <fx^fx:fx>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx*              '((##fx* <fx^fx:fx>)))

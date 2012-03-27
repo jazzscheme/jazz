@@ -1108,6 +1108,7 @@
                                                             (jazz:unwrap-syntactic-closure
                                                               (jazz:get-lexical-binding-name binding))))
                                                 ;; if we shadow an existing declaration, gensym a unique symbol for it
+                                                #; ;; debug
                                                 (if (jazz:testing?)
                                                     (jazz:debug shadow: binding 'by var))
                                                 (jazz:set-symbol-binding-gensym binding (jazz:generate-symbol (symbol->string sym)))))

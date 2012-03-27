@@ -56,25 +56,32 @@
   (property save-proc initialize #f accessors generate)
   
   
+  (slot text)
+  (slot head-file)
+  (slot base-file)
+  (slot tail-file)
+  
+  
   (form
-    (<install>                                                    size: {Dimension 795 499} layout-type: border
-      (<Layout-View>                          name: toolbar       size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
-        (<Push-Tool>                          name: next-diff     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Next Diff (F9)" resource: {Image-Resource "NextDiff"} portfolio: :images action-handler: {Event-Handler :form on-next-diff})
-        (<Push-Tool>                          name: previous-diff size: {Dimension 22 22} tooltip?: #t tooltip-text: "Previous Diff (Shift+F9)" resource: {Image-Resource "PreviousDiff"} portfolio: :images action-handler: {Event-Handler :form on-previous-diff})
-        (<Separator>                                              size: {Dimension 16 0})
-        (<Push-Tool>                          name: keep-green    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Green (F10)" resource: {Image-Resource "KeepGreen"} portfolio: :images action-handler: {Event-Handler :form on-keep-green})
-        (<Push-Tool>                          name: keep-blue     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Blue (F11)" resource: {Image-Resource "KeepBlue"} portfolio: :images action-handler: {Event-Handler :form on-keep-blue})
-        (<Push-Tool>                          name: keep-both     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Both (F12)" resource: {Image-Resource "KeepBoth"} portfolio: :images action-handler: {Event-Handler :form on-keep-both}))
-      (<Border-View>                          name: border        location: center border-type: edge style: entry layout-type: fill
-        (<Splitter-View>                                          orientation: horz mode: relative division: 33.33
-          (<Scroller-View>                                        hscroll?: #t vscroll?: #t style: document
+    (<install>                                                        size: {Dimension 795 499} layout-type: border
+      (<Layout-View>                          name: toolbar           size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Push-Tool>                          name: next-diff         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Next Diff (F9)" resource: {Image-Resource "NextDiff"} portfolio: :images action-handler: {Event-Handler :form on-next-diff})
+        (<Push-Tool>                          name: previous-diff     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Previous Diff (Shift+F9)" resource: {Image-Resource "PreviousDiff"} portfolio: :images action-handler: {Event-Handler :form on-previous-diff})
+        (<Separator>                                                  size: {Dimension 16 0})
+        (<Push-Tool>                          name: keep-green        size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Green (F10)" resource: {Image-Resource "KeepGreen"} portfolio: :images action-handler: {Event-Handler :form on-keep-green})
+        (<Push-Tool>                          name: keep-blue         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Blue (F11)" resource: {Image-Resource "KeepBlue"} portfolio: :images action-handler: {Event-Handler :form on-keep-blue})
+        (<Push-Tool>                          name: keep-both         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Both (F12)" resource: {Image-Resource "KeepBoth"} portfolio: :images action-handler: {Event-Handler :form on-keep-both})
+        (<Toggle-Tool>                        name: ignore-whitespace location: tail size: {Dimension 22 22} tooltip?: #t tooltip-text: "Ignore Whitespace" resource: {Image-Resource "Empty"} portfolio: :images action-handler: {Event-Handler :form on-ignore-whitespace}))
+      (<Border-View>                          name: border            location: center border-type: edge style: entry layout-type: fill
+        (<Splitter-View>                                              orientation: horz mode: relative division: 33.33
+          (<Scroller-View>                                            hscroll?: #t vscroll?: #t style: document
             (<!>                              name: content
               (<Threeway-Compare-Text-View>   name: head)))
-          (<Splitter-View>                                        orientation: horz mode: relative division: 50
-            (<Scroller-View>                                      hscroll?: #t vscroll?: #t style: document
+          (<Splitter-View>                                            orientation: horz mode: relative division: 50
+            (<Scroller-View>                                          hscroll?: #t vscroll?: #t style: document
               (<!>                            name: content
                 (<Threeway-Compare-Text-View> name: base)))
-            (<Scroller-View>                                      hscroll?: #t vscroll?: #t style: document
+            (<Scroller-View>                                          hscroll?: #t vscroll?: #t style: document
               (<!>                            name: content
                 (<Threeway-Compare-Text-View> name: tail))))))))
 
@@ -112,7 +119,8 @@
   (method public (merge-conflict text)
     (parse-conflicts text
       (lambda (head base tail)
-        (compare-conflicts text head base tail))))
+        (compare-setup text head base tail)
+        (compare-conflicts))))
   
   
   (method (parse-conflicts text proc)
@@ -147,25 +155,33 @@
                       (base (and base-start (new Range$Cell$ (nu+ base-start {Cell 1 0}) tail-start)))
                       (tail (new Range$Cell$ (nu+ tail-start {Cell 1 0}) tail-end)))
                   (proc head base tail)))))))))
-    
   
-  (method (compare-conflicts text head base tail)
+  
+  (method (compare-setup text head base tail)
     (define (save content)
-      (replace~ text (new Range$Cell$ (nu- (get-start~ head) {Cell 1 0}) (nu+ (get-end~ tail) {Cell 1 0}))
-        content))
+      (let ((range (valid-range~ text (new Range$Cell$ (nu- (get-start~ head) {Cell 1 0}) (nu+ (get-end~ tail) {Cell 1 0})))))
+        (replace~ text range content)
+        (close~ (get-host))))
     
-    (let ((model (get-model~ text))
-          (head-file (get-temporary-file))
-          (base-file (get-temporary-file))
-          (tail-file (get-temporary-file)))
+    (let ((model (get-model~ text)))
+      (set! text~self text)
+      (set! head-file (get-temporary-file))
+      (set! base-file (get-temporary-file))
+      (set! tail-file (get-temporary-file))
       (save-lines~ head-file (range-strings~ model head))
       (save-lines~ base-file (range-strings~ model base))
       (save-lines~ tail-file (range-strings~ model tail))
-      (set! save-proc save)
-      (parameterize ((testing? #t))
-        (compare-monikers~ (locate 'head) (new Text-Comparer) head-file base-file)
-        (compare-monikers~ (locate 'base) (new Text-Comparer) head-file tail-file)
-        (compare-monikers~ (locate 'tail) (new Text-Comparer) tail-file base-file))))
+      (set! save-proc save)))
+    
+  
+  (method (compare-conflicts)
+    (let ((ignore-whitespace? (get-selected?~ (locate 'ignore-whitespace))))
+      (define (make-comparer)
+        (new Text-Comparer ignore-whitespace?: ignore-whitespace?))
+      
+      (compare-monikers~ (locate 'head) (make-comparer) head-file base-file)
+      (compare-monikers~ (locate 'base) (make-comparer) head-file tail-file)
+      (compare-monikers~ (locate 'tail) (make-comparer) tail-file base-file)))
   
   
   ;;;
@@ -234,6 +250,10 @@
       (if (not text)
           (bell)
         (keep-both~ text))))
+  
+  
+  (method (on-ignore-whitespace evt)
+    (compare-conflicts))
     
   
   ;;;

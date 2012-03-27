@@ -109,7 +109,7 @@
   ;;;
   
   
-  (method public (display-conflict text)
+  (method public (merge-conflict text)
     (parse-conflicts text
       (lambda (head base tail)
         (compare-conflicts text head base tail))))
@@ -125,8 +125,9 @@
     (define tail-end-marker
       (make-string 7 #\>))
     
-    (let ((model (get-model~ text)))
-      (let ((head-start (text-search~ model head-start-marker start: (get-end~ text) reversed?: #t)))
+    (let ((model (get-model~ text))
+          (line (get-line~ (get-end~ text))))
+      (let ((head-start (text-search~ model head-start-marker start: (new Cell line (paragraph-length~ text line)) reversed?: #t)))
         (if (not head-start)
             (begin
               (message-box "Unable to find conflict")
@@ -134,12 +135,18 @@
           (let ((base-start (text-search~ model base-start-marker start: head-start))
                 (tail-start (text-search~ model tail-start-marker start: head-start))
                 (tail-end   (text-search~ model tail-end-marker start: head-start)))
-            (assert (and tail-start tail-end (nu<? head-start tail-start tail-end)))
-            (assert (or (not base-start) (nu<? head-start base-start tail-start)))
-            (let ((head (new Range$Cell$ (nu+ head-start {Cell 1 0}) (or base-start tail-start)))
-                  (base (and base-start (new Range$Cell$ (nu+ base-start {Cell 1 0}) tail-start)))
-                  (tail (new Range$Cell$ (nu+ tail-start {Cell 1 0}) tail-end)))
-              (proc head base tail)))))))
+            (if (not (and tail-start tail-end (nu<? head-start tail-start tail-end)))
+                (begin
+                  (message-box "Invalid conflict markers")
+                  (signal-cancel))
+              (if (not (and base-start (nu<? head-start base-start tail-start)))
+                  (begin
+                    (message-box "Unable to find base in conflict. You can turn on this option in Git with: git config merge.conflictstyle diff3")
+                    (signal-cancel))
+                (let ((head (new Range$Cell$ (nu+ head-start {Cell 1 0}) (or base-start tail-start)))
+                      (base (and base-start (new Range$Cell$ (nu+ base-start {Cell 1 0}) tail-start)))
+                      (tail (new Range$Cell$ (nu+ tail-start {Cell 1 0}) tail-end)))
+                  (proc head base tail)))))))))
     
   
   (method (compare-conflicts text head base tail)

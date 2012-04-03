@@ -42,7 +42,9 @@
         (jazz.recorder)
         (jazz.system)
         (jazz.ui)
-        (jazz.ui.view))
+        (jazz.ui.dialog)
+        (jazz.ui.view)
+        (jazz.ui.window))
 
 
 (definition public Recording-Factory
@@ -63,7 +65,7 @@
   (slot hooked?    initialize #f getter generate)
   
   
-  (slot mouse-enter initialize #f)
+  (slot previous initialize #f)
   
   
   ;;;
@@ -73,10 +75,13 @@
   
   ;; Todo
   ;; - identify consoles in console manager
-  ;; - identify menus in menubar
-  ;; - fix delay-event sleep 0.5 hack
+  ;; - mouse events (all events) need to use an event that encapsulates modifiers
+  ;; - how to fix mouse-up in a popup menu that is broken because a submenu was poped on mouse-down
+  ;; - fix fragility of play-root that can find another view (especially fragile to scroll)
+  ;;   - pass the view explicitly to dispatch-* methods!?
   ;;
   ;; Host
+  ;; - :modal
   ;; - :menubar
   ;; - :toolbar
   ;; - :status-bar
@@ -85,68 +90,79 @@
   
   
   (method (event-hook object event)
+    (event-hook-impl object event))
+  
+  
+  (method (event-hook-impl object event)
     (define (identify)
       (cond ((enumerator? object)
              (list object))
             ((is? object View)
              (identify-view object))
             (else
-             #f)))
+             (unidentifiable "object"))))
     
     (define (identify-view view)
       (let ((host (get-host~ object)))
-        (when host
-          (let ((host-identifier (identify-host host)))
-            (if host-identifier
-                (let ((view-identifier (identify-in host view)))
-                  (if view-identifier
-                      (cons host-identifier view-identifier)
-                    (let ((guest (get-guest~ host)))
-                      (when guest
+        (if host
+            (let ((guest (get-guest~ host)))
+              (if guest
+                  (let ((host-identifier (identify-host host guest)))
+                    (if host-identifier
                         (let ((view-identifier (identify-in guest view)))
                           (if view-identifier
-                              (append host-identifier (cons :guest view-identifier))
-                            (unidentifiable guest view)
-                            #f))))))
-              (unidentifiable 'host host)
-              #f)))))
+                              (if (and (pair? view-identifier)
+                                       (null? (cdr view-identifier)))
+                                  (list host-identifier (car view-identifier))
+                                (list host-identifier view-identifier))
+                            (let ((view-identifier (identify-in host view)))
+                              (if view-identifier
+                                  (list host-identifier (cons :host view-identifier))
+                                (unidentifiable (format "view: {s}" view))))))
+                      (unidentifiable "host")))
+                (unidentifiable "guest")))
+          (unidentifiable "no host"))))
     
-    (define (identify-host host)
-      (let ((appl (get-application))
-            (guest (get-guest~ host)))
-        (cond ((eq? guest (find-menubar~ appl)) (list :menubar))
-              ((eq? guest (find-toolbar~ appl)) (list :toolbar))
-              ((eq? guest (find-status-bar~ appl)) (list :status-bar))
-              ((eq? host (current-frame)) (list :frame))
+    (define (identify-host host guest)
+      (let ((appl (get-application)))
+        (cond ((eq? host (current-modal)) :modal)
+              ((eq? host (current-popup)) :popup)
+              ((eq? guest (find-menubar~ appl)) :menubar)
+              ((eq? guest (find-toolbar~ appl)) :toolbar)
+              ((eq? guest (find-status-bar~ appl)) :statusbar)
+              ((eq? host (current-frame)) :frame)
               ((singleton-docked-name host) => (lambda (name) (list :docked name)))
               (else #f))))
     
     (define (identify-in in view)
       (if (eq? view in)
           (list)
-        (identify-component~ in view)))
+        (or (identify-component~ in view)
+            (identify-child~ in view))))
     
-    (define (unidentifiable . rest)
+    (define (unidentifiable msg)
       @debug
-      (apply debug 'unidentifiable rest))
+      (error "Unidentifiable {a}" msg)
+      (list :unidentifiable msg))
     
     (when (and recording? (eq? (effective-recording-level) 'event))
-      (let ((identifier (identify)))
-        (when identifier
-          (user-message "{s} {s}" identifier event)
-          (let ((action (cons identifier event)))
-            (case (get-kind~ event)
-              ((:mouse-enter)
-               (set! mouse-enter (cons object action)))
-              ((:mouse-leave)
-               (if (and mouse-enter (eq? object (car mouse-enter)))
-                   (set! mouse-enter #f)
-                 (put~ Recording-Factory action)))
-              (else
-               (when mouse-enter
-                 (put~ Recording-Factory (cdr mouse-enter))
-                 (set! mouse-enter #f))
-               (put~ Recording-Factory action))))))))
+      (if (and (eq? (get-kind~ event) :mouse-leave)
+               previous
+               (eq? object (car previous))
+               (eq? (get-kind~ (cddr previous)) :mouse-enter))
+          (set! previous #f)
+        (event-hook-previous)
+        (let ((locator (if (or (not object) (eq? (get-kind~ event) :char))
+                           #f
+                         (identify))))
+          (let ((action (cons locator event)))
+            (set! previous (cons object action)))))))
+  
+  
+  (method (event-hook-previous)
+    (when previous
+      (put~ Recording-Factory (cdr previous))
+      (set! previous #f)))
   
   
   (method (action-hook action/handler event)
@@ -163,7 +179,7 @@
     (when (not recording?)
       (user-message "Recording...")
       (set! recording? #t)
-      (set! mouse-enter #f)
+      (set! previous #f)
       (set! Recording-Factory (new List-Factory))
       (when (not hooked?)
         (register-event-hook event-hook)
@@ -173,11 +189,12 @@
   
   (method (on-stop-recording evt)
     (when recording?
+      (when (eq? (effective-recording-level) 'event)
+        (event-hook-previous))
       (user-message "Stopped")
       (set! recording? #f)
-      (set! mouse-enter #f)
-      @buggy-with-translate-key
-      (set! Recording-Factory (coalesce-actions (get-output~ Recording-Factory)))
+      (set! previous #f)
+      (set! Recording-Factory (coalesce-recording Recording-Factory))
       (set! Active-Recording #f)
       ;; this doesn't work yet because getting method value twice doesn't return eq? objects
       @wait (
@@ -237,8 +254,87 @@
           (user-message "Active recording set to {a}" no)))))
   
   
-  @buggy-with-translate-key
-  (method (coalesce-actions actions)
+  ;;;
+  ;;;; Coalesce
+  ;;;
+  
+  
+  (method (coalesce-recording recording)
+    (case (effective-recording-level)
+      ((event)
+       (let ((debug? #f))
+         (define (pretty what recording)
+           (when debug?
+             (debug what)
+             (for-each debug (get-output~ recording))))
+         
+         (pretty recording: recording)
+         (let ((coalesced (coalesce-events recording)))
+           (pretty coalesced: coalesced)
+           (let ((condensed (condense-events coalesced)))
+             (pretty condensed: condensed)
+             condensed))))
+      (else
+       (coalesce-actions recording))))
+  
+  
+  (method (coalesce-events recording)
+    (define (normalize-action action)
+      (bind (where . event) action
+        (if (and (not where)
+                 (eq? (get-kind~ event) :char))
+            (let ((content (get-property~ event content:)))
+              (if (and (char? content)
+                       (let ((modifiers (get-modifiers~ event)))
+                         (or (= modifiers NoModifiers)
+                             (= modifiers Shift-Bit))))
+                  (make-string-action (format "{c}" content))
+                action))
+          action)))
+    
+    (define (coalesce-action current held)
+      (bind (where . event) current
+        (bind (top-where . top-event) (car held)
+          (when (and (eq? (get-kind~ event) :string)
+                     (eq? (get-kind~ top-event) :string))
+            (let ((top-content (get-property~ top-event content:))
+                  (content (get-property~ event content:)))
+              (cons (make-string-action (concatenate content top-content)) (cdr held)))))))
+    
+    (define (simplify-action current held)
+      (bind (where . event) current
+        (bind (top-where . top-event) (car held)
+          (let ((modifiers (get-modifiers~ event))
+                (top-modifiers (get-modifiers~ top-event)))
+            (cond ((and (eq? (get-kind~ event) :mouse-up)
+                        (eq? (get-kind~ top-event) :mouse-down)
+                        (equal? where top-where)
+                        (= modifiers top-modifiers))
+                   (let ((action (cons where (new Event :click #f modifiers position: (get-position~ event)))))
+                     (cons action (cdr held))))
+                  (else
+                   #f))))))
+    
+    (define (make-string-action content)
+      (cons #f (new Event :string #f NoModifiers content: content)))
+    
+    (let (iter (scan (get-output~ recording))
+               (held '()))
+      (if (null? scan)
+          (let ((fact (new List-Factory)))
+            (put-sequence~ fact (reverse held))
+            fact)
+        (let ((current (normalize-action (car scan))))
+          (if (null? held)
+              (iter (cdr scan) (cons current held))
+            (iter (cdr scan) (or (coalesce-action current held)
+                                 (simplify-action current held)
+                                 (cons current held))))))))
+  
+  
+  (method (coalesce-actions recording)
+    recording
+    @buggy-with-translate-key
     (let* ((fact (new List-Factory))
            (result #f)
            (coalesce
@@ -258,23 +354,62 @@
                             (set! result (string-append result added))))
                       (coalesce)
                       (put~ fact action))))
-                actions)
+                (get-output~ recording))
       (coalesce)
       fact))
   
   
+  ;;;
+  ;;;; Condense
+  ;;;
+  
+  
+  (method (condense-events recording)
+    (define (condense-kind kind)
+      (case kind
+        ((:mouse-enter) :enter)
+        ((:mouse-down) :down)
+        ((:mouse-up) :up)
+        ((:mouse-leave) :leave)
+        (else kind)))
+    
+    (let ((fact (new List-Factory)))
+      (for-each (lambda (action)
+                  (bind (where . event) action
+                    (let ((kind (condense-kind (get-kind~ event)))
+                          (modifiers (get-modifiers~ event)))
+                      (put~ fact
+                        (if (not where)
+                            `(,kind ,(get-property~ event content:) ,@(modifiers->keys modifiers))
+                          (let ((host (car where))
+                                (view (cadr where))
+                                (position (get-property~ event position:)))
+                            `(,kind ,host ,view ,@(if position (list position) '()) ,@(modifiers->keys modifiers))))))))
+                (get-output~ recording))
+      fact))
+  
+  
+  ;;;
+  ;;;; Present
+  ;;;
+  
+  
   (method (present-recording actions)
     (let* ((focus (get-focus))
-           (output (open-output-string))
-           (targets (remove-duplicates (map get-target-name (map car actions)))))
+           (output (open-output-string)))
       (loop (for action in actions)
             (for first? first #t then #f)
             (do (bind (action/handler . event) action
-                  (format output "{?:{%}~}{a} {a} {a}"
-                          (not first?)
-                          (get-target-name action/handler)
-                          (get-action/method-name action/handler)
-                          event))))
+                  (if (pair? action/handler)
+                      (format output "{?:{%}~}{l} {a}"
+                        (not first?)
+                        action/handler
+                        event)
+                    (format output "{?:{%}~}{a} {a} {a}"
+                      (not first?)
+                      (get-target-name action/handler)
+                      (get-action/method-name action/handler)
+                      event)))))
       (message-box (get-output-string output)
         title: "Recording")))
   
@@ -286,21 +421,13 @@
         (let ((model (get-model~ text)))
           (with-atomic-undo~ (get-undoer~ model)
             (lambda ()
-              (insert-char~ text #\open-parenthesis)
               (loop (for first? first #t then #f)
                     (for action in actions)
                     (do (unless first?
                           (insert-newline~ text))
                         (insert-string~ text (->string action :reader))
                       (unless first?
-                        (tabulate~ text))))
-              (insert-char~ text #\close-parenthesis)))))))
-  
-  
-  (method (target-name target)
-    (if (eq? target :application)
-        'appl
-      (keyword->symbol target)))
+                        (tabulate~ text))))))))))
   
   
   ;;;
@@ -370,20 +497,24 @@
 
   (method public (play-recording recording)
     (if (not recording?)
-        (let ((old playing?))
-          (unwind-protect
-              (begin
-                (set! playing? #t)
-                (let ((focus (get-focus)))
-                  (if (is? focus Text-View)
-                      (let ((model (get-model~ focus)))
-                        (with-atomic-undo~ (get-undoer~ model)
-                          (lambda ()
-                            (for-each play-action recording)
-                            (end-completion~ focus))))
-                    (for-each play-action recording))))
-            (set! playing? old)))
-      (error "You cannot play while a recording is in progress")))
+        (case (effective-recording-level)
+          ((event)
+           (play-events recording))
+          (else
+           (let ((old playing?))
+             (unwind-protect
+                 (begin
+                   (set! playing? #t)
+                   (let ((focus (get-focus)))
+                     (if (is? focus Text-View)
+                         (let ((model (get-model~ focus)))
+                           (with-atomic-undo~ (get-undoer~ model)
+                             (lambda ()
+                               (for-each play-action recording)
+                               (end-completion~ focus))))
+                       (for-each play-action recording))))
+               (set! playing? old)))))
+      (error "You cannot play a recording while another is being recorded")))
   
   
   (method public (find-target target)

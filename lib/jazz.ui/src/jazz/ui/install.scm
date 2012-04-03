@@ -50,4 +50,5 @@
 (jazz:define-literal Clipboard-Parcel      jazz.ui.literals:construct-clipboard-parcel)
 (jazz:define-literal Action-Event          jazz.ui.literals:construct-action-event)
 (jazz:define-literal Keyboard-Event        jazz.ui.literals:construct-keyboard-event)
+(jazz:define-literal Mouse-Event           jazz.ui.literals:construct-mouse-event)
 (jazz:define-literal Selection-Handler     jazz.ui.literals:construct-selection-handler))

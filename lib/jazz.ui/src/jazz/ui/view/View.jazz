@@ -2048,20 +2048,19 @@
            (view (find-mouse-view pos)))
       (when view
         (let ((acquired (acquire~ view self pos)))
-          (hook-event view (lambda () (make-event Mouse-Event :mouse-down self position: acquired))
-            (lambda ()
-              (close-popups~ view event: 'mouse-down)
-              (let ((actual-focus (get-focus)))
-                (set-mouse-down? #t)
-                (set-mouse-down-view view)
-                (set-mouse-down-point acquired)
-                (unless (and (alt-down?) actual-focus (mouse-copy~ view acquired actual-focus))
-                  (when (mouse-activate?~ view)
-                    (let ((host (get-host~ view)))
-                      (when (and host (mouse-activate?~ host) (not (focused-host? host)))
-                        (mouse-activate~ host))))
-                  (call-mouse-down~ view acquired)
-                  (call-cursor-update~ view acquired)))))))))
+          (hook-event view (lambda () (make-event Mouse-Event :mouse-down self position: acquired)))
+          (close-popups~ view event: 'mouse-down)
+          (let ((actual-focus (get-focus)))
+            (set-mouse-down? #t)
+            (set-mouse-down-view view)
+            (set-mouse-down-point acquired)
+            (unless (and (alt-down?) actual-focus (mouse-copy~ view acquired actual-focus))
+              (when (mouse-activate?~ view)
+                (let ((host (get-host~ view)))
+                  (when (and host (mouse-activate?~ host) (not (focused-host? host)))
+                    (mouse-activate~ host))))
+              (call-mouse-down~ view acquired)
+              (call-cursor-update~ view acquired)))))))
 
   
   (method public (call-mouse-down pos)
@@ -2178,18 +2177,17 @@
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when view
-        (hook-event view (lambda () (make-event Mouse-Event :double-click self position: pos))
-          (lambda ()
-            (close-popups~ view event: 'double-click)
-            (let ((acquired (acquire~ view self pos)))
-              (set-mouse-down? #t)
-              (set-mouse-down-view view)
-              (set-mouse-down-point acquired)
-              (when (mouse-activate?~ view)
-                (let ((host (get-host~ view)))
-                  (when (and host (mouse-activate?~ host) (not (focused-host? host)))
-                    (mouse-activate~ host))))
-              (call-double-click~ view (acquire~ view self pos))))))))
+        (close-popups~ view event: 'double-click)
+        (let ((acquired (acquire~ view self pos)))
+          (hook-event view (lambda () (make-event Mouse-Event :double-click self position: acquired)))
+          (set-mouse-down? #t)
+          (set-mouse-down-view view)
+          (set-mouse-down-point acquired)
+          (when (mouse-activate?~ view)
+            (let ((host (get-host~ view)))
+              (when (and host (mouse-activate?~ host) (not (focused-host? host)))
+                (mouse-activate~ host))))
+          (call-double-click~ view (acquire~ view self pos))))))
   
   
   (method public virtual (call-double-click pos)
@@ -2202,10 +2200,10 @@
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when (and view (view-enabled?~ view))
-        (hook-event view (lambda () (make-event Mouse-Event :context-menu self position: pos))
-          (lambda ()
-            (close-popups~ view event: 'context-menu)
-            (call-context-menu~ view (acquire~ view self pos)))))))
+        (let ((acquired (acquire~ view self pos)))
+          (hook-event view (lambda () (make-event Mouse-Event :context-menu self position: acquired)))
+          (close-popups~ view event: 'context-menu)
+          (call-context-menu~ view acquired)))))
   
   
   (method public (call-context-menu pos)
@@ -2245,6 +2243,8 @@
   
   
   (method (dispatch-mouse-enter)
+    (call-mouse-enter)
+    @only-need-for-drag
     (hook-event self (lambda () (make-event Mouse-Event :mouse-enter self))
       (lambda ()
         (call-mouse-enter))))
@@ -2257,6 +2257,8 @@
   
   
   (method (dispatch-mouse-leave)
+    (call-mouse-leave)
+    @only-need-for-drag
     (hook-event self (lambda () (make-event Mouse-Event :mouse-leave self))
       (lambda ()
         (call-mouse-leave))))
@@ -2649,8 +2651,8 @@
       (set-parent~ border (get-root~ popup))
       (set-position~ border {Point 0 0})
       (set-size~ border (get-size~ popup))
+      (set-guest~ (get-host~ border) view)
       (set-parent~ view border)
-      (set-guest~ (get-host~ view) border)
       (set-visible?~ view #t)
       (layout-view~ border)
       (set-effect~ (get-root~ popup) effect)
@@ -2965,7 +2967,7 @@
           (complete-drag-up #t))
       (let ((view (get-focus)))
         (when view
-          (hook-event :focus (lambda () (make-event Event :char self content: key))
+          (hook-event :char (lambda () (make-event Event :char self content: key))
             (lambda ()
               (call-key-press~ view key)))))))
 

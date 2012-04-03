@@ -163,7 +163,7 @@
     (define (play-key key)
       (dispatch-key-press~ (get-focus) key))
     
-    (define (play-mouse proc)
+    (define (play-mouse event-kind proc)
       (define (parse)
         (bind (host-locator view-locator . rest) rest
           (if (and (pair? rest)
@@ -208,9 +208,9 @@
           (let ((root (get-root~ view)))
             (assert root)
             (if (not position)
-                (proc view root #f #f)
+                (proc view root #f #f (new Mouse-Event event-kind #f (modifiers->mask modifiers)))
               (let ((acquired (acquire~ root view position)))
-                (proc view root (get-h~ acquired) (get-v~ acquired))))))
+                (proc view root (get-h~ acquired) (get-v~ acquired) (new Mouse-Event event-kind #f (modifiers->mask modifiers) position: position))))))
         
         (unless (eq? host-locator :unidentifiable)
           (let ((host (locate-host)))
@@ -222,7 +222,7 @@
       (dispatch-mouse-enter~ view)
       (set-mouse-in view))
     
-    (define (play-click view root h v)
+    (define (play-click view root h v event)
       (define (click)
         (dispatch-mouse-down~ root h v)
         (dispatch-mouse-up~ root h v))
@@ -240,13 +240,13 @@
     (case kind
       ((:char)         (play-char))
       ((:string)       (play-string))
-      ((:enter)        (play-mouse (lambda (view root h v) (play-enter view))))
-      ((:down)         (play-mouse (lambda (view root h v) (dispatch-mouse-down~ root h v))))
-      ((:up)           (play-mouse (lambda (view root h v) (dispatch-mouse-up~ root h v))))
-      ((:click)        (play-mouse play-click))
-      ((:leave)        (play-mouse (lambda (view root h v) (play-leave view))))
-      ((:double-click) (play-mouse (lambda (view root h v) (dispatch-double-click~ root h v))))
-      ((:context-menu) (play-mouse (lambda (view root h v) (dispatch-context-menu~ root h v))))
+      ((:enter)        (play-mouse :mouse-enter  (lambda (view root h v event) (play-enter view))))
+      ((:down)         (play-mouse :mouse-down   (lambda (view root h v event) (dispatch-mouse-down~ root h v))))
+      ((:up)           (play-mouse :mouse-up     (lambda (view root h v event) (dispatch-mouse-up~ root h v))))
+      ((:click)        (play-mouse #f play-click))
+      ((:leave)        (play-mouse :mouse-leave  (lambda (view root h v event) (play-leave view))))
+      ((:double-click) (play-mouse :double-click (lambda (view root h v event) (dispatch-double-click~ root h v))))
+      ((:context-menu) (play-mouse :context-menu (lambda (view root h v event) (dispatch-context-menu~ root view event))))
       (else            (error "Unknown event kind: {s}" kind)))))
 
 

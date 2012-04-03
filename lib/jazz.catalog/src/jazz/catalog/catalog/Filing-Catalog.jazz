@@ -48,7 +48,7 @@
 
 (class undocumented Filing-Catalog extends Catalog
   
-
+  
   (slot file              getter generate)
   (slot loaded?           getter generate)
   (slot modified?         accessors generate)
@@ -60,9 +60,10 @@
   (slot content-index)
   (slot definitions-index)
   (slot references-index)
+  (slot completions-index)
   (slot mutex)
-
-
+  
+  
   (method override (initialize name file directories extensions char-encoding heuristics references?)
     (nextmethod name)
     (set! file~self file)
@@ -76,9 +77,10 @@
     (set! content-index~self (make-table test: equal?))
     (set! definitions-index~self (make-table test: equal?))
     (set! references-index~self (make-table test: equal?))
+    (set! completions-index~self (make-table test: equal?))
     (set! mutex~self (make-mutex 'catalog)))
-
-
+  
+  
   ;;;
   ;;;; Access
   ;;;
@@ -157,8 +159,8 @@
                   f (format-plural f)
                   d (format-plural d)
                   r (format-plural r))))))
-
-
+  
+  
   ;;;
   ;;;; Thread
   ;;;
@@ -168,8 +170,8 @@
     (mutex-lock! mutex)
     (prog1 (thunk)
       (mutex-unlock! mutex)))
-
-
+  
+  
   ;;;
   ;;;; Load
   ;;;
@@ -202,6 +204,7 @@
                         (table-load content-index port #t)))))))
             (update-catalog-indexes report?)
             (setup-content)
+            (update-completions-index)
             (when report?
               (user-feedback "Done")))
           (set! loaded? #t)))))
@@ -209,8 +212,8 @@
   
   (method protected virtual (setup-content)
     )
-
-
+  
+  
   ;;;
   ;;;; Save
   ;;;
@@ -244,8 +247,8 @@
           (save-content)
           (set-modified? #f)
           (user-feedback "Done")))))
-
-
+  
+  
   ;;;
   ;;;; Update
   ;;;
@@ -263,7 +266,8 @@
             (lambda ()
               (set-modified? #t)
               (for-each update-entry entries)
-              (sweep))))
+              (sweep)
+              (update-completions-index))))
         (when (not-null? exceptions)
           (post-event
             (lambda ()
@@ -288,7 +292,8 @@
             (lambda ()
               (set-modified? #t)
               (update-entry exception/entry)
-              (sweep)))))))
+              (sweep)
+              (update-completions-index)))))))
   
   
   (method (update-entry entry)
@@ -309,8 +314,8 @@
               (range (get-range~ exc)))
           (edit-document~ appl source selection: range))
       (bell)))
-
-
+  
+  
   ;;;
   ;;;; Files
   ;;;
@@ -329,8 +334,8 @@
     (if (is? directories Directory-Group)
         (for-each iterate-dir (get-list~ directories))
       (iterate-dir directories)))
-
-
+  
+  
   ;;;
   ;;;; Scan
   ;;;
@@ -355,7 +360,7 @@
           (extensions (effective-catalog-extensions (get-extensions))))
       (and (or (not extensions) (member? extension extensions test: extension=?))
            (get-parser-class (get-parser-dialect extension)))))
-
+  
   
   (method protected (scan-file file report?)
     (define (scan file digest report?)
@@ -388,7 +393,7 @@
         (format :console "{%}Unable to catalog inexistant file: {a}" (parse~ file))
         #f)))
   
-
+  
   ;;;
   ;;;; Parse
   ;;;
@@ -398,8 +403,8 @@
     (let ((class (get-parser-class dialect)))
       (when class
         (new class self char-encoding: char-encoding heuristics: (get-heuristics) references?: references?))))
-
-
+  
+  
   ;;;
   ;;;; Sweep
   ;;;
@@ -440,8 +445,8 @@
     (sweep-table content-index marked? #t)
     (sweep-table definitions-index marked? #f)
     (sweep-table references-index marked? #f))
-
-
+  
+  
   ;;;
   ;;;; Definitions
   ;;;
@@ -491,22 +496,33 @@
   
   (definition (canonicalize-name name)
     (->string name))
-
-
+  
+  
   ;;;
   ;;;; Completions
   ;;;
-
-
+  
+  
+  (method (update-completions-index)
+    (define (process-table table)
+      (iterate-table table
+        (lambda (name value)
+          (when (>= (string-length name) 2)
+            (let ((key (substring name 0 2)))
+              (let ((matches (table-ref completions-index key '())))
+                (when (not (member name matches))
+                  (table-set! completions-index key (cons name matches)))))))))
+    
+    (set! completions-index (make-table test: equal?))
+    (process-table definitions-index)
+    (process-table references-index))
+  
+  
   (method override (add-completions dest target)
     (let ((len (cardinality target)))
-      (define (add-table table)
-        (iterate-table table
-          (lambda (name value)
-            (when (and (compare-n name target len) (not-null? value))
-              (table-set! dest name #t)))))
-      
-      (with-mutex
-        (lambda ()
-          (add-table definitions-index)
-          (add-table references-index)))))))
+      (when (>= len 2)
+        (let ((key (substring target 0 2)))
+          (for-each (lambda (completion)
+                      (when (compare-n completion target len)
+                        (table-set! dest completion #t)))
+                    (table-ref completions-index key '()))))))))

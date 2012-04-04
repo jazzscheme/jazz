@@ -2868,14 +2868,13 @@
   ;;;
   
   
-  (method protected (call-key-press key)
+  (method protected (call-key-press event)
     (if key-press-handler
-        (invoke-handler self key-press-handler (new Keyboard-Event :char self (modifiers-mask) key))
-      (let ((handler {Event-Handler :focus on-insert})
-            (event (make-event Event (if char? :char :key) self content: key)))
+        (invoke-handler self key-press-handler event)
+      (let ((handler {Event-Handler :focus on-insert}))
         (hook-action handler event
           (lambda ()
-            (key-press key))))))
+            (key-press event))))))
   
   
   (method (on-arrow evt)
@@ -2929,16 +2928,17 @@
   
   
   (method package virtual (on-backspace-press evt)
-    (call-backspace-press #\backspace))
+    (let ((event (new Keyboard-Event :char (get-sender~ evt) (get-modifiers~ evt) key: #\backspace)))
+      (call-backspace-press event)))
   
   
-  (method (call-backspace-press key)
+  (method (call-backspace-press event)
     (if backspace-press-handler
-        (invoke-handler self backspace-press-handler (new Keyboard-Event :char self (modifiers-mask) key))
-      (backspace-press key)))
+        (invoke-handler self backspace-press-handler event)
+      (backspace-press event)))
 
 
-  (method public virtual (backspace-press key . rest)
+  (method public virtual (backspace-press evt . rest)
     )
   
   
@@ -2974,7 +2974,7 @@
     (key-press (get-property~ evt key:)))
 
 
-  (method public virtual (key-press key)
+  (method public virtual (key-press evt)
     )
   
   
@@ -2985,8 +2985,9 @@
           (complete-drag-up #t))
       (let ((view (get-focus)))
         (when view
-          (hook-event :char (lambda () (make-event Event :char self content: key)))
-          (call-key-press~ view key)))))
+          (let ((event (make-event Keyboard-Event :char self key: key)))
+            (hook-event :char event)
+            (call-key-press~ view event))))))
 
 
   ;;;

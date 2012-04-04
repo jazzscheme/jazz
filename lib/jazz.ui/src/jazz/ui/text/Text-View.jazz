@@ -682,15 +682,16 @@
       (show-cursor)))
   
   
-  (method override (cursor-update view <Point>)
-    (show-text-cursor)
-    (when (and (view-enabled?) selectable?)
-      (if (alt-down?)
-          (set-cursor :finger)
-        (let ((par (get-paragraph (get-line~ (view->text view)))))
-          (if (< (get-h~ view) (paragraph-left~ par))
-              (set-cursor :left-arrow)
-            (set-cursor :ibeam))))))
+  (method override (cursor-update evt)
+    (let ((view (get-position~ evt)))
+      (show-text-cursor)
+      (when (and (view-enabled?) selectable?)
+        (if (alt-down?)
+            (set-cursor :finger)
+          (let ((par (get-paragraph (get-line~ (view->text view)))))
+            (if (< (get-h~ view) (paragraph-left~ par))
+                (set-cursor :left-arrow)
+              (set-cursor :ibeam)))))))
   
   
   ;;;
@@ -766,31 +767,32 @@
   ;;;
   
   
-  (method override (mouse-down view)
-    (when (and (view-enabled?) selectable?)
-      (let ((focus? (has-focus?))
-            (mouse-copy? (alt-down?))
-            (pos (view->text view)))
-        (end-completion)
-        (unless mouse-copy?
-          (acquire-focus))
-        (when pos
-          (acquire-capture)
-          (unlock-anchor)
-          (set! mouse-selecting? #t)
-          (set! selection-mode 'char)
-          (unless (or (shift-down?) (not focus?))
-            (reset-caret pos generate-event?: #f))
-          (let ((par (get-paragraph (get-line~ pos))))
-            (if (< (get-h~ view) (paragraph-left~ par))
-                (set-selection (selection-line (get-line~ pos)) generate-event?: #f set-anchor?: #t)
-              (when (or focus? (not focus-selects-all?))
-                (if (shift-down?)
-                    (change-selection pos generate-event?: #f)
-                  (set-caret pos generate-event?: #f))
-                (update-caret)))
-            (reset-mode)
-            (set! previous-position pos))))))
+  (method override (mouse-down evt)
+    (when selectable?
+      (let ((view (get-position~ evt)))
+        (let ((focus? (has-focus?))
+              (mouse-copy? (alt-down?))
+              (pos (view->text view)))
+          (end-completion)
+          (unless mouse-copy?
+            (acquire-focus))
+          (when pos
+            (acquire-capture)
+            (unlock-anchor)
+            (set! mouse-selecting? #t)
+            (set! selection-mode 'char)
+            (unless (or (shift-down?) (not focus?))
+              (reset-caret pos generate-event?: #f))
+            (let ((par (get-paragraph (get-line~ pos))))
+              (if (< (get-h~ view) (paragraph-left~ par))
+                  (set-selection (selection-line (get-line~ pos)) generate-event?: #f set-anchor?: #t)
+                (when (or focus? (not focus-selects-all?))
+                  (if (shift-down?)
+                      (change-selection pos generate-event?: #f)
+                    (set-caret pos generate-event?: #f))
+                  (update-caret)))
+              (reset-mode)
+              (set! previous-position pos)))))))
 
   
   (method override (mouse-copy pos destination)

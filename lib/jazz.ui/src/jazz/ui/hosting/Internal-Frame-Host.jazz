@@ -433,10 +433,10 @@
   ;;;
 
 
-  (method override (cursor-update pos)
+  (method override (cursor-update evt)
     (if (not (resizeable?))
         (set-cursor :arrow)
-      (let ((part (and (not maximized?) (find-resize-part pos (get-size) full?: #t))))
+      (let ((part (and (not maximized?) (find-resize-part (get-position~ evt) (get-size) full?: #t))))
         (if (not part)
             (set-cursor :arrow)
           (set-cursor (get-resize-cursor part))))))
@@ -455,19 +455,20 @@
     #t)
 
   
-  (method override (mouse-down pos)
-    (let ((in-caption? (in-rect? pos (caption-rect))))
-      (if (and in-caption? (control-down?))
-          (send-to-back)
-        (when (moveable?)
-          (let ((part (find-resize-part pos (get-size) full?: #t)))
-            (when (or part in-caption?)
-              (set! dragging? #t)
-              (set! current-part (and (resizeable?) part))
-              (set! start-mouse (to-desktop pos))
-              (set! start-position (get-position))
-              (set! start-size (get-size))
-              (acquire-capture)))))))
+  (method override (mouse-down evt)
+    (let ((pos (get-position~ evt)))
+      (let ((in-caption? (in-rect? pos (caption-rect))))
+        (if (and in-caption? (control-down?))
+            (send-to-back)
+          (when (moveable?)
+            (let ((part (find-resize-part pos (get-size) full?: #t)))
+              (when (or part in-caption?)
+                (set! dragging? #t)
+                (set! current-part (and (resizeable?) part))
+                (set! start-mouse (to-desktop pos))
+                (set! start-position (get-position))
+                (set! start-size (get-size))
+                (acquire-capture))))))))
   
   
   (method override (drag-move pos)

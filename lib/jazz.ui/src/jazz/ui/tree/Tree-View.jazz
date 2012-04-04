@@ -717,10 +717,10 @@
   ;;;
   
   
-  (method override (cursor-update pos)
+  (method override (cursor-update evt)
     (if (alt-down?)
         (set-cursor :finger)
-      (nextmethod pos)))
+      (nextmethod evt)))
   
 
   ;;;
@@ -733,22 +733,23 @@
          (allow-start-drag?~ selection-manager)))
   
   
-  (method override (mouse-down view)
-    (let* ((cell (view->tree view))
-           (pos (and cell (cell-coordinates cell view)))
-           (part (and cell (find-part~ (get-column (get-col~ cell)) cell pos))))
-      (mouse-down~ selection-manager view part (shift-down?) (control-down?) (alt-down?) (get-multiple-selection?)))
-    (acquire-focus)
-    (acquire-capture)
-    (let ((cell (view->tree view))
-          (shift? (shift-down?))
-          (control? (control-down?)))
-      (if (not cell)
-          (when can-select-empty?
-            (set-selection '() user-origin: 'mouse))
-        (let ((pos (cell-coordinates cell view))
-              (column (get-column (get-col~ cell))))
-          (mouse-down~ column cell pos shift? control?)))))
+  (method override (mouse-down evt)
+    (let ((view (get-position~ evt)))
+      (let* ((cell (view->tree view))
+             (pos (and cell (cell-coordinates cell view)))
+             (part (and cell (find-part~ (get-column (get-col~ cell)) cell pos))))
+        (mouse-down~ selection-manager view part (shift-down?) (control-down?) (alt-down?) (get-multiple-selection?)))
+      (acquire-focus)
+      (acquire-capture)
+      (let ((cell (view->tree view))
+            (shift? (shift-down?))
+            (control? (control-down?)))
+        (if (not cell)
+            (when can-select-empty?
+              (set-selection '() user-origin: 'mouse))
+          (let ((pos (cell-coordinates cell view))
+                (column (get-column (get-col~ cell))))
+            (mouse-down~ column cell pos shift? control?))))))
   
   
   (method override (drag-move view)

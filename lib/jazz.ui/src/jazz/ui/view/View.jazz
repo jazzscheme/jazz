@@ -1992,13 +1992,13 @@
   ;;;
   
   
-  (method public (call-cursor-update pos)
+  (method public (call-cursor-update event)
     (if cursor-update-handler
-        (invoke-handler self cursor-update-handler (make-event Cursor-Event :set-cursor self position: pos))
-      (cursor-update pos)))
+        (invoke-handler self cursor-update-handler event)
+      (cursor-update event)))
   
   
-  (method public virtual (cursor-update pos)
+  (method public virtual (cursor-update evt)
     (unless (current-drag-drop)
       (set-cursor :arrow)))
   
@@ -2043,30 +2043,36 @@
       (popup-tooltip pos)))
   
   
-  (method protected (dispatch-mouse-down h v)
+  (method protected (root-mouse-down h v)
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when view
         (let ((acquired (acquire~ view self pos)))
-          (hook-event view (lambda () (make-event Mouse-Event :mouse-down self position: acquired)))
-          (close-popups~ view event: 'mouse-down)
-          (let ((actual-focus (get-focus)))
-            (set-mouse-down? #t)
-            (set-mouse-down-view view)
-            (set-mouse-down-point acquired)
-            (unless (and (alt-down?) actual-focus (mouse-copy~ view acquired actual-focus))
-              (when (mouse-activate?~ view)
-                (let ((host (get-host~ view)))
-                  (when (and host (mouse-activate?~ host) (not (focused-host? host)))
-                    (mouse-activate~ host))))
-              (call-mouse-down~ view acquired)
-              (call-cursor-update~ view acquired)))))))
+          (dispatch-mouse-down view (make-event Mouse-Event :mouse-down self position: (acquire~ view self pos)))))))
+  
+  
+  (method protected (dispatch-mouse-down view event)
+    (when (view-enabled?~ view)
+      (hook-event view event)
+      (close-popups~ view event: 'mouse-down)
+      (let ((position (get-position~ event))
+            (actual-focus (get-focus)))
+        (set-mouse-down? #t)
+        (set-mouse-down-view view)
+        (set-mouse-down-point position)
+        (unless (and (alt-down?) actual-focus (mouse-copy~ view position actual-focus))
+          (when (mouse-activate?~ view)
+            (let ((host (get-host~ view)))
+              (when (and host (mouse-activate?~ host) (not (focused-host? host)))
+                (mouse-activate~ host))))
+          (call-mouse-down~ view event)
+          (call-cursor-update~ view event)))))
 
   
-  (method public (call-mouse-down pos)
+  (method public (call-mouse-down event)
     (if mouse-down-handler
-        (invoke-handler self mouse-down-handler (make-event Mouse-Event :mouse-down self position: pos))
-      (mouse-down pos)))
+        (invoke-handler self mouse-down-handler event)
+      (mouse-down event)))
   
   
   (method protected (dispatch-mouse-move h v)
@@ -2089,11 +2095,13 @@
                 (track-tooltip~ (get-mouse-in)))
               (if mouse-down?
                   (let ((acquired (acquire~ mouse-down-view self pos)))
-                    (call-cursor-update~ mouse-down-view acquired)
-                    (process-drag-move~ mouse-down-view acquired))
+                    (let ((event (make-event Mouse-Event :mouse-move self position: acquired)))
+                      (call-cursor-update~ mouse-down-view event)
+                      (process-drag-move~ mouse-down-view acquired)))
                 (let ((acquired (acquire~ view self pos)))
-                  (call-cursor-update~ view acquired)
-                  (process-mouse-move~ view acquired)))))))))
+                  (let ((event (make-event Mouse-Event :mouse-move self position: acquired)))
+                    (call-cursor-update~ view event)
+                    (process-mouse-move~ view acquired))))))))))
 
   
   (method (process-mouse-move pos)
@@ -2117,8 +2125,9 @@
       (when mouse-down?
         (process-drag-up~ mouse-down-view (acquire~ mouse-down-view self pos)))
       (when view
-        (call-cursor-update~ view acquired)
-        (process-mouse-up~ view acquired)))
+        (let ((event (make-event Mouse-Event :mouse-move self position: acquired)))
+          (call-cursor-update~ view event)
+          (process-mouse-up~ view acquired))))
     (when (get-delayed-mouse-action)
       (let ((action (get-delayed-mouse-action)))
         (set-delayed-mouse-action #f)
@@ -2199,22 +2208,22 @@
   (method protected (root-context-menu h v)
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
-      (when (and view (view-enabled?~ view))
+      (when view
         (let ((acquired (acquire~ view self pos)))
           (dispatch-context-menu view (make-event Mouse-Event :context-menu self position: acquired))))))
   
   
-  (method protected (dispatch-context-menu view evt)
-    (when (and view (view-enabled?~ view))
-      (hook-event view evt)
+  (method protected (dispatch-context-menu view event)
+    (when (view-enabled?~ view)
+      (hook-event view event)
       (close-popups~ view event: 'context-menu)
-      (call-context-menu~ view evt)))
+      (call-context-menu~ view event)))
   
   
-  (method public (call-context-menu evt)
+  (method public (call-context-menu event)
     (if context-menu-handler
-        (invoke-handler self context-menu-handler evt)
-      (context-menu evt)))
+        (invoke-handler self context-menu-handler event)
+      (context-menu event)))
   
   
   (method protected (dispatch-middle-mouse-down h v)
@@ -2324,7 +2333,7 @@
     (proc))
   
   
-  (method public virtual (context-menu evt)
+  (method public virtual (context-menu event)
     )
   
   

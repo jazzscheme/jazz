@@ -118,17 +118,18 @@
   ;;;
 
 
-  (method override (cursor-update view <Point>)
-    (show-text-cursor)
-    (when (and (view-enabled?) selectable?)
-      (let* ((pos (view->text view))
-             (par (get-paragraph (get-line~ pos))))
-        (if (< (get-h~ view) (paragraph-left~ par))
-            (set-cursor :left-arrow)
-          (let ((style (get-style-at~ model pos)))
-            (if (is? style Link-Style)
-                (set-cursor :finger)
-              (set-cursor :ibeam)))))))
+  (method override (cursor-update evt)
+    (let ((view (get-position~ evt)))
+      (show-text-cursor)
+      (when (and (view-enabled?) selectable?)
+        (let* ((pos (view->text view))
+               (par (get-paragraph (get-line~ pos))))
+          (if (< (get-h~ view) (paragraph-left~ par))
+              (set-cursor :left-arrow)
+            (let ((style (get-style-at~ model pos)))
+              (if (is? style Link-Style)
+                  (set-cursor :finger)
+                (set-cursor :ibeam))))))))
 
   
   ;;;
@@ -136,12 +137,11 @@
   ;;;
 
 
-  (method override (mouse-down view)
-    (when (view-enabled?)
-      (let* ((pos (view->text view))
-             (style (get-style-at~ model pos)))
-        (unless (is? style Link-Style)
-          (nextmethod view)))))
+  (method override (mouse-down evt)
+    (let* ((pos (view->text (get-position~ evt)))
+           (style (get-style-at~ model pos)))
+      (unless (is? style Link-Style)
+        (nextmethod evt))))
 
 
   (method override (drag-up view . rest)

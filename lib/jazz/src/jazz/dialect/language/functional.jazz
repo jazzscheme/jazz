@@ -2121,15 +2121,16 @@
 
 
 (definition public (some? predicate <procedure> (key: key #f) . seqs)
-  (let ((seq (car seqs)))
-    (continuation-capture
-      (lambda (return)
-        (iterate (iterate-sequence seq)
-                 (lambda (object)
-                   (let ((key #f))
-                     (when (predicate (apply-key key object))
-                       (continuation-return return #t)))))
-        #f))))
+  (continuation-capture
+    (lambda (return)
+      (apply iterate-sequences
+             (lambda objs
+               (and (apply predicate (map (lambda (object)
+                                           (apply-key key object))
+                                         objs))
+                    (continuation-return return #t)))
+             seqs)
+      #f)))
 
 
 (definition public (every? predicate <procedure> (key: key #f) . seqs)

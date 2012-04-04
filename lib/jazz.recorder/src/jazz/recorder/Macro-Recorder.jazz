@@ -285,12 +285,12 @@
       (bind (where . event) action
         (if (and (not where)
                  (eq? (get-kind~ event) :char))
-            (let ((content (get-property~ event content:)))
-              (if (and (char? content)
+            (let ((key (get-key~ event)))
+              (if (and (char? key)
                        (let ((modifiers (get-modifiers~ event)))
                          (or (= modifiers NoModifiers)
                              (= modifiers Shift-Bit))))
-                  (make-string-action (format "{c}" content))
+                  (make-string-action (format "{c}" key))
                 action))
           action)))
     
@@ -382,12 +382,16 @@
                     (let ((kind (condense-kind (get-kind~ event)))
                           (modifiers (get-modifiers~ event)))
                       (put~ fact
-                        (if (not where)
-                            `(,kind ,(get-property~ event content:) ,@(modifiers->keys modifiers))
-                          (let ((host (car where))
-                                (view (cadr where))
-                                (position (get-property~ event position:)))
-                            `(,kind ,host ,view ,@(if position (list position) '()) ,@(modifiers->keys modifiers))))))))
+                        (case kind
+                          ((:char)
+                           `(,kind ,(get-key~ event) ,@(modifiers->keys modifiers)))
+                          ((:string)
+                           `(,kind ,(get-property~ event content:) ,@(modifiers->keys modifiers)))
+                          (else
+                           (let ((host (car where))
+                                 (view (cadr where))
+                                 (position (get-property~ event position:)))
+                             `(,kind ,host ,view ,@(if position (list position) '()) ,@(modifiers->keys modifiers)))))))))
                 (get-output~ recording))
       fact))
   

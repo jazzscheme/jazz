@@ -2060,7 +2060,7 @@
         (set-mouse-down? #t)
         (set-mouse-down-view view)
         (set-mouse-down-point position)
-        (unless (and (alt-down?) actual-focus (mouse-copy~ view position actual-focus))
+        (unless (and (get-alt?~ event) actual-focus (mouse-copy~ view position actual-focus))
           (when (mouse-activate?~ view)
             (let ((host (get-host~ view)))
               (when (and host (mouse-activate?~ host) (not (focused-host? host)))
@@ -2186,27 +2186,32 @@
       (drag-up pos dragging?)))
   
   
-  (method protected (dispatch-double-click h v)
+  (method protected (root-double-click h v)
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when view
-        (close-popups~ view event: 'double-click)
         (let ((acquired (acquire~ view self pos)))
-          (hook-event view (lambda () (make-event Mouse-Event :double-click self position: acquired)))
-          (set-mouse-down? #t)
-          (set-mouse-down-view view)
-          (set-mouse-down-point acquired)
-          (when (mouse-activate?~ view)
-            (let ((host (get-host~ view)))
-              (when (and host (mouse-activate?~ host) (not (focused-host? host)))
-                (mouse-activate~ host))))
-          (call-double-click~ view (acquire~ view self pos))))))
+          (dispatch-double-click view (make-event Mouse-Event :double-click self position: acquired))))))
   
   
-  (method public virtual (call-double-click pos)
+  (method protected (dispatch-double-click view event)
+    (when (view-enabled?~ view)
+      (hook-event view event)
+      (close-popups~ view event: 'double-click)
+      (set-mouse-down? #t)
+      (set-mouse-down-view view)
+      (set-mouse-down-point (get-position~ event))
+      (when (mouse-activate?~ view)
+        (let ((host (get-host~ view)))
+          (when (and host (mouse-activate?~ host) (not (focused-host? host)))
+            (mouse-activate~ host))))
+      (call-double-click~ view event)))
+  
+  
+  (method public virtual (call-double-click event)
     (if double-click-handler
-        (invoke-handler self double-click-handler (make-event Mouse-Event :double-click self position: pos))
-      (double-click pos)))
+        (invoke-handler self double-click-handler event)
+      (double-click event)))
   
   
   (method protected (root-context-menu h v)
@@ -2329,8 +2334,8 @@
     )
   
   
-  (method public virtual (double-click pos)
-    (call-mouse-down pos))
+  (method public virtual (double-click evt)
+    (call-mouse-down evt))
   
   
   (method public virtual (with-context-click pos proc)

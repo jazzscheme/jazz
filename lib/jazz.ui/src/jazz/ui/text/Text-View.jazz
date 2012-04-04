@@ -870,22 +870,23 @@
                     (set! previous-position pos))))))))))
   
   
-  (method override (double-click view)
-    (if (and (view-enabled?) selectable?)
-        (let* ((pos (view->text view))
-               (par (get-paragraph (get-line~ pos))))
-          (if (< (get-h~ view) (paragraph-left~ par))
-              (select-paragraph (get-line~ pos))
-            (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
-              (with-safe-explore
-                (lambda ()
-                  (when (outer-expr~ expl)
-                    (set-selection (get-range~ expl) set-anchor?: #t ensure-displayed?: #f))
-                  (set! mouse-selecting? #t)
-                  (set! selection-mode 'word)
-                  (reset-mode)
-                  (set! previous-position pos))))))
-      (call-mouse-down view)))
+  (method override (double-click evt)
+    (if selectable?
+        (let ((view (get-position~ evt)))
+          (let* ((pos (view->text view))
+                 (par (get-paragraph (get-line~ pos))))
+            (if (< (get-h~ view) (paragraph-left~ par))
+                (select-paragraph (get-line~ pos))
+              (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
+                (with-safe-explore
+                  (lambda ()
+                    (when (outer-expr~ expl)
+                      (set-selection (get-range~ expl) set-anchor?: #t ensure-displayed?: #f))
+                    (set! mouse-selecting? #t)
+                    (set! selection-mode 'word)
+                    (reset-mode)
+                    (set! previous-position pos)))))))
+      (call-mouse-down evt)))
   
   
   (method override (middle-mouse-down pos)

@@ -2096,7 +2096,7 @@
                   (let ((acquired (acquire~ mouse-down-view self pos)))
                     (let ((event (make-event Mouse-Event :mouse-move mouse-down-view position: acquired)))
                       (call-cursor-update~ mouse-down-view event)
-                      (process-drag-move~ mouse-down-view acquired)))
+                      (process-drag-move~ mouse-down-view event)))
                 (let ((acquired (acquire~ view self pos)))
                   (let ((event (make-event Mouse-Event :mouse-move view position: acquired)))
                     (call-cursor-update~ view event)
@@ -2149,26 +2149,27 @@
       (mouse-up event)))
 
   
-  (method (process-drag-move pos)
-    (if (and (eq? self mouse-down-view) (get-draggable?) (or (not (current-drag-drop)) (eq? self (get-view~ (get-source~ (current-drag-drop))))))
-        (begin
-          (when (allow-start-drag? pos)
-            (let ((drag-drop (get-drag-drop)))
-              (when drag-drop
-                (drag-start pos drag-drop))))
-          (when (current-drag-drop)
-            (drag-follow pos)))
-      (call-drag-move pos)))
+  (method (process-drag-move event)
+    (let ((pos (get-position~ event)))
+      (if (and (eq? self mouse-down-view) (get-draggable?) (or (not (current-drag-drop)) (eq? self (get-view~ (get-source~ (current-drag-drop))))))
+          (begin
+            (when (allow-start-drag? pos)
+              (let ((drag-drop (get-drag-drop)))
+                (when drag-drop
+                  (drag-start pos drag-drop))))
+            (when (current-drag-drop)
+              (drag-follow pos)))
+        (call-drag-move event))))
   
   
   (method protected virtual (allow-start-drag? pos)
     (and mouse-down? (not (current-drag-drop)) (not (near? pos mouse-down-point drag-tolerance))))
   
   
-  (method (call-drag-move pos)
+  (method (call-drag-move event)
     (if drag-move-handler
-        (invoke-handler self drag-move-handler (make-event Mouse-Event :drag-move self position: pos))
-      (drag-move pos)))
+        (invoke-handler self drag-move-handler event)
+      (drag-move event)))
 
   
   (method (process-drag-up event (dragging? (current-drag-drop)))
@@ -2325,7 +2326,7 @@
     )
   
   
-  (method public virtual (drag-move pos)
+  (method public virtual (drag-move evt)
     )
   
   

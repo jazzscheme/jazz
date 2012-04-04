@@ -357,25 +357,26 @@
                 (selector-down~ row))))))))
   
   
-  (method override (drag-move pos)
-    (when (and pos (view-enabled?~ client))
-      (let ((h (- (get-h~ pos) (get-hscroll-amount)))
-            (v (- (get-v~ pos) (get-vscroll-amount))))
-        (if (not resizing?)
-            (let ((col (h->col h)))
-              (when col
-                (let ((column (get-column col)))
-                  (header-move~ column (header-coordinates column pos)))))
-          (let ((delta (- h resize-start-h)))
-            (let ((width (max (+ resize-start-width delta) min-column-width)))
-              (resize-column resized-column width))))
-        @wait-buggy-when-resizing-a-column-and-scrolled-vertically
-        (when initial-line
-          (let ((client (get-client)))
-            (let ((line (v->line~ client v)))
-              (when line
-                (let ((row (get-row~ client line)))
-                  (selector-move~ row initial-line)))))))))
+  (method override (drag-move evt)
+    (when (view-enabled?~ client)
+      (let ((pos (get-position~ evt)))
+        (let ((h (- (get-h~ pos) (get-hscroll-amount)))
+              (v (- (get-v~ pos) (get-vscroll-amount))))
+          (if (not resizing?)
+              (let ((col (h->col h)))
+                (when col
+                  (let ((column (get-column col)))
+                    (header-move~ column (header-coordinates column pos)))))
+            (let ((delta (- h resize-start-h)))
+              (let ((width (max (+ resize-start-width delta) min-column-width)))
+                (resize-column resized-column width))))
+          @wait-buggy-when-resizing-a-column-and-scrolled-vertically
+          (when initial-line
+            (let ((client (get-client)))
+              (let ((line (v->line~ client v)))
+                (when line
+                  (let ((row (get-row~ client line)))
+                    (selector-move~ row initial-line))))))))))
   
   
   (method override (drag-up evt . rest)

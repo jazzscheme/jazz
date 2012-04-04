@@ -3990,11 +3990,12 @@
   (let ((xlen <fx> (string-length x))
         (ylen <fx> (string-length y)))
     (let (iter (n 0))
-      (if (>= n max)
-          #t
-        (if (or (>= n xlen) (>= n ylen) (not (test (string-ref x n) (string-ref y n))))
-            #f
-          (iter (+ n 1)))))))
+      (cond ((>= n max)
+             #t)
+            ((or (>= n xlen) (>= n ylen) (not (test (string-ref x n) (string-ref y n))))
+             #f)
+            (else
+             (iter (+ n 1)))))))
 
 
 (definition public (string-checksum str)
@@ -4220,6 +4221,18 @@
   (if (eq? thread (current-thread))
       (thunk)
     (thread-write thread thunk)))
+
+
+(definition public (thread-block thread name thunk)
+  (if (eq? thread (current-thread))
+      (thunk)
+    (let ((mutex (make-mutex name)))
+      (mutex-lock! mutex)
+      (thread-write thread
+        (lambda ()
+          (mutex-unlock! mutex)
+          (thunk)))
+      (mutex-lock! mutex))))
 
 
 (definition public (thread-execute thread name thunk)
@@ -5193,4 +5206,13 @@
 
 
 (specialize (grow-subseq! subseq <Subseq$string$> n) <void>
-  (set-size~ subseq (+ (get-size~ subseq) (cast <fx> n)))))
+  (set-size~ subseq (+ (get-size~ subseq) (cast <fx> n))))
+
+
+;;;
+;;;; Values
+;;;
+
+
+(definition public (values->list values)
+  (call-with-values (lambda () values) list)))

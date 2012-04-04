@@ -103,17 +103,18 @@
       (show-arguments)))
 
 
-  (method override (context-menu pos)
-    (receive (shift? control? alt?) (modifiers-down)
-      (let ((move-caret
-             (cond ((and (not control?) (not shift?) (not alt?)) 'outside-selection)
-                   ((and (not control?) shift? (not alt?)) 'never)
-                   ((and control? shift? (not alt?)) 'never)
-                   (else 'always))))
-        (context-menu-click pos move-caret: move-caret))
-      (cond ((and (not control?) shift? (not alt?)) (edit-definitions pos))
-            ((and control? shift? (not alt?)) (edit-references pos))
-            (else (track-popup-menu (get-context-menu) pos)))))
+  (method override (context-menu evt)
+    (let ((pos (get-position~ evt)))
+      (receive (shift? control? alt?) (get-down~ evt)
+        (let ((move-caret
+                (cond ((and (not control?) (not shift?) (not alt?)) 'outside-selection)
+                      ((and (not control?) shift? (not alt?)) 'never)
+                      ((and control? shift? (not alt?)) 'never)
+                      (else 'always))))
+          (context-menu-click pos move-caret: move-caret))
+        (cond ((and (not control?) shift? (not alt?)) (edit-definitions pos))
+              ((and control? shift? (not alt?)) (edit-references pos))
+              (else (track-popup-menu (get-context-menu) pos))))))
 
   
   ;;;
@@ -603,10 +604,12 @@
                 (lambda ()
                   (sleep flash-delay)
                   (execute-event
-                    (lambda () (run-text-action add)))
+                    (lambda ()
+                      (run-text-action add)))
                   (sleep flash-duration)
                   (execute-event
-                    (lambda () (run-text-action remove))))))
+                    (lambda ()
+                      (run-text-action remove))))))
           (let ((expl <Text-Explorer> (new (explorer-class) model start: (nu+ start 1) end: (nu+ start 1))))
             (user-message "{l detail: :human}" (map (lambda (mark)
                                                       (get-string (get-range~ mark)))

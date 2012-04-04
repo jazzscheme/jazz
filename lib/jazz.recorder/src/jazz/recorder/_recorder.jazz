@@ -40,9 +40,12 @@
 
 (export (jazz.recorder.autoload))
 (import (jazz.recorder.autoload)
+        (jazz.library)
         (jazz.system)
         (jazz.ui)
-        (jazz.ui.view))
+        (jazz.ui.dialog)
+        (jazz.ui.view)
+        (jazz.ui.window))
 
 
 ;;;
@@ -52,6 +55,7 @@
 
 (definition Recording-Level
   #f)
+
 
 (definition public (get-recording-level)
   Recording-Level)
@@ -64,63 +68,201 @@
   (or Recording-Level 'action))
 
 
+(definition Recording-Slowdown?
+  #f)
+
+
+(definition public (get-recording-slowdown?)
+  Recording-Slowdown?)
+
+(definition public (set-recording-slowdown? slowdown?)
+  (set! Recording-Slowdown? slowdown?))
+
+
+(definition Recording-Slowdown
+  #f)
+
+
+(definition public (get-recording-slowdown)
+  Recording-Slowdown)
+
+(definition public (set-recording-slowdown slowdown)
+  (set! Recording-Slowdown slowdown))
+
+
 ;;;
-;;;; Play
+;;;; Event
+;;;
+
+
+(definition public (play-script proc (slowdown?: slowdown? (get-recording-slowdown?)) (slowdown: slowdown (get-recording-slowdown)))
+  (thread-start!
+    (new-thread
+      (lambda ()
+        (let ((debug? #f)
+              (catch? #f)
+              (first-slowdown? #t)
+              (error-occured? #f))
+          (define (play action)
+            (define (feedback)
+              (when slowdown?
+                (if first-slowdown?
+                    (set! first-slowdown? #f)
+                  (bind (kind . rest) action
+                    (let ((host (and (pair? rest) (car rest))))
+                      (unless (eq? host :unidentifiable)
+                        (update-window~
+                          (case host
+                            ((:modal) (get-player~ (current-modal)))
+                            ((:popup) (get-player~ (current-popup)))
+                            (else (get-toplevel))))
+                        (sleep slowdown)))))))
+            
+            (unless error-occured?
+              (block-event
+                (lambda ()
+                  (unless error-occured?
+                    (with-exception-filter
+                      (lambda (exc)
+                        (if (or (not catch?)
+                                (and (object? exc)
+                                     (is? exc Signal)))
+                            #f
+                          (set! error-occured? #t)
+                          #t))
+                      (lambda (exc)
+                        #f)
+                      (lambda ()
+                        (if (procedure? action)
+                            (action)
+                          (when debug?
+                            (debug action))
+                          (feedback)
+                          (play-event action feedback)))))))))
+          
+          (proc play)))
+      'play-script)))
+
+
+(definition public (play-events actions)
+  (play-script
+    (lambda (play)
+      (for-each play actions))))
+
+
+(definition (play-event action feedback)
+  (bind (kind . rest) action
+    (define (play-char)
+      (bind (content . modifiers) rest
+        (let ((shortcut (new Shortcut modifiers content)))
+          (or (dispatch-shortcut~ (get-application) shortcut)
+              (assert (char? content)
+                (play-key content))))))
+    
+    (define (play-string)
+      (let ((content (car rest)))
+        (iterate content play-key)))
+    
+    (define (play-key key)
+      (dispatch-key-press~ (get-focus) key))
+    
+    (define (play-mouse event-kind proc)
+      (define (parse)
+        (bind (host-locator view-locator . rest) rest
+          (if (and (pair? rest)
+                   (is? (car rest) Point))
+              (values host-locator view-locator (car rest) (cdr rest))
+            (values host-locator view-locator #f rest))))
+      
+      (receive (host-locator view-locator position modifiers) (parse)
+        (define (locate-host)
+          (if (pair? host-locator)
+              (case (car host-locator)
+                ((:docked) (singleton-docked-named (cdr host-locator)))
+                (else #f))
+            (case host-locator
+              ((:modal) (current-modal))
+              ((:popup) (current-popup))
+              ((:menubar) (find-menubar~ (get-application)))
+              ((:toolbar) (find-toolbar~ (get-application)))
+              ((:statusbar) (find-status-bar~ (get-application)))
+              ((:frame) (current-frame))
+              (else #f))))
+        
+        (define (play host path)
+          (assert host)
+          (if (and (pair? path) (eq? (car path) :host))
+              (play-in host (cdr path))
+            (let ((guest (get-guest~ host)))
+              (assert guest)
+              (play-in guest path))))
+        
+        (define (play-in in path)
+          (assert in)
+          (let ((view (if (null? path)
+                          in
+                        (or (locate-component~ in path)
+                            (find-component~ in path)))))
+            (if (not view)
+                (error "Unable to find '{s} in: {s}" path in)
+              (play-root view))))
+        
+        (define (play-root view)
+          (let ((root (get-root~ view)))
+            (assert root)
+            (if (not position)
+                (proc view root #f #f (new Mouse-Event event-kind #f (modifiers->mask modifiers)))
+              (let ((acquired (acquire~ root view position)))
+                (proc view root (get-h~ acquired) (get-v~ acquired) (new Mouse-Event event-kind #f (modifiers->mask modifiers) position: position))))))
+        
+        (unless (eq? host-locator :unidentifiable)
+          (let ((host (locate-host)))
+            (if host
+                (play host view-locator)
+              (error "Unknown host: {s}" host-locator))))))
+    
+    (define (play-enter view)
+      (dispatch-mouse-enter~ view)
+      (set-mouse-in view))
+    
+    (define (play-click event-kind proc)
+      (play-mouse event-kind
+        (lambda (view root h v event)
+          (if (eq? (get-mouse-in) view)
+              (proc view root h v event)
+            (play-enter view)
+            (feedback)
+            (set-mouse-in view)
+            (proc view root h v event)
+            ))))
+    
+    (define (play-leave view)
+      (dispatch-mouse-leave~ view))
+    
+    (case kind
+      ((:char)         (play-char))
+      ((:string)       (play-string))
+      ((:enter)        (play-mouse :mouse-enter  (lambda (view root h v event) (play-enter view))))
+      ((:leave)        (play-mouse :mouse-leave  (lambda (view root h v event) (play-leave view))))
+      ((:down)         (play-click :mouse-down   (lambda (view root h v event) (dispatch-mouse-down~ root h v))))
+      ((:up)           (play-click :mouse-up     (lambda (view root h v event) (dispatch-mouse-up~ root h v))))
+      ((:click)        (play-click :mouse-click  (lambda (view root h v event) (dispatch-mouse-down~ root h v)
+                                                                               (dispatch-mouse-up~ root h v))))
+      ((:double-click) (play-click :double-click (lambda (view root h v event) (dispatch-double-click~ root h v))))
+      ((:context-menu) (play-click :context-menu (lambda (view root h v event) (dispatch-context-menu~ root view event))))
+      (else            (error "Unknown event kind: {s}" kind)))))
+
+
+;;;
+;;;; Action
 ;;;
 
 
 (definition public (play-action action)
-  (bind (identifier/action/handler . event) action
-    (typecase identifier/action/handler
-      ((Pair)
-       ;; for tests
-       (parameterize ((testing? #t))
-         (play-event identifier/action/handler event)))
+  (bind (action/handler . event) action
+    (typecase action/handler
       ((Action)
-       (call-action identifier/action/handler #f '() event: event))
+       (call-action action/handler #f '() event: event))
       (else
        (let ((target (get-focus)))
-         (invoke~ identifier/action/handler target event))))))
-
-
-(definition (play-event identifier event)
-  (define (play host path)
-    (assert host)
-    (if (and (pair? path) (eq? (car path) :guest))
-        (play-in (get-guest~ host) (cdr path))
-      (play-in host path)))
-  
-  (define (play-in in path)
-    (assert in)
-    (let ((view (if (null? path) in (locate~ in path))))
-      (if (not view)
-          (error "Unable to locate '{s} in: {s}" path in)
-        (play-event view event))))
-  
-  (define (play-event view event)
-    (case (get-kind~ event)
-      ((:char)         (dispatch-key-press~ view (get-property~ event content:)))
-      ((:mouse-enter)  (play-mouse-event view event (lambda (root h v) (dispatch-mouse-enter~ view))))
-      ((:mouse-down)   (play-mouse-event view event (lambda (root h v) (dispatch-mouse-down~ root h v))))
-      ((:mouse-up)     (play-mouse-event view event (lambda (root h v) (dispatch-mouse-up~ root h v))))
-      ((:mouse-leave)  (play-mouse-event view event (lambda (root h v) (dispatch-mouse-leave~ view))))
-      ((:double-click) (play-mouse-event view event (lambda (root h v) (dispatch-double-click~ root h v))))
-      ((:context-menu) (play-mouse-event view event (lambda (root h v) (dispatch-context-menu~ root h v))))))
-  
-  (define (play-mouse-event view event proc)
-    (let ((root (get-root~ view)))
-      (assert root)
-      (let ((pos (get-position~ event)))
-        (if (not pos)
-            (proc root #f #f)
-          (let ((acquired (acquire~ root view pos)))
-            (proc root (get-h~ acquired) (get-v~ acquired)))))))
-  
-  (case (car identifier)
-    ((:focus) (play-in (get-focus) (cdr identifier)))
-    ((:menubar) (play (find-menubar~ (get-application)) (cdr identifier)))
-    ((:toolbar) (play (find-toolbar~ (get-application)) (cdr identifier)))
-    ((:status-bar) (play (find-status-bar~ (get-application)) (cdr identifier)))
-    ((:docked) (play (singleton-docked-named (cadr identifier)) (cddr identifier)))
-    ((:frame) (play (current-frame) (cdr identifier)))
-    (else (error "Unknown host: {s}" (car identifier))))))
+         (invoke~ action/handler target event)))))))

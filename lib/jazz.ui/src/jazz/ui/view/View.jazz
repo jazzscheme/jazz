@@ -2048,7 +2048,7 @@
            (view (find-mouse-view pos)))
       (when view
         (let ((acquired (acquire~ view self pos)))
-          (dispatch-mouse-down view (make-event Mouse-Event :mouse-down self position: (acquire~ view self pos)))))))
+          (dispatch-mouse-down view (make-event Mouse-Event :mouse-down self position: acquired))))))
   
   
   (method protected (dispatch-mouse-down view event)
@@ -2116,34 +2116,38 @@
       (mouse-move pos)))
   
   
-  (method protected (dispatch-mouse-up h v)
+  (method protected (root-mouse-up h v)
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos))
            (acquired (and view (acquire~ view self pos))))
-      (when view
-        (hook-event view (lambda () (make-event Mouse-Event :mouse-up self position: acquired))))
-      (when mouse-down?
-        (process-drag-up~ mouse-down-view (acquire~ mouse-down-view self pos)))
-      (when view
-        (let ((event (make-event Mouse-Event :mouse-move self position: acquired)))
+      (dispatch-mouse-up view (make-event Mouse-Event :mouse-up self position: acquired))))
+  
+  
+  (method protected (dispatch-mouse-up view event)
+    (when view
+      (hook-event view event)
+      (let ((position (get-position~ event)))
+        (when mouse-down?
+          (process-drag-up~ mouse-down-view (acquire~ mouse-down-view view position)))
+        (let ((event (make-event Mouse-Event :mouse-move self position: position)))
           (call-cursor-update~ view event)
-          (process-mouse-up~ view acquired))))
+          (process-mouse-up~ view event))))
     (when (get-delayed-mouse-action)
       (let ((action (get-delayed-mouse-action)))
         (set-delayed-mouse-action #f)
         (action))))
 
   
-  (method (process-mouse-up pos)
+  (method (process-mouse-up event)
     (when (current-drag-drop)
-      (drag-drop (current-drag-drop) pos))
-    (call-mouse-up pos))
+      (drag-drop (current-drag-drop) (get-position~ event)))
+    (call-mouse-up event))
 
   
-  (method (call-mouse-up pos)
+  (method (call-mouse-up event)
     (if mouse-up-handler
-        (invoke-handler self mouse-up-handler (make-event Mouse-Event :mouse-up self position: pos))
-      (mouse-up pos)))
+        (invoke-handler self mouse-up-handler event)
+      (mouse-up event)))
 
   
   (method (process-drag-move pos)
@@ -2305,7 +2309,7 @@
     )
 
   
-  (method public virtual (mouse-down pos)
+  (method public virtual (mouse-down evt)
     )
   
   
@@ -2313,7 +2317,7 @@
     )
   
   
-  (method public virtual (mouse-up pos)
+  (method public virtual (mouse-up evt)
     )
   
   
@@ -2333,7 +2337,7 @@
     (proc))
   
   
-  (method public virtual (context-menu event)
+  (method public virtual (context-menu evt)
     )
   
   

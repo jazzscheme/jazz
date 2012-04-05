@@ -2290,8 +2290,18 @@
   (definition Default-Page-Setup-Designer
     #f)
   
-  (definition Default-Page-Setup-File
-    {File Profile "settings" "PageSetup.jml"})
+  
+  (definition public (set-default-page-setup setup)
+    (set! Default-Page-Setup setup))
+  
+  
+  (method virtual (get-page-setup-file)
+    (when (is-alias? 'Profile)
+      {File Profile "settings" "PageSetup.jml"}))
+  
+  
+  (method virtual (get-page-setup-form)
+    (<form> (<Page-Setup>)))
   
   
   (method public (default-page-setup)
@@ -2318,8 +2328,8 @@
   
   
   (method virtual (setup-page-setup)
-    (let* ((file Default-Page-Setup-File)
-           (form (if (and (is-alias? 'Profile) (exists?~ file)) (read-form file) (<form> (<Page-Setup>))))
+    (let* ((file (get-page-setup-file))
+           (form (if (and file (exists?~ file)) (read-form file) (get-page-setup-form)))
            (reference (instantiate~ form)))
       (set! Default-Page-Setup reference)
       (set! Default-Page-Setup-Form form)
@@ -2330,7 +2340,7 @@
     (when (and Default-Page-Setup-Designer (file? (get-origin~ (get-form~ Default-Page-Setup-Designer))))
       (let ((form (get-form~ Default-Page-Setup-Designer)))
         (when (not (get-origin~ form))
-          (set-origin~ form Default-Page-Setup-File)))
+          (set-origin~ form (get-page-setup-file))))
       (save~ Default-Page-Setup-Designer)))
 
 

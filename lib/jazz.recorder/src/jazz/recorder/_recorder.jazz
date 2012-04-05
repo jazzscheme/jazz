@@ -68,15 +68,15 @@
   (or Recording-Level 'action))
 
 
-(definition Recording-Slowdown?
+(definition Recording-Feedback?
   #f)
 
 
-(definition public (get-recording-slowdown?)
-  Recording-Slowdown?)
+(definition public (get-recording-feedback?)
+  Recording-Feedback?)
 
-(definition public (set-recording-slowdown? slowdown?)
-  (set! Recording-Slowdown? slowdown?))
+(definition public (set-recording-feedback? feedback?)
+  (set! Recording-Feedback? feedback?))
 
 
 (definition Recording-Slowdown
@@ -95,63 +95,71 @@
 ;;;
 
 
-(definition public (play-script proc (slowdown?: slowdown? (get-recording-slowdown?)) (slowdown: slowdown (get-recording-slowdown)))
-  (thread-start!
-    (new-thread
-      (lambda ()
-        (let ((debug? #f)
-              (catch? #f)
-              (first-slowdown? #t)
-              (error-occured? #f))
-          (define (play action)
-            (define (feedback)
-              (when slowdown?
-                (if first-slowdown?
-                    (set! first-slowdown? #f)
-                  (bind (kind . rest) action
-                    (let ((host (and (pair? rest) (car rest))))
-                      (unless (eq? host :unidentifiable)
-                        (update-window~
-                          (case host
-                            ((:modal) (get-player~ (current-modal)))
-                            ((:popup) (get-player~ (current-popup)))
-                            (else (get-toplevel))))
-                        (sleep slowdown)))))))
-            
+(definition public (play-script proc (catcher: catcher #f) (feedback?: feedback? (get-recording-feedback?)) (slowdown: slowdown (get-recording-slowdown)))
+  (let ((debug? #f)
+        (catch? #t)
+        (first-feedback? #t)
+        (error-occured? #f))
+    (define (play action)
+      (define (feedback)
+        (when feedback?
+          (if first-feedback?
+              (set! first-feedback? #f)
+            (bind (kind . rest) action
+              (let ((host (and (pair? rest) (car rest))))
+                (unless (eq? host :unidentifiable)
+                  (update-window~
+                    (case host
+                      ((:modal) (get-player~ (current-modal)))
+                      ((:popup) (get-player~ (current-popup)))
+                      (else (get-toplevel))))
+                  (when slowdown
+                    (sleep slowdown))))))))
+      
+      (unless error-occured?
+        (block-event
+          (lambda ()
             (unless error-occured?
-              (block-event
+              (with-exception-filter
+                (lambda (exc)
+                  (if (or (not catch?)
+                          (and (object? exc)
+                               (is? exc Signal)))
+                      #f
+                    (set! error-occured? #t)
+                    #t))
+                (lambda (exc)
+                  (if catcher
+                      (catcher exc)
+                    #f))
                 (lambda ()
-                  (unless error-occured?
-                    (with-exception-filter
-                      (lambda (exc)
-                        (if (or (not catch?)
-                                (and (object? exc)
-                                     (is? exc Signal)))
-                            #f
-                          (set! error-occured? #t)
-                          #t))
-                      (lambda (exc)
-                        #f)
-                      (lambda ()
-                        (if (procedure? action)
-                            (action)
-                          (when debug?
-                            (debug action))
-                          (feedback)
-                          (play-event action feedback)))))))))
-          
-          (proc play)))
-      'play-script)))
+                  (if (procedure? action)
+                      (action)
+                    (when debug?
+                      (debug action))
+                    (feedback)
+                    (play-event action feedback)))))))))
+    
+    (proc play)))
 
 
-(definition public (play-events actions)
-  (play-script
-    (lambda (play)
-      (for-each play actions))))
+(definition public (play-events actions . rest)
+  (apply play-script
+         (lambda (play)
+           (for-each play actions))
+         rest))
 
 
 (definition (play-event action feedback)
   (bind (kind . rest) action
+    (define (play-action-event)
+      (bind (target-name method-name . rest) rest
+        (parse-event-modifiers rest
+          (lambda (modifiers properties)
+            (let ((handler (new Event-Handler target-name: target-name method-name: method-name))
+                  (event (apply new Action-Event :action #f (modifiers->mask modifiers) properties)))
+              (play-action (cons handler event)))))))
+    
     (define (play-char)
       (bind (content . modifiers) rest
         (let ((shortcut (new Shortcut modifiers content)))
@@ -229,13 +237,15 @@
     (define (play-click event-kind proc)
       (play-mouse event-kind
         (lambda (root view event)
-          (if (eq? (get-mouse-in) view)
-              (proc root view event)
-            (play-enter view)
-            (feedback)
-            (set-mouse-in view)
-            (proc root view event)
-            ))))
+          (let ((mouse-in (get-mouse-in)))
+            (if (eq? mouse-in view)
+                (proc root view event)
+              (when mouse-in
+                (play-leave mouse-in))
+              (play-enter view)
+              (feedback)
+              (set-mouse-in view)
+              (proc root view event))))))
     
     (define (play-leave view)
       (dispatch-mouse-leave~ view))
@@ -245,6 +255,7 @@
       (dispatch-mouse-up~ root view event))
     
     (case kind
+      ((:action)       (play-action-event))
       ((:char)         (play-char))
       ((:string)       (play-string))
       ((:enter)        (play-mouse :mouse-enter  (lambda (root view event) (play-enter view))))

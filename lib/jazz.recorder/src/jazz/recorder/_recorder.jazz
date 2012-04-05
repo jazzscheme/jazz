@@ -90,6 +90,17 @@
   (set! Recording-Slowdown slowdown))
 
 
+(definition protected Accessed-Mouse-Events
+  (make-table test: eq? weak-keys: #t))
+
+
+(definition protected (accessed-event? event)
+  (table-ref Accessed-Mouse-Events event #f))
+
+(definition protected (unaccessed-event? event)
+  (not (table-ref Accessed-Mouse-Events event #f)))
+
+
 ;;;
 ;;;; Event
 ;;;
@@ -116,6 +127,10 @@
                   (when slowdown
                     (sleep slowdown))))))))
       
+      (define (simulate-mouse root pos)
+        (when feedback?
+          (set-mouse-position~ (get-player~ root) pos)))
+      
       (unless error-occurred?
         (block-event
           (lambda ()
@@ -138,7 +153,7 @@
                     (when debug?
                       (debug action))
                     (feedback)
-                    (play-event action feedback)))))))))
+                    (play-event action feedback simulate-mouse)))))))))
     
     (proc play)))
 
@@ -150,7 +165,7 @@
          rest))
 
 
-(definition (play-event action feedback)
+(definition (play-event action feedback simulate-mouse)
   (bind (kind . rest) action
     (define (play-action-event)
       (bind (target-name method-name . rest) rest
@@ -221,7 +236,7 @@
             (if (not position)
                 (proc root view (new Mouse-Event event-kind #f (modifiers->mask modifiers)))
               (let ((acquired (acquire~ root view position)))
-                (set-mouse-position~ (get-player~ root) acquired)
+                (simulate-mouse root acquired)
                 (proc root view (new Mouse-Event event-kind #f (modifiers->mask modifiers) position: position))))))
         
         (unless (eq? host-locator :unidentifiable)

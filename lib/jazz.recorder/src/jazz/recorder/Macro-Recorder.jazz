@@ -163,6 +163,13 @@
       (set! previous #f)))
   
   
+  (method (event-access-hook event)
+    (when (and recording?
+               (eq? (effective-recording-level) 'event)
+               (memq? (get-kind~ event) '(:mouse-down :mouse-up)))
+      (table-set! Accessed-Mouse-Events event #t)))
+  
+  
   (method (action-hook action/handler event)
     (when (and recording? (eq? (effective-recording-level) 'action))
       (record action/handler event)))
@@ -181,6 +188,7 @@
       (set! Recording-Factory (new List-Factory))
       (when (not hooked?)
         (register-event-hook event-hook)
+        (register-event-access-hook event-access-hook)
         (register-action-hook action-hook)
         (set! hooked? #t))))
   
@@ -197,6 +205,7 @@
       ;; this doesn't work yet because getting method value twice doesn't return eq? objects
       @wait (
       (unregister-event-hook event-hook)
+      (unregister-event-access-hook event-access-hook)
       (unregister-action-hook action-hook))))
 
   
@@ -297,7 +306,7 @@
                      (eq? (get-kind~ top-event) :string))
             (let ((top-content (get-property~ top-event content:))
                   (content (get-property~ event content:)))
-              (cons (make-string-action (concatenate content top-content)) (cdr held)))))))
+              (cons (make-string-action (concatenate top-content content)) (cdr held)))))))
     
     (define (simplify-action current held)
       (bind (where . event) current
@@ -309,8 +318,12 @@
                         (equal? where top-where)
                         (= modifiers top-modifiers)
                         (near? (get-position~ event) (get-position~ top-event) 5))
-                   (let ((action (cons where (new Event :click #f modifiers position: (get-position~ event)))))
-                     (cons action (cdr held))))
+                   (let ((click-event (new Mouse-Event :click #f modifiers position: (get-position~ top-event))))
+                     (when (or (accessed-event? top-event)
+                               (accessed-event? event))
+                       (table-set! Accessed-Mouse-Events click-event #t))
+                     (let ((action (cons where click-event)))
+                       (cons action (cdr held)))))
                   (else
                    #f))))))
     
@@ -372,6 +385,12 @@
         ((:mouse-leave) :leave)
         (else kind)))
     
+    (define (condense-position event)
+      (if (and (memq? (get-kind~ event) '(:down :up :click))
+               (unaccessed-event? event))
+          #f
+        (get-position~ event)))
+    
     (let ((fact (new List-Factory)))
       (for-each (lambda (action)
                   (bind (where . event) action
@@ -386,7 +405,7 @@
                           (else
                            (let ((host (car where))
                                  (view (cadr where))
-                                 (position (get-property~ event position:)))
+                                 (position (condense-position event)))
                              `(,kind ,host ,view ,@(if position (list position) '()) ,@(modifiers->keys modifiers)))))))))
                 (get-output~ recording))
       fact))
@@ -502,7 +521,11 @@
     (if (not recording?)
         (case (effective-recording-level)
           ((event)
-           (play-events recording))
+           (thread-start!
+             (new-thread
+               (lambda ()
+                 (play-events recording))
+               'recording)))
           (else
            (let ((old playing?))
              (unwind-protect

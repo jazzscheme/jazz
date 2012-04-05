@@ -77,6 +77,9 @@
   ;; - identify consoles in console manager
   ;; - how to fix mouse-up in a popup menu that is broken because a submenu was poped on mouse-down
   ;; - can even interpolate missing mouse-position to simulate mouse movement between registered positions!!
+  ;; - coalesce all :menubar ... and submenu clicks into one :menu event
+  ;;   - can we do the same for context menus
+  ;;   - be carefull. we could have context menus containing widgets
   ;;
   ;; Host
   ;; - :modal
@@ -87,12 +90,12 @@
   ;; - :frame
   
   
-  (method (event-hook object event)
-    (event-hook-impl object event))
+  (method (event-hook event)
+    (event-hook-impl event))
   
   
-  (method (event-hook-impl object event)
-    (define (identify)
+  (method (event-hook-impl event)
+    (define (identify object)
       (cond ((enumerator? object)
              (list object))
             ((is? object View)
@@ -101,7 +104,7 @@
              (unidentifiable "object"))))
     
     (define (identify-view view)
-      (let ((host (get-host~ object)))
+      (let ((host (get-host~ view)))
         (if host
             (let ((guest (get-guest~ host)))
               (if guest
@@ -144,26 +147,32 @@
       (list :unidentifiable msg))
     
     (when (and recording? (eq? (effective-recording-level) 'event))
-      (if (and (eq? (get-kind~ event) :mouse-leave)
-               previous
-               (eq? object (car previous))
-               (eq? (get-kind~ (cddr previous)) :mouse-enter))
-          (set! previous #f)
-        (event-hook-previous)
-        (let ((locator (if (or (not object) (eq? (get-kind~ event) :char))
-                           #f
-                         (identify))))
-          (let ((action (cons locator event)))
-            (set! previous (cons object action)))))))
+      (let ((kind (get-kind~ event))
+            (sender (get-sender~ event)))
+        (if (and (eq? kind :mouse-leave)
+                 previous
+                 (eq? sender (get-sender~ (cdr previous)))
+                 (eq? (get-kind~ (cdr previous)) :mouse-enter))
+            (set! previous #f)
+          (event-hook-previous)
+          (let ((locator (if (or (not sender) (eq? kind :char))
+                             #f
+                           (identify sender))))
+            (let ((action (cons locator event)))
+              (set! previous action)))))))
   
   
   (method (event-hook-previous)
     (when previous
-      (put~ Recording-Factory (cdr previous))
+      (put~ Recording-Factory previous)
       (set! previous #f)))
   
   
   (method (event-access-hook event)
+    (event-access-hook-impl event))
+  
+  
+  (method (event-access-hook-impl event)
     (when (and recording?
                (eq? (effective-recording-level) 'event)
                (memq? (get-kind~ event) '(:mouse-down :mouse-up)))
@@ -171,6 +180,10 @@
   
   
   (method (action-hook action/handler event)
+    (action-hook-impl action/handler event))
+  
+  
+  (method (action-hook-impl action/handler event)
     (when (and recording? (eq? (effective-recording-level) 'action))
       (record action/handler event)))
     
@@ -386,7 +399,7 @@
         (else kind)))
     
     (define (condense-position event)
-      (if (and (memq? (get-kind~ event) '(:down :up :click))
+      (if (and (memq? (get-kind~ event) '(:mouse-down :down :mouse-up :up :click))
                (unaccessed-event? event))
           #f
         (get-position~ event)))

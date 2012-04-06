@@ -279,6 +279,21 @@
   ;;;
   
   
+  ;; (:context-menu :frame () {Point 141 148})
+  ;; 
+  ;; (:context-menu (:docked Workbench) (descendants tree) {Point 58 37})
+  ;; (:click :popup edit-project)
+  ;; 
+  ;; 
+  ;; (:click :menubar tools)
+  ;; (:click :popup compare-directories)
+  ;; 
+  ;; 
+  ;; (:popup :menubar (search))
+  ;; (:click :popup find-in-text)
+
+  
+  
   (method (coalesce-recording recording)
     (case (effective-recording-level)
       ((event)
@@ -289,7 +304,7 @@
              (for-each debug (get-output~ recording))))
          
          (pretty recording: recording)
-         (let ((coalesced (coalesce-events recording)))
+         (let ((coalesced (coalesce-events (coalesce-events recording 0) 1)))
            (pretty coalesced: coalesced)
            (let ((condensed (condense-events coalesced)))
              (pretty condensed: condensed)
@@ -298,7 +313,7 @@
        (coalesce-actions recording))))
   
   
-  (method (coalesce-events recording)
+  (method (coalesce-events recording pass)
     (define (normalize-action action)
       (bind (where . event) action
         (if (eq? (get-kind~ event) :char)
@@ -312,29 +327,45 @@
           action)))
     
     (define (coalesce-action current held)
-      (bind (where . event) current
-        (bind (top-where . top-event) (car held)
-          (let ((kind (get-kind~ event))
-                (sender (get-sender~ event))
-                (modifiers (get-modifiers~ event))
-                (top-kind (get-kind~ top-event))
+      (bind (top-where . top-event) (car held)
+        (bind (where . event) current
+          (let ((top-kind (get-kind~ top-event))
                 (top-sender (get-sender~ top-event))
-                (top-modifiers (get-modifiers~ top-event)))
-            (cond ((and (eq? kind :string)
-                        (eq? top-kind :string))
+                (top-modifiers (get-modifiers~ top-event))
+                (kind (get-kind~ event))
+                (sender (get-sender~ event))
+                (modifiers (get-modifiers~ event)))
+            (cond ((and (eq? top-kind :string)
+                        (eq? kind :string))
                    (let ((top-content (get-property~ top-event content:))
                          (content (get-property~ event content:)))
                      (cons (make-string-action (concatenate top-content content)) (cdr held))))
-                  ((and (eq? kind :mouse-up)
-                        (eq? top-kind :mouse-down)
-                        (eq? sender top-sender)
-                        (= modifiers top-modifiers)
-                        (near? (get-position~ event) (get-position~ top-event) 5))
-                   (let ((click-event (new Mouse-Event :click #f modifiers position: (get-position~ top-event))))
+                  ((and (eq? top-kind :mouse-down)
+                        (eq? kind :mouse-up)
+                        (eq? top-sender sender)
+                        (= top-modifiers modifiers)
+                        (near? (get-position~ top-event) (get-position~ event) 5))
+                   (let ((click-event (new Mouse-Event :click top-sender top-modifiers position: (get-position~ top-event))))
                      (when (or (accessed-event? top-event)
                                (accessed-event? event))
                        (table-set! Accessed-Mouse-Events click-event #t))
                      (let ((action (cons top-where click-event)))
+                       (cons action (cdr held)))))
+                  ((and (eq? (car top-where) :menubar)
+                        (eq? (car where) :popup)
+                        (eq? top-kind :click)
+                        (eq? kind :click)
+                        (is? top-sender Item)
+                        (is? sender Item))
+                   (let ((menu-event (new Event :menubar top-sender top-modifiers path: (cons (cadr top-where) (cdr where)))))
+                     (let ((action (cons (list :menubar) menu-event)))
+                       (cons action (cdr held)))))
+                  ((and (eq? (car where) :popup)
+                        (eq? top-kind :menubar)
+                        (eq? kind :click)
+                        (is? sender Item))
+                   (let ((menu-event (new Event :menubar top-sender top-modifiers path: (append (get-property~ top-event path:) (cdr where)))))
+                     (let ((action (cons (list :menubar) menu-event)))
                        (cons action (cdr held)))))
                   (else
                    #f))))))
@@ -413,6 +444,8 @@
                            `(,kind ,(get-key~ event) ,@(modifiers->keys modifiers)))
                           ((:string)
                            `(,kind ,(get-property~ event content:) ,@(modifiers->keys modifiers)))
+                          ((:menubar)
+                           `(,kind ,(get-property~ event path:) ,@(modifiers->keys modifiers)))
                           (else
                            (let ((host (car where))
                                  (view (cadr where))

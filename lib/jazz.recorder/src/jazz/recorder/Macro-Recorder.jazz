@@ -65,9 +65,6 @@
   (slot hooked?    initialize #f getter generate)
   
   
-  (slot previous initialize #f)
-  
-  
   ;;;
   ;;;; Hooks
   ;;;
@@ -189,23 +186,11 @@
     (when (and recording? (eq? (effective-recording-level) 'event))
       (let ((kind (get-kind~ event))
             (sender (get-sender~ event)))
-        (if (and (eq? kind :mouse-leave)
-                 previous
-                 (eq? sender (get-sender~ (cdr previous)))
-                 (eq? (get-kind~ (cdr previous)) :mouse-enter))
-            (set! previous #f)
-          (event-hook-previous)
-          (let ((locator (if (or (not sender) (eq? kind :char))
-                             #f
-                           (identify sender))))
-            (let ((action (cons locator event)))
-              (set! previous action)))))))
-  
-  
-  (method (event-hook-previous)
-    (when previous
-      (put~ Recording-Factory previous)
-      (set! previous #f)))
+        (let ((locator (if (or (not sender) (eq? kind :char))
+                           #f
+                         (identify sender))))
+          (let ((action (cons locator event)))
+            (put~ Recording-Factory action))))))
   
   
   (method (event-access-hook event)
@@ -237,7 +222,6 @@
     (when (not recording?)
       (user-message "Recording...")
       (set! recording? #t)
-      (set! previous #f)
       (set! Recording-Factory (new List-Factory))
       (when (not hooked?)
         (register-event-hook event-hook)
@@ -248,11 +232,8 @@
   
   (method (on-stop-recording evt)
     (when recording?
-      (when (eq? (effective-recording-level) 'event)
-        (event-hook-previous))
       (user-message "Stopped")
       (set! recording? #f)
-      (set! previous #f)
       (set! Recording-Factory (coalesce-recording Recording-Factory))
       (set! Active-Recording #f)
       ;; this doesn't work yet because getting method value twice doesn't return eq? objects
@@ -376,7 +357,7 @@
                        (table-set! Accessed-Mouse-Events click-event #t))
                      (let ((action (cons top-where click-event)))
                        (cons action (cdr held)))))
-                  ((and (pair? top-where)
+                  @w((and (pair? top-where)
                         (eq? (car top-where) :menubar)
                         (pair? where)
                         (eq? (car where) :popup)
@@ -387,7 +368,7 @@
                    (let ((menu-event (new Event :menubar top-sender top-modifiers path: (cons (cadr top-where) (cdr where)))))
                      (let ((action (cons (list :menubar) menu-event)))
                        (cons action (cdr held)))))
-                  ((and (pair? where)
+                  @w((and (pair? where)
                         (eq? (car where) :popup)
                         (eq? top-kind :menubar)
                         (eq? kind :click)

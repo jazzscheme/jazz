@@ -212,7 +212,7 @@
             (case host-locator
               ((:modal) (current-modal))
               ((:popup) (current-popup))
-              ((:menubar) (find-menubar~ (get-application)))
+              ((:menubar) (find-menubar))
               ((:toolbar) (find-toolbar~ (get-application)))
               ((:statusbar) (find-status-bar~ (get-application)))
               ((:frame) (current-frame))
@@ -227,14 +227,7 @@
               (play-in guest path))))
         
         (define (play-in in path)
-          (assert in)
-          (let ((view (if (null? path)
-                          in
-                        (or (locate-component~ in path)
-                            (find-component~ in path)))))
-            (if (not view)
-                (error "Unable to find '{s} in: {s}" path in)
-              (play-root view))))
+          (play-root (locate-in in path)))
         
         (define (play-root view)
           (let ((root (get-root~ view)))
@@ -279,14 +272,25 @@
     
     (define (play-menubar)
       (bind (path . modifiers) rest
-        (debug path)))
+        (bind (menubar . subpath) path
+          (play-click :mouse-click (locate-in (find-menubar) menubar)))))
+    
+    (define (find-menubar)
+      (find-menubar~ (get-application)))
+    
+    (define (locate-in in path)
+      (assert in)
+      (let ((view (if (null? path)
+                      in
+                    (or (locate-component~ in path)
+                        (find-component~ in path)))))
+        (or view
+            (error "Unable to find '{s} in: {s}" path in))))
     
     (case kind
       ((:action)       (play-action-event))
       ((:char)         (play-char))
       ((:string)       (play-string))
-      ((:enter)        (play-mouse :mouse-enter  (lambda (root view event) (play-enter view))))
-      ((:leave)        (play-mouse :mouse-leave  (lambda (root view event) (play-leave view))))
       ((:down)         (play-click :mouse-down   (lambda (root view event) (dispatch-mouse-down~ root view event))))
       ((:up)           (play-click :mouse-up     (lambda (root view event) (dispatch-mouse-up~ root view event))))
       ((:click)        (play-click :mouse-click  (lambda (root view event) (dispatch-click root view event))))

@@ -108,7 +108,7 @@
 
 (definition public (play-script proc (catcher: catcher #f) (feedback?: feedback? (get-recording-feedback?)) (slowdown: slowdown (get-recording-slowdown)))
   (let ((debug? #f)
-        (catch? #t)
+        (catch? #f)
         (first-feedback? #t)
         (error-occurred? #f))
     (define (play action)
@@ -155,7 +155,13 @@
                     (feedback)
                     (play-event action feedback simulate-mouse)))))))))
     
-    (proc play)))
+    (if (primordial-thread?)
+        (thread-start!
+          (new-thread
+            (lambda ()
+              (proc play))
+            'script))
+      (proc play))))
 
 
 (definition public (play-events actions . rest)

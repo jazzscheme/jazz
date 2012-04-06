@@ -79,6 +79,46 @@
   ;; - coalesce all :menubar ... and submenu clicks into one :menu event
   ;;   - can we do the same for context menus
   ;;   - be carefull as we could have context menus containing widgets
+  ;; - implement play-event :menubar
+  ;; - script management
+  ;;   - initial conditions
+  ;;     - maybe we can save database snapshots as the volume will be very small for the test database
+  ;;       - this is a first step in unifying with unit tests
+  ;;     - serialize and deserialize database
+  ;;     - need a test profile
+  ;;     - other initial conditions?
+  ;;     - Uranos initial conditions
+  ;;       - version (client & server)
+  ;;       - settings (client)
+  ;;       - login, ...
+  ;;       - time, date, ...
+  ;;       - database
+  ;;       - external systems
+  ;;         - import
+  ;;       - os
+  ;;       - screen, application size
+  ;;       - multiple screens
+  ;;       - backend (32bit, 64bits, ...)
+  ;;       - internet accessibility
+  ;;   - code vs data (tree structure of scripts)
+  ;;   - dependencies between scripts
+  ;;   - expected conditions
+  ;;     - what's on screen
+  ;;     - errors
+  ;;     - feedback dialogs
+  ;;     - generated files
+  ;;       - generated pdf
+  ;; - asynchronous behaviors
+  ;;   - threads
+  ;;   - timers
+  ;; - error management
+  ;; - result management
+  ;; - control UI
+  ;;   - remote debugger!?
+  ;; - code coverage
+  ;;   - automatic determination of what tests need to be rerun for changes to code based on code coverage!?
+  ;; - nightly test
+  ;; - maybe we can include load and performance tests here by generating volume data on the fly!?
   ;;
   ;; Host
   ;; - :modal
@@ -279,21 +319,6 @@
   ;;;
   
   
-  ;; (:context-menu :frame () {Point 141 148})
-  ;; 
-  ;; (:context-menu (:docked Workbench) (descendants tree) {Point 58 37})
-  ;; (:click :popup edit-project)
-  ;; 
-  ;; 
-  ;; (:click :menubar tools)
-  ;; (:click :popup compare-directories)
-  ;; 
-  ;; 
-  ;; (:popup :menubar (search))
-  ;; (:click :popup find-in-text)
-
-  
-  
   (method (coalesce-recording recording)
     (case (effective-recording-level)
       ((event)
@@ -351,7 +376,9 @@
                        (table-set! Accessed-Mouse-Events click-event #t))
                      (let ((action (cons top-where click-event)))
                        (cons action (cdr held)))))
-                  ((and (eq? (car top-where) :menubar)
+                  ((and (pair? top-where)
+                        (eq? (car top-where) :menubar)
+                        (pair? where)
                         (eq? (car where) :popup)
                         (eq? top-kind :click)
                         (eq? kind :click)
@@ -360,7 +387,8 @@
                    (let ((menu-event (new Event :menubar top-sender top-modifiers path: (cons (cadr top-where) (cdr where)))))
                      (let ((action (cons (list :menubar) menu-event)))
                        (cons action (cdr held)))))
-                  ((and (eq? (car where) :popup)
+                  ((and (pair? where)
+                        (eq? (car where) :popup)
                         (eq? top-kind :menubar)
                         (eq? kind :click)
                         (is? sender Item))
@@ -421,10 +449,8 @@
   (method (condense-events recording)
     (define (condense-kind kind)
       (case kind
-        ((:mouse-enter) :enter)
         ((:mouse-down) :down)
         ((:mouse-up) :up)
-        ((:mouse-leave) :leave)
         (else kind)))
     
     (define (condense-position event)
@@ -437,20 +463,20 @@
       (for-each (lambda (action)
                   (bind (where . event) action
                     (let ((kind (condense-kind (get-kind~ event)))
-                          (modifiers (get-modifiers~ event)))
+                          (modifiers (modifiers->keys (get-modifiers~ event))))
                       (put~ fact
                         (case kind
                           ((:char)
-                           `(,kind ,(get-key~ event) ,@(modifiers->keys modifiers)))
+                           `(,kind ,(get-key~ event) ,@modifiers))
                           ((:string)
-                           `(,kind ,(get-property~ event content:) ,@(modifiers->keys modifiers)))
+                           `(,kind ,(get-property~ event content:) ,@modifiers))
                           ((:menubar)
-                           `(,kind ,(get-property~ event path:) ,@(modifiers->keys modifiers)))
+                           `(,kind ,(get-property~ event path:) ,@modifiers))
                           (else
                            (let ((host (car where))
                                  (view (cadr where))
                                  (position (condense-position event)))
-                             `(,kind ,host ,view ,@(if position (list position) '()) ,@(modifiers->keys modifiers)))))))))
+                             `(,kind ,host ,view ,@(if position (list position) '()) ,@modifiers))))))))
                 (get-output~ recording))
       fact))
   

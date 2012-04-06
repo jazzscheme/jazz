@@ -1040,10 +1040,30 @@
                 (loop creator (cons name identifier)))))))))
   
   
-  (method public (identify-child view)
-    (let ((name (get-name~ view)))
-      (when (and name (memq? view children))
-        name)))
+  (method public (identify-descendant component)
+    (let (loop (component component) (identifier '()))
+      (let ((creator (get-creator~ component))
+            (name (get-name~ component)))
+        (or (and creator
+                 (eq? (locate-component~ creator name) component)
+                 (if (eq? creator self)
+                     (cons name identifier)
+                   (loop creator (cons name identifier))))
+            (let ((parent (get-parent~ component)))
+              (and name
+                   parent
+                   (loop parent (cons name identifier))))))))
+  
+  
+  (method public (locate-descendant path)
+    (let (locate (in self) (path path))
+      (if (null? path)
+          in
+        (let ((first (car path)))
+          (let ((component (or (locate-component~ in first)
+                               (find-component~ in first))))
+            (when component
+              (locate component (cdr path))))))))
 
 
   ;;;

@@ -424,6 +424,10 @@
 ;;;
 
 
+(definition max-messages-before-thread-process
+  10)
+
+
 (definition package (process-messages-single-threaded thunk)
   (define (process-message msg)
     (unless (translate-shortcut msg)
@@ -434,14 +438,16 @@
   
   (declare (proper-tail-calls))
 
-  
   (let ((msg (MSG-make)))
     (let (loop)
-      (let ((message (GetMessage msg NULL 0 0)))
-        (when message
-          (process-message msg)
-          (thunk)
-          (loop))))
+      (let (iter (n 0))
+        (unless (> n max-messages-before-thread-process)
+          (let ((message (PeekMessage msg NULL 0 0 PM_REMOVE)))
+            (when message
+              (process-message msg)
+              (iter (+ n 1))))))
+      (thunk)
+      (loop))
     (MSG-free msg)))
 
 

@@ -135,9 +135,28 @@
         (when feedback?
           (let ((root (get-root~ view))
                 (player (get-player~ view)))
-            (let ((acquired (acquire~ root view pos)))
-              (set-mouse-position~ player acquired)))))
-      
+            (let ((start (mouse-position~ player))
+                  (end (acquire~ root view pos))
+                  (duration .5))
+              (let ((start-h (get-h~ start))
+                    (start-v (get-v~ start))
+                    (end-h (get-h~ end))
+                    (end-v (get-v~ end))
+                    (step-num (max 1 (floor (/ (distance start end) 2)))))
+                (let ((delta-h (exact->inexact (/ (- end-h start-h) step-num)))
+                      (delta-v (exact->inexact (/ (- end-v start-v) step-num))))
+                  (let (loop (step 0))
+                    (if (>= step step-num)
+                        (begin
+                          (set-mouse-position~ player end)
+                          (sleep .05))
+                      (sleep (/ duration step-num))
+                      (let ((step-pos (new Point
+                                        (+ start-h (fxround (* step delta-h)))
+                                        (+ start-v (fxround (* step delta-v))))))
+                        (set-mouse-position~ player step-pos))
+                      (loop (+ step 1))))))))))
+
       (unless error-occurred?
         (block-event
           (lambda ()

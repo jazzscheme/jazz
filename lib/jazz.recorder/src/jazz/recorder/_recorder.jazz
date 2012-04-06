@@ -131,9 +131,12 @@
                   (when slowdown
                     (sleep slowdown))))))))
       
-      (define (simulate-mouse root pos)
+      (define (simulate-mouse view pos)
         (when feedback?
-          (set-mouse-position~ (get-player~ root) pos)))
+          (let ((root (get-root~ view))
+                (player (get-player~ view)))
+            (let ((acquired (acquire~ root view pos)))
+              (set-mouse-position~ player acquired)))))
       
       (unless error-occurred?
         (block-event
@@ -266,11 +269,10 @@
           (assert root)
           (if (not position)
               (begin
-                (simulate-mouse root (acquire~ root view {Point 10 10}))
+                (simulate-mouse view {Point 10 10})
                 (proc root view (new Mouse-Event event-kind #f (modifiers->mask modifiers))))
-            (let ((acquired (acquire~ root view position)))
-              (simulate-mouse root acquired)
-              (proc root view (new Mouse-Event event-kind #f (modifiers->mask modifiers) position: position))))))
+            (simulate-mouse view position)
+            (proc root view (new Mouse-Event event-kind #f (modifiers->mask modifiers) position: position)))))
       
       (unless (eq? host-locator :unidentifiable)
         (let ((host (locate-host)))

@@ -73,6 +73,7 @@
   ;; Todo
   ;; - can even interpolate missing mouse-position to simulate mouse movement between registered positions!!
   ;; - can we coalesce context menus same as menubar
+  ;; - drag & drop support
   ;; - events
   ;;   - scrap event-type parameter!?
   ;; - script management
@@ -203,7 +204,7 @@
     (when (and recording?
                (eq? (effective-recording-level) 'event)
                (memq? (get-kind~ event) '(:mouse-down :mouse-up)))
-      (table-set! Accessed-Mouse-Events event #t)))
+      (access-event event)))
   
   
   (method (action-hook action/handler event)
@@ -356,7 +357,7 @@
                    (let ((click-event (new Mouse-Event :click top-sender top-modifiers position: (get-position~ top-event))))
                      (when (or (accessed-event? top-event)
                                (accessed-event? event))
-                       (table-set! Accessed-Mouse-Events click-event #t))
+                       (access-event click-event))
                      (let ((action (cons top-where click-event)))
                        (cons action (cdr held)))))
                   ((and (pair? top-where)
@@ -437,8 +438,6 @@
         (else kind)))
     
     (define (condense-position event)
-      (get-position~ event)
-      @wait-buggy
       (if (and (memq? (get-kind~ event) '(:mouse-down :down :mouse-up :up :click))
                (unaccessed-event? event))
           #f

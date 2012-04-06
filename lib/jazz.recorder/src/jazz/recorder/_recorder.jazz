@@ -112,7 +112,7 @@
         (first-feedback? #t)
         (error-occurred? #f))
     (define (play action)
-      (define (feedback)
+      (define (feedback action)
         (when feedback?
           (if first-feedback?
               (set! first-feedback? #f)
@@ -152,7 +152,7 @@
                       (action)
                     (when debug?
                       (debug action))
-                    (feedback)
+                    (feedback action)
                     (play-event action feedback simulate-mouse)))))))))
     
     (if (primordial-thread?)
@@ -172,132 +172,136 @@
 
 
 (definition (play-event action feedback simulate-mouse)
-  (bind (kind . rest) action
-    (define (play-action-event)
-      (bind (target-name method-name . rest) rest
-        (parse-event-modifiers rest
-          (lambda (modifiers properties)
-            (let ((handler (new Event-Handler target-name: target-name method-name: method-name))
-                  (event (apply new Action-Event :action #f (modifiers->mask modifiers) properties)))
-              (play-action (cons handler event)))))))
+  (define (play-action action)
+    (let ((kind (car action)))
+      (case kind
+        ((:action)       (play-action-event action))
+        ((:char)         (play-char action))
+        ((:string)       (play-string action))
+        ((:down)         (play-mouse action :mouse-down   (lambda (root view event) (dispatch-mouse-down~ root view event))))
+        ((:up)           (play-mouse action :mouse-up     (lambda (root view event) (dispatch-mouse-up~ root view event))))
+        ((:click)        (play-mouse action :mouse-click  (lambda (root view event) (dispatch-click root view event))))
+        ((:double-click) (play-mouse action :double-click (lambda (root view event) (dispatch-double-click~ root view event))))
+        ((:context-menu) (play-mouse action :context-menu (lambda (root view event) (dispatch-context-menu~ root view event))))
+        ((:menubar)      (play-menubar action))
+        (else            (error "Unknown event kind: {s}" kind)))))
+  
+  (define (play-action-event action)
+    (bind (kind target-name method-name . rest) action
+      (parse-event-modifiers rest
+        (lambda (modifiers properties)
+          (let ((handler (new Event-Handler target-name: target-name method-name: method-name))
+                (event (apply new Action-Event :action #f (modifiers->mask modifiers) properties)))
+            (play-action (cons handler event)))))))
+  
+  (define (play-char action)
+    (bind (kind content . modifiers) action
+      (let ((shortcut (new Shortcut modifiers content)))
+        (or (dispatch-shortcut~ (get-application) shortcut)
+            (assert (char? content)
+              (dispatch-key content))))))
+  
+  (define (play-string action)
+    (bind (kind content) action
+      (iterate content dispatch-key)))
+  
+  (define (dispatch-key key)
+    (dispatch-key-press~ (get-focus) key))
+  
+  (define (play-mouse action event-kind proc)
+    (playing-mouse action event-kind
+      (lambda (root view event)
+        (let ((mouse-in (get-mouse-in)))
+          (if (eq? mouse-in view)
+              (proc root view event)
+            (when mouse-in
+              (dispatch-mouse-leave~ mouse-in))
+            (dispatch-mouse-enter~ view)
+            (set-mouse-in view)
+            (feedback action)
+            (set-mouse-in view)
+            (proc root view event))))))
+  
+  (define (playing-mouse action event-kind proc)
+    (define (parse)
+      (bind (kind host-locator view-locator . rest) action
+        (if (and (pair? rest)
+                 (is? (car rest) Point))
+            (values host-locator view-locator (car rest) (cdr rest))
+          (values host-locator view-locator #f rest))))
     
-    (define (play-char)
-      (bind (content . modifiers) rest
-        (let ((shortcut (new Shortcut modifiers content)))
-          (or (dispatch-shortcut~ (get-application) shortcut)
-              (assert (char? content)
-                (play-key content))))))
-    
-    (define (play-string)
-      (let ((content (car rest)))
-        (iterate content play-key)))
-    
-    (define (play-key key)
-      (dispatch-key-press~ (get-focus) key))
-    
-    (define (play-mouse event-kind proc)
-      (define (parse)
-        (bind (host-locator view-locator . rest) rest
-          (if (and (pair? rest)
-                   (is? (car rest) Point))
-              (values host-locator view-locator (car rest) (cdr rest))
-            (values host-locator view-locator #f rest))))
+    (receive (host-locator view-locator position modifiers) (parse)
+      (define (locate-host)
+        (if (pair? host-locator)
+            (case (car host-locator)
+              ((:docked) (singleton-docked-named (cdr host-locator)))
+              (else #f))
+          (case host-locator
+            ((:modal) (current-modal))
+            ((:popup) (current-popup))
+            ((:menubar) (find-menubar))
+            ((:toolbar) (find-toolbar~ (get-application)))
+            ((:statusbar) (find-status-bar~ (get-application)))
+            ((:frame) (current-frame))
+            (else #f))))
       
-      (receive (host-locator view-locator position modifiers) (parse)
-        (define (locate-host)
-          (if (pair? host-locator)
-              (case (car host-locator)
-                ((:docked) (singleton-docked-named (cdr host-locator)))
-                (else #f))
-            (case host-locator
-              ((:modal) (current-modal))
-              ((:popup) (current-popup))
-              ((:menubar) (find-menubar))
-              ((:toolbar) (find-toolbar~ (get-application)))
-              ((:statusbar) (find-status-bar~ (get-application)))
-              ((:frame) (current-frame))
-              (else #f))))
-        
-        (define (play host path)
-          (assert host)
-          (if (and (pair? path) (eq? (car path) :host))
-              (play-in host (cdr path))
-            (let ((guest (get-guest~ host)))
-              (assert guest)
-              (play-in guest path))))
-        
-        (define (play-in in path)
-          (play-root (locate-in in path)))
-        
-        (define (play-root view)
-          (let ((root (get-root~ view)))
-            (assert root)
-            (if (not position)
-                (begin
-                  (simulate-mouse root (acquire~ root view {Point 10 10}))
-                  (proc root view (new Mouse-Event event-kind #f (modifiers->mask modifiers))))
-              (let ((acquired (acquire~ root view position)))
-                (simulate-mouse root acquired)
-                (proc root view (new Mouse-Event event-kind #f (modifiers->mask modifiers) position: position))))))
-        
-        (unless (eq? host-locator :unidentifiable)
-          (let ((host (locate-host)))
-            (if host
-                (play host view-locator)
-              (error "Unknown host: {s}" host-locator))))))
-    
-    (define (play-enter view)
-      (dispatch-mouse-enter~ view)
-      (set-mouse-in view))
-    
-    (define (play-click event-kind proc)
-      (play-mouse event-kind
-        (lambda (root view event)
-          (let ((mouse-in (get-mouse-in)))
-            (if (eq? mouse-in view)
-                (proc root view event)
-              (when mouse-in
-                (play-leave mouse-in))
-              (play-enter view)
-              (feedback)
-              (set-mouse-in view)
-              (proc root view event))))))
-    
-    (define (play-leave view)
-      (dispatch-mouse-leave~ view))
-    
-    (define (dispatch-click root view event)
-      (dispatch-mouse-down~ root view event)
-      (dispatch-mouse-up~ root view event))
-    
-    (define (play-menubar)
-      (bind (path . modifiers) rest
-        (bind (menubar . subpath) path
-          (play-click :mouse-click (locate-in (find-menubar) menubar)))))
-    
-    (define (find-menubar)
-      (find-menubar~ (get-application)))
-    
-    (define (locate-in in path)
-      (assert in)
-      (let ((view (if (null? path)
-                      in
-                    (or (locate-component~ in path)
-                        (find-component~ in path)))))
-        (or view
-            (error "Unable to find '{s} in: {s}" path in))))
-    
-    (case kind
-      ((:action)       (play-action-event))
-      ((:char)         (play-char))
-      ((:string)       (play-string))
-      ((:down)         (play-click :mouse-down   (lambda (root view event) (dispatch-mouse-down~ root view event))))
-      ((:up)           (play-click :mouse-up     (lambda (root view event) (dispatch-mouse-up~ root view event))))
-      ((:click)        (play-click :mouse-click  (lambda (root view event) (dispatch-click root view event))))
-      ((:double-click) (play-click :double-click (lambda (root view event) (dispatch-double-click~ root view event))))
-      ((:context-menu) (play-click :context-menu (lambda (root view event) (dispatch-context-menu~ root view event))))
-      ((:menubar)      (play-menubar))
-      (else            (error "Unknown event kind: {s}" kind)))))
+      (define (play-host host path)
+        (assert host)
+        (if (and (pair? path) (eq? (car path) :host))
+            (play-in host (cdr path))
+          (let ((guest (get-guest~ host)))
+            (assert guest)
+            (play-in guest path))))
+      
+      (define (play-in in path)
+        (play-root (locate-in in path)))
+      
+      (define (play-root view)
+        (let ((root (get-root~ view)))
+          (assert root)
+          (if (not position)
+              (begin
+                (simulate-mouse root (acquire~ root view {Point 10 10}))
+                (proc root view (new Mouse-Event event-kind #f (modifiers->mask modifiers))))
+            (let ((acquired (acquire~ root view position)))
+              (simulate-mouse root acquired)
+              (proc root view (new Mouse-Event event-kind #f (modifiers->mask modifiers) position: position))))))
+      
+      (unless (eq? host-locator :unidentifiable)
+        (let ((host (locate-host)))
+          (if host
+              (play-host host view-locator)
+            (error "Unknown host: {s}" host-locator))))))
+  
+  (define (dispatch-click root view event)
+    (dispatch-mouse-down~ root view event)
+    (dispatch-mouse-up~ root view event))
+  
+  (define (play-menubar action)
+    (bind (kind path . modifiers) action
+      (bind (menubar . subpath) path
+        (play-feedback `(:click :menubar ,menubar))
+        (for-each (lambda (name)
+                    (play-feedback `(:click :popup ,name)))
+                  subpath))))
+  
+  (define (play-feedback action)
+    (feedback action)
+    (play-action action))
+  
+  (define (find-menubar)
+    (find-menubar~ (get-application)))
+  
+  (define (locate-in in path)
+    (assert in)
+    (let ((view (if (null? path)
+                    in
+                  (or (locate-component~ in path)
+                      (find-component~ in path)))))
+      (or view
+          (error "Unable to find '{s} in: {s}" path in))))
+  
+  (play-action action))
 
 
 ;;;

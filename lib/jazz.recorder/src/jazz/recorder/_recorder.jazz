@@ -142,7 +142,7 @@
                     (start-v (get-v~ start))
                     (end-h (get-h~ end))
                     (end-v (get-v~ end))
-                    (step-num (max 1 (floor (/ (distance start end) 2)))))
+                    (step-num (max 1 (fxfloor/ (distance start end) 2))))
                 (let ((delta-h (exact->inexact (/ (- end-h start-h) step-num)))
                       (delta-v (exact->inexact (/ (- end-v start-v) step-num))))
                   (let (loop (step 0))
@@ -285,12 +285,14 @@
         (play-root (locate-in in path)))
       
       (define (play-root view)
+        (define (effective-position)
+          (or position
+              (let ((size (get-size~ view)))
+                (new Point (fxround/ (get-width~ size) 2) (fxround/ (get-height~ size) 2)))))
+        
         (let ((root (get-root~ view)))
           (assert root)
-          (if (not position)
-              (begin
-                (simulate-mouse view {Point 10 10})
-                (proc root view (new Mouse-Event event-kind #f (modifiers->mask modifiers))))
+          (let ((position (effective-position)))
             (simulate-mouse view position)
             (proc root view (new Mouse-Event event-kind #f (modifiers->mask modifiers) position: position)))))
       

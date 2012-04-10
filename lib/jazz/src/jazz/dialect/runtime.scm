@@ -2077,8 +2077,7 @@
   (define (make-bindings variables)
     (let ((table (%%make-table test: eq?)))
       (for-each (lambda (variable)
-                  (let ((name (jazz:get-lexical-binding-name variable)))
-                    (%%table-set! table name variable)))
+                  (%%table-set! table variable (jazz:new-local-variable-binding #f variable)))
                 variables)
       table))
   

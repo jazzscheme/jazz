@@ -60,8 +60,7 @@
 
 
 (jazz:define-method (jazz:write-object (time:Time-Class type) we obj)
-  (let ((detail (if (eq? (jazz:writeenv-style we) 'display) ':human ':reader)))
-    (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
+  (jazz:print-value type we obj))
 
 
 (jazz:define-class time:Time jazz:Object (metaclass: time:Time-Class)
@@ -96,8 +95,7 @@
 
 
 (jazz:define-method (jazz:write-object (time:Date-Class type) we obj)
-  (let ((detail (if (eq? (jazz:writeenv-style we) 'display) ':human ':reader)))
-    (jazz:print-jazz obj (jazz:writeenv-port we) detail)))
+  (jazz:print-value type we obj))
 
 
 (jazz:define-class time:Date jazz:Object (metaclass: time:Date-Class)

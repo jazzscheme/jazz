@@ -150,14 +150,11 @@
      (newline))))
 
 
-(define (jazz:print-value type we object)
+(define (jazz:print-value call-print we object)
   (if (jazz:use-print?)
       (let ((detail (if (eq? (jazz:writeenv-style we) 'display) ':human ':reader)))
-        ((jazz:find-dispatch type 'call-print)
-         object
-         (jazz:writeenv-port we)
-         detail))
-    (jazz:print-serial object output)))
+        (call-print object (jazz:writeenv-port we) detail))
+    (##default-wr we object)))
 
 
 (define (jazz:print-jazz object output detail)

@@ -142,9 +142,8 @@
                         (param (%%car param-val))
                         (val (%%cdr param-val)))
                    (if (%%not (##hidden-parameter? param))
-                       (let ((x
-                               (##inverse-eval-in-env param cte)))
-                         (jazz:collect-var-val-aux (%%list x) val #t cte queue)))
+                       (let ((name (jazz:reference-name (##inverse-eval-in-env param cte))))
+                         (jazz:collect-var-val-aux (%%list name) val #t cte queue)))
                    (iter (%%cdr lst))))))
       
       (let ((queue (jazz:new-queue)))

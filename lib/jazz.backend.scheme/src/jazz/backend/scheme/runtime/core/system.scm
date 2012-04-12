@@ -38,6 +38,11 @@
 (unit protected jazz.backend.scheme.runtime.core.system
 
 
+;;;
+;;;; Process
+;;;
+
+
 (cond-expand
   (gambit
     (define jazz:open-process open-process)
@@ -95,4 +100,16 @@
                        (%%equal? name (jazz:switch-name arg)))
                   #t
                 (iter (%%cdr arguments)))))))
-    #f)))
+    #f))
+
+
+;;;
+;;;; Globalized
+;;;
+
+
+(define-type globalized
+  id: 16E8E4BA-FD59-4E7A-A219-DFE934B6CC18
+
+  (type read-only:)
+  (content read-only:)))

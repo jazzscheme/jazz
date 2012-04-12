@@ -1065,6 +1065,10 @@
 (native jazz:process-status)
 (native jazz:exit)
 (native jazz:add-exit-job!)
+(native make-globalized)
+(native globalized?)
+(native globalized-type)
+(native globalized-content)
 
 
 ;;;

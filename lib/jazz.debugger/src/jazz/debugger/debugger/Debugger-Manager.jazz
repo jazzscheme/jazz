@@ -223,11 +223,11 @@
       (table-set! unzoomed-stops debugged #t))
     
     (for-each (lambda (thread)
-                (when (not-null? (with-jrm-exception-handler
+                (when (not-null? (with-jrm-exception-handler process
                                    (lambda ()
                                      (get-stops~ thread))))
                   (add-unzoomed-stops thread)))
-              (with-jrm-exception-handler
+              (with-jrm-exception-handler process
                 (lambda ()
                   (get-threads~ process))))
     (when (and focus? (focusable?~ process))
@@ -271,12 +271,14 @@
     (update-status))
   
   
-  (method public (for-each-process proc (live-test?: live-test? #t))
+  (method public (for-each-process proc (live-test?: live-test? #f))
     (for-each (lambda (debugger)
                 (for-each (lambda (process)
                             (let ((debugged-process (new Debugged-Process debugger process process)))
                               (let ((live? (if live-test? (live?~ debugged-process) (get-alive? debugged-process)))
                                     (focused? (debugged=? focused-process debugged-process)))
+                                (when live-test?
+                                  (set-alive? debugged-process live?))
                                 (proc debugger debugged-process live? focused?))))
                           (get-processes~ debugger)))
               (get-debuggers)))
@@ -369,7 +371,7 @@
                     (when (or detailed? (not (system-thread? thread)))
                       (let ((stop (get-active-stop~ thread)))
                         (proc thread stop detailed?))))
-                  (with-jrm-exception-handler
+                  (with-jrm-exception-handler process
                     (lambda ()
                       (get-threads~ process)))))))
   
@@ -406,7 +408,7 @@
   
   (method public (for-each-frame proc)
     (define (frames stop)
-      (with-jrm-exception-handler
+      (with-jrm-exception-handler process
         (lambda ()
           (get-frames~ stop))))
     
@@ -428,7 +430,7 @@
       (when (or user-origin (not frame))
         (edit-frame frame)))
     (when (and thread (get-active-stop~ thread))
-      (with-jrm-exception-handler
+      (with-jrm-exception-handler process
         (lambda ()
           (set-repl-frame~ thread (and frame (get-reference~ frame)))))))
   

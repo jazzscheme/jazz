@@ -54,11 +54,14 @@
         (and (object? exc)
              (is? exc Remote-Connection-Broke))))
   
-  (define (warn-retry-connect)
-    (execute-event
-      (lambda ()
-        (case (message-box "Connection failed previously. Do you want to retry?" type: 'question yes: "Retry" no: "Cancel")
-          ((no) (signal-cancel))))))
+  (define (abort-connect?)
+    (when (eq? (call-event
+                 (lambda ()
+                   (message-box "Connection failed previously. Do you want to retry?" type: 'question yes: "Retry" no: "Cancel")))
+               'no)
+      (if (event-thread?)
+          (signal-cancel)
+        #t)))
   
   (define (process-jrm-exception exc)
     (execute-event
@@ -68,10 +71,11 @@
           (set-alive?~ (get-debugger-manager) process #f))
         (signal-cancel))))
   
-  (when (and process (not (get-alive?~ (get-debugger-manager) process)))
-    (warn-retry-connect))
-  (catch (jrm-exception? exc (process-jrm-exception exc))
-    (thunk)))
+  (when (not (and process
+                  (not (get-alive?~ (get-debugger-manager) process))
+                  (abort-connect?)))
+    (catch (jrm-exception? exc (process-jrm-exception exc))
+      (thunk))))
 
 
 ;;;

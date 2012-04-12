@@ -489,7 +489,7 @@
       (%%when (eq? (jazz:get-declaration-locator child) 'jazz.test.advise.abc)
         (continuation-capture
           (lambda (cont)
-            (jazz:debug jazz:Load-Stack)
+            (jazz:debug (jazz:current-load-stack))
             (display-continuation-backtrace cont)
             (newline)
             (jazz:testing (append (or (jazz:testing) '()) (list cont)))))))
@@ -4981,7 +4981,7 @@
 (define (jazz:valid-catalog-entry unit-name)
   (let ((entry (jazz:get-catalog-entry unit-name)))
     (if (%%pair? entry)
-        (jazz:circular-dependency-error unit-name (map cdr jazz:Load-Stack))
+        (jazz:circular-dependency-error unit-name (map cdr (jazz:current-load-stack)))
       entry)))
 
 
@@ -4997,16 +4997,15 @@
     (lambda ()
       (let ((entry (jazz:get-catalog-entry unit-name)))
         (if (%%pair? entry)
-            (jazz:circular-dependency-error unit-name (map cdr jazz:Load-Stack))
-          (dynamic-wind
-            (lambda ()
-              (jazz:set-catalog-entry-status unit-name ':walking)
-              (jazz:push-load-stack ':walk unit-name))
-            thunk
-            (lambda ()
-              (jazz:pop-load-stack)
-              (if (%%pair? (jazz:get-catalog-entry unit-name))
-                  (jazz:set-catalog-entry-status unit-name #f)))))))))
+            (jazz:circular-dependency-error unit-name (map cdr (jazz:current-load-stack)))
+          (parameterize ((jazz:current-load-stack (%%cons (%%cons ':walk unit-name) (jazz:current-load-stack))))
+            (dynamic-wind
+              (lambda ()
+                (jazz:set-catalog-entry-status unit-name ':walking))
+              thunk
+              (lambda ()
+                (if (%%pair? (jazz:get-catalog-entry unit-name))
+                    (jazz:set-catalog-entry-status unit-name #f))))))))))
 
 
 (define jazz:outline-feedback

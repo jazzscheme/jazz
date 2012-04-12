@@ -1800,11 +1800,11 @@
                          (jazz:error "Loading {a} interpreted" unit-name))
                         ((stack)
                          (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
-                         (pp jazz:Load-Stack))
+                         (pp (jazz:current-load-stack)))
                         (else
                          (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
                          (if (and (%%pair? warn) (%%memq unit-name warn))
-                             (pp jazz:Load-Stack))))))
+                             (pp (jazz:current-load-stack)))))))
                 (parameterize ((jazz:walk-for 'interpret)
                                (jazz:generate-symbol-for "&")
                                (jazz:generate-symbol-context unit-name)
@@ -1921,11 +1921,13 @@
 (define jazz:Load-Mutex
   (make-mutex 'load))
 
+
 (jazz:define-variable jazz:Load-Thread
   #f)
 
-(jazz:define-variable jazz:Load-Stack
-  '())
+
+(define jazz:current-load-stack
+  (make-parameter '()))
 
 
 (define jazz:requested-unit-name
@@ -1944,17 +1946,6 @@
 
 (define (jazz:get-load-thread)
   jazz:Load-Thread)
-
-(define (jazz:get-load-stack)
-  jazz:Load-Stack)
-
-
-(define (jazz:push-load-stack mode unit-name)
-  (set! jazz:Load-Stack (%%cons (%%cons mode unit-name) jazz:Load-Stack)))
-
-
-(define (jazz:pop-load-stack)
-  (set! jazz:Load-Stack (%%cdr jazz:Load-Stack)))
 
 
 (define (jazz:call-with-load-lock thunk)
@@ -2003,20 +1994,19 @@
               (lambda ()
                 (let ((unit-state (jazz:get-environment-unit unit-name)))
                   (cond ((%%eq? unit-state jazz:Loading-State)
-                         (jazz:circular-dependency-error unit-name (map cdr (jazz:get-load-stack))))
+                         (jazz:circular-dependency-error unit-name (map cdr (jazz:current-load-stack))))
                         ((or (%%eq? unit-state jazz:Unloaded-State)
                              (%%eq? unit-state jazz:Error-State))
-                         (dynamic-wind
-                           (lambda ()
-                             (jazz:set-environment-unit unit-name jazz:Loading-State)
-                             (jazz:push-load-stack ':load unit-name))
-                           (lambda ()
-                             (jazz:load-unit-src/bin unit-name force-source?: (%%eq? unit-state jazz:Error-State))
-                             (jazz:set-environment-unit unit-name jazz:Loaded-State))
-                           (lambda ()
-                             (jazz:pop-load-stack)
-                             (if (%%eq? (jazz:get-environment-unit unit-name) jazz:Loading-State)
-                                 (jazz:set-environment-unit unit-name jazz:Error-State)))))))))))
+                         (parameterize ((jazz:current-load-stack (%%cons (%%cons ':load unit-name) (jazz:current-load-stack))))
+                           (dynamic-wind
+                             (lambda ()
+                               (jazz:set-environment-unit unit-name jazz:Loading-State))
+                             (lambda ()
+                               (jazz:load-unit-src/bin unit-name force-source?: (%%eq? unit-state jazz:Error-State))
+                               (jazz:set-environment-unit unit-name jazz:Loaded-State))
+                             (lambda ()
+                               (if (%%eq? (jazz:get-environment-unit unit-name) jazz:Loading-State)
+                                   (jazz:set-environment-unit unit-name jazz:Error-State))))))))))))
     (jazz:error "Unit name expected: {a}" unit-name)))
 
 

@@ -642,7 +642,7 @@
 (native jazz:current-script-arguments)
 (native jazz:get-load-mutex)
 (native jazz:get-load-thread)
-(native jazz:get-load-stack)
+(native jazz:current-load-stack)
 (native jazz:get-modules)
 (native jazz:get-module)
 (native jazz:require-module)

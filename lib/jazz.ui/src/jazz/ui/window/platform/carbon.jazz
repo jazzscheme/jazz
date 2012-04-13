@@ -716,50 +716,6 @@
 
 
 ;;;
-;;;; Locking
-;;;
-
-
-(definition actions-store (make-table))
-
-
-(definition (add-position-action window position)
-  (let ((action (table-ref actions-store window #f)))
-    (table-set! actions-store window (cons position (and action (cdr action))))))
-
-
-(definition (add-size-action window size)
-  (let ((action (table-ref actions-store window #f)))
-    (table-set! actions-store window (cons (and action (car action)) size))))
-
-
-(definition package (platform-lock-window-update handle)
-  #f
-  @wait
-  (if handle
-      (set! *locked-update* #t)
-    (begin
-      (set! *locked-update* #f)
-      (process-window-actions))))
-
-
-(definition (process-window-actions)
-  (iterate-table actions-store
-    (lambda (window action)
-      (when action
-        (let ((handle (get-handle~ window)))
-          (hide-window handle)
-          (let ((position (car action))
-                (size     (cdr action)))
-            (if (and position size)
-                (platform-set-position-size handle position size)
-              (when position (platform-set-position handle position))
-              (when size     (platform-set-window-size handle size))))
-          (show-window handle)))))
-  (set! actions-store (make-table)))
-
-
-;;;
 ;;;; Focus
 ;;;
 

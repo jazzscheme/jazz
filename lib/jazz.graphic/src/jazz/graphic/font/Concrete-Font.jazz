@@ -40,7 +40,21 @@
 
 (import (jazz.graphic)
         (jazz.graphic.font)
-        (jazz.platform.cairo))
+        (jazz.platform.cairo)
+        (jazz.system))
+
+
+(definition default-antialias
+  'subpixel)
+
+(definition default-subpixel
+  'default)
+
+(definition default-hint-style
+  'default)
+
+(definition default-hint-metrics
+  'default)
 
 
 (class Concrete-Font extends Object
@@ -57,13 +71,21 @@
   
   
   (method override (initialize font)
-    (define (create-cairo-scaled-font font-face point-size bold? antialias hint-style)
+    (define (create-cairo-scaled-font font-face point-size bold? antialias subpixel hint-style hint-metrics)
       (define (cairo-antialias antialias)
         (case antialias
           ((default) CAIRO_ANTIALIAS_DEFAULT)
           ((none) CAIRO_ANTIALIAS_NONE)
           ((gray) CAIRO_ANTIALIAS_GRAY)
           ((subpixel) CAIRO_ANTIALIAS_SUBPIXEL)))
+      
+      (define (cairo-subpixel subpixel)
+        (case subpixel
+          ((default) CAIRO_SUBPIXEL_ORDER_DEFAULT)
+          ((rgb) CAIRO_SUBPIXEL_ORDER_RGB)
+          ((bgr) CAIRO_SUBPIXEL_ORDER_BGR)
+          ((vrgb) CAIRO_SUBPIXEL_ORDER_VRGB)
+          ((vbgr) CAIRO_SUBPIXEL_ORDER_VBGR)))
       
       (define (cairo-hint-style style)
         (case style
@@ -73,12 +95,20 @@
           ((medium) CAIRO_HINT_STYLE_MEDIUM)
           ((full) CAIRO_HINT_STYLE_FULL)))
       
+      (define (cairo-hint-metrics metrics)
+        (case metrics
+          ((default) CAIRO_HINT_METRICS_DEFAULT)
+          ((off) CAIRO_HINT_METRICS_OFF)
+          ((on) CAIRO_HINT_METRICS_ON)))
+      
       (let ((height (and point-size (calculate-height point-size)))
             (matrix (cairo_matrix_t-make))
             (ctm (cairo_matrix_t-make))
             (options (cairo_font_options_create)))
-        (cairo_font_options_set_antialias options (cairo-antialias (or antialias 'subpixel)))
-        (cairo_font_options_set_hint_style options (cairo-hint-style (or hint-style 'default)))
+        (cairo_font_options_set_antialias options (cairo-antialias (or antialias (get-setting 'cairo.antialias default-antialias))))
+        (cairo_font_options_set_subpixel_order options (cairo-subpixel (or subpixel (get-setting 'cairo.subpixel default-subpixel))))
+        (cairo_font_options_set_hint_style options (cairo-hint-style (or hint-style (get-setting 'cairo.hint-style default-hint-style))))
+        (cairo_font_options_set_hint_metrics options (cairo-hint-metrics (or hint-metrics (get-setting 'cairo.hint-metrics default-hint-metrics))))
         (if height
             (cairo_matrix_init_scale matrix height height)
           (cairo_matrix_init_identity matrix))
@@ -95,12 +125,14 @@
           (italic? (get-italic?~ font))
           (underline? (get-underline?~ font))
           (antialias (get-antialias~ font))
-          (hint-style (get-hint-style~ font)))
+          (subpixel (get-subpixel~ font))
+          (hint-style (get-hint-style~ font))
+          (hint-metrics (get-hint-metrics~ font)))
       (set! font~self font)
       (set! local?~self (symbol? font-name))
       (set! handle~self (create-font-handle local? font-name: font-name point-size: point-size bold?: bold? italic?: italic? underline?: underline?))
       (set! font-face~self (create-cairo-font-face local? handle~self))
-      (set! scaled-font~self (create-cairo-scaled-font font-face point-size bold? antialias hint-style))
+      (set! scaled-font~self (create-cairo-scaled-font font-face point-size bold? antialias subpixel hint-style hint-metrics))
       (set! glyph-cache~self (make-table test: eqv?))))
   
   

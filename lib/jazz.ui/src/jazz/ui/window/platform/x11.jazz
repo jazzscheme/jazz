@@ -65,9 +65,6 @@
     0))
 
 
-(definition *locked-update* #f)
-
-
 (cond-expand
   (mac
     (definition (alt-key)
@@ -247,7 +244,7 @@
 
 
 (definition public inline (clear-xic handle)
-  (table-set! XIC-Table handle))
+  (table-clear XIC-Table handle))
 
 
 (definition package (platform-get-window-handle-title handle)
@@ -313,8 +310,6 @@
                             _NET_WM_WINDOW_TYPE_NORMAL))))
         (when (is? window Dialog)
           (set-modal x11-default-display handle)
-          @wait
-          (wm-change-state x11-default-display handle _NET_WM_STATE_FULLSCREEN)
           (when (get-toplevel)
             (XSetTransientForHint x11-default-display handle (get-handle~ (get-toplevel)))))
         (x11-change-property x11-default-display handle XdndAware XA_ATOM PropModeReplace (u32vector XdndVersion))
@@ -351,7 +346,7 @@
 
 (definition package (destroy-window handle)
   (let ((window (get-window handle)))
-    (table-set! expose-store window)
+    (table-clear expose-store window)
     (clear-xic handle)
     (when (= handle (platform-get-focus))
       (focus-lose~ window))
@@ -434,9 +429,6 @@
   )
 
 
-(definition expose-store (make-table))
-
-
 (definition (process-message msg)
   (execute-event
     (lambda ()
@@ -445,16 +437,6 @@
         (let ((window (get-window handle)))
           (when window
             (dispatch-message window msg)))))))
-
-
-(definition (process-expose)
-  (execute-event
-    (lambda ()
-      (iterate-table expose-store
-        (lambda (win region)
-          (table-set! expose-store win)
-          (when region
-            (paint~ win region)))))))
 
 
 (definition package (process-messages-single-threaded thunk)
@@ -468,9 +450,7 @@
       (if (= 0 (XPending x11-default-display))
           (thread-sleep! 0.01)
         (XNextEvent x11-default-display msg)
-        (process-message msg)
-        (when (= 0 (XPending x11-default-display))
-          (process-expose)))
+        (process-message msg))
       (thunk)
       (when (thread-loop? (current-thread))
         (loop)))
@@ -485,8 +465,6 @@
       (let (loop)
         (XNextEvent x11-default-display msg)
         (process-message msg)
-        (when (= 0 (XPending x11-default-display))
-          (process-expose))
         (when (thread-loop? (current-thread))
           (loop)))
       (XEvent-free msg)))
@@ -520,19 +498,37 @@
     (else               unprocessed)))
 
 
+(definition protected expose-store
+  (make-table))
+
+
 (definition (process-expose-message window msg)
-  (let ((msg (XEvent-xexpose-ref msg)))
-    (let ((left (XExposeEvent-x-ref msg))
-          (top  (XExposeEvent-y-ref msg)))
-      (let ((right (+ left (XExposeEvent-width-ref msg)))
-            (bottom (+ top (XExposeEvent-height-ref msg))))
-        (let ((region (new Region rect: (new Rect left top right bottom)))
-              (old-region (table-ref expose-store window #f)))
-          (unless (nu=? (get-box~ region) {Rect 0 0 0 0})
-            (if old-region
-                (table-set! expose-store window (region-union old-region region))
-              (table-set! expose-store window region))
-            processed))))))
+  (define (accumulate-expose)
+    (let ((msg (XEvent-xexpose-ref msg)))
+      (let ((left (XExposeEvent-x-ref msg))
+            (top  (XExposeEvent-y-ref msg)))
+        (let ((right (+ left (XExposeEvent-width-ref msg)))
+              (bottom (+ top (XExposeEvent-height-ref msg))))
+          (let ((region (new Region rect: (new Rect left top right bottom)))
+                (old-region (table-ref expose-store window #f)))
+            (unless (nu=? (get-box~ region) {Rect 0 0 0 0})
+              (if old-region
+                  (table-set! expose-store window (region-union old-region region))
+                (table-set! expose-store window region))))))))
+  
+  (define (paint-exposed)
+    (let ((region (table-ref expose-store window #f)))
+      (table-clear expose-store window)
+      (when region
+        (paint~ window region))))
+  
+  ;; process all expose events
+  (let (process)
+    (accumulate-expose)
+    (if (XCheckTypedWindowEvent x11-default-display (get-handle~ window) Expose msg)
+        (process)
+      (paint-exposed)
+      processed)))
 
 
 (definition (process-button-press-message window msg)
@@ -610,8 +606,7 @@
   (let ((msg (XEvent-xmotion-ref msg)))
     (let ((h (XMotionEvent-x-ref msg))
           (v (XMotionEvent-y-ref msg)))
-      (mouse-move~ window h v)
-      (process-expose))))
+      (mouse-move~ window h v))))
 
 
 (definition (process-key-press-message window msg)
@@ -1083,7 +1078,8 @@
     (platform-update-window handle)))
 
 
-(definition inval-rects (make-table))
+(definition protected inval-rects
+  (make-table))
 
 
 (definition (validate-inval-rect rect <Rect> window)
@@ -1108,7 +1104,7 @@
 (definition (process-inval-rects)
   (iterate-table inval-rects
     (lambda (handle rect)
-      (table-set! inval-rects handle)
+      (table-clear inval-rects handle)
       (let ((window (get-window handle)))
         (when window
           (let ((l (get-left~ rect))
@@ -1123,15 +1119,16 @@
 (definition package (platform-invalidate-rect handle rect)
   ;; is this test correct or was it a patch made during the port
   (when (and handle rect)
-      (let ((old-rect (table-ref inval-rects handle #f))
-            (new-rect (validate-inval-rect rect (get-window handle))))
-        (when (or old-rect new-rect)
-          (table-set! inval-rects handle (cond ((and old-rect new-rect)
-                                                (rect-union old-rect new-rect))
-                                               (old-rect
-                                                 old-rect)
-                                               (new-rect
-                                                 new-rect)))))))
+    (let ((old-rect (table-ref inval-rects handle #f))
+          (new-rect (validate-inval-rect rect (get-window handle))))
+      (when (or old-rect new-rect)
+        (let ((rect (cond ((and old-rect new-rect)
+                           (rect-union old-rect new-rect))
+                          (old-rect
+                           old-rect)
+                          (new-rect
+                           new-rect))))
+          (table-set! inval-rects handle rect))))))
 
 
 (definition package (platform-invalidate-region handle region)
@@ -1179,7 +1176,7 @@
 (definition package (platform-update-window handle)
   (let ((rect (table-ref inval-rects handle #f)))
     (when rect
-      (table-set! inval-rects handle)
+      (table-clear inval-rects handle)
       (paint~ (get-window handle) (new Region rect: rect)))))
   
   

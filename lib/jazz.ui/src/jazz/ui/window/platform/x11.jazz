@@ -282,6 +282,8 @@
          (attr      (XSetWindowAttributes-make))
          (visual    (XDefaultVisual x11-default-display screen-no)))
     (XSetWindowAttributes-bit_gravity-set! attr StaticGravity)
+    @why-is-this-not-working?
+    (XSetWindowAttributes-backing_store-set! attr Always)
     (XSetWindowAttributes-override_redirect-set! attr (is? window Popup))
     (if (is? window Desktop)
         (platform-get-desktop)
@@ -297,7 +299,7 @@
                 CopyFromParent
                 InputOutput
                 visual
-                (+ CWBitGravity CWOverrideRedirect)
+                (+ CWBitGravity @why-is-this-not-working? CWBackingStore CWOverrideRedirect)
                 attr)))
         (x11-change-property x11-default-display handle _NET_WM_WINDOW_TYPE XA_ATOM PropModeReplace
           (u32vector (cond ((is? window Menu-Transient)
@@ -1166,10 +1168,7 @@
 
 
 (definition package (platform-redraw-view-only view handle)
-  (redraw-view~ view)
-  @w
-  (let* ((size (platform-get-size handle))
-         (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
+  (let ((rct (acquire~ (get-root~ view) view (get-bounds~ view))))
     (platform-invalidate-rect handle rct)))
 
 

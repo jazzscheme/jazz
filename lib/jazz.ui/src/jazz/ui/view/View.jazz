@@ -1330,38 +1330,32 @@
                       (scroll-view~ display delta rect)))))))))))
   
   
-  @wait
   (method public (scroll2 delta <Point> (redraw?: redraw? #f))
     (unless (= delta {Point 0 0})
       (scroll-to2 (+ (get-scrolled-position) delta) redraw?: redraw?)))
   
   
-  @wait
-  ;; need to rebase changes done in scroll-to
   (method public (scroll-to2 dest <Point> (redraw?: redraw? #f))
-    (let ((pos (get-scrolled-position)))
-      (when (/= dest pos)
-        (let* ((size (get-size))
-               (display (get-display))
-               (display-size (get-size~ display))
-               (sc 1.0 @convert-me scaling)
-               (min-h (- (/ (cast <fl> (get-width~ display-size)) sc) (get-width~ size)))
-               (min-v (- (/ (cast <fl> (get-height~ display-size)) sc) (get-height~ size)))
-               (max-h 0)
-               (max-v 0)
-               (h (fxround (min (max (get-h~ dest) min-h) max-h)))
-               (v (fxround (min (max (get-v~ dest) min-v) max-v)))
-               (new-pos (new Point (fxround (* h sc)) (fxround (* v sc)))))
-          (when (/= new-pos position)
-            (set! position new-pos)
-            (set-scroll-pos (new Point (- h) (- v)) redraw?: redraw?)
-            (update-scrollbars)
-            (let ((dh (- h (get-h~ pos)))
-                  (dv (- v (get-v~ pos))))
-              (scroll-invalidate dh dv)
-              (if transformation
-                  (invalidate-view~ scroller)
-                (scroll-view2 dh dv (get-bounds)))))))))
+    (when (get-scroller)
+      (let ((pos (get-scrolled-position)))
+        (when (/= dest pos)
+          (let* ((size (get-size))
+                 (display-size (get-display-size))
+                 (min-dist {Distance 0 0})
+                 (max-dist (dimension->distance (- display-size size)))
+                 (new-dist (distance-min (distance-max (point->distance dest) max-dist) min-dist))
+                 (new-pos (get-display-position (distance->point new-dist))))
+            (when (/= new-pos position)
+              (set! position new-pos)
+              (let ((delta (- new-dist (point->distance pos))))
+                (set-scroll-pos (distance->point (- new-dist)) redraw?: redraw?)
+                (update-scrollbars)
+                (scroll-invalidate delta)
+                (if transformation
+                    (invalidate-view)
+                  (let ((display (get-display)))
+                    (let ((rect (get-bounds~ display)))
+                      (scroll-view2~ display delta rect)))))))))))
   
   
   (method protected virtual (redraw-scrollbars)
@@ -1384,22 +1378,24 @@
   
   
   ;; an attempt at a platform-independant scroll-view
-  @wait
-  (method public (scroll-view2 dh dv rect)
+  (method public (scroll-view2 delta rect)
     (let ((player (get-player))
           (root (get-root)))
       (when (and player (view-visible?))
-        (let ((delta (device->logical~ surface delta))
-              (acquired (logical->device~ surface rect))
-              (clip-rect (logical->device~ surface (get-clipper~ surface))))
-          (scroll-offscreen2~ root delta acquired clip-rect)))))
+        (with-clipped-transformation-surface
+          (lambda (surface)
+            (let ((delta (device->logical~ surface delta))
+                  (acquired (logical->device~ surface rect))
+                  (clip-rect (logical->device~ surface (get-clipper~ surface))))
+              (scroll-offscreen2~ root delta acquired clip-rect)))))))
   
   
-  @wait
   (method (scroll-offscreen2 delta src-rect clip-rect)
     (with-view-surface
       (lambda (surface)
-        (let* ((src-rect (rect-intersection src-rect clip-rect))
+        (let* ((dh (get-x~ delta))
+               (dv (get-y~ delta))
+               (src-rect (rect-intersection src-rect clip-rect))
                (dst-rect (offset-rect src-rect dh dv))
                (modified-rect (rect-intersection (rect-union src-rect dst-rect) clip-rect))
                (new-clipper (rect-intersection modified-rect dst-rect))

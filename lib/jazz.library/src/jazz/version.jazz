@@ -1,0 +1,135 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Version
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.version jazz
+
+
+;;;
+;;;; Version
+;;;
+
+
+(class Version extends Object
+  
+  
+  (slot major    getter generate)
+  (slot minor    getter generate)
+  (slot stage    getter generate)
+  (slot revision getter generate)
+  (slot build    getter generate)
+    
+    
+  (method override (initialize major minor (revision 0) (build 0) (stage #f))
+    (nextmethod)
+    (set! major~self major)
+    (set! minor~self minor)
+    (set! revision~self revision)
+    (set! stage~self stage)
+    (set! build~self build))
+  
+  
+  (method override (compare-object target)
+    (if (is-not? target Version)
+        :incompatible
+      (let ((try
+             (lambda (x y)
+               (cond ((< x y) :less)
+                     ((> x y) :greater)
+                     (else #f)))))
+        (or (try major (get-major~ target))
+            (try minor (get-minor~ target))
+            (try revision (get-revision~ target))
+            (try build (get-build~ target))
+            :equal))))
+  
+  
+  (method override (print output readably)
+    (format output "~{{a} {a} {a}{?: {a}~}{?: {a}~}{?: {a}~}}"
+            (category-name (class-of self))
+            major
+            minor
+            (or (/= build 0) (/= revision 0)) revision
+            (/= build 0) build
+            stage stage))
+  
+  
+  (method public (present)
+    (format "{a}.{a}{a}{a}{a}"
+            major
+            minor
+            (if (and (= build 0) (= revision 0))
+                ""
+              (format ".{a}" revision))
+            (if (= build 0)
+                ""
+              (format ".{a}" build))
+            (if (not stage)
+                ""
+              (format " {a}"
+                      (case stage
+                        ((alpha) "alpha")
+                        ((beta) "beta"))))))
+  
+  
+  (method public (compatible? version)
+    (and (= major (get-major~ version))
+         (= minor (get-minor~ version))))
+  
+  
+  (method public (->64-bit-integer)
+    (+ (* major (arithmetic-shift 1 48))
+       (* minor (arithmetic-shift 1 32))
+       (* revision (arithmetic-shift 1 16))
+       build)))
+
+
+;;;
+;;;; Utility
+;;;
+
+
+(definition public (jazz-version)
+  (receive (major minor revision) (split-version kernel-version)
+    (new Version major minor revision)))
+
+
+(definition public (64-bit-integer->version version)
+  (let ((major (arithmetic-shift version -48))
+        (minor (modulo (arithmetic-shift version -32) 65536))
+        (revision (modulo (arithmetic-shift version -16) 65536))
+        (build (modulo version 65536)))
+    (new Version major minor revision build))))

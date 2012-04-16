@@ -104,12 +104,12 @@
 
 
 ;;;
-;;;; Globalized
+;;;; Serialized
 ;;;
 
 
-(define-type globalized
+(define-type serialized
   id: 16E8E4BA-FD59-4E7A-A219-DFE934B6CC18
 
-  (type read-only:)
+  (class read-only:)
   (content read-only:)))

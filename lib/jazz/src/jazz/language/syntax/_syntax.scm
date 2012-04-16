@@ -48,6 +48,7 @@
         (jazz.language.syntax.enumeration)
         (jazz.language.syntax.increase)
         (jazz.language.syntax.loop)
+        (jazz.language.syntax.persistent)
         (jazz.language.syntax.typecase)
         (jazz.language.syntax.with)
         (jazz.language.syntax.macros)

@@ -1513,17 +1513,12 @@
 
 
 (define (jazz:expand-class walker resume declaration environment form-src)
-  (define (preprocess-meta body)
+  (define (preprocess-meta name body)
     (let ((metaclass (jazz:new-queue))
           (class (jazz:new-queue)))
-      (define (expand-form-hack expr)
-        (if (and (%%pair? (jazz:source-code expr))
-                 (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'form))
-            (jazz:expand-macros walker resume declaration environment expr)
-          expr))
-      
       (define (preprocess expr)
-        (let ((expr (expand-form-hack expr)))
+        (let ((expr (parameterize ((jazz:current-declaration-name name))
+                      (jazz:expand-macros walker resume declaration environment expr))))
           (cond ((and (%%pair? (jazz:source-code expr))
                       (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'begin))
                  (for-each preprocess (%%cdr (jazz:source-code expr))))
@@ -1539,7 +1534,7 @@
               (jazz:queue-list class))))
   
   (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz:parse-class walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (receive (metaclass-body class-body) (preprocess-meta body)
+    (receive (metaclass-body class-body) (preprocess-meta name body)
       (cond ((and (%%not-null? metaclass-body)
                   (%%specified? metaclass-name))
              (jazz:walk-error walker resume declaration form-src "Ambiguous use of both metaclass and meta keywords: {s}" name))

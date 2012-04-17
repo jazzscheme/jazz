@@ -109,6 +109,7 @@
   (define (deserialize-module-private)
     (jazz:new-runtime-reference (lambda ()
                                   (let ((locator (%%cadr serialization)))
+                                    (jazz:load-unit (jazz:reference-unit locator))
                                     (jazz:global-ref locator)))
                                 serialization))
   

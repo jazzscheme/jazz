@@ -317,7 +317,7 @@
 (definition (marshall-proxy proxy)
   (define (marshall-local-proxy local-proxy)
     (define (local-proxy->reference local-proxy)
-      (if (proxy=? local-proxy local-register)
+      (if (proxy=? local-proxy (get-local-register))
           #f
         (let ((object (get-object~ local-proxy)))
           (gc-protect object)
@@ -372,14 +372,14 @@
 ;;;
 
 
-(definition local-register
+(definition *local-register*
   #f)
 
 
 (definition public (get-local-register)
-  (when (not local-register)
-    (set! local-register (new-local-proxy~ Register)))
-  local-register)
+  (when (not *local-register*)
+    (set! *local-register* (new-local-proxy~ Register)))
+  *local-register*)
 
 
 (definition public (get-remote-register remote-proxy)
@@ -453,7 +453,7 @@
   (define (unmarshall-local-ior stub-interface ior)
     (define (reference->local-proxy stub-interface reference)
       (if (not reference)
-          local-register
+          (get-local-register)
         (new (local-class~ stub-interface) (serial->object reference))))
     
     (reference->local-proxy stub-interface (get-reference~ ior)))

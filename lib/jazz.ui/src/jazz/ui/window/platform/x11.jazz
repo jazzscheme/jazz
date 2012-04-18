@@ -348,7 +348,6 @@
 
 (definition package (destroy-window handle)
   (let ((window (get-window handle)))
-    (table-clear expose-store window)
     (clear-xic handle)
     (when (= handle (platform-get-focus))
       (focus-lose~ window))
@@ -500,37 +499,42 @@
     (else               unprocessed)))
 
 
-(definition protected expose-store
-  (make-table))
-
-
 (definition (process-expose-message window msg)
-  (define (accumulate-expose)
+  (define (process-expose store)
+    (define (accumulate-rect rect)
+      (let ((region (new Region rect: rect))
+            (old-region (table-ref store window #f)))
+        (unless (nu=? (get-box~ region) {Rect 0 0 0 0})
+          (if old-region
+              (table-set! store window (region-union old-region region))
+            (table-set! store window region)))))
+    
     (let ((msg (XEvent-xexpose-ref msg)))
       (let ((left (XExposeEvent-x-ref msg))
             (top  (XExposeEvent-y-ref msg)))
         (let ((right (+ left (XExposeEvent-width-ref msg)))
               (bottom (+ top (XExposeEvent-height-ref msg))))
-          (let ((region (new Region rect: (new Rect left top right bottom)))
-                (old-region (table-ref expose-store window #f)))
-            (unless (nu=? (get-box~ region) {Rect 0 0 0 0})
-              (if old-region
-                  (table-set! expose-store window (region-union old-region region))
-                (table-set! expose-store window region))))))))
+          (let ((rect (new Rect left top right bottom)))
+            (if (and (testing?) (XExposeEvent-send_event-ref msg))
+                (begin
+                  (accumulate-rect rect)
+                  (paint-exposed store))
+              (accumulate-rect rect)))))))
   
-  (define (paint-exposed)
-    (let ((region (table-ref expose-store window #f)))
-      (table-clear expose-store window)
+  (define (paint-exposed store)
+    (let ((region (table-ref store window #f)))
+      (table-clear store window)
       (when region
         (paint~ window region))))
   
   ;; process all expose events
-  (let (process)
-    (accumulate-expose)
-    (if (XCheckTypedWindowEvent x11-default-display (get-handle~ window) Expose msg)
-        (process)
-      (paint-exposed)
-      processed)))
+  (let ((store (make-table)))
+    (let (process)
+      (process-expose store)
+      (if (XCheckTypedWindowEvent x11-default-display (get-handle~ window) Expose msg)
+          (process)
+        (paint-exposed store)
+        processed))))
 
 
 (definition (process-button-press-message window msg)
@@ -1104,7 +1108,7 @@
 
 
 (definition (process-inval-rects)
-  (iterate-table inval-rects
+  (iterate-table-safe inval-rects
     (lambda (handle rect)
       (table-clear inval-rects handle)
       (let ((window (get-window handle)))

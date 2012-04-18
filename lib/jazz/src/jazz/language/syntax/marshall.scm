@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Syntax
+;;;; Marshalling
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,23 +35,36 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.language.syntax scheme
+(module protected jazz.language.syntax.marshall scheme
 
 
-(export (scheme.syntax)
-        (jazz.language.syntax.assertion)
-        (jazz.language.syntax.attributes)
-        (jazz.language.syntax.bind)
-        (jazz.language.syntax.bind-optionals)
-        (jazz.language.syntax.bind-keywords)
-        (jazz.language.syntax.ecase)
-        (jazz.language.syntax.enumeration)
-        (jazz.language.syntax.increase)
-        (jazz.language.syntax.loop)
-        (jazz.language.syntax.marshall)
-        (jazz.language.syntax.state)
-        (jazz.language.syntax.typecase)
-        (jazz.language.syntax.with)
-        (jazz.language.syntax.macros)
-        (jazz.language.syntax.template)
-        (jazz.language.syntax.templates)))
+(export expand-marshalling)
+
+(import (scheme.syntax)
+        (jazz.language.runtime.kernel))
+
+
+(native private jazz:naturals)
+(native private jazz:current-declaration)
+(native private jazz:current-declaration-name)
+
+
+(define (expand-marshalling form)
+  (define (call-getter attribute)
+    (string->symbol (string-append "get-" (symbol->string (cadr attribute)) "~")))
+  
+  (let ((inherited (car form))
+        (attributes (cdr form))
+        (attribute (generate-symbol "attr"))
+        (value (generate-symbol "val")))
+    `((method meta override (marshall-object object)
+        (serialize-object (class-of object)
+                          (vector ,@(map (lambda (attribute)
+                                           `(,(call-getter attribute) object))
+                                         attributes))))
+      (method meta override (unmarshall-object content)
+        (allocate ,(current-declaration-name)
+                  ,@(map (lambda (attribute n)
+                           `(vector-ref content ,n))
+                         attributes
+                         (naturals 0 (length attributes)))))))))

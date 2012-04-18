@@ -40,7 +40,8 @@
 
 (export attributes)
 
-(import (jazz.language.runtime.kernel))
+(import (jazz.language.syntax.marshall (phase syntax))
+        (jazz.language.runtime.kernel))
 
 
 (native private jazz:getf)
@@ -92,6 +93,8 @@
         (attribute (generate-symbol "attr"))
         (value (generate-symbol "val")))
     `(begin
+       @wait
+       ,@(expand-marshalling form)
        ,@(map (lambda (attribute)
                 (let ((slot-name (slot-name attribute)))
                   `(slot ,slot-name)))

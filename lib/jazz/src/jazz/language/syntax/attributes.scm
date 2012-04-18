@@ -49,8 +49,8 @@
 
 ; @macro
 ; (attributes (nullable?)
-;   (key      initialize #f)
-;   (criteria initialize #f))
+;   (slot key      initialize #f)
+;   (slot criteria initialize #f))
 
 
 ; @expansion
@@ -85,7 +85,7 @@
 
 (define-macro (attributes . form)
   (define (slot-name attribute)
-    (string->symbol (string-append "_" (symbol->string (car attribute)))))
+    (string->symbol (string-append "_" (symbol->string (cadr attribute)))))
   
   (let ((inherited (car form))
         (attributes (cdr form))
@@ -97,11 +97,11 @@
                   `(slot ,slot-name)))
               attributes)
        (method override (get-attributes)
-         ',(append inherited (map car attributes)))
+         ',(append inherited (map cadr attributes)))
        (method override (get-attribute ,attribute)
          (case ,attribute
            ,@(map (lambda (attribute)
-                    (let ((name (car attribute))
+                    (let ((name (cadr attribute))
                           (slot-name (slot-name attribute)))
                       `((,name) ,slot-name)))
                   attributes)
@@ -109,7 +109,7 @@
        (method override (set-attribute ,attribute ,value)
          (case ,attribute
            ,@(map (lambda (attribute)
-                    (let ((name (car attribute))
+                    (let ((name (cadr attribute))
                           (slot-name (slot-name attribute)))
                       `((,name) (set! ,slot-name ,value))))
                   attributes)
@@ -117,8 +117,8 @@
        (method override (get-attribute-default ,attribute)
          (case ,attribute
            ,@(map (lambda (attribute)
-                    (let ((name (car attribute)))
-                      (parse-specifier (cdr attribute)
+                    (let ((name (cadr attribute)))
+                      (parse-specifier (cddr attribute)
                         (lambda (specifier rest)
                           (let ((initialize (getf rest 'initialize '(unspecified))))
                             `((,name) ,initialize))))))
@@ -139,8 +139,8 @@
          (case ,attribute
            ,@(let ((clauses (new-queue)))
                (for-each (lambda (attribute)
-                           (let ((name (car attribute)))
-                             (parse-specifier (cdr attribute)
+                           (let ((name (cadr attribute)))
+                             (parse-specifier (cddr attribute)
                                (lambda (specifier rest)
                                  (let ((test (getf rest 'test)))
                                    (if test
@@ -151,7 +151,7 @@
        (method override (get ,attribute)
          (case ,attribute
            ,@(map (lambda (attribute)
-                    (let ((name (car attribute)))
+                    (let ((name (cadr attribute)))
                       (let ((getter (string->symbol (system-format "get-{a}" name))))
                         `((,name) (,getter)))))
                   attributes)
@@ -159,13 +159,13 @@
        (method override (set ,attribute ,value)
          (case ,attribute
            ,@(map (lambda (attribute)
-                    (let ((name (car attribute))
+                    (let ((name (cadr attribute))
                           (slot-name (slot-name attribute)))
                       `((,name) (set! ,slot-name ,value))))
                   attributes)
            (else (nextmethod ,attribute ,value))))
        ,@(map (lambda (attribute)
-                (let ((name (car attribute))
+                (let ((name (cadr attribute))
                       (slot-name (slot-name attribute)))
                   (let ((getter (string->symbol (system-format "get-{a}" name)))
                         (setter (string->symbol (system-format "set-{a}" name))))

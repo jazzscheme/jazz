@@ -278,6 +278,9 @@
 (definition public (marshall obj)
   (or (marshall-object~ (class-of obj) obj)
       (if (object? obj)
+          ;; until-full-marshalling
+          (make-serialized 'literal (->string obj :reader))
+          @wait
           (error "Unable to marshall: {a}" obj)
         obj)))
 
@@ -289,10 +292,16 @@
 
 (definition public (unmarshall obj)
   (if (serialized? obj)
-      (let ((class (deserialize-class (serialized-class obj)))
-            (content (serialized-content obj)))
-        (or (unmarshall-object~ class content)
-            (error "Unable to unmarshall: {a}" (category-name class))))
+        ;; until-full-marshalling
+      (if (eq? (serialized-class obj) 'literal)
+          (parameterize ((walk-for #f))
+            (with-jazz-readtable
+              (lambda ()
+                (read-string-element (serialized-content obj)))))
+        (let ((class (deserialize-class (serialized-class obj)))
+              (content (serialized-content obj)))
+          (or (unmarshall-object~ class content)
+              (error "Unable to unmarshall: {a}" (category-name class)))))
     obj))
 
 

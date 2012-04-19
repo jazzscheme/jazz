@@ -93,7 +93,7 @@
         (attribute (generate-symbol "attr"))
         (value (generate-symbol "val")))
     `(begin
-       @wait
+       #;
        ,@(expand-marshalling form)
        ,@(map (lambda (attribute)
                 (let ((slot-name (slot-name attribute)))

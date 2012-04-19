@@ -227,24 +227,11 @@
 ;;;
 
 
-(definition locked-update?
-  #f)
-
-
-(definition public (with-locked-update proc)
-  (if locked-update?
-      (proc)
-    (let ((toplevel (get-toplevel)))
-      (unwind-protect
-          (begin
-            (platform-lock-window-update (get-handle~ toplevel))
-            (set! locked-update? #t)
-            (proc))
-        (when locked-update?
-          (platform-lock-window-update #f)
-          (set! locked-update? #f)
-          (when (open?~ toplevel)
-            (update-window~ toplevel)))))))
+(definition public (with-locked-update thunk)
+  (parameterize ((inhibit-updates? #t)
+                 (inhibit-invalidates? #t))
+    (thunk)
+    (invalidate-window~ (get-toplevel))))
 
 
 ;;;

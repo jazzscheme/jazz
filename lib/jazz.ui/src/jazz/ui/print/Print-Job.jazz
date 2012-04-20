@@ -138,13 +138,11 @@
     
     (let ((context (print-context no)))
       (wrap-header/footer~ page-setup context)
-      (with-orientation surface page-setup
+      (with-paper-setup surface page-setup
         (lambda ()
-          (let ((zoom (or zoom 1.)))
+          (when zoom
             (scale~ surface zoom zoom))
-          (let ((ratio (/ (cast <fl> resolution) default-resolution))
-                (printed (printed-page)))
-            (scale~ surface ratio ratio)
+          (let ((printed (printed-page)))
             (paint-drawing~ printed surface context))))
       (with-page-setup surface page-setup
         (lambda ()
@@ -154,27 +152,54 @@
             (translate~ surface page-left page-top)
             (with-clip~ surface page
               (lambda ()
-                (paint-drawing~ client surface context))))))))
+                (paint-drawing~ client surface context))))))
+      @w
+      (with-paper-setup surface page-setup
+        (lambda ()
+          (when zoom
+            (scale~ surface zoom zoom))
+          (debug-print surface)))))
+  
+  
+  (method (debug-print surface)
+    (define (cornerize x y xoffset yoffset)
+      (move-to~ surface (+ x xoffset) (+ y (* yoffset 2)))
+      (line-to~ surface x y)
+      (stroke~ surface)
+      (move-to~ surface (+ x (* xoffset 2)) (+ y yoffset))
+      (line-to~ surface x y)
+      (stroke~ surface))
+    
+    (set-color~ surface {Color Dark})
+    (set-line-width~ surface 1)
+    (let ((rect (get-bounds~ page-setup)))
+      (let ((ymin (get-top~ rect))
+            (xmin (get-left~ rect))
+            (xmax (get-right~ rect))
+            (ymax (get-bottom~ rect)))
+        (let ((offset (cast <fl> (/ (min (- xmax xmin) (- ymax ymin)) 4.))))
+          (cornerize xmin ymin offset offset)
+          (cornerize xmin ymax offset (- offset))
+          (cornerize xmax ymin (- offset) offset)
+          (cornerize xmax ymax (- offset) (- offset))))))
   
   
   (method (with-page-setup surface page-setup proc)
-    (with-orientation surface page-setup
+    (with-paper-setup surface page-setup
       (lambda ()
-        (let ((zoom (or zoom 1.)))
+        (when zoom
           (scale~ surface zoom zoom))
-        (let* ((ratio (/ (cast <fl> resolution) default-resolution))
-               (content-rect (scale (get-content-rect~ page-setup) ratio))
-               (left (get-left~ content-rect))
-               (top (get-top~ content-rect)))
-          (translate~ surface left top))
+        (let ((content-rect (get-content-rect~ page-setup)))
+          (translate~ surface (get-left~ content-rect) (get-top~ content-rect)))
         (proc))))
   
   
-  (method (with-orientation surface page-setup proc)
+  (method (with-paper-setup surface page-setup proc)
     (with-preserved-matrix~ surface
       (lambda ()
         (let ((orientation (print-orientation))
               (size (get-size~ page-setup)))
+          (debug orientation (get-min-margins~ page-setup))
           (case orientation
             ((landscape)
              (let ((height (get-height~ size)))
@@ -189,6 +214,10 @@
                    (height (get-height~ size)))
                (translate~ surface width height)
                (rotate~ surface PI)))))
+        (let ((ratio (/ (cast <fl> resolution) default-resolution))
+              (min-margins (get-min-margins~ page-setup)))
+          (scale~ surface ratio ratio)
+          (translate~ surface (- (get-left~ min-margins)) (- (get-top~ min-margins))))
         (proc))))
   
   
@@ -198,6 +227,17 @@
   
   (method protected virtual (print-orientation)
     (get-orientation~ page-setup))
+  
+  
+  @w (
+  (import jazz.platform.cairo)
+  (method (debug-matrix)
+    (let ((matrix (cairo_get_matrix_raw (get-context~ surface))))
+      (debug (cairo_matrix_t-xx-ref matrix) (cairo_matrix_t-xy-ref matrix))
+      (debug (cairo_matrix_t-yx-ref matrix) (cairo_matrix_t-yy-ref matrix))
+      (debug (cairo_matrix_t-x0-ref matrix) (cairo_matrix_t-y0-ref matrix))
+      (cairo_matrix_t-free matrix)))
+  )
   
   
   ;;;

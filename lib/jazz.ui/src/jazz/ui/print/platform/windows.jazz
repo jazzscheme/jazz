@@ -44,6 +44,7 @@
         (jazz.platform.cairo.cairo-windows)
         (jazz.ui)
         (jazz.ui.dialog))
+(import jazz.platform.cairo)
 
 
 ;;;
@@ -53,11 +54,29 @@
 
 (definition package (platform-print-document view)
   (receive (hdc print-to-file? selection? pages? from to nb-copies orientation) (print-dialog)
+    (define (calculate-min-margins hdc)
+      (let ((x-resolution (GetDeviceCaps hdc LOGPIXELSX))
+            (y-resolution (GetDeviceCaps hdc LOGPIXELSY))
+            (printable-width (GetDeviceCaps hdc HORZRES))
+            (printable-height (GetDeviceCaps hdc VERTRES))
+            (page-width (GetDeviceCaps hdc PHYSICALWIDTH))
+            (page-height (GetDeviceCaps hdc PHYSICALHEIGHT))
+            (x-offset (GetDeviceCaps hdc PHYSICALOFFSETX))
+            (y-offset (GetDeviceCaps hdc PHYSICALOFFSETY)))
+        (debug 'x x-resolution x-offset printable-width page-width)
+        (debug 'y y-resolution y-offset printable-height page-height)
+        (new Rect
+          (fxround (* x-offset (/ (cast <fl> default-resolution) x-resolution)))
+          (fxround (* y-offset (/ (cast <fl> default-resolution) y-resolution)))
+          (fxround (* (- page-width x-offset printable-width) (/ (cast <fl> default-resolution) x-resolution)))
+          (fxround (* (- page-height y-offset printable-height) (/ (cast <fl> default-resolution) y-resolution))))))
+    
     (if print-to-file?
         (print-picture~ view)
       (let ((surface (new Surface (cairo_win32_printing_surface_create hdc)))
             (page-setup (get-page-setup~ view))
             (resolution (GetDeviceCaps hdc LOGPIXELSX)))
+        (set-min-margins~ page-setup (calculate-min-margins hdc))
         (let ((job (new Printer-Job surface view page-setup resolution selection?: selection? from: (and pages? from) to: (and pages? to) nb-copies: nb-copies)))
           (print-job~ job))))))
 

@@ -115,6 +115,7 @@
         (windows-lib-path     (jazz:quote-jazz-pathname "foreign/windows/lib"))
         (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
     `((jazz.platform.windows)
+      (jazz.platform.odbc                ld-options: "-lodbc32")
       (jazz.platform.windows.WinDef      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinTypes    cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinBase     cc-options: ,base-windows-cc-options ld-options: "-mwindows")

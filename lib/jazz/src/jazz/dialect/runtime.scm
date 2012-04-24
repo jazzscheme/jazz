@@ -1296,6 +1296,9 @@
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((new-declaration (jazz:require-declaration declaration name)))
         (%%when (%%neq? expansion 'inline)
+          #; ;; wait buggy if file is both loaded interpreted and compiled
+          (%%when (and (%%neq? (jazz:walk-for) 'eval) (jazz:get-definition-declaration-value new-declaration))
+            (jazz:walk-error walker resume declaration form-src "Cannot redefine definition: {s}" name))
           ;; adding source information for parameters (default for optional and keyword may be source code)
           ;; jazz:find-annotated fails on first keyword at jazz.language.runtime.functional:minimum
           ;; because (eq? variable annotated-variable) -> one points to a stale value
@@ -1800,6 +1803,16 @@
     (jazz:bind (name specifier access compatibility initialize getter-name setter-name) (%%cdr form)
       (%%assertion (%%class-is? declaration jazz:Class-Declaration) (jazz:walk-error walker resume declaration form-src "Slots can only be defined inside classes: {s}" name)
         (let ((new-declaration (jazz:require-declaration declaration (%%cadr form))))
+          #; ;; wait buggy if file is both loaded interpreted and compiled
+          (let ((ascendant-declaration (let ((ascendant-declaration (jazz:get-class-declaration-ascendant declaration)))
+                                         (if (%%is? ascendant-declaration jazz:Autoload-Declaration)
+                                             (jazz:get-autoload-declaration-declaration ascendant-declaration)
+                                           ascendant-declaration))))
+            (let ((duplicate-declaration (jazz:lookup-declaration ascendant-declaration name jazz:private-access declaration)))
+              (%%when (and duplicate-declaration
+                           ;; remove this test when methods duplicating slots are fixed
+                           (%%is? duplicate-declaration jazz:Slot-Declaration))
+                (jazz:walk-error walker resume declaration form-src "Cannot override slot: {s}" name))))
           (jazz:set-slot-declaration-initialize new-declaration
             (and (%%specified? initialize) (jazz:walk walker resume declaration environment initialize)))
           (%%when (%%class-is? new-declaration jazz:Property-Declaration)
@@ -1902,11 +1915,11 @@
              (root-method-propagation (and root-method-declaration (jazz:get-method-declaration-propagation root-method-declaration)))
              (root-category-declaration (and root-method-declaration (jazz:get-declaration-parent root-method-declaration))))
         (cond ((and root-category-declaration (%%eq? root-method-propagation 'final))
-               (jazz:walk-error walker resume declaration form-src "Cannot redefine method: {s}" name))
+               (jazz:walk-error walker resume declaration form-src "Cannot redefine final method: {s}" name))
               ((and root-category-declaration (%%memq root-method-propagation '(virtual chained)) (%%neq? propagation 'override))
                (case propagation
                  ((virtual chained)
-                  (jazz:walk-error walker resume declaration form-src "Method is already virtual: {s}" name))
+                  (jazz:walk-error walker resume declaration form-src "Cannot redefine virtual method: {s}" name))
                  ((final)
                   (jazz:walk-error walker resume declaration form-src "Cannot finalize virtual method: {s}" name))))
               ((and (%%not root-category-declaration) (%%eq? propagation 'override))
@@ -1927,6 +1940,9 @@
                                (else
                                 #f))))
                    (%%when (%%not (and (%%eq? expansion 'inline) (%%neq? abstraction 'abstract)))
+                     #; ;; wait buggy if file is both loaded interpreted and compiled
+                     (%%when (and (%%neq? (jazz:walk-for) 'eval) (jazz:get-method-declaration-body new-declaration))
+                       (jazz:walk-error walker resume declaration form-src "Cannot redefine method: {s}" name))
                      (jazz:set-method-declaration-signature new-declaration signature)
                      (jazz:set-method-declaration-body new-declaration body-expression))
                    (jazz:set-declaration-source new-declaration form-src)

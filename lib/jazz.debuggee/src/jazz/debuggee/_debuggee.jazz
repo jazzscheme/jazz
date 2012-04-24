@@ -38,7 +38,9 @@
 (module jazz.debuggee jazz
 
 
-(export (jazz.debuggee.autoload))
+(export (jazz.debuggee.autoload)
+        (jazz.debuggee.syntax))
+
 (import (jazz.debuggee.autoload)
         (jazz.debuggee.stub)
         (jazz.editor.jazz.inspector)
@@ -872,6 +874,29 @@
 
 
 ;;;
+;;;; Hook
+;;;
+
+
+(definition *hooks*
+  (make-table test: eq?))
+
+
+(definition public (installed-hook name)
+  (table-set! *hooks* name #f))
+
+(definition public (install-hook name proc)
+  (table-set! *hooks* name proc))
+
+
+(definition protected (invoke-hook name proc)
+  (let ((hook (table-ref *hooks* name #f)))
+    (if hook
+        (hook name proc)
+      (proc))))
+
+
+;;;
 ;;;; Advice
 ;;;
 
@@ -884,12 +909,29 @@
   *advices*)
 
 
+@comment
+(definition public (profile-advice field locator original set)
+  (let ((original (original)))
+    (when (procedure? original)
+      (set (lambda rest
+             (profile-code original
+               (lambda ()
+                 (apply original rest))))))))
+
+
 ;; a.b.c:d/e (a.b.c d e)
 (definition protected (advise-internal what proc)
   (define (advise-all)
     (iterate-table (get-modules)
       (lambda (module-name module)
         (advise-module module))))
+  
+  (define (advise-hook enumerator)
+    (let ((name (enumerator->symbol enumerator)))
+      (proc enumerator
+            name
+            (lambda () (installed-hook name))
+            (lambda (value) (install-hook name value)))))
   
   (define (advise-symbol symbol)
     (receive (module-name name) (break-reference symbol)
@@ -980,6 +1022,8 @@
   (cond @wait-recursive-problems
         ((not what)
          (advise-all))
+        ((enumerator? what)
+         (advise-hook what))
         ((symbol? what)
          (advise-symbol what))
         ((null/pair? what)

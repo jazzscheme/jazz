@@ -55,6 +55,7 @@
   
   (slot spy?          initialize #f getter generate)
   (slot events        initialize #f getter generate)
+  (slot selection     initialize #f getter generate)
   (slot layers        initialize #f getter generate)
   (slot layer-regions initialize #f getter generate)
   (slot layer-order   initialize #f getter generate)
@@ -95,7 +96,7 @@
     (nextmethod initargs)
     (set! events (new-queue))
     (set! layer-regions (make-table test: eq?))
-    (set! layer-order '(invalidate paint mouse))
+    (set! layer-order '(offscreen invalidate paint mouse))
     (update-layers))
   
   
@@ -203,7 +204,13 @@
   
   
   (method (on-event-change evt)
-    )
+    (let ((tree (get-sender~ evt)))
+      (let ((event (get-single-selected-data~ tree)))
+        (if (not event)
+            (bell)
+          (when (neq? (get-action~ event) 'clear)
+            (set! selection event)
+            (update-render))))))
   
   
   ;;;
@@ -222,11 +229,28 @@
   
   
   (method (update-events)
+    (let ((tree (locate 'events)))
+      (remove-every-row~ tree)
+      (with-update-locked~ tree
+        (lambda ()
+          (for-each (lambda (event)
+                      (add-event tree event))
+                    (queue-list events))))))
+  
+  
+  (method (add-event tree event)
     (define (present-arguments action arguments)
       (case action
         ((clear)
          "")
         ((rect)
+         (let ((rect arguments))
+           (format "{a} {a} {a} {a}"
+                   (get-left~ rect)
+                   (get-top~ rect)
+                   (rect-width rect)
+                   (rect-height rect))))
+        ((region)
          (let ((rect arguments))
            (format "{a} {a} {a} {a}"
                    (get-left~ rect)
@@ -241,16 +265,10 @@
         (else
          "")))
     
-    (let ((tree (locate 'events)))
-      (remove-every-row~ tree)
-      (with-update-locked~ tree
-        (lambda ()
-          (for-each (lambda (event)
-                      (let ((layer (get-layer~ event))
-                            (action (get-action~ event))
-                            (arguments (get-arguments~ event)))
-                        (add-row~ tree children: (list (new Tree-Node title: (->string layer)) (new Tree-Label title: (->string action)) (new Tree-Label title: (present-arguments action arguments))) user-data: event)))
-                    (queue-list events))))))
+    (let ((layer (get-layer~ event))
+          (action (get-action~ event))
+          (arguments (get-arguments~ event)))
+      (add-row~ tree children: (list (new Tree-Node title: (->string layer)) (new Tree-Label title: (->string action)) (new Tree-Label title: (present-arguments action arguments))) user-data: event)))
   
   
   (method (update-render)
@@ -290,6 +308,7 @@
   (method public (spy-hook layer action arguments)
     (let ((event (new Spy-Event layer action arguments)))
       (enqueue events event)
+      (add-event (locate 'events) event)
       (when (and player (memq? layer (effective-layers)) (memq? action '(rect move)))
         (with-view-surface~ (locate 'render)
           (lambda (surface)
@@ -302,12 +321,13 @@
   
   
   (method (play-events surface)
-    (for-each (lambda (event)
-                (play-event surface event))
-              (queue-list events)))
+    (loop (for event in (queue-list events) remainder r)
+          (play-event surface event))
+    (when selection
+      (play-event surface selection #t)))
 
   
-  (method (play-event surface event)
+  (method (play-event surface event (highlight? #f))
     (let ((layer (get-layer~ event))
           (action (get-action~ event))
           (arguments (get-arguments~ event)))
@@ -315,23 +335,28 @@
         ((clear)
          (layer-clear layer))
         ((rect)
-         (play-rect surface layer arguments))
+         (play-rect surface layer arguments highlight?))
+        ((region)
+         (play-rect surface layer arguments highlight?))
         ((move)
-         (play-move surface layer arguments)))))
+         (play-move surface layer arguments highlight?)))))
 
   
-  (method (play-rect surface layer rect)
+  (method (play-rect surface layer rect highlight?)
     (receive (outer inner) (outer/inner-colors (layer-color layer))
+      (set-line-width~ surface 1)
       (frame-rect~ surface rect outer)
-      (fill-rect~ surface (inflate-rect rect -1 -1) inner)))
+      (when highlight?
+        (fill-rect~ surface (inflate-rect rect -1 -1) inner))))
   
   
-  (method (play-move surface layer position)
+  (method (play-move surface layer position highlight?)
     (receive (outer inner) (outer/inner-colors (layer-color layer))
       (let ((h (get-h~ position))
             (v (get-v~ position))
             (radius 7))
-        (ellipse~ surface (new Rect (- h radius) (- v radius) (+ h radius) (+ v radius)) outer inner))))
+        (set-line-width~ surface 1)
+        (ellipse~ surface (new Rect (- h radius) (- v radius) (+ h radius) (+ v radius)) outer (and highlight? inner)))))
 
 
   (method (layer-color layer)
@@ -344,9 +369,9 @@
   
   (method (outer/inner-colors outer)
     (receive (h s v) (color->hsv outer)
-      (let ((color (hsv->color h (/ s 2.5) v)))
+      (let ((color (hsv->color h (/ s 2) v)))
         (receive (r g b) (color->rgb color)
-          (let ((inner (new Color red: r green: g blue: b alpha: .5)))
+          (let ((inner (new Color red: r green: g blue: b)))
             (values outer inner)))))))
 
 

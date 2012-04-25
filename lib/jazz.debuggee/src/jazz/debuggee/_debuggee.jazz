@@ -38,9 +38,7 @@
 (module jazz.debuggee jazz
 
 
-(export (jazz.debuggee.autoload)
-        (jazz.debuggee.syntax))
-
+(export (jazz.debuggee.autoload))
 (import (jazz.debuggee.autoload)
         (jazz.debuggee.stub)
         (jazz.editor.jazz.inspector)
@@ -874,29 +872,6 @@
 
 
 ;;;
-;;;; Hook
-;;;
-
-
-(definition *hooks*
-  (make-table test: eq?))
-
-
-(definition public (installed-hook name)
-  (table-set! *hooks* name #f))
-
-(definition public (install-hook name proc)
-  (table-set! *hooks* name proc))
-
-
-(definition protected (invoke-hook name proc)
-  (let ((hook (table-ref *hooks* name #f)))
-    (if hook
-        (hook name proc)
-      (proc))))
-
-
-;;;
 ;;;; Advice
 ;;;
 
@@ -927,11 +902,16 @@
         (advise-module module))))
   
   (define (advise-hook enumerator)
-    (let ((name (enumerator->symbol enumerator)))
-      (proc enumerator
-            name
-            (lambda () (installed-hook name))
-            (lambda (value) (install-hook name value)))))
+    (let ((name (enumerator->symbol enumerator))
+          (locator enumerator))
+      (proc name
+            locator
+            (lambda ()
+              #f)
+            (lambda (value)
+              (if value
+                  (install-hook name value)
+                (uninstall-hook name))))))
   
   (define (advise-symbol symbol)
     (receive (module-name name) (break-reference symbol)

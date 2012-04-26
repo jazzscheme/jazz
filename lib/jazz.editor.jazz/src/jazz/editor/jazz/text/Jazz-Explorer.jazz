@@ -403,6 +403,7 @@
     (case name
       ((:proclaim)        walk-proclaim)
       ((:properties)      walk-properties)
+      ((:state)           walk-state)
       ((:attributes)      walk-attributes)
       ((:native)          walk-native)
       ((:definition)      walk-definition)
@@ -448,6 +449,8 @@
     (let (iterate)
       (when (enter-list)
         (forward-expr)
+        (keyword context start end)
+        (forward-expr)
         (when (eq? kind 'symbol)
           (let ((marked (get-marked)))
             (let ((entry (declaration context 'definition '() symbol '() #f start end marked (symbol-documented? (find-marked-symbol) doc))))
@@ -465,6 +468,45 @@
                        (when (forward-expr)
                          (add-keyword symbol (get-marked)))
                        #f)
+                      (else
+                       #f))))
+                (when entry
+                  (set-parameters~ entry (reverse! keywords))))
+              (walk-expressions context expression))))
+        (exit-list)
+        (iterate))))
+  
+  
+  (method (walk-state context symbol form declaration keyword expression doc)
+    (keyword context start end)
+    (walk-expression context expression 'code #f)
+    (forward-expr)
+    (let (iterate)
+      (when (enter-list)
+        (forward-expr)
+        (keyword context start end)
+        (forward-expr)
+        (when (eq? kind 'symbol)
+          (let ((marked (get-marked)))
+            (let ((entry (declaration context 'definition '() symbol '() #f start end marked (symbol-documented? (find-marked-symbol) doc))))
+              (let ((keywords '()))
+                (define (add-keyword keyword value)
+                  (set! keywords (cons (cons keyword value) keywords)))
+                
+                (walk-keywords/properties context expression
+                  (lambda (symbol)
+                    (case symbol
+                      ((initialize test)
+                       (keyword context start end)
+                       (when (forward-expr)
+                         (add-keyword symbol (get-marked)))
+                       #f)
+                      ((getter setter accessors)
+                       (keyword context start end)
+                       (when (forward-expr)
+                         (let ((accessor (get-marked)))
+                           (add-keyword symbol accessor)
+                           (walk-slot-accessor context marked declaration doc symbol accessor))))
                       (else
                        #f))))
                 (when entry
@@ -564,12 +606,24 @@
         (walk-expression context expression 'code #f))))
   
   
-  (method (walk-slot/property-accessors context entry slot-name declaration keyword expression doc)
+  (method (walk-slot-accessor context slot-name declaration doc symbol accessor)
     (define (declare-accessor accessor)
       (let ((name (string-append (case accessor ((getter) "get-") ((setter) "set-")) slot-name)))
         (declaration context 'accessor '() accessor '() #f start end name (symbol-documented? (find-marked-symbol) doc))
         #t))
     
+    (when (and (eq? kind 'symbol) (string=? accessor "generate"))
+      (case symbol
+        ((getter)
+         (declare-accessor 'getter))
+        ((setter)
+         (declare-accessor 'setter))
+        ((accessors)
+         (declare-accessor 'getter)
+         (declare-accessor 'setter)))))
+  
+  
+  (method (walk-slot/property-accessors context entry slot-name declaration keyword expression doc)
     (walk-specifier entry expression 'code)
     (let ((keywords '()))
       (define (add-keyword keyword value)
@@ -586,16 +640,9 @@
             ((getter setter accessors)
              (keyword context start end)
              (when (forward-expr)
-               (add-keyword symbol (get-marked))
-               (when (and (eq? kind 'symbol) (string=? (get-marked) "generate"))
-                 (case symbol
-                   ((getter)
-                    (declare-accessor 'getter))
-                   ((setter)
-                    (declare-accessor 'setter))
-                   ((accessors)
-                    (declare-accessor 'getter)
-                    (declare-accessor 'setter))))))
+               (let ((accessor (get-marked)))
+                 (add-keyword symbol accessor)
+                 (walk-slot-accessor context slot-name declaration doc symbol accessor))))
             (else
              #f))))
       (when entry

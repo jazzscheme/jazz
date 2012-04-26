@@ -47,7 +47,8 @@
         unwind-protect
         catch
         ~
-        local-context)
+        local-context
+        hook)
 
 (import (jazz.language.runtime.kernel)
         (scheme.core.kernel)
@@ -168,6 +169,16 @@
                         `(cons ',(source-code name) ,name))
                       names))
         form-src))))
+
+
+(define-syntax hook
+  (lambda (form-src usage-environment macro-environment)
+    (let ((control (source-code (cadr (source-code form-src))))
+          (body (cddr (source-code form-src))))
+      (let ((name control))
+        (sourcify-if
+          `(invoke-hook ',name (lambda () ,@body))
+          form-src)))))
 
 
 ;; @macro (push! x (f)) @expansion (set! x (cons x (f)))

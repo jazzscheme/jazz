@@ -38,14 +38,13 @@
 (module scheme.syntax scheme
 
 
-(export ;declaration-unit
+(export declaration-unit
         declaration-path
         declaration-locator)
 
 (import (scheme.core.kernel))
 
 
-#; ;; buggy
 (define-syntax declaration-unit
   (lambda (form-src usage-environment macro-environment)
     (sourcify-if

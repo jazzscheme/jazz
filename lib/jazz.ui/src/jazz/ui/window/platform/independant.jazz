@@ -39,6 +39,9 @@
 (module protected jazz.ui.window.platform.independant jazz
 
 
+(import (jazz.graphic))
+
+
 ;;;
 ;;;; Single Thread
 ;;;
@@ -54,6 +57,38 @@
 
 (definition public (set-events-single-threaded? flag)
   (set! *events-single-threaded?* flag))
+
+
+;;;
+;;;; Offscreen
+;;;
+
+
+(definition protected offscreen-invalid-regions
+  (make-table test: eq? weak-keys: #t))
+
+
+(definition public (get-offscreen-invalid-region handle)
+  (or (table-ref offscreen-invalid-regions handle #f)
+      (let ((region (new Region)))
+        (table-set! offscreen-invalid-regions handle region)
+        region)))
+
+
+(definition public (invalidate-offscreen-region handle region)
+  (let ((actual (get-offscreen-invalid-region handle)))
+    (combine-or!~ actual region)))
+
+
+(definition public (invalidate-offscreen-rect handle rect)
+  (let ((actual (get-offscreen-invalid-region handle)))
+    (with ((region (new Region rect: rect)))
+      (combine-or!~ actual region))))
+
+
+(definition public (validate-offscreen-region handle region)
+  (let ((actual (get-offscreen-invalid-region handle)))
+    (combine-diff!~ actual region)))
 
 
 ;;;

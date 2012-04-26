@@ -88,4 +88,5 @@
 (native jazz:parse-keywords)
 (native jazz:current-walker)
 (native jazz:current-resume)
-(native jazz:current-declaration))
+(native jazz:current-declaration)
+(native jazz:current-declaration-name))

@@ -42,7 +42,8 @@
 (import (jazz.geometry)
         (jazz.graphic)
         (jazz.ui)
-        (jazz.ui.view))
+        (jazz.ui.view)
+        (jazz.ui.window))
 
 
 (class Drawing extends Figure
@@ -400,11 +401,15 @@
   ;;;
   ;;;; Drawing
   ;;;
-  
-  
-  (method public (paint-root surface <Surface> update-region <Region>) <void>
-    (bind (view draw-self? . nodes) (painting-tree surface update-region)
-      (paint surface draw-self? nodes '())))
+
+
+(method public (paint-root surface <Surface> update-region <Region>) <void>
+  (let ((handle (get-handle~ (get-player))))
+    (with ((dirty-region (copy-region update-region)))
+      (combine-and!~ dirty-region (get-offscreen-invalid-region handle))
+      (bind (view draw-self? . nodes) (painting-tree surface dirty-region)
+        (paint surface draw-self? nodes '())
+        (validate-offscreen-region handle dirty-region)))))
   
   
   (method public (paint-drawing surface <Surface> context <list>) <void>

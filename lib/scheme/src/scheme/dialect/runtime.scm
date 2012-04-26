@@ -198,7 +198,9 @@
         (let ((parent-declaration (jazz:get-declaration-parent binding)))
           (jazz:load-unit (jazz:get-declaration-locator (jazz:get-declaration-toplevel parent-declaration)))
           (let ((expander (jazz:need-macro locator)))
-            (%%apply expander (%%cdr form))))))))
+            (jazz:with-walker-context walker resume declaration form-src
+              (lambda ()
+                (%%apply expander (%%cdr form))))))))))
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Special-Form-Declaration declaration) environment backend)
@@ -272,7 +274,9 @@
         (let ((parent-declaration (jazz:get-declaration-parent binding)))
           (jazz:load-unit (jazz:get-declaration-locator (jazz:get-declaration-toplevel parent-declaration)))
           (let ((expander (jazz:need-macro locator)))
-            (%%apply expander (%%cdr form))))))))
+            (jazz:with-walker-context walker resume declaration form-src
+              (lambda ()
+                (%%apply expander (%%cdr form))))))))))
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Macro-Declaration declaration) environment backend)

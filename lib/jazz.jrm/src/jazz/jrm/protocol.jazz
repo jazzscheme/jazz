@@ -1,0 +1,343 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; JRM Protocol
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.jrm.protocol jazz
+
+
+(import (jazz.version))
+
+
+(definition binary-communication?
+  #t)
+
+
+;;;
+;;;; Encoding
+;;;
+
+
+(definition public (32-bit-integer->bytes x)
+  (values (modulo (arithmetic-shift x -24) 256)
+          (modulo (arithmetic-shift x -16) 256)
+          (modulo (arithmetic-shift x -8) 256)
+          (modulo x 256)))
+
+
+(definition public (64-bit-integer->bytes x)
+  (values (modulo (arithmetic-shift x -56) 256)
+          (modulo (arithmetic-shift x -48) 256)
+          (modulo (arithmetic-shift x -40) 256)
+          (modulo (arithmetic-shift x -32) 256)
+          (modulo (arithmetic-shift x -24) 256)
+          (modulo (arithmetic-shift x -16) 256)
+          (modulo (arithmetic-shift x -8) 256)
+          (modulo x 256)))
+
+
+(definition public (bytes->32-bit-integer b1 b2 b3 b4)
+  (+ (arithmetic-shift b1 24)
+     (arithmetic-shift b2 16)
+     (arithmetic-shift b3 8)
+     b4))
+
+
+(definition public (bytes->64-bit-integer b1 b2 b3 b4 b5 b6 b7 b8)
+  (+ (arithmetic-shift b1 56)
+     (arithmetic-shift b2 48)
+     (arithmetic-shift b3 40)
+     (arithmetic-shift b4 32)
+     (arithmetic-shift b5 24)
+     (arithmetic-shift b6 16)
+     (arithmetic-shift b7 8)
+     b8))
+
+
+(definition public (code-string->32-bit-integer s)
+  (bytes->32-bit-integer (char->integer (string-ref s 0))
+                         (char->integer (string-ref s 1))
+                         (char->integer (string-ref s 2))
+                         (char->integer (string-ref s 3))))
+
+
+;;;
+;;;; Communication
+;;;
+
+
+(class Communication-Exception extends Exception
+  
+  
+  (slot exception getter generate)
+  
+  
+  (method override (initialize exc)
+    (nextmethod)
+    (set! exception exc))
+  
+  
+  (method override (print printer readably)
+    (print-unreadable self printer
+      (lambda (printer)
+        (format printer "{a}" (exception-reason exception))))))
+
+
+(definition public (with-communication thunk)
+  (with-exception-catcher
+    (lambda (exc)
+      (throw (new Communication-Exception exc)))
+    thunk))
+
+
+;;;
+;;;; Protocol
+;;;
+
+
+(definition public (write-header application-code version port)
+  (if binary-communication?
+      (write-binary-header application-code version port)
+    (write-text-header application-code version port)))
+
+
+(definition public (read-header port)
+  (if binary-communication?
+      (read-binary-header port)
+    (read-text-header port)))
+
+
+(definition public (write-data data port)
+  (define (write-chunk data)
+    (if binary-communication?
+        (write-binary-data data port)
+      (write-text-data data port)))
+  
+  (if (pair? data)
+      (begin
+        (write-chunk (length data))
+        (for-each write-chunk data))
+    (write-chunk #f)
+    (write-chunk data)))
+
+
+(definition public (read-data port)
+  (define (read-chunk)
+    (if binary-communication?
+        (read-binary-data port)
+      (read-text-data port)))
+  
+  (let ((count (read-chunk)))
+    (if count
+        (map (lambda (n) (read-chunk)) (naturals 0 count))
+      (read-chunk))))
+
+
+;;;
+;;;; Binary
+;;;
+
+
+(native jazz:unsafe-vector-set!)
+
+
+(definition default-wbuf-size 1024)
+
+
+(definition public (byte-port-wbuf-adjust-size! port size)
+  (unsafe-vector-set! port 40 (make-u8vector size)))
+
+
+(definition public (write-binary-data data port)
+  (let ((u8vect (object->u8vector data marshall)))
+    (let* ((size (u8vector-length u8vect))
+           (total-size (+ size 4)))
+      (when (> total-size default-wbuf-size)
+        (byte-port-wbuf-adjust-size! port total-size))
+      (receive (b1 b2 b3 b4) (32-bit-integer->bytes size)
+        (write-u8 b1 port)
+        (write-u8 b2 port)
+        (write-u8 b3 port)
+        (write-u8 b4 port)
+        (write-subu8vector u8vect 0 size port)
+        (force-output port)))))
+
+
+(definition public (write-binary-header application-code version port)
+  (receive (b1 b2 b3 b4) (32-bit-integer->bytes application-code)
+    (receive (b5 b6 b7 b8 b9 b10 b11 b12) (64-bit-integer->bytes (->64-bit-integer~ version))
+      (write-u8 b1 port)
+      (write-u8 b2 port)
+      (write-u8 b3 port)
+      (write-u8 b4 port)
+      (write-u8 b5 port)
+      (write-u8 b6 port)
+      (write-u8 b7 port)
+      (write-u8 b8 port)
+      (write-u8 b9 port)
+      (write-u8 b10 port)
+      (write-u8 b11 port)
+      (write-u8 b12 port)
+      (force-output port))))
+
+
+(definition public (read-binary-data port)
+  (let* ((b1 (read-u8 port))
+         (b2 (read-u8 port))
+         (b3 (read-u8 port))
+         (b4 (read-u8 port)))
+    (let ((size (bytes->32-bit-integer b1 b2 b3 b4)))
+      (let ((u8vect (make-u8vector size)))
+        (read-subu8vector u8vect 0 size port)
+        (u8vector->object u8vect unmarshall)))))
+
+
+(definition public (read-binary-header port)
+  (let* ((b1 (read-u8 port))
+         (b2 (read-u8 port))
+         (b3 (read-u8 port))
+         (b4 (read-u8 port))
+         (b5 (read-u8 port))
+         (b6 (read-u8 port))
+         (b7 (read-u8 port))
+         (b8 (read-u8 port))
+         (b9 (read-u8 port))
+         (b10 (read-u8 port))
+         (b11 (read-u8 port))
+         (b12 (read-u8 port)))
+    (let ((application-code (bytes->32-bit-integer b1 b2 b3 b4))
+          (version-code (bytes->64-bit-integer b5 b6 b7 b8 b9 b10 b11 b12)))
+      (values application-code (64-bit-integer->version version-code)))))
+
+
+;;;
+;;;; Text
+;;;
+
+
+(definition public (write-text-header application-code version port)
+  (write application-code port)
+  (newline port)
+  (write version port)
+  (newline port))
+
+
+(definition public (write-text-data data port)
+  (write data port)
+  (newline port))
+
+
+(definition public (read-text-header port)
+  (let ((application-code (read port))
+        (version-code (read port)))
+    (values application-code version-code)))
+
+
+(definition public (read-text-data port)
+  (read port))
+
+
+;;;
+;;;; Marshall
+;;;
+
+
+(definition public (marshall obj)
+  (or (marshall-object~ (class-of obj) obj)
+      (if (object? obj)
+          ;; until-full-marshalling
+          (make-serialized 'literal (->string obj :reader))
+          @wait
+          (error "Unable to marshall: {a}" obj)
+        obj)))
+
+
+;;;
+;;;; Unmarshall
+;;;
+
+
+(definition public (unmarshall obj)
+  (if (serialized? obj)
+        ;; until-full-marshalling
+      (if (eq? (serialized-class obj) 'literal)
+          (parameterize ((walk-for #f))
+            (with-jazz-readtable
+              (lambda ()
+                (read-string-element (serialized-content obj)))))
+        (let ((class (deserialize-class (serialized-class obj)))
+              (content (serialized-content obj)))
+          (or (unmarshall-object~ class content)
+              (error "Unable to unmarshall: {a}" (category-name class)))))
+    obj))
+
+
+;;;
+;;;; Protocol-Exception
+;;;
+
+
+(class Protocol-Exception extends Exception
+  
+  
+  (slot message-text)
+  
+  
+  (method override (initialize text)
+    (nextmethod)
+    (set! message-text text))
+  
+  
+  (method override (get-message)
+    message-text))
+
+
+@wait
+(definition public (validate-application-code application-code code)
+  (unless (= code application-code)
+    (throw (new Protocol-Exception
+             (format "Unknown application code: {a} (expected {a})."
+                     code
+                     application-code)))))
+
+
+@wait
+(definition public (validate-application-version remote-version (server-side?: server-side? #t))
+  (let ((local-version (process-version~ (get-process))))
+    (unless (compatible?~ local-version remote-version)
+      (throw (new Protocol-Exception
+               (format "Client version {a} is incompatible with server version {a}."
+                       (present~ (if server-side? remote-version local-version))
+                       (present~ (if server-side? local-version remote-version)))))))))

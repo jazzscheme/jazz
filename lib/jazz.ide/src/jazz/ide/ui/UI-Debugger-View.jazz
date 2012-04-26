@@ -1,0 +1,412 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; UI Debugger View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.ide.ui.UI-Debugger-View jazz
+
+
+(import (jazz.debugger)
+        (jazz.geometry)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.jrm)
+        (jazz.library)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.ui.window))
+
+
+(class undocumented UI-Debugger-View extends Layout-View
+  
+  
+  (slot spy?          initialize #f getter generate)
+  (slot events        initialize #f getter generate)
+  (slot selection     initialize #f getter generate)
+  (slot layers        initialize #f getter generate)
+  (slot layer-regions initialize #f getter generate)
+  (slot layer-order   initialize #f getter generate)
+
+  
+  (form
+    (<install>                                                 size: {Dimension 420 639} layout-type: border
+      (<Layout-View>                       name: toolbar       size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Toggle-Tool>                     name: spy           size: {Dimension 22 22} tooltip?: #t tooltip-text: "Spy" resource: {Image-Resource "Spy"} portfolio: :images action-handler: {Event-Handler :form on-spy})
+        (<Separator>)
+        (<Push-Tool>                       name: refresh       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-refresh})
+        (<Push-Tool>                       name: clear         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Clear" resource: {Image-Resource "Clear"} portfolio: :images action-handler: {Event-Handler :guest on-clear})
+        (<Separator>                                           size: {Dimension 64 0} location: tail)
+        (<Toggle-Tool>                     name: slowdown      size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Slowdown" resource: {Image-Resource "SpySlowdown"} portfolio: :images action-handler: {Event-Handler :form on-slowdown}))
+      (<Splitter-View>                                         location: center orientation: horz mode: absolute division: 225 style: document
+        (<Splitter-View>                                       orientation: vert mode: relative division: 20 style: document
+          (<Border-View>                   name: layers-border location: center border-type: edge style: entry
+            (<Scroller-View>                                   style: document hscroll?: #t vscroll?: #t
+              (<content~>                                      layout-type: fill
+                (<Tree-Header>                                 style: document
+                  (<content~>
+                    (<Tree-View>           name: layers        portfolio: :images filled-column: layer multiple-selection?: #t selection-handler: {Event-Handler :form on-layer-change}
+                      (<Tree-Node-Column>  name: layer         title: "Layer" toplevel-controls?: #f display-images?: #f)))))))
+          (<Border-View>                   name: events-border location: center border-type: edge style: entry
+            (<Scroller-View>                                   style: document hscroll?: #t vscroll?: #t
+              (<content~>                                      layout-type: fill
+                (<Tree-Header>                                 style: document
+                  (<content~>
+                    (<Tree-View>           name: events        portfolio: :images filled-column: arguments selection-handler: {Event-Handler :form on-event-change}
+                      (<Tree-Node-Column>  name: layer         title: "Layer" width: 65 toplevel-controls?: #f display-images?: #f)
+                      (<Tree-Label-Column> name: action        title: "Action" width: 65)
+                      (<Tree-Label-Column> name: arguments     title: "Arguments"))))))))
+        (<Border-View>                     name: render-border location: center border-type: edge style: entry
+          (<UI-Debugger-Render>            name: render        background: {Color Light-Gray})))))
+
+
+  (method override (conclude initargs)
+    (nextmethod initargs)
+    (set! events (new-queue))
+    (set! layer-regions (make-table test: eq?))
+    (set! layer-order '(offscreen invalidate paint mouse))
+    (update-layers))
+  
+  
+  (method override (destroy)
+    (let ((debugger (load-object 'jazz.ide.ui 'ui-debugger)))
+      (set-view~ (get-object~ debugger) #f))
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+    
+  
+  (method meta override (host-icon)
+    {Image-Resource "EditLink"})
+  
+  
+  (method meta override (host-title)
+    "UI Spy")
+  
+  
+  (method meta override (host-position)
+    {Point 28 14})
+  
+  
+  (method meta override (host-size)
+    {Dimension 800 500})
+  
+  
+  (method override (host-workspaces)
+    '(home))
+  
+  
+  (method override (focus-default)
+    (acquire-focus~ (locate 'events)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'events))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-spy evt)
+    (define (find-remote)
+      (continuation-capture
+        (lambda (return)
+          (for-each-process~ (get-debugger-manager)
+            (lambda (debugger debugged-process live? focused?)
+              (let ((process (get-reference~ debugged-process)))
+                (when (remote-proxy? process)
+                  (continuation-return return process)))))
+          #f)))
+    
+    (set! spy? (not spy?))
+    (let ((debugger (load-object 'jazz.ide.ui 'ui-debugger)))
+      (let ((implementation (get-object~ debugger)))
+        (set-view~ implementation (and spy? self)))
+      (let ((process (find-remote)))
+        (if (not process)
+            (user-message "Unable to find a remote process")
+          (let ((debuggee (load-object~ (get-remote-register process) 'jazz.debuggee.ui 'ui-debuggee))
+                (title (get-title~ process)))
+            (cond ((not spy?)
+                   (stop-spy~ debuggee)
+                   (user-message "Disconnected from {a}" title))
+                  (else
+                   (start-spy~ debuggee debugger)
+                   (user-message "Connected to {a}" title))))))))
+  
+  
+  (method (on-refresh evt)
+    (update-layers)
+    (update-events)
+    (update-render))
+  
+  
+  (method (on-clear evt)
+    (set! events (new-queue))
+    (set! layers #f)
+    (set! layer-regions (make-table test: eq?))
+    (update-layers)
+    (update-events)
+    (update-render))
+  
+  
+  (method (on-slowdown evt)
+    )
+  
+  
+  (method (on-layer-change evt)
+    (let ((tree (get-sender~ evt)))
+      (let ((selected (get-selected-data~ tree)))
+        (set! layers (if (null? selected) #f selected))
+        (update-render))))
+  
+  
+  (method (on-event-change evt)
+    (let ((tree (get-sender~ evt)))
+      (let ((event (get-single-selected-data~ tree)))
+        (if (not event)
+            (bell)
+          (when (neq? (get-action~ event) 'clear)
+            (set! selection event)
+            (update-render))))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-layers)
+    (let ((tree (locate 'layers)))
+      (remove-every-row~ tree)
+      (with-update-locked~ tree
+        (lambda ()
+          (for-each (lambda (layer)
+                      (add-row~ tree children: (list (new Tree-Node title: (->string layer))) user-data: layer))
+                    layer-order)))))
+  
+  
+  (method (update-events)
+    (let ((tree (locate 'events)))
+      (remove-every-row~ tree)
+      (with-update-locked~ tree
+        (lambda ()
+          (for-each (lambda (event)
+                      (add-event tree event))
+                    (queue-list events))))))
+  
+  
+  (method (add-event tree event)
+    (define (present-arguments action arguments)
+      (case action
+        ((clear)
+         "")
+        ((rect)
+         (let ((rect arguments))
+           (format "{a} {a} {a} {a}"
+                   (get-left~ rect)
+                   (get-top~ rect)
+                   (rect-width rect)
+                   (rect-height rect))))
+        ((region)
+         (let ((rect arguments))
+           (format "{a} {a} {a} {a}"
+                   (get-left~ rect)
+                   (get-top~ rect)
+                   (rect-width rect)
+                   (rect-height rect))))
+        ((move)
+         (let ((point arguments))
+           (format "{a} {a}"
+                   (get-h~ point)
+                   (get-v~ point))))
+        (else
+         "")))
+    
+    (let ((layer (get-layer~ event))
+          (action (get-action~ event))
+          (arguments (get-arguments~ event)))
+      (add-row~ tree children: (list (new Tree-Node title: (->string layer)) (new Tree-Label title: (->string action)) (new Tree-Label title: (present-arguments action arguments))) user-data: event)))
+  
+  
+  (method (update-render)
+    (invalidate-view~ (locate 'render)))
+  
+  
+  ;;;
+  ;;;; Layer
+  ;;;
+  
+  
+  (method (layer-region layer)
+    (or (table-ref layer-regions layer #f)
+        (let ((region (new Rectangles-Region)))
+          (table-set! layer-regions layer region)
+          region)))
+  
+  
+  (method (layer-clear layer)
+    (table-set! layer-regions layer #f))
+  
+  
+  (method (add-rect layer rect)
+    (let ((region (layer-region layer)))
+      (combine-or!~ region (new Rectangles-Region rect: rect))))
+  
+  
+  (method (effective-layers)
+    (or layers layer-order))
+  
+  
+  ;;;
+  ;;;; Spy
+  ;;;
+  
+  
+  (method public (spy-hook layer action arguments)
+    (let ((event (new Spy-Event layer action arguments)))
+      (enqueue events event)
+      (add-event (locate 'events) event)
+      (when (and player (memq? layer (effective-layers)) (memq? action '(rect move)))
+        (with-view-surface~ (locate 'render)
+          (lambda (surface)
+            (play-event surface event))))))
+    
+  
+  ;;;
+  ;;;; Play
+  ;;;
+  
+  
+  (method (play-events surface)
+    (loop (for event in (queue-list events) remainder r)
+          (play-event surface event))
+    (when selection
+      (play-event surface selection #t)))
+
+  
+  (method (play-event surface event (highlight? #f))
+    (let ((layer (get-layer~ event))
+          (action (get-action~ event))
+          (arguments (get-arguments~ event)))
+      (case action
+        ((clear)
+         (layer-clear layer))
+        ((rect)
+         (play-rect surface layer arguments highlight?))
+        ((region)
+         (play-rect surface layer arguments highlight?))
+        ((move)
+         (play-move surface layer arguments highlight?)))))
+
+  
+  (method (play-rect surface layer rect highlight?)
+    (receive (outer inner) (outer/inner-colors (layer-color layer))
+      (set-line-width~ surface 1)
+      (frame-rect~ surface rect outer)
+      (when highlight?
+        (fill-rect~ surface (inflate-rect rect -1 -1) inner))))
+  
+  
+  (method (play-move surface layer position highlight?)
+    (receive (outer inner) (outer/inner-colors (layer-color layer))
+      (let ((h (get-h~ position))
+            (v (get-v~ position))
+            (radius 7))
+        (set-line-width~ surface 1)
+        (ellipse~ surface (new Rect (- h radius) (- v radius) (+ h radius) (+ v radius)) outer (and highlight? inner)))))
+
+
+  (method (layer-color layer)
+    (case layer
+      ((invalidate) {Color Red})
+      ((paint) {Color Blue})
+      ((mouse) {Color Red})
+      (else {Color Red})))
+  
+  
+  (method (outer/inner-colors outer)
+    (receive (h s v) (color->hsv outer)
+      (let ((color (hsv->color h (/ s 2) v)))
+        (receive (r g b) (color->rgb color)
+          (let ((inner (new Color red: r green: g blue: b)))
+            (values outer inner)))))))
+
+
+;;;
+;;;; UI-Debugger-Render
+;;;
+
+
+(class UI-Debugger-Render extends View
+  
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+
+  
+  (method override (draw surface context)
+    (play-events~ (find-ascendant UI-Debugger-View) surface)))
+
+
+;;;
+;;;; Spy-Event
+;;;
+
+
+(class Spy-Event extends Object
+  
+  
+  (method override (initialize layer action arguments)
+    (nextmethod)
+    (set! layer~self layer)
+    (set! action~self action)
+    (set! arguments~self arguments))
+  
+  
+  (slot layer     getter generate)
+  (slot action    getter generate)
+  (slot arguments getter generate)))

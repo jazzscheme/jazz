@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.unit.runtime
+(unit core.unit.runtime
 
 
 (require (core.base))

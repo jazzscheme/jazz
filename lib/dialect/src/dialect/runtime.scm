@@ -462,9 +462,12 @@
                       (lambda (expr expr?)
                         (%%when expr?
                           (let ((expansion (jazz:expand-macros walker resume declaration environment expr)))
-                            (if (jazz:begin-form? expansion)
-                                (walk (%%cdr (jazz:unwrap-syntactic-closure expansion)))
-                              (walk-declaration resume expansion)))))))))
+                            (cond ((jazz:include-form? expansion)
+                                   (walk (jazz:include-forms (jazz:include-filename expansion))))
+                                  ((jazz:begin-form? expansion)
+                                   (walk (%%cdr (jazz:unwrap-syntactic-closure expansion))))
+                                  (else
+                                   (walk-declaration resume expansion))))))))))
               forms))
   
   (define (walk-declaration resume form-src)
@@ -1188,14 +1191,20 @@
 
 (define (jazz:walk-namespace walker resume declaration environment form-list)
   (let ((queue (jazz:new-queue)))
-    (for-each (lambda (form-src)
-                (continuation-capture
-                  (lambda (resume)
-                    (jazz:cond-expand form-src
-                      (lambda (expr-src expr?)
-                        (%%when expr?
-                          (jazz:enqueue queue (jazz:walk walker resume declaration environment expr-src))))))))
-              form-list)
+    (define (walk forms)
+      (for-each (lambda (form-src)
+                  (continuation-capture
+                    (lambda (resume)
+                      (jazz:cond-expand form-src
+                        (lambda (expr expr?)
+                          (%%when expr?
+                            (cond ((jazz:include-form? expr)
+                                   (walk (jazz:include-forms (jazz:include-filename expr))))
+                                  (else
+                                   (jazz:enqueue queue (jazz:walk walker resume declaration environment expr))))))))))
+                forms))
+    
+    (walk form-list)
     (jazz:queue-list queue)))
 
 
@@ -4586,6 +4595,31 @@
 
 
 ;;;
+;;;; Include
+;;;
+
+
+(define (jazz:include-form? form)
+  (and (%%pair? (jazz:source-code form))
+       (%%eq? (jazz:source-code (%%car (jazz:source-code form))) 'include)))
+
+
+(define (jazz:include-filename form)
+  (jazz:source-code (%%cadr (jazz:source-code form))))
+
+
+(define (jazz:include-resource filename)
+  (let ((resource (jazz:requested-unit-resource)))
+    (%%make-resource (%%get-resource-package resource)
+                     (jazz:pathname-brother (%%get-resource-path resource) filename)
+                     #f)))
+
+
+(define (jazz:include-forms filename)
+  (jazz:read-toplevel-forms (jazz:include-resource filename)))
+
+
+;;;
 ;;;; Require
 ;;;
 
@@ -5069,7 +5103,7 @@
   (make-parameter #t))
 
 
-(define (jazz:read-toplevel-form resource #!key (read-literals? #t))
+(define (jazz:read-toplevel-forms resource #!key (read-literals? #t))
   (let ((source (jazz:resource-pathname resource)))
     (jazz:with-extension-reader (jazz:pathname-extension source)
       (lambda ()
@@ -5078,16 +5112,21 @@
           (call-with-input-file (%%list path: source char-encoding: char-encoding eol-encoding: eol-encoding)
             (lambda (port)
               (parameterize ((jazz:read-literals? read-literals?))
-                (let ((all (jazz:read-source-all port)))
-                  (if (%%null? all)
-                      (jazz:error "Found empty unit declaration in {a}" source)
-                    (let ((form-src (%%car all))
-                          (extraneous? (%%not-null? (%%cdr all))))
-                      (if (and (%%pair? (jazz:source-code form-src)) (%%memq (jazz:source-code (%%car (jazz:source-code form-src))) '(unit module)))
-                          (if (%%not extraneous?)
-                              form-src
-                            (jazz:error "Found extraneous expressions after unit declaration in {a}" source))
-                        (jazz:error "Found invalid unit declaration in {a}" source)))))))))))))
+                (jazz:read-source-all port)))))))))
+
+
+(define (jazz:read-toplevel-form resource #!key (read-literals? #t))
+  (let ((source (jazz:resource-pathname resource))
+        (all (jazz:read-toplevel-forms resource read-literals?: read-literals?)))
+    (if (%%null? all)
+        (jazz:error "Found empty unit declaration in {a}" source)
+      (let ((form-src (%%car all))
+            (extraneous? (%%not-null? (%%cdr all))))
+        (if (and (%%pair? (jazz:source-code form-src)) (%%memq (jazz:source-code (%%car (jazz:source-code form-src))) '(unit module)))
+            (if (%%not extraneous?)
+                form-src
+              (jazz:error "Found extraneous expressions after unit declaration in {a}" source))
+          (jazz:error "Found invalid unit declaration in {a}" source))))))
 
 
 (define (jazz:walk-unit unit-name)

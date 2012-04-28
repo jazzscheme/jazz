@@ -380,6 +380,15 @@
         #f))))
 
 
+(define (jazz:pathname-brother pathname name)
+  (let ((pos (jazz:string-find-reversed pathname #\/))
+        (len (%%string-length pathname)))
+    (cond ((%%not pos)
+           name)
+          (else
+           (%%string-append (%%substring pathname 0 (%%fx+ pos 1)) name)))))
+
+
 (define (jazz:extension? extension target)
   (or (and (%%not extension) (%%not target))
       (and extension

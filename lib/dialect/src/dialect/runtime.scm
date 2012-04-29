@@ -1008,43 +1008,34 @@
 
 
 (define (jazz:parse-module-invoice specification)
-  (%%assertion (%%pair? specification) (jazz:error "Ill-formed module invoice: {s}" specification)
-    (let ((name (%%car specification))
-          (scan (%%cdr specification))
-          (version '())
-          (load #f)
-          (phase #f)
-          (only #f)
-          (autoload #f))
-      (%%while (and (%%pair? scan)
-                    (%%not (%%pair? (%%car scan))))
-               (set! version (%%cons (%%car scan) version))
-               (set! scan (%%cdr scan)))
-      (if (and (%%pair? scan)
-               (%%pair? (%%car scan))
-               (%%eq? (%%caar scan) 'load))
-          (begin
-            (set! load (%%car (%%cdar scan)))
-            (set! scan (%%cdr scan))))
-      (if (and (%%pair? scan)
-               (%%pair? (%%car scan))
-               (%%eq? (%%caar scan) 'phase))
-          (begin
-            (set! phase (%%car (%%cdar scan)))
-            (set! scan (%%cdr scan))))
-      (if (and (%%pair? scan)
-               (%%pair? (%%car scan))
-               (%%eq? (%%caar scan) 'only))
-          (begin
-            (set! only (%%cdar scan))
-            (set! scan (%%cdr scan))))
-      (if (and (%%pair? scan)
-               (%%pair? (%%car scan))
-               (%%eq? (%%caar scan) 'autoload))
-          (begin
-            (set! autoload (%%cdar scan))
-            (set! scan (%%cdr scan))))
-      (values name load phase (%%reverse version) only autoload))))
+  (define (ill-formed)
+    (jazz:error "Ill-formed module invoice: {s}" specification))
+  
+  (%%assertion (%%pair? specification) (ill-formed)
+    (let ((name (%%car specification)))
+      (let iter ((phase #f)
+                 (only #f)
+                 (except #f)
+                 (prefix #f)
+                 (rename #f)
+                 (autoload #f)
+                 (scan (%%cdr specification)))
+        (if (%%null? scan)
+            (values name phase only except prefix rename autoload)
+          (let ((spec (%%car scan)))
+            (if (%%pair? spec)
+                (let ((option (%%car spec))
+                      (arguments (%%cdr spec)))
+                  (case option
+                    ((phase)    (iter (%%car arguments) only except prefix rename autoload (%%cdr scan)))
+                    ((only)     (iter phase arguments except prefix rename autoload (%%cdr scan)))
+                    ((except)   (iter phase only arguments prefix rename autoload (%%cdr scan)))
+                    ((prefix)   (iter phase only except arguments rename autoload (%%cdr scan)))
+                    ((rename)   (iter phase only except prefix arguments autoload (%%cdr scan)))
+                    ((autoload) (iter phase only except prefix rename arguments (%%cdr scan)))
+                    ((cond)     (iter phase only except prefix rename autoload (%%cdr scan)))
+                    (else       (ill-formed))))
+              (ill-formed))))))))
 
 
 (define (jazz:parse-module-declaration partial-form)
@@ -1070,17 +1061,19 @@
 
 
 (define (jazz:walk-module-export walker export)
-  (receive (module-name module-load module-phase module-version module-only module-autoload) (jazz:parse-module-invoice export)
+  (receive (module-name module-phase module-only module-except module-prefix module-rename module-autoload) (jazz:parse-module-invoice export)
     (let ((module-reference (jazz:new-module-reference module-name #f)))
       (jazz:new-export-invoice module-name
                                module-reference
                                module-phase
-                               module-version
                                (if (%%not module-only)
                                    #f
                                  (map (lambda (symbol)
                                         (jazz:new-export-reference symbol #f #f))
                                       module-only))
+                               module-except
+                               module-prefix
+                               module-rename
                                (if (%%not module-autoload)
                                    #f
                                  (map (lambda (symbol)
@@ -1149,7 +1142,7 @@
             declaration))))))
 
 
-(define (jazz:walk-script partial-form #!optional (backend-name 'scheme))
+(define (jazz:walk-script partial-form #!optional (backend-name #f))
   (let ((name (gensym 'script)))
     (receive (dialect-name body) (jazz:parse-script partial-form)
       (parameterize ((jazz:walk-context (jazz:new-walk-context #f name #f)))
@@ -1217,6 +1210,8 @@
         dialect-name
         (jazz:outline-module dialect-name)
         'syntax
+        #f
+        #f
         #f
         #f))))
 
@@ -1326,7 +1321,6 @@
   ((name    getter: generate)
    (module  getter: generate)
    (phase   getter: generate)
-   (version getter: generate)
    (only    getter: generate)
    (except  getter: generate)
    (prefix  getter: generate)
@@ -1351,8 +1345,8 @@
   ((autoload getter: generate setter: generate)))
 
 
-(define (jazz:new-export-invoice name module phase version only autoload)
-  (jazz:allocate-export-invoice name module phase version only #f #f #f autoload))
+(define (jazz:new-export-invoice name module phase only except prefix rename autoload)
+  (jazz:allocate-export-invoice name module phase only except prefix rename autoload))
 
 
 ;;;
@@ -1364,8 +1358,8 @@
   ((hit? getter: generate setter: generate)))
 
 
-(define (jazz:new-import-invoice name module phase version only)
-  (jazz:allocate-import-invoice name module phase version only #f #f #f #f))
+(define (jazz:new-import-invoice name module phase only except prefix rename)
+  (jazz:allocate-import-invoice name module phase only except prefix rename #f))
 
 
 ;;;
@@ -1408,7 +1402,7 @@
       (let ((symbols-exports (%%assq #t partition))
             (module-exports (%%assq #f partition)))
         (%%append (if symbols-exports
-                      (%%list (jazz:new-export-invoice #f #f #f '() (map (lambda (symbol) (jazz:new-export-reference symbol #f #f)) (%%cdr symbols-exports)) #f))
+                      (%%list (jazz:new-export-invoice #f #f #f (map (lambda (symbol) (jazz:new-export-reference symbol #f #f)) (%%cdr symbols-exports)) #f #f #f #f))
                     '())
                   (if module-exports
                       (map (lambda (export)
@@ -1440,7 +1434,7 @@
 (define (jazz:new-export-syntax-declaration name type access compatibility attributes parent symbol)
   (let ((new-declaration (jazz:allocate-export-syntax-declaration name type #f access compatibility attributes #f parent #f #f symbol)))
     (jazz:setup-declaration new-declaration)
-   ))
+    new-declaration))
 
 
 (jazz:define-method (jazz:walk-binding-validate-call (jazz:Export-Syntax-Declaration declaration) walker resume source-declaration operator arguments form-src)
@@ -4651,16 +4645,18 @@
       (or (jazz:outline-module name error?: #f)
           (jazz:walk-unresolved walker resume declaration name)))
     
-    (receive (module-name module-load module-phase module-version module-only module-autoload) (jazz:parse-module-invoice import)
+    (receive (module-name module-phase module-only module-except module-prefix module-rename module-autoload) (jazz:parse-module-invoice import)
       (jazz:new-import-invoice module-name
                                (jazz:lookup-module module-name)
                                module-phase
-                               module-version
                                (if (%%not module-only)
                                    #f
                                  (map (lambda (symbol)
                                         (jazz:new-export-reference symbol #f #f))
-                                      module-only)))))
+                                      module-only))
+                               module-except
+                               module-prefix
+                               module-rename)))
   
   (define (walk-imports imports)
     (map (lambda (import)
@@ -5142,7 +5138,7 @@
           ((unit)
            #f)
           ((module)
-           (jazz:walk-module (%%cdr (jazz:source-code form)))))))))
+           (jazz:walk-module (%%cdr (jazz:source-code form)) 'scheme)))))))
 
 
 ;;;
@@ -5152,11 +5148,11 @@
 
 (jazz:define-syntax module
   (lambda (form-src)
-    (let ((emit (jazz:walk-module (%%cdr (jazz:source-code form-src)))))
+    (let ((emit (jazz:walk-module (%%cdr (jazz:source-code form-src)) 'scheme)))
       (jazz:save-emit-if emit)
       emit)))
 
 
 (jazz:define-syntax script
   (lambda (form-src)
-    (jazz:walk-script (%%cdr (jazz:source-code form-src))))))
+    (jazz:walk-script (%%cdr (jazz:source-code form-src)) 'scheme))))

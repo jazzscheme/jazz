@@ -772,13 +772,27 @@
             (merge-invoice actual module-invoice)
           (jazz:set-module-declaration-imports module-declaration (%%append imports (%%list module-invoice)))))))
   (let ((private (jazz:get-access-lookup module-declaration jazz:private-access))
-        (only (jazz:get-module-invoice-only module-invoice)))
-    (if only
-        ;; todo
-        #f
-      (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice)))
-        (let ((imported (jazz:get-access-lookup imported-module-declaration jazz:public-access)))
-          (jazz:table-merge-reporting-conflicts! module-declaration "imports" private imported))))))
+        (only (jazz:get-module-invoice-only module-invoice))
+        (except (jazz:get-module-invoice-except module-invoice)))
+    (cond (only
+           ;; todo
+           #f)
+          (except
+           (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice)))
+             (let ((imported (jazz:get-access-lookup imported-module-declaration jazz:public-access)))
+               (jazz:iterate-table imported
+                 (lambda (key value)
+                   (%%when (%%not (%%memq key except))
+                     (let ((actual (%%table-ref private key #f)))
+                     (if (and actual (%%neq? actual value))
+                         (jazz:error "Import conflict detected in {a}: {s}"
+                                     (jazz:get-lexical-binding-name module-declaration)
+                                     key)
+                       (%%table-set! private key value)))))))))
+          (else
+           (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice)))
+             (let ((imported (jazz:get-access-lookup imported-module-declaration jazz:public-access)))
+               (jazz:table-merge-reporting-conflicts! module-declaration "Import" private imported)))))))
 
 
 (define (jazz:add-module-export module-declaration module-invoice)
@@ -823,13 +837,13 @@
           (else
            (let* ((exported-module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration))
                   (exported-table (jazz:get-access-lookup exported-module-declaration jazz:public-access)))
-             (jazz:table-merge-reporting-conflicts! module-declaration "exports" public exported-table)
+             (jazz:table-merge-reporting-conflicts! module-declaration "Export" public exported-table)
              (table-for-each (lambda (key declaration)
                                (add-to-module-references declaration))
                              exported-table))))))
 
 
-(define (jazz:table-merge-reporting-conflicts! module-declaration suffix table add)
+(define (jazz:table-merge-reporting-conflicts! module-declaration prefix table add)
   (define (effective-declaration-locator decl)
     (cond ((%%is? decl jazz:Export-Declaration)
            (jazz:get-export-declaration-symbol decl))
@@ -857,9 +871,9 @@
         ;; Can be null if the same declaration has been imported from
         ;; different modules. Maybe we should also do an error in that case...
         (%%when (%%not (%%null? conflicts))
-          (jazz:error "Import conflicts detected in {a} {a}: {s}"
+          (jazz:error "{a} conflicts detected in {a}: {s}"
+                      prefix
                       (jazz:get-lexical-binding-name module-declaration)
-                      suffix
                       conflicts))))))
 
 

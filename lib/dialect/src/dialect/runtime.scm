@@ -765,12 +765,12 @@
   (%%when (%%eq? (jazz:get-module-invoice-phase module-invoice) 'syntax)
     (let ((module-declaration (jazz:get-module-invoice-module module-invoice)))
       (jazz:load-unit (jazz:get-lexical-binding-name module-declaration))))
-  (if register?
-      (let ((imports (jazz:get-module-declaration-imports module-declaration)))
-        (let ((actual (jazz:find-module-invoice imports module-invoice)))
-          (if actual
-              (merge-invoice actual module-invoice)
-            (jazz:set-module-declaration-imports module-declaration (%%append imports (%%list module-invoice)))))))
+  (%%when register?
+    (let ((imports (jazz:get-module-declaration-imports module-declaration)))
+      (let ((actual (jazz:find-module-invoice imports module-invoice)))
+        (if actual
+            (merge-invoice actual module-invoice)
+          (jazz:set-module-declaration-imports module-declaration (%%append imports (%%list module-invoice)))))))
   (let ((private (jazz:get-access-lookup module-declaration jazz:private-access))
         (only (jazz:get-module-invoice-only module-invoice)))
     (if only
@@ -982,6 +982,10 @@
   (%%memq warning-name (jazz:get-module-proclaim module-declaration 'warn '())))
 
 
+(define (jazz:keyword->symbol keyword)
+  (%%string->symbol (%%keyword->string keyword)))
+
+
 (define (jazz:parse-module partial-form)
   (define (parse-modifiers rest)
     (let ((first (jazz:source-code (%%car rest))))
@@ -991,20 +995,26 @@
   
   (receive (access rest) (parse-modifiers partial-form)
     (let ((name (jazz:source-code (%%car rest)))
-          (dialect-name (jazz:source-code (%%cadr rest)))
+          (dialect (jazz:source-code (%%cadr rest)))
           (body (%%cddr rest)))
-      (%%assert (%%symbol? name)
-        (values name
-                access
-                dialect-name
-                body)))))
+      (let ((dialect-name (if (keyword? dialect) (jazz:keyword->symbol dialect) dialect))
+            (dialect-invoice? (if (keyword? dialect) #f #t)))
+        (%%assert (%%symbol? name)
+          (values name
+                  access
+                  dialect-name
+                  dialect-invoice?
+                  body))))))
 
 
 (define (jazz:parse-script partial-form)
-  (let ((dialect-name (jazz:source-code (%%car partial-form)))
+  (let ((dialect (jazz:source-code (%%car partial-form)))
         (body (%%cdr partial-form)))
-    (values dialect-name
-            body)))
+    (let ((dialect-name (if (keyword? dialect) (jazz:keyword->symbol dialect) dialect))
+          (dialect-invoice? (if (keyword? dialect) #f #t)))
+      (values dialect-name
+              dialect-invoice?
+              body))))
 
 
 (define (jazz:parse-module-invoice specification)
@@ -1039,11 +1049,11 @@
 
 
 (define (jazz:parse-module-declaration partial-form)
-  (receive (name access dialect-name body) (jazz:parse-module partial-form)
+  (receive (name access dialect-name dialect-invoice? body) (jazz:parse-module partial-form)
     (if (and (jazz:requested-unit-name) (%%neq? name (jazz:requested-unit-name)))
         (jazz:error "Module at {s} is defining {s}" (jazz:requested-unit-name) name)
       (parameterize ((jazz:walk-context (jazz:new-walk-context #f name #f)))
-        (let* ((dialect-invoice (jazz:load-dialect-invoice dialect-name))
+        (let* ((dialect-invoice (and dialect-invoice? (jazz:load-dialect-invoice dialect-name)))
                (dialect (jazz:require-dialect dialect-name))
                (walker (jazz:dialect-walker dialect)))
           (jazz:walk-module-declaration walker #f name access dialect-name dialect-invoice body))))))
@@ -1117,11 +1127,11 @@
 
 
 (define (jazz:walk-module partial-form #!optional (backend-name 'scheme))
-  (receive (name access dialect-name body) (jazz:parse-module partial-form)
+  (receive (name access dialect-name dialect-invoice? body) (jazz:parse-module partial-form)
     (if (and (jazz:requested-unit-name) (%%neq? name (jazz:requested-unit-name)))
         (jazz:error "Module at {s} is defining {s}" (jazz:requested-unit-name) name)
       (parameterize ((jazz:walk-context (jazz:new-walk-context #f name #f)))
-        (let* ((dialect-invoice (jazz:load-dialect-invoice dialect-name))
+        (let* ((dialect-invoice (and dialect-invoice? (jazz:load-dialect-invoice dialect-name)))
                (dialect (jazz:require-dialect dialect-name))
                (walker (jazz:dialect-walker dialect))
                (backend (and backend-name (jazz:require-backend backend-name)))
@@ -1144,9 +1154,9 @@
 
 (define (jazz:walk-script partial-form #!optional (backend-name #f))
   (let ((name (gensym 'script)))
-    (receive (dialect-name body) (jazz:parse-script partial-form)
+    (receive (dialect-name dialect-invoice? body) (jazz:parse-script partial-form)
       (parameterize ((jazz:walk-context (jazz:new-walk-context #f name #f)))
-        (let* ((dialect-invoice (jazz:load-dialect-invoice dialect-name))
+        (let* ((dialect-invoice (and dialect-invoice? (jazz:load-dialect-invoice dialect-name)))
                (dialect (jazz:require-dialect dialect-name))
                (walker (jazz:dialect-walker dialect))
                (backend (and backend-name (jazz:require-backend backend-name)))
@@ -1203,7 +1213,7 @@
 
 (define (jazz:load-dialect-invoice dialect-name)
   (if (%%not (%%symbol? dialect-name))
-      (jazz:error "Dialect name must be a symbol: {s}" dialect-name)
+      (jazz:error "Dialect must be a symbol: {s}" dialect-name)
     (if (%%eq? dialect-name 'foundation)
         #f
       (jazz:new-import-invoice

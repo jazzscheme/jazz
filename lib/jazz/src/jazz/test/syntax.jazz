@@ -1,0 +1,54 @@
+(module jazz.test.syntax jazz
+
+(export bnd-sc
+        bnd-rsc
+        bnd-er
+        bnd-syntax
+        bnd-syntax-rules)
+
+(import (scheme.syntax-rules (phase syntax)))
+
+(definition protected (mac-fn)
+  3)
+
+(define-syntax bnd-sc
+  (sc-macro-transformer
+    (lambda (expr usage-env)
+      (debug (desourcify-all expr) usage-env)
+      (bind (_ usg mac . body) (desourcify-all expr)
+        `(let ((,usg (usg-fn))
+               (,mac (mac-fn)))
+           ,@body)))))
+
+(define-syntax bnd-rsc
+  (rsc-macro-transformer
+    (lambda (expr macro-env)
+      (debug (desourcify-all expr) macro-env)
+      (bind (_ usg mac . body) (desourcify-all expr)
+        `(let ((,usg (usg-fn))
+               (,mac (mac-fn)))
+           ,@body)))))
+
+(define-syntax bnd-er
+  (er-macro-transformer
+    (lambda (expr rename compare)
+      (debug (desourcify-all expr) rename compare)
+      (bind (_ usg mac . body) (desourcify-all expr)
+        `(let ((,usg (usg-fn))
+               (,mac (mac-fn)))
+           ,@body)))))
+
+(define-syntax bnd-syntax
+  (lambda (expr usage-env macro-env)
+    (debug (desourcify-all expr) usage-env macro-env)
+    (bind (_ usg mac . body) (desourcify-all expr)
+      `(let ((,usg (usg-fn))
+             (,mac (mac-fn)))
+         ,@body))))
+
+(define-syntax bnd-syntax-rules
+  (syntax-rules ()
+    ((_ usg mac body ...)
+     (let ((usg (usg-fn))
+           (mac (mac-fn)))
+       body ...)))))

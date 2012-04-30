@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -40,9 +40,21 @@
 
 (export declaration-unit
         declaration-path
-        declaration-locator)
+        declaration-locator
+        optional
+        let-optionals*)
 
-(import (scheme.core.kernel))
+(import (scheme.core.kernel)
+        (scheme.syntax-rules (phase syntax)))
+
+
+(native private jazz:error)
+(native private jazz:unspecified)
+
+
+;;;
+;;;; Declaration
+;;;
 
 
 (define-syntax declaration-unit
@@ -63,4 +75,34 @@
   (lambda (form-src usage-environment macro-environment)
     (sourcify-if
       `(quote ,(apply compose-reference (get-declaration-path (current-declaration))))
-      form-src))))
+      form-src)))
+
+
+;;;
+;;;; Optionals
+;;;
+
+
+(define-syntax optional
+  (syntax-rules ()
+    ((optional rest default-exp)
+     (let ((maybe-arg rest))
+       (cond ((null? maybe-arg) default-exp)
+             ((null? (cdr maybe-arg)) (car maybe-arg))
+             (else (error "too many optional arguments" maybe-arg)))))))
+
+
+(define-syntax let-optionals*
+  (syntax-rules ()
+    ((_ opt-ls () . body)
+     (let () . body))
+    ((_ (op . args) vars . body)
+     (let ((tmp (op . args)))
+       (let-optionals* tmp vars . body)))
+    ((_ tmp ((var default) . rest) . body)
+     (let ((var (if (pair? tmp) (car tmp) default))
+           (tmp2 (if (pair? tmp) (cdr tmp) '())))
+       (let-optionals* tmp2 rest . body)))
+    ((_ tmp tail . body)
+     (let ((tail tmp))
+       . body)))))

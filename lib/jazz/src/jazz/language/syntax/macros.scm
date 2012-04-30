@@ -196,10 +196,10 @@
 (define (expand-assert first rest)
   (if (null? rest)
       (let* ((expr first)
-             (message (string-append "Assertion " (->string expr :text) " failed")))
+             (message (string-append "Assertion " (->string expr ':text) " failed")))
         (list 'unless expr (list 'error "{a}" message)))
     (let* ((expr (car rest))
-           (message (->string expr :text))
+           (message (->string expr ':text))
            (proc first))
       (list 'unless expr (list proc message)))))
 

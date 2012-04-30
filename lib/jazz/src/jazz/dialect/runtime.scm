@@ -904,27 +904,29 @@
 
 (jazz:define-method (jazz:walk-symbol (jazz:Jazz-Walker walker) resume declaration environment symbol-src)
   (let ((symbol (jazz:unwrap-syntactic-closure symbol-src)))
-    (jazz:split-tilde symbol
-      (lambda (tilde? name self/class-name)
-        (if tilde?
-            (cond ((and name self/class-name)
-                   (if (%%eq? self/class-name 'self)
-                       (let ((slot-declaration (jazz:lookup-declaration (jazz:find-class-declaration declaration) name jazz:private-access declaration)))
-                         (%%assert (%%class-is? slot-declaration jazz:Slot-Declaration)
-                           (jazz:new-binding-reference symbol-src slot-declaration)))
-                     (let ((category-declaration (jazz:resolve-binding (jazz:lookup-reference walker resume declaration environment self/class-name))))
-                       (%%assert (%%class-is? category-declaration jazz:Category-Declaration)
-                         (let ((method-declaration (jazz:lookup-declaration category-declaration name jazz:private-access declaration)))
-                           (%%assert (%%class-is? method-declaration jazz:Method-Declaration)
-                             (jazz:new-method-node-reference method-declaration)))))))
-                  ((and name (not self/class-name))
-                   (let ((method-symbol-src (jazz:sourcify-if (jazz:dispatch->symbol (jazz:unwrap-syntactic-closure symbol-src)) symbol-src)))
-                     (jazz:walk walker resume declaration environment `(lambda (object . rest) (apply (~ ,method-symbol-src object) rest)))))
-                  ((and (not name) self/class-name)
-                   (jazz:walk-error walker resume declaration symbol-src "Ill-formed expression: {s}" symbol))
-                  (else
-                   (nextmethod walker resume declaration environment symbol-src)))
-          (nextmethod walker resume declaration environment symbol-src))))))
+    (if (jazz:enumerator? symbol)
+        (jazz:walk-enumerator walker symbol)
+      (jazz:split-tilde symbol
+        (lambda (tilde? name self/class-name)
+          (if tilde?
+              (cond ((and name self/class-name)
+                     (if (%%eq? self/class-name 'self)
+                         (let ((slot-declaration (jazz:lookup-declaration (jazz:find-class-declaration declaration) name jazz:private-access declaration)))
+                           (%%assert (%%class-is? slot-declaration jazz:Slot-Declaration)
+                             (jazz:new-binding-reference symbol-src slot-declaration)))
+                       (let ((category-declaration (jazz:resolve-binding (jazz:lookup-reference walker resume declaration environment self/class-name))))
+                         (%%assert (%%class-is? category-declaration jazz:Category-Declaration)
+                           (let ((method-declaration (jazz:lookup-declaration category-declaration name jazz:private-access declaration)))
+                             (%%assert (%%class-is? method-declaration jazz:Method-Declaration)
+                               (jazz:new-method-node-reference method-declaration)))))))
+                    ((and name (not self/class-name))
+                     (let ((method-symbol-src (jazz:sourcify-if (jazz:dispatch->symbol (jazz:unwrap-syntactic-closure symbol-src)) symbol-src)))
+                       (jazz:walk walker resume declaration environment `(lambda (object . rest) (apply (~ ,method-symbol-src object) rest)))))
+                    ((and (not name) self/class-name)
+                     (jazz:walk-error walker resume declaration symbol-src "Ill-formed expression: {s}" symbol))
+                    (else
+                     (nextmethod walker resume declaration environment symbol-src)))
+            (nextmethod walker resume declaration environment symbol-src)))))))
 
 
 (define (jazz:split-tilde symbol proc)
@@ -936,6 +938,24 @@
           (proc #t
                 (if (%%fx> n 0) (%%string->symbol (%%substring str 0 n)) #f)
                 (if (%%fx< (%%fx+ n 1) len) (%%string->symbol (%%substring str (%%fx+ n 1) len)) #f)))))))
+
+
+(jazz:define-method (jazz:lookup-environment (jazz:Jazz-Walker walker) resume declaration environment symbol-src symbol)
+  (define (lookup-composite walker environment symbol)
+    (receive (module-name name) (jazz:break-reference symbol)
+      (let ((exported-module-reference (jazz:outline-module module-name)))
+        (let ((decl (jazz:lookup-declaration exported-module-reference name jazz:public-access declaration)))
+          (if decl
+              (begin ; manually add since lookup-declaration was not done on the local module
+                (jazz:add-to-module-references declaration decl)
+                (if (%%is? decl jazz:Autoload-Declaration)
+                    decl
+                  (jazz:new-autoload-declaration name #f #f (jazz:get-declaration-toplevel declaration) (jazz:new-module-reference module-name #f))))
+            (jazz:walk-error walker resume declaration symbol-src "Unable to find {s} in unit {s}" name module-name))))))
+  
+    (if (jazz:composite-reference? symbol)
+        (lookup-composite walker environment symbol)
+      (nextmethod walker resume declaration environment symbol-src symbol)))
 
 
 (jazz:define-method (jazz:lookup-analyse (jazz:Jazz-Walker walker) declaration symbol-src referenced-declaration)

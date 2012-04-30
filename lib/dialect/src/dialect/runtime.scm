@@ -205,6 +205,7 @@
 (jazz:define-virtual (jazz:walk-symbol-assignment (jazz:Walker walker) resume declaration environment symbol-src value))
 (jazz:define-virtual (jazz:validate-proclaim (jazz:Walker walker) resume declaration environment form-src))
 (jazz:define-virtual (jazz:runtime-export (jazz:Walker walker) declaration))
+(jazz:define-virtual (jazz:lookup-environment (jazz:Walker walker) resume declaration environment symbol-src symbol))
 (jazz:define-virtual (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration))
 
 
@@ -4512,18 +4513,16 @@
 
 (jazz:define-method (jazz:walk-symbol (jazz:Walker walker) resume declaration environment symbol-src)
   (let ((symbol (jazz:source-code symbol-src)))
-    (if (jazz:enumerator? symbol)
-        (jazz:walk-enumerator walker symbol)
-      (let ((binding (jazz:lookup-symbol walker resume declaration environment symbol-src)))
-        (if binding
-            (cond ((or (jazz:walk-binding-walkable? binding)
-                       (jazz:walk-binding-expandable? binding))
-                   (jazz:walk-error walker resume declaration symbol-src "Illegal access to syntax: {s}" symbol))
-                  (else
-                   (if (%%class-is? binding jazz:Variable)
-                       (jazz:walk-binding-referenced binding))
-                   (jazz:new-binding-reference symbol-src binding)))
-          (jazz:walk-free-reference walker resume declaration symbol-src))))))
+    (let ((binding (jazz:lookup-symbol walker resume declaration environment symbol-src)))
+      (if binding
+          (cond ((or (jazz:walk-binding-walkable? binding)
+                     (jazz:walk-binding-expandable? binding))
+                 (jazz:walk-error walker resume declaration symbol-src "Illegal access to syntax: {s}" symbol))
+                (else
+                 (if (%%class-is? binding jazz:Variable)
+                     (jazz:walk-binding-referenced binding))
+                 (jazz:new-binding-reference symbol-src binding)))
+        (jazz:walk-free-reference walker resume declaration symbol-src)))))
 
 
 (define (jazz:walk-setbang walker resume declaration environment form-src)
@@ -4537,27 +4536,6 @@
 
 
 (define (jazz:lookup-symbol walker resume declaration environment symbol-src)
-  (define (lookup-composite walker environment symbol)
-    (receive (module-name name) (jazz:break-reference symbol)
-      (let ((exported-module-reference (jazz:outline-module module-name)))
-        (let ((decl (jazz:lookup-declaration exported-module-reference name jazz:public-access declaration)))
-          (if decl
-              (begin ; manually add since lookup-declaration was not done on the local module
-                (jazz:add-to-module-references declaration decl)
-                (if (%%is? decl jazz:Autoload-Declaration)
-                    decl
-                  (jazz:new-autoload-declaration name #f #f (jazz:get-declaration-toplevel declaration) (jazz:new-module-reference module-name #f))))
-            (jazz:walk-error walker resume declaration symbol-src "Unable to find {s} in unit {s}" name module-name))))))
-  
-  (define (lookup walker environment symbol)
-    (if (jazz:composite-reference? symbol)
-        (lookup-composite walker environment symbol)
-      (let ((raw-symbol (jazz:unwrap-syntactic-closure symbol)))
-        (let lp ((env environment))
-          (and (%%pair? env)
-               (or (jazz:walk-binding-lookup (%%car env) symbol declaration)
-                   (lp (%%cdr env))))))))
-
   (define (validate-compatibility walker declaration referenced-declaration)
     (if (%%eq? (jazz:get-declaration-compatibility referenced-declaration) 'deprecated)
         (let ((referenced-locator (jazz:get-declaration-locator referenced-declaration)))
@@ -4565,10 +4543,10 @@
   
   (let ((referenced-declaration
          (if (jazz:syntactic-closure? symbol-src)
-             (or (lookup walker environment symbol-src)
-                 (lookup walker (jazz:get-syntactic-closure-environment symbol-src) (jazz:syntactic-closure-form symbol-src))
-                 (lookup walker (jazz:get-syntactic-closure-environment symbol-src) (jazz:source-code (jazz:syntactic-closure-form symbol-src))))
-           (lookup walker environment (jazz:source-code symbol-src)))))
+             (or (jazz:lookup-environment walker resume declaration environment symbol-src symbol-src)
+                 (jazz:lookup-environment walker resume declaration (jazz:get-syntactic-closure-environment symbol-src) symbol-src (jazz:syntactic-closure-form symbol-src))
+                 (jazz:lookup-environment walker resume declaration (jazz:get-syntactic-closure-environment symbol-src) symbol-src (jazz:source-code (jazz:syntactic-closure-form symbol-src))))
+           (jazz:lookup-environment walker resume declaration environment symbol-src (jazz:source-code symbol-src)))))
     (if (and referenced-declaration (%%class-is? referenced-declaration jazz:Declaration))
         (validate-compatibility walker declaration referenced-declaration))
     (if (%%class-is? referenced-declaration jazz:Autoload-Declaration)
@@ -4577,6 +4555,14 @@
     (if (jazz:analysis-mode?)
         (jazz:lookup-analyse walker declaration symbol-src referenced-declaration))
     referenced-declaration))
+
+
+(jazz:define-method (jazz:lookup-environment (jazz:Walker walker) resume declaration environment symbol-src symbol)
+  (let ((raw-symbol (jazz:unwrap-syntactic-closure symbol)))
+    (let lp ((env environment))
+      (and (%%pair? env)
+           (or (jazz:walk-binding-lookup (%%car env) symbol declaration)
+               (lp (%%cdr env)))))))
 
 
 (jazz:define-method (jazz:lookup-analyse (jazz:Walker walker) declaration symbol-src referenced-declaration)

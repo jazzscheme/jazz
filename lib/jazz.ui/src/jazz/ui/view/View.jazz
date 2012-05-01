@@ -2230,36 +2230,60 @@
     (if context-menu-handler
         (invoke-handler self context-menu-handler event)
       (context-menu event)))
+    
   
-  
-  (method protected (dispatch-middle-mouse-down h v)
+  (method protected (root-middle-mouse-down h v)
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when view
-        (middle-mouse-down~ view (acquire~ view self pos)))))
+        (let ((acquired (acquire~ view self pos)))
+          (dispatch-middle-mouse-down view (make-event Mouse-Event :middle-mouse-down view position: acquired))))))
+
   
+  (method protected (dispatch-middle-mouse-down view event)
+    (when (view-enabled?~ view)
+      (middle-mouse-down~ view event)))
+    
   
-  (method protected (dispatch-middle-mouse-up h v)
+  (method protected (root-middle-mouse-up h v)
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when view
-        (middle-mouse-up~ view (acquire~ view self pos)))))
+        (let ((acquired (acquire~ view self pos)))
+          (dispatch-middle-mouse-up view (make-event Mouse-Event :middle-mouse-up view position: acquired))))))
   
   
-  (method protected (dispatch-right-mouse-down h v)
+  (method protected (dispatch-middle-mouse-up view event)
+    (when (view-enabled?~ view)
+      (middle-mouse-up~ view event)))
+    
+  
+  (method protected (root-right-mouse-down h v)
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
-      (set-mouse-right-down? #t)
       (when view
-        (right-mouse-down~ view (acquire~ view self pos)))))
+        (let ((acquired (acquire~ view self pos)))
+          (dispatch-right-mouse-down view (make-event Mouse-Event :right-mouse-down view position: acquired))))))
   
   
-  (method protected (dispatch-right-mouse-up h v)
+  (method protected (dispatch-right-mouse-down view event)
+    (set-mouse-right-down? #t)
+    (when (view-enabled?~ view)
+      (right-mouse-down~ view event)))
+    
+  
+  (method protected (root-right-mouse-up h v)
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
-      (set-mouse-right-down? #f)
       (when view
-        (right-mouse-up~ view (acquire~ view self pos)))))
+        (let ((acquired (acquire~ view self pos)))
+          (dispatch-right-mouse-up view (make-event Mouse-Event :right-mouse-up view position: acquired))))))
+  
+  
+  (method protected (dispatch-right-mouse-up view event)
+    (set-mouse-right-down? #f)
+    (when (view-enabled?~ view)
+      (right-mouse-up~ view event)))
   
   
   (method (dispatch-mouse-enter)
@@ -2343,19 +2367,19 @@
     #f)
   
   
-  (method public virtual (middle-mouse-down pos)
-    (mouse-down pos))
+  (method public virtual (middle-mouse-down evt)
+    (mouse-down evt))
   
   
-  (method public virtual (middle-mouse-up pos)
-    (mouse-up pos))
+  (method public virtual (middle-mouse-up evt)
+    (mouse-up evt))
   
   
-  (method public virtual (right-mouse-down pos)
+  (method public virtual (right-mouse-down evt)
     )
   
   
-  (method public virtual (right-mouse-up pos)
+  (method public virtual (right-mouse-up evt)
     )
   
   

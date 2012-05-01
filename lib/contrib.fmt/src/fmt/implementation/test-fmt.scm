@@ -297,7 +297,6 @@
         (let ((line (read port)))
           (if (eof-object? line) (reverse res) (loop (cons line res))))))))\n")
 
-#; ;; pretty not handling circular lists
 (test "(let ((ones '#0=(1 . #0#))) ones)\n"
     (fmt #f (pretty (let ((ones (list 1))) (set-cdr! ones ones) `(let ((ones ',ones)) ones)))))
 
@@ -382,7 +381,6 @@ equivalent to REVERSE.
 "
     (fmt #f (with-width 36 (justify "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE."))))
 
-#; ;; pretty
 (test
 "(define (fold kons knil ls)          ; The fundamental list iterator.
   (let lp ((ls ls) (acc knil))       ; Applies KONS to each element of
@@ -406,7 +404,6 @@ equivalent to REVERSE.
               (with-width 36
                 (wrap-lines "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE."))))))
 
-#; ;; pretty
 (test
 "(define (fold kons knil ls)          ; The fundamental list iterator.
   (let lp ((ls ls) (acc knil))       ; Applies KONS to each element of

@@ -152,7 +152,7 @@
   (receive (name specifier value parameters) (jazz:parse-define walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assert (%%class-is? declaration jazz:Namespace-Declaration)
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
-            (signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #f #f))))
+            (signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
         (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                    (jazz:new-define-declaration name type declaration signature))))
           (jazz:set-declaration-source new-declaration form-src)
@@ -723,7 +723,7 @@
                     (iter rest))))))))))
   
   (%%assertion (%%not-null? (%%cdr (jazz:unwrap-syntactic-closure form-src))) (jazz:walk-error walker resume declaration form-src "Ill-formed receive")
-    (let* ((parameters (%%desourcify (%%cadr (jazz:unwrap-syntactic-closure form-src))))
+    (let* ((parameters (jazz:desourcify-all (%%cadr (jazz:unwrap-syntactic-closure form-src))))
            (expression (%%car (%%cddr (jazz:unwrap-syntactic-closure form-src))))
            (body (%%cdr (%%cddr (jazz:source-code form-src))))
            (variables (walk-parameters parameters))

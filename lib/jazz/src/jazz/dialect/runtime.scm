@@ -2005,7 +2005,7 @@
 
 
 (define (jazz:new-nextmethod-variable name type)
-  (%%assertion (jazz:variable-name-valid? name) (jazz:error "Invalid variable name: {s}" name)
+  (%%assertion (jazz:variable-name-valid? name) (jazz:error "Invalid variable name: {s}" (jazz:desourcify-all name))
     (jazz:allocate-nextmethod-variable name type #f #f 0)))
 
 

@@ -5,56 +5,19 @@
 
 ;; (require-extension (srfi 1 6 13 23 69))
 
-(module fmt.implementation.fmt scheme
-
-(export new-fmt-state
-        fmt fmt-start fmt-if fmt-capture fmt-let fmt-bind fmt-null
-        fmt-ref fmt-set! fmt-add-properties! fmt-set-property!
-        fmt-col fmt-set-col! fmt-row fmt-set-row!
-        fmt-radix fmt-set-radix! fmt-precision fmt-set-precision!
-        fmt-properties fmt-set-properties! fmt-width fmt-set-width!
-        fmt-writer fmt-set-writer! fmt-port fmt-set-port!
-        fmt-decimal-sep fmt-set-decimal-sep!
-        fmt-file fmt-try-fit cat apply-cat nl fl nl-str
-        fmt-join fmt-join/last fmt-join/dot
-        fmt-join/prefix fmt-join/suffix fmt-join/range
-        pad pad/right pad/left pad/both trim trim/left trim/both trim/length
-        fit fit/left fit/both tab-to space-to wrt wrt/unshared dsp
-        slashified maybe-slashified
-        num num/si num/fit num/comma radix fix decimal-align ellipses
-        upcase downcase titlecase pad-char comma-char decimal-char
-        with-width wrap-lines fold-lines justify
-        make-string-fmt-transformer
-        make-space make-nl-space display-to-string write-to-string
-        fmt-columns columnar tabular line-numbers)
-
-(import (fmt.implementation.let-optionals (phase syntax))
-        (fmt.implementation.mantissa)
-        (fmt.implementation.string-ports)
-        #;
-        (fmt.implementation.fmt-column)
-        (srfi-1)
-        (srfi-13)
-        (srfi-69))
-
-(native private jazz:error)
-(native private jazz:unspecified)
-
-;(declare (proper-tail-calls) (block) (fixnum) (inline) (inlining-limit 700) (standard-bindings) (extended-bindings))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; string utilities
 
 (define (write-to-string x)
-  (call-with-output-string2 (lambda (p) (write x p))))
+  (call-with-output-string (lambda (p) (write x p))))
 
 (define (display-to-string x)
   (if (string? x)
       x
-      (call-with-output-string2 (lambda (p) (display x p)))))
+      (call-with-output-string (lambda (p) (display x p)))))
 
 (define nl-str
-  (call-with-output-string2 newline))
+  (call-with-output-string newline))
 
 (define (make-space n) (make-string n #\space))
 (define (make-nl-space n) (string-append nl-str (make-string n #\space)))
@@ -627,7 +590,7 @@
 ;; cleaned up.
 
 (define (num->string n st . opt)
-  (call-with-output-string2
+  (call-with-output-string
     (lambda (port)
       (let-optionals* opt
           ((base (fmt-radix st))
@@ -1244,4 +1207,5 @@
 ;; for the efficient version we just skip that
 
 (define (wrt/unshared obj)
-  (write-with-shares obj (cons (make-eq?-table) 0))))
+  (write-with-shares obj (cons (make-eq?-table) 0)))
+

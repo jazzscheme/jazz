@@ -1,10 +1,3 @@
-(module fmt.implementation.let-optionals scheme
-
-(export let-optionals*)
-
-(import scheme.syntax-rules)
-
-(native private jazz:error)
 
 ;; (define-syntax let-optionals*
 ;;   (syntax-rules ()
@@ -36,4 +29,5 @@
     ((_ tmp tail . body)
      (let ((tail tmp))
        . body))
-    )))
+    ))
+

@@ -6,12 +6,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; additional settings
 
-(module fmt.implementation.fmt-pretty scheme
-
-(export pretty)
-
-(import fmt.implementation.fmt)
-
 (define (fmt-shares st) (fmt-ref st 'shares))
 (define (fmt-set-shares! st x) (fmt-set! st 'shares x))
 (define (fmt-copy-shares st)
@@ -265,4 +259,5 @@
             (cat (pp-object obj) fl)))
 
 (define (pretty/unshared obj)
-  (fmt-bind 'shares (cons (make-eq?-table) 0) (cat (pp-object obj) fl))))
+  (fmt-bind 'shares (cons (make-eq?-table) 0) (cat (pp-object obj) fl)))
+

@@ -17,13 +17,6 @@
 ;; letting us weave the output between different columns without
 ;; needing to build up intermediate strings.
 
-(module fmt.implementation.fmt-column scheme
-
-(export fmt-columns)
-
-(import (fmt.implementation.fmt)
-        (fmt.implementation.let-optionals (phase syntax)))
-
 (define (fmt-columns . ls)
   (lambda (orig-st)
     (call-with-current-continuation
@@ -420,4 +413,5 @@
 
 (define (line-numbers . o)
   (let ((start (if (pair? o) (car o) 1)))
-    (fmt-join/range dsp start #f nl-str))))
+    (fmt-join/range dsp start #f nl-str)))
+

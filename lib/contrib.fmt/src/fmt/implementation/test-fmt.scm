@@ -1,6 +1,4 @@
 
-(module fmt.implementation.test-fmt scheme
-
 (cond-expand
  (chicken
   (use test)
@@ -20,28 +18,6 @@
        (test (let ((s (with-output-to-string (lambda () (write 'expr)))))
                (substring s 0 (min 60 (string-length s))))
              expected expr)))))
- (jazz
-  (import (fmt)
-          (fmt.test)
-          #;
-          (fmt.implementation.fmt-pretty)
-          (srfi-13))
-  
-  (native private jazz:error)
-  (native private jazz:unspecified)
-  
-  (define (compose f g)
-    (lambda (x)
-      (f (g x))))
-  
-  (define (cut . rest)
-    rest)
-  
-  (define (<> x y)
-    (not (= x y)))
-  
-  (define (string-split str c)
-    str))
  (else))
 
 (test-begin "fmt")
@@ -212,7 +188,7 @@
 (test "prefix: defgh" (fmt #f "prefix: " (fit/left 5 "abcdefgh")))
 (test "prefix: cdefg" (fmt #f "prefix: " (fit/both 5 "abcdefgh")))
 
-#; ;; cut
+#; ;; string-split
 (test "abc\n123\n" (fmt #f (fmt-join/suffix (cut trim 3 <>) (string-split "abcdef\n123456\n" "\n") nl)))
 
 ;; utilities
@@ -252,17 +228,27 @@
              (wrt/unshared
               (let ((ones (list 1))) (set-cdr! ones ones) ones)))))
 
-#; ;; pretty
+;; pretty printing
+
+;; (define-macro (test-pretty str)
+;;   (let ((sexp (with-input-from-string str read)))
+;;     `(test ,str (fmt #f (pretty ',sexp)))))
+
+#;
+(define-syntax test-pretty
+  (syntax-rules ()
+    ((test-pretty str)
+     (let ((sexp (with-input-from-string str read)))
+       (test str (fmt #f (pretty sexp)))))))
+
 (test-pretty "(foo bar)\n")
 
-#; ;; pretty
 (test-pretty
 "((self . aquanet-paper-1991)
  (type . paper)
  (title . \"Aquanet: a hypertext tool to hold your\"))
 ")
 
-#; ;; pretty
 (test-pretty
 "(abracadabra xylophone
              bananarama
@@ -272,45 +258,37 @@
              delightful
              wubbleflubbery)\n")
 
-#; ;; pretty
 (test-pretty
  "#(0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
    25 26 27 28 29 30 31 32 33 34 35 36 37)\n")
 
-#; ;; pretty
 (test-pretty
  "(0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
   25 26 27 28 29 30 31 32 33 34 35 36 37)\n")
 
-#; ;; pretty
 (test-pretty
  "(define (fold kons knil ls)
   (define (loop ls acc)
     (if (null? ls) acc (loop (cdr ls) (kons (car ls) acc))))
   (loop ls knil))\n")
 
-#; ;; pretty
 (test-pretty
 "(do ((vec (make-vector 5)) (i 0 (+ i 1))) ((= i 5) vec) (vector-set! vec i i))\n")
 
-#; ;; pretty
 (test-pretty
 "(do ((vec (make-vector 5)) (i 0 (+ i 1))) ((= i 5) vec)
   (vector-set! vec i 'supercalifrajalisticexpialidocious))\n")
 
-#; ;; pretty
 (test-pretty
 "(do ((my-vector (make-vector 5)) (index 0 (+ index 1)))
     ((= index 5) my-vector)
   (vector-set! my-vector index index))\n")
 
-#; ;; pretty
 (test-pretty
  "(define (fold kons knil ls)
   (let loop ((ls ls) (acc knil))
     (if (null? ls) acc (loop (cdr ls) (kons (car ls) acc)))))\n")
 
-#; ;; pretty
 (test-pretty
  "(define (file->sexp-list pathname)
   (call-with-input-file pathname
@@ -319,7 +297,7 @@
         (let ((line (read port)))
           (if (eof-object? line) (reverse res) (loop (cons line res))))))))\n")
 
-#; ;; pretty
+#; ;; pretty not handling circular lists
 (test "(let ((ones '#0=(1 . #0#))) ones)\n"
     (fmt #f (pretty (let ((ones (list 1))) (set-cdr! ones ones) `(let ((ones ',ones)) ones)))))
 
@@ -341,7 +319,6 @@
                   '("note" "very simple" "csv" "writer" "\"yay!\"")
                   ",")))
 
-#; ;; cut
 (test "note,\"very simple\",csv,writer,\"\"\"yay!\"\"\""
     (fmt #f (fmt-join (cut maybe-slashified <> char-whitespace? #\" #f)
                   '("note" "very simple" "csv" "writer" "\"yay!\"")
@@ -349,7 +326,6 @@
 
 ;; columnar formatting
 
-#; ( ;; columns
 (test "abc\ndef\n" (fmt #f (fmt-columns (list dsp "abc\ndef\n"))))
 (test "abc123\ndef456\n" (fmt #f (fmt-columns (list dsp "abc\ndef\n") (list dsp "123\n456\n"))))
 (test "abc123\ndef456\n" (fmt #f (fmt-columns (list dsp "abc\ndef\n") (list dsp "123\n456"))))
@@ -358,14 +334,13 @@
     (fmt #f (fmt-columns (list dsp "abc\ndef\nghi\n") (list dsp "123\n456\n789\n"))))
 (test "abc123wuv\ndef456xyz\n"
     (fmt #f (fmt-columns (list dsp "abc\ndef\n") (list dsp "123\n456\n") (list dsp "wuv\nxyz\n"))))
-#; ;; cut
 (test "abc  123\ndef  456\n"
     (fmt #f (fmt-columns (list (cut pad/right 5 <>) "abc\ndef\n") (list dsp "123\n456\n"))))
-#; ;; cut
+#; ;; compose
 (test "ABC  123\nDEF  456\n"
     (fmt #f (fmt-columns (list (compose upcase (cut pad/right 5 <>)) "abc\ndef\n")
                          (list dsp "123\n456\n"))))
-#; ;; cut
+#; ;; compose
 (test "ABC  123\nDEF  456\n"
     (fmt #f (fmt-columns (list (compose (cut pad/right 5 <>) upcase) "abc\ndef\n")
                          (list dsp "123\n456\n"))))
@@ -406,8 +381,8 @@ With  KONS  as CONS and KNIL as '(),
 equivalent to REVERSE.
 "
     (fmt #f (with-width 36 (justify "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE."))))
-)
-#; ;; cut
+
+#; ;; pretty
 (test
 "(define (fold kons knil ls)          ; The fundamental list iterator.
   (let lp ((ls ls) (acc knil))       ; Applies KONS to each element of
@@ -451,7 +426,6 @@ equivalent to REVERSE.
                " ; "
                (wrap-lines "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE.")))))
 
-#; ;; columns
 (test
 "- Item 1: The text here is
           indented according
@@ -462,7 +436,6 @@ equivalent to REVERSE.
 "
     (fmt #f (columnar 9 (dsp "- Item 1:") " " (with-width 20 (wrap-lines "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here.")))))
 
-#; ;; columns
 (test
 "- Item 1: The text here is
           indented according
@@ -473,7 +446,6 @@ equivalent to REVERSE.
 "
     (fmt #f (columnar 9 (dsp "- Item 1:\n") " " (with-width 20 (wrap-lines "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here.")))))
 
-#; ;; columns
 (test
 "- Item 1: The text here is----------------------------------------------------
 --------- indented according--------------------------------------------------
@@ -484,7 +456,6 @@ equivalent to REVERSE.
 "
     (fmt #f (pad-char #\- (columnar 9 (dsp "- Item 1:\n") " " (with-width 20 (wrap-lines "The text here is indented according to the space \"Item 1\" takes, and one does not known what goes here."))))))
 
-#; ;; tabular
 (test
 "a   | 123
 bc  | 45
@@ -496,18 +467,17 @@ def | 6
 
 ;; misc extras
 
-#; ;; regexp
+#; ;; string-substitute
+(
 (define (string-hide-passwords str)
   (string-substitute (regexp "(pass(?:w(?:or)?d)?\\s?[:=>]\\s+)\\S+" #t)
                      "\\1******"
                      str
                      #t))
 
-#; ;; regexp
 (define hide-passwords
   (make-string-fmt-transformer string-hide-passwords))
 
-#; ;; regexp
 (define (string-mangle-email str)
   (string-substitute
    (regexp "\\b([-+.\\w]+)@((?:[-+\\w]+\\.)+[a-z]{2,4})\\b" #t)
@@ -515,8 +485,8 @@ def | 6
    str
    #t))
 
-#; ;; regexp
 (define mangle-email
   (make-string-fmt-transformer string-mangle-email))
+)
 
-(test-end))
+(test-end)

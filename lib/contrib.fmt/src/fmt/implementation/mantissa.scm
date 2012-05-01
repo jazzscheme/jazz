@@ -2,12 +2,6 @@
 ;; Break a positive real number down to a normalized mantissa and
 ;; exponent. Default base=2, mant-size=52, exp-size=11 for IEEE doubles.
 
-(module fmt.implementation.mantissa scheme
-
-(export mantissa+exponent)
-
-(import (fmt.implementation.let-optionals (phase syntax)))
-
 (define (mantissa+exponent num . opt)
   (if (zero? num)
       (list 0 0)
@@ -18,4 +12,4 @@
             (cond
               ((>= n top) (lp (quotient n base) (+ e 1)))
               ((< n bot) (lp (* n base) (- e 1)))
-              (else (list n e)))))))))
+              (else (list n e))))))))

@@ -3395,6 +3395,13 @@
    (form        getter: generate)))
 
 
+(jazz:define-method (jazz:print-object (jazz:Syntactic-Closure sc) output detail)
+  (jazz:format output "#<{a} {a} #{a}>"
+               (%%get-category-identifier (%%get-object-class sc))
+               (jazz:get-syntactic-closure-form sc)
+               (jazz:object->serial sc)))
+
+
 (define (jazz:syntactic-closure? x)
   (%%class-is? x jazz:Syntactic-Closure))
 

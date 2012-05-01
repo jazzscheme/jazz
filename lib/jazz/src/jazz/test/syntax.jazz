@@ -1,16 +1,52 @@
 (module jazz.test.syntax jazz
 
-(export bnd-sc
-        bnd-rsc
-        bnd-er
-        bnd-syntax
-        bnd-syntax-rules)
+(export letopt
+        bnd-test
+        ;bnd-macro
+        ;bnd-sc
+        ;bnd-rsc
+        ;bnd-er
+        ;bnd-syntax
+        ;bnd-syntax-rules
+        )
 
 (import (scheme.syntax-rules (phase syntax)))
+
+(define-syntax letopt
+  (syntax-rules ()
+    ((_ opt-ls () . body)
+     (let () . body))
+    ((_ (op . args) vars . body)
+     (let ((tmp (op . args)))
+       (letopt tmp vars . body)))
+    ((_ tmp ((var default) . rest) . body)
+     (let ((var (if (pair? tmp) (car tmp) default))
+           (tmp2 (if (pair? tmp) (cdr tmp) '())))
+       (letopt tmp2 rest . body)))
+    ((_ tmp tail . body)
+     (let ((tail tmp))
+       . body))))
 
 (definition protected (mac-fn)
   3)
 
+(define-syntax yoo
+  (lambda (expr usage-env macro-env)
+    `(usg-fn)))
+
+(define-syntax bnd-test
+  (syntax-rules (lit)
+    ((_ foo bar body ...)
+     (let ()
+       (list foo bar (yoo) (mac-fn) body ...)))))
+
+#;
+(define-macro (bnd-macro usg mac . body)
+  `(let ((,usg (usg-fn))
+         (,mac (mac-fn)))
+     ,@body))
+
+#;
 (define-syntax bnd-sc
   (sc-macro-transformer
     (lambda (expr usage-env)
@@ -20,6 +56,7 @@
                (,mac (mac-fn)))
            ,@body)))))
 
+#;
 (define-syntax bnd-rsc
   (rsc-macro-transformer
     (lambda (expr macro-env)
@@ -29,6 +66,7 @@
                (,mac (mac-fn)))
            ,@body)))))
 
+#;
 (define-syntax bnd-er
   (er-macro-transformer
     (lambda (expr rename compare)
@@ -38,6 +76,7 @@
                (,mac (mac-fn)))
            ,@body)))))
 
+#;
 (define-syntax bnd-syntax
   (lambda (expr usage-env macro-env)
     (debug (desourcify-all expr) usage-env macro-env)
@@ -46,6 +85,7 @@
              (,mac (mac-fn)))
          ,@body))))
 
+#;
 (define-syntax bnd-syntax-rules
   (syntax-rules ()
     ((_ usg mac body ...)

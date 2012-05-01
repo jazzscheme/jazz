@@ -89,20 +89,34 @@
      (let ((maybe-arg rest))
        (cond ((null? maybe-arg) default-exp)
              ((null? (cdr maybe-arg)) (car maybe-arg))
-             (else (error "too many optional arguments" maybe-arg)))))))
+             (else (error "too many optional arguments" maybe-arg)))))
+    ((optional rest default-exp validator)
+     (optional rest default-exp))))
 
+
+(define-syntax really-let-optionals*
+  (syntax-rules ()
+    ;; Standard case. Do the first var/default and recurse.
+    ((really-let-optionals* args ((var1 default1 typecheck1 ...) etc ...)
+       body1 ...)
+     (call-with-values (lambda () (if (null? args)
+                                      (values default1 '())
+                                      (values (car args) (cdr args))))
+                       (lambda (var1 rest)
+                         (really-let-optionals* rest (etc ...)
+                           body1 ...))))
+
+    ;; Single rest arg -- bind to the remaining rest values.
+    ((really-let-optionals* args (rest) body1 ...)
+     (let ((rest args)) body1 ...))
+
+    ;; No more vars. Make sure there are no unaccounted-for values, and do the body.
+    ((really-let-optionals* args () body1 ...)
+     (if (null? args) (begin body1 ...)
+         (error "Too many optional arguments." args)))))
 
 (define-syntax let-optionals*
   (syntax-rules ()
-    ((_ opt-ls () . body)
-     (let () . body))
-    ((_ (op . args) vars . body)
-     (let ((tmp (op . args)))
-       (let-optionals* tmp vars . body)))
-    ((_ tmp ((var default) . rest) . body)
-     (let ((var (if (pair? tmp) (car tmp) default))
-           (tmp2 (if (pair? tmp) (cdr tmp) '())))
-       (let-optionals* tmp2 rest . body)))
-    ((_ tmp tail . body)
-     (let ((tail tmp))
-       . body)))))
+    ((let-optionals* args vars&defaults body1 ...)
+     (let ((rest args))
+       (really-let-optionals* rest vars&defaults body1 ...))))))

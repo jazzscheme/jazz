@@ -57,7 +57,7 @@
                      (if srfi-46? (caddr expr) (cadr expr))))
              (forms (unwrap-syntactic-closure
                       (if srfi-46? (cdddr expr) (cddr expr))))
-             (ellipse (if srfi-46? (cadr expr) '...))
+             (ellipse (if srfi-46? (cadr expr) (rename '...)))
              (count 0)
              (_er-macro-transformer (rename 'er-macro-transformer))
              (_unwrap-syntactic-closure (rename 'unwrap-syntactic-closure))

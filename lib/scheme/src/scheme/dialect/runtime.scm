@@ -819,7 +819,7 @@
                               (%%cons (if (%%eq? (jazz:unwrap-syntactic-closure test) 'else)
                                           #f
                                         (jazz:walk walker resume declaration environment test))
-                                      (%%cons #f (jazz:walk-implicit-begin walker resume declaration environment clause body))))))))))
+                                      (%%cons #f (and (%%not-null? body) (jazz:walk-implicit-begin walker resume declaration environment clause body)))))))))))
                 clauses)
       (jazz:new-cond form-src (jazz:queue-list expanded-clauses)))))
 

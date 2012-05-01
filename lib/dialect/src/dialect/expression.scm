@@ -520,8 +520,9 @@
       (jazz:emit 'cond backend expression declaration environment)
       (jazz:extend-types (map (lambda (clause)
                                 (jazz:get-code-type
-                                  (let ((body (%%cddr clause)))
-                                    (jazz:emit-expression body declaration environment backend))))
+                                  (let ((test (%%car clause))
+                                        (body (%%cddr clause)))
+                                    (jazz:emit-expression (or body test) declaration environment backend))))
                               clauses))
       (jazz:get-expression-source expression))))
 
@@ -536,7 +537,7 @@
              (let* ((clause (%%car ls))
                     (test (%%car clause))
                     (body (%%cddr clause))
-                    (seed (jazz:tree-fold body down up here seed environment)))
+                    (seed (if body (jazz:tree-fold body down up here seed environment) seed)))
                (fold (%%cdr ls)
                      (if (%%not test)
                          body

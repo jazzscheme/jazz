@@ -691,26 +691,4 @@
     (up expression
         seed
         (jazz:tree-fold (jazz:get-parameterize-body expression) down up here seed2 environment)
-        environment)))
-
-
-;;;
-;;;; Time Special
-;;;
-
-
-(jazz:define-class jazz:Time-Special jazz:Expression (constructor: jazz:allocate-time)
-  ((expressions getter: generate)))
-
-
-(define (jazz:new-time-special expressions)
-  (jazz:allocate-time #f #f expressions))
-
-
-(jazz:define-method (jazz:emit-expression (jazz:Time-Special expression) declaration environment backend)
-  (let ((expressions (jazz:get-time-special-expressions expression)))
-    (let ((expressions-emit (jazz:emit-expressions expressions declaration environment backend)))
-      (jazz:new-code
-        (jazz:emit 'time backend expression declaration environment expressions-emit)
-        jazz:Any
-        #f)))))
+        environment))))

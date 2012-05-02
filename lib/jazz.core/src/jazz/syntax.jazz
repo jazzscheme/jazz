@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Test Run
+;;;; Jazz Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,16 +35,42 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.test.run jazz
+(module jazz.syntax jazz
 
 
-(import (jazz.debuggee)
-        (jazz.test))
+(import (jazz.core (phase syntax))
+        (jazz.dialect.classes.foundation))
 
 
-(register-product-run 'test
-  (lambda (descriptor)
-    (load-unit 'jazz.test)
-    (when (get-controller-debugger)
-      (set-default-context 'jazz.test)
-      (start-repl)))))
+;;;
+;;;; Time
+;;;
+
+
+(class Time-Special extends Expression
+  
+  
+  (slot expressions getter generate)
+  
+  
+  (method override (initialize expressions . rest)
+    (apply nextmethod rest)
+    (set! expressions~self expressions))
+  
+  
+  (method override (emit-expression declaration environment backend)
+    (let ((expressions-emit (emit-expressions expressions declaration environment backend)))
+      (new-code
+        (emit 'time backend self declaration environment expressions-emit)
+        Any
+        #f))))
+
+
+(define (walk-time walker resume declaration environment form-src)
+  (let ((form (strip-syntactic-closures form-src)))
+    (let ((forms (cdr form)))
+      (new Time-Special (walk-list walker resume declaration environment forms)))))
+
+
+(define-walker-special time jazz walk-time))
+

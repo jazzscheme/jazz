@@ -68,48 +68,4 @@
    (mutable-bindings?   getter: generate)
    (kernel-interpret?   getter: generate)
    (destination         getter: generate)
-   (properties          getter: generate)))
-
-
-(define (jazz:new-configuration
-          #!key
-          (name (jazz:unspecified-option))
-          (system (jazz:unspecified-option))
-          (platform (jazz:unspecified-option))
-          (windowing (jazz:unspecified-option))
-          (safety (jazz:unspecified-option))
-          (optimize? (jazz:unspecified-option))
-          (debug-environments? (jazz:unspecified-option))
-          (debug-location? (jazz:unspecified-option))
-          (debug-source? (jazz:unspecified-option))
-          (mutable-bindings? (jazz:unspecified-option))
-          (kernel-interpret? (jazz:unspecified-option))
-          (destination (jazz:unspecified-option))
-          (properties (jazz:unspecified-option)))
-  (let* ((name (jazz:validate-name (jazz:require-name name)))
-         (system (jazz:validate-system (jazz:require-system system)))
-         (platform (jazz:validate-platform (jazz:require-platform platform)))
-         (windowing (jazz:validate-windowing (jazz:require-windowing platform windowing)))
-         (safety (jazz:validate-safety (jazz:require-safety safety)))
-         (optimize? (jazz:validate-optimize? (jazz:require-optimize? optimize?)))
-         (debug-environments? (jazz:validate-debug-environments? (jazz:require-debug-environments? debug-environments?)))
-         (debug-location? (jazz:validate-debug-location? (jazz:require-debug-location? debug-location?)))
-         (debug-source? (jazz:validate-debug-source? (jazz:require-debug-source? debug-source?)))
-         (mutable-bindings? (jazz:validate-mutable-bindings? (jazz:require-mutable-bindings? mutable-bindings?)))
-         (kernel-interpret? (jazz:validate-kernel-interpret? (jazz:require-kernel-interpret? kernel-interpret?)))
-         (destination (jazz:validate-destination (jazz:require-destination destination)))
-         (properties (jazz:validate-properties (jazz:require-properties properties))))
-  (jazz:make-configuration
-    name
-    system
-    platform
-    windowing
-    safety
-    optimize?
-    debug-environments?
-    debug-location?
-    debug-source?
-    mutable-bindings?
-    kernel-interpret?
-    destination
-    properties))))
+   (properties          getter: generate))))

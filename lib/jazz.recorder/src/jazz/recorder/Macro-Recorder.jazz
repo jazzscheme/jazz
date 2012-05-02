@@ -620,10 +620,26 @@
                              (lambda ()
                                (for-each play-action recording)
                                (end-completion~ focus))))
-                       (for-each play-action recording))))
+                       (for-each play-action recording))
+                     ))
                (set! playing? old)))))
       (error "You cannot play a recording while another is being recorded")))
   
   
+  (method public (play-remote-recording)
+    (if (not recording?)
+        (if (not Active-Recording)
+            (let ((recording (get-output~ Recording-Factory)))
+              (thread-start!
+                (new-thread
+                  (lambda ()
+                    (user-message "Playing...")
+                    (set-focused-window (get-toplevel))
+                    (play-events recording)
+                    (user-message "Done"))
+                  'recording))))
+      (error "You cannot play while a recording is in progress")))
+
+
   (method public (find-target target)
     (process-alias~ (get-process) target))))

@@ -66,15 +66,15 @@
   
   (form
     (<install>                                   size: {Dimension 900 900} layout-type: border
-      (<Layout-View>               name: toolbar size: {Dimension 900 900} location: north layout-type: flow
-        (<Toggle-Tool>             name: pause   size: {Dimension 24 24} tooltip?: #t tooltip-text: "Pause Recording" resource: {Image-Resource "Pause"} portfolio: :images action-handler: {Event-Handler :form on-pause-recording})
+      (<Layout-View>               name: toolbar size: {Dimension 900 900} location: north layout-type: flow layout-insets: {Rect 4 5 0 0}
+        (<Toggle-Tool>             name: pause   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Pause Recording" resource: {Image-Resource "Pause"} portfolio: :images action-handler: {Event-Handler :form on-pause-recording})
         (<Separator>                             size: {Dimension 10 0})
-        (<Push-Tool>               name: stop    size: {Dimension 24 24} tooltip?: #t tooltip-text: "Stop Recording" resource: {Image-Resource "End"} portfolio: :images action-handler: {Event-Handler :form on-stop-recording})
+        (<Push-Tool>               name: stop    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Stop Recording" resource: {Image-Resource "End"} portfolio: :images action-handler: {Event-Handler :form on-stop-recording})
         (<Separator>                             size: {Dimension 10 0})
-        (<Toggle-Tool>             name: play    size: {Dimension 24 24} tooltip?: #t tooltip-text: "Play Recording" resource: {Image-Resource "Start"} portfolio: :images action-handler: {Event-Handler :form on-play-recording})
+        (<Toggle-Tool>             name: play    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Play Recording" resource: {Image-Resource "Start"} portfolio: :images action-handler: {Event-Handler :form on-play-recording})
         (<Separator>                             size: {Dimension 10 0})
-        (<Toggle-Tool>             name: start   size: {Dimension 24 24} tooltip?: #t tooltip-text: "Start Recording" resource: {Image-Resource "red-ball"} portfolio: :images action-handler: {Event-Handler :form on-start-recording})
-        (<Border-View>                           position: {Point 10 50} border-type: edge layout-fit: #f location: fill size: {Dimension 500 300}
+        (<Toggle-Tool>             name: start   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Start Recording" resource: {Image-Resource "red-ball"} portfolio: :images action-handler: {Event-Handler :form on-start-recording})
+        (<Border-View>                           position: {Point 10 50} border-type: edge layout-fit: #f location: fill size: {Dimension 500 500}
           (<Scroller-View>                       hscroll?: #t vscroll?: #t
             (<!>                   name: content
               (<Compare-Text-View> name: text    left-padding: 12)))))))
@@ -82,17 +82,17 @@
   (method override (conclude initargs)
     (nextmethod initargs)
     )
-  
-  
+
+
   ;;;
   ;;;; Host
-  ;;;
-    
-  
+  ;;;   
+
+
   (method meta override (host-icon)
     {Image-Resource "EditLink"})
-  
-  
+
+
   (method meta override (host-title)
     "Recording Manager")
   
@@ -102,7 +102,7 @@
   
   
   (method meta override (host-size)
-    {Dimension 595 600})
+    {Dimension 595 635})
   
   
   (method override (host-workspaces)
@@ -113,7 +113,7 @@
     playing?)
   
   
-  (method public (set-selected-buttons pause play start)
+  (method (set-selected-buttons pause play start)
     (begin
       (set-selected?~ (locate 'pause) pause)
       (set-selected?~ (locate 'play) play)
@@ -126,24 +126,27 @@
   
 
   (method (on-start-recording evt)
-    (let ((player (load-object~ (get-local-register) 'jazz.recorder.player 'player))
-          (register (get-remote-register (get-reference~ (require-focused-process~ (get-debugger-manager))))))
-      (let ((playee (load-object~ register 'jazz.recorder.playee 'playee)))
-        (start-recording~ playee player))))
+    (if (and (not (get-selected?~ (locate 'play))) (get-selected?~ (locate 'start)))
+        (let ((register (get-remote-register (get-reference~ (require-focused-process~ (get-debugger-manager))))))
+          (let ((playee (load-object~ register 'jazz.recorder.playee 'playee)))
+            (start-recording~ playee)))
+      (toggle-selected?~ (locate 'start))))
   
 
   (method (on-stop-recording evt)
-    (let ((player (load-object~ (get-local-register) 'jazz.recorder.player 'player))
-          (register (get-remote-register (get-reference~ (require-focused-process~ (get-debugger-manager))))))
+    (let ((register (get-remote-register (get-reference~ (require-focused-process~ (get-debugger-manager))))))
       (let ((playee (load-object~ register 'jazz.recorder.playee 'playee)))
-        (stop-recording~ playee player))))
+        (set-selected-buttons #f #f #f)
+        (stop-recording~ playee))))
   
   
   (method (on-play-recording evt)
-    (let ((player (load-object~ (get-local-register) 'jazz.recorder.player 'player))
-          (register (get-remote-register (get-reference~ (require-focused-process~ (get-debugger-manager))))))
-      (let ((playee (load-object~ register 'jazz.recorder.playee 'playee)))
-        (play-recording~ playee player))))
+    (if (not (get-selected?~ (locate 'start)))
+        (let ((register (get-remote-register (get-reference~ (require-focused-process~ (get-debugger-manager))))))
+          (let ((playee (load-object~ register 'jazz.recorder.playee 'playee))
+                (player (load-object~ (get-local-register) 'jazz.recorder.player 'player)))
+            (play-recording~ playee player)))
+      (toggle-selected?~ (locate 'play))))
 
 
   (method (on-pause-recording evt)

@@ -15,7 +15,7 @@
    ((pair? x)
     (case (car x)
       ((%fun function) (apply js-function (cdr x)))
-      ((%var var) (js-var x))
+      ((%var var) (js-var (cdr x)))
       ((eq? ===) (apply js=== (cdr x)))
       ((>>>) (apply js>>> (cdr x)))
       ((%array) (js-array x))

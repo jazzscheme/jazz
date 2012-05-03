@@ -46,6 +46,24 @@
         (scheme.syntax (phase syntax)))
 
 
+#;
+(begin
+  (table-set!
+   class-info
+   'Bar
+   (make-class-info 'Object-Class 'jazz:Expression 'allocate-bar '#f 'function '((x #f get-bar-x set-bar-x)) '(x) '(type source x) '4))
+  (begin
+    (export get-bar-x)
+    (define (get-bar-x object) (get-object-slot object 3))
+    (export set-bar-x)
+    (define (set-bar-x object value) (set-object-slot object 3 value)))
+  (export Bar)
+  (define Bar (new-core-class Object-Class 'Bar (make-table test: eq?) jazz:Expression))
+  (export allocate-bar)
+  (define (allocate-bar #:type&4 #:source&5 #:x&6) ($$object$$ Bar #:type&4 #:source&5 #:x&6))
+  (add-slot Bar 'x (lambda (#:obj&7) #f) #t))
+
+
 ;;;
 ;;;; Native
 ;;;
@@ -54,6 +72,7 @@
 (native private pp)
 (native private jazz:getf)
 (native private jazz:naturals)
+(native private jazz:specified?)
 (native private jazz:unspecified?)
 (native private jazz:unspecified)
 (native private jazz:Object-Class)
@@ -62,21 +81,6 @@
 (native jazz:object-size)
 (native jazz:make-class-info)
 (native jazz:add-slot)
-(native jazz:set-core-class)
-
-
-#;
-(begin
-  (table-set!
-   class-info
-   'Foo
-   (make-class-info 'Object-Class 'Expression 'allocate-foo '#f 'function '((x #f get-foo-x set-foo-x)) '(x) '(type source x) '4))
-  (begin (define (get-foo-x object) (get-object-slot object 3)) (define (set-foo-x object value) (set-object-slot object 3 value)))
-  (define Foo (new-core-class Object-Class 'Foo (make-table test: eq?) Expression))
-  (export allocate-foo)
-  (define (allocate-foo #:type&4 #:source&5 #:x&6) ($$object$$ Foo #:type&4 #:source&5 #:x&6))
-  (add-slot Foo 'x (lambda (#:obj&7) #f) #t)
-  (set-core-class 'Foo Foo))
 
 
 ;;;
@@ -125,6 +129,20 @@
   (define (slot-name slot)
     (car slot))
   
+  (define (expand-slots slots)
+    (let ((obj-symbol (generate-symbol "obj")))
+      (map (lambda (slot)
+             (let ((slot-name (list-ref slot 0))
+                   (slot-initialize (list-ref slot 1))
+                   (slot-getter (list-ref slot 2))
+                   (slot-setter (list-ref slot 3)))
+               (let ((initialize
+                       (and (specified? slot-initialize)
+                            `(lambda (,obj-symbol)
+                               ,slot-initialize))))
+                 `(add-slot ,name ',slot-name ,initialize #t))))
+           slots)))
+  
   (let* ((downcase-name (downcase (symbol->string name)))
          (metaclass-name (getf options metaclass: #f))
          (constructor (getf options constructor: #f))
@@ -140,9 +158,8 @@
          (slot-names (map slot-name slots))
          (all-slot-names (append ascendant-slot-names slot-names))
          (all-length (length all-slot-names))
-         (instance-size (+ object-size all-length)))
-    (let (#;(class-level-name (compose-helper name 'core-level))
-          (all-variables (map (lambda (slot-name) (generate-symbol (symbol->string slot-name))) all-slot-names)))
+         (instance-size (+ object-size all-length))
+         (all-variables (map (lambda (slot-name) (generate-symbol (symbol->string slot-name))) all-slot-names)))
     (table-set! class-info name (make-class-info metaclass-accessor ascendant-accessor constructor constructor-type accessors-type slots slot-names all-slot-names instance-size))
     `(begin
        (table-set! class-info ',name (make-class-info ',metaclass-accessor ',ascendant-accessor ',constructor ',constructor-type ',accessors-type ',slots ',slot-names ',all-slot-names ',instance-size))
@@ -167,29 +184,12 @@
        (export ,name)
        (define ,name
          (new-core-class ,metaclass-accessor ',name (make-table test: eq?) ,ascendant-accessor))
-       #;
-       (define ,class-level-name
-         (%%get-class-level ,name))
        ,@(if (not constructor)
              '()
            `((export ,constructor)
              (define (,constructor ,@all-variables)
                ($$object$$ ,name ,@all-variables))))
-       ,@(expand-slots name slots)
-       (set-core-class ',(reference-name name) ,name)))))
-
-
-(define (expand-slots name slots)
-  (let ((obj-symbol (generate-symbol "obj")))
-    (map (lambda (slot)
-           (let ((slot-name (list-ref slot 0))
-                 (slot-initialize (list-ref slot 1))
-                 (slot-getter (list-ref slot 2))
-                 (slot-setter (list-ref slot 3)))
-             (if (unspecified? slot-initialize)
-                 `(add-slot ,name ',slot-name #f #t)
-               `(add-slot ,name ',slot-name (lambda (,obj-symbol) ,slot-initialize) #t))))
-         slots)))
+       ,@(expand-slots slots))))
 
 
 ;;;

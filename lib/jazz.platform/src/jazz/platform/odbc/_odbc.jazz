@@ -1,0 +1,239 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz ODBC
+;;;
+
+
+(module jazz.platform.odbc jazz
+
+(import (jazz.platform.odbc.odbc-lowlevel)
+        (jazz.platform.types)
+        (jazz.foreign (phase syntax)))
+
+
+(definition default-text-buffers-size 1024)
+
+(c-constant SQL_SUCCESS 0)
+(c-constant SQL_SUCCESS_WITH_INFO 1)
+(c-constant SQL_NO_DATA 100)
+(c-constant SQL_ERROR -1)
+(c-constant SQL_INVALID_HANDLE -2)
+
+(c-constant SQL_HANDLE_DBC 2)
+(c-constant SQL_HANDLE_DESC 4)
+(c-constant SQL_HANDLE_ENV 1)
+(c-constant SQL_HANDLE_STMT 3)
+
+(c-constant SQL_NULL_HANDLE 0)
+
+(c-constant SQL_NTS -3)
+(c-constant SQL_DRIVER_COMPLETE 1)
+(c-constant SQL_CHAR 1)
+(c-constant SQL_NO_DATA_FOUND 100)
+
+
+;;;
+;;;; Column Attributes
+;;;
+
+
+(c-constant SQL_COLUMN_DISPLAY_SIZE 6)
+(c-constant SQL_DESC_CONCISE_TYPE 2)
+(c-constant SQL_DESC_TYPE_NAME 14)
+(c-constant SQL_DESC_TYPE 1002)
+(c-constant SQL_DESC_LENGTH 1003)
+
+(definition SQL-column-attributes-types
+  `((,SQL_COLUMN_DISPLAY_SIZE . numeric)
+    (,SQL_DESC_CONCISE_TYPE   . numeric)
+    (,SQL_DESC_TYPE_NAME      . character)
+    (,SQL_DESC_TYPE           . numeric)
+    (,SQL_DESC_LENGTH         . numeric)))
+
+
+
+;;;
+;;;; TEMP SQL Server datatypes
+;;;
+
+@a
+(definition public SQLServer-datatypes
+  `((4 numeric ,int*-alloc ,int*-ref ,int*-free #f)
+    (-7 numeric ,uint8*-alloc ,uint8*-ref ,uint8*-free ,number->boolean)
+    (-9 character ,wchar_t*-alloc ,wchar_t*->wchar_t-string-ref ,wchar_t*-free #f)
+    (12 character ,char*-alloc ,char*->char-string-ref ,char*-free #f)))
+    
+
+;;;
+;;;; ODBC Exception
+;;;
+
+
+(class ODBC-Exception extends Exception
+  
+  (slot code)
+  (slot message)
+  
+  
+  (method override (initialize code message)
+    (set! code~self code)
+    (set! message~self message))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}{? {a}~}" code message))))
+  
+  
+  (method (get-code)
+    code)
+  
+  
+  (method override (get-message)
+    (or message (format "ODBC Exception ({a})" code))))
+
+
+;;;
+;;;; Error Handling
+;;;
+
+
+(definition (handle-sql-result HandleType Handle proc success-proc cleanup-proc)
+  (dynamic-wind
+    (lambda () #f)
+    (lambda ()
+      (let ((result (proc)))
+        (ecase result
+          ((SQL_SUCCESS SQL_NO_DATA)
+           (success-proc result #f))
+          ((SQL_SUCCESS_WITH_INFO)
+           (let ((state (get-SQLState HandleType Handle 1)))
+             (success-proc result state)))
+          ((SQL_INVALID_HANDLE)
+           (error "Invalid SQL handle"))
+          ((SQL_ERROR)
+           (if Handle
+               (let ((state (get-SQLState HandleType Handle 1))
+                     (message (get-SQLMessage HandleType Handle 1)))
+                 (raise (new ODBC-Exception state message)))
+             (error "Error in sql call")))
+          (else
+           (error "Unknown SQL return code {a}" result)))))
+    cleanup-proc))
+  
+      
+     
+       
+
+;;;
+;;;; Diagnostic Attributes
+;;;
+
+(c-constant SQL_DIAG_SQLSTATE 4)
+(c-constant SQL_DIAG_MESSAGE_TEXT 6)
+
+(definition public (get-SQLState HandleType Handle RecNumber)
+  (let ((DiagInfoPtr (SQLCHAR*-alloc 6)))
+    (SQLGetDiagField$ HandleType Handle RecNumber SQL_DIAG_SQLSTATE DiagInfoPtr 6 #f)
+    (prog1 (SQLCHAR*->char-string DiagInfoPtr)
+      (SQLCHAR*-free DiagInfoPtr))))
+    
+(definition public (get-SQLMessage HandleType Handle RecNumber)
+  (let (loop (BufferLength default-text-buffers-size))
+    (let ((DiagInfoPtr (SQLCHAR*-alloc BufferLength))
+          (StringLengthPtr (SQLSMALLINT*-alloc 1)))
+        (dynamic-wind
+          (lambda () #f)
+          (lambda ()
+            (ecase (SQLGetDiagField$ HandleType Handle RecNumber SQL_DIAG_MESSAGE_TEXT DiagInfoPtr BufferLength StringLengthPtr)
+              ((SQL_SUCCESS) (SQLCHAR*->char-string DiagInfoPtr))
+              ((SQL_SUCCESS_WITH_INFO) (loop (+ 1 (SQLSMALLINT*-ref StringLengthPtr 0))))
+              ((SQL_ERROR) (error "get-SQLMessage error"))))
+          (lambda ()
+            (SQLCHAR*-free DiagInfoPtr)
+            (SQLSMALLINT*-free StringLengthPtr))))))
+
+
+(definition public SQLDisconnect SQLDisconnect$)
+
+
+(definition public SQLFreeHandle SQLFreeHandle$)
+
+
+(definition public (SQLAllocHandleStd HandleType InputHandle)
+  (let ((handle* (SQLHANDLE*-alloc 1))
+        (context-handle-type (ecase HandleType
+                               ((SQL_HANDLE_ENV) #f) 
+                               ((SQL_HANDLE_DBC) SQL_HANDLE_ENV)
+                               ((SQL_HANDLE_STMT) SQL_HANDLE_DBC))))
+    (handle-sql-result context-handle-type InputHandle
+      (lambda ()
+        (SQLAllocHandleStd$ HandleType InputHandle handle*))
+      (lambda (result state)
+        (let ((handle (SQLHANDLE*-ref handle* 0)))
+          (ecase HandleType
+            ((SQL_HANDLE_ENV) (SQLHANDLE->SQLHENV handle)) 
+            ((SQL_HANDLE_DBC) (SQLHANDLE->SQLHDBC handle))
+            ((SQL_HANDLE_STMT) (SQLHANDLE->SQLHSTMT handle))
+            ((SQL_HANDLE_DESC) (SQLHANDLE->SQLHDESC handle)))))
+      (lambda ()
+        (SQLHANDLE*-free handle*)))))
+
+(definition public (SQLDriverConnect ConnectionHandle InConnectionString)
+  (SQLDriverConnect$ ConnectionHandle #f InConnectionString SQL_NTS #f 0 #f SQL_DRIVER_COMPLETE))
+                 
+(definition public (SQLExecDirect StatementHandle StatementText)
+  (let ((StatementText (char-string->SQLCHAR* StatementText)))
+    (handle-sql-result SQL_HANDLE_STMT StatementHandle
+      (lambda ()
+        (SQLExecDirect$ StatementHandle StatementText SQL_NTS))
+      (lambda (result state)
+        #t)
+      (lambda ()
+        (SQLCHAR*-free StatementText)))))
+
+(definition public (SQLNumResultCols StatementHandle)
+  (let ((ColumnCountPtr (SQLSMALLINT*-alloc 1)))
+    (handle-sql-result SQL_HANDLE_STMT StatementHandle
+      (lambda ()
+        (SQLNumResultCols$ StatementHandle ColumnCountPtr))
+      (lambda (result state)
+        (SQLSMALLINT*-ref ColumnCountPtr 0))
+      (lambda ()
+        (SQLSMALLINT*-free ColumnCountPtr)))))
+
+(definition public (SQLColAttribute StatementHandle ColumnNumber FieldIdentifier)
+  (case (assoc-value FieldIdentifier SQL-column-attributes-types #f)
+    ((numeric)
+     (let ((NumericAttributePtr (SQLLEN*-alloc 1)))
+       (SQLLEN*-set! NumericAttributePtr 0 0)
+       (handle-sql-result StatementHandle SQL_HANDLE_STMT
+         (lambda ()
+           (SQLColAttribute$ StatementHandle ColumnNumber FieldIdentifier #f 0 #f NumericAttributePtr))
+         (lambda (result state)
+           (SQLLEN*-ref NumericAttributePtr 0))
+         (lambda ()
+           (SQLLEN*-free NumericAttributePtr)))))
+    ((character)
+     (let (loop (BufferLength default-text-buffers-size))
+       (let ((CharacterAttributePtr (SQLCHAR*-alloc BufferLength))
+             (StringLengthPtr (SQLSMALLINT*-alloc 1)))
+         (handle-sql-result StatementHandle SQL_HANDLE_STMT
+           (lambda ()
+             (SQLColAttribute$ StatementHandle ColumnNumber FieldIdentifier CharacterAttributePtr BufferLength StringLengthPtr #f))
+           (lambda (result state)
+             (ecase result
+               ((SQL_SUCCESS)
+                (SQLCHAR*->char-string CharacterAttributePtr))
+               ((SQL_SUCCESS_WITH_INFO)
+                (if (string=? state "01004")
+                    (loop (+ 1 (SQLSMALLINT*-ref StringLengthPtr 0)))
+                  (SQLCHAR*->char-string CharacterAttributePtr)))))
+           (lambda ()
+             (SQLCHAR*-free CharacterAttributePtr)
+             (SQLSMALLINT*-free StringLengthPtr))))))
+    (else (error "Unknown column attribute"))))
+)

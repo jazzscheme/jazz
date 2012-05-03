@@ -765,6 +765,10 @@
     (for-each iter (%%get-category-descendants class))))
 
 
+(define (jazz:$$object$$ class . rest)
+  (%%jazzify (apply vector class rest)))
+
+
 ;;;
 ;;;; Object-Class
 ;;;

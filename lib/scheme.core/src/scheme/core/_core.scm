@@ -42,8 +42,10 @@
 
 
 (export (scheme.core.kernel))
-(import (scheme.core.kernel)
-        (scheme.syntax (phase syntax)))
+(import (dialect.core)
+        (scheme.core.kernel)
+        (scheme.syntax (phase syntax))
+        (jazz.dialect.classes.foundation))
 
 
 ;;;
@@ -51,7 +53,6 @@
 ;;;
 
 
-(native private pp)
 (native private jazz:getf)
 (native private jazz:naturals)
 (native private jazz:specified?)
@@ -63,29 +64,48 @@
 (native jazz:object-size)
 (native jazz:make-class-info)
 (native jazz:add-slot)
+(native jazz:codes-forms)
+
+
+(define-walker-special %%object scheme
+  (lambda (walker resume declaration environment form-src)
+    (let ((expressions (walk-list walker resume declaration environment (cdr (source-code form-src)))))
+      (new-special-expression
+        (lambda (expression declaration environment backend)
+          (let ((expressions (emit-expressions expressions declaration environment backend)))
+            (new-code
+              `(%%object ,@(codes-forms expressions))
+              Any
+              form-src)))))))
+
+
+(define-walker-special %%object-ref scheme
+  (lambda (walker resume declaration environment form-src)
+    (let ((expressions (walk-list walker resume declaration environment (cdr (source-code form-src)))))
+      (new-special-expression
+        (lambda (expression declaration environment backend)
+          (let ((expressions (emit-expressions expressions declaration environment backend)))
+            (new-code
+              `(%%object-ref ,@(codes-forms expressions))
+              Any
+              form-src)))))))
+
+
+(define-walker-special %%object-set! scheme
+  (lambda (walker resume declaration environment form-src)
+    (let ((expressions (walk-list walker resume declaration environment (cdr (source-code form-src)))))
+      (new-special-expression
+        (lambda (expression declaration environment backend)
+          (let ((expressions (emit-expressions expressions declaration environment backend)))
+            (new-code
+              `(%%object-set! ,@(codes-forms expressions))
+              Any
+              form-src)))))))
 
 
 ;;;
 ;;;; Class
 ;;;
-
-
-#;
-(begin
-  (table-set!
-   class-info
-   'Bar
-   (make-class-info 'Object-Class 'jazz:Expression 'allocate-bar '#f 'function '((x #f get-bar-x set-bar-x)) '(x) '(type source x) '4))
-  (begin
-    (export get-bar-x)
-    (define (get-bar-x object) (get-object-slot object 3))
-    (export set-bar-x)
-    (define (set-bar-x object value) (set-object-slot object 3 value)))
-  (export Bar)
-  (define Bar (new-core-class Object-Class 'Bar (make-table test: eq?) jazz:Expression))
-  (export allocate-bar)
-  (define (allocate-bar #:type&4 #:source&5 #:x&6) ($$object$$ Bar #:type&4 #:source&5 #:x&6))
-  (add-slot Bar 'x (lambda (#:obj&7) #f) #t))
 
 
 (define-macro (define-class name ascendant-name options slots)
@@ -173,12 +193,12 @@
                            '()
                          `((export ,slot-getter)
                            (define (,slot-getter object)
-                             (get-object-slot object ,rank))))
+                             (%%object-ref object ,rank))))
                      ,@(if (not slot-setter)
                            '()
                          `((export ,slot-setter)
                            (define (,slot-setter object value)
-                             (set-object-slot object ,rank value)))))))
+                             (%%object-set! object ,rank value)))))))
               slots
               (naturals (+ object-size ascendant-size) instance-size))
        (export ,name)
@@ -188,7 +208,7 @@
              '()
            `((export ,constructor)
              (define (,constructor ,@all-variables)
-               ($$object$$ ,name ,@all-variables))))
+               (%%object ,name ,@all-variables))))
        ,@(expand-slots slots))))
 
 

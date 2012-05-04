@@ -4349,6 +4349,24 @@
 
 
 ;;;
+;;;; Special Expression
+;;;
+
+
+(jazz:define-class jazz:Special-Expression jazz:Expression (constructor: jazz:allocate-special-expression)
+  ((emit getter: generate)))
+
+
+(define (jazz:new-special-expression emit)
+  (jazz:allocate-special-expression #f #f emit))
+
+
+(jazz:define-method (jazz:emit-expression (jazz:Special-Expression expression) declaration environment backend)
+  (let ((emit (jazz:get-special-expression-emit expression)))
+    (emit expression declaration environment backend)))
+
+
+;;;
 ;;;; Walk-Failed Special
 ;;;
 

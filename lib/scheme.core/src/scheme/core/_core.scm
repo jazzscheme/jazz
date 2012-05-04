@@ -46,24 +46,6 @@
         (scheme.syntax (phase syntax)))
 
 
-#;
-(begin
-  (table-set!
-   class-info
-   'Bar
-   (make-class-info 'Object-Class 'jazz:Expression 'allocate-bar '#f 'function '((x #f get-bar-x set-bar-x)) '(x) '(type source x) '4))
-  (begin
-    (export get-bar-x)
-    (define (get-bar-x object) (get-object-slot object 3))
-    (export set-bar-x)
-    (define (set-bar-x object value) (set-object-slot object 3 value)))
-  (export Bar)
-  (define Bar (new-core-class Object-Class 'Bar (make-table test: eq?) jazz:Expression))
-  (export allocate-bar)
-  (define (allocate-bar #:type&4 #:source&5 #:x&6) ($$object$$ Bar #:type&4 #:source&5 #:x&6))
-  (add-slot Bar 'x (lambda (#:obj&7) #f) #t))
-
-
 ;;;
 ;;;; Native
 ;;;
@@ -86,6 +68,24 @@
 ;;;
 ;;;; Class
 ;;;
+
+
+#;
+(begin
+  (table-set!
+   class-info
+   'Bar
+   (make-class-info 'Object-Class 'jazz:Expression 'allocate-bar '#f 'function '((x #f get-bar-x set-bar-x)) '(x) '(type source x) '4))
+  (begin
+    (export get-bar-x)
+    (define (get-bar-x object) (get-object-slot object 3))
+    (export set-bar-x)
+    (define (set-bar-x object value) (set-object-slot object 3 value)))
+  (export Bar)
+  (define Bar (new-core-class Object-Class 'Bar (make-table test: eq?) jazz:Expression))
+  (export allocate-bar)
+  (define (allocate-bar #:type&4 #:source&5 #:x&6) ($$object$$ Bar #:type&4 #:source&5 #:x&6))
+  (add-slot Bar 'x (lambda (#:obj&7) #f) #t))
 
 
 (define-macro (define-class name ascendant-name options slots)

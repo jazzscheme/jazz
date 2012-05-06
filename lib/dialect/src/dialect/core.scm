@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz
+;;;; Dialect Core
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,13 +35,19 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz scheme
+(module dialect.core scheme
 
 
-(export (scheme)
-        
-        (jazz.object)
-        (jazz.dialect (phase syntax))
-        (jazz.language.syntax (phase syntax))
-        (jazz.language.runtime)
-        (jazz.dialect.classes.jazz)))
+;;;
+;;;; Walker
+;;;
+
+
+(macro public (define-walker-declaration name dialect-name declaration-method binding-method)
+  `(begin
+     (register-declaration ',dialect-name (new-declaration-form ',name ,declaration-method))
+     (register-binding ',dialect-name (new-special-form ',name ,binding-method))))
+
+
+(macro public (define-walker-special name dialect-name method)
+  `(register-binding ',dialect-name (new-special-form ',name ,method))))

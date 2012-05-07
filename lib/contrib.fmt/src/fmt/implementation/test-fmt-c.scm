@@ -1,7 +1,6 @@
 
 (cond-expand
- (chicken (use test) (load "fmt-c.scm") ;;(use test fmt-c)
-          )
+ (chicken (use test) (load "fmt-c-chicken.scm"))
  (gauche
   (use gauche.test)
   (use text.fmt)
@@ -18,6 +17,11 @@
                   expected
                   (lambda () expr)))
       )))
+ (else))
+
+(cond-expand
+ (chicken
+  (import fmt fmt-c))
  (else))
 
 (test-begin "fmt-c")
@@ -37,6 +41,22 @@
 }
 "
     (fmt #f (c-if (c-if 'x 'y 'z) 2 3)))
+
+(test "if (x ? y : z) {
+    2;
+} else {
+    3;
+}
+"
+    (fmt #f (c-expr '(if (if x y z) 2 3))))
+
+(test "if (x ? y : z) {
+    2;
+} else {
+    3;
+}
+"
+    (fmt #f (c-expr '(%begin (if (if x y z) 2 3)))))
 
 (test "int square (int x) {
     return x * x;
@@ -362,6 +382,9 @@ extern int foo ();
 
 (test "typedef double (*f)(double *, double, int);\n"
     (fmt #f (c-typedef '(%fun double ((* double) double int)) 'f)))
+
+(test "\"foo\\tbar\";\n"
+    (fmt #f (c-expr "foo\tbar")))
 
 (test-end)
 

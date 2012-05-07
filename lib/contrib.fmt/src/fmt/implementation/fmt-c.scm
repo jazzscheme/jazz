@@ -88,15 +88,18 @@
   (or (number? x) (string? x) (char? x) (boolean? x)))
 
 (define (char->c-char c)
-  (if (< 32 (char->integer c) 127)
-      (if (or (eqv? #\' c) (eqv? #\\ c))
-          (string #\' #\\ c #\')
-          (string #\' c #\'))
-      (case (char->integer c)
-        ((7) "'\\a'") ((8) "'\\b'") ((9) "'\\t'") ((10) "'\\n'")
-        ((11) "'\\v'") ((12) "'\\f'") ((13) "'\\r'")
-        (else
-         (string-append "'\\x" (number->string (char->integer c) 16) "'")))))
+  (string-append "'" (c-escape-char c #\') "'"))
+
+(define (c-escape-char c quote-char)
+  (let ((n (char->integer c)))
+    (if (<= 32 n 126)
+        (if (or (eqv? c quote-char) (eqv? c #\\))
+            (string #\\ c)
+            (string c))
+        (case n
+          ((7) "\\a") ((8) "\\b") ((9) "\\t") ((10) "\\n")
+          ((11) "\\v") ((12) "\\f") ((13) "\\r")
+          (else (string-append "\\x" (number->string (char->integer c) 16)))))))
 
 (define (c-format-number x)
   (if (and (integer? x) (exact? x))
@@ -108,11 +111,29 @@
          st))
       (dsp (number->string x))))
 
+(define (c-format-string x)
+  (lambda (st) ((cat #\" (apply-cat (c-string-escaped x)) #\") st)))
+
+(define (c-string-escaped x)
+  (let loop ((parts '()) (idx (string-length x)))
+    (cond ((string-index-right x c-needs-string-escape? 0 idx)
+           => (lambda (special-idx)
+                (loop (cons (c-escape-char (string-ref x special-idx) #\")
+                            (cons (substring/shared x (+ special-idx 1) idx)
+                                  parts))
+                      special-idx)))
+          (else
+           (cons (substring/shared x 0 idx) parts)))))
+
+(define (c-needs-string-escape? c)
+  (if (<= 32 (char->integer c) 127) (memv c '(#\" #\\)) #t))
+
 (define (c-simple-literal x)
   (c-wrap-stmt
    (cond ((char? x) (dsp (char->c-char x)))
          ((boolean? x) (dsp (if x "1" "0")))
          ((number? x) (c-format-number x))
+         ((string? x) (c-format-string x))
          ((null? x) (dsp "NULL"))
          ((eof-object? x) (dsp "EOF"))
          (else (dsp (write-to-string x))))))

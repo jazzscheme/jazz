@@ -347,11 +347,12 @@
           (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend)))
             (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
               (let ((signature-casts (jazz:emit-signature-casts signature declaration augmented-environment backend))
-                    (cast-body (jazz:simplify-begin (jazz:emit-type-cast (jazz:new-code `(begin ,@(jazz:sourcified-form body-code)) (jazz:get-code-type body-code) #f) type declaration environment backend))))
-                (jazz:new-code
-                  (jazz:emit 'lambda backend expression declaration environment signature-emit signature-casts cast-body)
-                  (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
-                  (jazz:get-expression-source expression))))))))))
+                    (body-emit (jazz:emit 'begin backend expression declaration environment body-code)))
+                (let ((cast-body (jazz:simplify-begin (jazz:emit-type-cast (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type declaration environment backend))))
+                  (jazz:new-code
+                    (jazz:emit 'lambda backend expression declaration environment signature-emit signature-casts cast-body)
+                    (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
+                    (jazz:get-expression-source expression)))))))))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Lambda expression) down up here seed environment)

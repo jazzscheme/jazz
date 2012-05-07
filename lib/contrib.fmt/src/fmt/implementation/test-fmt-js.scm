@@ -1,7 +1,12 @@
+
+(cond-expand
+ (chicken
+  (load "fmt-js-chicken.scm"))
+ (else))
+
 (cond-expand
  (chicken
   (use test)
-  (load "fmt-js-chicken.scm")
   (import fmt)
   (import fmt-js))
  (gauche
@@ -23,6 +28,12 @@
  (else))
 
 (test-begin "fmt-js")
+
+(test "var foo = 1 + 2;\n"
+    (fmt #f (js-expr '(%var foo (+ 1 2)))))
+
+(test "var foo = 1 + 2;\n"
+    (fmt #f (js-expr '(%begin (%var foo (+ 1 2))))))
 
 (test "function square(x) {
     return x * x;

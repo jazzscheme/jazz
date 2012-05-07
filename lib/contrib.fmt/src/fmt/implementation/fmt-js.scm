@@ -1,12 +1,13 @@
 ;;;; fmt-js.scm -- javascript formatting utilities
 ;;
-;; Copyright (c) 2011 Alex Shinn.  All rights reserved.
+;; Copyright (c) 2011-2012 Alex Shinn.  All rights reserved.
 ;; BSD-style license: http://synthcode.com/license.txt
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (js-expr x)
-  (lambda (st) (((or (fmt-gen st) js-expr/sexp) x) st)))
+  (fmt-let 'gen js-expr/sexp
+           (lambda (st) (((or (fmt-gen st) js-expr/sexp) x) st))))
 
 (define (js-expr/sexp x)
   (cond
@@ -15,7 +16,7 @@
    ((pair? x)
     (case (car x)
       ((%fun function) (apply js-function (cdr x)))
-      ((%var var) (js-var (cdr x)))
+      ((%var var) (apply js-var (cdr x)))
       ((eq? ===) (apply js=== (cdr x)))
       ((>>>) (apply js>>> (cdr x)))
       ((%array) (js-array x))
@@ -36,8 +37,8 @@
           (fmt-join dsp params ", ") ")")
      (fmt-let 'return? #t (c-in-stmt (apply c-begin body))))))
 
-(define (js-var x)
-  (apply c-var 'var x))
+(define (js-var . args)
+  (apply c-var 'var args))
 
 (define (js=== . args)
   (apply c-op "===" args))

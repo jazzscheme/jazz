@@ -844,6 +844,63 @@
                              exported-table))))))
 
 
+(define (jazz:generate-library-mangler conversions)
+  (define (only parameters)
+    (lambda (key)
+      (if (and key (memq key parameters))
+          key
+        #f)))
+  
+  (define (except parameters)
+    (lambda (key)
+      (if (and key (not (memq key parameters)))
+          key
+        #f)))
+  
+  (define (prefix parameters)
+    (let ((prefix (let ((prefix (car parameters)))
+                    (cond ((keyword? prefix) (string-append (keyword->string prefix) ":"))
+                          ((symbol? prefix) (symbol->string prefix))
+                          ((string? prefix) prefix)
+                          (else (jazz:error "Invalid library prefix"))))))
+      (lambda (key)
+        (if key
+            (string->symbol (string-append prefix (symbol->string key)))
+          #f))))
+  
+  (define (rename parameters)
+    (let ((mapping (make-table)))
+      (for-each (lambda (conversion)
+                  (let ((key (car conversion))
+                        (value (cadr conversion)))
+                    (table-set! mapping key value)))
+                parameters)
+      (lambda (key)
+        (if key
+            (table-ref mapping key key)
+          #f))))
+  
+  (define (find-mangler conversion)
+    (case (car conversion)
+      ((only) only)
+      ((except) except)
+      ((prefix) prefix)
+      ((rename) rename)
+      (else (jazz:error "Invalid library operation"))))
+  
+  (let iter ((scan conversions)
+             (mangler #f))
+       (if (null? scan)
+           mangler
+         (let ((conversion (car scan)))
+           (let ((proc ((find-mangler conversion) (cdr conversion))))
+             (iter (cdr scan)
+                   (if mangler
+                       (lambda (key)
+                         (proc (mangler key)))
+                     proc)))))))
+
+
 (define (jazz:table-merge-reporting-conflicts! module-declaration prefix table add)
   (define (effective-declaration-locator decl)
     (cond ((%%is? decl jazz:Export-Declaration)

@@ -34,6 +34,21 @@
 (c-constant SQL_NO_DATA_FOUND 100)
 
 
+(c-constant SQL_SIGNED_OFFSET -20)
+(c-constant SQL_INTEGER 4)
+(c-constant SQL_CHAR 1)
+(c-constant SQL_BIT -7)
+(c-constant SQL_WCHAR -8)
+
+(c-constant SQL_C_BIT SQL_BIT)
+(c-constant SQL_C_LONG SQL_INTEGER)
+(c-constant SQL_C_SLONG (+ SQL_C_LONG SQL_SIGNED_OFFSET))
+(c-constant SQL_C_CHAR SQL_CHAR)
+(c-constant SQL_C_WCHAR SQL_WCHAR)
+
+
+
+
 ;;;
 ;;;; Column Attributes
 ;;;
@@ -58,13 +73,37 @@
 ;;;; TEMP SQL Server datatypes
 ;;;
 
-@a
+
+(definition (number->boolean n)
+  (if (= 0 n) #f #t))
+
+
 (definition public SQLServer-datatypes
-  `((4 numeric ,int*-alloc ,int*-ref ,int*-free #f)
-    (-7 numeric ,uint8*-alloc ,uint8*-ref ,uint8*-free ,number->boolean)
-    (-9 character ,wchar_t*-alloc ,wchar_t*->wchar_t-string-ref ,wchar_t*-free #f)
-    (12 character ,char*-alloc ,char*->char-string-ref ,char*-free #f)))
-    
+  `((4 numeric SQL_C_SLONG ,long*-alloc ,long*-ref #f)
+    (-7 numeric SQL_C_BIT ,uint8*-alloc ,uint8*-ref ,number->boolean)
+    (-9 character SQL_C_WCHAR ,wchar_t*-alloc ,wchar_t*->wchar_t-string-ref #f)
+    (12 character SQL_C_CHAR ,char*-alloc ,char*->char-string-ref #f)))
+  
+
+(definition (SQLServer-datatype-kind type)
+  (first (assq-value type SQLServer-datatypes #f)))
+
+
+(definition (SQLServer-datatype-c-type type)
+  (second (assq-value type SQLServer-datatypes #f)))
+
+
+(definition (SQLServer-datatype-alloc type)
+  (third (assq-value type SQLServer-datatypes #f)))
+
+
+(definition (SQLServer-datatype-ref type)
+  (fourth (assq-value type SQLServer-datatypes #f)))
+
+
+(definition (SQLServer-datatype-convert type)
+  (fifth (assq-value type SQLServer-datatypes #f)))
+
 
 ;;;
 ;;;; ODBC Exception
@@ -236,4 +275,39 @@
              (SQLCHAR*-free CharacterAttributePtr)
              (SQLSMALLINT*-free StringLengthPtr))))))
     (else (error "Unknown column attribute"))))
+
+@a
+(definition (SQLResizeBuffers num-cols))
+
+@a
+(definition public (SQLFetchAll StatementHandle)
+  (let* ((num-cols (SQLNumResultCols StatementHandle))
+         (indexes (naturals 1 (+ num-cols 1))))
+    (let ((col-types (map (lambda (col) (SQLColAttribute hstmt col SQL_DESC_CONCISE_TYPE)) indexes))
+          (col-sizes (map (lambda (col) (SQLColAttribute hstmt col SQL_DESC_LENGTH)) indexes)))
+      (let ((buffer-sizes (map (lambda (kind size)
+                                 (case kind
+                                   ((numeric) 1)
+                                   ((character) (if (= 0 size) default-text-buffers-size (+ 1 size)))))
+                               (map SQLServer-datatype-kind col-types)
+                               col-sizes)))
+        (let ((c-types (map SQLServer-datatype-c-type col-types))
+              (value-buffers (map (lambda (alloc size) (alloc size))
+                                  (map SQLServer-datatype-alloc col-types)
+                                  buffer-sizes))
+              (size-buffers (map (lambda (_) (SQLLEN*-alloc 1)) indexes)))
+          (for-each (lambda (ColumnNumber TargetType TargetValuePtr BufferLength StrLen_or_Ind)
+                      (SQLBindCol$ StatementHandle ColumnNumber TargetType TargetValuePtr BufferLength StrLen_or_Ind))
+                    indexes
+                    c-types
+                    value-buffers
+                    buffer-sizes
+                    size-buffers)
+          
+          
+          (let ((buffer-sizes-vector (list->vector buffer-sizes))
+                (value-buffers (list->vector buffer-sizes)))
+
+            ))))))
+    
 )

@@ -2445,7 +2445,7 @@
 
 (define (jazz:walk-macro-declaration walker resume declaration environment form-src)
   (receive (name type access compatibility parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let ((signature (jazz:walk-parameters walker resume declaration environment parameters #f #f)))
+    (let ((signature (jazz:walk-parameters walker resume declaration environment parameters #t #f)))
       (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                  (jazz:new-macro-declaration name type access compatibility '() declaration signature))))
         (jazz:set-declaration-source new-declaration form-src)
@@ -2456,7 +2456,7 @@
 (define (jazz:walk-macro walker resume declaration environment form-src)
   (receive (name type access compatibility parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let ((new-declaration (jazz:require-declaration declaration name)))
-      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #f #t)
+      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
         (jazz:set-macro-declaration-signature new-declaration signature)
         (jazz:set-macro-declaration-body new-declaration
           (jazz:walk-body walker resume new-declaration augmented-environment body))
@@ -2536,7 +2536,7 @@
 
 (define (jazz:walk-local-macro-declaration walker resume declaration environment form-src)
   (receive (name type access compatibility parameters body) (jazz:parse-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #f #t)
+    (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
       (let* ((new-declaration (or (jazz:find-declaration-child declaration name)
                                   (jazz:new-local-macro-declaration name type access compatibility '() declaration signature)))
              (walked-body (jazz:walk-body walker resume new-declaration augmented-environment body)))
@@ -2682,7 +2682,7 @@
     (let* ((name (jazz:source-code (%%car rest)))
            (body (%%cdr rest))
            (new-declaration (jazz:require-declaration declaration name)))
-      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment '() #f #t)
+      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment '() #t #t)
         (jazz:set-syntax-declaration-signature new-declaration signature)
         (jazz:set-syntax-declaration-body new-declaration
           (jazz:walk-body walker resume new-declaration augmented-environment body))
@@ -2771,7 +2771,7 @@
     (let* ((name (jazz:source-code (%%car rest)))
            (body (%%cdr rest))
            (new-declaration (jazz:require-declaration declaration name)))
-      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment '() #f #t)
+      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment '() #t #t)
         (jazz:set-syntax-declaration-signature new-declaration signature)
         (jazz:set-syntax-declaration-body new-declaration
           (jazz:walk-body walker resume new-declaration augmented-environment body))
@@ -2816,7 +2816,7 @@
   (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (let ((name (jazz:source-code (%%car rest)))
           (body (%%cdr rest)))
-      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment '() #f #t)
+      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment '() #t #t)
         (let* ((new-declaration (or (jazz:find-declaration-child declaration name)
                                     (jazz:new-define-local-syntax-declaration name jazz:Any access compatibility '() declaration signature #f)))
                (walked-body (jazz:walk-body walker resume new-declaration augmented-environment body)))

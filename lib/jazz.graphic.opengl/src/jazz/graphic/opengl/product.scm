@@ -54,7 +54,8 @@
         (define (source-file path)
           (string-append source path))
         
-        (jazz:copy-file (source-file "foreign/opengl/glut/lib/windows/glut32.dll") (build-file "glut32.dll") feedback: jazz:feedback))))
+        (jazz:copy-file (source-file "foreign/opengl/freeglut/bin/freeglut.dll") (build-file "freeglut.dll") feedback: jazz:feedback)
+        (jazz:copy-file (source-file "foreign/opengl/glew/bin/glew32.dll") (build-file "glew32.dll") feedback: jazz:feedback))))
   (else
     (define (jazz:copy-opengl-files)
       #f)))
@@ -63,8 +64,10 @@
 (cond-expand
   (windows
     (define jazz:opengl-units
-      (let ((glut-include-path (jazz:quote-jazz-pathname "foreign/opengl/glut/include"))
-            (glut-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/glut/lib/windows")))
+      (let ((glut-include-path (jazz:quote-jazz-pathname "foreign/opengl/freeglut/include"))
+            (glut-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/freeglut/lib/windows"))
+            (glew-include-path (jazz:quote-jazz-pathname "foreign/opengl/glew/include"))
+            (glew-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/glew/lib")))
         `((jazz.graphic.opengl.platform.WinOpenGL cc-options: "-DUNICODE -D_WIN32_WINNT=0x0502" ld-options: "-mwindows -lopengl32")
           (jazz.graphic.opengl.foreign.gl-header)
           (jazz.graphic.opengl.foreign.gl ld-options: "-lopengl32")
@@ -73,7 +76,8 @@
           (jazz.graphic.opengl.foreign.glu-header)
           (jazz.graphic.opengl.foreign.glu ld-options: "-lopengl32 -lglu32")
           (jazz.graphic.opengl.foreign.glut-header)
-          (jazz.graphic.opengl.foreign.glut cc-options: ,(string-append "-I" glut-include-path) ld-options: ,(string-append "-L" glut-lib-path " -lopengl32 -lglu32 -lglut32"))))))
+          (jazz.graphic.opengl.foreign.glut cc-options: ,(string-append "-I" glut-include-path) ld-options: ,(string-append "-L" glut-lib-path " -lopengl32 -lglu32 -lfreeglut"))
+          #;(jazz.graphic.opengl.foreign.glew cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglu32 -lglew32"))))))
   (else
     (define jazz:opengl-units
       '())))

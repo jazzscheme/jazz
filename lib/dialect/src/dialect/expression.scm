@@ -94,26 +94,6 @@
 
 
 ;;;
-;;;; Quasiquote
-;;;
-
-
-(jazz:define-class jazz:Quasiquote jazz:Expression (constructor: jazz:allocate-quasiquote)
-  ((form getter: generate)))
-
-
-(define (jazz:new-quasiquote form)
-  (jazz:allocate-quasiquote #f #f form))
-
-
-(jazz:define-method (jazz:emit-expression (jazz:Quasiquote expression) declaration environment backend)
-  (jazz:new-code
-    (jazz:emit 'quasiquote backend expression declaration environment)
-    jazz:List
-    #f))
-
-
-;;;
 ;;;; Specialized Call
 ;;;
 

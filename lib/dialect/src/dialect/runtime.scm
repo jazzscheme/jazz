@@ -1608,38 +1608,27 @@
   (jazz:allocate-literal name arguments))
 
 
-(define (jazz:walk-literal/constant walker resume declaration environment literal/constant)
-  (let ((module-declaration (jazz:get-declaration-toplevel declaration))
-        (literal? (%%is? literal/constant jazz:Literal)))
-    (define (walk-literal/constant walker resume declaration literal/constant)
+(define (jazz:walk-literal-constant walker resume declaration environment literal)
+  (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
+    (define (walk-literal walker resume declaration literal)
       (let ((environment (%%cons module-declaration (jazz:walker-environment walker))))
         (jazz:walk walker resume module-declaration environment
-          (cond (literal?
-                 (let ((name (jazz:get-literal-name literal/constant))
-                       (arguments (jazz:get-literal-arguments literal/constant)))
-                   (let ((constructor-reference (%%car (jazz:require-literal-constructor (%%desourcify name)))))
-                     `(,constructor-reference ,@(map (lambda (arg)
-                                                       `(quote ,arg))
-                                                     arguments)))))
-                ((%%pair? literal/constant)
-                 `(cons ',(%%car literal/constant) ',(%%cdr literal/constant)))
-                (else
-                 (jazz:walk-error walker resume declaration #f "Unable to walk constant: {s}" literal/constant))))))
+          (let ((name (jazz:get-literal-name literal))
+                (arguments (jazz:get-literal-arguments literal)))
+            (let ((constructor-reference (%%car (jazz:require-literal-constructor (%%desourcify name)))))
+              `(,constructor-reference ,@(map (lambda (arg)
+                                                `(quote ,arg))
+                                              arguments)))))))
 
     ;; calling jazz:get-registered-literal to only register when not already there
     ;; doesnt work directly because some literals are interned and thus can be shared
     (let ((locator (jazz:generate-global-symbol "lit")))
-      ;; it is important to register before any subliterals to ensure they come before us
+      ;; it is important to register before walking so subliterals come before us
       (let ((info (%%cons locator #f)))
         (jazz:set-module-declaration-walker-literals module-declaration (%%cons info (jazz:get-module-declaration-walker-literals module-declaration)))
-        (%%set-cdr! info (walk-literal/constant walker resume declaration literal/constant)))
+        (%%set-cdr! info (walk-literal walker resume declaration literal)))
       ;; this way of getting a reference to the literal's class is a quick solution
-      (let ((literal-type (if literal?
-                              (%%desourcify (jazz:get-literal-name literal/constant))
-                            (let ((name (%%get-category-identifier (jazz:class-of literal/constant))))
-                              (if (jazz:composite-reference? name)
-                                  (jazz:reference-name name)
-                                (jazz:identifier-name name))))))
+      (let ((literal-type (%%desourcify (jazz:get-literal-name literal))))
         (jazz:new-constant locator (jazz:lookup-reference walker resume declaration environment literal-type))))))
 
 
@@ -4274,11 +4263,30 @@
 
 
 (define (jazz:walk-quote walker resume declaration environment form-src)
+  (define (scheme-data? expr)
+    (or (%%null? expr)
+        (%%boolean? expr)
+        (%%char? expr)
+        (%%string? expr)
+        (%%keyword? expr)
+        (%%number? expr)
+        (%%symbol? expr)
+        (%%vector? expr)
+        (and (%%pair? expr)
+             (scheme-data? (%%car expr))
+             (scheme-data? (%%cdr expr)))))
+  
   (let ((form (jazz:strip-syntactic-closures form-src)))
     (let ((expression (%%cadr form)))
-      (if (%%null? expression)
-          (jazz:new-constant '(quote ()) jazz:Null)
-        (jazz:walk-constant walker resume declaration environment expression)))))
+      (if (scheme-data? expression)
+          (jazz:walk-constant walker resume declaration environment expression)
+        (let ((module-declaration (jazz:get-declaration-toplevel declaration))
+              (locator (jazz:generate-global-symbol "lit")))
+          ;; it is important to register before walking so subliterals come before us
+          (let ((info (%%cons locator #f)))
+            (jazz:set-module-declaration-walker-literals module-declaration (%%cons info (jazz:get-module-declaration-walker-literals module-declaration)))
+            (%%set-cdr! info (jazz:walk-quasiquote walker resume declaration environment form-src)))
+          (jazz:new-constant locator jazz:Any))))))
 
 
 (define (jazz:walk-keyword walker keyword)
@@ -4290,22 +4298,6 @@
 
 
 (define (jazz:walk-constant walker resume declaration environment form-src)
-  (define (scheme-pair-literal? form)
-    (and (%%pair? form)
-         (scheme-data? form)))
-  
-  (define (scheme-data? expr)
-    (or (%%null? expr)
-        (%%boolean? expr)
-        (%%char? expr)
-        (%%string? expr)
-        (%%keyword? expr)
-        (%%number? expr)
-        (%%symbol? expr)
-        ;; will need to scan vectors when we want jazz literals inside vectors
-        (%%vector? expr)
-        (and (%%pair? expr) (scheme-data? (%%car expr)) (scheme-data? (%%cdr expr)))))
-  
   (let ((form (jazz:source-code form-src)))
     (cond ((%%boolean? form)
            (jazz:new-constant form-src jazz:Boolean))
@@ -4323,6 +4315,10 @@
            (jazz:new-constant form-src jazz:Number))
           ((%%symbol? form)
            (jazz:new-constant `(quote ,form-src) jazz:Symbol))
+          ((%%null? form)
+           (jazz:new-constant `(quote ,form-src) jazz:Null))
+          ((%%pair? form)
+           (jazz:new-constant `(quote ,form-src) jazz:Pair))
           ((%%vector? form)
            (jazz:new-constant `(quote ,form-src) jazz:Vector))
           ((%%s8vector? form)
@@ -4347,24 +4343,70 @@
            (jazz:new-constant `(quote ,form-src) jazz:F64Vector))
           ((%%values? form)
            (jazz:new-constant `(quote ,form-src) jazz:Values))
-          ((%%null? form)
-           (jazz:new-constant `(quote ,form-src) jazz:Null))
           ((or (%%box? form)
                (%%eq? form #!optional)
                (%%eq? form #!key)
                (%%eq? form #!rest)
                (%%eq? form #!void))
            (jazz:new-constant `(quote ,form-src) jazz:Any))
-          ((scheme-pair-literal? form)
-           (jazz:new-constant `(quote ,form-src) jazz:Pair))
+          ((%%is? form jazz:Literal)
+           (jazz:walk-literal-constant walker resume declaration environment form))
           (else
-           (jazz:walk-literal/constant walker resume declaration environment form)))))
+           (jazz:walk-error walker resume declaration #f "Unable to walk constant: {s}" form)))))
 
 
 ;; extracted from jazz:walk logic
 (define (jazz:constant? form)
   (not (or (%%symbol? form)
            (%%pair? form))))
+
+
+;;;
+;;;; Quasiquote
+;;;
+
+
+(jazz:define-class jazz:Quasiquote jazz:Expression (constructor: jazz:allocate-quasiquote)
+  ((form getter: generate)))
+
+
+(define (jazz:new-quasiquote form)
+  (jazz:allocate-quasiquote #f #f form))
+
+
+(jazz:define-method (jazz:emit-expression (jazz:Quasiquote expression) declaration environment backend)
+  (jazz:new-code
+    (jazz:emit 'quasiquote backend expression declaration environment)
+    jazz:List
+    #f))
+
+
+(define (jazz:walk-quasiquote walker resume declaration environment form-src)
+  (define (walk form-src)
+    (cond ((%%pair? (jazz:source-code form-src))
+           (let ((head (%%car (jazz:source-code form-src)))
+                 (tail (%%cdr (jazz:source-code form-src))))
+             (let ((first (jazz:source-code head)))
+               (if (or (%%eq? first 'unquote)
+                       (%%eq? first 'unquote-splicing))
+                   (%%list first (jazz:walk walker resume declaration environment (%%cadr (jazz:source-code form-src))))
+                 (%%cons (walk-car head) (walk-cdr tail))))))
+          ((%%is? (jazz:source-code form-src) jazz:Literal)
+           (%%list 'unquote (jazz:walk walker resume declaration environment form-src)))
+          (else
+           form-src)))
+  
+  (define (walk-car form-src)
+    (if (%%is? (jazz:source-code form-src) jazz:Literal)
+        (%%list 'unquote (jazz:walk walker resume declaration environment form-src))
+      (walk form-src)))
+  
+  (define (walk-cdr form-src)
+    (if (%%is? (jazz:source-code form-src) jazz:Literal)
+        (%%list (%%list 'unquote-splicing (jazz:walk walker resume declaration environment form-src)))
+      (walk form-src)))
+  
+  (jazz:new-quasiquote (walk (%%cadr (jazz:source-code form-src)))))
 
 
 ;;;

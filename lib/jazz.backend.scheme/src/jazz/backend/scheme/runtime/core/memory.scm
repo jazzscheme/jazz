@@ -57,16 +57,16 @@
 
 (define (jazz:process-memory)
   (let ((vec (##process-statistics)))
-    (let ((heap       (f64vector-ref vec 15))
-          (alloc      (f64vector-ref vec 16))
-          (live       (f64vector-ref vec 17))
-          (movable    (f64vector-ref vec 18))
-          (nonmovable (f64vector-ref vec 19)))
-      (values (%%flonum->fixnum heap)
-              (%%flonum->fixnum alloc)
-              (%%flonum->fixnum live)
-              (%%flonum->fixnum movable)
-              (%%flonum->fixnum nonmovable)))))
+    (let ((last_gc_heap_size  (f64vector-ref vec 15))
+          (last_gc_alloc      (f64vector-ref vec 16))
+          (last_gc_live       (f64vector-ref vec 17))
+          (last_gc_movable    (f64vector-ref vec 18))
+          (last_gc_nonmovable (f64vector-ref vec 19)))
+      (values last_gc_heap_size
+              last_gc_alloc
+              last_gc_live
+              last_gc_movable
+              last_gc_nonmovable))))
 
 
 (define (jazz:symbols-memory)

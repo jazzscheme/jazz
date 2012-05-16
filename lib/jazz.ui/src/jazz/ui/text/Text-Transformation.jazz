@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Archive Schema Source
+;;;; Text Transformation
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,58 +35,15 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.schema.archive.Archive-Schema-Source jazz
+(module protected jazz.ui.text.Text-Transformation jazz
 
 
-(import (jazz.schema))
+(import (jazz.jml))
 
 
-(class undocumented Archive-Schema-Source extends Object implements Schema-Source
+(class Text-Transformation extends JML-Transformation
   
   
-  (slot file   getter generate)
-  (slot schema getter generate)
-  
-  
-  (method override (initialize file schema)
-    (nextmethod)
-    (set! file~self file)
-    (set! schema~self schema))
-  
-  
-  ;;;
-  ;;;; Present
-  ;;;
-  
-  
-  (method override (present)
-    (format "{a} ({a})"
-            (get-name~ file)
-            schema))
-  
-  
-  (method override (present-detailed)
-    `(<span>
-       "Archive"
-       (<bulleted> ,(format "File: {a}" (get-name~ file)))
-       (<bulleted> ,(format "Schema: {a}" schema))))
-  
-  
-  ;;;
-  ;;;; Schema
-  ;;;
-  
-  
-  (method override (get-data-schema (reporter: reporter #f))
-    (define (valid-schema schema schemas)
-      (if (empty-string? schema)
-          (error "Schema is mandatory")
-        (or (assoc schema schemas)
-            (error "Unknown schema: {a}" schema))))
-    
-    (receive (version properties) (read-header~ Schema-Archive file)
-      (let ((schemas (getf properties schemas:)))
-        (bind (name provider) (valid-schema schema schemas)
-          (assert (= name schema))
-          (let ((archive (load-archive~ Schema-Archive file)))
-            (get-schema~ archive name))))))))
+  (pattern (bulleted node)
+    `(<paragraph> bulleted: #t
+       ,@(children->jml~ node)))))

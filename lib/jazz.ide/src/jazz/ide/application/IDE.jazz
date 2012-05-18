@@ -942,13 +942,36 @@
 
   (method package (on-logs-viewer evt)
     (show-palette Logs-Viewer))
+
+  
+  (method (on-browse-class evt)
+    (let ((target (determine-browse-target)))
+      (let ((host (new-frame Class-Browser initialize: (lambda (view)
+                                                         (when target
+                                                           (set-class-name~ view target))))))
+        (let ((browser (get-guest~ host)))
+          (focus-class-name~ browser)
+          (when target
+            (browse~ browser))))))
+
+  
+  (method (on-browse-method evt)
+    (let ((target (determine-browse-target)))
+      (let ((host (new-frame Class-Browser initialize: (lambda (view)
+                                                         (when target
+                                                           (set-method-name~ view target))))))
+        (let ((browser (get-guest~ host)))
+          (focus-method-name~ browser)
+          (when target
+            (browse~ browser))))))
   
   
-  (method (on-class-browser evt)
-    (let* ((focus (get-focus))
-           (text (if (is? focus Text-View) (get-selected-string~ focus) #f)))
-      (show-palette Class-Browser initialize: (lambda (view)
-                                                (set-text~ view text)))))
+  (method (determine-browse-target)
+    (let ((focus (get-focus)))
+      (when (is? focus Code-Text-View)
+        (let ((form (current-expr~ focus)))
+          (when form
+            (standardize-form~ focus form #t))))))
   
   
   (method (on-references-analyser evt)

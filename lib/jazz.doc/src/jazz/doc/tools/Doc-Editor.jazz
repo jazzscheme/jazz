@@ -40,10 +40,13 @@
 
 (import (jazz.designer)
         (jazz.doc)
+        (jazz.io)
         (jazz.jml)
         (jazz.library)
+        (jazz.system)
         (jazz.ui)
-        (jazz.ui.view))
+        (jazz.ui.view)
+        (jazz.website))
 
 
 (class Doc-Editor extends Component-Editor
@@ -63,13 +66,17 @@
     (<install>                                                 title: "Documentation Editor" size: {Dimension 650 400} layout-type: border layout-insets: {Rect 2 0 2 2}
       (<Layout-View>                  name: toolbar            size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
         (<Push-Tool>                  name: save               size: {Dimension 22 22} tooltip?: #t tooltip-text: "Save" resource: {Image-Resource "Save"} portfolio: :images action-handler: {Event-Handler :form on-save-doc})
+        @wait
         (<Separator>)
+        @wait
         (<Push-Tool>                  name: reload             size: {Dimension 22 22} tooltip?: #t tooltip-text: "Reload" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-reload-doc})
+        @wait
         (<Separator>                                           size: {Dimension 32 0})
+        @wait
         (<Push-Tool>                  name: build              size: {Dimension 22 22} tooltip?: #t tooltip-text: "Build" resource: {Image-Resource "Build"} portfolio: :images action-handler: {Event-Handler :form on-build-doc})
         (<Separator>                                           size: {Dimension 32 0})
         (<Push-Tool>                  name: edit               size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" resource: {Image-Resource "Edit"} portfolio: :images action-handler: {Event-Handler :form on-edit-doc}))
-      (<Splitter-View>                name: splitter           size: {Dimension 650 367} location: center orientation: horz mode: absolute division: 250
+      (<Splitter-View>                name: splitter           size: {Dimension 650 367} location: center orientation: horz mode: absolute division: 250 style: document
         (<Border-View>                name: descendants-border size: {Dimension 255 366} location: first border-type: edge style: entry
           (<Scroller-View>            name: scroller           style: document hscroll?: #t vscroll?: #t
             (<!>                      name: content            layout-type: fill
@@ -165,7 +172,8 @@
   (method (on-save-doc evt)
     (with-cursor :wait
       (lambda ()
-        (save))))
+        (parameterize ((printing-doc? #t))
+          (save)))))
   
   
   @w
@@ -181,7 +189,49 @@
   (method (on-build-doc evt)
     (if (null? client)
         (bell)
-      (unimplemented 'on-build)))
+      (build-doc)))
+  
+  
+  (method (build-doc)
+    (unimplemented)
+    @w (
+    (define JazzWebsite-Site
+      {File Jazz "lib" "jazz.website" "site" "JazzWebsite.jml"})
+    
+    (define JazzWebsite-Content
+      {Directory Jazz "lib" "jazz.website" "content"})
+    
+    (define (render-jazzwebsite-page page)
+      (let* ((content JazzWebsite-Content)
+             (file (new-file~ content (format "{a}.htm" (get-property~ page 'path))))
+             (preferences (new JML-Preferences))
+             (renderer (new XHTML-Renderer preferences))
+             (html (first-child~ page)))
+        ;; why does using UTF-8 char-encoding not work with accents in the generated HTML page
+        (call-with-output-file (path-settings file char-encoding: 'ISO-8859-1)
+          (lambda (output)
+            (render~ renderer html output)))))
+    
+    (user-feedback "Generating...")
+    (reload-documentation~ (get-application))
+    (let ((transformation (new JazzWebsite-Transformation))
+          (projects (list (get-client~ (find-catalog~ (get-documentation-cataloguer~ (get-application)) 'jazz)))))
+      (let ((title "Jazz")
+            (content (standalone-manual-output~ transformation projects)))
+        (let ((page `(<page> path: "test"
+                       (<html>
+                         (<head>
+                           (<link> href: "css/master.css" rel: "stylesheet" type: "text/css")
+                           (<title> ,title))
+                         (<body>
+                           (<div> id: "page"
+                             (<h1> id: "title" "JazzScheme")
+                             (<div> id: "content"
+                               ,@content
+                               (<div> id: "footer"
+                                 (<p> "Copyright &copy; 1996-2012 Guillaume Cartier")))))))))
+          (render-jazzwebsite-page (parse-jml (transform-jml~ (new DocToHTML-Transformation) (parse-jml page))))
+          (user-message "Done"))))))
   
   
   (method (on-edit-doc evt)

@@ -1,8 +1,12 @@
 
 (cond-expand
  (chicken
+  (load "fmt-chicken.scm"))
+ (else))
+
+(cond-expand
+ (chicken
   (use test)
-  (load "fmt-chicken.scm")
   (import fmt))
  (gauche
   (use gauche.test)
@@ -188,7 +192,6 @@
 (test "prefix: defgh" (fmt #f "prefix: " (fit/left 5 "abcdefgh")))
 (test "prefix: cdefg" (fmt #f "prefix: " (fit/both 5 "abcdefgh")))
 
-#; ;; string-split
 (test "abc\n123\n" (fmt #f (fmt-join/suffix (cut trim 3 <>) (string-split "abcdef\n123456\n" "\n") nl)))
 
 ;; utilities
@@ -234,7 +237,6 @@
 ;;   (let ((sexp (with-input-from-string str read)))
 ;;     `(test ,str (fmt #f (pretty ',sexp)))))
 
-#;
 (define-syntax test-pretty
   (syntax-rules ()
     ((test-pretty str)
@@ -297,7 +299,6 @@
         (let ((line (read port)))
           (if (eof-object? line) (reverse res) (loop (cons line res))))))))\n")
 
-#; ;; pretty not handling circular lists
 (test "(let ((ones '#0=(1 . #0#))) ones)\n"
     (fmt #f (pretty (let ((ones (list 1))) (set-cdr! ones ones) `(let ((ones ',ones)) ones)))))
 
@@ -336,11 +337,9 @@
     (fmt #f (fmt-columns (list dsp "abc\ndef\n") (list dsp "123\n456\n") (list dsp "wuv\nxyz\n"))))
 (test "abc  123\ndef  456\n"
     (fmt #f (fmt-columns (list (cut pad/right 5 <>) "abc\ndef\n") (list dsp "123\n456\n"))))
-#; ;; compose
 (test "ABC  123\nDEF  456\n"
     (fmt #f (fmt-columns (list (compose upcase (cut pad/right 5 <>)) "abc\ndef\n")
                          (list dsp "123\n456\n"))))
-#; ;; compose
 (test "ABC  123\nDEF  456\n"
     (fmt #f (fmt-columns (list (compose (cut pad/right 5 <>) upcase) "abc\ndef\n")
                          (list dsp "123\n456\n"))))
@@ -382,7 +381,6 @@ equivalent to REVERSE.
 "
     (fmt #f (with-width 36 (justify "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE."))))
 
-#; ;; pretty
 (test
 "(define (fold kons knil ls)          ; The fundamental list iterator.
   (let lp ((ls ls) (acc knil))       ; Applies KONS to each element of
@@ -406,7 +404,6 @@ equivalent to REVERSE.
               (with-width 36
                 (wrap-lines "The fundamental list iterator.  Applies KONS to each element of LS and the result of the previous application, beginning with KNIL.  With KONS as CONS and KNIL as '(), equivalent to REVERSE."))))))
 
-#; ;; pretty
 (test
 "(define (fold kons knil ls)          ; The fundamental list iterator.
   (let lp ((ls ls) (acc knil))       ; Applies KONS to each element of
@@ -467,8 +464,6 @@ def | 6
 
 ;; misc extras
 
-#; ;; string-substitute
-(
 (define (string-hide-passwords str)
   (string-substitute (regexp "(pass(?:w(?:or)?d)?\\s?[:=>]\\s+)\\S+" #t)
                      "\\1******"
@@ -487,6 +482,5 @@ def | 6
 
 (define mangle-email
   (make-string-fmt-transformer string-mangle-email))
-)
 
 (test-end)

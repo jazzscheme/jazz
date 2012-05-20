@@ -648,7 +648,7 @@
                                    ((char? prefix) (string prefix))
                                    (else "")))
                      (diff (- align
-                              (+ (if (zero? k) 1 k) (string-length prefix))
+                              (+ (if (<= k 0) 1 k) (string-length prefix))
                               1)))
                 (if (positive? diff)
                     (display (make-string diff (fmt-pad-char st)) port))

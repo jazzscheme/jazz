@@ -79,13 +79,19 @@
   (get-cataloguer~ (get-application)))
 
 
-(definition public (find-entry name (kind #f))
+(definition public (find-entries name (kind #f))
   (let ((definitions (get-definitions~ (entry-cataloguer) name)))
     (if (not kind)
-        (and (not-null? definitions) (car definitions))
-      (find-if (lambda (definition)
-                 (eq? (get-kind~ definition) kind))
-               definitions))))
+        definitions
+      (collect-if (lambda (definition)
+                    (eq? (get-kind~ definition) kind))
+                  definitions))))
+
+
+(definition public (find-entry name (kind #f))
+  (let ((entries (find-entries name kind)))
+    (and (not-null? entries)
+         (car entries))))
 
 
 (definition public (require-entry name)
@@ -168,6 +174,14 @@
       (class-entry extends))))
 
 
+(definition public (class-entry-ascendants entry)
+  (let (iter (class entry) (ascendants (list entry)))
+    (let ((ascendant (class-entry-ascendant class)))
+      (if (not ascendant)
+          ascendants
+        (iter ascendant (cons ascendant ascendants))))))
+
+
 (definition public (class-entry-interfaces entry)
   (let ((implements (class-entry-implements entry)))
     (if (not implements)
@@ -203,6 +217,14 @@
 ;;;
 ;;;; Method
 ;;;
+
+
+(definition public (method-entries name)
+  (find-entries name 'method))
+
+
+(definition public (method-entry-class entry)
+  (get-parent~ entry))
 
 
 (definition public (method-entry-descendants entry)

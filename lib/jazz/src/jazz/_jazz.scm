@@ -40,6 +40,7 @@
 
 (export (scheme)
         
+        (jazz.object)
         (jazz.dialect (phase syntax))
         (jazz.language.syntax (phase syntax))
         (jazz.language.runtime)

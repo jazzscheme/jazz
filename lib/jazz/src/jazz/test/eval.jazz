@@ -1,0 +1,66 @@
+(module jazz.test.eval jazz
+
+
+(define global-environment
+  (make-table test: eq?))
+
+
+(define (ev expr)
+  (define (ev-define)
+    (bind (var val) (cdr expr)
+      (table-set! global-environment var (ev val))
+      var))
+  
+  (define (ev-if)
+    (bind (test yes no) (cdr expr)
+      (if (ev test)
+          (ev yes)
+        (ev no))))
+  
+  (define (ev-call)
+    (let ((proc (ev (car expr)))
+          (args (map ev (cdr expr))))
+      (apply proc args)))
+  
+  (define (ev-variable)
+    (table-ref global-environment expr))
+  
+  (define (ev-constant)
+    expr)
+  
+  (cond ((null? expr)
+         (error "Ill-formed empty list"))
+        ((symbol? expr)
+         (ev-variable))
+        ((pair? expr)
+         (let ((first (car expr)))
+           (case first
+             ((define)
+              (ev-define))
+             @w
+             ((define-macro)
+              )
+             ((if)
+              (ev-if))
+             ;; left as an exercice
+             @w
+             ((lambda)
+              (ev-lambda))
+             (else
+              (ev-call)))))
+        (else
+         (ev-constant))))
+
+
+(define (foo a b c)
+  (+ a b c))
+
+(debug (ev '2))
+(ev '(define val 8))
+(debug (ev 'val))
+;(ev (define-macro (cond ...) `(if ...)))
+;(debug (ev 'jazz.test:foo))
+(debug (ev '(if #t 2 3)))
+(debug (ev '(if #f 2 3)))
+;(debug (ev '(jazz.test:foo 2 3 4)))
+)

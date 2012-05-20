@@ -56,9 +56,9 @@
     (<install>
       (<!>                     name: domain      title: "Search"
         (<content~>
-          (<Radio-Button>      name: files       title: "Files" position: {Point 13 14} size: {Dimension 100 18} selected?: #t)
-          (<Radio-Button>      name: definitions title: "Definitions" position: {Point 13 34} size: {Dimension 100 18})
-          (<Radio-Button>      name: references  title: "References" position: {Point 13 54} size: {Dimension 100 18})
+          (<Radio-Button>      name: files       title: "Files" position: {Point 13 14} size: {Dimension 100 18} selected?: #t action-handler: {Event-Handler :form on-search-domain})
+          (<Radio-Button>      name: definitions title: "Definitions" position: {Point 13 34} size: {Dimension 100 18} action-handler: {Event-Handler :form on-search-domain})
+          (<Radio-Button>      name: references  title: "References" position: {Point 13 54} size: {Dimension 100 18} action-handler: {Event-Handler :form on-search-domain})
           (<Label-View>                          title: "Project:" position: {Point 115 21} size: {Dimension 46 16})
           (<Border-View>                         position: {Point 163 17} size: {Dimension 155 22} border-insets: {Rect 2 3 2 1} border-color: {Color Medium}
             (<Border-View>                       border-color: {Color Entry-Border}
@@ -86,14 +86,9 @@
           include-groups?: #t)
         (queue-list choices)))
     
-    (define (setup-entries)
-      (let ((combo (locate 'entries)))
-        (set-choices~ combo (list (list #f "All")))
-        (set-value~ combo #f)))
-    
     (nextmethod rest)
     (setup-projects)
-    (setup-entries))
+    (setup-entries 'files))
   
 
   ;;;
@@ -108,8 +103,29 @@
   
   
   ;;;
+  ;;;; Entries
+  ;;;
+  
+  
+  (method (setup-entries domain)
+    (let ((combo (locate 'entries)))
+      (case domain
+        ((files)
+         (set-choices~ combo '((#f "All") (projects "Projects") (packages "Packages") (documentation "Documentation")))
+         (set-value~ combo #f))
+        (else
+         (set-choices~ combo (list (list #f "All")))
+         (set-value~ combo #f)))))
+  
+  
+  ;;;
   ;;;; Events
   ;;;
+  
+  
+  (method (on-search-domain evt)
+    (let ((domain (get-name~ (get-sender~ evt))))
+      (setup-entries domain)))
   
   
   (method (project-change project)
@@ -126,14 +142,29 @@
       (let ((appl (get-application)))
         (let ((search (new Projects-Search 'files find replace))
               (project (selected-project))
+              (entries (selected-entries))
               (cataloguer (get-cataloguer~ appl))
               (reporter (new User-Reporter)))
           (define (search-project resultset)
             (for-each-project~ project
               (lambda (project)
-                (iterate-files~ project
-                  (lambda (file)
-                    (search-in-file search file resultset reporter))))))
+                (if (not entries)
+                    (iterate-files~ project
+                      (lambda (file)
+                        (search-in-file search file resultset reporter)))
+                  (case entries
+                    ((projects)
+                     (let ((project-file (get-tag-reference~ (get-form~ project))))
+                       (when project-file
+                         (search-in-file search project-file resultset reporter))))
+                    ((packages)
+                     (let ((description-file (get-description-file~ project)))
+                       (when description-file
+                         (search-in-file search description-file resultset reporter))))
+                    ((documentation)
+                     (let ((documentation (get-documentation~ project)))
+                       (when documentation
+                         (search-in-file search documentation resultset reporter)))))))))
           
           (let ((resultset (new Search-Resultset search)))
             (search-project resultset)
@@ -193,7 +224,11 @@
         (execute-event
           (lambda ()
             (message-box "Please select a project")))
-        (signal-cancel)))))
+        (signal-cancel))))
+  
+  
+  (method (selected-entries)
+    (get-value~ (locate 'entries))))
 
 
 ;;;

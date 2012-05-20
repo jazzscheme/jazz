@@ -40,6 +40,7 @@
 
 (import (jazz.catalog)
         (jazz.catalog.entry)
+        (jazz.graphic)
         (jazz.ide)
         (jazz.jml)
         (jazz.library)
@@ -48,20 +49,30 @@
         (jazz.ui.view))
 
 
-(class Class-Browser extends View
-  
-  
-  (property text initialize #f)
+(class Class-Browser extends Layout-View
 
 
   (form
-    (<install>                                             size: {Dimension 395 599}
-      (<Border-View>                  name: name-border    position: {Point 2 9} size: {Dimension 250 19} border-type: edge style: entry
-        (<Scroller-View>                                   hscroll?: #f vscroll?: #f
-          (<!>                        name: content        layout-type: fill
-            (<IDE-Text-View>          name: name           left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t return-press-handler: {Event-Handler :form on-return-press}))))
-      (<Push-Button>                  name: browse         title: "Browse Hierarchy" position: {Point 272 7} size: {Dimension 120 22} action-handler: {Event-Handler :form on-browse})
-      (<Border-View>                  name: classes-border position: {Point 2 35} size: {Dimension 391 562} border-type: edge style: entry
+    (<install>                                             size: {Dimension 395 599} layout-type: border
+      (<Layout-View>                  name: toolbar        size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Separator>                                       size: {Dimension 2 0})
+        (<Label-View>                 name: class-label    justification: (head -2) title: "Class:" size: {Dimension 31 20} font: {Font Label})
+        (<Separator>                                       size: {Dimension 4 0})
+        (<Border-View>                                     size: {Dimension 150 21} border-type: fill border-insets: {Rect 0 2 0 0}
+          (<Border-View>                                   border-type: edge style: entry
+            (<Scroller-View>                               hscroll?: #f vscroll?: #f
+              (<!>                    name: content        layout-type: fill
+                (<IDE-Text-View>      name: class          left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t return-press-handler: {Event-Handler :form on-return-press})))))
+        (<Separator>                                       size: {Dimension 12 0})
+        (<Label-View>                 name: method-label   justification: (head -2) title: "Method:" size: {Dimension 41 20} font: {Font Label})
+        (<Separator>                                       size: {Dimension 4 0})
+        (<Border-View>                                     size: {Dimension 150 21} border-type: fill border-insets: {Rect 0 2 0 0}
+          (<Border-View>                                   border-type: edge style: entry
+            (<Scroller-View>                               hscroll?: #f vscroll?: #f
+              (<!>                    name: content        layout-type: fill
+                (<IDE-Text-View>      name: method         left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t return-press-handler: {Event-Handler :form on-return-press})))))
+        (<Push-Button>                name: browse         location: tail title: "Browse" size: {Dimension 100 22} action-handler: {Event-Handler :form on-browse}))
+      (<Border-View>                  name: classes-border location: center border-type: edge style: entry
         (<Scroller-View>                                   style: document hscroll?: #t vscroll?: #t
           (<!>                        name: content        layout-type: fill
             (<Tree-Header>                                 style: document
@@ -88,11 +99,15 @@
   
   
   (method meta override (host-size)
-    {Dimension 395 600})
+    {Dimension 800 600})
+  
+  
+  (method override (host-workspaces)
+    '(home))
 
   
   (method override (focus-default)
-    (acquire-focus~ (locate 'name)))
+    (acquire-focus~ (locate 'class)))
   
   
   ;;;
@@ -100,15 +115,38 @@
   ;;;
   
   
-  (method public (get-text)
-    (get-string-content~ (locate 'name)))
+  (method public (get-class-name)
+    (let ((str (get-string-content~ (locate 'class))))
+      (and (not (empty-string? str))
+           str)))
   
   
-  (method public (set-text value)
-    (let ((name-view (locate 'name)))
+  (method public (set-class-name value)
+    (let ((name-view (locate 'class)))
       (when value
         (set-string-content~ name-view value))
       (select-all~ name-view)))
+  
+  
+  (method public (focus-class-name)
+    (acquire-focus~ (locate 'class)))
+  
+  
+  (method public (get-method-name)
+    (let ((str (get-string-content~ (locate 'method))))
+      (and (not (empty-string? str))
+           str)))
+  
+  
+  (method public (set-method-name value)
+    (let ((name-view (locate 'method)))
+      (when value
+        (set-string-content~ name-view value))
+      (select-all~ name-view)))
+  
+  
+  (method public (focus-method-name)
+    (acquire-focus~ (locate 'method)))
   
   
   ;;;
@@ -134,21 +172,7 @@
   
   
   (method (on-browse evt)
-    (define (get-class-entry)
-      (let ((text (get-text)))
-        (if (empty-string? text)
-            (find-entry "Object" 'class)
-          (find-entry text 'class))))
-    
-    (let ((entry (get-class-entry)))
-      (if (not entry)
-          (message-box (format "Unable to find class: {a}" (get-string-content~ (locate 'name))))
-        (let ((kind (get-kind~ entry)))
-          (if (neq? kind 'class)
-              (message-box (format "Can only browse classes: {s}" kind))
-            (with-cursor :wait
-              (lambda ()
-                (browse-inheritance-tree entry))))))))
+    (browse))
   
   
   (method override (on-return-press evt)
@@ -156,13 +180,20 @@
   
   
   (method (on-double-click evt)
-    (let* ((tree (get-sender~ evt))
-           (selection (get-single-selection~ tree)))
-      (when selection
-        (let* ((row (get-row~ tree selection))
-               (entry (get-user-data~ row))
-               (appl (get-application)))
-          (edit-definitions~ appl (get-name~ entry))))))
+    (let ((tree (get-sender~ evt)))
+      (for-each edit~ (get-selected-data~ tree))))
+  
+  
+  ;;;
+  ;;;; Tab
+  ;;;
+  
+  
+  (method override (get-tab-stops)
+    (list
+      (locate 'class)
+      (locate 'method)
+      (locate 'classes)))
 
   
   ;;;
@@ -170,38 +201,65 @@
   ;;;
   
   
-  (method (browse-inheritance-tree entry)
-    (let ((tree (locate 'classes)))
+  (method protected (browse)
+    (define (get-class-entry)
+      (let ((class-name (get-class-name)))
+        (if (not class-name)
+            (find-entry "Object" 'class)
+          (find-entry class-name 'class))))
+    
+    (let ((entry (get-class-entry)))
+      (if (not entry)
+          (message-box (format "Unable to find class: {a}" (or (get-class-name) "")))
+        (let ((kind (get-kind~ entry)))
+          (if (neq? kind 'class)
+              (message-box (format "Can only browse classes: {s}" kind))
+            (with-cursor :wait
+              (lambda ()
+                (let ((method-name (get-method-name)))
+                  (browse-inheritance-tree entry method-name)))))))))
+  
+  
+  (method (browse-inheritance-tree entry method-name)
+    (let* ((tree (locate 'classes))
+           (methods (and method-name (method-entries method-name)))
+           (method-ascendants (and method-name (remove-duplicates (apply append! (map class-entry-ascendants (map method-entry-class methods)))))))
+      (define class-ascendant-cache
+        (make-table test: eq?))
+      
+      (define (find-class-ascendant class)
+        (or (table-ref class-ascendant-cache class #f)
+            (let ((ascendant (class-entry-ascendant class)))
+              (table-set! class-ascendant-cache class ascendant)
+              ascendant)))
+      
       (define (upward type)
-        (let* ((state 'expanded)
-               (title (->string (get-name~ type)))
-               (ascendant (class-entry-ascendant type))
+        (let* ((ascendant (find-class-ascendant type))
                (father (and ascendant (upward ascendant))))
-          (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Image-Resource "Class"})) user-data: type)))
+          (insert-class type father)))
       
       (define (downward type father)
-        (let* ((state 'expanded)
-               (title (->string (get-name~ type)))
-               (father (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Image-Resource "Class"})) user-data: type)))
+        (let ((father (insert-class type father))
+              (descendants (if method-ascendants (collect-if (lambda (class) (eq? (find-class-ascendant class) type)) method-ascendants) (class-entry-descendants type))))
           (for-each (lambda (subtype)
                       (downward subtype father))
-                    (sort string<? (class-entry-descendants type) key: get-name~))))
+                    (sort string<? descendants key: get-name~))))
+      
+      (define (insert-class type father)
+        (let* ((state 'expanded)
+               (title (->string (get-name~ type)))
+               (method (and methods (find methods type key: method-entry-class return: 'item)))
+               (font (and method {Font Label-Bold}))
+               (color (and method
+                           (cond ((or (memq? 'virtual (get-modifiers~ method))
+                                      (memq? 'chained (get-modifiers~ method)))
+                                  {Color Dark-Red})
+                                 (else
+                                  {Color Dark-Green})))))
+          (add-row~ tree father: father state: state children: (list (new Tree-Node title: title font: font color: color image: {Image-Resource "Class"})) user-data: (or method type))))
       
       (remove-every-row~ tree)
       (with-update-locked~ tree
         (lambda ()
           (let ((ascendant (class-entry-ascendant entry)))
-            (downward entry (and ascendant (upward ascendant))))))))
-
-  
-  ;;;
-  ;;;; Selection
-  ;;;
-  
-  
-  (method (selected-categories)
-    (let* ((tree (locate 'classes))
-           (selection (get-selection~ tree)))
-      (map (lambda (rank)
-             (get-user-data~ (get-row~ tree rank)))
-           selection)))))
+            (downward entry (and ascendant (upward ascendant))))))))))

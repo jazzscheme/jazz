@@ -77,6 +77,7 @@
 (native jazz:get-and-expressions)
 (native jazz:get-expression-source)
 (native jazz:compose-helper)
+(native jazz:new-special-expression)
 
 
 ;;;

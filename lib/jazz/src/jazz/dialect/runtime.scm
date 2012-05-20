@@ -2187,17 +2187,6 @@
 
 
 ;;;
-;;;; Time
-;;;
-
-
-(define (jazz:walk-time walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (let ((forms (%%cdr form)))
-      (jazz:new-time-special (jazz:walk-list walker resume declaration environment forms)))))
-
-
-;;;
 ;;;; Dialect
 ;;;
 
@@ -2229,5 +2218,4 @@
 (jazz:define-walker-declaration with-dynamic-self    jazz jazz:walk-with-dynamic-self-declaration jazz:walk-with-dynamic-self)
 (jazz:define-walker-declaration with-local-variables jazz jazz:walk-with-local-variables-declaration jazz:walk-with-local-variables)
 (jazz:define-walker-special     cast                 jazz jazz:walk-cast)
-(jazz:define-walker-special     allocate             jazz jazz:walk-allocate)
-(jazz:define-walker-special     time                 jazz jazz:walk-time))
+(jazz:define-walker-special     allocate             jazz jazz:walk-allocate))

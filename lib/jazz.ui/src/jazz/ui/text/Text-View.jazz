@@ -468,14 +468,9 @@
       (set-text-alignment~ model (get-selection) alignment)))
   
   
-  (method (on-paragraph-format/style evt)
-    (let ((name/exemplar (get-property~ evt style:)))
-      (set-selection-format/style name/exemplar format?: #t style?: #t)))
-  
-  
   (method (on-text-style evt)
     (let ((style (get-property~ evt style:)))
-      (set-selection-format/style style style?: #t)))
+      (set-selection-format/style style)))
   
   
   (method (on-text-font evt)
@@ -2917,31 +2912,32 @@
   ;;;
   
   
-  (method public (set-selection-format/style name/exemplar (format?: format? #f) (style?: style? #f))
-    (let* ((format (and format? (locate-format~ model name/exemplar error?: #f)))
-           (style (and style? (locate-style~ model name/exemplar error?: #f)))
-           (selection (get-selection))
-           (start (get-start))
-           (end (get-end))
-           (span? (neq? (get-paragraph (get-line~ start)) (get-paragraph (get-line~ end)))))
-      (when style
-        (cond ((or (empty-selection?) span?)
-               (for-each-paragraph~ model
-                 (lambda (line <fx> paragraph <Paragraph>)
-                   (set-text-style~ model (new Range$Cell$ (new Cell line 0) (new Cell line (get-length~ paragraph))) style))
-                start: (get-line~ start)
-                end: (get-line~ end)))
-              (else
-               (set-text-style~ model selection style))))
-      (when format
-        (for-each-paragraph~ model
-          (lambda (line <fx> paragraph <Paragraph>)
-            (set-paragraph-format~ model paragraph format))
-         start: (get-line~ start)
-         end: (get-line~ end)))
-      (set-modified?~ model #t)
-      (layout-scrollee)
-      (invalidate-view)))
+  (method public (set-selection-format/style name)
+    (let ((selection (get-selection))
+          (start (get-start))
+          (end (get-end)))
+      (let ((empty? (empty-selection?))
+            (span? (neq? (get-paragraph (get-line~ start)) (get-paragraph (get-line~ end)))))
+        (let ((format (and (or empty? span?) (locate-format~ model name error?: #f) (new Format base: name)))
+              (style (and (locate-style~ model name error?: #f) (new Text-Style base: name))))
+          (when style
+            (cond ((or empty? span?)
+                   (for-each-paragraph~ model
+                     (lambda (line <fx> paragraph <Paragraph>)
+                       (set-text-style~ model (new Range$Cell$ (new Cell line 0) (new Cell line (get-length~ paragraph))) style))
+                     start: (get-line~ start)
+                     end: (get-line~ end)))
+                  (else
+                   (set-text-style~ model selection style))))
+          (when format
+            (for-each-paragraph~ model
+              (lambda (line <fx> paragraph <Paragraph>)
+                (set-paragraph-format~ model paragraph format))
+              start: (get-line~ start)
+              end: (get-line~ end)))
+          (set-modified?~ model #t)
+          (layout-scrollee)
+          (invalidate-view)))))
   
   
   (method (on-bold evt)

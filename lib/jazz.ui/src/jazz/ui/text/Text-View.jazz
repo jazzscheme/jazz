@@ -3182,16 +3182,22 @@
     (auto-complete-char?~ syntax key last))
   
 
-  (method (complete-at pos <Cell>)
+  (method (complete-at pos <Cell> (auto-complete?: auto-complete? (unspecified)))
+    (define (reset-completion)
+      (set! completion-active? #t)
+      (set! completion-unique? #t))
+    
     (unless (or (textual-style?~ model (get-style-at~ model pos))
                 (macro-active?~ (get-application)))
-      (receive (completion unique?) (completion-string pos)
-        (if (not completion)
-            (begin
-              (set! completion-active? #t)
-              (set! completion-unique? #t))
-          (insert-string completion)
-          (set-completion (new Range$Cell$ pos (+ pos (cast <fx> (cardinality completion)))) unique?)))))
+      (let ((pref (preferences)))
+        (let ((auto-complete? (if (specified? auto-complete?) auto-complete? (get-auto-complete?~ pref))))
+          (if (not auto-complete?)
+              (reset-completion)
+            (receive (completion unique?) (completion-string pos)
+              (if (not completion)
+                  (reset-completion)
+                (insert-string completion)
+                (set-completion (new Range$Cell$ pos (+ pos (cast <fx> (cardinality completion)))) unique?))))))))
   
   
   (method protected (convert-completion)

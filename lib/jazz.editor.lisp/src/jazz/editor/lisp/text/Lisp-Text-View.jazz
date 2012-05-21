@@ -136,7 +136,7 @@
               ((and control? shift? (not alt?)) (edit-references pos))
               (else (track-popup-menu (get-context-menu) pos))))))
 
-
+  
   (method override (tab-press evt)
     (if (or (has-completion?)
             (not accepts-returns?))
@@ -187,7 +187,9 @@
   (method (on-tabulate evt)
     (with-atomic-undo~ (get-undoer~ model)
       (lambda ()
-        (tabulate))))
+        (unless (tabulate)
+          (when (not (get-auto-complete?~ (preferences)))
+            (complete-at (get-start) auto-complete?: #t))))))
 
 
   (method override (return-press evt)
@@ -212,7 +214,8 @@
               (receive (modified? last-delta <fx>) (tabulate-lines (get-line~ start) (get-line~ end))
                 (set-caret (nu+ end last-delta))
                 (when modified?
-                  (set-modified? #t))))
+                  (set-modified? #t))
+                modified?))
             action: 'ignore)))))
   
   

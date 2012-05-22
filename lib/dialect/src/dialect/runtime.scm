@@ -773,23 +773,16 @@
             (merge-invoice actual module-invoice)
           (jazz:set-module-declaration-imports module-declaration (%%append imports (%%list module-invoice)))))))
   (let ((private (jazz:get-access-lookup module-declaration jazz:private-access))
-        (only (jazz:get-module-invoice-only module-invoice))
-        (except (jazz:get-module-invoice-except module-invoice)))
-    (cond (only
-           ;; todo
-           #f)
-          (except
-           (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice)))
-             (let ((imported (jazz:get-access-lookup imported-module-declaration jazz:public-access)))
-               (jazz:iterate-table imported
-                 (lambda (key value)
-                   (%%when (%%not (%%memq key except))
-                     (let ((actual (%%table-ref private key #f)))
-                     (if (and actual (%%neq? actual value))
-                         (jazz:error "Import conflict detected in {a}: {s}"
-                                     (jazz:get-lexical-binding-name module-declaration)
-                                     key)
-                       (%%table-set! private key value)))))))))
+        (mangler (jazz:generate-library-mangler (jazz:get-module-invoice-transformation module-invoice))))
+    (cond (mangler
+            (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice))
+                  (imported (%%make-table test: eq?)))
+              (table-for-each (lambda (key declaration)
+                                (let ((mangled-key (mangler key)))
+                                  (if mangled-key
+                                      (table-set! imported mangled-key declaration))))
+                              (jazz:get-access-lookup imported-module-declaration jazz:public-access))
+              (jazz:table-merge-reporting-conflicts! module-declaration "Import" private imported)))
           (else
            (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice)))
              (let ((imported (jazz:get-access-lookup imported-module-declaration jazz:public-access)))
@@ -818,23 +811,38 @@
           (merge-invoice actual module-invoice)
         (jazz:set-module-declaration-exports module-declaration (%%append exports (%%list module-invoice))))))
   (let ((public (jazz:get-access-lookup module-declaration jazz:public-access))
-        (only (jazz:get-module-invoice-only module-invoice))
-        (autoload (jazz:get-export-invoice-autoload module-invoice)))
-    (cond (only
-           (for-each (lambda (declaration-reference)
-                       (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
-                             (declaration (jazz:resolve-reference declaration-reference module-declaration)))
-                         (%%table-set! public name declaration)
-                         (add-to-module-references declaration)))
-                     only))
-          (autoload
-           (let ((exported-module-reference (jazz:get-module-invoice-module module-invoice)))
-             (for-each (lambda (declaration-reference)
-                         (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
-                               (declaration (jazz:resolve-autoload-reference declaration-reference module-declaration exported-module-reference)))
-                           (%%table-set! public name declaration)
-                           (add-to-module-references declaration)))
-                       autoload)))
+        (mangler (jazz:generate-library-mangler (jazz:get-module-invoice-transformation module-invoice)))
+        (autoload (jazz:get-export-invoice-autoload module-invoice))
+        (symbols (jazz:get-export-invoice-symbols module-invoice)))
+    (cond (autoload
+            (let ((exported-module-reference (jazz:get-module-invoice-module module-invoice)))
+              (for-each (lambda (declaration-reference)
+                          (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
+                                (declaration (jazz:resolve-autoload-reference declaration-reference module-declaration exported-module-reference)))
+                            (%%table-set! public name declaration)
+                            (add-to-module-references declaration)))
+                        autoload)))
+          (symbols
+            (for-each (lambda (declaration-reference)
+                        (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference))))
+                          (let ((mangled-name (if mangler (mangler name) name)))
+                            (if mangled-name
+                                (let ((declaration (jazz:resolve-reference declaration-reference module-declaration)))
+                                  (%%table-set! public mangled-name declaration)
+                                  (add-to-module-references declaration))))))
+                      symbols))
+          (mangler
+            (let ((exported-module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration))
+                  (exported (%%make-table test: eq?)))
+              (table-for-each (lambda (key declaration)
+                                (let ((mangled-key (mangler key)))
+                                  (if mangled-key
+                                      (table-set! exported mangled-key declaration))))
+                              (jazz:get-access-lookup exported-module-declaration jazz:public-access))
+              (jazz:table-merge-reporting-conflicts! module-declaration "Export" public exported)
+              (table-for-each (lambda (key declaration)
+                                (add-to-module-references declaration))
+                              exported)))
           (else
            (let* ((exported-module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration))
                   (exported-table (jazz:get-access-lookup exported-module-declaration jazz:public-access)))
@@ -888,17 +896,19 @@
       ((rename) rename)
       (else (jazz:error "Invalid library operation"))))
   
-  (let iter ((scan conversions)
-             (mangler #f))
-       (if (null? scan)
-           mangler
-         (let ((conversion (car scan)))
-           (let ((proc ((find-mangler conversion) (cdr conversion))))
-             (iter (cdr scan)
-                   (if mangler
-                       (lambda (key)
-                         (proc (mangler key)))
-                     proc)))))))
+  (if conversions
+      (let iter ((scan conversions)
+                 (mangler #f))
+           (if (not (null? scan))
+               (let ((conversion (car scan)))
+                 (let ((proc ((find-mangler conversion) (cdr conversion))))
+                   (iter (cdr scan)
+                         (if mangler
+                             (lambda (key)
+                               (proc (mangler key)))
+                           proc))))
+             mangler))
+    #f))
 
 
 (define (jazz:table-merge-reporting-conflicts! module-declaration prefix table add)
@@ -1094,30 +1104,26 @@
     (jazz:error "Ill-formed module invoice: {s}" specification))
   
   (%%assertion (%%pair? specification) (ill-formed)
-    (let ((name (%%car specification)))
-      (let iter ((phase #f)
-                 (only #f)
-                 (except #f)
-                 (prefix #f)
-                 (rename #f)
-                 (autoload #f)
-                 (scan (%%cdr specification)))
-        (if (%%null? scan)
-            (values name phase only except prefix rename autoload)
-          (let ((spec (%%car scan)))
-            (if (%%pair? spec)
-                (let ((option (%%car spec))
-                      (arguments (%%cdr spec)))
-                  (case option
-                    ((phase)    (iter (%%car arguments) only except prefix rename autoload (%%cdr scan)))
-                    ((only)     (iter phase arguments except prefix rename autoload (%%cdr scan)))
-                    ((except)   (iter phase only arguments prefix rename autoload (%%cdr scan)))
-                    ((prefix)   (iter phase only except arguments rename autoload (%%cdr scan)))
-                    ((rename)   (iter phase only except prefix arguments autoload (%%cdr scan)))
-                    ((autoload) (iter phase only except prefix rename arguments (%%cdr scan)))
-                    ((cond)     (iter phase only except prefix rename autoload (%%cdr scan)))
-                    (else       (ill-formed))))
-              (ill-formed))))))))
+    (let ((phase #f)
+          (autoload #f)
+          (transformation-queue (jazz:new-queue)))
+      (let ((name (%%car specification)))
+        (for-each (lambda (spec)
+                    (if (%%pair? spec)
+                        (let ((option (%%car spec))
+                              (arguments (%%cdr spec)))
+                          (case option
+                            ((phase)    (set! phase (%%car arguments)))
+                            ((only)     (jazz:enqueue transformation-queue (cons option arguments)))
+                            ((except)   (jazz:enqueue transformation-queue (cons option arguments)))
+                            ((prefix)   (jazz:enqueue transformation-queue (cons option arguments)))
+                            ((rename)   (jazz:enqueue transformation-queue (cons option arguments)))
+                            ((autoload) (set! autoload arguments))
+                            ((cond)      #f)
+                            (else       (ill-formed))))
+                      (ill-formed)))
+                  (%%cdr specification))
+        (values name phase autoload (jazz:queue-list transformation-queue))))))
 
 
 (define (jazz:parse-module-declaration partial-form)
@@ -1143,24 +1149,18 @@
 
 
 (define (jazz:walk-module-export walker export)
-  (receive (module-name module-phase module-only module-except module-prefix module-rename module-autoload) (jazz:parse-module-invoice export)
+  (receive (module-name module-phase module-autoload module-transformation) (jazz:parse-module-invoice export)
     (let ((module-reference (jazz:new-module-reference module-name #f)))
       (jazz:new-export-invoice module-name
                                module-reference
                                module-phase
-                               (if (%%not module-only)
-                                   #f
-                                 (map (lambda (symbol)
-                                        (jazz:new-export-reference symbol #f #f))
-                                      module-only))
-                               module-except
-                               module-prefix
-                               module-rename
+                               module-transformation
                                (if (%%not module-autoload)
                                    #f
                                  (map (lambda (symbol)
                                         (jazz:new-autoload-reference symbol #f #f))
-                                      module-autoload))))))
+                                      module-autoload))
+                               #f))))
 
 
 (define (jazz:rename-identifier-conflicts expressions environment)
@@ -1292,9 +1292,6 @@
         dialect-name
         (jazz:outline-module dialect-name)
         'syntax
-        #f
-        #f
-        #f
         #f))))
 
 
@@ -1364,9 +1361,9 @@
       ',(let ((queue (jazz:new-queue)))
           (for-each (lambda (module-invoice)
                       (%%when (%%neq? (jazz:get-module-invoice-phase module-invoice) 'syntax)
-                        (let ((only (jazz:get-module-invoice-only module-invoice))
-                              (autoload (jazz:get-export-invoice-autoload module-invoice)))
-                          (%%when (and (%%not only) (%%not autoload))
+                        (let ((autoload (jazz:get-export-invoice-autoload module-invoice))
+                              (symbols (jazz:get-export-invoice-symbols module-invoice)))
+                          (%%when (and (%%not autoload) (%%not symbols))
                             (jazz:enqueue queue (jazz:get-module-invoice-name module-invoice))))))
                     (jazz:get-module-declaration-exports declaration))
           (jazz:sort (jazz:queue-list queue) (lambda (x y) (%%string<? (%%symbol->string x) (%%symbol->string y)))))
@@ -1400,13 +1397,10 @@
 
 
 (jazz:define-class jazz:Module-Invoice jazz:Object ()
-  ((name    getter: generate)
-   (module  getter: generate)
-   (phase   getter: generate)
-   (only    getter: generate)
-   (except  getter: generate)
-   (prefix  getter: generate)
-   (rename  getter: generate)))
+  ((name           getter: generate)
+   (module         getter: generate)
+   (phase          getter: generate)
+   (transformation getter: generate)))
 
 
 (define (jazz:find-module-invoice invoices target)
@@ -1424,11 +1418,12 @@
 
 
 (jazz:define-class jazz:Export-Invoice jazz:Module-Invoice (constructor: jazz:allocate-export-invoice)
-  ((autoload getter: generate setter: generate)))
+  ((autoload getter: generate setter: generate)
+   (symbols  getter: generate setter: generate)))
 
 
-(define (jazz:new-export-invoice name module phase only except prefix rename autoload)
-  (jazz:allocate-export-invoice name module phase only except prefix rename autoload))
+(define (jazz:new-export-invoice name module phase transformation autoload symbols)
+  (jazz:allocate-export-invoice name module phase transformation autoload symbols))
 
 
 ;;;
@@ -1440,8 +1435,8 @@
   ((hit? getter: generate setter: generate)))
 
 
-(define (jazz:new-import-invoice name module phase only except prefix rename)
-  (jazz:allocate-import-invoice name module phase only except prefix rename #f))
+(define (jazz:new-import-invoice name module phase transformation)
+  (jazz:allocate-import-invoice name module phase transformation #f))
 
 
 ;;;
@@ -1483,14 +1478,17 @@
     (let ((partition (jazz:partition exports symbol? assv)))
       (let ((symbols-exports (%%assq #t partition))
             (module-exports (%%assq #f partition)))
-        (%%append (if symbols-exports
-                      (%%list (jazz:new-export-invoice #f #f #f (map (lambda (symbol) (jazz:new-export-reference symbol #f #f)) (%%cdr symbols-exports)) #f #f #f #f))
-                    '())
-                  (if module-exports
-                      (map (lambda (export)
-                             (jazz:walk-module-export walker export))
-                           (%%cdr module-exports))
-                    '())))))
+        (let ((symbol-references (if symbols-exports
+                                     (map (lambda (symbol) (jazz:new-export-reference symbol #f #f)) (%%cdr symbols-exports))
+                                   #f)))
+          (%%append (if symbols-exports
+                        (%%list (jazz:new-export-invoice #f #f #f #f #f symbol-references))
+                      '())
+                    (if module-exports
+                        (map (lambda (export)
+                               (jazz:walk-module-export walker export))
+                             (%%cdr module-exports))
+                      '()))))))
   
   (let ((form (%%desourcify form-src)))
     (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
@@ -4779,18 +4777,11 @@
       (or (jazz:outline-module name error?: #f)
           (jazz:walk-unresolved walker resume declaration name)))
     
-    (receive (module-name module-phase module-only module-except module-prefix module-rename module-autoload) (jazz:parse-module-invoice import)
+    (receive (module-name module-phase module-autoload module-transformation) (jazz:parse-module-invoice import)
       (jazz:new-import-invoice module-name
                                (jazz:lookup-module module-name)
                                module-phase
-                               (if (%%not module-only)
-                                   #f
-                                 (map (lambda (symbol)
-                                        (jazz:new-export-reference symbol #f #f))
-                                      module-only))
-                               module-except
-                               module-prefix
-                               module-rename)))
+                               module-transformation)))
   
   (define (walk-imports imports)
     (map (lambda (import)

@@ -1009,11 +1009,11 @@
           (if (%%is? binding jazz:Declaration)
               (if (%%eq? (jazz:get-declaration-toplevel binding) module)
                   `(module-private ,(jazz:get-declaration-locator binding))
-                (let ((name (jazz:get-lexical-binding-name binding)))
-                  (let ((import (find-import module name)))
-                    (if import
-                        `(module-public ,import ,name)
-                      #f))))
+                (let ((import (find-import module reified-reference))
+                      (name (jazz:get-lexical-binding-name binding)))
+                  (if import
+                      `(module-public ,import ,name)
+                    #f)))
             #f)))))
   
   (define (find-import module symbol)

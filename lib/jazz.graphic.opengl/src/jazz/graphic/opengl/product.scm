@@ -65,7 +65,7 @@
   (windows
     (define jazz:opengl-units
       (let ((glut-include-path (jazz:quote-jazz-pathname "foreign/opengl/freeglut/include"))
-            (glut-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/freeglut/lib/windows"))
+            (glut-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/freeglut/lib"))
             (glew-include-path (jazz:quote-jazz-pathname "foreign/opengl/glew/include"))
             (glew-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/glew/lib")))
         `((jazz.graphic.opengl.platform.WinOpenGL cc-options: "-DUNICODE -D_WIN32_WINNT=0x0502" ld-options: "-mwindows -lopengl32")

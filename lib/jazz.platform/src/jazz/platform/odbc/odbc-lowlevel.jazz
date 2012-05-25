@@ -11,7 +11,8 @@
 (import (jazz.platform.types)
         (jazz.platform.windows.WinTypes)
         (jazz.foreign (phase syntax))
-        (jazz.platform.types-syntax (phase syntax)))
+        (jazz.platform.types-syntax (phase syntax))
+        (time))
 
 (c-include "<sql.h>")
 (c-include "<sqlext.h>")
@@ -20,11 +21,13 @@
 (c-type SWORD short)
 (c-type UWORD ushort)
 (c-type SDWORD long)
+(c-type UDWORD ulong)
 (c-type SQLSMALLINT SWORD)
 (c-type SQLUSMALLINT UWORD)
 (c-type SQLSMALLINT* (pointer SQLSMALLINT))
 (define-pointer-to-type SQLSMALLINT "SQLSMALLINT")
 (c-type SQLINTEGER SDWORD)
+(c-type SQLUINTEGER UDWORD)
 (c-type SQLLEN SQLINTEGER)
 (c-type SQLLEN* (pointer SQLLEN))
 (define-pointer-to-type SQLLEN "SQLLEN")
@@ -57,7 +60,26 @@
 (define-pointer-to-type SQLCHAR "SQLCHAR")
 (define-cast-lambda SQLCHAR* char-string)
 (define-cast-lambda-ptr uint8* SQLCHAR*)
+
+(c-structure SQL_TIMESTAMP_STRUCT
+  (SQLSMALLINT year)
+  (SQLUSMALLINT month)
+  (SQLUSMALLINT day)
+  (SQLUSMALLINT hour)
+  (SQLUSMALLINT minute)
+  (SQLUSMALLINT second)
+  (SQLUINTEGER fraction))
   
+(definition public (SQL_TIMESTAMP_STRUCT->date timestamp)
+  (let ((year   (SQL_TIMESTAMP_STRUCT-year-ref timestamp))
+        (month  (SQL_TIMESTAMP_STRUCT-month-ref timestamp))
+        (day    (SQL_TIMESTAMP_STRUCT-day-ref timestamp))
+        (hour   (SQL_TIMESTAMP_STRUCT-hour-ref timestamp))
+        (minute (SQL_TIMESTAMP_STRUCT-minute-ref timestamp))
+        (second (SQL_TIMESTAMP_STRUCT-second-ref timestamp))
+        (milliseconds (SQL_TIMESTAMP_STRUCT-fraction-ref timestamp)))
+    (make-date (* milliseconds 1000) second minute hour day month year (local-timezone))))
+
 
 (definition public wchar_t*->wchar_t-string-ref
   (c-function (wchar_t* int) wchar_t-string
@@ -81,6 +103,10 @@
 
 (definition public SQLAllocHandleStd$
   (c-function (SQLSMALLINT SQLHANDLE SQLHANDLE*) SQLRETURN "SQLAllocHandleStd"))
+
+
+(definition public SQLSetStmtAttr$
+  (c-function (SQLHSTMT SQLINTEGER SQLINTEGER SQLINTEGER) SQLRETURN "SQLSetStmtAttr"))
 
 
 (definition public SQLDriverConnect$
@@ -113,4 +139,16 @@
 
 (definition public SQLFetch$
   (c-function (SQLHSTMT) SQLRETURN "SQLFetch"))
+
+
+(definition public SQLMoreResults$
+  (c-function (SQLHSTMT) SQLRETURN "SQLMoreResults"))
+
+
+(definition public SQLGetData$
+  (c-function (SQLHSTMT SQLUSMALLINT SQLSMALLINT SQLPOINTER SQLLEN SQLLEN*) SQLRETURN "SQLGetData"))
+
+
+(definition public SQLFetchScroll$
+  (c-function (SQLHSTMT SQLSMALLINT SQLLEN) SQLRETURN "SQLFetchScroll"))
 )

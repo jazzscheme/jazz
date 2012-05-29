@@ -42,12 +42,17 @@
 
 (import (jazz.graphic.opengl.autoload)
         (jazz.graphic.opengl.platform.WinOpenGL)
+        (jazz.geometry)
         (jazz.platform)
         (jazz.ui.window))
 
 
 (definition OPENGL_CLASS_ATOM
   #f)
+
+
+(definition public opengl-fullscreen?
+  (make-parameter #f))
 
 
 (definition (register-window-class)
@@ -77,7 +82,7 @@
 
 
 (specific (window-style (<OpenGL-Window> window) rest)
-  (if (get-fullscreen?~ window)
+  (if (opengl-fullscreen?)
       WS_POPUP
     (bitwise-ior WS_CLIPSIBLINGS
                  WS_CLIPCHILDREN
@@ -116,7 +121,7 @@
   (let ((class (or class OpenGL-Window))
         (width (or width 640))
         (height (or height 480)))
-    (let ((window (new (or class OpenGL-Window) visible?: #f))
+    (let ((window (parameterize ((opengl-fullscreen? fullscreen?)) (new (or class OpenGL-Window) fullscreen?: fullscreen? visible?: #f)))
           (pfd (PIXELFORMATDESCRIPTOR-make)))
       (PIXELFORMATDESCRIPTOR-nSize-set! pfd (PIXELFORMATDESCRIPTOR-sizeof))
       (PIXELFORMATDESCRIPTOR-nVersion-set! pfd 1)
@@ -152,28 +157,20 @@
             (set-render~ window hrc)
             (wglMakeCurrent hdc hrc)
             (set-title~ window "OpenGL")
-            (unless (get-fullscreen?~ window)
+            (if fullscreen?
+                (let ((area (get-display-area~ (primary-monitor))))
+                  (let ((left (get-left~ area))
+                        (top (get-top~ area))
+                        (width (rect-width area))
+                        (height (rect-height area)))
+                    (set-position~ window (new Point left top))
+                    (set-size~ window (new Dimension width height))
+                    (initialize-opengl~ window)
+                    (resize-scene~ window width height)))
               (set-position~ window {Point 50 50})
-              (set-size~ window (new Dimension width height)))
-            (initialize-opengl~ window)
-            (resize-scene~ window width height)
+              (set-size~ window (new Dimension width height))
+              (initialize-opengl~ window)
+              (resize-scene~ window width height))
             (SetTimer (get-handle~ window) 0 10 NULL)
             (set-visible?~ window #t)
-            window))))))
-
-
-(definition public (set-fullscreen-mode)
-  (let ((width 1280)
-        (height 1024)
-        (bits 32))
-    (let ((devmode (DEVMODE-make)))
-      (DEVMODE-dmSize-set! devmode (DEVMODE-sizeof))
-      (DEVMODE-dmPelsWidth-set! devmode width)
-      (DEVMODE-dmPelsHeight-set! devmode height)
-      (DEVMODE-dmBitsPerPel-set! devmode bits)
-      (DEVMODE-dmFields-set! devmode (bitwise-ior DM_BITSPERPEL DM_PELSWIDTH DM_PELSHEIGHT))
-      (ChangeDisplaySettings devmode CDS_FULLSCREEN))))
-
-
-(definition public (reset-fullscreen-mode)
-  (ChangeDisplaySettings NULL 0)))
+            window)))))))

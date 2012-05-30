@@ -42,12 +42,28 @@
   (%%gc))
 
 
+(define (jazz:gc-count)
+  (%%flonum->fixnum (f64vector-ref (##process-statistics) 6)))
+
+
+(define (jazz:gc-statistics)
+  (let ((vec (##process-statistics)))
+    (values (f64vector-ref vec 3)
+            (f64vector-ref vec 4)
+            (f64vector-ref vec 5)
+            (%%flonum->fixnum (f64vector-ref vec 6)))))
+
+
 (define (jazz:gc-report-set! flag)
   (gc-report-set! flag))
 
 
-(define (jazz:gc-count)
-  (%%flonum->fixnum (f64vector-ref (##process-statistics) 6)))
+(define (jazz:add-gc-interrupt-job! thunk)
+  (##add-gc-interrupt-job! thunk))
+
+
+(define (jazz:last-gc-real-time)
+  (f64vector-ref (##process-statistics) 14))
 
 
 ;;;

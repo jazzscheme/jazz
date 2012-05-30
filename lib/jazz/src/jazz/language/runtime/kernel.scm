@@ -711,8 +711,11 @@
 
 
 (native jazz:gc)
-(native jazz:gc-report-set!)
 (native jazz:gc-count)
+(native jazz:gc-statistics)
+(native jazz:gc-report-set!)
+(native jazz:add-gc-interrupt-job!)
+(native jazz:last-gc-real-time)
 (native jazz:process-memory)
 (native jazz:symbols-memory)
 (native jazz:classes-statistics)

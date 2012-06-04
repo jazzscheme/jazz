@@ -134,10 +134,17 @@
       (PIXELFORMATDESCRIPTOR-cDepthBits-set! pfd 32)
       (PIXELFORMATDESCRIPTOR-iLayerType-set! pfd PFD_MAIN_PLANE)
       (let ((hdc (GetDC (get-handle~ window))))
+        (unless hdc
+          (error "Could not create an OpenGL device context"))
         (let ((pixel-format (ChoosePixelFormat hdc pfd)))
-          (SetPixelFormat hdc pixel-format pfd)
+          (unless pixel-format
+            (error "Could not find a suitable pixelformat"))
+          (unless (SetPixelFormat hdc pixel-format pfd)
+            (error "Could not set the pixelformat"))
           (let ((hrc (wglCreateContext hdc)))
-            (wglMakeCurrent hdc hrc)
+            (unless hrc
+              (error "Could not create an OpenGL rendering context"))
+            (make-context-current hdc hrc)
             (set-device~ window hdc)
             (set-context~ window hrc)
             (set-title~ window "OpenGL")
@@ -176,8 +183,7 @@
 (definition package (initialize-glew)
   (let ((success (glewInit)))
     (unless (= success GLEW_OK)
-      (system-message "Unable to initialize GLEW")
-      (exit 1))))
+      (error "Unable to initialize GLEW"))))
 
 
 ;;;
@@ -190,11 +196,10 @@
     (let ((hdc (get-device~ window)))
       (let ((old-context (get-context~ window))
             (new-context (wglCreateContextAttribsARB* hdc NULL)))
-        (wglMakeCurrent NULL NULL)
-        (wglDeleteContext old-context)
-        (wglMakeCurrent hdc new-context)
-        (set-context~ window new-context)
-        (terminal 'OPENGL3!!!)))))
+        (release-current-context)
+        (delete-context old-context)
+        (make-context-current hdc new-context)
+        (set-context~ window new-context)))))
 
 
 ;;;
@@ -202,9 +207,20 @@
 ;;;
 
 
-(definition package (swap-buffers window)
-  (SwapBuffers (get-device~ window)))
+(definition package (swap-buffers device)
+  (SwapBuffers device))
 
 
-(definition package (make-context-current window context)
-  (wglMakeCurrent (get-device~ window) context)))
+(definition package (make-context-current device context)
+  (unless (wglMakeCurrent device context)
+    (error "Could not activate the OpenGL rendering context")))
+
+
+(definition package (release-current-context)
+  (unless (wglMakeCurrent NULL NULL)
+    (error "Release of DC and RC failed")))
+
+
+(definition package (delete-context context)
+  (unless (wglDeleteContext context)
+    (error "Release rendering context failed"))))

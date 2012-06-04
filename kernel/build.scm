@@ -1644,7 +1644,7 @@
     debug-environments?: #t
     debug-location?: #t
     debug-source?: #f
-    mutable-bindings?: #t
+    mutable-bindings?: (jazz:unspecified-option)
     kernel-interpret?: #t
     destination: "build/core"
     properties: (jazz:unspecified-option)))
@@ -1660,7 +1660,7 @@
     debug-environments?: #t
     debug-location?: #t
     debug-source?: #f
-    mutable-bindings?: #t
+    mutable-bindings?: (jazz:unspecified-option)
     kernel-interpret?: #t
     destination: "build/debug"
     properties: (jazz:unspecified-option)))
@@ -1676,7 +1676,7 @@
     debug-environments?: #t
     debug-location?: #t
     debug-source?: #f
-    mutable-bindings?: #f
+    mutable-bindings?: (jazz:unspecified-option)
     kernel-interpret?: #t
     destination: "build/release"
     properties: (jazz:unspecified-option)))
@@ -1692,7 +1692,7 @@
     debug-environments?: #f
     debug-location?: #f
     debug-source?: #f
-    mutable-bindings?: #f
+    mutable-bindings?: (jazz:unspecified-option)
     kernel-interpret?: #f
     destination: "build/sealed"
     properties: (jazz:unspecified-option)))

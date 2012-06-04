@@ -48,12 +48,17 @@
         (jazz.ui.window))
 
 
-(definition OPENGL_CLASS_ATOM
-  #f)
-
-
 (definition public opengl-fullscreen?
   (make-parameter #f))
+
+
+;;;
+;;;; Class
+;;;
+
+
+(definition OPENGL_CLASS_ATOM
+  #f)
 
 
 (definition (register-window-class)
@@ -76,6 +81,11 @@
 
 
 (register-window-class)
+
+
+;;;
+;;;; Window
+;;;
 
 
 (specific (window-class (<OpenGL-Window> window))
@@ -110,15 +120,7 @@
     NULL))
 
 
-(definition package (swap-buffers window)
-  (SwapBuffers (get-device~ window)))
-
-
-(definition package (make-context-current window context)
-  (wglMakeCurrent (get-device~ window) context))
-
-
-(definition public (new-opengl-window (class: class #f) (width: width #f) (height: height #f) (fullscreen?: fullscreen? #f))
+(definition package (create-opengl-window (class: class #f) (width: width #f) (height: height #f) (fullscreen?: fullscreen? #f))
   (let ((class (or class OpenGL-Window))
         (width (or width 640))
         (height (or height 480)))
@@ -134,20 +136,10 @@
       (let ((hdc (GetDC (get-handle~ window))))
         (let ((pixel-format (ChoosePixelFormat hdc pfd)))
           (SetPixelFormat hdc pixel-format pfd)
-          (let ((temp-context (wglCreateContext hdc)))
-            (wglMakeCurrent hdc temp-context)
-            (let ((success (glewInit)))
-              (unless (= success GLEW_OK)
-                (system-message "Unable to initialize GLEW")
-                (exit 1)))
+          (let ((hrc (wglCreateContext hdc)))
+            (wglMakeCurrent hdc hrc)
             (set-device~ window hdc)
-            (if (wglewIsSupported "WGL_ARB_create_context")
-                (let ((context (wglCreateContextAttribsARB* hdc NULL)))
-                  (wglMakeCurrent NULL NULL)
-                  (wglDeleteContext temp-context)
-                  (wglMakeCurrent hdc context)
-                  (set-context~ window context))
-              (set-context~ window temp-context))
+            (set-context~ window hrc)
             (set-title~ window "OpenGL")
             (if fullscreen?
                 (let ((area (get-display-area~ (primary-monitor))))
@@ -157,12 +149,62 @@
                         (height (rect-height area)))
                     (set-position~ window (new Point left top))
                     (set-size~ window (new Dimension width height))
-                    (initialize-opengl~ window)
+                    (setup-opengl~ window)
                     (resize-scene~ window width height)))
               (set-position~ window {Point 50 50})
               (set-size~ window (new Dimension width height))
-              (initialize-opengl~ window)
-              (resize-scene~ window width height))
+              (resize-scene~ window width height)
+              (setup-opengl~ window))
             (SetTimer (get-handle~ window) 0 10 NULL)
             (set-visible?~ window #t)
-            window)))))))
+            (select-foreground~ window)
+            window))))))
+
+
+(definition public (new-opengl-window (class: class #f) (width: width #f) (height: height #f) (fullscreen?: fullscreen? #f))
+  (let ((window (create-opengl-window class: class width: width height: height fullscreen?: fullscreen?)))
+    (initialize-glew)
+    (adjust-opengl-context window)
+    window))
+
+
+;;;
+;;;; GLEW
+;;;
+
+
+(definition package (initialize-glew)
+  (let ((success (glewInit)))
+    (unless (= success GLEW_OK)
+      (system-message "Unable to initialize GLEW")
+      (exit 1))))
+
+
+;;;
+;;;; Context
+;;;
+
+
+(definition package (adjust-opengl-context window)
+  (when (wglewIsSupported "WGL_ARB_create_context")
+    (let ((hdc (get-device~ window)))
+      (let ((old-context (get-context~ window))
+            (new-context (wglCreateContextAttribsARB* hdc NULL)))
+        (wglMakeCurrent NULL NULL)
+        (wglDeleteContext old-context)
+        (wglMakeCurrent hdc new-context)
+        (set-context~ window new-context)
+        (terminal 'OPENGL3!!!)))))
+
+
+;;;
+;;;; Utility
+;;;
+
+
+(definition package (swap-buffers window)
+  (SwapBuffers (get-device~ window)))
+
+
+(definition package (make-context-current window context)
+  (wglMakeCurrent (get-device~ window) context)))

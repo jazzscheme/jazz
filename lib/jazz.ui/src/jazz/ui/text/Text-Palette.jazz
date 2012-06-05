@@ -86,11 +86,7 @@
       (<Radio-Tool>            name: alignment-bottom    size: {Dimension 22 22} group: alignment tooltip?: #t tooltip-text: "Align Bottom" resource: {Image-Resource "AlignmentBottom"} portfolio: :images enabled?: #f action-handler: {Event-Handler :focus on-alignment alignment: bottom})
       (<Radio-Tool>            name: alignment-center    size: {Dimension 22 22} group: alignment tooltip?: #t tooltip-text: "Align Center" resource: {Image-Resource "AlignmentCenter"} portfolio: :images enabled?: #f action-handler: {Event-Handler :focus on-alignment alignment: center})
       (<Radio-Tool>            name: alignment-top       size: {Dimension 22 22} group: alignment selected?: #t tooltip?: #t tooltip-text: "Align Top" resource: {Image-Resource "AlignmentTop"} portfolio: :images enabled?: #f action-handler: {Event-Handler :focus on-alignment alignment: top})
-      (<Separator>)
-      (<Border-View>           name: format-border       size: {Dimension 120 22} border-insets: {Rect 2 2 2 1} border-color: {Color Medium}
-        (<Border-View>                                   border-color: {Color red: 200 green: 188 blue: 166}
-          (<Text-Format-Combo> name: format              enabled?: #f)))
-      (<Separator>)
+      (<Separator>                                       size: {Dimension 16 0})
       (<Radio-Tool>            name: justify-left        size: {Dimension 22 22} group: justification selected?: #t tooltip?: #t tooltip-text: "Justify Left" resource: {Image-Resource "JustifyLeft"} portfolio: :images enabled?: #f action-handler: {Event-Handler :focus on-justify justification: left})
       (<Radio-Tool>            name: justify-center      size: {Dimension 22 22} group: justification tooltip?: #t tooltip-text: "Justify Centered" resource: {Image-Resource "JustifyCentered"} portfolio: :images enabled?: #f action-handler: {Event-Handler :focus on-justify justification: center})
       (<Radio-Tool>            name: justify-right       size: {Dimension 22 22} group: justification tooltip?: #t tooltip-text: "Justify Right" resource: {Image-Resource "JustifyRight"} portfolio: :images enabled?: #f action-handler: {Event-Handler :focus on-justify justification: right})
@@ -99,7 +95,7 @@
       (<Separator>)
       (<Push-Tool>             name: decrease-indent     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Decrease Indent" resource: {Image-Resource "DecreaseIndent"} portfolio: :images enabled?: #f action-handler: {Event-Handler :focus on-decrease-indent})
       (<Push-Tool>             name: increase-indent     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Increase Indent" resource: {Image-Resource "IncreaseIndent"} portfolio: :images enabled?: #f action-handler: {Event-Handler :focus on-increase-indent})
-      (<Separator>             name: ruler-separator)
+      (<Separator>             name: ruler-separator     size: {Dimension 16 0})
       (<Toggle-Tool>           name: toggle-ruler        size: {Dimension 22 22} tooltip?: #t tooltip-text: "Toggle Ruler" resource: {Image-Resource "Ruler"} portfolio: :images enabled?: #f action-handler: {Event-Handler :focus on-toggle-ruler})
       (<Separator>             name: link-separator)
       (<Push-Tool>             name: insert-link         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Insert Link..." resource: {Image-Resource "InsertLink"} portfolio: :images enabled?: #f action-handler: {Event-Handler :form on-insert-link})
@@ -134,6 +130,16 @@
     "Text")
   
   
+  (method override (host-install)
+    (let ((appl (get-application)))
+      (add-focus-listener~ appl (new Event-Handler target: self method-name: 'on-focus-change))))
+  
+  
+  (method override (host-uninstall)
+    (let ((appl (get-application)))
+      (remove-focus-listener~ appl self)))
+  
+  
   (method override (client-activate)
     (let ((guest (current-document)))
       (if (is? guest Formatted-Text-View)
@@ -158,7 +164,6 @@
     (when (neq? clt client)
       (set! client clt)
       (when client
-        (set-client~ (locate 'format) client)
         (set-client~ (locate 'style) client)
         (set-client~ (locate 'font) client)
         (set-client~ (locate 'size) client)
@@ -169,10 +174,30 @@
   ;;;
   ;;;; Events
   ;;;
+  
+  
+  (method (on-focus-change evt)
+    (let ((appl (get-application))
+          (focus (get-focus~ evt)))
+      (when (and (is? focus Formatted-Text-View)
+                 (not (text-listener?~ focus self)))
+        (add-text-listener~ focus (new Event-Handler target: self method-name: 'on-text))
+        (set-client focus))
+      (enable-buttons
+        (and focus
+             (or (and (is? focus Formatted-Text-View)
+                      (text-listener?~ focus self))
+                 (let ((host (get-host~ focus)))
+                   (and host
+                        (eq? (get-guest~ host) self))))))))
+  
+  
+  (method (on-text evt)
+    (case (get-kind~ evt)
+      ((:selection-change) (selection-change))))
 
 
   (method protected virtual (enable-buttons enabled?)
-    (set-enabled?~ (locate 'format) enabled?)
     (set-enabled?~ (locate 'style) enabled?)
     (set-enabled?~ (locate 'font) enabled?)
     (set-enabled?~ (locate 'size) enabled?)
@@ -215,11 +240,12 @@
                   ,@(if anchor (list anchor: anchor) '()))))
           (replace-styled~ client range (list (or text " ")) (apply new Link-Style arguments)))))
       
-    (let* ((selection (get-selection~ client))
+    (let* ((model (get-model~ client))
+           (selection (get-selection~ client))
            (start (get-start~ selection))
            (end (get-end~ selection))
            (text (get-selected-string~ client))
-           (style (get-style-at~ client end)))
+           (style (get-style-at~ model end)))
       (cond ((nu=? start end)
              (if (is-not? style Link-Style)
                  (replace range: selection)
@@ -244,7 +270,7 @@
   
   
   (method (on-insert-table evt)
-    (insert-table~ client size: {Dimension 304 101} header?: #f node-column?: #f columns: '((width: 100) (width: 100) (width: 100)) row-count: 2))
+    (insert-table~ (get-model~ client) (get-selection~ client) size: {Dimension 304 101} header?: #f node-column?: #f columns: '((width: 100) (width: 100) (width: 100)) row-count: 2))
   
   
   (method (on-export-pdf evt)
@@ -269,7 +295,6 @@
 
 
   (method (selection-change)
-    (selection-change~ (locate 'format))
     (selection-change~ (locate 'style))
     (selection-change~ (locate 'font))
     (selection-change~ (locate 'size))

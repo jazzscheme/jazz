@@ -216,19 +216,10 @@
   
   
   (method (manual-output section)
-    (define (new-projects-cataloguer projects)
-      (let ((cataloguer (new Cataloguer)))
-        (for-each (lambda (project)
-                    (let ((name (get-name~ project)))
-                      (let ((catalog (new Component-Catalog name project)))
-                        (add-catalog~ cataloguer catalog))))
-                  projects)
-        cataloguer))
-    
     (let* ((title (get-property~ section 'title))
            (project-paths (get-property~ section 'projects '()))
            (projects (sort string<? (apply append (map find-docs project-paths)) key: present-doc-title))
-           (cataloguer (new-projects-cataloguer projects))
+           (cataloguer (new-manual-cataloguer projects))
            (content (manual-content-output cataloguer projects))
            (index (if (get-property~ section 'index? #t) (index-output) '()))
            (toc (toc-output projects))
@@ -237,6 +228,24 @@
               content
               toc
               index)))
+  
+  
+  (method (standalone-manual-output projects)
+    (set! anchors       (make-table test: eq?))
+    (set! anchor-names  (make-table test: eq?))
+    (set! next-section  1)
+    (let ((cataloguer (new-manual-cataloguer projects)))
+      (manual-content-output cataloguer projects)))
+  
+  
+  (method (new-manual-cataloguer projects)
+    (let ((cataloguer (new Cataloguer)))
+      (for-each (lambda (project)
+                  (let ((name (get-name~ project)))
+                    (let ((catalog (new Component-Catalog name project)))
+                      (add-catalog~ cataloguer catalog))))
+                projects)
+      cataloguer))
   
   
   (method (manual-content-output cataloguer projects)

@@ -434,10 +434,6 @@
     (delete-press #f word?: (get-property~ evt word?:)))
   
   
-  (method (on-paragraph-style evt)
-    (set-selection-format/style (get-property~ evt style:) style?: #t))
-  
-  
   (method (on-numbered evt)
     (unimplemented 'on-numbered))
   
@@ -473,17 +469,18 @@
   
   
   (method (on-text-style evt)
-    (bell))
+    (let ((style (get-property~ evt style:)))
+      (set-selection-format/style style)))
   
   
   (method (on-text-font evt)
-    (let* ((caret (get-caret))
-           (par (get-paragraph (get-line~ caret)))
-           (run (get-run~ par (get-col~ caret)))
-           (current (and run (get-font~ (get-style~ run))))
-           (font (choose-font initial-font: current)))
-      (close-popups)
-      (set-text-font~ model (get-selection) font)))
+    (let ((font (get-property~ evt font:)))
+      (set-selection-font-name font)))
+  
+  
+  (method (on-text-size evt)
+    (let ((size (get-property~ evt size:)))
+      (set-selection-point-size size)))
   
   
   (method (on-text-color evt)
@@ -492,7 +489,8 @@
       (close-popups)
       (when combo
         (set-color~ (get-body~ combo) (or color {Color Black})))
-      (set-text-color~ model (get-selection) color)))
+      (set-text-color~ model (get-selection) color)
+      (set-modified?~ model #t)))
   
   
   (method (on-pick-text-color evt)
@@ -505,7 +503,8 @@
       (close-popups)
       (when combo
         (set-color~ (get-body~ combo) (or color {Color White})))
-      (set-highlight-color~ model (get-selection) color)))
+      (set-highlight-color~ model (get-selection) color)
+      (set-modified?~ model #t)))
   
   
   (method (on-pick-highlight-color evt)
@@ -518,7 +517,8 @@
       (close-popups)
       (when combo
         (set-color~ (get-body~ combo) (or color {Color White})))
-      (set-frame-color~ model (get-selection) color)))
+      (set-frame-color~ model (get-selection) color)
+      (set-modified?~ model #t)))
   
   
   (method (on-pick-frame-color evt)
@@ -1270,7 +1270,7 @@
                       (rs (range-strings right)))
                   (replace~ model right ls)
                   (replace~ model left rs)))))
-          (set-modified? #t)))))
+          (set-modified?~ model #t)))))
   
   
   (method public (transpose-word)
@@ -2616,6 +2616,8 @@
   
   
   (method public virtual (get-chapter-label string col from to)
+    (subseq string (+ col (- (get-col~ to) (get-col~ from))))
+    @fixme-slow
     (subseq string (+ col (- (position-offset~ model to) (position-offset~ model from)))))
   
   
@@ -2912,49 +2914,53 @@
   ;;;
   
   
-  (method public (set-selection-format/style name/exemplar (format?: format? #f) (style?: style? #f))
-    (let* ((format (and format? (locate-format~ model name/exemplar error?: #f)))
-           (style (and style? (locate-style~ model name/exemplar error?: #f)))
-           (selection (get-selection))
-           (start (get-start))
-           (end (get-end))
-           (span? (neq? (get-paragraph (get-line~ start)) (get-paragraph (get-line~ end)))))
-      (when style
-        (cond ((or (empty-selection?) span?)
-               (for-each-paragraph~ model
-                 (lambda (line <fx> paragraph <Paragraph>)
-                   (set-text-style~ model (new Range$Cell$ (new Cell line 0) (new Cell line (get-length~ paragraph))) style))
-                start: (get-line~ start)
-                end: (get-line~ end)))
-              (else
-               (set-text-style~ model selection style))))
-      (when format
-        (for-each-paragraph~ model
-          (lambda (line <fx> paragraph <Paragraph>)
-            (set-paragraph-format~ model paragraph format))
-         start: (get-line~ start)
-         end: (get-line~ end)))
-      (set-modified? #t)
-      (layout-scrollee)
-      (invalidate-view)))
+  (method public (set-selection-format/style name)
+    (let ((selection (get-selection))
+          (start (get-start))
+          (end (get-end)))
+      (let ((empty? (empty-selection?))
+            (span? (neq? (get-paragraph (get-line~ start)) (get-paragraph (get-line~ end)))))
+        (let ((format (and (or empty? span?) (locate-format~ model name error?: #f) (new Format base: name)))
+              (style (and (locate-style~ model name error?: #f) (new Text-Style base: name))))
+          (when style
+            (cond ((or empty? span?)
+                   (for-each-paragraph~ model
+                     (lambda (line <fx> paragraph <Paragraph>)
+                       (set-text-style~ model (new Range$Cell$ (new Cell line 0) (new Cell line (get-length~ paragraph))) style))
+                     start: (get-line~ start)
+                     end: (get-line~ end)))
+                  (else
+                   (set-text-style~ model selection style))))
+          (when format
+            (for-each-paragraph~ model
+              (lambda (line <fx> paragraph <Paragraph>)
+                (set-paragraph-format~ model paragraph format))
+              start: (get-line~ start)
+              end: (get-line~ end)))
+          (set-modified?~ model #t)
+          (layout-scrollee)
+          (invalidate-view)))))
   
   
   (method (on-bold evt)
     (if (empty-selection?)
         (bell)
-      (toggle-bold~ model (get-selection))))
+      (toggle-bold~ model (get-selection))
+      (set-modified?~ model #t)))
   
   
   (method (on-italic evt)
     (if (empty-selection?)
         (bell)
-      (toggle-italic~ model (get-selection))))
+      (toggle-italic~ model (get-selection))
+      (set-modified?~ model #t)))
   
   
   (method (on-underline evt)
     (if (empty-selection?)
         (bell)
-      (toggle-underline~ model (get-selection))))
+      (toggle-underline~ model (get-selection))
+      (set-modified?~ model #t)))
   
   
   ;;;
@@ -2983,7 +2989,7 @@
       (lambda (line paragraph start end)
         (set-font-name~ paragraph start end name)
         (wrap-paragraph~ model '() paragraph)))
-    (set-modified? #t)
+    (set-modified?~ model #t)
     (layout-scrollee)
     (invalidate-view))
   
@@ -2993,7 +2999,7 @@
       (lambda (line paragraph start end)
         (set-point-size~ paragraph start end size)
         (wrap-paragraph~ model '() paragraph)))
-    (set-modified? #t)
+    (set-modified?~ model #t)
     (layout-scrollee)
     (invalidate-view))
   
@@ -3140,7 +3146,7 @@
   
   
   (method protected virtual (complete-name? size)
-    (>= size 2))
+    (>= size (get-auto-complete-minimum~ (preferences))))
   
   
   (method protected virtual (symbol-completions name)
@@ -3176,16 +3182,22 @@
     (auto-complete-char?~ syntax key last))
   
 
-  (method (complete-at pos <Cell>)
+  (method (complete-at pos <Cell> (auto-complete?: auto-complete? (unspecified)))
+    (define (reset-completion)
+      (set! completion-active? #t)
+      (set! completion-unique? #t))
+    
     (unless (or (textual-style?~ model (get-style-at~ model pos))
                 (macro-active?~ (get-application)))
-      (receive (completion unique?) (completion-string pos)
-        (if (not completion)
-            (begin
-              (set! completion-active? #t)
-              (set! completion-unique? #t))
-          (insert-string completion)
-          (set-completion (new Range$Cell$ pos (+ pos (cast <fx> (cardinality completion)))) unique?)))))
+      (let ((pref (preferences)))
+        (let ((auto-complete? (if (specified? auto-complete?) auto-complete? (get-auto-complete?~ pref))))
+          (if (not auto-complete?)
+              (reset-completion)
+            (receive (completion unique?) (completion-string pos)
+              (if (not completion)
+                  (reset-completion)
+                (insert-string completion)
+                (set-completion (new Range$Cell$ pos (+ pos (cast <fx> (cardinality completion)))) unique?))))))))
   
   
   (method protected (convert-completion)
@@ -3253,6 +3265,8 @@
     (let ((found (text-regular-search~ model search-context start: (get-end) end: end reversed?: #f)))
       (when found
         (bind (from . to) found
+          (set-selection (new Range$Cell$ from to))
+          @fixme-slow
           (set-selection (new Range$Cell$ from (offset-position~ model (+ (position-offset~ model from) (- (position-offset~ model to) (position-offset~ model from))))))
           (ensure-displayed)
           (ensure-scrolled-left)
@@ -3263,6 +3277,8 @@
     (let ((found (text-regular-search~ model search-context start: (get-start) end: end reversed?: #t)))
       (when found
         (bind (from . to) found
+          (set-selection (new Range$Cell$ from to))
+          @fixme-slow
           (set-selection (new Range$Cell$ from (offset-position~ model (+ (position-offset~ model from) (- (position-offset~ model to) (position-offset~ model from))))))
           (ensure-displayed)
           (ensure-scrolled-left)

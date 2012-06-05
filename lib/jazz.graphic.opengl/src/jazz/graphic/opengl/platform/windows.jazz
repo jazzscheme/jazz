@@ -42,8 +42,19 @@
 
 (import (jazz.graphic.opengl.autoload)
         (jazz.graphic.opengl.platform.WinOpenGL)
+        (jazz.graphic.opengl.glew)
+        (jazz.geometry)
         (jazz.platform)
         (jazz.ui.window))
+
+
+(definition public opengl-fullscreen?
+  (make-parameter #f))
+
+
+;;;
+;;;; Class
+;;;
 
 
 (definition OPENGL_CLASS_ATOM
@@ -72,12 +83,17 @@
 (register-window-class)
 
 
+;;;
+;;;; Window
+;;;
+
+
 (specific (window-class (<OpenGL-Window> window))
   OPENGL_CLASS_ATOM)
 
 
 (specific (window-style (<OpenGL-Window> window) rest)
-  (if (get-fullscreen?~ window)
+  (if (opengl-fullscreen?)
       WS_POPUP
     (bitwise-ior WS_CLIPSIBLINGS
                  WS_CLIPCHILDREN
@@ -104,76 +120,106 @@
     NULL))
 
 
-(definition package (swap-buffers window)
-  (SwapBuffers (get-device~ window)))
-
-
-(definition package (make-render-current window render)
-  (wglMakeCurrent (get-device~ window) render))
-
-
-(definition public (new-opengl-window (class: class #f) (width: width #f) (height: height #f) (fullscreen?: fullscreen? #f))
+(definition package (create-opengl-window (class: class #f) (width: width #f) (height: height #f) (fullscreen?: fullscreen? #f))
   (let ((class (or class OpenGL-Window))
         (width (or width 640))
         (height (or height 480)))
-    (let ((window (new (or class OpenGL-Window) visible?: #f))
+    (let ((window (parameterize ((opengl-fullscreen? fullscreen?)) (new (or class OpenGL-Window) fullscreen?: fullscreen? visible?: #f)))
           (pfd (PIXELFORMATDESCRIPTOR-make)))
       (PIXELFORMATDESCRIPTOR-nSize-set! pfd (PIXELFORMATDESCRIPTOR-sizeof))
       (PIXELFORMATDESCRIPTOR-nVersion-set! pfd 1)
       (PIXELFORMATDESCRIPTOR-dwFlags-set! pfd (bitwise-ior PFD_DRAW_TO_WINDOW PFD_SUPPORT_OPENGL PFD_DOUBLEBUFFER))
       (PIXELFORMATDESCRIPTOR-iPixelType-set! pfd PFD_TYPE_RGBA)
       (PIXELFORMATDESCRIPTOR-cColorBits-set! pfd 24)
-      (PIXELFORMATDESCRIPTOR-cRedBits-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cRedShift-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cGreenBits-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cGreenShift-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cBlueBits-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cBlueShift-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cAlphaBits-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cAlphaShift-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cAccumBits-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cAccumRedBits-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cAccumGreenBits-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cAccumBlueBits-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cAccumAlphaBits-set! pfd 0)
       (PIXELFORMATDESCRIPTOR-cDepthBits-set! pfd 32)
-      (PIXELFORMATDESCRIPTOR-cStencilBits-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-cAuxBuffers-set! pfd 0)
       (PIXELFORMATDESCRIPTOR-iLayerType-set! pfd PFD_MAIN_PLANE)
-      (PIXELFORMATDESCRIPTOR-bReserved-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-dwLayerMask-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-dwVisibleMask-set! pfd 0)
-      (PIXELFORMATDESCRIPTOR-dwDamageMask-set! pfd 0)
       (let ((hdc (GetDC (get-handle~ window))))
+        (unless hdc
+          (error "Could not create an OpenGL device context"))
         (let ((pixel-format (ChoosePixelFormat hdc pfd)))
-          (SetPixelFormat hdc pixel-format pfd)
+          (unless pixel-format
+            (error "Could not find a suitable pixelformat"))
+          (unless (SetPixelFormat hdc pixel-format pfd)
+            (error "Could not set the pixelformat"))
           (let ((hrc (wglCreateContext hdc)))
+            (unless hrc
+              (error "Could not create an OpenGL rendering context"))
+            (make-context-current hdc hrc)
             (set-device~ window hdc)
-            (set-render~ window hrc)
-            (wglMakeCurrent hdc hrc)
+            (set-context~ window hrc)
             (set-title~ window "OpenGL")
-            (unless (get-fullscreen?~ window)
+            (if fullscreen?
+                (let ((area (get-display-area~ (primary-monitor))))
+                  (let ((left (get-left~ area))
+                        (top (get-top~ area))
+                        (width (rect-width area))
+                        (height (rect-height area)))
+                    (set-position~ window (new Point left top))
+                    (set-size~ window (new Dimension width height))
+                    (resize-scene~ window width height)))
               (set-position~ window {Point 50 50})
-              (set-size~ window (new Dimension width height)))
-            (initialize-opengl~ window)
-            (resize-scene~ window width height)
+              (set-size~ window (new Dimension width height))
+              (resize-scene~ window width height))
             (SetTimer (get-handle~ window) 0 10 NULL)
             (set-visible?~ window #t)
+            (select-foreground~ window)
             window))))))
 
 
-(definition public (set-fullscreen-mode)
-  (let ((width 1280)
-        (height 1024)
-        (bits 32))
-    (let ((devmode (DEVMODE-make)))
-      (DEVMODE-dmSize-set! devmode (DEVMODE-sizeof))
-      (DEVMODE-dmPelsWidth-set! devmode width)
-      (DEVMODE-dmPelsHeight-set! devmode height)
-      (DEVMODE-dmBitsPerPel-set! devmode bits)
-      (DEVMODE-dmFields-set! devmode (bitwise-ior DM_BITSPERPEL DM_PELSWIDTH DM_PELSHEIGHT))
-      (ChangeDisplaySettings devmode CDS_FULLSCREEN))))
+(definition public (new-opengl-window (class: class #f) (width: width #f) (height: height #f) (fullscreen?: fullscreen? #f))
+  (let ((window (create-opengl-window class: class width: width height: height fullscreen?: fullscreen?)))
+    (initialize-glew)
+    (adjust-opengl-context window)
+    (setup-opengl~ window)
+    window))
 
 
-(definition public (reset-fullscreen-mode)
-  (ChangeDisplaySettings NULL 0)))
+;;;
+;;;; GLEW
+;;;
+
+
+(definition package (initialize-glew)
+  (let ((success (glewInit)))
+    (unless (= success GLEW_OK)
+      (error "Unable to initialize GLEW"))))
+
+
+;;;
+;;;; Context
+;;;
+
+
+(definition package (adjust-opengl-context window)
+  (when (wglewIsSupported "WGL_ARB_create_context")
+    (let ((hdc (get-device~ window)))
+      (let ((old-context (get-context~ window))
+            (new-context (wglCreateContextAttribsARB* hdc NULL)))
+        (release-current-context)
+        (delete-context old-context)
+        (make-context-current hdc new-context)
+        (set-context~ window new-context)))))
+
+
+;;;
+;;;; Utility
+;;;
+
+
+(definition package (swap-buffers device)
+  (SwapBuffers device))
+
+
+(definition package (make-context-current device context)
+  (unless (wglMakeCurrent device context)
+    (error "Could not activate the OpenGL rendering context")))
+
+
+(definition package (release-current-context)
+  (unless (wglMakeCurrent NULL NULL)
+    (error "Release of DC and RC failed")))
+
+
+(definition package (delete-context context)
+  (unless (wglDeleteContext context)
+    (error "Release rendering context failed"))))

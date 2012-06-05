@@ -358,7 +358,8 @@
                (add-before (list 'set! for (list 'cdr for)))))))
         ((from)
          (bind (from . rest) rest
-           (let ((to #f)
+           (let ((type (or type '<fx>))
+                 (to #f)
                  (test #f)
                  (update 'increase!)
                  (by 1)
@@ -371,11 +372,11 @@
                    ((downto) (set! to (cadr scan)) (set! test '>=) (set! update 'decrease!) (set! scan (cddr scan)))
                    ((by) (set! by (cadr scan)) (set! scan (cddr scan)))
                    (else (error "Unknown for keyword: {t}" key)))))
-             (add-binding variable '<fx> from)
+             (add-binding variable type from)
              (when to
                (let ((end (if (symbol? to) to (unique "end"))))
                  (when (not (eq? end to))
-                   (add-binding end '<fx> to))
+                   (add-binding end type to))
                  (add-test (list test variable end))))
              (add-after (list update variable by)))))
         ((first)

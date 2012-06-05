@@ -39,7 +39,9 @@
 
 
 (import (jazz.debuggee)
+        (jazz.geometry)
         (jazz.graphic.opengl)
+        (jazz.platform)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.window))
@@ -51,32 +53,16 @@
   (property fullscreen? initialize #f accessors generate)
   
   
-  (slot device initialize #f accessors generate)
-  (slot render initialize #f accessors generate)
+  (slot device  initialize #f accessors generate)
+  (slot context initialize #f accessors generate)
   
   
-  (method protected virtual (initialize-opengl)
-    (gl-shade-model GL_SMOOTH)
-    (gl-clear-color 0.0 0.0 0.0 0.5)
-    (gl-clear-depth 1.0)
-    (gl-enable GL_LINE_SMOOTH)
-    (gl-enable GL_POLYGON_SMOOTH)
-    (gl-enable GL_COLOR_MATERIAL)
-    ;(gl-enable #x809D)
-    ;(gl-enable GL_BLEND)
-    ;(gl-enable GL_SRC_COLOR)
-    (gl-enable GL_DEPTH_TEST)
-    (gl-depth-func GL_LEQUAL)
-    (glPolygonMode GL_FRONT_AND_BACK GL_FILL)
-    (gl-hint GL_PERSPECTIVE_CORRECTION_HINT GL_NICEST))
-  
-  
-  (method override (close-window)
-    ;; on Windows Vista and upward, the WM_CLOSE message must go through to completion
-    (delay-event
-      (lambda ()
-        (exit)))
-    processed)
+  (method override (size-change state size)
+    (nextmethod state size)
+    (when context
+      (let ((width (get-width~ size))
+            (height (get-height~ size)))
+        (resize-scene width height))))
   
   
   (method protected virtual (resize-scene width <fl> height <fl>)
@@ -88,16 +74,74 @@
     (gl-load-identity))
   
   
+  (method protected virtual (setup-opengl)
+    (gl-shade-model GL_SMOOTH)
+    (gl-clear-color 0.0 0.0 0.0 0.5)
+    (gl-clear-depth 1.0)
+    (gl-enable GL_LINE_SMOOTH)
+    (gl-enable GL_POLYGON_SMOOTH)
+    (gl-enable GL_COLOR_MATERIAL)
+    (gl-enable GL_DEPTH_TEST)
+    (gl-depth-func GL_LEQUAL)
+    (gl-polygon-mode GL_FRONT_AND_BACK GL_FILL)
+    (gl-hint GL_PERSPECTIVE_CORRECTION_HINT GL_NICEST))
+
+
+  (method public (set-fullscreen-mode-windowed)
+    (set-style handle WS_POPUP)
+    (let ((area (get-display-area~ (primary-monitor))))
+      (let ((left (get-left~ area))
+            (top (get-top~ area))
+            (right (get-right~ area))
+            (bottom (get-bottom~ area)))
+        (SetWindowPos handle HWND_TOP
+          left
+          top
+          (- right left)
+          (- bottom top)
+          (bitwise-ior SWP_NOOWNERZORDER SWP_FRAMECHANGED)))))
+  
+  
+  (method public (reset-fullscreen-mode-windowed)
+    )
+  
+  
+  (method public (set-fullscreen-mode)
+    (let ((area (get-display-area~ (primary-monitor))))
+      (let ((width (rect-width area))
+            (height (rect-height area))
+            (bits 32))
+        (let ((devmode (DEVMODE-make)))
+          (DEVMODE-dmSize-set! devmode (DEVMODE-sizeof))
+          (DEVMODE-dmPelsWidth-set! devmode width)
+          (DEVMODE-dmPelsHeight-set! devmode height)
+          (DEVMODE-dmBitsPerPel-set! devmode bits)
+          (DEVMODE-dmFields-set! devmode (bitwise-ior DM_BITSPERPEL DM_PELSWIDTH DM_PELSHEIGHT))
+          (ChangeDisplaySettings devmode CDS_FULLSCREEN)))))
+  
+  
+  (method public (reset-fullscreen-mode)
+    (ChangeDisplaySettings NULL 0))
+  
+  
   (method protected virtual (draw-scene)
     )
   
   
   (method protected virtual (render-scene)
-    (make-render-current self render)
+    (make-context-current device context)
     (draw-scene)
-    (swap-buffers self))
+    (swap-buffers device))
   
   
   (method override (timer-pulse)
     (unless (> (current-repl-level) 0)
-      (render-scene)))))
+      (render-scene)))
+  
+  
+  (method override (close-window)
+    ;; on Windows Vista and upward, the WM_CLOSE message must go through to completion
+    (delay-event
+      (lambda ()
+        (exit)))
+    processed)))

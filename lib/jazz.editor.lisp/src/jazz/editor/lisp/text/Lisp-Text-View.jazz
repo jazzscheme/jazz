@@ -136,7 +136,7 @@
               ((and control? shift? (not alt?)) (edit-references pos))
               (else (track-popup-menu (get-context-menu) pos))))))
 
-
+  
   (method override (tab-press evt)
     (if (or (has-completion?)
             (not accepts-returns?))
@@ -187,7 +187,9 @@
   (method (on-tabulate evt)
     (with-atomic-undo~ (get-undoer~ model)
       (lambda ()
-        (tabulate))))
+        (unless (tabulate)
+          (when (not (get-auto-complete?~ (preferences)))
+            (complete-at (get-start) auto-complete?: #t))))))
 
 
   (method override (return-press evt)
@@ -212,7 +214,8 @@
               (receive (modified? last-delta <fx>) (tabulate-lines (get-line~ start) (get-line~ end))
                 (set-caret (nu+ end last-delta))
                 (when modified?
-                  (set-modified? #t))))
+                  (set-modified? #t))
+                modified?))
             action: 'ignore)))))
   
   
@@ -370,18 +373,34 @@
                        (explore-error~ expl "Ill-balanced expressions" start end))))))
           (queue-list queue))))
     
+    (define (evaluate info)
+      (bind (filename syntax str container line col) info
+        (let ((processes (evaluate-filename-expressions~ (get-debugger-manager) filename syntax str container line col)))
+          (if (or (not processes) (null? processes))
+              (message-box "No process found for evaluation")
+            (let ((names (collect-declaration-names)))
+              (when (not-null? names)
+                (let ((process-titles (map get-title~ processes)))
+                  (evaluate-delayed)
+                  (user-message "Evaluated {l detail: :human separator: \", \"} to {l detail: :human separator: \", \"}" names process-titles))))))))
+    
+    (define (evaluate-delayed)
+      (let ((delayed (get-delayed-evaluate)))
+        (when delayed
+          (bind (filename syntax str container line col) delayed
+            (evaluate-filename-expressions~ (get-debugger-manager) filename syntax str container line col))
+          (reset-delayed-evaluate))))
+    
     (let ((moniker (get-moniker)))
       (if (not moniker)
           (bell)
         (let ((filename (parse~ moniker)))
-          (bind (syntax str container line col) (prepare-expressions range)
-            (let ((processes (evaluate-filename-expressions~ (get-debugger-manager) filename syntax str container line col)))
-              (if (or (not processes) (null? processes))
-                  (message-box "No process found for evaluation")
-                (let ((names (collect-declaration-names)))
-                  (when (not-null? names)
-                    (let ((process-titles (map get-title~ processes)))
-                      (user-message "Evaluated {l detail: :human separator: \", \"} to {l detail: :human separator: \", \"}" names process-titles)))))))))))
+          (let ((info (cons filename (prepare-expressions range))))
+            (if (delay-evaluate?)
+                (begin
+                  (set-delayed-evaluate info)
+                  (user-message "Evaluation delayed"))
+              (evaluate info)))))))
   
   
   (method protected virtual (prepare-expressions range)

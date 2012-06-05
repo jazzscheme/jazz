@@ -1093,6 +1093,7 @@
               (style (new Text-Style base: 'Base)))
           (for-each-property (lambda (property value)
                                (case property
+                                 ((format) (set! format (new Format base: value)))
                                  ((bulleted) (set! format (extend~ format bulleted?: value left-margin: 16)))
                                  ((indent) (set! format (extend~ format left-margin: (+ (get-left-margin~ format) (* value 32)))))
                                  (else (error "Unknown paragraph property: {s}" property))))
@@ -1103,6 +1104,7 @@
       (define (process-text node runs style)
         (for-each-property (lambda (property value)
                              (case property
+                               ((style) (set! style (new Text-Style base: value)))
                                ((font) (set! style (extend~ style font: (process-font value))))
                                ((frame) (set! style (extend~ style frame: (process-color value))))
                                ((highlight) (set! style (extend~ style highlight: (process-color value))))
@@ -1444,8 +1446,10 @@
     (set-format~ paragraph (intern-format format))
     (wrap-paragraph '() paragraph)
     (set-modified? #t)
-    (layout-scrollee)
-    (invalidate-view))
+    (let ((single-client (single-client)))
+      (when single-client
+        (layout-scrollee~ single-client)
+        (invalidate-view~ single-client))))
   
   
   (method public (apply-style name start (end #f))
@@ -1465,8 +1469,10 @@
           (set-style~ paragraph start end style)
           (wrap-paragraph '() paragraph)))
       (set-modified? #t)
-      (layout-scrollee)
-      (invalidate-view)))
+      (let ((single-client (single-client)))
+        (when single-client
+          (layout-scrollee~ single-client)
+          (invalidate-view~ single-client)))))
   
   
   (method public (modify-style range <Range$Cell$> proc)
@@ -1506,8 +1512,10 @@
         (set-text-alignment~ paragraph start end alignment)
         (wrap-paragraph '() paragraph)))
     (set-modified? #t)
-    (layout-scrollee)
-    (invalidate-view))
+    (let ((single-client (single-client)))
+      (when single-client
+        (layout-scrollee~ single-client)
+        (invalidate-view~ single-client))))
   
   
   (method public (set-text-font range <Range$Cell$> font <Font>)
@@ -1516,8 +1524,10 @@
         (set-text-font~ paragraph start end font)
         (wrap-paragraph '() paragraph)))
     (set-modified? #t)
-    (layout-scrollee)
-    (invalidate-view))
+    (let ((single-client (single-client)))
+      (when single-client
+        (layout-scrollee~ single-client)
+        (invalidate-view~ single-client))))
   
   
   (method public (set-text-style range <Range$Cell$> style <Style>)
@@ -1599,6 +1609,10 @@
   
   
   (method public (set-default-format value)
+    (for-each-paragraph
+      (lambda (line <fx> paragraph <Paragraph>)
+        (when (eq? (get-format~ paragraph) default-format)
+          (set-format~ paragraph value))))
     (set! default-format value)
     (set-domain~ default-format formats)
     (intern-format (copy default-format)))

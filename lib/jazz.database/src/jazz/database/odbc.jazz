@@ -1,0 +1,95 @@
+(module jazz.database.odbc jazz
+
+
+(import (jazz.database)
+        (jazz.platform.odbc)
+        (jazz.schema))
+
+
+;;;
+;;;; ODBC Connection
+;;;
+
+
+(class ODBC-Data-Source extends Data-Source
+  
+  
+  (property server   initialize #f accessors generate)
+  (property database initialize #f accessors generate)
+  
+  
+  (method override (new-connection)
+    (new ODBC-Connection
+      (format "driver=~{SQL Server Native Client 10.0~};server={a};database={a};uid={a};pwd={a}"
+              server
+              database
+              username
+              password))))
+
+
+(class ODBC-Connection extends Connection
+  
+  
+  (slot henv accessors generate)
+  (slot hdbc accessors generate)
+  
+  
+  (method override (initialize connection-string)
+    (set! henv (SQLAllocHandleStd SQL_HANDLE_ENV #f))
+    (set! hdbc (SQLAllocHandleStd SQL_HANDLE_DBC henv))
+    (SQLDriverConnect hdbc connection-string))
+  
+  
+  (method override (close)
+    (SQLDisconnect hdbc)
+    (SQLFreeHandle SQL_HANDLE_DBC hdbc)
+    (SQLFreeHandle SQL_HANDLE_ENV henv)
+    (nextmethod))
+  
+  
+  (method (resultset->Data-Table resultset)
+    (let ((table (new Data-Table)))
+      (set-columns~ table (map (lambda (name)
+                                 (new Data-Column name: name))
+                               (vector->list (first resultset))))
+      (set-rows~ table
+        (map (lambda (vector)
+               (new Data-Row table #f (vector->list vector)))
+             (second resultset)))))
+  
+  
+  (method override (begin-transaction)
+    (SQLSetConnectAttr hdbc SQL_ATTR_AUTOCOMMIT 0 0))
+  
+  
+  (method override (commit-transaction)
+    (SQLEndTran SQL_HANDLE_DBC hdbc SQL_COMMIT)
+    (SQLSetConnectAttr hdbc SQL_ATTR_AUTOCOMMIT 1 0))
+  
+  
+  (method override (rollback-transaction)
+    (SQLEndTran SQL_HANDLE_DBC hdbc SQL_ROLLBACK)
+    (SQLSetConnectAttr hdbc SQL_ATTR_AUTOCOMMIT 1 0))
+  
+  
+  (method override (execute request)
+    (close~ (new ODBC-Statement self request)))
+  
+  
+  (method override (load-request request (convert?: convert? #t))
+    (let* ((statement (new ODBC-Statement self request))
+           (resultset (load-single-resultset~ statement)))
+      (close~ statement)
+      (if convert?
+          (resultset->Data-Table resultset)
+        resultset)))
+  
+  
+  (method override (load-multirequest request (convert?: convert? #t) (strategy: strategy 'mixed))
+    (let* ((statement (new ODBC-Statement self request strategy: strategy))
+           (resultsets (load-multiple-resultsets~ statement)))
+      (close~ statement)
+      (if convert?
+          (map resultset->Data-Table resultsets)
+        resultsets)))))
+            

@@ -105,7 +105,7 @@
       (jazz:logfont-units)))
   (else
     (define jazz:font-units
-      (jazz:freetype-units))))
+     (jazz:freetype-units))))
 
 
 (define jazz:windows-units
@@ -131,6 +131,14 @@
       (jazz.platform.windows.WinPSAPI    cc-options: ,(string-append "-I" windows-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" windows-lib-path " -mwindows -lpsapi"))
       (jazz.platform.cairo.cairo-windows cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))
       (jazz.platform.crash.windows       cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))
+
+
+(define jazz:unix-odbc-units
+  '((jazz.platform.odbc.odbc-lowlevel ld-options: "-lodbc")))
+
+
+(define jazz:windows-odbc-units
+  '((jazz.platform.odbc.odbc-lowlevel ld-options: "-lodbc32")))
 
 
 (define jazz:com-units
@@ -202,7 +210,8 @@
                             ,@jazz:cairo-units
                             ,@jazz:font-units
                             ,@jazz:windows-units
-                            ,@jazz:com-units)))
+                            ,@jazz:windows-odbc-units
+			    ,@jazz:com-units)))
           (jazz:custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
           (jazz:build-product-descriptor descriptor)))))
   (x11
@@ -214,6 +223,7 @@
                           ,@jazz:cairo-units
                           ,@jazz:font-units
                           ,@jazz:x11-units
+			  ,@jazz:unix-odbc-units
                           ,@jazz:clipboard-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
         (jazz:build-product-descriptor descriptor unit: unit force?: force?)))))

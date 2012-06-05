@@ -570,6 +570,7 @@
 (native jazz:repository-install-packages)
 (native jazz:repository-add-package)
 (native jazz:repository-remove-package)
+(native jazz:repository-pathname)
 (native jazz:package?)
 (native jazz:package-repository)
 (native jazz:package-name)

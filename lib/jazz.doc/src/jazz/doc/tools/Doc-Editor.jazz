@@ -42,7 +42,8 @@
         (jazz.doc)
         (jazz.jml)
         (jazz.library)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.ui.view))
 
 
 (class Doc-Editor extends Component-Editor
@@ -52,7 +53,7 @@
   
   
   (slot type          initialize #f)
-  (slot location      initialize #f)
+  (slot _location     initialize #f)
   (slot expression    initialize #f)
   (slot text-object   initialize #f)
   (slot text-location initialize #f)
@@ -61,8 +62,13 @@
   (form
     (<install>                                                 title: "Documentation Editor" size: {Dimension 650 400} layout-type: border layout-insets: {Rect 2 0 2 2}
       (<Layout-View>                  name: toolbar            size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
-        (<Push-Tool>                  name: build              size: {Dimension 22 22} tooltip?: #t tooltip-text: "Build" resource: {Image-Resource "Build"} portfolio: :images action-handler: {Event-Handler :form on-build})
-        (<Push-Tool>                  name: edit               size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" resource: {Image-Resource "Edit"} portfolio: :images action-handler: {Event-Handler :form on-edit}))
+        (<Push-Tool>                  name: save               size: {Dimension 22 22} tooltip?: #t tooltip-text: "Save" resource: {Image-Resource "Save"} portfolio: :images action-handler: {Event-Handler :form on-save-doc})
+        (<Separator>)
+        (<Push-Tool>                  name: reload             size: {Dimension 22 22} tooltip?: #t tooltip-text: "Reload" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :form on-reload-doc})
+        (<Separator>                                           size: {Dimension 32 0})
+        (<Push-Tool>                  name: build              size: {Dimension 22 22} tooltip?: #t tooltip-text: "Build" resource: {Image-Resource "Build"} portfolio: :images action-handler: {Event-Handler :form on-build-doc})
+        (<Separator>                                           size: {Dimension 32 0})
+        (<Push-Tool>                  name: edit               size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" resource: {Image-Resource "Edit"} portfolio: :images action-handler: {Event-Handler :form on-edit-doc}))
       (<Splitter-View>                name: splitter           size: {Dimension 650 367} location: center orientation: horz mode: absolute division: 250
         (<Border-View>                name: descendants-border size: {Dimension 255 366} location: first border-type: edge style: entry
           (<Scroller-View>            name: scroller           style: document hscroll?: #t vscroll?: #t
@@ -156,13 +162,29 @@
     (size-figure~ (locate 'card-contour) dh dv))
   
   
-  (method (on-build evt)
+  (method (on-save-doc evt)
+    (with-cursor :wait
+      (lambda ()
+        (save))))
+  
+  
+  @w
+  (method (on-reload-doc evt)
+    (let ((appl (get-application)))
+      (let ((skins (load-skins~ appl)))
+        (set-skins-designer~ appl skins)
+        (set-skin (child~ skins (get-active~ skins)))
+        (skin-update)
+        (redraw-window~ (get-toplevel)))))
+  
+  
+  (method (on-build-doc evt)
     (if (null? client)
         (bell)
       (unimplemented 'on-build)))
   
   
-  (method (on-edit evt)
+  (method (on-edit-doc evt)
     (edit-form))
   
   
@@ -182,7 +204,7 @@
   
   
   (method (setup loc object text text-loc)
-    (set! location loc)
+    (set! _location loc)
     (set! expression object)
     (set! text-object text)
     (set! text-location text-loc))

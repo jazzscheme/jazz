@@ -42,19 +42,6 @@
         (jazz.dialect.classes.foundation))
 
 
-(native private jazz:walk-error)
-(native private jazz:lookup-reference)
-(native private jazz:find-declaration-child)
-(native private jazz:add-declaration-child)
-(native private jazz:require-declaration)
-(native private jazz:validate-arguments)
-(native private jazz:with-annotated-frame)
-(native private jazz:annotate-signature)
-(native private jazz:emit-signature)
-(native private jazz:walk-parameters)
-(native private jazz:walk-body)
-
-
 ;;;
 ;;;; C-Include
 ;;;
@@ -352,6 +339,7 @@
 
 
 (define-walker-declaration c-type jazz walk-c-type-declaration walk-c-type)
+(define-walker-declaration c-define-type jazz walk-c-type-declaration walk-c-type)
 
 
 ;;;
@@ -483,6 +471,40 @@
 
 
 ;;;
+;;;; C-Code
+;;;
+
+
+(class C-Code extends Expression
+  
+  
+  (slot expansion getter generate)
+  
+  
+  (method override (initialize expansion . rest)
+    (apply nextmethod rest)
+    (set! expansion~self expansion))
+  
+  
+  (method override (emit-expression declaration environment backend)
+    (new-code
+      expansion
+      Any
+      #f)))
+
+
+(define (walk-c-code walker resume declaration environment form-src)
+  (let ((form (strip-syntactic-closures form-src)))
+    (assertion (and (list? form) (= 2 (length form))) (walk-error walker resume declaration form-src "Ill-formed c-code")
+      (bind (code) (cdr form)
+        (new C-Code
+          `(##c-code ,code))))))
+
+
+(define-walker-special c-code jazz walk-c-code)
+
+
+;;;
 ;;;; C-Function
 ;;;
 
@@ -515,6 +537,7 @@
 
 
 (define-walker-special c-function jazz walk-c-function)
+(define-walker-special c-lambda jazz walk-c-function)
 
 
 ;;;

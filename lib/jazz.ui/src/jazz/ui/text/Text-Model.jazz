@@ -998,9 +998,9 @@
           ((string? content)
            (parse-string-content content))
           ((and (null/pair? content) (is? self Formatted-Text-Model))
-           (parse-formatted-content content))
+           (parse-markup-content (parse-jml content)))
           ((is? content JML-Node)
-           (parse-jml-content content))
+           (parse-markup-content content))
           (else
            (error "Unable to parse text content type: {t}" (category-identifier (class-of content))))))
   
@@ -1009,122 +1009,8 @@
     (new Text paragraphs: (split-lines content)))
   
   
-  (method (parse-formatted-content content)
-    (define (parse-paragraph par intern-format intern-style)
-      (if (string? par)
-          (cons #f (list (list par #f)))
-        (let* ((scan (iterate-sequence par))
-               (format (parse-format scan)))
-          (cons (intern-format format) (parse-runs scan intern-style)))))
-    
-    (define (parse-format scan <Iterator>)
-      (let* ((format #f)
-             (add-formatting
-               (lambda (proc)
-                 (when (not format)
-                   (set! format (new Format)))
-                 (proc format)))
-             (out? #f))
-        (while (and (not (done?~ scan)) (not out?))
-          (let ((target (get-next~ scan)))
-            (case target
-              ((:bulleted)
-               (add-formatting (lambda (format) (set-bulleted?~ format #t)))
-               (add-formatting (lambda (format) (set-left-margin~ format 16))))
-              ((indent:)
-               (let ((n (get-next~ scan)))
-                 (add-formatting (lambda (format) (set-left-margin~ format (+ (get-left-margin~ format) (* n 32)))))))
-              (else
-               (unget~ scan target)
-               (set! out? #t)))))
-        format))
-    
-    (define (parse-runs scan <Iterator> intern-style)
-      (accumulate scan
-                  (lambda (run)
-                    (cond ((string? run)
-                           (list run #f))
-                          ((pair? run)
-                           (parse-run (iterate-sequence run) intern-style))
-                          (else
-                           (error "Unable to parse run: {t}" run))))))
-    
-    (define (parse-run scan <Iterator> intern-style)
-      (let* ((string #f)
-             (style #f)
-             (add-styling
-               (lambda (proc)
-                 (when (not style)
-                   (set! style (new Text-Style base: 'Base)))
-                 (proc style))))
-        (while (not (done?~ scan))
-          (let ((target (get-next~ scan)))
-            (case target
-              ((style:)
-               (let ((name (get-next~ scan)))
-                 (set! style (locate-style name))))
-              ((:link)
-               (let ((action (get-next~ scan)))
-                 (set! style (new-link-style action))))
-              ((color:)
-               (let ((color (get-next~ scan)))
-                 (when (symbol? color)
-                   (set! color (dispatch (class-of Color) color)))
-                 (add-styling (lambda (style) (set-color~ style color)))))
-              ((highlight:)
-               (let ((highlight (get-next~ scan)))
-                 (when (symbol? highlight)
-                   (set! highlight (dispatch (class-of Color) highlight)))
-                 (add-styling (lambda (style) (set-highlight~ style highlight)))))
-              ((font:)
-               (let ((font (get-next~ scan)))
-                 (when (symbol? font)
-                   (set! font (dispatch (class-of Font) font)))
-                 (add-styling (lambda (style) (set-font~ style font)))))
-              ((image:)
-               (let ((image (get-next~ scan))
-                     (portfolio (get-images-portfolio~ (get-application))))
-                 (set! string " ")
-                 (set! style (new Image-Style portfolio: portfolio resource: image))))
-              ((moniker:)
-               (let ((moniker (get-next~ scan))
-                     (scaling #f))
-                 (let ((next (peek~ scan)))
-                   (when (eq? next scaling:)
-                     (get-next~ scan)
-                     (set! scaling (get-next~ scan))))
-                 (set! string " ")
-                 (set! style (new Image-Style moniker: moniker scaled?: scaling scaling: scaling))))
-              (else
-               (if (string? target)
-                   (set! string target)
-                 (error "Unable to parse run element: {t}" target))))))
-        (list string (intern-style style))))
-    
-    (define (new-link-style action)
-      (new Link-Style font: {Font Link-Small} color: {Color Link} action: action))
-    
-    (let* ((formats (new List-Factory))
-           (styles (new List-Factory))
-           (intern-format
-            (lambda (format)
-              (when format
-                (put~ formats format))))
-           (intern-style
-            (lambda (style)
-              (when style
-                (put~ styles style))))
-           (paragraphs (map (lambda (par)
-                              (parse-paragraph par intern-format intern-style))
-                            content)))
-      (new Formatted-Text
-        formats: (get-output~ formats)
-        styles: (get-output~ styles)
-        paragraphs: paragraphs)))
-  
-  
   ;;;
-  ;;;; Text JML
+  ;;;; Markup
   ;;;
   
   
@@ -1149,76 +1035,98 @@
    (<span>))
   
   
-  (method (parse-jml-content node)
-    (define (parse-jml-paragraph node intern-format intern-style)
-      (if (is? node JML-Text)
-          (cons #f (list (list (get-text~ node) #f)))
-        (let ((tag (get-tag~ node)))
-          (case tag
-            ((p span) (parse-p-tag node intern-format intern-style))
-            (else (error "Unknown text tag: {s}" tag))))))
-    
-    (define (parse-p-tag node intern-format intern-style)
-      (let ((format (parse-p-format node)))
-        (cons (intern-format format) (parse-p-runs node intern-style))))
-    
-    (define (parse-p-format node)
-      (let* ((format #f)
-             (add-formatting
-               (lambda (proc)
-                 (when (not format)
-                   (set! format (new Format)))
-                 (proc format))))
-        (when (get-property~ node 'bulleted?)
-          (add-formatting
-            (lambda (format)
-              (set-bulleted?~ format #t)
-              (set-left-margin~ format 16))))
-        format))
-    
-    (define (parse-p-runs node intern-style)
-      (map (lambda (node)
-             (parse-p-run node intern-style))
-           (get-children~ node)))
-    
-    (define (parse-p-run node intern-style)
-      (if (is? node JML-Text)
-          (list (get-text~ node) (intern-style #f))
-        (let ((tag (get-tag~ node)))
-          (case tag
-            ((style) (parse-style-tag node intern-style))
-            (else (error "Unable to parse paragraph element: {t}" tag))))))
-    
-    (define (parse-style-tag node intern-style)
-      (let ((string (get-text~ (first-child~ node)))
-            (style (new Text-Style base: 'Base)))
+  @comment
+  (let ((yo (lambda () (debug 'yo))))
+    `(<span>
+       "Hello World"
+       (<bulleted> "Yoo")
+       (<bulleted> "This message-box")
+       (<bulleted> indent: 2 
+         "really"
+         " "
+         (<text> frame: Blue
+           (<text> highlight: Red
+             (<text> color: Green
+               "really")))
+         (<text> frame: Blue highlight: Red color: Green
+           "really"))
+       (<paragraph> bulleted: #t indent: 1
+         (<text> action: ,yo
+           "rocks!"))))
+  
+  
+  (method (parse-markup-content node)
+    (let ((paragraphs (new-queue))
+          (formats (new List-Factory))
+          (styles (new List-Factory)))
+      (define (intern-format format)
+        (when format
+          (put~ formats format)))
+      
+      (define (intern-style style)
+        (when style
+          (put~ styles style)))
+      
+      (define (process-node node runs style)
+        (if (is? node JML-Text)
+            (let ((text (get-text~ node)))
+              (if (not runs)
+                  (enqueue paragraphs (cons #f (list (list text #f))))
+                (enqueue runs (list text (intern-style style)))))
+          (case (get-tag~ node)
+            ((span) (process-span node runs style))
+            ((paragraph) (process-paragraph node runs style))
+            ((text) (process-text node runs style))
+            (else (error "Invalid text node: {s}" (get-tag~ node))))))
+      
+      (define (process-children node runs style)
+        (for-each (lambda (child)
+                    (process-node child runs style))
+                  (get-children~ node)))
+      
+      (define (process-span node runs style)
+        (process-children node runs style))
+      
+      (define (process-paragraph node runs style)
+        (let ((format (new Format))
+              (runs (new-queue))
+              (style (new Text-Style base: 'Base)))
+          (for-each-property (lambda (property value)
+                               (case property
+                                 ((bulleted) (set! format (extend~ format bulleted?: value left-margin: 16)))
+                                 ((indent) (set! format (extend~ format left-margin: (+ (get-left-margin~ format) (* value 32)))))
+                                 (else (error "Unknown paragraph property: {s}" property))))
+                           (get-properties~ node))
+          (process-children node runs style)
+          (enqueue paragraphs (cons (intern-format format) (queue-list runs)))))
+      
+      (define (process-text node runs style)
         (for-each-property (lambda (property value)
                              (case property
-                               ((color) (set-color~ style (parse-color value)))
-                               (else (error "Unknown style property: {s}" property))))
+                               ((font) (set! style (extend~ style font: (process-font value))))
+                               ((frame) (set! style (extend~ style frame: (process-color value))))
+                               ((highlight) (set! style (extend~ style highlight: (process-color value))))
+                               ((color) (set! style (extend~ style color: (process-color value))))
+                               ((action) (set! style (new Link-Style font: {Font Link} color: {Color Link} action: value)))
+                               (else (error "Unknown text property: {s}" property))))
                            (get-properties~ node))
-        (list string (intern-style style))))
-    
-    (define (parse-color color)
-      (dispatch (class-of Color) color))
-    
-    (let* ((formats (new List-Factory))
-           (styles (new List-Factory))
-           (intern-format
-            (lambda (format)
-              (when format
-                (put~ formats format))))
-           (intern-style
-            (lambda (style)
-              (when style
-                (put~ styles style))))
-           (paragraphs (map (lambda (par)
-                              (parse-jml-paragraph par intern-format intern-style))
-                            (get-children~ node))))
+        (process-children node runs style))
+      
+      (define (process-color color)
+        (if (is? color Color)
+            color
+          (registered-color color)))
+      
+      (define (process-font font)
+        (if (is? font Font)
+            font
+          (registered-font font)))
+      
+      (process-node (transform-jml node (new Text-Transformation)) #f #f)
       (new Formatted-Text
         formats: (get-output~ formats)
         styles: (get-output~ styles)
-        paragraphs: paragraphs)))
+        paragraphs: (queue-list paragraphs))))
   
   
   ;;;

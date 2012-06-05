@@ -1733,30 +1733,26 @@
                                                 (loop (for c from cell-col below (+ cell-col nbcol))
                                                       (enqueue queue (get-column c)))
                                                 (queue-list queue))))
-                          (merge-sites merged-rows merged-columns line: (get-line~ cell) col: (get-col~ cell)))
+                          (merge-sites merged-rows merged-columns))
                       (error "Merge cell out of tree bounds")))))
             (error "First cell is empty")))
       (error "Invalid merge-cells")))
   
   
-  (method protected (merge-sites rows columns (line: line #f) (col: col #f) (inhibit-invalidate?: inhibit-invalidate? #f))
-    (let ((first-line (or line (row->line (first rows))))
-          (first-col (or col (column->col (first columns)))))
-      (let ((merge-cell (new Merge-Cell (new Cell first-line first-col) rows columns self))
-            (lines (naturals first-line (+ first-line (length rows)))))
-        (for-each (lambda (column)
-                    (for-each (lambda (row line)
-                                (set-merge-cell! (new Site row column) merge-cell))
-                              rows
-                              lines))
-                  columns)
-        (unless inhibit-invalidate?
-          (let ((rect (merge-cell-rect merge-cell)))
-            (when rect
-              (let ((site-data (get-site-data (new Site (first rows) (first columns)))))
-                (when (is? site-data View)
-                  (set-rect~ site-data (acquire~ (get-parent~ site-data) self rect))))
-              (invalidate-rect rect)))))))
+  (method protected (merge-sites rows columns (inhibit-invalidate?: inhibit-invalidate? #f))
+    (let ((merge-cell (new Merge-Cell rows columns self)))
+      (for-each (lambda (column)
+                  (for-each (lambda (row)
+                              (set-merge-cell! (new Site row column) merge-cell))
+                            rows))
+                columns)
+      (unless inhibit-invalidate?
+        (let ((rect (merge-cell-rect merge-cell)))
+          (when rect
+            (let ((site-data (get-site-data (new Site (first rows) (first columns)))))
+              (when (is? site-data View)
+                (set-rect~ site-data (acquire~ (get-parent~ site-data) self rect))))
+            (invalidate-rect rect))))))
   
   
   (method public (unmerge-cells cell)
@@ -2945,20 +2941,24 @@
 (class Merge-Cell extends Object
   
   
-  (slot master-cell    initialize #f  accessors generate)
   (slot merged-rows    initialize '() accessors generate)
   (slot merged-columns initialize '() accessors generate)
   (slot tree           initialize #f  accessors generate)
   
   
-  (method override (initialize cell rows-list columns-list cells-tree)
+  (method override (initialize rows-list columns-list cells-tree)
     (nextmethod)
-    (set! master-cell cell)
     (set! merged-rows rows-list)
     (set! merged-columns columns-list)
     (set! tree cells-tree))
   
- 
+  
+  (method public (get-master-cell)
+    (let ((master-row (first merged-rows))
+          (master-column (first merged-columns)))
+      (site->cell~ tree (new Site master-row master-column))))
+  
+  
   (method override (print output readably)
     (print-unreadable self output
       (lambda (output)

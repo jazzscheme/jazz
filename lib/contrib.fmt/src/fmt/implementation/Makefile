@@ -37,18 +37,20 @@ fmt/fmt.ss: fmt-mzscheme.scm fmt.scm fmt-pretty.scm fmt-column.scm
 	(cat $+; echo ')') > $@
 fmt/fmt-c.ss: fmt-c-mzscheme.scm fmt-c.scm
 	(cat $+; echo ')') > $@
+fmt/fmt-js.ss: fmt-js-mzscheme.scm fmt-js.scm
+	(cat $+; echo ')') > $@
 fmt/fmt-color.ss: fmt-color-mzscheme.scm fmt-color.scm
 	(cat $+; echo ')') > $@
 fmt/fmt-unicode.ss: fmt-unicode-mzscheme.scm fmt-unicode.scm
 	(cat $+; echo ')') > $@
 
-fmt.plt: fmt/let-optionals.ss fmt/mantissa.ss fmt/fmt.ss fmt/fmt-c.ss fmt/fmt-color.ss fmt/fmt-unicode.ss
+fmt.plt: fmt/let-optionals.ss fmt/mantissa.ss fmt/fmt.ss fmt/fmt-c.ss fmt/fmt-js.ss fmt/fmt-color.ss fmt/fmt-unicode.ss
 	mkdir -p fmt
 	mzc --at-plt --plt fmt.plt fmt/
 
 mzscheme: fmt.plt
 
-planet: fmt/let-optionals.ss fmt/mantissa.ss fmt/fmt.ss fmt/fmt-c.ss fmt/fmt-color.ss fmt/fmt-unicode.ss
+planet: fmt/let-optionals.ss fmt/mantissa.ss fmt/fmt.ss fmt/fmt-c.ss fmt/fmt-js.ss fmt/fmt-color.ss fmt/fmt-unicode.ss
 	planet create fmt
 
 fmt-base.html: fmt.doc fmt.mistie fmt.css
@@ -86,7 +88,7 @@ dist: doc distclean
 	tar cphzvf fmt-`cat VERSION`.tar.gz fmt-`cat VERSION`
 	rm -rf fmt-`cat VERSION`
 
-CHICKEN_FMT_DIR=~/src/scheme/chicken-eggs/release/3/fmt
+CHICKEN_FMT_DIR=~/src/scheme/chicken-eggs/release/4/fmt
 
 chicken:
 	@for f in fmt-c-chicken.scm fmt-column.scm fmt.scm fmt-c.scm fmt-js.scm fmt-js-chicken.scm fmt-pretty.scm fmt.setup fmt-chicken.scm fmt-unicode-chicken.scm test-fmt-c.scm fmt-color-chicken.scm fmt.html test-fmt.scm fmt-color.scm fmt.meta test-round.scm; do if ! diff -q $$f $(CHICKEN_FMT_DIR)/$$f; then cp $$f $(CHICKEN_FMT_DIR)/; fi; done

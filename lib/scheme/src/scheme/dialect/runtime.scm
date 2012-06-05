@@ -227,7 +227,7 @@
 
 (define (jazz:walk-define-special-form-declaration walker resume declaration environment form-src)
   (receive (name type parameters body) (jazz:parse-define-special-form walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let ((signature (jazz:walk-parameters walker resume declaration environment parameters #f #f)))
+    (let ((signature (jazz:walk-parameters walker resume declaration environment parameters #t #f)))
       (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                  (jazz:new-define-special-form-declaration name type declaration signature))))
         (jazz:set-declaration-source new-declaration form-src)
@@ -238,7 +238,7 @@
 (define (jazz:walk-define-special-form walker resume declaration environment form-src)
   (receive (name type parameters body) (jazz:parse-define-special-form walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let* ((new-declaration (jazz:require-declaration declaration name)))
-      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #f #t)
+      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
         (jazz:set-define-special-form-declaration-signature new-declaration signature)
         (jazz:set-define-special-form-declaration-body new-declaration
           (jazz:walk-body walker resume new-declaration augmented-environment body))
@@ -304,7 +304,7 @@
 
 (define (jazz:walk-define-macro-declaration walker resume declaration environment form-src)
   (receive (name type parameters body) (jazz:parse-define-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
-    (let ((signature (jazz:walk-parameters walker resume declaration environment parameters #f #f)))
+    (let ((signature (jazz:walk-parameters walker resume declaration environment parameters #t #f)))
       (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                  (jazz:new-define-macro-declaration name type declaration signature))))
         (jazz:set-declaration-source new-declaration form-src)
@@ -315,7 +315,7 @@
 (define (jazz:walk-define-macro walker resume declaration environment form-src)
   (receive (name type parameters body) (jazz:parse-define-macro walker resume declaration (%%cdr (jazz:source-code form-src)))
     (let ((new-declaration (jazz:require-declaration declaration name)))
-      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #f #t)
+      (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
         (jazz:set-define-macro-declaration-signature new-declaration signature)
         (jazz:set-define-macro-declaration-body new-declaration
           (jazz:walk-body walker resume new-declaration augmented-environment body))
@@ -347,11 +347,12 @@
           (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend)))
             (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
               (let ((signature-casts (jazz:emit-signature-casts signature declaration augmented-environment backend))
-                    (cast-body (jazz:simplify-begin (jazz:emit-type-cast (jazz:new-code `(begin ,@(jazz:sourcified-form body-code)) (jazz:get-code-type body-code) #f) type declaration environment backend))))
-                (jazz:new-code
-                  (jazz:emit 'lambda backend expression declaration environment signature-emit signature-casts cast-body)
-                  (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
-                  (jazz:get-expression-source expression))))))))))
+                    (body-emit (jazz:emit 'begin backend expression declaration environment body-code)))
+                (let ((cast-body (jazz:simplify-begin (jazz:emit-type-cast (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type declaration environment backend))))
+                  (jazz:new-code
+                    (jazz:emit 'lambda backend expression declaration environment signature-emit signature-casts cast-body)
+                    (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
+                    (jazz:get-expression-source expression)))))))))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Lambda expression) down up here seed environment)
@@ -979,24 +980,6 @@
 (define (jazz:walk-delay walker resume declaration environment form-src)
   (let ((expression (%%cadr (jazz:source-code form-src))))
     (jazz:new-delay (jazz:walk walker resume declaration environment expression))))
-
-
-;;;
-;;;; Quasiquote
-;;;
-
-
-(define (jazz:walk-quasiquote walker resume declaration environment form-src)
-  (define (walk form-src)
-    (if (%%pair? (jazz:source-code form-src))
-        (let ((first (jazz:source-code (%%car (jazz:source-code form-src)))))
-          (if (or (%%eq? first 'unquote)
-                  (%%eq? first 'unquote-splicing))
-              (%%list first (jazz:walk walker resume declaration environment (%%cadr (jazz:source-code form-src))))
-            (%%cons (walk (%%car (jazz:source-code form-src))) (walk (%%cdr (jazz:source-code form-src))))))
-      form-src))
-  
-  (jazz:new-quasiquote (walk (%%cadr (jazz:source-code form-src)))))
 
 
 ;;;

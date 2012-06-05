@@ -14,6 +14,7 @@
 
 
 (definition default-text-buffers-size 1024)
+(definition debug-warnings? #f)
 
 (c-constant SQL_SUCCESS 0)
 (c-constant SQL_SUCCESS_WITH_INFO 1)
@@ -30,7 +31,9 @@
 (c-constant SQL_NULL_DATA -1)
 
 (c-constant SQL_NTS -3)
+(c-constant SQL_DRIVER_NOPROMPT 0)
 (c-constant SQL_DRIVER_COMPLETE 1)
+
 (c-constant SQL_CHAR 1)
 (c-constant SQL_NO_DATA_FOUND 100)
 
@@ -58,6 +61,12 @@
 
 (c-constant SQL_CURSOR_STATIC 3)
 
+(c-constant SQL_ATTR_AUTOCOMMIT 102)
+(c-constant SQL_COMMIT 0)
+(c-constant SQL_ROLLBACK 1)
+
+(c-constant SQL_UNBIND 2)
+
 
 ;;;
 ;;;; Column Attributes
@@ -69,13 +78,15 @@
 (c-constant SQL_DESC_TYPE_NAME 14)
 (c-constant SQL_DESC_TYPE 1002)
 (c-constant SQL_DESC_LENGTH 1003)
+(c-constant SQL_DESC_NAME 1011)
 
 (definition SQL-column-attributes-types
   `((,SQL_COLUMN_DISPLAY_SIZE . numeric)
     (,SQL_DESC_CONCISE_TYPE   . numeric)
     (,SQL_DESC_TYPE_NAME      . character)
     (,SQL_DESC_TYPE           . numeric)
-    (,SQL_DESC_LENGTH         . numeric)))
+    (,SQL_DESC_LENGTH         . numeric)
+    (,SQL_DESC_NAME           . character)))
 
 
 
@@ -94,15 +105,19 @@
 (definition (SQL_TIMESTAMP_STRUCT-alloc i)
   (SQL_TIMESTAMP_STRUCT-make))
 
+(definition (uint16*->UTF-16-string-ref pt offset)
+   (uint16*->UTF-16-string pt))      
+
 (definition public SQLServer-datatypes
-  `((4  #f #f ,SQL_C_SLONG          ,long*-alloc                ,long*-ref                    ,identity)
+  `((2  #f #f ,SQL_C_SLONG          ,long*-alloc                ,long*-ref                    ,identity)
+    (4  #f #f ,SQL_C_SLONG          ,long*-alloc                ,long*-ref                    ,identity)
     (-7 #f #f ,SQL_C_BIT            ,uint8*-alloc               ,uint8*-ref                   ,number->truth)
-    (-8 2  #f ,SQL_C_WCHAR          ,wchar_t*-alloc             ,wchar_t*->wchar_t-string-ref ,identity)
-    (-9 2  #f ,SQL_C_WCHAR          ,wchar_t*-alloc             ,wchar_t*->wchar_t-string-ref ,identity)
+    (-8 2  #f ,SQL_C_WCHAR          ,uint16*-alloc              ,uint16*->UTF-16-string-ref   ,identity)
+    (-9 2  #f ,SQL_C_WCHAR          ,uint16*-alloc              ,uint16*->UTF-16-string-ref   ,identity)
     (12 1  #f ,SQL_C_CHAR           ,char*-alloc                ,char*->char-string-ref       ,identity)
     (-1 1  #t ,SQL_C_CHAR           ,char*-alloc                ,char*->char-string-ref       ,identity)
     (7  #f #f ,SQL_C_FLOAT          ,float*-alloc               ,float*-ref                   ,identity)
-    (93 #f #f ,SQL_C_TYPE_TIMESTAMP ,SQL_TIMESTAMP_STRUCT-alloc ,identity1                    ,SQL_TIMESTAMP_STRUCT->date)))
+    (9  #f #f ,SQL_C_TYPE_TIMESTAMP ,SQL_TIMESTAMP_STRUCT-alloc ,identity1                    ,SQL_TIMESTAMP_STRUCT->date)))
 
 
 (definition (SQLServer-datatype-size type)
@@ -128,65 +143,86 @@
 (definition (SQLServer-datatype-convert type)
   (sixth (assq-value type SQLServer-datatypes #f)))
 
-
-
-;;;
-;;;; ODBC Connection
-;;;
-
-
-(class ODBC-Connection extends Object
-  
-  
-  (slot henv accessors generate)
-  (slot hdbc accessors generate)
-  
-  
-  (method override (initialize connection-string)
-    (set! henv (SQLAllocHandleStd SQL_HANDLE_ENV #f))
-    (set! hdbc (SQLAllocHandleStd SQL_HANDLE_DBC henv))
-    (SQLDriverConnect hdbc connection-string))
-  
-  
-  (method override (close)
-    (SQLDisconnect hdbc)
-    (SQLFreeHandle SQL_HANDLE_DBC hdbc)
-    (SQLFreeHandle SQL_HANDLE_ENV henv)
-    (nextmethod)))
-
 ;;;
 ;;;; ODBC Exception
 ;;;
 
 
-(class ODBC-Exception extends Exception
-  
-  (slot code)
-  (slot message)
+(class ODBC-Diagnostic-Record extends Object
   
   
-  (method override (initialize code message)
-    (set! code~self code)
-    (set! message~self message))
+  (slot statement accessors generate)
+  (slot state accessors generate)
+  (slot message accessors generate)
+  (slot row accessors generate)
+  (slot column accessors generate)
+  
+  
+  (method override (initialize state message row column statement)
+    (set! state~self state)
+    (set! message~self message)
+    (set! row~self row)
+    (set! column~self column)
+    (set! statement~self statement))
   
   
   (method override (print output readably)
     (print-unreadable self output
       (lambda (output)
-        (format output "{a}{? {a}~}" code message))))
+        (format output "{a} column {a} row {a} : {a}" state column row message)))))
+
+
+(class ODBC-Exception extends Exception
   
   
-  (method (get-code)
-    code)
+  (slot records accessors generate)
+  
+  
+  (method override (initialize records)
+    (set! records~self records))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (let ((record (car records))
+              (more? (> 1 (length records))))
+          (format output "{?:More records, ~} {a} column {a} row {a} : {a}" more? (get-state~ record) (get-column~ record) (get-row~ record) (get-message~ record))))))
+  
+  
+  (method (get-state)
+    (get-state~ (car records)))
   
   
   (method override (get-message)
-    (or message (format "ODBC Exception ({a})" code))))
-
+    (get-message~ (car records))))
 
 ;;;
 ;;;; Error Handling
 ;;;
+
+
+(definition (fetch-diagnostic-records HandleType Handle)
+  (let (recurse (i 1))
+    (let ((state (get-SQLState HandleType Handle i)))
+      (if state
+          (let ((column (and (= HandleType SQL_HANDLE_STMT) (SQLGetDiagField-Integer HandleType Handle i SQL_DIAG_COLUMN_NUMBER)))
+                (row (and (= HandleType SQL_HANDLE_STMT) (SQLGetDiagField-Integer HandleType Handle i SQL_DIAG_ROW_NUMBER)))
+                (message (SQLGetDiagField-String HandleType Handle i SQL_DIAG_MESSAGE_TEXT))
+                (statement (SQLGetDiagField-String HandleType Handle i SQL_DIAG_DYNAMIC_FUNCTION)))
+            (cons (new ODBC-Diagnostic-Record state message row column statement)
+                  (recurse (+ i 1))))
+        '()))))
+
+(definition (handle-sql-success-info HandleType Handle)
+  (when debug-warnings?
+    (let ((records (fetch-diagnostic-records HandleType Handle)))
+      (for-each (lambda (record)
+                  (debug-string "ODBC SQL Warning")
+                  (debug-string (format "Row {a}, Column {a}" (get-row~ record) (get-column~ record)))
+                  (debug-string (format "{a} - {a}" (get-state~ record) (get-message~ record)))
+                  (debug-string (get-statement~ record)))
+                records))))
 
 
 (definition (handle-sql-error HandleType Handle result)
@@ -195,9 +231,7 @@
      (error "Invalid SQL handle"))
     ((SQL_ERROR)
      (if Handle
-         (let ((state (get-SQLState HandleType Handle 1))
-               (message (get-SQLMessage HandleType Handle 1)))
-           (raise (new ODBC-Exception state message)))
+         (raise (new ODBC-Exception (fetch-diagnostic-records HandleType Handle)))
        (error "Error in sql call")))
     (else
      (error "Unknown SQL return code {a}" result))))
@@ -226,24 +260,52 @@
 
 (c-constant SQL_DIAG_SQLSTATE 4)
 (c-constant SQL_DIAG_MESSAGE_TEXT 6)
+(c-constant SQL_DIAG_COLUMN_NUMBER -1247)
+(c-constant SQL_DIAG_ROW_NUMBER -1248)
+(c-constant SQL_DIAG_DYNAMIC_FUNCTION 7)
 
 (definition public (get-SQLState HandleType Handle RecNumber)
   (let ((DiagInfoPtr (SQLCHAR*-alloc 6)))
-    (SQLGetDiagField$ HandleType Handle RecNumber SQL_DIAG_SQLSTATE DiagInfoPtr 6 #f)
-    (prog1 (SQLCHAR*->char-string DiagInfoPtr)
-      (SQLCHAR*-free DiagInfoPtr))))
+    (dynamic-wind
+      do-nothing
+      (lambda ()
+        (let ((result (SQLGetDiagField$ HandleType Handle RecNumber SQL_DIAG_SQLSTATE DiagInfoPtr 6 #f)))
+          (ecase result
+            ((SQL_SUCCESS)
+             (SQLCHAR*->char-string DiagInfoPtr))
+            ((SQL_NO_DATA)
+             #f)
+            (else
+             (error "SQLGetDiagField did not return SQL_SUCCESS {a}" result)))))
+      (lambda ()
+        (SQLCHAR*-free DiagInfoPtr)))))
 
-(definition public (get-SQLMessage HandleType Handle RecNumber)
+
+(definition public (SQLGetDiagField-Integer HandleType Handle RecNumber DiagIdentifier)
+  (let ((DiagInfoPtr (SQLINTEGER*-alloc 1)))
+    (dynamic-wind
+      do-nothing
+      (lambda ()
+        (let ((result (SQLGetDiagField$ HandleType Handle RecNumber DiagIdentifier DiagInfoPtr 0 #f)))
+          (if (eq? result SQL_SUCCESS)
+              (SQLINTEGER*-ref DiagInfoPtr 0)
+            (error "SQLGetDiagField did not return SQL_SUCCESS {a}" result))))
+      (lambda ()
+        (SQLINTEGER*-free DiagInfoPtr)))))
+
+
+(definition public (SQLGetDiagField-String HandleType Handle RecNumber DiagIdentifier)
   (let (loop (BufferLength default-text-buffers-size))
     (let ((DiagInfoPtr (SQLCHAR*-alloc BufferLength))
           (StringLengthPtr (SQLSMALLINT*-alloc 1)))
       (dynamic-wind
-        (lambda () #f)
+        do-nothing
         (lambda ()
-          (ecase (SQLGetDiagField$ HandleType Handle RecNumber SQL_DIAG_MESSAGE_TEXT DiagInfoPtr BufferLength StringLengthPtr)
-            ((SQL_SUCCESS) (SQLCHAR*->char-string DiagInfoPtr))
-            ((SQL_SUCCESS_WITH_INFO) (loop (+ 1 (SQLSMALLINT*-ref StringLengthPtr 0))))
-            ((SQL_ERROR) (error "get-SQLMessage error"))))
+          (let ((result (SQLGetDiagField$ HandleType Handle RecNumber SQL_DIAG_MESSAGE_TEXT DiagInfoPtr BufferLength StringLengthPtr)))
+            (ecase result
+              ((SQL_SUCCESS) (SQLCHAR*->char-string DiagInfoPtr))
+              ((SQL_SUCCESS_WITH_INFO) (loop (+ 1 (SQLSMALLINT*-ref StringLengthPtr 0))))
+              (else (error "SQLGetDiagField did not return SQL_SUCCESS {a}" result)))))
         (lambda ()
           (SQLCHAR*-free DiagInfoPtr)
           (SQLSMALLINT*-free StringLengthPtr))))))
@@ -256,6 +318,12 @@
 
 
 (definition public SQLSetStmtAttr SQLSetStmtAttr$)
+
+
+(definition public SQLSetConnectAttr SQLSetConnectAttr$)
+
+
+(definition public SQLEndTran SQLEndTran$)
 
 
 (definition public (SQLAllocHandleStd HandleType InputHandle)
@@ -278,7 +346,12 @@
         (SQLHANDLE*-free handle*)))))
 
 (definition public (SQLDriverConnect ConnectionHandle InConnectionString)
-  (SQLDriverConnect$ ConnectionHandle #f InConnectionString SQL_NTS #f 0 #f SQL_DRIVER_COMPLETE))
+  (let ((result (SQLDriverConnect$ ConnectionHandle #f InConnectionString SQL_NTS #f 0 #f SQL_DRIVER_NOPROMPT)))
+    (ecase result
+      ((SQL_SUCCESS SQL_SUCCESS_WITH_INFO)
+       #t)
+      (else
+       (handle-sql-error SQL_HANDLE_DBC ConnectionHandle result)))))
 
 (definition public (SQLExecDirect StatementHandle StatementText)
   (let ((StatementText (char-string->SQLCHAR* StatementText)))
@@ -337,53 +410,11 @@
   (let ((result (SQLMoreResults$ StatementHandle)))
     (ecase result
       ((SQL_SUCCESS) #t)
+      ((SQL_SUCCESS_WITH_INFO)
+       (handle-sql-success-info SQL_HANDLE_STMT StatementHandle)
+       #t)
       ((SQL_NO_DATA) #f)
       (else (handle-sql-error SQL_HANDLE_STMT StatementHandle result)))))
-       
-
-(definition (vector-map procedure vector . vectors)
-  (let* ((size (vector-length vector))
-         (new-vector (make-vector size)))
-    (if (null? vectors)
-        (let (loop (i 0))
-          (if (< i size)
-              (begin
-                (vector-set! new-vector i (procedure (vector-ref vector i)))
-                (loop (+ i 1)))
-            new-vector))
-      (let (loop (i 0))
-        (if (< i size)
-            (begin
-              (vector-set! new-vector i (apply procedure (vector-ref vector i) (map (lambda (vector)
-                                                                                      (vector-ref vector i))
-                                                                                    vectors)))
-              (loop (+ i 1)))
-          new-vector)))))
-
-
-(definition (vector-map! procedure vector)
-  (let ((size (vector-length vector)))
-    (let (loop (i 0))
-      (if (< i size)
-          (begin
-            (vector-set! vector i (procedure (vector-ref vector i)))
-            (loop (+ i 1)))
-        vector))))
-
-
-(definition (vector-for-each procedure vector . vectors)
-  (let ((size (vector-length vector)))
-    (if (null? vectors)
-        (let (loop (i 0))
-          (when (< i size)
-            (procedure (vector-ref vector i))
-            (loop (+ i 1))))
-      (let (loop (i 0))
-        (when (< i size)
-          (apply procedure (vector-ref vector i) (map (lambda (vector)
-                                                        (vector-ref vector i))
-                                                      vectors))
-          (loop (+ i 1)))))))
 
 
 (definition (make-convert-procedure col-type)
@@ -455,6 +486,7 @@
   
   (slot hstmt             accessors generate)
   (slot index             accessors generate)
+  (slot name              accessors generate)
   (slot datatype          accessors generate)
   (slot size-buffer       accessors generate)
   (slot value-buffer-size accessors generate)
@@ -465,8 +497,9 @@
   (slot convert           accessors generate)
   
   
-  (method override (initialize hstmt index datatype column-length)
+  (method override (initialize hstmt index name datatype column-length)
     (set! index~self index)
+    (set! name~self name)
     (set! datatype~self datatype)
     (set! size-buffer (SQLLEN*-alloc 1))
     (set! hstmt~self hstmt)
@@ -503,8 +536,8 @@
 (class ODBC-Bound-Column extends ODBC-Column
   
   
-  (method override (initialize statement index datatype column-length)
-    (nextmethod statement index datatype column-length)
+  (method override (initialize statement index name datatype column-length)
+    (nextmethod statement index name datatype column-length)
     (SQLBindCol$ hstmt index (SQLServer-datatype-c-type datatype) value-buffer value-buffer-size size-buffer))
   
   
@@ -547,15 +580,16 @@
   (slot hstmt accessors generate)
   (slot columns accessors generate)
   (slot dispatch-cache accessors generate)
+  (slot strategy accessors generate)
   
   
   (method override (initialize connection statement-text (strategy: strategy 'mixed))
+    (set! strategy~self strategy)
     (set! hstmt (SQLAllocHandleStd SQL_HANDLE_STMT (get-hdbc~ connection)))
     (SQLExecDirect hstmt statement-text))
   
   
   (method override (close)
-    (clean-resultset)
     (SQLFreeHandle SQL_HANDLE_STMT hstmt)
     (nextmethod))
   
@@ -566,7 +600,8 @@
   
   
   (method (clean-resultset)
-    (vector-for-each close~ columns))
+    (vector-for-each close~ columns)
+    (SQLFreeStmt$ hstmt SQL_UNBIND))
   
   
   (method (find-last-bound-column num-cols datatypes col-sizes)
@@ -583,21 +618,26 @@
   (method (create-columns)
     (let* ((num-cols (SQLNumResultCols hstmt))
            (indexes (naturals 1 (+ num-cols 1))))
-      (let ((column-types (map (lambda (index)
-                                 (SQLColAttribute hstmt index SQL_DESC_CONCISE_TYPE))
+      (let ((column-names (map (lambda (index)
+                                 (SQLColAttribute hstmt index SQL_DESC_NAME))
+                               indexes))
+            (column-types (map (lambda (index)
+                                 (SQLColAttribute hstmt index SQL_DESC_TYPE))
                                indexes))
             (column-lengths (map (lambda (index)
                                    (SQLColAttribute hstmt index SQL_DESC_LENGTH))
                                  indexes)))
-        (debug column-types)
-        (let ((last-bound-column (find-last-bound-column num-cols column-types column-lengths)))
+        (let ((last-bound-column (if (eq? strategy 'mixed)
+                                     (find-last-bound-column num-cols column-types column-lengths)
+                                   0)))
           (list->vector
-            (map (lambda (index column-type column-length)
+            (map (lambda (index column-name column-type column-length)
                    (let ((column-class (cond ((<= index last-bound-column) ODBC-Bound-Column)
                                              ((SQLServer-datatype-size column-type) ODBC-Unbound-Variable-Column)
                                              (else ODBC-Unbound-Fixed-Column))))
-                     (new column-class hstmt index column-type column-length)))
+                     (new column-class hstmt index column-name column-type column-length)))
                  indexes
+                 column-names
                  column-types
                  column-lengths))))))
   
@@ -608,12 +648,12 @@
                 columns))
                     
   
-  
   (method public (get-row)
-    (declare (proper-tail-calls))
     (let ((result (SQLFetch$ hstmt)))
       (ecase result
-        ((SQL_SUCCESS)
+        ((SQL_SUCCESS SQL_SUCCESS_WITH_INFO)
+         (when (eq? result SQL_SUCCESS_WITH_INFO)
+           (handle-sql-success-info SQL_HANDLE_STMT hstmt))
          (let* ((length (vector-length columns))
                 (row (make-vector length)))
            (let (loop (i 0))
@@ -622,10 +662,6 @@
                    (vector-set! row i ((vector-ref dispatch-cache i) (vector-ref columns i)))
                    (loop (+ i 1)))
                row))))
-        @a
-        ((SQL_SUCCESS_WITH_INFO)
-         (debug-string "Warning truncated")
-         (vector-map get-data~ columns))
         ((SQL_NO_DATA)
          #f)
         (else
@@ -634,15 +670,18 @@
   
   (method public (load-single-resultset)
     (declare (proper-tail-calls))
-    (let ((rows (new List-Factory)))
-      (prepare-resultset)
-      (let (loop)
-        (let ((row (get-row)))
-          (when row
-            (put~ rows row)
-            (loop))))
-      (clean-resultset)
-      (get-output~ rows)))
+    (let ((num-cols (SQLNumResultCols hstmt)))
+      (and (> num-cols 0)
+           (let ((rows (new List-Factory)))
+             (prepare-resultset)
+             (let (loop (i 0))
+               (let ((row (get-row)))
+                 (when row
+                   (put~ rows row)
+                   (loop (+ i 1)))))
+             (clean-resultset)
+             (list (vector-map get-name~ columns)
+                   (get-output~ rows))))))
   
   
   (method (more-results)
@@ -650,105 +689,12 @@
   
   
   (method public (load-multiple-resultsets)
-    (declare (proper-tail-calls))
     (let ((sets (new List-Factory)))
       (let (loop)
-        (put~ sets (load-single-resultset))
+        (let ((resultset (load-single-resultset)))
+          (when resultset
+            (put~ sets resultset)))
         (if (more-results)
             (loop)
           (get-output~ sets))))))
-
-
-(definition (find-last-bound-column num-cols datatypes col-sizes)
-  (let (loop (i 1))
-    (if (< i num-cols)
-        (if (can-be-bound? (vector-ref datatypes (- i 1)) (vector-ref col-sizes (- i 1)))
-            (loop (+ i 1))
-          (- i 1))
-      num-cols)))
-
-
-(definition public (SQLFetchAll StatementHandle truncate?)
-  (let* ((num-cols (SQLNumResultCols StatementHandle))
-         (indexes (list->vector (naturals 1 (+ num-cols 1)))))
-    (let ((col-types (vector-map (lambda (col) (SQLColAttribute StatementHandle col SQL_DESC_CONCISE_TYPE)) indexes))
-          (col-sizes (vector-map (lambda (col) (SQLColAttribute StatementHandle col SQL_DESC_LENGTH)) indexes)))
-      (debug col-types)
-      (let ((rows (new List-Factory))
-            (c-types (vector-map SQLServer-datatype-c-type col-types))
-            (size-buffers (vector-map (lambda (_) (SQLLEN*-alloc 1)) indexes))
-            (buffer-sizes (vector-map (lambda (datatype datatype-size col-size)
-                                        (if datatype-size
-                                            (if (can-be-bound? datatype col-size)
-                                                (+ 1 col-size)
-                                              default-text-buffers-size)
-                                          1))
-                                      col-types
-                                      (vector-map SQLServer-datatype-size col-types)
-                                      col-sizes))
-            (last-bound-column (if truncate? num-cols (find-last-bound-column num-cols col-types col-sizes))))
-        (let ((value-buffers (vector-map (lambda (alloc size) (alloc size))
-                                         (vector-map SQLServer-datatype-alloc col-types)
-                                         buffer-sizes))
-              (buffer-sizes-bytes (vector-map (lambda (buffer-size datatype-size)
-                                                (if datatype-size (* datatype-size buffer-size) 1))
-                                              buffer-sizes
-                                              (vector-map SQLServer-datatype-size col-types)))
-              (create-row (make-create-row-procedure StatementHandle last-bound-column indexes col-types col-sizes)))
-          (vector-for-each (lambda (ColumnNumber TargetType TargetValuePtr BufferLength StrLen_or_Ind)
-                             (when (<= ColumnNumber last-bound-column)
-                               (SQLBindCol$ StatementHandle ColumnNumber TargetType TargetValuePtr BufferLength StrLen_or_Ind)))
-                           indexes
-                           c-types
-                           value-buffers
-                           buffer-sizes-bytes
-                           size-buffers)
-          (let (loop)
-            (let ((result (SQLFetch$ StatementHandle)))
-              (ecase result
-                ((SQL_SUCCESS)
-                 (put~ rows (create-row value-buffers buffer-sizes-bytes size-buffers))
-                 (loop))
-                ((SQL_SUCCESS_WITH_INFO)
-                 (debug-string "Warning truncated")
-                 (put~ rows (create-row value-buffers buffer-sizes-bytes size-buffers))
-                 (loop))
-                
-                @a
-                ((SQL_SUCCESS_WITH_INFO)
-                 (if cursor?
-                     (begin
-                       (vector-for-each (lambda (index col-type size-buffer buffer-size)
-                                          (let ((datatype-size (SQLServer-datatype-size col-type))
-                                                (fetched-size (SQLLEN*-ref size-buffer 0)))
-                                            (when (and datatype-size (>= fetched-size buffer-size))
-                                              (let ((offset (- index 1))
-                                                    (new-size (+ fetched-size datatype-size))
-                                                    (alloc (SQLServer-datatype-alloc col-type)))
-                                                (free (vector-ref value-buffers offset))
-                                                (vector-set! buffer-sizes-bytes offset new-size)
-                                                (vector-set! value-buffers offset (alloc (/ new-size datatype-size)))
-                                                (SQLBindCol$ 
-                                                  StatementHandle
-                                                  index
-                                                  (vector-ref c-types offset)
-                                                  (vector-ref value-buffers offset)
-                                                  (vector-ref buffer-sizes-bytes offset)
-                                                  (vector-ref size-buffers offset))))))
-                                        indexes
-                                        col-types
-                                        size-buffers
-                                        buffer-sizes-bytes)
-                       (let ((result (SQLFetchScroll$ StatementHandle SQL_FETCH_RELATIVE 0)))
-                         (if (= result SQL_SUCCESS)
-                             (put~ rows (create-vector value-buffers size-buffers))
-                           (handle-sql-error SQL_HANDLE_STMT StatementHandle result))))
-                   (put~ rows (create-vector value-buffers size-buffers)))
-                 (loop))
-                ((SQL_NO_DATA)
-                 (get-output~ rows))
-                (else
-                 (handle-sql-error SQL_HANDLE_STMT StatementHandle result))))))))))
-
-
 )

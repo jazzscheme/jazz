@@ -866,36 +866,31 @@
 
   
   (method public virtual (header-click column)
-    (update-column-sorting column (case (column-sorting column)
-                                    ((ascending) 'descending)
-                                    ((descending) 'ascending)
-                                    (else 'ascending)))
-    (ensure-displayed))
-  
-  
-  (method protected (update-column-sorting column new-direction)
-    (assert column)
-    (let ((current-direction (column-sorting column)))
-      (unless (eq? (column-sorting column) new-direction)
+    (let* ((current-direction (column-sorting column))
+           (new-direction (case current-direction
+                            ((ascending) 'descending)
+                            ((descending) 'ascending)
+                            (else 'ascending))))
+      (unless (eq? current-direction new-direction)
         (set-sorted-column column new-direction)
-        (sort-rows column new-direction))))
+        (sort-rows column new-direction)))
+    (ensure-displayed))
+    
   
-  
-  (method virtual (set-sorted-column column direction)
+  (method protected (set-sorted-column column direction)
     (if (not column)
         (set! sorted-columns '())
       (set! sorted-columns (list (cons column direction))))
     (invalidate-header))
 
   
-  (method public virtual (column-sorting column)
+  (method public (column-sorting column)
     (let ((pair (assq column sorted-columns)))
-      (if pair
-          (cdr pair)
-        #f)))
+      (and pair
+           (cdr pair))))
   
   
-  (method protected virtual (sort-rows column direction)
+  (method protected (sort-rows column direction)
     (define (call-sort rows equal predicate)
       (let ((col (column->col column)))
         (let ((dual? (/= col 0)))

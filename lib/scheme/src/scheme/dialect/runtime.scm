@@ -115,7 +115,7 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Declaration declaration) environment backend)
   (let ((value (jazz:get-define-declaration-value declaration)))
-    (let ((expression (jazz:emit-type-cast (jazz:emit-expression value declaration environment backend) (jazz:get-lexical-binding-type declaration) declaration environment backend)))
+    (let ((expression (jazz:emit-type-check (jazz:emit-expression value declaration environment backend) (jazz:get-lexical-binding-type declaration) declaration environment backend)))
       (jazz:emit 'define backend declaration environment expression))))
 
 
@@ -348,7 +348,7 @@
             (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
               (let ((signature-casts (jazz:emit-signature-casts signature declaration augmented-environment backend))
                     (body-emit (jazz:emit 'begin backend expression declaration environment body-code)))
-                (let ((cast-body (jazz:simplify-begin (jazz:emit-type-cast (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type declaration environment backend))))
+                (let ((cast-body (jazz:simplify-begin (jazz:emit-type-check (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type declaration environment backend))))
                   (jazz:new-code
                     (jazz:emit 'lambda backend expression declaration environment signature-emit signature-casts cast-body)
                     (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
@@ -419,7 +419,7 @@
                                (value (%%cdr binding)))
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) declaration environment backend)))))
+                             `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend)))))
                        bindings
                        variables))
                 (body-code (jazz:emit-expression body declaration augmented-environment backend)))
@@ -491,7 +491,7 @@
                                (value (%%cdr binding)))
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) declaration environment backend)))))
+                             `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend)))))
                        bindings
                        (%%cdr variables)))
                 (body-code (jazz:emit-expression body declaration augmented-environment backend)))
@@ -566,7 +566,7 @@
                                (value (%%cdr binding)))
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) declaration environment backend)))))
+                             `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend)))))
                        bindings
                        variables))
                 (body-code (jazz:emit-expression body declaration augmented-environment backend)))
@@ -632,7 +632,7 @@
                                (value (%%cdr binding)))
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-cast value-code (jazz:get-lexical-binding-type variable) declaration environment backend)))))
+                             `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend)))))
                        bindings
                        variables))
                 (body-code (jazz:emit-expression body declaration augmented-environment backend)))

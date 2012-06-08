@@ -122,34 +122,34 @@
   (method public (logical->device shape <Object>)
     (typecase shape
       ((Point)
-       (receive (h v) (cairo_user_to_device context (get-h~ shape) (get-v~ shape))
+       (receive (h v) (cairo_user_to_device context (cast <fl> (get-h~ shape)) (cast <fl> (get-v~ shape)))
          (new Point (fxfloor h) (fxfloor v))))
       ((Dimension)
-       (receive (width height) (cairo_user_to_device_distance context (get-width~ shape) (get-height~ shape))
+       (receive (width height) (cairo_user_to_device_distance context (cast <fl> (get-width~ shape)) (cast <fl> (get-height~ shape)))
          (new Dimension (fxfloor width) (fxfloor height))))
       ((Distance)
-       (receive (x y) (cairo_user_to_device_distance context (get-x~ shape) (get-y~ shape))
+       (receive (x y) (cairo_user_to_device_distance context (cast <fl> (get-x~ shape)) (cast <fl> (get-y~ shape)))
          (new Distance (fxfloor x) (fxfloor y))))
       ((Rect)
-       (receive (left top) (cairo_user_to_device context (get-left~ shape) (get-top~ shape))
-         (receive (right bottom) (cairo_user_to_device context (get-right~ shape) (get-bottom~ shape))
+       (receive (left top) (cairo_user_to_device context (cast <fl> (get-left~ shape)) (cast <fl> (get-top~ shape)))
+         (receive (right bottom) (cairo_user_to_device context (cast <fl> (get-right~ shape)) (cast <fl> (get-bottom~ shape)))
            (new Rect (fxfloor left) (fxfloor top) (fxfloor right) (fxfloor bottom)))))))
   
   
   (method public (device->logical shape <Object>)
     (typecase shape
       ((Point)
-       (receive (h v) (cairo_device_to_user context (get-h~ shape) (get-v~ shape))
+       (receive (h v) (cairo_device_to_user context (cast <fl> (get-h~ shape)) (cast <fl> (get-v~ shape)))
          (new Point (fxfloor h) (fxfloor v))))
       ((Dimension)
-       (receive (width height) (cairo_device_to_user_distance context (get-width~ shape) (get-height~ shape))
+       (receive (width height) (cairo_device_to_user_distance context (cast <fl> (get-width~ shape)) (cast <fl> (get-height~ shape)))
          (new Dimension (fxfloor width) (fxfloor height))))
       ((Distance)
-       (receive (x y) (cairo_device_to_user_distance context (get-x~ shape) (get-y~ shape))
+       (receive (x y) (cairo_device_to_user_distance context (cast <fl> (get-x~ shape)) (cast <fl> (get-y~ shape)))
          (new Distance (fxfloor x) (fxfloor y))))
       ((Rect)
-       (receive (left top) (cairo_device_to_user context (get-left~ shape) (get-top~ shape))
-         (receive (right bottom) (cairo_device_to_user context (get-right~ shape) (get-bottom~ shape))
+       (receive (left top) (cairo_device_to_user context (cast <fl> (get-left~ shape)) (cast <fl> (get-top~ shape)))
+         (receive (right bottom) (cairo_device_to_user context (cast <fl> (get-right~ shape)) (cast <fl> (get-bottom~ shape)))
            (new Rect (fxfloor left) (fxfloor top) (fxfloor right) (fxfloor bottom)))))))
   
   
@@ -682,15 +682,16 @@
   ;;;
   
   
-  (method public (set-source-surface surface/handle x <fl> y <fl>)
+  (method public (set-source-surface surface/handle x y)
     (cairo_set_source_surface context (if (is? surface/handle Surface)
                                           (get-handle~ surface/handle)
                                         surface/handle)
-      x y))
+      (cast <fl> x)
+      (cast <fl> y)))
   
   
   (method public (blit-surface surface <Surface> (destination: destination {Point 0 0}))
-    (set-source-surface surface (get-h~ destination) (get-v~ destination))
+    (set-source-surface surface (cast <fl> (get-h~ destination)) (cast <fl> (get-v~ destination)))
     (paint))
   
   
@@ -989,12 +990,12 @@
   ;;;
   
   
-  (method public (cairo-move-to h <fl> v <fl>)
-    (cairo_move_to context h v))
+  (method public (cairo-move-to h v)
+    (cairo_move_to context (cast <fl> h) (cast <fl> v)))
   
   
-  (method public (cairo-line-to h <fl> v <fl>)
-    (cairo_line_to context h v))
+  (method public (cairo-line-to h v)
+    (cairo_line_to context (cast <fl> h) (cast <fl> v)))
   
   
   (method public (arc hc vc radius angle1 angle2)
@@ -1038,62 +1039,64 @@
   ;;;
   
   
-  (method public (move-to h <fl> v <fl>)
-    (cairo_move_to context h v))
+  (method public (move-to h v)
+    (cairo_move_to context (cast <fl> h) (cast <fl> v)))
   
   
-  (method public (line-path h <fl> v <fl>)
-    (cairo_line_to context h v))
+  (method public (line-path h v)
+    (cairo_line_to context (cast <fl> h) (cast <fl> v)))
   
   
-  (method public (line-to h <fl> v <fl>)
-    (line-to-no-stroke h v)
+  (method public (line-to h v)
+    (line-to-no-stroke (cast <fl> h) (cast <fl> v))
     (stroke))
   
   
-  (method public (line-to-preserve h <fl> v <fl>)
-    (line-to-no-stroke h v)
+  (method public (line-to-preserve h v)
+    (line-to-no-stroke (cast <fl> h) (cast <fl> v))
     (stroke-preserve))
   
 
-  (method public (line-to-no-stroke h <fl> v <fl>)
-    (let* ((pt (cairo_current_point context))
-           (cur-h (get-h~ pt))
-           (cur-v (get-v~ pt)))
-      (let ((h (if (= cur-h h)
-                   (begin
-                     (move-to (+ cur-h 0.5) cur-v)
-                     (+ h 0.5))
-                 h))
-            (v (if (= cur-v v)
-                   (begin
-                     (move-to cur-h (+ cur-v 0.5))
-                     (+ v 0.5))
-                 v)))
-        (cairo_line_to context h v))))
+  (method public (line-to-no-stroke h v)
+    (let ((pt (cairo_current_point context))
+          (h (cast <fl> h))
+          (v (cast <fl> v)))
+      (let ((cur-h (get-h~ pt))
+            (cur-v (get-v~ pt)))
+        (let ((h (if (= cur-h h)
+                     (begin
+                       (move-to (+ cur-h 0.5) cur-v)
+                       (+ h 0.5))
+                   h))
+              (v (if (= cur-v v)
+                     (begin
+                       (move-to cur-h (+ cur-v 0.5))
+                       (+ v 0.5))
+                   v)))
+          (cairo_line_to context h v)))))
   
   
-  (method public (line-to-rel dh <fl> dv <fl>)
-    (cairo_rel_line_to context dh dv))
+  (method public (line-to-rel dh dv)
+    (cairo_rel_line_to context (cast <fl> dh) (cast <fl> dv)))
   
   
-  (method public (move-to-rel dh <fl> dv <fl>)
-    (cairo_rel_move_to context dh dv))
+  (method public (move-to-rel dh dv)
+    (cairo_rel_move_to context (cast <fl> dh) (cast <fl> dv)))
   
   
-  (method public (line h <fl> v <fl> dest-h <fl> dest-v <fl>)
+  (method public (line h v dest-h dest-v)
     (move-to h v)
     (line-to dest-h dest-v))
   
   
-  (method public (pixel-to h <fl> v <fl>)
+  (method public (pixel-to h v)
     (set-line-width 1)
     (move-to h v)
     (line-to (+ h 1) v))
   
   
-  (method public (set-line-width w <fl>)
-    (cairo_set_line_width context w))
+  (method public (set-line-width w)
+    (cairo_set_line_width context (cast <fl> w)))
   
   
   (method public (get-line-width)

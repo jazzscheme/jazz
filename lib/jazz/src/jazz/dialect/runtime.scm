@@ -77,7 +77,7 @@
                               (jazz:new-code
                                 `(let ,(map (lambda (parameter argument)
                                               `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
-                                                ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) source-declaration environment backend)))
+                                                ,(jazz:emit-type-check argument (jazz:get-lexical-binding-type parameter) source-declaration environment backend)))
                                             (jazz:get-signature-positional signature)
                                             arguments)
                                    ,@(jazz:sourcify-list (jazz:get-code-form body-code) (jazz:get-expression-source call)))
@@ -101,7 +101,7 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Definition-Declaration declaration) environment backend)
   (let ((value (jazz:get-definition-declaration-value declaration)))
-    (let ((expression (jazz:emit-type-cast (jazz:emit-expression value declaration environment backend) (jazz:get-lexical-binding-type declaration) declaration environment backend)))
+    (let ((expression (jazz:emit-type-check (jazz:emit-expression value declaration environment backend) (jazz:get-lexical-binding-type declaration) declaration environment backend)))
       (jazz:emit 'definition backend declaration environment expression))))
 
 
@@ -622,7 +622,7 @@
   (let ((name (jazz:get-lexical-binding-name declaration)))
     (receive (dispatch-type method-declaration) (jazz:method-dispatch-info declaration)
       (let ((category-declaration (jazz:get-declaration-parent method-declaration)))
-        (let ((object-cast (jazz:emit-type-cast object category-declaration source-declaration environment backend)))
+        (let ((object-cast (jazz:emit-type-check object category-declaration source-declaration environment backend)))
           (jazz:new-code
             (case dispatch-type
               ((final)
@@ -686,7 +686,7 @@
                              (jazz:new-code
                                `(let ,(map (lambda (parameter argument)
                                              `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
-                                               ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) source-declaration environment backend)))
+                                               ,(jazz:emit-type-check argument (jazz:get-lexical-binding-type parameter) source-declaration environment backend)))
                                            (jazz:get-signature-positional signature)
                                            arguments)
                                   ,(jazz:sourcify-if (jazz:desourcify-all (jazz:get-code-form body-code)) (jazz:get-expression-source call)))
@@ -746,7 +746,7 @@
                (body-type (let ((type (jazz:get-lexical-binding-type declaration)))
                             (if (%%is? type jazz:Function-Type) (jazz:get-function-type-result type) jazz:Any)))
                (body-emit (and body (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
-                                      (jazz:emit-type-cast body-code body-type declaration augmented-environment backend)))))
+                                      (jazz:emit-type-check body-code body-type declaration augmented-environment backend)))))
           (jazz:emit 'method backend declaration environment signature-emit signature-casts body-emit))))))
 
 
@@ -1242,7 +1242,7 @@
                                `(let ,(%%cons `(self ,(jazz:sourcified-form object))
                                               (map (lambda (parameter argument)
                                                      `(,(jazz:emit-binding-symbol parameter source-declaration environment backend)
-                                                       ,(jazz:emit-type-cast argument (jazz:get-lexical-binding-type parameter) source-declaration environment backend)))
+                                                       ,(jazz:emit-type-check argument (jazz:get-lexical-binding-type parameter) source-declaration environment backend)))
                                                    (jazz:get-signature-positional signature)
                                                    arguments))
                                   ,(jazz:sourcify-if (jazz:desourcify-all (jazz:get-code-form body-code)) (jazz:get-expression-source expression)))

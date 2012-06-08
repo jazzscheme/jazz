@@ -2061,26 +2061,30 @@
 
 (cond-expand
   (release
-    (define (jazz:emit-parameter-cast code type source-declaration environment backend)
-      (if (or (%%not type) (%%eq? type jazz:Any) (%%object-class? type) (jazz:object-declaration? type))
-         #f
-       (let ((parameter (jazz:sourcified-form code)))
-         ;; coded the flonum case here for now has it is the only castable type
-         (if (%%eq? type jazz:Flonum)
-             `(if (%%fixnum? ,parameter)
-                  (set! ,parameter (%%fixnum->flonum ,parameter)))
-           #f)))))
+    (define (jazz:emit-type-check code type source-declaration environment backend)
+      (jazz:sourcified-form code)))
   (else
-   (define (jazz:emit-parameter-cast code type source-declaration environment backend)
+   (define (jazz:emit-type-check code type source-declaration environment backend)
+     (if (or (%%not type) 
+             (%%eq? type jazz:Void)
+             (%%subtype? (jazz:get-code-type code) type))
+         (jazz:sourcified-form code)
+       (let ((value (jazz:generate-symbol "val")))
+         `(let ((,value (let () ,(jazz:sourcified-form code))))
+              ,(jazz:emit-check type value source-declaration environment backend)
+              ,value))))))
+
+
+(cond-expand
+  (release
+    (define (jazz:emit-parameter-check code type source-declaration environment backend)
+      #f))
+  (else
+   (define (jazz:emit-parameter-check code type source-declaration environment backend)
      (if (or (%%not type) (%%eq? type jazz:Any) (%%object-class? type) (jazz:object-declaration? type))
          #f
        (let ((parameter (jazz:sourcified-form code)))
-         ;; coded the flonum case here for now has it is the only castable type
-         (if (%%eq? type jazz:Flonum)
-             `(if (%%fixnum? ,parameter)
-                  (set! ,parameter (%%fixnum->flonum ,parameter))
-                ,(jazz:emit-check type parameter source-declaration environment backend))
-           (jazz:emit-check type parameter source-declaration environment backend)))))))
+         (jazz:emit-check type parameter source-declaration environment backend))))))
 
 
 ;;;
@@ -5054,13 +5058,13 @@
       (let ((type (jazz:get-lexical-binding-type parameter)))
         ;; simple optimization
         (if (and type (%%neq? type jazz:Any))
-            (let ((cast (jazz:emit-parameter-cast (jazz:emit-binding-reference parameter source-declaration environment backend) type source-declaration environment backend)))
-              (if cast
+            (let ((check (jazz:emit-parameter-check (jazz:emit-binding-reference parameter source-declaration environment backend) type source-declaration environment backend)))
+              (if check
                   (begin
                     ;; optimize the by far more frequent case of signatures having no types
                     (if (%%not queue)
                         (set! queue (jazz:new-queue)))
-                    (jazz:enqueue queue cast)))))))
+                    (jazz:enqueue queue check)))))))
     
     (for-each process (jazz:get-signature-positional signature))
     (for-each process (jazz:get-signature-optional signature))

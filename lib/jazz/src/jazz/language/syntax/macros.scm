@@ -71,11 +71,13 @@
 
 (define-syntax constant
   (lambda (form-src usage-environment macro-environment)
-    (let ((name (cadr (source-code form-src)))
-          (value (caddr (source-code form-src))))
-      (sourcify-if
-        `(definition public ,name ,value)
-        form-src))))
+    (let ((name (cadr (source-code form-src))))
+      (parse-specifier (cddr (source-code form-src))
+        (lambda (specifier body)
+          (let ((value (car body)))
+            (sourcify-if
+              `(definition public ,name ,@(if specifier (list specifier) '()) ,value)
+              form-src)))))))
 
 
 (define-syntax expand-body

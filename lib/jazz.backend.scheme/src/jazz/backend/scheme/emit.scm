@@ -611,6 +611,8 @@
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:truncate       '(                     (##fltruncate <fl:fl>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:round          '(                     (##flround    <fl:fl>)))
 
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:sqrt           '(                     (##sqrt       <fl:fl>)))
+
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:not            '((##not  <any:bool>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:eq?            '((##eq?  <any^any:bool>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:eqv?           '((##eqv? <any^any:bool>)))

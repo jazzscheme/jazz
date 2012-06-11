@@ -1,0 +1,50 @@
+(module jazz.database.postgre jazz
+
+
+(import (jazz.database)
+        (jazz.jml)
+        (jazz.library))
+        
+
+(class Postgre-Data-Source extends Database-Data-Source
+  
+  
+  (property server   initialize #f accessors generate)
+  (property database initialize #f accessors generate)
+  
+  
+  (form
+    (<install> backend: odbc))
+  
+  
+  (method override (valid-backends)
+    '(odbc))
+  
+  
+  (method override (get-connection-string)
+    (format "driver=~{PostgreSQL ODBC Driver(UNICODE)~};server={a};database={a};uid={a};pwd={a}"
+            server
+            database
+            username
+            password))
+  
+  
+  (method override (convert-symbolic-sql symbolic-sql)
+    (bind (operator . rest) symbolic-sql
+      (case operator
+        ((string-concatenate)
+         (bind (first second) rest
+           (format "{a} || {a}" first second)))
+        ((true?)
+         (format "{a} = True" (car rest)))
+        ((cs=)
+         (bind (first second) rest
+           (format "{a} = '{a}'" first second)))
+        ((drop-temp-table)
+         (format "DROP TABLE IF EXISTS {a}" (car rest)))
+        ((temp-table)
+         (car rest))
+        ((into-temporary-table)
+         (format "INTO TEMP {a}" (car rest)))
+        (else
+         (nextmethod symbolic-sql)))))))

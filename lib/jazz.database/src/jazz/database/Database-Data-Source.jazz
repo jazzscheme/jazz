@@ -1,0 +1,69 @@
+(module protected jazz.database.Database-Data-Source jazz
+
+
+(import (jazz.schema)
+        (jazz.database.ado)
+        (jazz.database.odbc))
+
+
+(class Database-Data-Source extends Data-Source
+  
+  
+  (property backend initialize 'adodb accessors generate)
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (unless (memq? backend (valid-backends))
+      (error "Invalid backend for {a} : {a}" (class-of self) backend)))
+  
+  
+  ;;;
+  ;;;; Backends
+  ;;;
+  
+  
+  (method virtual (valid-backends)
+    '(odbc adodb))
+  
+  
+  ;;;
+  ;;;; Connection
+  ;;;
+  
+  
+  (method override (new-connection)
+    (case backend
+      ((adodb)
+       (new ADO-Connection self))
+      ((odbc)
+       (new ODBC-Connection self))))
+  
+  
+  ;;;
+  ;;;; Post-Processing
+  ;;;
+  
+  
+  (method virtual (convert-symbolic-sql symbolic-sql)
+    (error "Could not convert symbolic sql {a}" symbolic-sql))
+  
+  
+  (method public (post-process-request request)
+    (declare (proper-tail-calls))
+    (let ((input (open-input-string request))
+          (output (open-output-string)))
+      (let (loop)
+        (let ((c (read-char input)))
+          (cond ((eof-object? c)
+                 (get-output-string output))
+                ((eq? c #\@)
+                 (let* ((sql (string (read-char input) (read-char input) (read-char input)))
+                        (result (if (string=? sql "sql")
+                                    (convert-symbolic-sql (read input))
+                                  sql)))
+                   (display result output)
+                   (loop)))
+                (else
+                 (write-char c output)
+                 (loop)))))))))

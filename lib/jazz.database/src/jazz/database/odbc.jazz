@@ -11,13 +11,7 @@
 ;;;
 
 
-(class ODBC-Data-Source extends Data-Source
-  
-  
-  (method override (new-connection)
-    (new ODBC-Connection (get-connection-string))))
-
-
+@need-to-convert
 (class ODBC-DBase-Data-Source extends ODBC-Data-Source
   
   
@@ -28,36 +22,6 @@
     (format "driver=~{Microsoft dBASE Driver (*.dbf)~};DriverID=277;Dbq={a}" directory)))
 
 
-(class ODBC-Postgre-Data-Source extends ODBC-Data-Source
-  
-  
-  (property server   initialize #f accessors generate)
-  (property database initialize #f accessors generate)
-  
-  
-  (method override (get-connection-string)
-    (format "driver=~{PostgreSQL ODBC Driver(UNICODE)~};server={a};database={a};uid={a};pwd={a}"
-            server
-            database
-            username
-            password)))
-
-
-(class ODBC-SQLServer-Data-Source extends ODBC-Data-Source
-  
-  
-  (property server   initialize #f accessors generate)
-  (property database initialize #f accessors generate)
-  
-  
-  (method override (get-connection-string)
-    (format "driver=~{SQL Server Native Client 10.0~};server={a};database={a};uid={a};pwd={a}"
-            server
-            database
-            username
-            password)))
-
-
 (class ODBC-Connection extends Connection
   
   
@@ -65,17 +29,23 @@
   (slot hdbc accessors generate)
   
   
-  (method override (initialize connection-string)
+  (method override (setup-connection)
+    (nextmethod)
     (set! henv (SQLAllocHandleStd SQL_HANDLE_ENV #f))
-    (set! hdbc (SQLAllocHandleStd SQL_HANDLE_DBC henv))
-    (SQLDriverConnect hdbc connection-string))
+    (set! hdbc (SQLAllocHandleStd SQL_HANDLE_DBC henv)))
   
   
-  (method override (close)
+  (method override (destroy-connection)
     (SQLDisconnect hdbc)
     (SQLFreeHandle SQL_HANDLE_DBC hdbc)
     (SQLFreeHandle SQL_HANDLE_ENV henv)
     (nextmethod))
+  
+  
+  (method override (open data-source . rest)
+    (let ((connection-string (get-connection-string~ data-source)))
+      (SQLDriverConnect hdbc connection-string))
+    (nextmethod data-source))
   
   
   (method (resultset->Data-Table resultset)
@@ -104,11 +74,12 @@
   
   
   (method override (execute request)
-    (close~ (new ODBC-Statement self request)))
+    (close~ (new ODBC-Statement self (post-process-request~ data-source request))))
   
   
   (method override (load-request request (convert?: convert? #t))
-    (let* ((statement (new ODBC-Statement self request))
+    (let* ((request (post-process-request~ data-source request))
+           (statement (new ODBC-Statement self request))
            (resultset (load-single-resultset~ statement)))
       (close~ statement)
       (if convert?
@@ -117,7 +88,8 @@
   
   
   (method override (load-multirequest request (convert?: convert? #t) (strategy: strategy 'mixed))
-    (let* ((statement (new ODBC-Statement self request strategy: strategy))
+    (let* ((request (post-process-request~ data-source request))
+           (statement (new ODBC-Statement self request strategy: strategy))
            (resultsets (load-multiple-resultsets~ statement)))
       (close~ statement)
       (if convert?

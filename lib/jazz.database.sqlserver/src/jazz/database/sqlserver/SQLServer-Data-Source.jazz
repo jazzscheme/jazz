@@ -38,18 +38,20 @@
 (module protected jazz.database.sqlserver.SQLServer-Data-Source jazz
 
 
-(import (jazz.database.ado)
+(import (jazz.database)
+        (jazz.database.ado)
+        (jazz.database.odbc)
         (jazz.database.sqlserver)
         (jazz.jml)
         (jazz.schema))
 
 
-(class SQLServer-Data-Source extends Data-Source
+(class SQLServer-Data-Source extends Database-Data-Source
 
 
-  (property server   initialize #f accessors generate)
-  (property database initialize #f accessors generate)
-  (property dsn      initialize #f accessors generate)
+  (property server   initialize #f     accessors generate)
+  (property database initialize #f     accessors generate)
+  (property dsn      initialize #f     accessors generate)
   
   
   (method meta override (external-name . rest)
@@ -81,14 +83,17 @@
   ;;;
   
   
-  (method override (new-connection)
-    (new ADO-Connection self))
+  (method (get-driver-name)
+    (case backend
+      ((adodb) "SQL Server")
+      ((odbc)  "SQL Server Native Client 10.0")))
   
   
   (method override (get-connection-string)
     (if dsn
         (format "DSN={a};" dsn)
-      (format "driver=~{SQL Server};server={a};database={a};uid={a};pwd={a}"
+      (format "driver=~{{a}};server={a};database={a};uid={a};pwd={a}"
+              (get-driver-name)
               server
               database
               (or username "")
@@ -100,6 +105,32 @@
           database: database
           username: username
           password: password))
+  
+  
+  ;;;
+  ;;;; Post-Process
+  ;;;
+  
+  
+  (method override (convert-symbolic-sql symbolic-sql)
+    (bind (operator . rest) symbolic-sql
+      (case operator
+        ((string-concatenate)
+         (bind (first second) rest
+           (format "{a} + {a}" first second)))
+        ((true?)
+         (format "{a} = 1" (car rest)))
+        ((cs=)
+         (bind (first second) rest
+           (format "{a} COLLATE Latin1_General_CS_AS = '{a}'" first second)))
+        ((drop-temp-table)
+         (format "if not object_id('tempdb..{a}') is null DROP TABLE {a}" (car rest) (car rest)))
+        ((temp-table)
+         (format "#{a}" (car rest)))
+        ((into-temporary-table)
+         (format "INTO #{a}" (car rest)))
+        (else
+         (nextmethod symbolic-sql)))))
   
   
   ;;;

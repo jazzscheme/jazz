@@ -39,6 +39,7 @@
 
 (c-constant SQL_SIGNED_OFFSET -20)
 (c-constant SQL_INTEGER 4)
+(c-constant SQL_BIGINT -5)
 (c-constant SQL_CHAR 1)
 (c-constant SQL_BIT -7)
 (c-constant SQL_WCHAR -8)
@@ -49,6 +50,7 @@
 (c-constant SQL_C_BIT SQL_BIT)
 (c-constant SQL_C_LONG SQL_INTEGER)
 (c-constant SQL_C_SLONG (+ SQL_C_LONG SQL_SIGNED_OFFSET))
+(c-constant SQL_C_SBIGINT (+ SQL_BIGINT SQL_SIGNED_OFFSET))
 (c-constant SQL_C_CHAR SQL_CHAR)
 (c-constant SQL_C_WCHAR SQL_WCHAR)
 (c-constant SQL_C_FLOAT SQL_REAL)
@@ -82,6 +84,7 @@
 (c-constant SQL_DESC_LENGTH 1003)
 (c-constant SQL_DESC_NAME 1011)
 
+
 (definition SQL-column-attributes-types
   `((,SQL_COLUMN_DISPLAY_SIZE . numeric)
     (,SQL_DESC_CONCISE_TYPE   . numeric)
@@ -89,7 +92,6 @@
     (,SQL_DESC_TYPE           . numeric)
     (,SQL_DESC_LENGTH         . numeric)
     (,SQL_DESC_NAME           . character)))
-
 
 
 ;;;
@@ -114,6 +116,7 @@
   `((2  #f #f ,SQL_C_SLONG          ,long*-alloc                ,long*-ref                    ,identity)
     (4  #f #f ,SQL_C_SLONG          ,long*-alloc                ,long*-ref                    ,identity)
     (8  #f #f ,SQL_C_DOUBLE         ,double*-alloc              ,double*-ref                  ,identity)
+    (-5 #f #f ,SQL_C_SBIGINT         ,int64*-alloc              ,int64*-ref                   ,identity)
     (-7 #f #f ,SQL_C_BIT            ,uint8*-alloc               ,uint8*-ref                   ,number->truth)
     (-8 2  #f ,SQL_C_WCHAR          ,uint16*-alloc              ,uint16*->UTF-16-string-ref   ,identity)
     (-9 2  #f ,SQL_C_WCHAR          ,uint16*-alloc              ,uint16*->UTF-16-string-ref   ,identity)
@@ -491,6 +494,7 @@
   (slot hstmt             accessors generate)
   (slot index             accessors generate)
   (slot name              accessors generate)
+  (slot type-name         accessors generate)
   (slot datatype          accessors generate)
   (slot size-buffer       accessors generate)
   (slot value-buffer-size accessors generate)
@@ -501,9 +505,10 @@
   (slot convert           accessors generate)
   
   
-  (method override (initialize hstmt index name datatype column-length)
+  (method override (initialize hstmt index name type-name datatype column-length)
     (set! index~self index)
     (set! name~self name)
+    (set! type-name~self type-name)
     (set! datatype~self datatype)
     (set! size-buffer (SQLLEN*-alloc 1))
     (set! hstmt~self hstmt)
@@ -540,8 +545,8 @@
 (class ODBC-Bound-Column extends ODBC-Column
   
   
-  (method override (initialize statement index name datatype column-length)
-    (nextmethod statement index name datatype column-length)
+  (method override (initialize statement index name type-name datatype column-length)
+    (nextmethod statement index name type-name datatype column-length)
     (SQLBindCol$ hstmt index (SQLServer-datatype-c-type datatype) value-buffer value-buffer-size size-buffer))
   
   
@@ -622,10 +627,7 @@
   (method (create-columns)
     (let* ((num-cols (SQLNumResultCols hstmt))
            (indexes (naturals 1 (+ num-cols 1))))
-      (let ((column-names (map (lambda (index)
-                                 (SQLColAttribute hstmt index SQL_DESC_NAME))
-                               indexes))
-            (column-types (map (lambda (index)
+      (let ((column-types (map (lambda (index)
                                  (SQLColAttribute hstmt index SQL_DESC_TYPE))
                                indexes))
             (column-lengths (map (lambda (index)
@@ -635,13 +637,14 @@
                                      (find-last-bound-column num-cols column-types column-lengths)
                                    0)))
           (list->vector
-            (map (lambda (index column-name column-type column-length)
-                   (let ((column-class (cond ((<= index last-bound-column) ODBC-Bound-Column)
+            (map (lambda (index column-type column-length)
+                   (let ((name (SQLColAttribute hstmt index SQL_DESC_NAME))
+                         (type-name (SQLColAttribute hstmt index SQL_DESC_TYPE_NAME))
+                         (column-class (cond ((<= index last-bound-column) ODBC-Bound-Column)
                                              ((SQLServer-datatype-size column-type) ODBC-Unbound-Variable-Column)
                                              (else ODBC-Unbound-Fixed-Column))))
-                     (new column-class hstmt index column-name column-type column-length)))
+                     (new column-class hstmt index name type-name column-type column-length)))
                  indexes
-                 column-names
                  column-types
                  column-lengths))))))
   

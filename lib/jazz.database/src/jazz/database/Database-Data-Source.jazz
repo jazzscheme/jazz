@@ -2,7 +2,7 @@
 
 
 (import (jazz.schema)
-        (jazz.database.ado)
+        (jazz.database.ado (cond windows))
         (jazz.database.odbc))
 
 
@@ -32,12 +32,23 @@
   ;;;
   
   
-  (method override (new-connection)
-    (case backend
-      ((adodb)
-       (new ADO-Connection self))
-      ((odbc)
-       (new ODBC-Connection self))))
+  (cond-expand
+    (windows
+      (method override (new-connection)
+        (case backend
+          ((adodb)
+           (new ADO-Connection self))
+          ((odbc)
+           (new ODBC-Connection self))
+          (else
+           (error "Unsupported backend {a}" backend)))))
+    (else
+     (method override (new-connection)
+       (case backend
+         ((odbc)
+          (new ODBC-Connection self))
+         (else
+          (error "Unsupported backend {a}" backend))))))
   
   
   ;;;

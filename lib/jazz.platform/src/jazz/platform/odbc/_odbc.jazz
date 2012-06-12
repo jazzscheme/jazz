@@ -39,6 +39,7 @@
 
 (c-constant SQL_SIGNED_OFFSET -20)
 (c-constant SQL_INTEGER 4)
+(c-constant SQL_BINARY -2)
 (c-constant SQL_BIGINT -5)
 (c-constant SQL_CHAR 1)
 (c-constant SQL_BIT -7)
@@ -56,6 +57,7 @@
 (c-constant SQL_C_FLOAT SQL_REAL)
 (c-constant SQL_C_DOUBLE SQL_DOUBLE)
 (c-constant SQL_C_TYPE_TIMESTAMP SQL_TYPE_TIMESTAMP)
+(c-constant SQL_C_BINARY SQL_BINARY)
 
 (c-constant SQL_FETCH_PRIOR 4)
 (c-constant SQL_FETCH_RELATIVE 6)
@@ -99,8 +101,8 @@
 ;;;
 
 
-(definition (number->truth n)
-  (boolean->truth (/= 0 n)))
+(definition (uint8*->truth buffer)
+  (boolean->truth (/= 0 (uint8*-get buffer))))
 
 
 (definition (identity1 x i)
@@ -109,22 +111,39 @@
 (definition (SQL_TIMESTAMP_STRUCT-alloc i)
   (SQL_TIMESTAMP_STRUCT-make))
 
-(definition (uint16*->UTF-16-string-ref pt offset)
-   (uint16*->UTF-16-string pt))      
+
+(definition (uint16*->UTF-16-string-lgt pt lgt)
+   (uint16*->UTF-16-string pt))
+
+
+(definition (char*->char-string-lgt pt lgt)
+   (char*->char-string pt))
+
+
+(definition (uint8*->u8vector pt length)
+  (declare (proper-tail-calls))
+  (let ((vec (make-u8vector length)))
+    (let (loop (i 0))
+      (when (< i length)
+        (u8vector-set! vec i (uint8*-ref pt i))
+        (loop (+ i 1))))
+    vec))
+
 
 (definition public SQLServer-datatypes
-  `((2  #f #f ,SQL_C_SLONG          ,long*-alloc                ,long*-ref                    ,identity)
-    (4  #f #f ,SQL_C_SLONG          ,long*-alloc                ,long*-ref                    ,identity)
-    (8  #f #f ,SQL_C_DOUBLE         ,double*-alloc              ,double*-ref                  ,identity)
-    (-5 #f #f ,SQL_C_SBIGINT         ,int64*-alloc              ,int64*-ref                   ,identity)
-    (-7 #f #f ,SQL_C_BIT            ,uint8*-alloc               ,uint8*-ref                   ,number->truth)
-    (-8 2  #f ,SQL_C_WCHAR          ,uint16*-alloc              ,uint16*->UTF-16-string-ref   ,identity)
-    (-9 2  #f ,SQL_C_WCHAR          ,uint16*-alloc              ,uint16*->UTF-16-string-ref   ,identity)
-    (-10 2  #f ,SQL_C_WCHAR          ,uint16*-alloc              ,uint16*->UTF-16-string-ref   ,identity)
-    (12 1  #f ,SQL_C_CHAR           ,char*-alloc                ,char*->char-string-ref       ,identity)
-    (-1 1  #t ,SQL_C_CHAR           ,char*-alloc                ,char*->char-string-ref       ,identity)
-    (7  #f #f ,SQL_C_FLOAT          ,float*-alloc               ,float*-ref                   ,identity)
-    (9  #f #f ,SQL_C_TYPE_TIMESTAMP ,SQL_TIMESTAMP_STRUCT-alloc ,identity1                    ,SQL_TIMESTAMP_STRUCT->date)))
+  `((2  #f #f ,SQL_C_SLONG          ,long*-alloc                ,long*-get                  #f)
+    (4  #f #f ,SQL_C_SLONG          ,long*-alloc                ,long*-get                  #f)
+    (8  #f #f ,SQL_C_DOUBLE         ,double*-alloc              ,double*-get                #f)
+    (-4 1  #t ,SQL_C_BINARY         ,uint8*-alloc               ,uint8*->u8vector           ,u8vector-append)
+    (-5 #f #f ,SQL_C_SBIGINT        ,int64*-alloc               ,int64*-get                 #f)
+    (-7 #f #f ,SQL_C_BIT            ,uint8*-alloc               ,uint8*->truth              #f)
+    (-8 2  #f ,SQL_C_WCHAR          ,uint16*-alloc              ,uint16*->UTF-16-string-lgt ,string-append)
+    (-9 2  #f ,SQL_C_WCHAR          ,uint16*-alloc              ,uint16*->UTF-16-string-lgt ,string-append)
+    (-10 2 #f ,SQL_C_WCHAR          ,uint16*-alloc              ,uint16*->UTF-16-string-lgt ,string-append)
+    (12 1  #f ,SQL_C_CHAR           ,char*-alloc                ,char*->char-string-lgt     ,string-append)
+    (-1 1  #t ,SQL_C_CHAR           ,char*-alloc                ,char*->char-string-lgt     ,string-append)
+    (7  #f #f ,SQL_C_FLOAT          ,float*-alloc               ,float*-get                 #f)
+    (9  #f #f ,SQL_C_TYPE_TIMESTAMP ,SQL_TIMESTAMP_STRUCT-alloc ,SQL_TIMESTAMP_STRUCT->date #f)))
 
 
 (definition (SQLServer-datatype-size type)
@@ -143,11 +162,11 @@
   (fourth (assq-value type SQLServer-datatypes #f)))
 
 
-(definition (SQLServer-datatype-ref type)
+(definition (SQLServer-datatype-convert type)
   (fifth (assq-value type SQLServer-datatypes #f)))
 
 
-(definition (SQLServer-datatype-convert type)
+(definition (SQLServer-datatype-append type)
   (sixth (assq-value type SQLServer-datatypes #f)))
 
 ;;;
@@ -499,10 +518,11 @@
   (slot size-buffer       accessors generate)
   (slot value-buffer-size accessors generate)
   (slot value-buffer      accessors generate)
+  (slot datatype-size     accessors generate)
   
   (slot c-type            accessors generate)
-  (slot ref               accessors generate)
   (slot convert           accessors generate)
+  (slot data-append       accessors generate)
   
   
   (method override (initialize hstmt index name type-name datatype column-length)
@@ -518,8 +538,9 @@
       (set! value-buffer-size (if datatype-size (* datatype-size buffer-length) 1))
       (set! value-buffer ((SQLServer-datatype-alloc datatype) buffer-length)))
     (set! c-type (SQLServer-datatype-c-type datatype))
-    (set! ref (SQLServer-datatype-ref datatype))
-    (set! convert (SQLServer-datatype-convert datatype)))
+    (set! datatype-size (SQLServer-datatype-size datatype))
+    (set! convert (SQLServer-datatype-convert datatype))
+    (set! data-append (SQLServer-datatype-append datatype)))
   
   
   (method override (close)
@@ -538,8 +559,11 @@
   
   
   (method (get-base-data)
-    (and (not (= SQL_NULL_DATA (SQLLEN*-ref size-buffer 0)))
-         (convert (ref value-buffer 0)))))
+    (let ((size (SQLLEN*-ref size-buffer 0)))
+      (and (not (= SQL_NULL_DATA size))
+           (if datatype-size
+               (convert value-buffer size)
+             (convert value-buffer))))))
 
 
 (class ODBC-Bound-Column extends ODBC-Column
@@ -580,7 +604,7 @@
           (else
            (handle-sql-error SQL_HANDLE_STMT hstmt result)))))
     (let ((results (get-next)))
-      (and results (apply string-append results)))))
+      (and results (apply data-append results)))))
 
 
 (class ODBC-Statement extends Object

@@ -443,66 +443,6 @@
       (else (handle-sql-error SQL_HANDLE_STMT StatementHandle result)))))
 
 
-(definition (make-convert-procedure col-type)
-  (let ((ref-procedure (SQLServer-datatype-ref col-type))
-        (convert-procedure (SQLServer-datatype-convert col-type)))
-    (if convert-procedure
-        (lambda (buffer)
-          (convert-procedure (ref-procedure buffer 0)))
-      (lambda (buffer)
-        (ref-procedure buffer 0)))))
-
-
-(definition (make-get-data-procedure StatementHandle index datatype last-bound-column convert-procedure)
-  (and (> index last-bound-column)
-       (let ((TargetType (SQLServer-datatype-c-type datatype)))
-         (if (SQLServer-datatype-size datatype)
-             (lambda (value-buffer buffer-length size-buffer)
-               (define (get-next)
-                 (let* ((result (SQLGetData$ StatementHandle index TargetType value-buffer buffer-length size-buffer))
-                        (data (and (not (= SQL_NULL_DATA (SQLLEN*-ref size-buffer 0)))
-                                   (convert-procedure value-buffer))))
-                   (ecase result
-                     ((SQL_SUCCESS_WITH_INFO)
-                      (cons data (get-next)))
-                     ((SQL_SUCCESS)
-                      (and data (list data)))
-                     (else
-                      (handle-sql-error SQL_HANDLE_STMT StatementHandle result)))))
-               (let ((results (get-next)))
-                 (and results (apply string-append results))))
-           (lambda (value-buffer buffer-length size-buffer)
-             (let ((result (SQLGetData$ StatementHandle index TargetType value-buffer buffer-length size-buffer)))
-               (if (= result SQL_SUCCESS)
-                   (and (not (= SQL_NULL_DATA (SQLLEN*-ref size-buffer 0)))
-                        (convert-procedure value-buffer))
-                 (handle-sql-error SQL_HANDLE_STMT StatementHandle result))))))))
-
-
-(definition (make-create-row-procedure StatementHandle last-bound-column indexes col-types col-sizes)
-  (let* ((convert-procedures (vector-map make-convert-procedure col-types))
-         (get-data-procedures (vector-map (lambda (index datatype convert-procedure)
-                                            (make-get-data-procedure StatementHandle index datatype last-bound-column convert-procedure))
-                                          indexes
-                                          col-types
-                                          convert-procedures)))
-    (lambda (value-buffers buffers-lengths size-buffers)
-      (let* ((size (vector-length col-types))
-             (row (make-vector size)))
-        ;; Convert bound columns
-        (let (loop (i 0))
-          (when (< i last-bound-column)
-            (vector-set! row i (and (not (= SQL_NULL_DATA (SQLLEN*-ref (vector-ref size-buffers i) 0)))
-                                    ((vector-ref convert-procedures i) (vector-ref value-buffers i))))
-            (loop (+ i 1))))
-        ;; Get data for unbound columns
-        (let (loop (i last-bound-column))
-          (when (< i size)
-            (vector-set! row i ((vector-ref get-data-procedures i) (vector-ref value-buffers i) (vector-ref buffers-lengths i) (vector-ref size-buffers i)))
-            (loop (+ i 1))))
-        row))))
-
-
 (definition (can-be-bound? datatype col-size)
   (not (or (= 0 col-size) (SQLServer-datatype-long? datatype))))
 

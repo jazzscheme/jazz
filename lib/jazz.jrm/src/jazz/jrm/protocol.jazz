@@ -94,7 +94,19 @@
 
 
 ;;;
-;;;; Communication
+;;;; Remote-Connection-Broke Exception
+;;;
+
+
+(class Remote-Connection-Broke extends Exception)
+
+
+(definition public (throw-remote-connection-broke)
+  (throw (new Remote-Connection-Broke)))
+
+
+;;;
+;;;; Communication Exception
 ;;;
 
 
@@ -116,7 +128,9 @@
 
 
 (definition public (with-communication thunk)
-  (with-exception-catcher
+  (with-exception-filter
+    (lambda (exc)
+      (not (is? exc Remote-Connection-Broke)))
     (lambda (exc)
       (throw (new Communication-Exception exc)))
     thunk))
@@ -218,10 +232,12 @@
          (b2 (read-u8 port))
          (b3 (read-u8 port))
          (b4 (read-u8 port)))
-    (let ((size (bytes->32-bit-integer b1 b2 b3 b4)))
-      (let ((u8vect (make-u8vector size)))
-        (read-subu8vector u8vect 0 size port)
-        (u8vector->object u8vect unmarshall)))))
+    (if (eof-object? b4)
+        (throw-remote-connection-broke)
+      (let ((size (bytes->32-bit-integer b1 b2 b3 b4)))
+        (let ((u8vect (make-u8vector size)))
+          (read-subu8vector u8vect 0 size port)
+          (u8vector->object u8vect unmarshall))))))
 
 
 (definition public (read-binary-header port)
@@ -237,9 +253,11 @@
          (b10 (read-u8 port))
          (b11 (read-u8 port))
          (b12 (read-u8 port)))
-    (let ((application-code (bytes->32-bit-integer b1 b2 b3 b4))
-          (version-code (bytes->64-bit-integer b5 b6 b7 b8 b9 b10 b11 b12)))
-      (values application-code (64-bit-integer->version version-code)))))
+    (if (eof-object? b12)
+        (throw-remote-connection-broke)
+      (let ((application-code (bytes->32-bit-integer b1 b2 b3 b4))
+            (version-code (bytes->64-bit-integer b5 b6 b7 b8 b9 b10 b11 b12)))
+        (values application-code (64-bit-integer->version version-code))))))
 
 
 ;;;

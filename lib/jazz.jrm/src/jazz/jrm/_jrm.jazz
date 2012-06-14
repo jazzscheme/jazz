@@ -55,9 +55,6 @@
 (definition *debug-locally?*
   #f)
 
-(definition *jrm-neo*
-  #t)
-
 
 ;;;
 ;;;; Server
@@ -131,34 +128,11 @@
 
 
 (definition package (remote-proxy-live? remote-proxy)
-  (if *jrm-neo*
-      (remote-proxy-live22? remote-proxy)
-    (catch (Remote-Connection-Broke exc
-             #f)
-      (let ((proxy-ior (proxy->ior remote-proxy)))
-        (let ((host (get-host~ proxy-ior))
-              (service (get-service~ proxy-ior)))
-          (when *debug?*
-            (terminal '***client*** 'live? (get-ior~ remote-proxy)))
-          (let ((port (open-tcp-client (list server-address: host port-number: service))))
-            (with-exception-catcher
-              (lambda (exc)
-                #f)
-              (lambda ()
-                (parameterize ((send-timeout live-timeout)
-                               (receive-timeout live-timeout))
-                  (send-remote-message live-request port)
-                  (let ((result (receive-remote-message port)))
-                    (close-port port)
-                    (eq? result live-response)))))))))))
-
-
-(definition package (remote-proxy-live22? remote-proxy)
   (catch (Remote-Connection-Broke exc
            #f)
     (parameterize ((send-timeout live-timeout)
                    (receive-timeout live-timeout))
-      (let ((result (invoke-jrm-message22 'live? #f remote-proxy '())))
+      (let ((result (invoke-remote 'live? 'live? remote-proxy '())))
         (eq? result live-response)))))
 
 
@@ -167,79 +141,85 @@
 ;;;
 
 
-(definition *jrm-connections*
+(definition *jrm-mutex*
+  (make-mutex 'jrm))
+
+
+(definition (with-jrm-mutex thunk)
+  (dynamic-wind
+    (lambda ()
+      (mutex-lock! *jrm-mutex*))
+    thunk
+    (lambda ()
+      (mutex-unlock! *jrm-mutex*))))
+
+
+(definition *jrm-switchboard*
+  #f)
+
+
+(definition public (require-remote-switchboard)
+  (if (not *jrm-switchboard*)
+      (error "Unable to complete operation because the remote switchboard is not running")
+    *jrm-switchboard*))
+
+
+(definition public (start-remote-switchboard)
+  (unless *jrm-switchboard*
+    ;; main thread has load-lock on jazz.debuggee.setup
+    ;; switchboard-thread will need to load jazz.jrm.register.Register
+    (load-unit 'jazz.jrm.register.Register)
+    (set! *jrm-switchboard*
+          (new-thread (lambda ()
+                        (process-remote-messages))
+                      'switchboard))
+    (thread-start! *jrm-switchboard*)))
+
+
+(definition *jrm-pumps*
   (make-table))
 
 
-(definition public (get-jrm-connections)
-  *jrm-connections*)
-
-
-(definition public (find-jrm-connection host service)
+(definition public (find-jrm-port host service)
   (let ((key (list host service)))
-    (table-ref *jrm-connections* key #f)))
+    (table-ref *jrm-pumps* key #f)))
 
 
-(definition public (establish-jrm-connection host service)
-  (let ((port (open-tcp-client (list server-address: host port-number: service))))
-    (dynamic-wind
-      (lambda ()
-        #f)
-      (lambda ()
-        (let ((server (require-remote-listener)))
-          (let ((local-host (listening-host~ server))
-                (local-service (listening-port~ server)))
-            (send-remote-message (list 'connect local-host local-service) port))
+(definition public (find/create-jrm-port host service)
+  (define (start-jrm-pump host service)
+    (when *debug?*
+      (terminal '***-pump-*** 'start host service))
+    (let ((port (open-tcp-client (list server-address: host port-number: service))))
+      (with-exception-catcher
+        (lambda (exc)
+          (when *debug?*
+            (terminal '***-pump-*** 'closed host service))
+          (with-exception-catcher
+            (lambda (exc)
+              #f)
+            (lambda ()
+              ;; open-tcp-client may silently fail
+              (close-port port)))
+          (throw exc))
+        (lambda ()
+          (let ((server (require-remote-listener)))
+            (let ((local-host (listening-host~ server))
+                  (local-service (listening-port~ server)))
+              (send-remote-message (list 'connect local-host local-service) port)))
+          (thread-start! (new-thread
+                           (lambda ()
+                             (process-jrm-pump host service port))
+                           'jrm-pump))
           (let ((key (list host service)))
-            (table-set! *jrm-connections* key port))
-          (thread-start! (new-thread (lambda () (process-jrm-messages host service port))
-                                     'persistent))
-          port))
-      (lambda ()
-        (unless (find-jrm-connection host service)
-          (close-port port))))))
-
-
-(definition public (terminate-jrm-connection host service)
-  (let ((port (find-jrm-connection host service)))
-    (close-port port)))
-
-
-(definition *jrm-invocations*
-  (make-table))
-
-
-(definition *jrm-switchboards*
-  (make-table))
-
-
-(definition public (find-jrm-switchboard host service)
-  (let ((key (list host service)))
-    (table-ref *jrm-switchboards* key #f)))
-
-
-(definition public (start-jrm-switchboard host service)
-  (let ((port (open-tcp-client (list server-address: host port-number: service))))
-    (dynamic-wind
-      (lambda ()
-        #f)
-      (lambda ()
-        (let ((server (require-remote-listener)))
-          (let ((local-host (listening-host~ server))
-                (local-service (listening-port~ server)))
-            (send-remote-message (list 'connect local-host local-service) port))
-          ;; main thread has load-lock on jazz.debuggee.setup
-          ;; switchboard-thread will need to load jazz.jrm.register.Register
-          (load-unit 'jazz.jrm.register.Register)
-          (let ((switchboard-thread (new-thread (lambda () (process-jrm-messages22 host service port))
-                                                'persistent)))
-            (let ((key (list host service)))
-              (table-set! *jrm-switchboards* key switchboard-thread))
-            (thread-start! switchboard-thread)
-            switchboard-thread)))
-      (lambda ()
-        (unless (find-jrm-switchboard host service)
-          (close-port port))))))
+            (table-set! *jrm-pumps* key port))
+          (when *debug?*
+            (terminal '***-pump-*** 'started host service port))
+          port))))
+  
+  (with-jrm-mutex
+    (lambda ()
+      (or (find-jrm-port host service)
+          (start-jrm-pump host service)))))
 
 
 ;;;
@@ -266,47 +246,6 @@
   (invoke-remote 'call method-name remote-proxy arguments))
 
 
-(definition (invoke-remote kind method-name remote-proxy arguments)
-  (if *jrm-neo*
-      (invoke-jrm-message22 kind method-name remote-proxy arguments)
-    (invoke-jrm-message kind method-name remote-proxy arguments)))
-
-
-(definition (invoke-remote-old kind method-name remote-proxy arguments)
-  (let ((proxy-ior (proxy->ior remote-proxy)))
-    (let ((host (get-host~ proxy-ior))
-          (service (get-service~ proxy-ior))
-          (cookie (object->serial (current-thread))))
-      (when *debug?*
-        (terminal '***client*** kind cookie method-name (get-ior~ remote-proxy) (and *debug-arguments?* arguments)))
-      (call-with-tcp-client (list server-address: host port-number: service)
-        (lambda (port)
-          (send-remote-message (list kind cookie method-name proxy-ior arguments) port)
-          (case kind
-            ((post)
-             (unspecified))
-            ((exec)
-             (when *debug?*
-               (terminal '***client*** 'wait method-name))
-             (let ((received (receive-remote-message port)))
-               (when *debug?*
-                 (terminal '***client*** 'received method-name '-> received))
-               (bind (err result) received
-                 (if err
-                     (error "Remote error while executing {s}: {a}" method-name err)
-                   (unspecified)))))
-            ((call)
-             (when *debug?*
-               (terminal '***client*** 'wait method-name))
-             (let ((received (receive-remote-message port)))
-               (when *debug?*
-                 (terminal '***client*** 'received method-name '-> received))
-               (bind (err result) received
-                 (if err
-                     (error "Remote error while executing {s}: {a}" method-name err)
-                   result))))))))))
-
-
 (definition (send-remote-message info port)
   (let ((timeout (send-timeout)))
     (when timeout
@@ -314,71 +253,7 @@
   (write-port port info))
 
 
-(definition (receive-remote-message port)
-  (let ((timeout (receive-timeout)))
-    (when timeout
-      (input-port-timeout-set! port timeout)))
-  (let ((info (read-port port)))
-    (if (eof-object? info)
-        (throw-remote-connection-broke)
-      info)))
-
-
-(definition public (invoke-jrm-message kind method-name remote-proxy arguments)
-  (let ((proxy-ior (proxy->ior remote-proxy)))
-    (let ((host (get-host~ proxy-ior))
-          (service (get-service~ proxy-ior)))
-      (let ((port (or (find-jrm-connection host service)
-                      (establish-jrm-connection host service))))
-        (let ((cookie (object->serial (current-thread))))
-          (define (skip-to-message)
-            (table-set! *jrm-invocations* cookie (list host service))
-            (let (iter)
-              (let ((message (thread-mailbox-next)))
-                ;; mailbox contains 2 types of message:
-                ;; (kind cookie method-name result) from process-jrm-messages
-                ;; (<thunk> . <continuation-chain>) from post-event et al.
-                (cond ((and (pair? message) (symbol? (car message)))
-                       (thread-mailbox-extract-and-rewind)
-                       message)
-                      (else
-                       (iter))))))
-          
-          (define (wait-for-result)
-            (when *debug?*
-              (terminal '***client*** 'wait method-name))
-            (let ((message (skip-to-message)))
-              (when *debug?*
-                (terminal '***client*** 'read method-name '-> message))
-              (bind (kind cookie result) message
-                (case kind
-                  ((result)
-                   result)
-                  ((broke)
-                   (throw-remote-connection-broke))
-                  ((error)
-                   (error "Remote error while executing {s}: {a}" method-name result))))))
-          
-          (when *debug?*
-            (terminal '***client*** kind cookie method-name (get-ior~ remote-proxy) (and *debug-arguments?* arguments)))
-          (send-remote-message (list kind cookie method-name proxy-ior arguments) port)
-          (case kind
-            ((post)
-             (unspecified))
-            ((exec)
-             (wait-for-result)
-             (unspecified))
-            ((call)
-             (wait-for-result))))))))
-
-
-(definition (invoke-jrm-message22 kind method-name remote-proxy arguments)
-  (define (get-switchboard-thread proxy-ior)
-    (let ((host (get-host~ proxy-ior))
-          (service (get-service~ proxy-ior)))
-      (or (find-jrm-switchboard host service)
-          (start-jrm-switchboard host service))))
-  
+(definition (invoke-remote kind method-name remote-proxy arguments)
   (define (make-absolute-timeout timeout)
     (seconds->systime (+ (systime->seconds (current-systime)) timeout)))
   
@@ -395,11 +270,9 @@
                (iter))))))
   
   (define (wait-for-result)
-    (when *debug?*
-      (terminal '***client*** 'wait method-name))
     (let ((message (skip-to-message)))
-      (when *debug?*
-        (terminal '***client*** 'read method-name '-> message))
+      (debug-jrm '***client*** 'read method-name)
+      (debug-jrm '***client*** 'read message)
       (bind (kind cookie result) message
         (case kind
           ((result)
@@ -409,24 +282,22 @@
           ((error)
            (error "Remote error while executing {s}: {a}" method-name result))))))
   
-  (let ((proxy-ior (proxy->ior remote-proxy)))
-    (let ((switchboard-thread (get-switchboard-thread proxy-ior))
-          (invoke-thread (current-thread)))
-      (let ((cookie (object->serial invoke-thread))
-            (timeout (make-absolute-timeout (receive-timeout))))
-        (when *debug?*
-          (terminal '***client*** kind cookie method-name (get-ior~ remote-proxy) (and *debug-arguments?* arguments)))
-        (case kind
-          ((post)
-           (thread-send switchboard-thread (values invoke-thread #f (list kind cookie method-name proxy-ior arguments)))
-           (unspecified))
-          ((call live?)
-           (thread-send switchboard-thread (values invoke-thread timeout (list kind cookie method-name proxy-ior arguments)))
-           (wait-for-result))
-          ((exec)
-           (thread-send switchboard-thread (values invoke-thread timeout (list kind cookie method-name proxy-ior arguments)))
-           (wait-for-result)
-           (unspecified)))))))
+  (let ((proxy-ior (proxy->ior remote-proxy))
+        (invoke-thread (current-thread)))
+    (let ((host (get-host~ proxy-ior))
+          (service (get-service~ proxy-ior))
+          (cookie (object->serial invoke-thread))
+          (timeout (and (neq? kind 'post) (make-absolute-timeout (receive-timeout)))))
+      (debug-jrm '***client*** 'send (list kind cookie method-name (get-ior~ remote-proxy) (and *debug-arguments?* arguments)))
+      (thread-send (require-remote-switchboard) (values 'invoke host service (values invoke-thread timeout kind method-name proxy-ior arguments)))
+      (case kind
+        ((post)
+         (unspecified))
+        ((call live?)
+         (wait-for-result))
+        ((exec)
+         (wait-for-result)
+         (unspecified))))))
 
 
 ;;;
@@ -434,277 +305,195 @@
 ;;;
 
 
-(definition (process-jrm-messages22 host service port)
-  (define (start-reader-thread port)
-    (let ((switchboard-thread (current-thread)))
-      (thread-start!
-        (new-thread
-          (lambda ()
-            (let (loop)
-              (input-port-timeout-set! port +inf.0)
-              (let ((message (catch (Remote-Connection-Broke exc
-                                      (eof-object))
-                               (read-port port))))
-                (thread-send switchboard-thread (values 'reader-thread #f message))
-                (unless (eof-object? message)
-                  (loop)))))
-          'jrm-reader))))
+(definition (debug-jrm side action message)
+  (define (simplify message)
+    (if (pair? message)
+        (map 
+          (lambda (message)
+            (cond ((pair? message)
+                   'p?)
+                  ((object? message)
+                   'o?)
+                  (else
+                   message)))
+          message)
+      message))
   
+  (when *debug?*
+    (terminal side action (simplify message))))
+
+
+(definition (invocation-broke thread exception)
+  (let ((cookie (object->serial thread)))
+    (thread-send thread (list 'broke cookie exception))))
+
+
+(definition (process-jrm-pump host service port)
+  (let (loop)
+    (input-port-timeout-set! port +inf.0)
+    (let ((message (catch (Remote-Connection-Broke exc
+                            (eof-object))
+                     (read-port port))))
+      (debug-jrm '***-pump-*** 'read message)
+      (thread-send (require-remote-switchboard) (values 'pump host service message))
+      (if (eof-object? message)
+          (with-jrm-mutex
+            (lambda ()
+              (let ((key (list host service)))
+                (table-clear *jrm-pumps* key))
+              (close-port port)))
+        (loop)))))
+
+
+(definition (process-pump-message invocations host service message)
+  (define (dispatch-remote message)
+    (bind (kind cookie method-name proxy-ior arguments) message
+      (debug-jrm '***server*** 'dispatch (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
+      (let ((local-proxy (ior->proxy proxy-ior)))
+        (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments))))
+  
+  (define (execute-remote message)
+    (bind (kind cookie method-name proxy-ior arguments) message
+      (define (dispatch-result message)
+        (let ((result (dispatch-remote message)))
+          (case kind
+            ((exec) (list 'result cookie (unspecified)))
+            ((call) (list 'result cookie result)))))
+      
+      (if *debug-locally?*
+          (dispatch-result message)
+        (continuation-capture
+          (lambda (return)
+            (with-exception-handler
+              (lambda (exc)
+                (continuation-capture
+                  (lambda (cont)
+                    (when *debug?*
+                      (terminal '***server*** 'exception method-name)
+                      (display-exception exc)
+                      (display-continuation-backtrace cont))
+                    (continuation-return return (list 'error cookie (exception-reason exc))))))
+              (lambda ()
+                (dispatch-result message))))))))
+  
+  (define (cleanup-pump-invocations invocations pump-host pump-service)
+    (table-for-each
+      (lambda (thread rest)
+        (bind (timeout host service message) rest
+          (when (and (equal? host pump-host)
+                     (equal? host pump-service))
+            (invocation-broke thread 'connection-closed))))
+      invocations))
+  
+  (debug-jrm '***server*** 'pump message)
+  (if (eof-object? message)
+      (cleanup-pump-invocations invocations host service)
+    (let ((kind (car message)))
+      (case kind
+        ((live?)
+         (bind (kind cookie method-name proxy-ior arguments) message
+           (with-jrm-mutex
+             (lambda ()
+               (let ((port (find-jrm-port host service)))
+                 (send-remote-message (list 'result cookie live-response) port))))))
+        ((error result)
+         (bind (kind cookie result) message
+           (let ((thread (serial->object cookie)))
+             (when (table-ref invocations thread #f)
+               (table-clear invocations thread)
+               (thread-send thread message)))))
+        ((post)
+         (thread-start!
+           (new-thread (lambda ()
+                         (dispatch-remote message))
+                       kind)))
+        ((exec call)
+         (thread-start!
+           (new-thread (lambda ()
+                         (let ((reply (execute-remote message)))
+                           (debug-jrm '***server*** 'reply message)
+                           (debug-jrm '***server*** 'reply reply)
+                           (with-jrm-mutex
+                             (lambda ()
+                               (let ((port (find-jrm-port host service)))
+                                 (when port
+                                   (send-remote-message reply port)))))))
+                       kind)))))))
+
+
+(definition (process-remote-messages)
   (define (find-best-timeout invocations)
-    (let ((best-origin #f)
+    (let ((best-thread #f)
           (best-timeout +inf.0)
           (best-message #f))
       (table-for-each
-        (lambda (origin data)
-          (let ((timeout (car data))
-                (message (cdr data)))
-            (when (or (not best-origin)
+        (lambda (thread data)
+          (bind (timeout host service message) data
+            (when (or (not best-thread)
                       (> (systime->seconds best-timeout)
                          (systime->seconds timeout)))
-              (set! best-origin origin)
+              (set! best-thread thread)
               (set! best-timeout timeout)
               (set! best-message message))))
         invocations)
-      (values best-origin best-timeout best-message)))
+      (values best-thread best-timeout best-message)))
   
-  (define (dispatch-remote message)
-    (bind (kind cookie method-name proxy-ior arguments) message
-      (when *debug?*
-        (terminal '***server*** kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
-      (let ((local-proxy (ior->proxy proxy-ior)))
-        (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments))))
-  
-  (define (execute-remote message)
-    (bind (kind cookie method-name proxy-ior arguments) message
-      (define (dispatch-result message)
-        (let ((result (dispatch-remote message)))
-          (case kind
-            ((exec) (list 'result cookie (unspecified)))
-            ((call) (list 'result cookie result)))))
-      
-      (if *debug-locally?*
-          (dispatch-result message)
-        (continuation-capture
-          (lambda (return)
-            (with-exception-handler
-              (lambda (exc)
-                (continuation-capture
-                  (lambda (cont)
-                    (when *debug?*
-                      (terminal '***server*** 'exception method-name)
-                      (display-exception exc)
-                      (display-continuation-backtrace cont))
-                    (continuation-return return (list 'error cookie (exception-reason exc))))))
-              (lambda ()
-                (dispatch-result message))))))))
-  
-  (define (invocation-broke thread)
-    (let ((cookie (object->serial thread)))
-      (thread-send thread (list 'broke cookie #f))))
-  
-  (let ((reader-thread (start-reader-thread port))
-        (invocations (make-table))
-        (start-time (systime->seconds (current-systime))))
+  (let ((invocations (make-table)))
     (let (loop)
-      (receive (best-origin best-timeout best-message) (find-best-timeout invocations)
-        (when (and *debug?* best-origin)
-          (terminal '=== (- (systime->seconds best-timeout) start-time) best-message))
+      (receive (best-thread best-timeout best-message) (find-best-timeout invocations)
         (let ((msg (thread-receive best-timeout (eof-object))))
           (if (eof-object? msg)
               (begin
-                (table-clear invocations best-origin)
-                (invocation-broke best-origin)
-                (loop))
-            (receive (origin timeout message) msg
+                (table-clear invocations best-thread)
+                (invocation-broke best-thread 'timeout))
+            (receive (origin host service message) msg
               (case origin
-                ((reader-thread)
-                 (when (not (eof-object? message))
-                   (let ((kind (car message)))
-                     (case kind
-                       ((live?)
-                        (bind (kind cookie method-name proxy-ior arguments) message
-                          (send-remote-message (list 'result cookie live-response) port)))
-                       ((error result)
-                        (bind (kind cookie result) message
-                          (let ((thread (serial->object cookie)))
-                            (when (table-ref invocations thread #f)
-                              (when (and *debug?* best-origin)
-                                (let ((timeout (car (table-ref invocations thread #f)))
-                                      (message (cdr (table-ref invocations thread #f))))
-                                  (terminal '--- (- (systime->seconds timeout) start-time) message)))
-                              (table-clear invocations thread)
-                              (thread-send thread message)))))
-                       ((post)
-                        (thread-start!
-                          (new-thread (lambda ()
-                                        (dispatch-remote message))
-                                      kind)))
-                       ((exec call)
-                        (thread-start!
-                          (new-thread (lambda ()
-                                        (let ((reply (execute-remote message)))
-                                          (when *debug?*
-                                            (terminal '***server*** reply))
-                                          (send-remote-message reply port)))
-                                      kind)))))))
+                ((pump)
+                 (process-pump-message invocations host service message))
+                ((invoke)
+                 (receive (invoke-thread timeout kind method-name proxy-ior arguments) message
+                   (debug-jrm '***server*** 'invoke (list invoke-thread timeout kind method-name proxy-ior arguments))
+                   (assert (thread? invoke-thread))
+                   (let ((cookie (object->serial invoke-thread)))
+                     (with-exception-filter
+                       (lambda (exc)
+                         (or (is? exc Communication-Exception)
+                             (is? exc Remote-Connection-Broke)))
+                       (lambda (exc)
+                         (invocation-broke invoke-thread exc))
+                       (lambda ()
+                         (let ((port (find/create-jrm-port host service))
+                               (message (list kind cookie method-name proxy-ior arguments)))
+                           (send-remote-message message port))
+                         (when timeout
+                           (table-set! invocations invoke-thread (list timeout host service message))))))))
                 (else
-                 (assert (thread? origin))
-                 (catch (Remote-Connection-Broke exc
-                          (invocation-broke origin))
-                   (output-port-timeout-set! port (or timeout (send-timeout)) throw-remote-connection-broke)
-                   (write-port port message)
-                   (when timeout
-                     (table-set! invocations origin (cons timeout message))
-                     (when *debug?*
-                       (terminal '+++ (- (systime->seconds timeout) start-time) message))))))
-              (if (not (eof-object? message))
-                  (loop)
-                (let ((key (list host service)))
-                  (table-clear *jrm-switchboards* key))
-                (table-for-each
-                  (lambda (origin timeout)
-                    (invocation-broke origin))
-                  invocations)))))))))
-
-
-(definition package (process-remote22 port)
-  (let ((message (receive-remote-message port)))
-    (case (car message)
-      ((connect)
-       (bind (kind host service) message
-         (let ((key (list host service)))
-           (table-set! *jrm-switchboards* key (current-thread)))
-         (process-jrm-messages22 host service port))))))
-
-
-(definition (process-jrm-messages host service port)
-  (define (wait-read-remote)
-    (input-port-timeout-set! port +inf.0)
-    (catch (Remote-Connection-Broke exc
-             (eof-object))
-      (read-port port)))
-  
-  (define (write-remote info)
-    (send-remote-message info port))
-  
-  (define (dispatch-remote message)
-    (bind (kind cookie method-name proxy-ior arguments) message
-      (when *debug?*
-        (terminal '***server*** kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
-      (let ((local-proxy (ior->proxy proxy-ior)))
-        (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments))))
-  
-  (define (execute-remote message)
-    (bind (kind cookie method-name proxy-ior arguments) message
-      (define (dispatch-result message)
-        (let ((result (dispatch-remote message)))
-          (case kind
-            ((exec) (list 'result cookie (unspecified)))
-            ((call) (list 'result cookie result)))))
-      
-      (if *debug-locally?*
-          (dispatch-result message)
-        (continuation-capture
-          (lambda (return)
-            (with-exception-handler
-              (lambda (exc)
-                (continuation-capture
-                  (lambda (cont)
-                    (when *debug?*
-                      (terminal '***server*** 'exception method-name)
-                      (display-exception exc)
-                      (display-continuation-backtrace cont))
-                    (continuation-return return (list 'error cookie (exception-reason exc))))))
-              (lambda ()
-                (dispatch-result message))))))))
-  
-  (define (invoke-result cookie message)
-    (let ((thread (serial->object cookie)))
-      (table-clear *jrm-invocations* cookie)
-      (thread-send thread message)))
-  
-  (let (loop)
-    (let ((message (wait-read-remote)))
-      (if (eof-object? message)
-          (let ((key (list host service)))
-            (iterate-table-safe *jrm-invocations*
-                                (lambda (cookie connection)
-                                  (when (equal? connection key)
-                                    (invoke-result cookie (list 'broke cookie #f)))))
-            (table-clear *jrm-connections* key))
-        (let ((kind (if (pair? message) (car message) message)))
-          (case kind
-            ((live?)
-             (write-remote live-response))
-            ((error result)
-             (bind (kind cookie result) message
-               (invoke-result cookie message)))
-            ((post)
-             (thread-start!
-               (new-thread (lambda ()
-                             (dispatch-remote message))
-                           kind)))
-            ((exec call)
-             (thread-start!
-               (new-thread (lambda ()
-                             (let ((reply (execute-remote message)))
-                               (when *debug?*
-                                 (terminal '***server*** reply))
-                               (write-remote reply)))
-                           kind))))
-          (loop))))))
+                 (error "Unknown origin: {s}" origin)))))))
+      (loop))))
 
 
 (definition package (process-remote port)
-  (define (execute-remote method-name proxy-ior arguments)
-    (if *debug-locally?*
-        (values #f (dispatch-remote method-name proxy-ior arguments))
-      (continuation-capture
-        (lambda (return)
-          (with-exception-handler
-            (lambda (exc)
-              (continuation-capture
-                (lambda (cont)
-                  (when *debug?*
-                    (terminal '***server*** 'exception method-name)
-                    (display-exception exc)
-                    (display-continuation-backtrace cont))
-                  (continuation-return return (values (exception-reason exc) #f)))))
-            (lambda ()
-              (values #f (dispatch-remote method-name proxy-ior arguments))))))))
+  (define (receive-remote-message port)
+    (let ((timeout (receive-timeout)))
+      (when timeout
+        (input-port-timeout-set! port timeout)))
+    (let ((info (read-port port)))
+      (if (eof-object? info)
+          (throw-remote-connection-broke)
+        info)))
   
-  (define (dispatch-remote method-name proxy-ior arguments)
-    (let ((local-proxy (ior->proxy proxy-ior)))
-      (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments)))
-  
-  (if *jrm-neo*
-      (process-remote22 port)
-    (let ((message (receive-remote-message port)))
-      (let ((kind (if (pair? message) (car message) message)))
-        (cond ((eq? kind live-request)
-               (send-remote-message live-response port))
-              ((eq? kind 'connect)
-               (bind (kind host service) message
-                 (let ((key (list host service)))
-                   (table-set! *jrm-connections* key port))
-                 (process-jrm-messages host service port)))
-              (else
-               (bind (kind cookie method-name proxy-ior arguments) message
-                 (when *debug?*
-                   (terminal '***server*** kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
-                 (case kind
-                   ((post)
-                    (dispatch-remote method-name proxy-ior arguments))
-                   ((exec)
-                    (receive (err result) (execute-remote method-name proxy-ior arguments)
-                      (when *debug?*
-                        (terminal '***server*** 'return cookie method-name err result))
-                      (send-remote-message (list err (unspecified)) port)))
-                   ((call)
-                    (receive (err result) (execute-remote method-name proxy-ior arguments)
-                      (when *debug?*
-                        (terminal '***server*** 'return cookie method-name err result))
-                      (send-remote-message (list err result) port)))))))))))
+  (let ((message (receive-remote-message port)))
+    ;; find/create-jrm-port might already have created a pump
+    ;; when both processes invoke simultaneously
+    (case (car message)
+      ((connect)
+       (bind (kind host service) message
+         (with-jrm-mutex
+           (lambda ()
+             (let ((key (list host service)))
+               (table-set! *jrm-pumps* key port))))
+         (process-jrm-pump host service port))))))
+
 
 ;;;
 ;;;; IOR
@@ -951,7 +740,7 @@
   (code-string->32-bit-integer "JAZZ"))
 
 (definition public *jazz-version*
-  {Version 1 0 0})
+  {Version 2 0 0})
 
 
 (definition (write-port port info)

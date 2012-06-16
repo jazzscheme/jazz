@@ -48,6 +48,22 @@
         (jazz.ui)
         (jazz.ui.view))
 
+;;;
+;;;; Locale-Text-View
+;;;
+
+
+(class Locale-Text-View extends Text-View
+  
+  (form
+    (<install> focus-selects-all?: #t show-unfocused-selection?: #f return-press-handler: {Event-Handler :host on-ok} escape-press-handler: {Event-Handler :host on-cancel}))
+      
+      
+  (method override (on-tab-press evt)
+    (let ((dialog (find-ascendant Localized-Dialog)))
+      (move-selection~ dialog self (if (get-shift?~ evt) -1 +1))))
+  )
+  
 
 ;;;
 ;;;; Locale-View
@@ -58,11 +74,11 @@
 
   
   (form
-    (<install>                          layout-type: fill
-      (<Border-View>     name: border   border-type: none style: entry
-        (<Scroller-View> name: scroller layout-type: fill
-          (<!>           name: content
-            (<Text-View> name: text     focus-selects-all?: #t show-unfocused-selection?: #f))))))
+    (<install>                                 layout-type: fill
+      (<Border-View>            name: border   border-type: none style: entry
+        (<Scroller-View>        name: scroller layout-type: fill
+          (<!>                  name: content
+            (<Locale-Text-View> name: text))))))
   
   
   (method override (get-text-view)
@@ -120,10 +136,9 @@
               (let ((locale-text (get-text-view~ locale-view)))
                 (unless initial-focused-view
                   (set! initial-focused-view locale-text))
-                (set-return-press-handler~ locale-text {Event-Handler :host on-ok})
-                (set-escape-press-handler~ locale-text {Event-Handler :host on-cancel})
-                (set-tab-press-handler~ locale-text (new Selection-Handler target: self method-name: 'on-text-tab-press))
-                (set-string-content~ locale-text (or (and locales-object (localize~ locales-object locale)) "{}")))
+                (set-string-content~ locale-text (or (and locales-object 
+                                                          (localize~ locales-object locale)) 
+                                                     "{}")))
               ;; create row
               (table-set! father-table locale
                 (add-row~ locales-tree
@@ -153,22 +168,20 @@
   ;;;
   
   
-  (method (on-text-tab-press evt)
-    (let ((sender (get-sender~ evt))
+  (method public (move-selection current-text-view delta)
+    (let ((current-row (find-ascendant~ current-text-view Tree-Row))
           (locales-tree (locate 'locales))
           (ok-button (locate 'ok))
           (cancel-button (locate 'cancel)))
       (acquire-focus~ locales-tree)
-      (let* ((current-row (find-ascendant~ sender Tree-Row))
-             (current-index (row-index~ locales-tree current-row))
-             (new-index ((if (get-shift?~ evt) - +) current-index 1)))
+      (let ((new-index (+ (row-index~ locales-tree current-row) delta)))
         (cond ((= -1 new-index)
                (set-single-selection~ locales-tree (- (get-visible-count~ locales-tree) 1)))
               ((get-row~ locales-tree new-index)
                (set-single-selection~ locales-tree new-index))
               (else
                (set-single-selection~ locales-tree 0))))))
-  
+
   
   (method (on-selection-change evt)
     (let ((sender (get-sender~ evt))

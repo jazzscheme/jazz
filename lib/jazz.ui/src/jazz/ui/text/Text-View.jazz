@@ -607,8 +607,8 @@
       (when range
         (let ((string (get-string range)))
           (define (replace-clipboard)
-            (add-clipboard~ (get-application))
             (set-clipboard-text string)
+            (add-clipboard~ (get-application))
             (set! special-mode 'kill-line))
           
           (define (append-clipboard actual)
@@ -1494,8 +1494,8 @@
   (method override (copy-selection)
     (if (empty-selection?)
         (bell)
-      (add-clipboard~ (get-application))
-      (set-clipboard-text (join-lines (selection-lines)))))
+      (set-clipboard-text (join-lines (selection-lines)))
+      (add-clipboard~ (get-application))))
   
   
   (method override (paste-clipboard)
@@ -1510,15 +1510,15 @@
       (paste-clipboard-string (get-text~ clipboard))))
   
   
-  (method override (cycle-paste-clipboard actual-clipboard clipboard)
+  (method override (cycle-paste-clipboard previous-clipboard clipboard)
     (when (eq? (get-format~ clipboard) 'unicode-text)
-      (if (or (not actual-clipboard) (neq? (get-format~ actual-clipboard) 'unicode-text))
+      (if (or (not previous-clipboard) (neq? (get-format~ previous-clipboard) 'unicode-text))
           (paste-clipboard-value clipboard)
         (let ((expl (new (explorer-class) model)))
           (set-pos~ expl (get-start))
           (with-atomic-undo~ (get-undoer~ model)
             (lambda ()
-              (let ((actual-text (get-text~ actual-clipboard)))
+              (let ((actual-text (get-text~ previous-clipboard)))
                 (when (looking-back?~ expl actual-text)
                   (backward-n~ expl (string-length actual-text))
                   (delete-range~ model (get-range~ expl)))

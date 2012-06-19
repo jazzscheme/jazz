@@ -327,25 +327,22 @@
 
   
   (method package (paste-cycle-ring reversed?)
-    (define (cycle-clipboard actual-clipboard)
-      (let ((res (pop-clipboard)))
-        (if (null? Clipboard-Ring)
-            (set! Clipboard-Ring (list actual-clipboard))
-          (set-cdr! (last-pair Clipboard-Ring) (list actual-clipboard)))
-        res))
+    (define (cycle-clipboard)
+      (set! Clipboard-Ring (append (cdr Clipboard-Ring) (list (car Clipboard-Ring))))
+      (set-clipboard (car Clipboard-Ring)))
     
-    (define (cycle-clipboard-reversed actual-clipboard)
-      (let ((res (last Clipboard-Ring)))
-        (set! Clipboard-Ring (cons actual-clipboard (butlast Clipboard-Ring)))
-        (set-clipboard res)
-        res))
+    (define (cycle-clipboard-reversed)
+      (set! Clipboard-Ring (cons (last Clipboard-Ring) (butlast Clipboard-Ring)))
+      (set-clipboard (car Clipboard-Ring)))
     
     (if (null? Clipboard-Ring)
         (bell)
       (let ((focus (get-focus))
-            (actual-clipboard (get-clipboard)))
-        (let ((clipboard (if reversed? (cycle-clipboard-reversed actual-clipboard) (cycle-clipboard actual-clipboard))))
-          (cycle-paste-clipboard~ focus actual-clipboard clipboard)))))
+            (previous-clipboard (get-clipboard)))
+        (if reversed?
+            (cycle-clipboard-reversed)
+          (cycle-clipboard))
+        (cycle-paste-clipboard~ focus previous-clipboard (get-clipboard)))))
   
   
   (method package (on-copy-formatted evt)

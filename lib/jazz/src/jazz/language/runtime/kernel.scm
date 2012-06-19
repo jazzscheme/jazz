@@ -870,6 +870,17 @@
 
 
 ;;;
+;;;; Fast-Queue
+;;;
+
+
+(native jazz:new-fast-queue)
+(native jazz:fast-enqueue)
+(native jazz:fast-queue-list)
+(native jazz:reset-fast-queue)
+
+
+;;;
 ;;;; Random
 ;;;
 

@@ -2265,7 +2265,7 @@
 
 (define (jazz:enqueue-impl queue lst shared?)
   (define (stitch tail)
-    (set-cdr! tail lst)
+    (%%set-cdr! tail lst)
     (%%set-queue-tail queue (if shared? tail lst))
     (%%set-queue-shared? queue shared?))
   
@@ -2280,7 +2280,7 @@
              (stitch (jazz:last-pair copy))))
           ((%%pair? (%%cdr tail))
            (let ((copy (jazz:list-copy (%%get-queue-head queue))))
-             (set-cdr! tail copy)
+             (%%set-cdr! tail copy)
              (stitch (jazz:last-pair copy))))
           (else
            (stitch tail)))))
@@ -2304,4 +2304,36 @@
 (define (jazz:reset-queue queue)
   (%%set-queue-head queue '())
   (%%set-queue-tail queue '())
-  (%%set-queue-shared? queue #f)))
+  (%%set-queue-shared? queue #f))
+
+
+;;;
+;;;; Fast-Queue
+;;;
+
+
+(jazz:define-class-runtime jazz:Fast-Queue)
+
+
+(define (jazz:new-fast-queue)
+  (jazz:allocate-fast-queue '() '()))
+
+
+(define (jazz:fast-enqueue queue object)
+  (let ((pair (%%cons object '()))
+        (tail (%%get-fast-queue-tail queue)))
+    (cond ((%%null? tail)
+           (%%set-fast-queue-tail queue pair)
+           (%%set-fast-queue-head queue pair))
+          (else
+           (%%set-cdr! tail pair)
+           (%%set-fast-queue-tail queue pair)))))
+
+
+(define (jazz:fast-queue-list queue)
+  (%%get-fast-queue-head queue))
+
+
+(define (jazz:reset-fast-queue queue)
+  (%%set-fast-queue-head queue '())
+  (%%set-fast-queue-tail queue '())))

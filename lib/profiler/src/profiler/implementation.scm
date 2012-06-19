@@ -255,7 +255,8 @@
 
 
 (define (reset-profiles)
-  (empty-table *profiles*))
+  (set! *profiles* (make-table test: equal?))
+  (set! *selected-profile* #f))
 
 
 ;;;

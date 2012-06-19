@@ -207,7 +207,7 @@
              (tag (if symbolic?
                       (string->symbol (string-append (symbol->string name) (case action ((modify) "!") ((locate) "~"))))
                     (case action ((install) 'install) ((new) model) ((instantiate) '*) ((modify) '!) ((locate) '~))))
-             (element (new JML-Element parent tag))
+             (element (let ((element (new JML-Element #f tag))) (set-parent-value~ element parent) element))
              (properties (extract-form-properties form symbolic?))
              (children (map (lambda (form)
                               (form/parent->node form element))
@@ -250,21 +250,26 @@
 (definition public printing-doc?
   (make-parameter #f))
 
+(definition public pretty-print-forms?
+  (make-parameter #t))
 
-(definition public (form->string form level (include-form?: include-form? #t) (space-properties?: space-properties? #t) (align-name?: align-name? #t) (indent-first?: indent-first? #t))
+
+(definition public (form->string form level (include-form?: include-form? #t) (space-tag?: space-tag? #t) (space-name?: space-name? #t) (indent-first?: indent-first? #t))
   (with-jazz-readtable
     (lambda ()
       (let ((output (open-output-string)))
-        (print-file-form form level output include-form?: include-form? space-properties?: space-properties? align-name?: align-name? indent-first?: indent-first?)
+        (print-file-form form level output include-form?: include-form? space-tag?: space-tag? space-name?: space-name? indent-first?: indent-first?)
         (get-output-string output)))))
 
 
-(definition public (print-file-form form level output (include-form?: include-form? #t) (space-properties?: space-properties? #t) (align-name?: align-name? #t) (indent-first?: indent-first? #t))
+(definition public (print-file-form form level output (include-form?: include-form? #t) (space-tag?: space-tag? #t) (space-name?: space-name? #t) (indent-first?: indent-first? #t))
   (when include-form?
     (format output "(form{%}"))
   (let ((node (form->node form))
         (base level))
-    (pretty-print~ node output base: base space-properties?: space-properties? align-name?: align-name? indent-first?: indent-first?))
+    (if (pretty-print-forms?)
+        (pretty-print~ node output base: base space-tag?: space-tag? space-name?: space-name? indent-first?: indent-first?)
+      (pretty-print~ node output base: base space-tag?: #f space-name?: #f indent-first?: indent-first?)))
   (when include-form?
     (format output ")")))
 

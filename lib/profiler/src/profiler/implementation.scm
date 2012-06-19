@@ -254,6 +254,10 @@
   (%%table-clear *profiles* name))
 
 
+(define (reset-profiles)
+  (empty-table *profiles*))
+
+
 ;;;
 ;;;; Active
 ;;;
@@ -265,12 +269,14 @@
 (define active-profile
   (make-parameter #f))
 
+
 (define *current-profile* #f)
 
 (define (get-current-profile)
   (if (not *current-profile*)
       (set! *current-profile* (new-profile)))
   *current-profile*)
+
 
 (define (reset-profile profile profiler depth)
   (if profiler

@@ -332,16 +332,6 @@
 
 
 (jazz:define-class-syntax jazz:Queue jazz:Object (constructor: jazz:allocate-queue accessors-type: macro)
-  ((head    getter: generate setter: generate)
-   (tail    getter: generate setter: generate)
-   (shared? getter: generate setter: generate)))
-
-
-;;;
-;;;; Fast-Queue
-;;;
-
-
-(jazz:define-class-syntax jazz:Fast-Queue jazz:Object (constructor: jazz:allocate-fast-queue accessors-type: macro)
-  ((head getter: generate setter: generate)
-   (tail getter: generate setter: generate))))
+  ((head   getter: generate setter: generate)
+   (tail   getter: generate setter: generate)
+   (shared getter: generate setter: generate))))

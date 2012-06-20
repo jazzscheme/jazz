@@ -180,26 +180,29 @@
                        (throw "Invalid credentials."))))
   
   
+  (method (send-mail-string from to mail-string)
+    (display "RSET\n" port)
+    (get-reply "250")
+    
+    (display (format "MAIL FROM:<{a}>\n" from) port)
+    (get-reply "250" (lambda () (error (format "Error adding sender {a}." from))))
+      
+    (for-each (lambda (recipient)
+                (display (format "RCPT TO: {a}\n" recipient) port)
+                (get-reply "250" (lambda () (error (format "Error adding recipient {a}." recipient)))))
+              to)
+    
+    (display "data\n" port)
+    (get-reply "354" (lambda () (error "Error sending the message. Server not accepting data.")))
+    
+    (display mail-string port)
+    (display "\n.\n" port)
+    (get-reply "250" (lambda () (error "Error sending the message."))))
+  
+  
   (method (send-mail mail <MIME-Message>)
-    (let ((mail-string (format-for-delivery~ mail)))
-      (display "RSET\n" port)
-      (get-reply "250")
-      
-      (display (format "MAIL FROM:<{a}>\n" (get-from~ mail)) port)
-      (get-reply "250" (lambda () (error (format "Error adding sender {a}." (get-from~ mail)))))
-      
-      (for-each
-        (lambda (recipient)
-          (display (format "RCPT TO: {a}\n" recipient) port)
-          (get-reply "250" (lambda () (error (format "Error adding recipient {a}." recipient)))))
-        (get-to~ mail))
-      
-      (display "data\n" port)
-      (get-reply "354" (lambda () (error "Error sending the message. Server not accepting data.")))
-      
-      (display mail-string port)
-      (display "\n.\n" port)
-      (get-reply "250" (lambda () (error "Error sending the message."))))))
+    (send-mail-string (get-from~ mail) (get-to~ mail) (format-for-delivery~ mail))))
+  
 
 
 (definition public (separate-lines string ch-size)
@@ -233,10 +236,11 @@
   (u8vector->base64-string (file->u8vector file)))
 
 
-(definition public (send-message message server (username: username "") (password: password ""))
-  (let ((client (new SMTP-Client server username: username password: password)))
-    (send-mail~ client message)
-    (close~ client)))
+(definition public (send-message message server (port-number: port-number 25) (username: username "") (password: password ""))
+  (let ((mail-string (format-for-delivery~ message)))
+    (let ((client (new SMTP-Client server port-number: port-number username: username password: password)))
+      (send-mail-string~ client (get-from~ message) (get-to~ message) mail-string)
+      (close~ client))))
 
 
 (definition public (base64-string->ascii-string str)

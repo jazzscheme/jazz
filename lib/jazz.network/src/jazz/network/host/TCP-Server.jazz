@@ -199,17 +199,25 @@
                   (create-thread
                     (lambda ()
                       (declare (proper-tail-calls))
-                      (let (loop)
-                        (let ((port (read server-port)))
-                          (server-hit)
-                          (thread-start!
-                            (create-thread
-                              (lambda ()
-                                (unwind-protect
-                                    (accept-connection port)
-                                  (close-port port)))
-                              (connection-name)))
-                          (loop))))
+                      (with-exception-catcher
+                        (lambda (exc)
+                          #f)
+                        (lambda ()
+                          (let (loop)
+                            (let ((port (read server-port)))
+                              (server-hit)
+                              (thread-start!
+                                (create-thread
+                                  (lambda ()
+                                    (with-exception-catcher
+                                      (lambda (exc)
+                                        #f)
+                                      (lambda ()
+                                        (unwind-protect
+                                            (accept-connection port)
+                                          (close-port port)))))
+                                  (connection-name)))
+                              (loop))))))
                     (server-name))))))))
   
   

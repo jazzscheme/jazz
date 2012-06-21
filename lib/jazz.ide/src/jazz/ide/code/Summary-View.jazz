@@ -67,6 +67,7 @@
   (slot client-selection initialize #f)
   (slot client-position  initialize #f)
   (slot client-entry     initialize #f)
+  (slot displayed-line   initialize #f)
   
 
   (form
@@ -280,24 +281,26 @@
       (let ((tree (locate 'summary)))
         (if (not client)
             (remove-every-row~ tree)
-          (set! client-selection (get-selection~ client))
-          (set! client-position (get-scrolled-position~ client))
-          (if (is-not? client-root File-Entry)
-              (begin
-                (remove-every-row~ tree)
-                (set! client-entry #f))
-            (let ((file (get-file~ client-root))
-                  (start (get-start~ client)))
-              (let ((line (get-line~ start))
-                    (col (get-col~ start)))
-                (let ((entry (location->entry (list file line col))))
-                  (when (neq? entry client-entry)
-                    (set! client-entry entry)
-                    (remove-every-row~ tree)
-                    (with-update-locked~ tree
-                      (lambda ()
-                        (when entry
-                          (insert-entry tree entry)))))))))))))
+          (let ((start (get-start~ client)))
+            (let ((line (get-line~ start))
+                  (col (get-col~ start)))
+              (when (or (not displayed-line) (/= line displayed-line))
+                (set! client-selection (get-selection~ client))
+                (set! client-position (get-scrolled-position~ client))
+                (if (is-not? client-root File-Entry)
+                    (begin
+                      (remove-every-row~ tree)
+                      (set! client-entry #f))
+                  (let ((file (get-file~ client-root)))
+                    (let ((entry (location->entry (list file line col))))
+                      (when (neq? entry client-entry)
+                        (set! client-entry entry)
+                        (remove-every-row~ tree)
+                        (with-update-locked~ tree
+                          (lambda ()
+                            (when entry
+                              (insert-entry tree entry))))))))
+                (set! displayed-line line))))))))
   
   
   (method (insert-class-node tree entry (father: father #f) (state: state #f) (font: font #f) (color: color #f) (image: image #f) (descendant?: descendant? #f))

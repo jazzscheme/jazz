@@ -60,6 +60,7 @@
   (slot client-selection initialize #f)
   (slot client-position  initialize #f)
   (slot client-entry     initialize #f)
+  (slot displayed-line   initialize #f)
   (slot preserved-states initialize (make-table test: eq? weak-keys: #t))
   
 
@@ -321,20 +322,22 @@
   
   (method (highlight-selection)
     (when (is? client-root File-Entry)
-      (let ((tree (locate 'definitions))
-            (file (get-file~ client-root))
-            (start (get-start~ client)))
+      (let ((start (get-start~ client)))
         (let ((line (get-line~ start))
               (col (get-col~ start)))
-          (let ((entry (location->entry (list file line col))))
-            (when (neq? entry client-entry)
-              (set! client-entry entry)
-              (if (not entry)
-                  (set-selection~ tree '())
-                (let ((row (user-data-row~ tree entry include-invisibles?: #t)))
-                  (when row
-                    (ensure-expanded~ tree row)
-                    (set-single-selection~ tree (row->line~ tree row) generate-event?: #f))))))))))
+          (when (or (not displayed-line) (/= line displayed-line))
+            (let ((tree (locate 'definitions))
+                  (file (get-file~ client-root)))
+              (let ((entry (location->entry (list file line col))))
+                (when (neq? entry client-entry)
+                  (set! client-entry entry)
+                  (if (not entry)
+                      (set-selection~ tree '())
+                    (let ((row (user-data-row~ tree entry include-invisibles?: #t)))
+                      (when row
+                        (ensure-expanded~ tree row)
+                        (set-single-selection~ tree (row->line~ tree row) generate-event?: #f)))))))
+            (set! displayed-line line))))))
   
   
   ;;;

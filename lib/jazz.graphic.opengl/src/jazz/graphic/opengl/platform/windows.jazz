@@ -42,7 +42,7 @@
 
 (import (jazz.graphic.opengl.autoload)
         (jazz.graphic.opengl.platform.WinOpenGL)
-        (jazz.graphic.opengl.glew)
+        (jazz.graphic.opengl.foreign.glew)
         (jazz.geometry)
         (jazz.platform)
         (jazz.ui.window))
@@ -179,10 +179,15 @@
 ;;;
 
 
-(definition package (initialize-glew)
-  (let ((success (glewInit)))
-    (unless (= success GLEW_OK)
-      (error "Unable to initialize GLEW"))))
+
+(definition package initialize-glew
+  (let ((initialized? #f))
+    (lambda ()
+      (unless initialized?
+        (let ((success (glewInit)))
+          (if (= success GLEW_OK)
+              (set! initialized? #t)
+            (error "Unable to initialize GLEW")))))))
 
 
 ;;;
@@ -199,6 +204,16 @@
         (delete-context old-context)
         (make-context-current hdc new-context)
         (set-context~ window new-context)))))
+
+
+(definition package (enable-vsync)
+  (when (wglewIsSupported "WGL_EXT_swap_control")
+    (wglSwapIntervalEXT 1)))
+
+
+(definition package (disable-vsync)
+  (when (wglewIsSupported "WGL_EXT_swap_control")
+    (wglSwapIntervalEXT 0)))
 
 
 ;;;

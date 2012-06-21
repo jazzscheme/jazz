@@ -2250,51 +2250,40 @@
 
 
 (define (jazz:new-queue)
-  (jazz:allocate-queue '() '() #f))
+  (jazz:allocate-queue '() #f #f))
 
 
 (define (jazz:enqueue queue object)
-  (let ((pair (%%cons object '())))
-    (jazz:enqueue-impl queue pair #f)))
+  (let ((added (%%cons object '())))
+    (jazz:enqueue-impl queue added
+      (lambda (tail)
+        (%%set-cdr! tail added)))
+    (%%set-queue-tail queue added)
+    (%%set-queue-shared queue #f)))
 
 
 (define (jazz:enqueue-list queue lst)
   (%%when (%%not-null? lst)
-    (jazz:enqueue-impl queue lst #t)))
+    (jazz:enqueue-impl queue lst
+      (lambda (tail)
+        (%%set-cdr! tail lst)
+        (%%set-queue-tail queue tail)))
+    (%%set-queue-shared queue lst)))
 
 
-(define (jazz:enqueue-impl queue lst shared?)
-  (define (stitch tail)
-    (set-cdr! tail lst)
-    (%%set-queue-tail queue (if shared? tail lst))
-    (%%set-queue-shared? queue shared?))
+(define (jazz:enqueue-impl queue added proc)
+  (define (stitch-head added)
+    (let ((tail (%%get-queue-tail queue)))
+      (if tail
+          (%%set-cdr! tail added)
+        (%%set-queue-head queue added))))
   
-  (let ((tail (%%get-queue-tail queue)))
-    (cond ((%%null? tail)
-           (%%set-queue-head queue lst)
-           (%%set-queue-tail queue lst)
-           (%%set-queue-shared? queue shared?))
-          ((%%get-queue-shared? queue)
-           (let ((copy (jazz:list-copy (%%get-queue-head queue))))
-             (%%set-queue-head queue copy)
-             (stitch (jazz:last-pair copy))))
-          ((%%pair? (%%cdr tail))
-           (let ((copy (jazz:list-copy (%%get-queue-head queue))))
-             (set-cdr! tail copy)
-             (stitch (jazz:last-pair copy))))
-          (else
-           (stitch tail)))))
-
-
-(define (jazz:dequeue queue)
-  (let ((head (%%get-queue-head queue)))
-    (%%when (%%pair? head)
-      (let ((next (%%cdr head)))
-        (%%set-queue-head queue next)
-        (%%when (%%eq? head (%%get-queue-tail queue))
-          (%%set-queue-tail queue next)
-          (%%set-queue-shared? queue #t)))
-      (%%car head))))
+  (let ((shared (%%get-queue-shared queue)))
+    (if shared
+        (let ((copy (jazz:list-copy (%%get-queue-shared queue))))
+          (stitch-head copy)
+          (proc (jazz:last-pair copy)))
+      (stitch-head added))))
 
 
 (define (jazz:queue-list queue)
@@ -2303,5 +2292,5 @@
 
 (define (jazz:reset-queue queue)
   (%%set-queue-head queue '())
-  (%%set-queue-tail queue '())
-  (%%set-queue-shared? queue #f)))
+  (%%set-queue-tail queue #f)
+  (%%set-queue-shared queue #f)))

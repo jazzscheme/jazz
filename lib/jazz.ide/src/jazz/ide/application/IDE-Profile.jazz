@@ -146,7 +146,7 @@
   (method (recent-files . rest)
     (bind-keywords ((directory {Directory Jazz}) (elapse #f)) rest
       (let ((results (get-search-results~ (get-application)))
-            (resultset (new Search-Resultset #f))
+            (resultset (new Search-Resultset (new Search '() #f)))
             (from (subtract-duration (current-time) (make-time time-duration 0 (or elapse 3600))))
             (ignored-toplevel-dirnames '("Crashes" "Debug" "Release" "Work" "bin" "build" "bootstrap" "deploy" "gambit" ".git"))
             (ignored-extensions Binary-Extensions)
@@ -165,7 +165,7 @@
   
   (method (search-licenseless-files)
     (let ((results (get-search-results~ (get-application)))
-          (resultset (new Search-Resultset #f))
+          (resultset (new Search-Resultset (new Search '() #f)))
           (directory-feedback (make-directory-feedback)))
       (iterate-directory~ {Directory Jazz}
         (lambda (file)
@@ -186,29 +186,32 @@
   (method (search-trailing-whitespace . rest)
     (bind-keywords ((directory {Directory Jazz})) rest
       (let ((results (get-search-results~ (get-application)))
-            (resultset (new Search-Resultset #f))
+            (resultset (new Search-Resultset (new Search '() #f)))
             (ignored-toplevel-dirnames '("Crashes" "Debug" "Release" "Work" "bin" "build" "bootstrap" "deploy" "gambit" ".git"))
             (ignored-extensions Binary-Extensions)
+            (extensions (effective-extensions :textual))
             (directory-feedback (make-directory-feedback)))
         (iterate-directory~ directory
           (lambda (file)
-            (directory-feedback file)
-            (when (not (member? (get-extension~ file) ignored-extensions test: extension=?))
-              (let ((lines (load-lines~ file char-encoding-errors: #f)))
-                (for-each (lambda (line rank)
-                            (continuation-capture
-                              (lambda (done)
-                                (let ((trailing-whitespace #f))
-                                  (loop (for n from (- (cardinality line) 1) downto 0)
-                                        (do (let ((c (element line n)))
-                                              (if (whitespace? c)
-                                                  (set! trailing-whitespace #t)
-                                                (when trailing-whitespace
-                                                  (let ((pos (new Cell rank (+ n 1))))
-                                                    (add-result~ resultset (new File-Search-Result resultset file position: pos))))
-                                                (continuation-return done #f)))))))))
-                          lines
-                          (naturals 0 (length lines))))))
+            (let ((extension (get-extension~ file)))
+              (when (and (member? extension extensions test: extension=?)
+                         (not (member? extension ignored-extensions test: extension=?)))
+                (directory-feedback file)
+                (let ((lines (load-lines~ file char-encoding-errors: #f)))
+                  (for-each (lambda (line rank)
+                              (continuation-capture
+                                (lambda (done)
+                                  (let ((trailing-whitespace #f))
+                                    (loop (for n from (- (cardinality line) 1) downto 0)
+                                          (do (let ((c (element line n)))
+                                                (if (whitespace? c)
+                                                    (set! trailing-whitespace #t)
+                                                  (when trailing-whitespace
+                                                    (let ((pos (new Cell rank (+ n 1))))
+                                                      (add-result~ resultset (new File-Search-Result resultset file position: pos))))
+                                                  (continuation-return done #f)))))))))
+                            lines
+                            (naturals 0 (length lines)))))))
           ignored-toplevel-dirnames: ignored-toplevel-dirnames)
         (let ((count (length (get-results~ resultset))))
           (user-feedback "Found {a} file{a}" count (format-plural count))

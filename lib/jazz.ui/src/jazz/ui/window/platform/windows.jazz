@@ -277,28 +277,56 @@
   (BringWindowToTop hwnd))
 
 
-(definition package (window-state handle)
+(definition package (get-window-state handle)
   (let ((placement (WINDOWPLACEMENT-make)))
     (WINDOWPLACEMENT-length-set! placement (WINDOWPLACEMENT-sizeof))
     (GetWindowPlacement handle placement)
-    (prog1 (ecase (WINDOWPLACEMENT-showCmd-ref placement)
-             ((SW_SHOWMINIMIZED) 'minimized)
-             ((SW_SHOWMAXIMIZED) 'maximized)
-             (else 'restored))
+    (prog1 (state-value->symbolic (WINDOWPLACEMENT-showCmd-ref placement))
       (WINDOWPLACEMENT-free placement))))
 
 
-(definition package (set-window-placement handle position size)
+(definition (state-value->symbolic value)
+  (ecase value
+    ((SW_SHOWMINIMIZED) 'minimized)
+    ((SW_SHOWMAXIMIZED) 'maximized)
+    (else 'restored)))
+
+
+(definition (state-symbolic->value symbol)
+  (case symbol
+    ((minimized) SW_SHOWMINIMIZED)
+    ((maximized) SW_SHOWMAXIMIZED)
+    (else SW_SHOWNORMAL)))
+
+
+(definition package (get-window-placement handle)
   (let ((placement (WINDOWPLACEMENT-make)))
     (WINDOWPLACEMENT-length-set! placement (WINDOWPLACEMENT-sizeof))
-    (WINDOWPLACEMENT-showCmd-set! placement SW_SHOWNORMAL)
-    (let ((rect (WINDOWPLACEMENT-rcNormalPosition-ref placement)))
-      (RECT-left-set! rect (get-h~ position))
-      (RECT-top-set! rect (get-v~ position))
-      (RECT-right-set! rect (+ (get-h~ position) (get-width~ size)))
-      (RECT-bottom-set! rect (+ (get-v~ position) (get-height~ size))))
-    (SetWindowPlacement handle placement)
-    (WINDOWPLACEMENT-free placement)))
+    (GetWindowPlacement handle placement)
+    (prog1 (let ((state (WINDOWPLACEMENT-showCmd-ref placement))
+                 (rect (WINDOWPLACEMENT-rcNormalPosition-ref placement)))
+             (let ((left (RECT-left-ref rect))
+                   (top (RECT-top-ref rect))
+                   (right (RECT-right-ref rect))
+                   (bottom (RECT-bottom-ref rect)))
+               (list (state-value->symbolic state)
+                     (new Point left top)
+                     (new Dimension (- right left) (- bottom top)))))
+      (WINDOWPLACEMENT-free placement))))
+
+
+(definition package (set-window-placement handle info)
+  (bind (state position size) info
+    (let ((placement (WINDOWPLACEMENT-make)))
+      (WINDOWPLACEMENT-length-set! placement (WINDOWPLACEMENT-sizeof))
+      (WINDOWPLACEMENT-showCmd-set! placement (state-symbolic->value state))
+      (let ((rect (WINDOWPLACEMENT-rcNormalPosition-ref placement)))
+        (RECT-left-set! rect (get-h~ position))
+        (RECT-top-set! rect (get-v~ position))
+        (RECT-right-set! rect (+ (get-h~ position) (get-width~ size)))
+        (RECT-bottom-set! rect (+ (get-v~ position) (get-height~ size))))
+      (SetWindowPlacement handle placement)
+      (WINDOWPLACEMENT-free placement))))
 
 
 (definition package (show-window handle)

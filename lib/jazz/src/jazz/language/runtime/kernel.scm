@@ -337,7 +337,7 @@
 (native base64-string->u8vector)
 (native base64-substring->u8vector)
 (native compile-file)
-(native compile-file-to-c)
+(native compile-file-to-target)
 (native datum-parsing-exception?)
 (native inactive-thread-exception?)
 (native fxwrap*)

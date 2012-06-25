@@ -70,7 +70,7 @@
 (native close-port)
 (native command-line)
 (native compile-file)
-(native compile-file-to-c)
+(native compile-file-to-target)
 (native condition-variable-broadcast!)
 (native condition-variable-name)
 (native condition-variable-signal!)

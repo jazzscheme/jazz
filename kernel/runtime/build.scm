@@ -205,7 +205,7 @@
                     (feedback-message "; compiling {a}..." path)
                     (if (not (jazz:dry-run?))
                         (begin
-                          (compile-file-to-c standardized-path options: options output: output)
+                          (compile-file-to-target standardized-path options: options output: output)
                           (jazz:update-manifest-compile-time name digest mnf src #f))))
                   #t)
               #f))))
@@ -924,7 +924,7 @@
           (define (build-library)
             (jazz:create-build-package package)
             (make-library-header header product-name sub-units)
-            (compile-file-to-c header output: header-c)
+            (compile-file-to-target header output: header-c)
             (compile-file header-c options: '(obj) cc-options: "-D___BIND_LATE ")
             
             (feedback-message "; creating link file...")

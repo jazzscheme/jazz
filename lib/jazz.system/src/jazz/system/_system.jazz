@@ -76,7 +76,7 @@
   (let ((arg-value (and arg (command-argument arg))))
     (if arg-value
         (arg-parser arg-value)
-      (let ((setting-value (and setting (get-setting setting Not-Found))))
+      (let ((setting-value (and setting (find-setting setting Not-Found))))
         (if (neq? setting-value Not-Found)
             (setting-parser setting-value)
           (if (specified? default)
@@ -178,10 +178,16 @@
 ;;;; Settings
 ;;;
 
+(interface Settings-Provider
+  
+  
+  (method public virtual abstract (get-setting setting (default #f))
+    ))
+  
 
-(class Settings extends Object
-
-
+(class File-Settings extends Object implements Settings-Provider
+  
+  
   (slot file      initialize #f)
   (slot content   initialize (make-table test: eq?))
   (slot modified? initialize #f)
@@ -190,35 +196,32 @@
   (method override (initialize (file: file #f))
     (nextmethod)
     (set-file file))
+  
 
-
+  (method override (get-setting setting (default #f))
+    (table-ref content setting default))
+  
+  
+  (method public (set-setting setting value)
+    (table-set! content setting value)
+    (set! modified? #t))
+  
+  
   (method public (get-file)
     file)
 
 
   (method public (set-file value)
-    (define (load-content)
+    (set! file value)
+    (when file
       (with-jazz-readtable
         (lambda ()
           (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
             (lambda (port)
-              (table-load content port #f)))))
-      (set! modified? #f))
-    
-    (set! file value)
-    (when file
-      (load-content)))
-
-
-  (method public (get-setting setting (default #f))
-    (table-ref content setting default))
-
-
-  (method public (set-setting setting value)
-    (table-set! content setting value)
-    (set! modified? #t))
-
-
+              (table-load content port #f)))))    
+      (set! modified? #f)))
+  
+  
   (method public (save-content)
     (define (find-longest list)
       (apply max (map (lambda (info)
@@ -251,7 +254,7 @@
   *settings*)
 
 
-(definition public (register-settings settings)
+(definition public (register-settings settings <Settings-Provider>)
   (set! *settings* (cons settings *settings*)))
 
 
@@ -259,7 +262,7 @@
   (list 'not-found))
 
 
-(definition public (get-setting name (default #f))
+(definition public (find-setting name (default #f))
   (continuation-capture
     (lambda (return)
       (for-each (lambda (settings)
@@ -271,7 +274,7 @@
 
 
 (definition public (require-setting name)
-  (or (get-setting name)
+  (or (find-setting name)
       (error "Unable to find setting: {s}" name)))
 
 

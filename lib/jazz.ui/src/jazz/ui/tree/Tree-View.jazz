@@ -2363,7 +2363,7 @@
   
   
   (method (selection-position selection)
-    (with ((region (selection-region selection identity)))
+    (with ((region (selection-region selection identity no-clipping?: #t)))
       (rect-position (get-box~ region))))
   
   
@@ -2510,7 +2510,7 @@
         removed)))
 
   
-  (method override (selection-region sel transformer)
+  (method override (selection-region sel transformer (no-clipping?: no-clipping? #f))
     (define (element-region element)
       (case selection-mode
         ((cell) (new Region rect: (transformer (cell-rect element))))
@@ -2524,8 +2524,9 @@
                     (combine-or!~ region row-region))
                 (with ((row-region (element-region element)))
                   (combine-or!~ region row-region)))))
-      (with ((clipper (new Region rect: (transformer (get-view-clipper)))))
-        (combine-and!~ region clipper))
+      (unless no-clipping?
+        (with ((clipper (new Region rect: (transformer (get-view-clipper)))))
+          (combine-and!~ region clipper)))
       region))
   
   

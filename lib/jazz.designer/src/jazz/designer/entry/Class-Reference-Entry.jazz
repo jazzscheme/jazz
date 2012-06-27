@@ -13,26 +13,22 @@
 (class Class-Combo extends Combo-Box
   
   
-  (slot reference initialize #f)
+  (slot reference initialize #f getter generate)
   (slot classes   initialize #f accessors generate)
   
   
   (form
     (<install> kind: choose))
+
+  
+  (method public (set-reference reference)
+    (set! reference~self reference)
+    (set-string-content~ (locate 'body) (get-presentation~ parent)))
   
   
   (method public (get-import)
     (and reference
          (second (serialize-runtime-reference reference))))
-
-  
-  (method public (get-reference)
-    (runtime-reference->reference reference))
-  
-  
-  (method public (set-reference reference)
-    (set! reference~self reference)
-    (set-string-content~ (locate 'body) (present~ (get-domain~ parent) reference)))
   
   
   (method override (button-action)
@@ -41,16 +37,19 @@
         (bind (unit symbol) (parse-runtime-reference reference)
           (setup~ manager unit symbol))))
     
-    (bind (symbol unit) (get-modal Class-Dialog-Toolbox initialize: initialize-manager references: classes)
+    (bind (symbol unit) 
+        (get-modal Class-Dialog-Toolbox 
+                   initialize: initialize-manager 
+                   references: (map (lambda (class-ref)
+                                      (if (is? class-ref Runtime-Reference)
+                                          (runtime-reference->reference class-ref)
+                                        class-ref))
+                                    classes))
       (set-reference (deserialize-runtime-reference (list 'module-public unit symbol)))
       (set-modified? #t))))
 
 
-
 (class Class-Reference-Entry extends Property-Entry
-  
-  
-  (property classes initialize #f accessors generate)
   
   
   (form
@@ -61,7 +60,7 @@
   
   (method override (finish rest)
     (nextmethod rest)
-    (set-classes~ (locate 'combo) classes))
+    (set-classes~ (locate 'combo) (get-classes~ domain)))
   
   
   (method override (tab-view)
@@ -69,11 +68,20 @@
   
   
   (method override (get-value)
-    (get-reference~ (locate 'combo)))
+    (let ((value (get-reference~ (locate 'combo))))
+      (if (get-runtime-reference?~ domain)
+          value
+        (let ((ref (new Class-Reference (last (parse-runtime-reference value)))))
+          (setup-context~ ref (new Environment #f (lambda (sym) value)))
+          ref))))
   
   
   (method override (set-value value)
-    (set-reference~ (locate 'combo) value))
+    (let ((ref (if (get-runtime-reference?~ domain)
+                   value
+                 (let ((class (resolve-reference~ value)))
+                   (deserialize-runtime-reference (list 'module-public (category-unit class) (category-name class)))))))
+      (set-reference~ (locate 'combo) ref)))
   
   
   (method override (get-imports)

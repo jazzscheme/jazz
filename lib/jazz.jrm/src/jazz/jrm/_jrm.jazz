@@ -240,7 +240,7 @@
                     (terminal '***server*** 'exception method-name)
                     (display-exception exc)
                     (display-continuation-backtrace cont))
-                  (continuation-return return (values (exception-reason exc) #f)))))
+                  (return (values (exception-reason exc) #f)))))
             (lambda ()
               (values #f (dispatch-remote method-name proxy-ior arguments))))))))
   
@@ -258,14 +258,10 @@
         info)))
   
   (define (send-remote-result info port)
-    (with-exception-catcher
-      (lambda (exc)
-        #f)
-      (lambda ()
-        (let ((timeout (send-timeout)))
-          (when timeout
-            (output-port-timeout-set! port timeout throw-remote-connection-broke)))
-        (write-port port info))))
+    (let ((timeout (send-timeout)))
+      (when timeout
+        (output-port-timeout-set! port timeout throw-remote-connection-broke)))
+    (write-port port info))
   
   (let ((message (receive-remote-message port)))
     (if (eq? message live-request)

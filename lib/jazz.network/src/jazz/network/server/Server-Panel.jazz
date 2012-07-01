@@ -65,6 +65,9 @@
     (define output
       #f)
     
+    (define exiting?
+      #f)
+    
     (define (setup-input/output)
       (let ((port (find-setting 'jazz.server-panel.port 'console)))
         (case port
@@ -149,7 +152,13 @@
       (force-output output))
     
     (define (quit-command arguments)
-      (exit-process~ (get-process)))
+      (exit-command))
+    
+    (define (exit-command)
+      (set! exiting? #t)
+      (post-event
+        (lambda ()
+          (exit-process~ (get-process)))))
     
     (define (reboot-command arguments)
       (reboot-process~ (get-process)))
@@ -244,13 +253,14 @@
     (start-server)
     
     (let (loop (newline? #t))
-      (when newline?
-        (newline output))
-      (display prompt output)
-      (force-output output)
+      (unless exiting?
+        (when newline?
+          (newline output))
+        (display prompt output)
+        (force-output output))
       (let ((command (read-line input)))
         (cond ((eof-object? command)
-               (exit-process~ (get-process)))
+               (exit-command))
               ((empty-string? command)
                (loop #f))
               (else

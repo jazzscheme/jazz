@@ -37,6 +37,9 @@
 (define-macro (snow-make-u16vector n . fill)
   `(make-u16vector ,n ,@fill))
 
+(define-macro (snow-copy-u16vector u16vect)
+  `(u16vector-copy ,u16vect))
+
 (define-macro (snow-u16vector . lst)
   `(u16vector ,@lst))
 

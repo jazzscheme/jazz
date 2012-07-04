@@ -36,6 +36,9 @@
 (define (make-vect32 n)
   (snow-make-u16vector (* 2 n)))
 
+(define (copy-vect32 v32)
+  (snow-copy-u16vector v32))
+
 (define (list->vect32 lst)
   (snow-list->u16vector lst))
 
@@ -566,6 +569,19 @@
 
           (make-aes-context keysize RK SK nr KT0 KT1 KT2 KT3)))))
 
+
+(define (deep-copy-aes-context context)
+  (make-aes-context
+    (aes-context-keysize context)
+    (copy-vect32 (aes-context-erk context))
+    (copy-vect32 (aes-context-drk context))
+    (aes-context-nr context)
+    (copy-vect32 (aes-context-KT0 context))
+    (copy-vect32 (aes-context-KT1 context))
+    (copy-vect32 (aes-context-KT2 context))
+    (copy-vect32 (aes-context-KT3 context))))
+
+
 ;;;----------------------------------------------------------------------------
 
 ;; Electronic Codebook (ECB) Mode Encryption.
@@ -851,23 +867,22 @@
           u8vect
           start
           end
-          key)
-  (let* ((iv (snow-make-u8vector block-size 0))
-         (context (u8vector->aes-context key))
-         (len (- end start))
+          context
+          iv)
+  (let* ((len (- end start))
          (nb-blocks (quotient len block-size))
          (output (snow-make-u8vector len)))
     (aes-encrypt-cbc context u8vect start output 0 iv nb-blocks)
     output))
 
+
 (define (aes-decrypt-subu8vector
           u8vect
           start
           end
-          key)
-  (let* ((iv (snow-make-u8vector block-size 0))
-         (context (u8vector->aes-context key))
-         (len (- end start)))
+          context
+          iv)
+  (let ((len (- end start)))
     (if (not (= 0 (modulo len block-size)))
         (error "length must be a multiple of 16")
         (let* ((nb-blocks (quotient len block-size))
@@ -875,15 +890,49 @@
           (aes-decrypt-cbc context u8vect start output 0 iv nb-blocks)
           output))))
 
+
+(define (aes-encrypt-u8vector-using-context
+          u8vect
+          context)
+    (aes-encrypt-subu8vector u8vect 0 (snow-u8vector-length u8vect) (deep-copy-aes-context context) (snow-make-u8vector block-size 0)))
+
+
+(define (aes-decrypt-u8vector-using-context
+          u8vect
+          context)
+  (aes-decrypt-subu8vector u8vect 0 (snow-u8vector-length u8vect) (deep-copy-aes-context context) (snow-make-u8vector block-size 0)))
+
+
 (define (aes-encrypt-u8vector
           u8vect
           key)
-  (aes-encrypt-subu8vector u8vect 0 (snow-u8vector-length u8vect) key))
+  (aes-encrypt-u8vector-using-context u8vect (u8vector->aes-context key)))
+
 
 (define (aes-decrypt-u8vector
           u8vect
           key)
-  (aes-decrypt-subu8vector u8vect 0 (snow-u8vector-length u8vect) key))
+  (aes-decrypt-u8vector-using-context u8vect (u8vector->aes-context key)))
+
+
+
+(define (aes-encrypt-unpadded-u8vector-using-context
+          u8vect
+          context)
+  (let* ((len (snow-u8vector-length u8vect))
+         (padlen (- block-size (modulo len block-size)))
+         (u8padded (snow-u8vector-append (snow-make-u8vector padlen) u8vect)))
+    (snow-u8vector-set! u8padded 0 padlen)
+    (aes-encrypt-u8vector-using-context u8padded context)))
+
+
+(define (aes-decrypt-unpadded-u8vector-using-context
+          u8vect
+          context)  
+  (let ((u8padded (aes-decrypt-u8vector-using-context u8vect context)))    
+    (snow-subu8vector u8padded (snow-u8vector-ref u8padded 0) (snow-u8vector-length u8padded))))
+         
+    
 
 ;;;============================================================================
 )

@@ -446,5 +446,6 @@
 (native table-ref)
 (native table-set!)
 (native table->list)
+(native unbound-table-key-exception?)
 (native list->table)
 (native jazz:iterate-table))

@@ -191,7 +191,8 @@
                           ,@jazz:clipboard-units
                           ,@jazz:minilzo-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-        (jazz:build-product-descriptor descriptor))))
+        (if (or (not unit) (not (assq unit unit-specs)))
+            (jazz:build-product-descriptor descriptor)))))
   (windows
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((build (%%get-repository-directory jazz:Build-Repository))
@@ -221,7 +222,8 @@
                             ,@jazz:minilzo-units
                             ,@jazz:com-units)))
           (jazz:custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
-          (jazz:build-product-descriptor descriptor)))))
+          (if (or (not unit) (not (assq unit unit-specs)))
+              (jazz:build-product-descriptor descriptor))))))
   (x11
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
@@ -235,7 +237,8 @@
                           ,@jazz:clipboard-units
                           ,@jazz:minilzo-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-        (jazz:build-product-descriptor descriptor unit: unit force?: force?)))))
+        (if (or (not unit) (not (assq unit unit-specs)))
+            (jazz:build-product-descriptor descriptor unit: unit force?: force?))))))
 
 
 ;;;

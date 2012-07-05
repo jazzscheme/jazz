@@ -43,7 +43,8 @@
     (define (jazz:build-ado descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.database.ado.connection.ADODB cc-options: "-DUNICODE -D___SINGLE_HOST" ld-options: "-mwindows -lole32"))))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-        (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
+        (if (or (not unit) (not (assq unit unit-specs)))
+            (jazz:build-product-descriptor descriptor unit: unit force?: force?)))))
   
   (else
     (define (jazz:build-ado descriptor)

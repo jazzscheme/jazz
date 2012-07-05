@@ -4193,6 +4193,34 @@
       (read-property object slot))))
 
 
+(definition delayed-events
+  (open-vector))
+
+
+(definition package (write-delayed-event thunk)
+  (continuation-capture
+    (lambda (cont)
+      (let ((msg (cons thunk (cons cont (current-continuation-chain)))))
+        (write msg delayed-events)
+        (force-output delayed-events)))))
+
+
+(definition package (read-delayed-event)
+  (input-port-timeout-set! delayed-events 0)
+  (let ((msg (read delayed-events)))
+    (if (eof-object? msg)
+        msg
+      (car msg))))
+
+
+(definition public (process-delayed-events)
+  (let (iter)
+    (let ((thunk (read-delayed-event)))
+      (when (not (eof-object? thunk))
+        (thunk)
+        (iter)))))
+
+
 (definition public current-continuation-chain
   (make-parameter '()))
 

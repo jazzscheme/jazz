@@ -142,6 +142,11 @@
   '((jazz.platform.odbc.odbc-lowlevel ld-options: "-lodbc32")))
 
 
+(define jazz:minilzo-units
+  (let ((minilzo-include-path (jazz:quote-jazz-pathname "foreign/minilzo/include")))
+    `((jazz.platform.minilzo cc-options: ,(string-append "-I" minilzo-include-path)))))
+
+
 (define jazz:com-units
   '((jazz.platform.windows.com cc-options: "-DUNICODE -D___SINGLE_HOST" ld-options: "-mwindows -lole32 -loleaut32")))
 
@@ -183,7 +188,8 @@
                           ,@jazz:cairo-units
                           ,@jazz:font-units
                           ,@jazz:carbon-units
-                          ,@jazz:clipboard-units)))
+                          ,@jazz:clipboard-units
+                          ,@jazz:minilzo-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
         (jazz:build-product-descriptor descriptor))))
   (windows
@@ -212,7 +218,8 @@
                             ,@jazz:font-units
                             ,@jazz:windows-units
                             ,@jazz:windows-odbc-units
-			    ,@jazz:com-units)))
+                            ,@jazz:minilzo-units
+                            ,@jazz:com-units)))
           (jazz:custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
           (jazz:build-product-descriptor descriptor)))))
   (x11
@@ -224,8 +231,9 @@
                           ,@jazz:cairo-units
                           ,@jazz:font-units
                           ,@jazz:x11-units
-			  ,@jazz:unix-odbc-units
-                          ,@jazz:clipboard-units)))
+                          ,@jazz:unix-odbc-units
+                          ,@jazz:clipboard-units
+                          ,@jazz:minilzo-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
         (jazz:build-product-descriptor descriptor unit: unit force?: force?)))))
 

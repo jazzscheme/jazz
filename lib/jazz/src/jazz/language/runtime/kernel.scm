@@ -383,6 +383,7 @@
 (native u8vector-shrink!)
 (native append-u8vectors)
 (native u8vector-append)
+(native subu8vector)
 
 ;; s16
 (native s16vector)

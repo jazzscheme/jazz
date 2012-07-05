@@ -458,7 +458,7 @@
          (jazz:file-modification-time dst))))
 
 
-(define (jazz:relativise-directory basedir rootdir targdir)
+(define (jazz:maybe-relativise-directory basedir rootdir targdir)
   (let ((targdir (jazz:pathname-normalize targdir))
         (basedir (jazz:pathname-normalize basedir))
         (rootdir (jazz:pathname-normalize rootdir)))
@@ -477,8 +477,13 @@
                     (if (%%eqv? (%%string-ref suffix n) #\/)
                         (set! relative-dir (%%string-append (or relative-dir "") "../")))
                     (iter (%%fx- n 1)))))
-            (%%string-append (or relative-dir "./") (%%substring targdir rootlen targlen)))
-        targdir))))
+            (values (%%string-append (or relative-dir "./") (%%substring targdir rootlen targlen)) #t))
+        (values targdir #f)))))
+
+
+(define (jazz:relativise-directory basedir rootdir targdir)
+  (receive (directory relative?) (jazz:maybe-relativise-directory basedir rootdir targdir)
+    directory))
 
 
 (define (jazz:absolutize-directory basedir reldir)

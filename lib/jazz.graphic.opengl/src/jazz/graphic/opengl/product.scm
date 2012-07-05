@@ -84,10 +84,11 @@
       '())))
 
 
-(define (jazz:build-opengl descriptor . rest)
+(define (jazz:build-opengl descriptor #!key (unit #f) (force? #f))
   (let ((unit-specs jazz:opengl-units))
-    (apply jazz:custom-compile/build unit-specs pre-build: jazz:copy-opengl-files rest)
-    (apply jazz:build-product-descriptor descriptor rest)))
+    (jazz:custom-compile/build unit-specs pre-build: jazz:copy-opengl-files unit: unit force?: force?)
+    (if (or (not unit) (not (assq unit unit-specs)))
+        (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
 
 
 ;;;

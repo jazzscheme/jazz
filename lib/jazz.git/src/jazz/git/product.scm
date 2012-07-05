@@ -70,7 +70,8 @@
     
     (let ((unit-specs jazz:git-units))
       (jazz:custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
-      (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
+      (if (or (not unit) (not (assq unit unit-specs)))
+          (jazz:build-product-descriptor descriptor unit: unit force?: force?)))))
 
 
 ;;;

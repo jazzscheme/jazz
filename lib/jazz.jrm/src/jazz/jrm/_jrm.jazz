@@ -47,7 +47,7 @@
 
 
 (definition *debug?*
-  #f)
+  #t)
 
 (definition *debug-arguments?*
   #f)
@@ -184,46 +184,41 @@
   (make-table))
 
 
-(definition public (find-jrm-port host service)
-  (let ((key (list host service)))
-    (table-ref *jrm-pumps* key #f)))
+(definition public (require-jrm-port uuid)
+  (or (table-ref *jrm-pumps* uuid #f)
+      (throw-remote-connection-broke)))
 
 
-(definition public (find/create-jrm-port host service)
-  (define (start-jrm-pump host service)
-    (when *debug?*
-      (terminal '***-pump-*** 'start host service))
-    (let ((port (open-tcp-client (list server-address: host port-number: service))))
-      (with-exception-catcher
-        (lambda (exc)
-          (when *debug?*
-            (terminal '***-pump-*** 'closed host service))
-          (with-exception-catcher
-            (lambda (exc)
-              #f)
-            (lambda ()
-              ;; open-tcp-client may silently fail
-              (close-port port)))
-          (throw exc))
-        (lambda ()
-          (let ((server (require-remote-listener)))
-            (let ((local-host (listening-host~ server))
-                  (local-service (listening-port~ server)))
-              (send-remote-message (list 'connect local-host local-service) port)))
+(definition public (connect-uuid host service)
+  (when *debug?*
+    (terminal '***-pump-*** 'start host service))
+  (let ((port (open-tcp-client (list server-address: host port-number: service))))
+    (with-exception-catcher
+      (lambda (exc)
+        (when *debug?*
+          (terminal '***-pump-*** 'closed host service))
+        (with-exception-catcher
+          (lambda (exc)
+            #f)
+          (lambda ()
+            ;; open-tcp-client may silently fail
+            (close-port port)))
+        (throw exc))
+      (lambda ()
+        (let ((server (require-remote-listener)))
+          (let ((local-uuid (listening-uuid~ server)))
+            (send-remote-message (list 'connect local-uuid) port)))
+        (let ((uuid (read-port port)))
+          (when (eof-object? uuid)
+            (throw-remote-connection-broke))
           (thread-start! (new-thread
                            (lambda ()
-                             (process-jrm-pump host service port))
+                             (process-jrm-pump uuid port))
                            'jrm-pump))
-          (let ((key (list host service)))
-            (table-set! *jrm-pumps* key port))
+          (table-set! *jrm-pumps* uuid port)
           (when *debug?*
             (terminal '***-pump-*** 'started host service port))
-          port))))
-  
-  (with-jrm-mutex
-    (lambda ()
-      (or (find-jrm-port host service)
-          (start-jrm-pump host service)))))
+          uuid)))))
 
 
 ;;;
@@ -285,12 +280,11 @@
   
   (let ((proxy-ior (proxy->ior remote-proxy))
         (invoke-thread (current-thread)))
-    (let ((host (get-host~ proxy-ior))
-          (service (get-service~ proxy-ior))
+    (let ((uuid (get-uuid~ proxy-ior))
           (cookie (object->serial invoke-thread))
           (timeout (and (neq? kind 'post) (make-absolute-timeout (receive-timeout)))))
       (debug-jrm '***client*** 'send (list kind cookie method-name (get-ior~ remote-proxy) (and *debug-arguments?* arguments)))
-      (thread-send (require-remote-switchboard) (values 'invoke host service (values invoke-thread timeout kind method-name proxy-ior arguments)))
+      (thread-send (require-remote-switchboard) (values 'invoke uuid (values invoke-thread timeout kind method-name proxy-ior arguments)))
       (case kind
         ((post)
          (unspecified))
@@ -312,9 +306,9 @@
         (map 
           (lambda (message)
             (cond ((pair? message)
-                   'p?)
+                   'p!)
                   ((object? message)
-                   'o?)
+                   'o!)
                   (else
                    message)))
           message)
@@ -325,28 +319,28 @@
 
 
 (definition (invocation-broke thread exception)
+  (debug-jrm '***server*** 'broke (list thread exception))
   (let ((cookie (object->serial thread)))
-    (thread-send thread (list 'broke cookie exception))))
+    (thread-send thread (cons *jrm-marker* (list 'broke cookie exception)))))
 
 
-(definition (process-jrm-pump host service port)
+(definition (process-jrm-pump uuid port)
   (let (loop)
     (input-port-timeout-set! port +inf.0)
     (let ((message (catch (Remote-Connection-Broke exc
                             (eof-object))
                      (read-port port))))
       (debug-jrm '***-pump-*** 'read message)
-      (thread-send (require-remote-switchboard) (values 'pump host service message))
+      (thread-send (require-remote-switchboard) (values 'pump uuid message))
       (if (eof-object? message)
           (with-jrm-mutex
             (lambda ()
-              (let ((key (list host service)))
-                (table-clear *jrm-pumps* key))
+              (table-clear *jrm-pumps* uuid)
               (close-port port)))
         (loop)))))
 
 
-(definition (process-pump-message invocations host service message)
+(definition (process-pump-message invocations uuid message)
   (define (dispatch-remote message)
     (bind (kind cookie method-name proxy-ior arguments) message
       (debug-jrm '***server*** 'dispatch (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
@@ -377,18 +371,17 @@
               (lambda ()
                 (dispatch-result message))))))))
   
-  (define (cleanup-pump-invocations invocations pump-host pump-service)
+  (define (cleanup-pump-invocations invocations pump-uuid)
     (table-for-each
       (lambda (thread rest)
-        (bind (timeout host service message) rest
-          (when (and (equal? host pump-host)
-                     (equal? host pump-service))
+        (bind (timeout uuid message) rest
+          (when (equal? uuid pump-uuid)
             (invocation-broke thread 'connection-closed))))
       invocations))
   
   (debug-jrm '***server*** 'pump message)
   (if (eof-object? message)
-      (cleanup-pump-invocations invocations host service)
+      (cleanup-pump-invocations invocations uuid)
     (let ((kind (car message)))
       (case kind
         ((error result)
@@ -401,7 +394,7 @@
          (bind (kind cookie method-name proxy-ior arguments) message
            (with-jrm-mutex
              (lambda ()
-               (let ((port (find-jrm-port host service)))
+               (let ((port (require-jrm-port uuid)))
                  (send-remote-message (list 'result cookie live-response) port))))))
         ((post)
          (thread-start!
@@ -416,7 +409,7 @@
                            (debug-jrm '***server*** 'reply reply)
                            (with-jrm-mutex
                              (lambda ()
-                               (let ((port (find-jrm-port host service)))
+                               (let ((port (require-jrm-port uuid)))
                                  (when port
                                    (send-remote-message reply port)))))))
                        kind)))))))
@@ -429,7 +422,7 @@
           (best-message #f))
       (table-for-each
         (lambda (thread data)
-          (bind (timeout host service message) data
+          (bind (timeout uuid message) data
             (when (or (not best-thread)
                       (> (systime->seconds best-timeout)
                          (systime->seconds timeout)))
@@ -447,10 +440,10 @@
               (begin
                 (table-clear invocations best-thread)
                 (invocation-broke best-thread 'timeout))
-            (receive (origin host service message) msg
+            (receive (origin uuid message) msg
               (case origin
                 ((pump)
-                 (process-pump-message invocations host service message))
+                 (process-pump-message invocations uuid message))
                 ((invoke)
                  (receive (invoke-thread timeout kind method-name proxy-ior arguments) message
                    (debug-jrm '***server*** 'invoke (list invoke-thread timeout kind method-name proxy-ior arguments))
@@ -463,11 +456,11 @@
                        (lambda (exc)
                          (invocation-broke invoke-thread exc))
                        (lambda ()
-                         (let ((port (find/create-jrm-port host service))
+                         (let ((port (require-jrm-port uuid))
                                (message (list kind cookie method-name proxy-ior arguments)))
                            (send-remote-message message port))
                          (when timeout
-                           (table-set! invocations invoke-thread (list timeout host service message))))))))
+                           (table-set! invocations invoke-thread (list timeout uuid message))))))))
                 (else
                  (error "Unknown origin: {s}" origin)))))))
       (loop))))
@@ -484,16 +477,18 @@
         info)))
   
   (let ((message (receive-remote-message port)))
-    ;; find/create-jrm-port might already have created a pump
+    ;; connect-uuid might already have created a pump
     ;; when both processes invoke simultaneously
     (case (car message)
       ((connect)
-       (bind (kind host service) message
+       (bind (kind uuid) message
          (with-jrm-mutex
            (lambda ()
-             (let ((key (list host service)))
-               (table-set! *jrm-pumps* key port))))
-         (process-jrm-pump host service port))))))
+             (table-set! *jrm-pumps* uuid port)))
+         (let ((server (require-remote-listener)))
+           (let ((local-uuid (listening-uuid~ server)))
+             (write-port port local-uuid)))
+         (process-jrm-pump uuid port))))))
 
 
 ;;;
@@ -592,6 +587,7 @@
     
     (let ((server (require-remote-listener)))
       (new IOR
+        (listening-uuid~ server)
         (listening-host~ server)
         (listening-port~ server)
         (serialize-runtime-reference (stub-reference~ local-proxy))
@@ -651,11 +647,16 @@
 
 (definition public (get-remote-register remote-proxy)
   (let ((ior (get-ior~ remote-proxy)))
-    (new-remote-register (get-host~ ior) (get-service~ ior))))
+    (new-remote-register (get-uuid~ ior) (get-host~ ior) (get-service~ ior))))
 
 
-(definition public (new-remote-register host port)
-  (ior->proxy (new IOR host port (serialize-runtime-reference (reference Register-Stub)) #f '())))
+(definition public (new-remote-register uuid host port)
+  (ior->proxy (new IOR uuid host port (serialize-runtime-reference (reference Register-Stub)) #f '())))
+
+
+(definition public (connect-remote-register host port)
+  (let ((uuid (connect-uuid host port)))
+    (new-remote-register uuid host port)))
 
 
 ;;;
@@ -694,6 +695,7 @@
   (let ((server (require-remote-listener)))
     (let ((ior
             (new IOR
+              (listening-uuid~ server)
               (listening-host~ server)
               (listening-port~ server)
               (serialize-runtime-reference (stub-reference~ proxy))
@@ -707,7 +709,8 @@
 
 
 (definition (encode-ior ior)
-  (vector (get-host~ ior)
+  (vector (get-uuid~ ior)
+          (get-host~ ior)
           (get-service~ ior)
           (get-stub-interface~ ior)
           (get-reference~ ior)
@@ -729,7 +732,8 @@
     (vector-ref content 1)
     (vector-ref content 2)
     (vector-ref content 3)
-    (vector-ref content 4)))
+    (vector-ref content 4)
+    (vector-ref content 5)))
 
 
 ;;;

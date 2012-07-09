@@ -56,6 +56,10 @@
   #f)
 
 
+(definition *jrm-marker*
+  (list 'jrm))
+
+
 ;;;
 ;;;; Server
 ;;;
@@ -259,13 +263,10 @@
   
   (define (skip-to-message)
     (let (iter)
-      (let ((message (thread-mailbox-next)))
-        ;; mailbox contains 2 types of message:
-        ;; (kind cookie method-name result) from process-jrm-messages
-        ;; (<thunk> . <continuation-chain>) from post-event et al.
-        (cond ((and (pair? message) (symbol? (car message)))
+      (let ((next (thread-mailbox-next)))
+        (cond ((and (pair? next) (eq? (car next) *jrm-marker*))
                (thread-mailbox-extract-and-rewind)
-               message)
+               (cdr next))
               (else
                (iter))))))
   
@@ -390,18 +391,18 @@
       (cleanup-pump-invocations invocations host service)
     (let ((kind (car message)))
       (case kind
+        ((error result)
+         (bind (kind cookie result) message
+           (let ((thread (serial->object cookie)))
+             (when (table-ref invocations thread #f)
+               (table-clear invocations thread)
+               (thread-send thread (cons *jrm-marker* message))))))
         ((live?)
          (bind (kind cookie method-name proxy-ior arguments) message
            (with-jrm-mutex
              (lambda ()
                (let ((port (find-jrm-port host service)))
                  (send-remote-message (list 'result cookie live-response) port))))))
-        ((error result)
-         (bind (kind cookie result) message
-           (let ((thread (serial->object cookie)))
-             (when (table-ref invocations thread #f)
-               (table-clear invocations thread)
-               (thread-send thread message)))))
         ((post)
          (thread-start!
            (new-thread (lambda ()

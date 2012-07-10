@@ -1497,7 +1497,7 @@
                (let ()
                  (define (configure template arguments)
                    (jazz:split-command-line arguments '() '("name" "system" "platform" "windowing" "safety" "optimize" "debug-environments" "debug-location" "debug-source" "mutable-bindings" "kernel-interpret" "destination" "properties") missing-argument-for-option
-                     (lambda (options remaining)
+                     (lambda (commands options remaining)
                        (if (null? remaining)
                            (let ((name (symbol-option "name" options))
                                  (system (symbol-option "system" options))

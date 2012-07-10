@@ -329,26 +329,34 @@
 
 
 (define (jazz:split-command-line arguments options-with-no-args options-with-args missing-argument-for-option cont)
-  (let loop ((args arguments)
-             (rev-options '()))
-    (if (and (%%pair? args)
-             (jazz:option? (%%car args)))
-        (let ((opt (jazz:option-name (%%car args)))
-              (rest (%%cdr args)))
-          (cond ((%%member opt options-with-no-args)
-                 (loop rest
-                       (%%cons (%%cons opt #t) rev-options)))
-                ((%%member opt options-with-args)
-                 (if (%%pair? rest)
-                     (loop (%%cdr rest)
-                           (%%cons (%%cons opt (%%car rest)) rev-options))
-                   (begin
-                     (if missing-argument-for-option
-                         (missing-argument-for-option opt))
-                     (loop rest rev-options))))
-                (else
-                 (cont (%%reverse rev-options) args))))
-      (cont (%%reverse rev-options) args))))
+  (define (split-commands arguments)
+    (let iter ((commands '()) (arguments arguments))
+      (if (or (%%null? arguments)
+              (jazz:option? (%%car arguments)))
+          (values (%%reverse commands) arguments)
+        (iter (%%cons (%%car arguments) commands) (%%cdr arguments)))))
+  
+  (receive (commands arguments) (split-commands arguments)
+    (let loop ((args arguments)
+               (rev-options '()))
+      (if (and (%%pair? args)
+               (jazz:option? (%%car args)))
+          (let ((opt (jazz:option-name (%%car args)))
+                (rest (%%cdr args)))
+            (cond ((%%member opt options-with-no-args)
+                   (loop rest
+                         (%%cons (%%cons opt #t) rev-options)))
+                  ((%%member opt options-with-args)
+                   (if (%%pair? rest)
+                       (loop (%%cdr rest)
+                             (%%cons (%%cons opt (%%car rest)) rev-options))
+                     (begin
+                       (if missing-argument-for-option
+                           (missing-argument-for-option opt))
+                       (loop rest rev-options))))
+                  (else
+                   (cont commands (%%reverse rev-options) args))))
+        (cont commands (%%reverse rev-options) args)))))
 
 
 ;;;

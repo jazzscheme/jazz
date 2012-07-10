@@ -235,7 +235,7 @@
       arg))
   
   (let ((exit-code (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
-                     (lambda (options remaining)
+                     (lambda (commands options remaining)
                        (let ((nosource? (jazz:get-option "nosource" options))
                              (debug? (jazz:get-option "debug" options))
                              (force? (jazz:get-option "force" options))
@@ -358,9 +358,10 @@
                                (install
                                 (setup-install)
                                 (jazz:install-product (%%string->symbol install)))
-                               ((%%not (%%null? remaining))
+                               ((or (%%not (%%null? commands))
+                                    (%%not (%%null? remaining)))
                                 (setup-runtime)
-                                (run-scripts remaining))
+                                (run-scripts (%%append commands remaining)))
                                (else
                                 (if debug?
                                     (setup-build)

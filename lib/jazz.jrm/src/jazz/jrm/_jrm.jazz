@@ -49,6 +49,9 @@
 (definition *debug?*
   #f)
 
+(definition *debug-uuid?*
+  #f)
+
 (definition *debug-arguments?*
   #f)
 
@@ -58,6 +61,24 @@
 
 (definition *jrm-marker*
   (list 'jrm))
+
+
+;;;
+;;;; UUID
+;;;
+
+
+(definition *jrm-uuid*
+  #f)
+
+
+(definition public (listening-uuid)
+  (or *jrm-uuid*
+      (let ((uuid (make-uuid)))
+        (set! *jrm-uuid* uuid)
+        (when *debug-uuid?*
+          (terminal '***uuid*** uuid))
+        uuid)))
 
 
 ;;;
@@ -206,7 +227,7 @@
         (throw exc))
       (lambda ()
         (let ((server (require-remote-listener)))
-          (let ((local-uuid (listening-uuid~ server)))
+          (let ((local-uuid (listening-uuid)))
             (send-remote-message (list 'connect local-uuid) port)))
         (let ((uuid (read-port port)))
           (when (eof-object? uuid)
@@ -486,7 +507,7 @@
            (lambda ()
              (table-set! *jrm-pumps* uuid port)))
          (let ((server (require-remote-listener)))
-           (let ((local-uuid (listening-uuid~ server)))
+           (let ((local-uuid (listening-uuid)))
              (write-port port local-uuid)))
          (process-jrm-pump uuid port))))))
 
@@ -501,9 +522,7 @@
 
 
 (definition public (local-ior? ior)
-  (let ((server (require-remote-listener)))
-    (and (host=? (get-host~ ior) (listening-host~ server))
-         (service=? (get-service~ ior) (listening-port~ server)))))
+  (uuid=? (get-uuid~ ior) (listening-uuid)))
 
 
 (definition public (ior=? x y)
@@ -587,7 +606,7 @@
     
     (let ((server (require-remote-listener)))
       (new IOR
-        (listening-uuid~ server)
+        (listening-uuid)
         (listening-host~ server)
         (listening-port~ server)
         (serialize-runtime-reference (stub-reference~ local-proxy))
@@ -695,7 +714,7 @@
   (let ((server (require-remote-listener)))
     (let ((ior
             (new IOR
-              (listening-uuid~ server)
+              (listening-uuid)
               (listening-host~ server)
               (listening-port~ server)
               (serialize-runtime-reference (stub-reference~ proxy))

@@ -71,9 +71,16 @@
 
 
 (define (jazz:command-argument name)
+  (define (skip-scripts arguments)
+    (let iter ((arguments arguments))
+      (if (or (%%null? arguments)
+              (jazz:switch? (%%car arguments)))
+          arguments
+        (iter (%%cdr arguments)))))
+  
   (if (eq? jazz:image 'executable)
       (let ((all (%%cdr (command-line))))
-        (let iter ((arguments all))
+        (let iter ((arguments (skip-scripts all)))
           (if (%%null? arguments)
               #f
             (let ((arg (%%car arguments)))

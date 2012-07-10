@@ -308,7 +308,7 @@
        (%%char=? (%%string-ref arg 0) #\-)))
 
 
-(define (jazz:convert-option arg)
+(define (jazz:option-name arg)
   (let ((len (%%string-length arg)))
     (let ((start (if (and (%%fx>= len 2) (%%equal? (%%substring arg 0 2) "--"))
                      2
@@ -318,7 +318,7 @@
 
 (define (jazz:option=? arg option)
   (and (jazz:option? arg)
-       (%%equal? (jazz:convert-option arg) option)))
+       (%%equal? (jazz:option-name arg) option)))
 
 
 (define (jazz:get-option name options)
@@ -333,7 +333,7 @@
              (rev-options '()))
     (if (and (%%pair? args)
              (jazz:option? (%%car args)))
-        (let ((opt (jazz:convert-option (%%car args)))
+        (let ((opt (jazz:option-name (%%car args)))
               (rest (%%cdr args)))
           (cond ((%%member opt options-with-no-args)
                  (loop rest

@@ -310,11 +310,15 @@
                          
                          (define (run-scripts lst)
                            (jazz:load-foundation)
-                           (for-each (lambda (path)
-                                       (let ((effective-path (if (jazz:pathname-extension path) path (jazz:add-extension path "jazz"))))
-                                         (if (file-exists? effective-path)
-                                             (jazz:load-script effective-path))))
-                                     lst))
+                           (let iter ((scan lst))
+                             (if (%%not (%%null? scan))
+                                 (let ((arg (%%car scan)))
+                                   (if (%%not (jazz:option? arg))
+                                       (begin
+                                         (let ((path (if (jazz:pathname-extension arg) arg (jazz:add-extension arg "jazz"))))
+                                           (if (file-exists? path)
+                                               (jazz:load-script path)))
+                                         (iter (%%cdr scan))))))))
                          
                          (cond (ev
                                 (setup-runtime)

@@ -180,6 +180,14 @@
     (thread-start! *jrm-switchboard*)))
 
 
+(definition public (flush-remote-switchboard)
+  (let ((invoke-thread (current-thread)))
+    (thread-send (require-remote-switchboard) (values 'flush #f invoke-thread))
+    (catch (Remote-Connection-Broke exc
+             #f)
+      (wait-for-result 'flush))))
+
+
 (definition *jrm-pumps*
   (make-table))
 
@@ -252,10 +260,7 @@
   (write-port port info))
 
 
-(definition (invoke-remote kind method-name remote-proxy arguments)
-  (define (make-absolute-timeout timeout)
-    (seconds->systime (+ (systime->seconds (current-systime)) timeout)))
-  
+(definition (wait-for-result method-name)
   (define (skip-to-message)
     (let (iter)
       (let ((next (thread-mailbox-next)))
@@ -265,18 +270,22 @@
               (else
                (iter))))))
   
-  (define (wait-for-result)
-    (let ((message (skip-to-message)))
-      (debug-jrm '***client*** 'read method-name)
-      (debug-jrm '***client*** 'read message)
-      (bind (kind cookie result) message
-        (case kind
-          ((result)
-           result)
-          ((broke)
-           (throw-remote-connection-broke))
-          ((error)
-           (error "Remote error while executing {s}: {a}" method-name result))))))
+  (let ((message (skip-to-message)))
+    (debug-jrm '***client*** 'read method-name)
+    (debug-jrm '***client*** 'read message)
+    (bind (kind cookie result) message
+      (case kind
+        ((result)
+         result)
+        ((broke)
+         (throw-remote-connection-broke))
+        ((error)
+         (error "Remote error while executing {s}: {a}" method-name result))))))
+
+
+(definition (invoke-remote kind method-name remote-proxy arguments)
+  (define (make-absolute-timeout timeout)
+    (seconds->systime (+ (systime->seconds (current-systime)) timeout)))
   
   (let ((proxy-ior (proxy->ior remote-proxy))
         (invoke-thread (current-thread)))
@@ -289,9 +298,9 @@
         ((post)
          (unspecified))
         ((call live?)
-         (wait-for-result))
+         (wait-for-result method-name))
         ((exec)
-         (wait-for-result)
+         (wait-for-result method-name)
          (unspecified))))))
 
 
@@ -444,6 +453,10 @@
               (case origin
                 ((pump)
                  (process-pump-message invocations uuid message))
+                ((flush)
+                 (let ((timeout 0)
+                       (invoke-thread message))
+                   (table-set! invocations invoke-thread (list timeout uuid message))))
                 ((invoke)
                  (receive (invoke-thread timeout kind method-name proxy-ior arguments) message
                    (debug-jrm '***server*** 'invoke (list invoke-thread timeout kind method-name proxy-ior arguments))

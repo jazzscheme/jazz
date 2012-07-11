@@ -470,6 +470,29 @@
           (loop))))
     (MSG-free msg)))
 
+@w
+(definition package (process-messages-multi-threaded)
+  (define (process-message msg)
+    (unless (translate-shortcut msg)
+      (TranslateMessage msg)
+      (with-c-stack-unwinding-entry
+        (lambda ()
+          (DispatchMessage msg)))))
+  
+  (define (process)
+    (declare (proper-tail-calls))
+    (let ((msg (MSG-make)))
+      (let (loop)
+        (let ((message? (GetMessage msg NULL 0 0)))
+          (when message
+            (execute-event
+              (lambda ()
+                (process-message msg)))
+            (loop))
+          (MSG-free msg)))))
+  
+  (new-thread process 'message-pump))
+
 
 (definition package (process-messages-multi-threaded)
   (define (process-message msg)

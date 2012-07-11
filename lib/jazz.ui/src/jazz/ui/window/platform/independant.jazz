@@ -60,6 +60,61 @@
 
 
 ;;;
+;;;; Priority Queue
+;;;
+
+
+(class Priority-Queue extends Object
+  
+  
+  (slot queue-vector)
+  (slot mutex           initialize (make-mutex))
+  (slot mutex-condition initialize (make-condition))
+  
+  
+  (method override (initialize priority-count)
+    (nextmethod)
+    (set! queue-vector
+          (list->vector (map (lambda (n) (new Queue))
+                             (naturals 0 priority-count)))))
+  
+  
+  (method public (empty?)
+    (mutex-lock! mutex)
+    (prog1 (not (top-queue))
+      (mutex-unlock! mutex)))
+  
+  
+  (method (top-queue)
+    (let (iter (priority (- (vector-length queue-vector) 1)))
+      (if (>= priority 0)
+          (let ((queue (element queue-vector priority)))
+            (if (queue-list queue)
+                queue
+              (iter (- priority 1))))
+        #f)))
+  
+  
+  (method public (push obj priority)
+    (assert (< priority (vector-length queue-vector)))
+    (mutex-lock! mutex)
+    (enqueue (element queue-vector priority) obj)
+    (condition-signal! mutex-condition)
+    (mutex-unlock! mutex))
+  
+  
+  (method public (pop)
+    (let (iter)
+      (mutex-lock! mutex)
+      (let ((queue (top-queue)))
+        (if queue
+            (prog1 (dequeue queue)
+              (mutex-unlock! mutex))
+          (mutex-unlock! mutex mutex-condition)
+          (iter))))))
+
+
+;;;
 ;;;; Offscreen
 ;;;
 

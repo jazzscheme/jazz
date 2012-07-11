@@ -2286,6 +2286,19 @@
       (stitch-head added))))
 
 
+(define (jazz:dequeue queue)
+  (let ((head (%%get-queue-head queue)))
+    (if (%%null? head)
+        (error "Queue is empty")
+      (let ((next (cdr head)))
+        (cond ((eq? head (%%get-queue-tail queue))
+               (%%set-queue-tail queue #f))
+              ((eq? head (%%get-queue-shared queue))
+               (%%set-queue-shared queue (if (%%null? next) #f next))))
+        (%%set-queue-head queue next)
+        (car head)))))
+
+
 (define (jazz:queue-list queue)
   (%%get-queue-head queue))
 

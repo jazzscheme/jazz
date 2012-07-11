@@ -49,6 +49,9 @@
 (definition *debug?*
   #f)
 
+(definition *debug-uuid?*
+  #f)
+
 (definition *debug-arguments?*
   #f)
 
@@ -61,26 +64,33 @@
 
 
 ;;;
+;;;; UUID
+;;;
+
+
+(definition *jrm-uuid*
+  #f)
+
+
+(definition public (listening-uuid)
+  (or *jrm-uuid*
+      (let ((uuid (make-uuid)))
+        (set! *jrm-uuid* uuid)
+        (when *debug-uuid?*
+          (terminal '***uuid*** uuid))
+        uuid)))
+
+
+;;;
 ;;;; Server
 ;;;
 
 
 (definition Remote-Listener-Host
-  ;; host-name is only available when connected to the internet
-  ;; (host-name)
-  "localhost")
+  localhost)
 
 (definition Remote-Listener-Service
   'any)
-
-
-(definition (remote-listener-host)
-  (receive (host port) (command-host/service "listener")
-    (or host Remote-Listener-Host)))
-
-(definition (remote-listener-service)
-  (receive (host port) (command-host/service "listener")
-    (or port Remote-Listener-Service)))
 
 
 (definition remote-listener
@@ -103,7 +113,7 @@
 (definition public (start-remote-listener (default-host: default-host #f) (default-service: default-service #f))
   (unless remote-listener
     (receive (host service) (command-host/service "listen")
-      (let ((server (new Remote-Listener host: (or host default-host (remote-listener-host)) service: (or service default-service (remote-listener-service)))))
+      (let ((server (new Remote-Listener host: (or host default-host Remote-Listener-Host) service: (or service default-service Remote-Listener-Service))))
         (start~ server)
         (if (wait-started~ server error?: #f)
             (set-remote-listener server)
@@ -176,7 +186,7 @@
     (set! *jrm-switchboard*
           (new-thread (lambda ()
                         (process-remote-messages))
-                      'switchboard))
+                      'jrm-switchboard))
     (thread-start! *jrm-switchboard*)))
 
 
@@ -214,7 +224,7 @@
         (throw exc))
       (lambda ()
         (let ((server (require-remote-listener)))
-          (let ((local-uuid (listening-uuid~ server)))
+          (let ((local-uuid (listening-uuid)))
             (send-remote-message (list 'connect local-uuid) port)))
         (let ((uuid (read-port port)))
           (when (eof-object? uuid)
@@ -499,7 +509,7 @@
            (lambda ()
              (table-set! *jrm-pumps* uuid port)))
          (let ((server (require-remote-listener)))
-           (let ((local-uuid (listening-uuid~ server)))
+           (let ((local-uuid (listening-uuid)))
              (write-port port local-uuid)))
          (process-jrm-pump uuid port))))))
 
@@ -514,9 +524,7 @@
 
 
 (definition public (local-ior? ior)
-  (let ((server (require-remote-listener)))
-    (and (host=? (get-host~ ior) (listening-host~ server))
-         (service=? (get-service~ ior) (listening-port~ server)))))
+  (uuid=? (get-uuid~ ior) (listening-uuid)))
 
 
 (definition public (ior=? x y)
@@ -600,7 +608,7 @@
     
     (let ((server (require-remote-listener)))
       (new IOR
-        (listening-uuid~ server)
+        (listening-uuid)
         (listening-host~ server)
         (listening-port~ server)
         (serialize-runtime-reference (stub-reference~ local-proxy))
@@ -708,7 +716,7 @@
   (let ((server (require-remote-listener)))
     (let ((ior
             (new IOR
-              (listening-uuid~ server)
+              (listening-uuid)
               (listening-host~ server)
               (listening-port~ server)
               (serialize-runtime-reference (stub-reference~ proxy))

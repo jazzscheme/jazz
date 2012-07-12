@@ -5267,7 +5267,7 @@
           (jazz:error "Found invalid unit declaration in {a}" source))))))
 
 
-(define (jazz:walk-unit unit-name)
+(define (jazz:walk-unit unit-name #!optional (backend 'scheme))
   (let ((src (jazz:find-unit-src unit-name '("jazz" "scm"))))
     (parameterize ((jazz:requested-unit-name unit-name)
                    (jazz:requested-unit-resource src)
@@ -5280,7 +5280,7 @@
           ((unit)
            #f)
           ((module)
-           (jazz:walk-module (%%cdr (jazz:source-code form)) 'scheme)))))))
+           (jazz:walk-module (%%cdr (jazz:source-code form)) backend)))))))
 
 
 ;;;

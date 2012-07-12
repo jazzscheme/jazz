@@ -75,7 +75,7 @@
   (method override (initialize priority-count)
     (nextmethod)
     (set! queue-vector
-          (list->vector (map (lambda (n) (new Queue))
+          (list->vector (map (lambda (n) (new-queue))
                              (naturals 0 priority-count)))))
   
   
@@ -89,13 +89,13 @@
     (let (iter (priority (- (vector-length queue-vector) 1)))
       (if (>= priority 0)
           (let ((queue (element queue-vector priority)))
-            (if (queue-list queue)
-                queue
-              (iter (- priority 1))))
+            (if (null? (queue-list queue))
+                (iter (- priority 1))
+              queue))
         #f)))
   
   
-  (method public (push obj priority)
+  (method public (push obj (priority 0))
     (assert (< priority (vector-length queue-vector)))
     (mutex-lock! mutex)
     (enqueue (element queue-vector priority) obj)
@@ -160,27 +160,95 @@
 
 
 (definition public (delay-event thunk)
-  (write-delayed-event thunk))
+  (if (get-events-single-threaded?)
+      (write-delayed-event thunk)
+    (delay-event22 thunk)))
 
 
 (definition public (post-event thunk)
-  (thread-post (event-thread) 'post-event
-    thunk))
+  (if (get-events-single-threaded?)
+      (thread-post (event-thread) 'post-event
+        thunk)
+    (post-event22 thunk)))
 
 
 (definition public (block-event thunk)
-  (thread-block (event-thread) 'block-event
-    thunk))
+  (if (get-events-single-threaded?)
+      (thread-block (event-thread) 'block-event
+        thunk)
+    (block-event22 thunk)))
 
 
 (definition public (execute-event thunk)
-  (thread-execute (event-thread) 'execute-event
-    thunk))
+  (if (get-events-single-threaded?)
+      (thread-execute (event-thread) 'execute-event
+        thunk)
+    (execute-event22 thunk)))
 
 
 (definition public (call-event thunk)
-  (thread-call (event-thread) 'call-event
-    thunk))
+  (if (get-events-single-threaded?)
+      (thread-call (event-thread) 'call-event
+        thunk)
+    (call-event22 thunk)))
+
+
+(definition *event-queue*
+  (new Priority-Queue 3))
+
+
+(definition (wait-for-event thunk name priority)
+  (let ((mutex (make-mutex name)))
+    (mutex-lock! mutex)
+    (push~ *event-queue*
+      (lambda ()
+        (unwind-protect
+            (thunk)
+          (mutex-unlock! mutex))) priority)
+    (mutex-lock! mutex)))
+
+
+(definition public (delay-event22 thunk)
+  (push~ *event-queue* thunk 2))
+
+
+(definition public (message-event22 thunk)
+  (wait-for-event thunk 'post-event 1))
+
+
+(definition public (post-event22 thunk)
+  (if (event-thread?)
+      (thunk)
+    (push~ *event-queue* thunk 0)))
+
+
+(definition public (block-event22 thunk)
+  (if (event-thread?)
+      (thunk)
+    (wait-for-event thunk 'block-event 0)))
+
+
+(definition public (execute-event22 thunk)
+  (if (event-thread?)
+      (thunk)
+    (wait-for-event thunk 'execute-event 0)))
+
+
+(definition public (call-event22 thunk)
+  (if (event-thread?)
+      (thunk)
+    (let ((result #f))
+      (wait-for-event (lambda () (set! result (thunk))) 'call-event 0)
+      result)))
+
+
+(definition public (process-event22)
+  (let ((msg (pop~ *event-queue*)))
+    (let ((msg? (not (eof-object? msg))))
+      (when msg?
+        (let ((thunk msg))
+          (thunk)))
+      msg?)))
 
 
 ;;;

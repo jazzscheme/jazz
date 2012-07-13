@@ -65,6 +65,21 @@
     (set! attachments~self attachments))
   
   
+  (definition boundary "CF69BC42-C9CB-11E0-82A0-A5C34824019B")
+  
+  
+  (definition line-size 72)
+  
+  
+  (definition attachment-buffer-size (* 3 (/ line-size 4)))
+  
+  
+  (definition separator (format "--{a}\n" boundary))
+  
+  
+  (definition ending (format "--{a}--\n" boundary))
+  
+  
   (method (format-mime-date date)
     (date->string date "~d ~b ~Y ~H:~M:~S ~z"))
   
@@ -79,34 +94,49 @@
                    "MIME-Version: 1.0\n"))
   
   
-  (method (make-plain-mime-message)
-    (string-append (make-mime-header)
-                   (format "Content-Type: {a};\n\n" (or content-type 'text/plain))
-                   message
-                   "\n\n"))
-
-
-  (method (make-multipart-mime-message)
-    ;; Generate this boundary
-    (let* ((boundary "CF69BC42-C9CB-11E0-82A0-A5C34824019B")
-           (parts (append (list (format "Content-Type: multipart/mixed; boundary={a}\n" boundary)
-                                (format "Content-Type: text/plain;\n\n{a}\n\n" message))
-                          (map (lambda (file)
-                                 (string-append (format "Content-Type: application/octet-stream\n")
-                                                (format "Content-Disposition: attachment; filename={s}\n" (get-name~ file))
-                                                "Content-Transfer-Encoding: base64\n\n"
-                                                (separate-lines (file->base64-string file) 72)
-                                                "\n"))
-                               attachments))))
-      (string-append (make-mime-header)
-                     (join parts (format "--{a}\n" boundary))
-                     (format "--{a}--\n" boundary))))
+  (method (send-message port)
+    (let* ((length (string-length message))
+           (last-index (* line-size (quotient length line-size))))
+      (let (loop (i 0))
+        (if (< i last-index)
+            (let ((next-i (+ i line-size)))
+              (write-substring message i next-i port)
+              (newline port)
+              (loop next-i))
+          (write-substring message i length port)))))
   
   
-  (method public (format-for-delivery)
-    (if (null? attachments)
-        (make-plain-mime-message)
-      (make-multipart-mime-message))))
+  (method (send-file file port)
+    (let ((buffer (make-u8vector attachment-buffer-size)))
+      (let (loop)
+        (let ((size-read (read-subu8vector buffer 0 attachment-buffer-size file)))
+          (if (< size-read attachment-buffer-size)
+              (let ((sub-buffer (subu8vector buffer 0 size-read)))
+                (display (u8vector->base64-string sub-buffer) port))
+            (display (u8vector->base64-string buffer) port)
+            (newline port)
+            (loop))))))
+  
+  
+  (method (send-on port)
+    (display (make-mime-header) port)
+    (unless (null? attachments)
+      (display (format "Content-Type: multipart/mixed; boundary={a}\n" boundary) port)
+      (display separator port))
+    (display (format "Content-Type: {a};\n\n" (or content-type 'text/plain)) port)
+    (send-message port)
+    (display "\n\n" port)
+    (for-each (lambda (file)
+                (display separator port)
+                (display "Content-Type: application/octet-stream\n" port)
+                (display (format "Content-Disposition: attachment; filename={s}\n" (get-name~ file)) port)
+                (display "Content-Transfer-Encoding: base64\n\n" port)
+                (call-with-input-file (parse~ file)
+                  (lambda (file-port)
+                    (send-file file-port port)))
+                (display "\n\n" port))
+              attachments)
+    (display (if (null? attachments) "\n\n" ending) port)))
 
 
 (class SMTP-Client extends Object
@@ -180,67 +210,31 @@
                        (throw "Invalid credentials."))))
   
   
-  (method (send-mail-string from to mail-string)
+  (method (send-mail mail <MIME-Message>)
     (display "RSET\n" port)
     (get-reply "250")
     
-    (display (format "MAIL FROM:<{a}>\n" from) port)
-    (get-reply "250" (lambda () (error (format "Error adding sender {a}." from))))
+    (display (format "MAIL FROM:<{a}>\n" (get-from~ mail)) port)
+    (get-reply "250" (lambda () (error (format "Error adding sender {a}." (get-from~ mail)))))
       
     (for-each (lambda (recipient)
                 (display (format "RCPT TO: {a}\n" recipient) port)
                 (get-reply "250" (lambda () (error (format "Error adding recipient {a}." recipient)))))
-              to)
+              (get-to~ mail))
     
     (display "data\n" port)
     (get-reply "354" (lambda () (error "Error sending the message. Server not accepting data.")))
     
-    (display mail-string port)
+    (send-on~ mail port)
+    
     (display "\n.\n" port)
-    (get-reply "250" (lambda () (error "Error sending the message."))))
-  
-  
-  (method (send-mail mail <MIME-Message>)
-    (send-mail-string (get-from~ mail) (get-to~ mail) (format-for-delivery~ mail))))
-  
-
-
-(definition public (separate-lines string ch-size)
-  (let ((length (string-length string)))
-    (let (recurse (index 0))
-      (cond ((>= index length)
-             "\n")
-            ((< (- length index) ch-size)
-             (string-append (substring string index length) "\n"))
-            (else
-             (string-append (substring string index (+ index ch-size))
-                            "\n"
-                            (recurse (+ index ch-size))))))))
-
-
-(definition public (file->u8vector file)
-  (with-input-from-file (parse~ file)
-    (lambda ()
-      (define (read-vectors)
-        (let* ((vector (make-u8vector 1024))
-               (l (read-subu8vector vector 0 1024)))
-          (if (zero? l)
-              '()
-            (u8vector-shrink! vector l)
-            (cons vector (read-vectors)))))
-      
-      (append-u8vectors (read-vectors)))))
-
-
-(definition public (file->base64-string file)
-  (u8vector->base64-string (file->u8vector file)))
+    (get-reply "250" (lambda () (error "Error sending the message.")))))
 
 
 (definition public (send-message message server (port-number: port-number 25) (username: username "") (password: password ""))
-  (let ((mail-string (format-for-delivery~ message)))
-    (let ((client (new SMTP-Client server port-number: port-number username: username password: password)))
-      (send-mail-string~ client (get-from~ message) (get-to~ message) mail-string)
-      (close~ client))))
+  (let ((client (new SMTP-Client server port-number: port-number username: username password: password)))
+    (send-mail~ client message)
+    (close~ client)))
 
 
 (definition public (base64-string->ascii-string str)

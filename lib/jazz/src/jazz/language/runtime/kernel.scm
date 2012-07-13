@@ -825,6 +825,8 @@
 (native jazz:write-u8)
 (native jazz:read-subu8vector)
 (native jazz:write-subu8vector)
+(native write-substring)
+
 ;(native jazz:read-line)
 (native jazz:read-proper-line)
 (native jazz:read-all)

@@ -261,6 +261,7 @@
 (native string-ci<=? <string^string:bool>)
 (native string-ci>=? <string^string:bool>)
 (native substring <string^int^int:string>)
+(native substring-move! <string^int^int^string^int:void>)
 (native string-append <string*:string>)
 (native string->list <string:list>)
 (native list->string <list:string>)

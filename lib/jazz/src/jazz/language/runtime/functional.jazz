@@ -4099,6 +4099,71 @@
 
 
 ;;;
+;;;; Priority Queue
+;;;
+
+
+(class Priority-Queue extends Object
+  
+  
+  (slot queue-vector)
+  (slot mutex           initialize (make-mutex))
+  (slot mutex-condition initialize (make-condition))
+  
+  
+  (method override (initialize priority-count)
+    (nextmethod)
+    (set! queue-vector
+          (list->vector (map (lambda (n) (new-queue))
+                             (naturals 0 priority-count)))))
+  
+  
+  (method public (empty?)
+    (mutex-lock! mutex)
+    (prog1 (not (top-queue))
+      (mutex-unlock! mutex)))
+  
+  
+  (method public (size)
+    (let ((count 0))
+      (loop (for queue in-vector queue-vector)
+            (increase! count (length (queue-list queue))))
+      count))
+  
+  
+  (method (top-queue)
+    (let (iter (priority (- (vector-length queue-vector) 1)))
+      (if (>= priority 0)
+          (let ((queue (element queue-vector priority)))
+            (if (null? (queue-list queue))
+                (iter (- priority 1))
+              queue))
+        #f)))
+  
+  
+  (method public (push obj (priority 0))
+    (assert (< priority (vector-length queue-vector)))
+    (mutex-lock! mutex)
+    (enqueue (element queue-vector priority) obj)
+    (condition-signal! mutex-condition)
+    (mutex-unlock! mutex))
+  
+  
+  (method public (pop timeout)
+    (let (iter)
+      (mutex-lock! mutex)
+      (let ((queue (top-queue)))
+        (if queue
+            (prog1 (dequeue queue)
+              (mutex-unlock! mutex))
+          (if (eqv? timeout 0)
+              (prog1 (eof-object)
+                (mutex-unlock! mutex))
+            (mutex-unlock! mutex mutex-condition)
+            (iter)))))))
+
+
+;;;
 ;;;; Thread
 ;;;
 
@@ -4249,43 +4314,41 @@
     thread))
 
 
-(definition thread-ports
+(definition thread-queues
   (make-table test: eq? weak-keys: #t))
 
-(definition thread-ports-mutex
-  (make-mutex 'thread-ports))
+(definition thread-queues-mutex
+  (make-mutex 'thread-queues))
 
 
 (definition package (thread-has-port? thread)
-  (boolean (table-ref thread-ports thread #f)))
+  (boolean (table-ref thread-queues thread #f)))
 
 
-(definition (get-thread-port thread)
-  (mutex-lock! thread-ports-mutex)
-  (prog1 (or (table-ref thread-ports thread #f)
-             (let ((port (open-vector)))
-               (table-set! thread-ports thread port)
-               port))
-    (mutex-unlock! thread-ports-mutex)))
+(definition (get-thread-queue thread)
+  (mutex-lock! thread-queues-mutex)
+  (prog1 (or (table-ref thread-queues thread #f)
+             (let ((queue (new Priority-Queue (if (primordial-thread?) 3 1))))
+               (table-set! thread-queues thread queue)
+               queue))
+    (mutex-unlock! thread-queues-mutex)))
 
 
-(definition package (thread-write-message thread msg)
-  (let ((thread-port (get-thread-port thread)))
-    (write msg thread-port)
-    (force-output thread-port)))
+(definition package (thread-write-message thread msg priority)
+  (let ((thread-queue (get-thread-queue thread)))
+    (push~ thread-queue msg priority)))
 
 
 (definition package (thread-read-message (timeout: timeout +infinity))
-  (let ((thread-port (get-thread-port (current-thread))))
-    (input-port-timeout-set! thread-port timeout)
-    (read thread-port)))
+  (let ((thread-queue (get-thread-queue (current-thread))))
+    (pop~ thread-queue timeout)))
 
 
-(definition package (thread-write thread value)
+(definition package (thread-write thread value (priority 0))
   (continuation-capture
     (lambda (cont)
       (let ((msg (cons value (cons cont (current-continuation-chain)))))
-        (thread-write-message thread msg)))))
+        (thread-write-message thread msg priority)))))
 
 
 (definition package (thread-read (timeout: timeout +infinity))
@@ -4305,13 +4368,13 @@
       msg?)))
 
 
-(definition public (thread-post thread name thunk)
+(definition public (thread-post thread name thunk (priority 0))
   (if (eq? thread (current-thread))
       (thunk)
-    (thread-write thread thunk)))
+    (thread-write thread thunk priority)))
 
 
-(definition public (thread-block thread name thunk)
+(definition public (thread-block thread name thunk (priority 0))
   (if (eq? thread (current-thread))
       (thunk)
     (let ((mutex (make-mutex name)))
@@ -4319,11 +4382,12 @@
       (thread-write thread
         (lambda ()
           (mutex-unlock! mutex)
-          (thunk)))
+          (thunk))
+        priority)
       (mutex-lock! mutex))))
 
 
-(definition public (thread-execute thread name thunk)
+(definition public (thread-execute thread name thunk (priority 0))
   (if (eq? thread (current-thread))
       (thunk)
     (let ((mutex (make-mutex name)))
@@ -4332,7 +4396,8 @@
         (lambda ()
           (unwind-protect
               (thunk)
-            (mutex-unlock! mutex))))
+            (mutex-unlock! mutex)))
+        priority)
       (mutex-lock! mutex))))
 
 
@@ -4344,20 +4409,20 @@
   (neq? result thread-call-noresult))
 
 
-(definition public (thread-call thread name thunk)
-  (let ((delegator (current-thread)))
-    (if (eq? thread delegator)
-        (thunk)
-      (let ((mutex (make-mutex name)))
-        (mutex-lock! mutex)
-        (mutex-specific-set! mutex thread-call-noresult)
-        (thread-write thread
-          (lambda ()
-            (unwind-protect
-                (mutex-specific-set! mutex (thunk))
-              (mutex-unlock! mutex))))
-        (mutex-lock! mutex)
-        (mutex-specific mutex)))))
+(definition public (thread-call thread name thunk (priority 0))
+  (if (eq? thread (current-thread))
+      (thunk)
+    (let ((mutex (make-mutex name)))
+      (mutex-lock! mutex)
+      (mutex-specific-set! mutex thread-call-noresult)
+      (thread-write thread
+                    (lambda ()
+                      (unwind-protect
+                          (mutex-specific-set! mutex (thunk))
+                        (mutex-unlock! mutex)))
+                    priority)
+      (mutex-lock! mutex)
+      (mutex-specific mutex))))
 
 
 (definition public (thread-exit)

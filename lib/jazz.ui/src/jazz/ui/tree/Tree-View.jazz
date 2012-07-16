@@ -2272,6 +2272,14 @@
           (let ((auto-row (and (not-null? sel) (get-row (selection-row (car sel))))))
             (when (or (not auto-row) (collapsed?~ auto-row))
               (auto-expand/collapse auto-row auto-toggle?: #t)))))
+      (let ((selection-cell (selection-cell)))
+        (when selection-cell
+          (let ((data (get-cell-data selection-cell)))
+            (when (is? data View)
+              (let ((outline-view (get-outline-view~ data)))
+                (when (and (eq? outline-view self)
+                           (is-focused?))
+                  (acquire-focus~ data)))))))
       (when (and ensure-displayed? (end-delayed?~ selection-manager))
         (ensure-displayed))))
   
@@ -2551,6 +2559,17 @@
     (case selection-mode
       ((cell) (get-line~ element))
       (else element)))
+  
+  
+  (method (selection-cell)
+    (and (not multiple-selection?)
+         (let ((selection (get-single-selection)))
+           (and selection
+                (case selection-mode
+                  ((cell) selection)
+                  ((row) (and (= 1 (get-columns-count))
+                              (new Cell selection 0)))
+                  ((node) (new Cell selection 0)))))))
   
   
   ;;;
@@ -2914,11 +2933,14 @@
            (cons (and sel (get-row~ tree sel))
                  (lambda (row) (car (get-children~ row))))))))
     
-    (bind (row . label-get) (prepare-iterate)
+    (bind (row . child-get) (prepare-iterate)
       (for-each-visible-row~ tree
         (lambda (row line)
-          (let ((title (get-title~ (label-get row))))
-            (proc title line)))
+          (let ((child (child-get row)))
+            (let ((title (typecase child
+                           ((Tree-Label) (get-title~ child))
+                           (else (get-title~ child)))))
+              (proc title line))))
         start: (when row (if prefix row (get-next~ row)))
         wrap?: #t)))
   

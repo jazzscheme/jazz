@@ -37,6 +37,7 @@
 (c-constant SQL_CHAR 1)
 (c-constant SQL_NO_DATA_FOUND 100)
 
+(c-constant SQL_DECIMAL 3)
 (c-constant SQL_SIGNED_OFFSET -20)
 (c-constant SQL_INTEGER 4)
 (c-constant SQL_BINARY -2)
@@ -49,6 +50,7 @@
 (c-constant SQL_DOUBLE 8)
 (c-constant SQL_TYPE_TIMESTAMP 93)
 (c-constant SQL_TYPE_DATE 91)
+(c-constant SQL_ARD_TYPE -99)
 
 
 (c-constant SQL_C_BIT SQL_BIT)
@@ -62,6 +64,7 @@
 (c-constant SQL_C_TYPE_TIMESTAMP SQL_TYPE_TIMESTAMP)
 (c-constant SQL_C_BINARY SQL_BINARY)
 (c-constant SQL_C_TINYINT SQL_TINYINT)
+(c-constant SQL_C_NUMERIC 2)
 
 (c-constant SQL_FETCH_PRIOR 4)
 (c-constant SQL_FETCH_RELATIVE 6)
@@ -69,6 +72,7 @@
 (c-constant SQL_CURSOR_TYPE 6)
 (c-constant SQL_ATTR_CURSOR_TYPE SQL_CURSOR_TYPE)
 (c-constant SQL_ATTR_QUERY_TIMEOUT 0)
+(c-constant SQL_ATTR_APP_ROW_DESC 10010)
 
 (c-constant SQL_CURSOR_STATIC 3)
 
@@ -89,6 +93,8 @@
 (c-constant SQL_DESC_TYPE_NAME 14)
 (c-constant SQL_DESC_TYPE 1002)
 (c-constant SQL_DESC_LENGTH 1003)
+(c-constant SQL_DESC_PRECISION 1005)
+(c-constant SQL_DESC_SCALE 1006)
 (c-constant SQL_DESC_NAME 1011)
 
 
@@ -98,7 +104,9 @@
     (,SQL_DESC_TYPE_NAME      . character)
     (,SQL_DESC_TYPE           . numeric)
     (,SQL_DESC_LENGTH         . numeric)
-    (,SQL_DESC_NAME           . character)))
+    (,SQL_DESC_NAME           . character)
+    (,SQL_DESC_PRECISION      . numeric)
+    (,SQL_DESC_SCALE          . numeric)))
 
 
 ;;;
@@ -117,6 +125,10 @@
   (SQL_TIMESTAMP_STRUCT-make))
 
 
+(definition (SQL_NUMERIC_STRUCT-alloc i)
+  (SQL_NUMERIC_STRUCT-make))
+
+
 (definition (uint16*->UTF-16-string-lgt pt lgt)
    (uint16*->UTF-16-string pt))
 
@@ -125,9 +137,23 @@
    (char*->char-string pt))
 
 
+(definition public (SQL_NUMERIC_STRUCT->integer numeric)
+  (let ((val (SQL_NUMERIC_STRUCT-val-ref numeric))
+        (sign (if (= (SQL_NUMERIC_STRUCT-sign-ref numeric) 0) -1 1)))
+    (let (loop (result 0)
+               (shift 0)
+               (i 0))
+      (if (< i 16)
+          (loop (+ result (arithmetic-shift (uint8*-ref val i) shift))
+                (+ shift 8)
+                (+ i 1))
+        (* result sign)))))
+
+
 (definition public SQLServer-datatypes
   `((1  1  #f ,SQL_C_CHAR           ,char*-alloc                ,char*->char-string-lgt     ,string-append)
     (2  #f #f ,SQL_C_SLONG          ,long*-alloc                ,long*-get                  #f)
+    (3  #f #f ,SQL_C_NUMERIC        ,SQL_NUMERIC_STRUCT-alloc   ,SQL_NUMERIC_STRUCT->integer #f)
     (4  #f #f ,SQL_C_SLONG          ,long*-alloc                ,long*-get                  #f)
     (6  #f #f ,SQL_C_DOUBLE         ,double*-alloc              ,double*-get                #f)
     (8  #f #f ,SQL_C_DOUBLE         ,double*-alloc              ,double*-get                #f)
@@ -348,6 +374,21 @@
 (definition public SQLSetConnectAttr SQLSetConnectAttr$)
 
 
+(definition public SQLGetStmtAttr SQLGetStmtAttr$)
+
+
+(definition public (SQLSetDescField DescriptorHandle RecNumber FieldIdentifier ValuePtr BufferLength)
+  (handle-sql-result SQL_HANDLE_DESC DescriptorHandle
+    (lambda ()
+      (SQLSetDescField$ DescriptorHandle RecNumber FieldIdentifier ValuePtr BufferLength))
+    (lambda (result state)
+      (when (= result SQL_SUCCESS_WITH_INFO)
+        (debug 'SQL_SUCCESS_WITH_INFO state))
+      #t)
+    (lambda ()
+      #f)))
+
+
 (definition public SQLEndTran SQLEndTran$)
 
 
@@ -464,7 +505,7 @@
   (slot data-append       accessors generate)
   
   
-  (method override (initialize hstmt index name type-name datatype column-length)
+  (method override (initialize hstmt index name type-name datatype column-length c-type)
     (set! index~self index)
     (set! name~self name)
     (set! type-name~self type-name)
@@ -476,7 +517,7 @@
       ;; For fixed length types, the size is ignored by ODBC
       (set! value-buffer-size (if datatype-size (* datatype-size buffer-length) 1))
       (set! value-buffer ((SQLServer-datatype-alloc datatype) buffer-length)))
-    (set! c-type (SQLServer-datatype-c-type datatype))
+    (set! c-type~self c-type)
     (set! datatype-size (SQLServer-datatype-size datatype))
     (set! convert (SQLServer-datatype-convert datatype))
     (set! data-append (SQLServer-datatype-append datatype)))
@@ -497,6 +538,10 @@
         1)))
   
   
+  (method public virtual (get-data)
+    )
+  
+  
   (method (get-base-data)
     (let ((size (SQLLEN*-ref size-buffer 0)))
       (and (not (= SQL_NULL_DATA size))
@@ -508,19 +553,29 @@
 (class ODBC-Bound-Column extends ODBC-Column
   
   
-  (method override (initialize statement index name type-name datatype column-length)
-    (nextmethod statement index name type-name datatype column-length)
-    (SQLBindCol$ hstmt index (SQLServer-datatype-c-type datatype) value-buffer value-buffer-size size-buffer))
+  (method override (initialize statement index name type-name datatype column-length c-type)
+    (nextmethod statement index name type-name datatype column-length c-type)
+    (SQLBindCol$ hstmt index c-type value-buffer value-buffer-size size-buffer))
   
   
-  (method public (get-data)
+  (method override (get-data)
     (get-base-data)))
 
+
+(class ODBC-Numeric-Bound-Column extends ODBC-Bound-Column
+
+  
+  (method override (get-data)
+    (let ((result (SQLGetData$ hstmt index SQL_ARD_TYPE value-buffer value-buffer-size size-buffer)))
+      (if (= result SQL_SUCCESS)
+          (get-base-data)
+        (handle-sql-error SQL_HANDLE_STMT hstmt result)))))
+  
 
 (class ODBC-Unbound-Fixed-Column extends ODBC-Column
   
   
-  (method public (get-data)
+  (method override (get-data)
     (let ((result (SQLGetData$ hstmt index c-type value-buffer value-buffer-size size-buffer)))
       (if (= result SQL_SUCCESS)
           (get-base-data)
@@ -530,7 +585,7 @@
 (class ODBC-Unbound-Variable-Column extends ODBC-Column
   
   
-  (method public (get-data)
+  (method override (get-data)
     (define (get-next)
       (declare (proper-tail-calls))
       (let* ((result (SQLGetData$ hstmt index c-type value-buffer value-buffer-size size-buffer))
@@ -604,10 +659,24 @@
             (map (lambda (index column-type column-length)
                    (let ((name (SQLColAttribute hstmt index SQL_DESC_NAME))
                          (type-name (SQLColAttribute hstmt index SQL_DESC_TYPE_NAME))
-                         (column-class (cond ((<= index last-bound-column) ODBC-Bound-Column)
+                         (column-class (cond ((<= index last-bound-column) 
+                                              (if (= column-type SQL_DECIMAL) ODBC-Numeric-Bound-Column ODBC-Bound-Column))
                                              ((SQLServer-datatype-size column-type) ODBC-Unbound-Variable-Column)
                                              (else ODBC-Unbound-Fixed-Column))))
-                     (new column-class hstmt index name type-name column-type column-length)))
+                     (prog1 (new column-class hstmt index name type-name column-type column-length (if (and (= column-type SQL_DECIMAL)
+                                                                                                            (not (eq? column-class ODBC-Numeric-Bound-Column)))
+                                                                                                       SQL_ARD_TYPE
+                                                                                                     (SQLServer-datatype-c-type column-type)))
+                       (when (= column-type SQL_DECIMAL)
+                         (let ((hdesc* (SQLHDESC*-alloc 1))
+                               (precision (SQLColAttribute hstmt index SQL_DESC_PRECISION))
+                               (scale (SQLColAttribute hstmt index SQL_DESC_SCALE)))
+                           (SQLGetStmtAttr hstmt SQL_ATTR_APP_ROW_DESC hdesc* 0 #f)
+                           (let ((hdesc (SQLHDESC*-get hdesc*)))
+                             (SQLSetDescField hdesc index SQL_DESC_TYPE (int->void* SQL_C_NUMERIC) 0)
+                             (SQLSetDescField hdesc index SQL_DESC_PRECISION (int->void* precision) 0)
+                             (SQLSetDescField hdesc index SQL_DESC_SCALE (int->void* scale) 0)
+                             (SQLHDESC*-free hdesc*)))))))
                  indexes
                  column-types
                  column-lengths))))))

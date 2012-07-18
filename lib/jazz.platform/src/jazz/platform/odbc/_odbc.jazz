@@ -484,7 +484,7 @@
 
 
 (definition (can-be-bound? datatype col-size)
-  (not (or (= 0 col-size) (SQLServer-datatype-long? datatype))))
+  (not (or (= 0 col-size) (SQLServer-datatype-long? datatype) (= datatype SQL_DECIMAL))))
 
 
 (class ODBC-Column extends Object
@@ -560,16 +560,6 @@
   
   (method override (get-data)
     (get-base-data)))
-
-
-(class ODBC-Numeric-Bound-Column extends ODBC-Bound-Column
-
-  
-  (method override (get-data)
-    (let ((result (SQLGetData$ hstmt index SQL_ARD_TYPE value-buffer value-buffer-size size-buffer)))
-      (if (= result SQL_SUCCESS)
-          (get-base-data)
-        (handle-sql-error SQL_HANDLE_STMT hstmt result)))))
   
 
 (class ODBC-Unbound-Fixed-Column extends ODBC-Column
@@ -659,12 +649,10 @@
             (map (lambda (index column-type column-length)
                    (let ((name (SQLColAttribute hstmt index SQL_DESC_NAME))
                          (type-name (SQLColAttribute hstmt index SQL_DESC_TYPE_NAME))
-                         (column-class (cond ((<= index last-bound-column) 
-                                              (if (= column-type SQL_DECIMAL) ODBC-Numeric-Bound-Column ODBC-Bound-Column))
+                         (column-class (cond ((<= index last-bound-column) ODBC-Bound-Column)
                                              ((SQLServer-datatype-size column-type) ODBC-Unbound-Variable-Column)
                                              (else ODBC-Unbound-Fixed-Column))))
-                     (prog1 (new column-class hstmt index name type-name column-type column-length (if (and (= column-type SQL_DECIMAL)
-                                                                                                            (not (eq? column-class ODBC-Numeric-Bound-Column)))
+                     (prog1 (new column-class hstmt index name type-name column-type column-length (if (= column-type SQL_DECIMAL)
                                                                                                        SQL_ARD_TYPE
                                                                                                      (SQLServer-datatype-c-type column-type)))
                        (when (= column-type SQL_DECIMAL)

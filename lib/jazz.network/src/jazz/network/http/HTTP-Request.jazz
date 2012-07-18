@@ -40,27 +40,30 @@
 
 (import (jazz.network)
         (jazz.network.http)
+        (jazz.network.smtp)
         (irregex))
 
 
 (class HTTP-Request extends HTTP-Message
 
-  (slot http-method                   getter generate)
-  (slot uri                           getter generate)
+  (slot http-method                    getter generate)
+  (slot uri                            getter generate)
   ;; synthetic parameters (come from uri and content)
-  (slot get-parameters  initialize '() getter generate)
-  (slot post-parameters initialize '() getter generate)
+  (slot get-parameters  initialize '() accessors generate)
+  (slot post-parameters initialize '() accessors generate)
   
   
   (method override (initialize (http-method: http-method #f) 
                                (uri: uri #f)
                                (get-parameters: get-parameters '())
+                               (post-parameters: post-parameters '())
                                (content: content #f)
                                (headers: headers '()))
     (nextmethod content: content headers: headers)
     (set! http-method~self http-method)
     (set! uri~self uri)
     (set! get-parameters~self get-parameters)
+    (set! post-parameters~self post-parameters)
     (let ((cookie-header (get-header "Cookie")))
       (when cookie-header
         (parse-cookies cookie-header))))
@@ -181,6 +184,13 @@ Cookie: SessionID=nil
         #f)))
   
   
+  (method (get-authentication-parameters)
+    (let ((header (get-header "Authorization" #f)))
+      (if header
+          (parse-authentication-headers header)
+        #f)))
+  
+  
   ;;;
   ;;;; Output
   ;;;
@@ -188,27 +198,57 @@ Cookie: SessionID=nil
   
   (method override (send port)
     (output-control port)
+    (crlf! port)
     (print-headers port)
-    (when (= http-method "POST")
+    (when (string=? http-method "POST")
       (format port "{%}{%}")
-      (output-parameters port))
-    (get-output-string port))
+      (output-parameters port post-parameters))
+    (crlf! port)
+    (display content port)
+    (force-output port))
+  
+  
+  (method (debug)
+     (let ((port (open-output-u8vector)))
+      (send port)
+      (prog1
+          (list->string
+            (map
+              integer->char
+              (u8vector->list
+                (get-output-u8vector port))))
+        (close~ port))))
   
   
   (method (output-control output)
     (format output "{a} {a}" http-method uri)
-    (when (= http-method "GET")
+    (when (not (empty? get-parameters))
       (format output "?")
-      (output-parameters output))
+      (output-parameters output get-parameters))
     (format output " HTTP/1.1"))
   
   
-  (method (output-parameters output)
-    (loop (for parameter in get-parameters)
+  (method (output-parameters output parameters)
+    (loop (for parameter in parameters)
           (for first? first #t then #f)
           (do (bind (name . value) parameter
                 (unless first?
                   (format output "&"))
                 (format output "{a}={a}"
                         (url-encode name)
-                        (url-encode value))))))))
+                        (url-encode value))))))
+  )
+
+
+(definition private (parse-basic-authentication hash)
+  (let ((credentials (split-header-line (base64-string->ascii-string hash) separator: #\colon)))
+    `((userid . ,(car credentials))
+      (password . ,(cdr credentials)))))
+
+(definition private (parse-authentication-headers header)
+  (let ((value (split-header-line header separator: #\space)))
+    (let ((auth-type (car value)))
+      (if (string=? "Basic" auth-type)
+          (parse-basic-authentication (cdr value))
+        (list value)))))
+)

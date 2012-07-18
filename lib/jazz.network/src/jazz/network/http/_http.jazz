@@ -37,6 +37,86 @@
 
 (module jazz.network.http jazz
 
+;;;
+;;;; Response Codes
+;;;
+
+
+(definition private Response-Codes
+  '((continue                         "100" "Continue")
+    (switching-protocols              "101" "Switching Protocols")
+    (ok                               "200" "OK")
+    (created                          "201" "Created")
+    (accepted                         "202" "Accepted")
+    (non-authoritative-information    "203" "Non-Authoritative Information")
+    (no-content                       "204" "No Content")
+    (reset-content                    "205" "Reset Content")
+    (partial-content                  "206" "Partial Content")
+    (multiple-choices                 "300" "Multiple Choices")
+    (moved-permanently                "301" "Moved Permanently")
+    (found                            "302" "Found")
+    (see-other                        "303" "See Other")
+    (not-modified                     "304" "Not Modified")
+    (use-proxy                        "305" "Use Proxy")
+    (temporary-redirect               "307" "Temporary Redirect")
+    (bad-request                      "400" "Bad Request")
+    (unauthorized                     "401" "Unauthorized")
+    (payment-required                 "402" "Payment Required")
+    (forbidden                        "403" "Forbidden")
+    (not-found                        "404" "Not Found")
+    (not-allowed                      "405" "Method Not Allowed")
+    (not-acceptable                   "406" "Not Acceptable")
+    (proxy-authentication-required    "407" "Proxy Authentication Required")
+    (request-time-out                 "408" "Request Time-out")
+    (conflict                         "409" "Conflict")
+    (gone                             "410" "Gone")
+    (length-required                  "411" "Length Required")
+    (precondition-failed              "412" "Precondition Failed")
+    (request-entity-too-large         "413" "Request Entity Too Large")
+    (request-uri-too-large            "414" "Request-URI Too Large")
+    (unsupported-media-type           "415" "Unsupported Media Type")
+    (requested-range-not-satisfiable  "416" "Requested range not satisfiable")
+    (expectation-failed               "417" "Expectation Failed")
+    (server-error                     "500" "Internal Server Error")
+    (not-implemented                  "501" "Not Implemented")
+    (bad-gateway                      "502" "Bad Gateway")
+    (service-unavailable              "503" "Service Unavailable")
+    (gateway-time-out                 "504" "Gateway Time-out")
+    (http-version-not-supported       "505" "HTTP Version not supported")))
+
+
+(definition public (parse-code code)
+  (let ((info (find-in Response-Codes code key: second test: equal?)))
+    (if info
+        (car info)
+      'unknown)))
+
+
+(definition public (response-code-info code)
+  (or (assq code Response-Codes)
+      (error "Unknown response code: {s}" code)))
+
+
+;;;
+;;;; Parsing
+;;;
+
+
+(definition public (split-header-line line (separator: separator #\:))
+  (let (loop (header '())
+             (value (string->list line)))
+    (if (empty? value)
+        (cons (list->string header) "")
+      (if (eq? (car value) separator)
+          (let (trim-spaces (remaining (cdr value)))
+            (if (or (null? remaining)
+                    (neq? (car remaining) #\space))
+                (cons (list->string header)
+                      (list->string remaining))
+              (trim-spaces (cdr remaining))))
+        (loop (append header (cons (car value) '()))
+              (cdr value))))))
+
 
 ;;;
 ;;;; Encoding
@@ -71,5 +151,45 @@
                        (format output "%{x}" (char->integer c)))
                       (else
                        (write-char c output))))
-              string)
-    (get-output-string output))))
+              (string->list string))
+    (get-output-string output)))
+
+
+;;;
+;;;; Hashing
+;;;
+
+
+(definition public (hmac-string
+                     str
+                     message
+                     (algorithm: algorithm 'sha-1)
+                     (block-size: block-size 64)
+                     (raw-output: raw-output #f))
+
+  (define (build-key)
+    (if (> (string-length str) block-size)
+        (digest-string str algorithm)
+      (concatenate str (make-string (- block-size (string-length str)) #\x00))))
+
+  (define (xor-string str1 str2)
+    (list->string
+      (map (lambda (chars)
+             (integer->char
+               (bitwise-xor (char->integer (car chars))
+                            (char->integer (cadr chars)))))
+           (zip (string->list str1)
+                (string->list str2)))))
+
+  (let ((key (build-key)))
+    (let ((o-key-pad (xor-string (make-string block-size #\x5c) key))
+          (i-key-pad (xor-string (make-string block-size #\x36) key)))
+      (let ((inner-digest (list->string
+                            (map integer->char
+                                 (u8vector->list
+                                   (digest-string (concatenate i-key-pad message) algorithm 'u8vector))))))
+        (digest-string (concatenate o-key-pad inner-digest)
+                       algorithm
+                       (if raw-output 'u8vector 'hex))))))
+
+)

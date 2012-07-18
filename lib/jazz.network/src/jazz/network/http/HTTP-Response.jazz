@@ -38,14 +38,15 @@
 (module protected jazz.network.http.HTTP-Response jazz
 
 
-(import (jazz.network))
+(import (jazz.network)
+        (jazz.network.http))
 
 
 (class HTTP-Response extends HTTP-Message
   
   
   (slot code               getter generate)
-
+  
   
   (method override (initialize (code: code #f) (content: content #f))
     (nextmethod)
@@ -56,34 +57,112 @@
   ;;;
   ;;;; Parsing
   ;;; FIXME, later
+  
+  
+  @response-from-www.yahoo.com
+  "HTTP/1.1 200 OK
+   Date: Sun, 14 Aug 2005 22:50:44 GMT
+   Cache-Control: private
+   Vary: User-Agent
+   Set-Cookie: FPB=4lsmeb11fvim4; expires=Thu, 01-Jun-2006 19:00:00 GMT; path=/; domain=www.yahoo.com
+   Connection: close
+   Transfer-Encoding: chunked
+   Content-Type: text/html
+                                                                
+   7299
+   ..."
+  
+  
+  @response-from-jazz
+  "HTTP/1.1 200 OK
+   Connection: close
+   Content-Type: text/html
+   Content-Length: 1543
+   Set-Cookie: SessionID=nil
+                                                                
+   ..."
+  
 
+  (method override (parse port)
+    (define (parse-control)
+      (let ((line (read-line port)))
+        (set! protocol (substring line 0 8))
+        (set! code (parse-code (substring line 9 12)))))
 
-@response-from-www.yahoo.com
-"HTTP/1.1 200 OK
-Date: Sun, 14 Aug 2005 22:50:44 GMT
-Cache-Control: private
-Vary: User-Agent
-Set-Cookie: FPB=4lsmeb11fvim4; expires=Thu, 01-Jun-2006 19:00:00 GMT; path=/; domain=www.yahoo.com
-Connection: close
-Transfer-Encoding: chunked
-Content-Type: text/html
+    (define (parse-headers)
+      (let (loop (line (read-line port)))
+        (unless (string=? "" line)
+          (let ((header (split-header-line line)))
+            (set-header! (car header) (cdr header))
+            (loop (read-line port))))))
+    
+    (define (parse-regular-content)
+      (let ((header-length (get-header "Content-Length")))
+        (let ((numeric-header-length (if (and header-length
+                                              (numeric? header-length)
+                                              (>= (string->number header-length)))
+                                         (string->number header-length)
+                                       -1)))
+          ; can't use read-chars here, as a HEAD request may return the Content-Length
+          ; without actually specifying content. better to just use it to exit early
+          ; if possible.
+          (let (loop (length numeric-header-length)
+                     (collected '()))
+            (if (or (= length 0)
+                    (not (char-ready? port)))
+                (list->string (reverse collected))
+              (let ((next-char (read-char port)))
+                (if (eof-object? next-char)
+                    (list->string (reverse collected))
+                  (loop (- length 1)
+                        (cons next-char collected)))))))))
 
-7299
-..."
+    (define (parse-chunked-content)
+      (define (read-chunk)
+        ; no chunk extensions for now
+        (let (loop (hex-characters '()))
+          (let ((char (read-char port)))
+            (if (eof-object? char)
+                #f
+              (if (or (eq? char #\return)
+                      (eq? char #\newline)
+                      (eq? char #\semi-colon))
+                  (begin
+                    (unless (eq? char #\newline)
+                      (read-line port)) ; erase remainder
+                    (let ((length (parse-hexadecimal (list->string (reverse hex-characters))))
+                          (chunk-str ""))
+                      (if (= length 0)
+                          #f
+                        (prog1
+                            (read-chars length port)
+                          (read-line port) ; trailing crlf not included in chunk size
+                          ))))
+                (loop (cons char hex-characters)))))))
+      
+      (let (loop (content ""))
+        (let ((chunk-content (read-chunk)))
+          (if chunk-content
+              (loop (concatenate content chunk-content))
+            content))))
+    
+    (define (parse-content)
+      (let ((transfer-encoding (get-header "Transfer-Encoding")))
+        (if (and transfer-encoding
+                 (string=? transfer-encoding "chunked"))
+            (set! content (parse-chunked-content))
+          (set! content (parse-regular-content)))))
+    
+    (parse-control)
+    (parse-headers)
+    (parse-content))
 
-
-@response-from-jazz
-"HTTP/1.1 200 OK
-Connection: close
-Content-Type: text/html
-Content-Length: 1543
-Set-Cookie: SessionID=nil
-
-..."
   
   
   @fixme
   (method (parse-response port)
+    (let ((line (read-line port))) ; read code
+      (set! code (parse-code (substring line 9 12))))
     (receive (line headers) (read-line/headers port)
       (bind (version code code-text) (split line " ")
         (set! code~self (parse-code code))
@@ -91,36 +170,6 @@ Set-Cookie: SessionID=nil
         (parse-cookies Cookie-Header)
         ;;(set! body~self (read-body port))
         )))
-  
-  
-  ;;;
-  ;;;; Codes
-  ;;; this needs a little more thought
-  
-  
-  (definition Response-Codes
-    '((ok                  "200" "OK")
-      (see-other           "303" "See Other")
-      (bad-request         "400" "Bad Request")
-      (forbidden           "403" "Forbidden")
-      (not-found           "404" "Not Found")
-      (not-allowed         "405" "Method Not Allowed")
-      (conflict            "409" "Conflict")
-      (server-error        "500" "Server Error")
-      (not-implemented     "501" "Not Implemented")
-      (service-unavailable "503" "Service Unavailable")))
-  
-  
-  (definition (parse-code code)
-    (let ((info (find-in Response-Codes code key: second test: equal?)))
-      (if info
-          (first info)
-        'unknown)))
-  
-  
-  (definition (response-code-info code)
-    (or (assq code Response-Codes)
-        (error "Unknown response code: {s}" code)))
   
   
   ;;;
@@ -140,4 +189,13 @@ Set-Cookie: SessionID=nil
     (when content
       (if (list? content)
           (write-u8-content content port)
-        (format port "{a}" content))))))
+        (format port "{a}" content)))))
+
+(definition private (read-chars length port)
+  ; assumes that there are length characters present
+  (let ((str (make-string length)))
+    (let ((n (read-substring str 0 length port)))
+      (if (= n length)
+          str
+        ""))))
+)

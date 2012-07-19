@@ -38,7 +38,9 @@
 (module protected jazz.validation.tester.Tester jazz
 
 
-(import (jazz.library))
+(import (jazz.library)
+        (jazz.snapshot)
+        (jazz.debuggee))
 
 
 (class Tester extends Component
@@ -65,6 +67,15 @@
   (method protected (invoke section proc)
     (parameterize ((*section* section))
       (proc)))
+  
+  
+  (method (validation-failed-with-snapshot exception (message #f))
+    (let ((file (get-file~ (get-log~ manager))))
+      (let ((directory (and file (get-directory~ file))))
+        (let ((snapshot (and directory (snapshot-process exception: exception directory: directory))))
+          (validation-failed (format "{?{a} : ~}{a}" message (get-message~ exception))
+                             class: (serialize-class Exception-Log-Node)
+                             properties: (list 'snapshot (and snapshot (get-name~ snapshot))))))))
   
   
   (method (validate-failed message location)

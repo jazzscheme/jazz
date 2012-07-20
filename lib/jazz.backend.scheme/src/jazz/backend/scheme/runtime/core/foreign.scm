@@ -53,6 +53,9 @@
       (%%still-obj-refcount-dec! foreign))
     
     (define (jazz:still-obj-refcount-inc! foreign)
-      (%%still-obj-refcount-inc! foreign)))
+      (%%still-obj-refcount-inc! foreign))
+    
+    (define jazz:still-copy
+      ##still-copy))
   
   (else)))

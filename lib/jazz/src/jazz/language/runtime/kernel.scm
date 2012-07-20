@@ -327,6 +327,7 @@
 ;;(native jazz:still-obj-refcount)
 (native jazz:still-obj-refcount-dec!)
 (native jazz:still-obj-refcount-inc!)
+(native jazz:still-copy)
 
 
 ;;;
@@ -454,6 +455,7 @@
 (native f32vector?)
 (native f32vector->list)
 (native list->f32vector)
+(native f32vector-copy)
 
 ;; f64
 (native f64vector)
@@ -464,6 +466,7 @@
 (native f64vector?)
 (native f64vector->list)
 (native list->f64vector)
+(native f64vector-copy)
 
 
 ;;;

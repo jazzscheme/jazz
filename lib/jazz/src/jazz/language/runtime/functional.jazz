@@ -1151,6 +1151,42 @@
 (class primitive Rational metaclass Rational-Class extends Real)
 
 
+(definition public (rational->decimalstring f precision)
+  (unless (and (rational? f)
+               (exact? f))
+    (error "(rational->decimalstring fraction precision): fraction must be a valid fraction a/b"))
+  
+  (when (or (not (integer? precision))
+            (< precision 0))
+    (error "(rational->decimalstring fraction precision): precision must be an integer equal or greater than 0."))
+  
+  (let ((port (open-output-string))
+        (num (abs (numerator f)))
+        (denum (denominator f)))
+    
+    (when (< (numerator f) 0)
+      (display "-" port))
+    
+    (display (quotient num denum) port)
+    (display "." port)
+    
+    (let (iter (remain (* (remainder num denum) 10))
+               (p precision))
+      (when (and (> remain 0)
+                 (> p 0))
+        (let ((quo (quotient remain denum)))
+          (display quo port)
+          (iter (* (- remain (* quo denum)) 10)
+                (- p 1))))
+      ;; pad with zeros to match precision
+      (when (and (<= remain 0)
+                 (> p 0))
+        (display "0" port)
+        (iter (- 1) (- p 1))))
+    
+    (get-output-string port)))
+
+
 ;;;
 ;;;; Integer
 ;;;

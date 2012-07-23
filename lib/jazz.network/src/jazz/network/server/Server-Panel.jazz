@@ -39,6 +39,7 @@
 
 
 (import (jazz.debuggee)
+        (jazz.jrm)
         (jazz.network)
         (jazz.system)
         (jazz.ui.window))
@@ -91,6 +92,8 @@
               ((stop) (stop-command arguments))
               ((restart) (restart-command arguments))
               ((info) (info-command arguments))
+              ((listener) (listener-command arguments))
+              ((listen) (listen-command arguments))
               ((debug) (debug-command arguments))
               ((attach) (attach-command arguments))
               ((detach) (detach-command arguments))
@@ -111,6 +114,13 @@
     
     (define (info-command arguments)
       (server-info))
+    
+    (define (listener-command arguments)
+      (let ((listener (get-remote-listener)))
+        (format output "{a}{%}" (and listener (encode-host/port (listening-host~ listener) (listening-port~ listener))))))
+    
+    (define (listen-command arguments)
+      (listen))
     
     (define (debug-command arguments)
       (server-debug (if (null? arguments)
@@ -143,6 +153,8 @@
       (format output "  stop            : Stop the server{%}")
       (format output "  restart         : Restart the server{%}")
       (format output "  info            : Show server information{%}")
+      (format output "  listen          : Listen for jazz remoting calls{%}")
+      (format output "  listener        : Display remote listener address{%}")
       (format output "  debug [flag]    : Toggle or set debugging to flag{%}")
       (format output "  attach debugger : Attach to debugger{%}")
       (format output "  detach          : Detach from debugger{%}")
@@ -244,6 +256,12 @@
     (define (server-debug debug?)
       (set-debug?~ server debug?)
       (format output "Server {a}being debugged{%}" (if debug? "" "not ")))
+    
+    (define (listen)
+      (start-remote-server~ (get-process))
+      (setup-local-process)
+      (let ((listener (require-remote-listener)))
+        (format output "{a}{%}" (encode-host/port (listening-host~ listener) (listening-port~ listener)))))
     
     ;;;
     ;;;; Panel

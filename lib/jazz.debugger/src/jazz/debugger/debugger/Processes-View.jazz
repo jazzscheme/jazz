@@ -42,7 +42,9 @@
         (jazz.graphic)
         (jazz.io)
         (jazz.jml)
+        (jazz.jrm)
         (jazz.library)
+        (jazz.network)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.dialog)
@@ -60,6 +62,8 @@
       (<Layout-View>            name: tools
         (<Push-Tool>            name: open         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open Snapshot" resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :guest on-open-snapshot})
         (<Separator>                               size: {Dimension 6 0})
+        (<Push-Tool>            name: attach       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Attach Process" resource: {Image-Resource "Exception"} portfolio: :images action-handler: {Event-Handler :guest on-attach-process})
+        (<Separator>                               size: {Dimension 2 0})
         (<Toggle-Tool>          name: focused-mode size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Evaluate To All" resource: {Image-Resource "All"} portfolio: :images action-handler: {Event-Handler :guest on-focused-mode})
         (<Separator>                               size: {Dimension 2 0})
         (<Push-Tool>            name: update       size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-update}))
@@ -155,6 +159,25 @@
     (let ((process (selected-process)))
       (when (and process (focusable?~ process))
         (focus-selected-process))))
+  
+  
+  (method (on-attach-process evt)
+    (let ((address (request-string title: "Enter process address")))
+      (attach-process-at address)))
+  
+  
+  (method (attach-process-at address)
+    (start-remote-server~ (get-process))
+    (receive (host service) (parse-host/service address)
+      (let ((remote-register (connect-remote-register host service)))
+        (let ((remote-debuggee (find-object~ remote-register 'debuggee))
+              (cookie (register-debugger-cookie)))
+          (register-debugger-cookie-procedure cookie
+            (lambda (process cookie)
+              (clear-user-message)
+              (transmit-runtime-information~ (get-debugger~ process) (get-reference~ process))))
+          (user-message "Attaching {a}..." address)
+          (attach-to-debugger~ remote-debuggee (get-local-register) cookie)))))
   
   
   (definition Snapshot-Extensions

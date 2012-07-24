@@ -38,7 +38,8 @@
 (module protected jazz.ui.view.Radio-Button jazz
 
 
-(import (jazz.graphic)
+(import (jazz.geometry)
+        (jazz.graphic)
         (jazz.jml)
         (jazz.locale)
         (jazz.ui))
@@ -134,7 +135,9 @@
   (method (process-change-state)
     (set-selected? #t)
     (set-modified? #t)
-    (process-action self))
+    (if (not outline-view)
+        (process-action self)
+      (process-action~ outline-view self)))
 
   
   ;;;
@@ -152,20 +155,66 @@
             (max 18 (get-height~ extent)))))))
   
   
+  (method (box-rect)
+    (let* ((title (or (localize title) ""))
+           (height (if (or (not title) (empty-string? title)) 13 (get-height~ (text-extent~ (effective-font) title))))
+           (h 18)
+           (v (quotient (- (get-height) height) 2)))
+      (new Rect 0 (+ v 1) box-size (+ v box-size 1))))
+  
+  
   ;;;
   ;;;; Drawing
   ;;;
   
   
   (method override (draw surface context)
+    (define (effective-selected?)
+      (if (not outline-view)
+          (getf context selected?:)
+        (cell-selected?~ (outline-column) context)))
+    
     (let* ((title (or (localize title) ""))
-           (height (if (or (not title) (empty-string? title)) 13 (get-height~ (get-text-extent~ surface title))))
+           (extent (get-text-extent~ surface title))
+           (height (if (or (not title) (empty-string? title)) 13 (get-height~ extent)))
            (h 18)
            (v (quotient (- (get-height) height) 2)))
       (let ((enabled? (view-enabled?)))
         (draw-radio-button~ surface (new Rect 0 (+ v 1) box-size (+ v box-size 1)) selected?: selected? inactive?: (or (not enabled?) (and tracking? inside?)) radio-background: radio-background)
-        (set-text-color~ surface (if enabled? {Color Black} {Color Dark}))
-        (draw-text~ surface h v title enabled?))))
+        (let* ((selected? (effective-selected?))
+               (box-h 0)
+               (box-v (quotient (- (get-height) (if extent (get-height~ extent) box-size)) 2))
+               (text-h (+ 18 box-h))
+               (text-v box-v))
+          (when selected?
+            (let ((color (if (is? outline-view Tree-View) (selection-color~ outline-view) {Color Focused-Selection}))
+                  (rect
+                   (if (and (is? outline-view Tree-View) (eq? (get-selection-mode~ outline-view) 'cell))
+                       (new Rect (- text-h 3) (- text-v 2) (get-width) (+ text-v (get-height~ extent) 2))
+                     (new Rect (- text-h 3) (- text-v 2) (+ text-h (get-width~ extent) 3) (+ text-v (get-height~ extent) 2)))))
+              (fill-rect~ surface rect color)))
+        (set-text-color~ surface (if enabled?
+                                     (or (determine-color~ {Color Black} enabled? selected?)
+                                         {Color White})
+                                   {Color Dark}))
+        (draw-text~ surface h v title enabled?)))))
+
+
+  ;;;
+  ;;;; Focus
+  ;;;
+
+
+  (method override (focus-gained)
+    (nextmethod)
+    (when outline-view
+      (focus-gained~ outline-view)))
+
+
+  (method override (focus-lost)
+    (nextmethod)
+    (when outline-view
+      (focus-lost~ outline-view)))
   
   
   ;;;
@@ -176,7 +225,25 @@
   (method override (key-press evt)
     (case (get-key~ evt)
       ((#\space)
-       (process-change-state))))
+       (process-change-state))
+      (else
+       (when outline-view
+         (call-key-press~ outline-view evt)))))
+  
+  
+  (method override (arrow-press evt)
+    (when outline-view
+      (call-arrow-press~ outline-view evt)))
+  
+  
+  (method override (return-press evt)
+    (when outline-view
+      (call-return-press~ outline-view evt)))
+  
+  
+  (method override (escape-press evt)
+    (when outline-view
+      (call-escape-press~ outline-view evt)))
   
   
   ;;;
@@ -185,8 +252,9 @@
   
   
   (method override (mouse-down evt)
-    (when (and (view-enabled?)
-               editable?)
+    (when outline-view
+      (outline-select))
+    (when (and (view-enabled?) editable? (or (not outline-view) (in-rect? (get-position~ evt) (box-rect))))
       (set! tracking? #t)
       (set! inside? #t)
       (acquire-capture)

@@ -722,17 +722,22 @@
   ;;;
 
 
-  (method public (outline-select (focus?: focus? #f))
+  (method public (outline-select)
     (let* ((row (outline-row))
+           (column (outline-column))
            (line (row->line~ outline-view row))
-           (elem (if (and (is? outline-view Tree-View) (eq? (get-selection-mode~ outline-view) 'cell)) (new Cell line 0) line)))
-      (when focus?
-        (acquire-focus~ outline-view))
+           (col (column->col~ outline-view column))
+           (elem (if (and (is? outline-view Tree-View) (eq? (get-selection-mode~ outline-view) 'cell)) (new Cell line col) line)))
+      (acquire-focus)
       (set-selection~ outline-view (list elem))))
   
   
   (method public (outline-row)
     (find-ascendant Outline-Row))
+  
+  
+  (method public (outline-column)
+    (get-column~ outline-view (find (get-children~ parent) self)))
 
 
   ;;;
@@ -1869,7 +1874,9 @@
   
   (method public (is-focused?)
     (or (has-focus?)
-        (memq? self (get-pushed-focuses~ player))))
+        (memq? self (get-pushed-focuses~ player))
+        (let ((focus (get-focus)))
+          (and focus (eq? (get-outline-view~ focus) self)))))
   
   
   (method public (contains-focus?)

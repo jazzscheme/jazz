@@ -125,9 +125,12 @@
   
   
   (method (box-rect)
-    (let* ((extent (text-extent))
-           (h (quotient (- (get-width) (+ box-size (if title (+ 5 (get-width~ extent)) 0))) 2))
-           (v (quotient (- (get-height) (if title (get-height~ extent) box-size)) 2)))
+    (let* ((title (localize title))
+           (extent (if title (text-extent) #f))
+           ;; quicky
+           (center? (not extent))
+           (h (if center? (quotient (- (get-width) box-size) 2) 0))
+           (v (quotient (- (get-height) (if extent (get-height~ extent) box-size)) 2)))
       (new Rect h v (+ h box-size) (+ v box-size))))
   
   
@@ -137,6 +140,11 @@
   
   
   (method override (draw surface context)
+    (define (effective-selected?)
+      (if (not outline-view)
+          (getf context selected?:)
+        (cell-selected?~ (outline-column) context)))
+    
     (let* ((title (localize title))
            (extent (if title (text-extent) #f))
            ;; quicky
@@ -151,15 +159,16 @@
       (fill-rect~ surface (inflate-rect box-rect -2 -2) (if grayed? {Color Medium} {Color White}))
       (draw-check surface (+ 3 box-h) (+ 3 box-v) grayed?)
       (when title
-        (let ((selected? (getf context selected?:))
+        (let ((selected? (effective-selected?))
               (text-h (+ 18 box-h))
               (text-v box-v))
           (when selected?
-            (let ((rect
-                   (if (and (is? outline-view Tree-View) (memq? (get-selection-mode~ outline-view) '(row cell)))
+            (let ((color (if (is? outline-view Tree-View) (selection-color~ outline-view) {Color Focused-Selection}))
+                  (rect
+                   (if (and (is? outline-view Tree-View) (eq? (get-selection-mode~ outline-view) 'cell))
                        (new Rect (- text-h 3) (- text-v 2) (get-width) (+ text-v (get-height~ extent) 2))
                      (new Rect (- text-h 3) (- text-v 2) (+ text-h (get-width~ extent) 3) (+ text-v (get-height~ extent) 2)))))
-              (fill-rect~ surface rect {Color Focused-Selection})))
+              (fill-rect~ surface rect color)))
           (set-font~ surface (effective-font))
           (set-text-color~ surface (or (determine-color~ color enabled? selected?)
                                        {Color White}))
@@ -170,6 +179,23 @@
     (when checked?
       (set-color~ surface (if grayed? {Color Dark} {Color Black}))
       (draw-check~ surface h v)))
+
+
+  ;;;
+  ;;;; Focus
+  ;;;
+
+
+  (method override (focus-gained)
+    (nextmethod)
+    (when outline-view
+      (focus-gained~ outline-view)))
+
+
+  (method override (focus-lost)
+    (nextmethod)
+    (when outline-view
+      (focus-lost~ outline-view)))
   
   
   ;;;
@@ -180,7 +206,25 @@
   (method override (key-press evt)
     (case (get-key~ evt)
       ((#\space)
-       (process-change-state))))
+       (process-change-state))
+      (else
+       (when outline-view
+         (call-key-press~ outline-view evt)))))
+  
+  
+  (method override (arrow-press evt)
+    (when outline-view
+      (call-arrow-press~ outline-view evt)))
+  
+  
+  (method override (return-press evt)
+    (when outline-view
+      (call-return-press~ outline-view evt)))
+  
+  
+  (method override (escape-press evt)
+    (when outline-view
+      (call-escape-press~ outline-view evt)))
   
   
   ;;;
@@ -189,13 +233,13 @@
   
   
   (method override (mouse-down evt)
-    (if (and outline-view (not (in-rect? (get-position~ evt) (box-rect))))
-        (outline-select focus?: #t)
-      (when (and (view-enabled?) editable?)
-        (set! tracking? #t)
-        (set! inside? #t)
-        (acquire-capture)
-        (invalidate-view))))
+    (when outline-view
+      (outline-select))
+    (when (and (view-enabled?) editable? (or (not outline-view) (in-rect? (get-position~ evt) (box-rect))))
+      (set! tracking? #t)
+      (set! inside? #t)
+      (acquire-capture)
+      (invalidate-view)))
   
   
   (method override (drag-move evt)

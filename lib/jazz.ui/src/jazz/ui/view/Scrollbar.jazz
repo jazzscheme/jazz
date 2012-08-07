@@ -375,16 +375,27 @@
               (dv (if (eq? orientation 'horz) -1 0)))
           (draw-arrow-tip~ surface (+ (get-left~ inflated) 3 dh) (+ (get-top~ inflated) 4 dv) 3 direction))))
     
+    (define (draw-plain-arrow rect direction)
+      (let ((inflated (inflate-rect rect -1 -1))
+            (dh (if (eq? orientation 'horz) 1 0))
+            (dv (if (eq? orientation 'horz) -1 0)))
+        (set-color~ surface {Color Entry-Border})
+        (draw-arrow-tip~ surface (+ (get-left~ inflated) 2 dh) (+ (get-top~ inflated) 4 dv) 4 direction)))
+    
     (let ((look (get-look)))
       (let ((bounds (get-bounds))
             (up-rect (up-rect))
             (down-rect (down-rect))
             (thumb-rect (thumb-rect))
-            (background (get-background~ look))
+            (background (or (get-background~ look) (get-background-color)))
             (thumb (get-thumb~ look))
             (flat? (get-flat?~ look)))
-        (fill-background~ surface bounds (if (debug-paint?) (cycle-debug-color!) (or background (get-background-color))))
-        (cond (flat?
+        (when (neq? background 'none)
+          (fill-background~ surface bounds (if (debug-paint?) (cycle-debug-color!) background)))
+        (cond ((eq? background 'none)
+               (draw-plain-arrow up-rect (case orientation ((vert) 'up) ((horz) 'left)))
+               (draw-plain-arrow down-rect (case orientation ((vert) 'down) ((horz) 'right))))
+              (flat?
                (draw-button up-rect (case orientation ((vert) 'up) ((horz) 'left)))
                (draw-button down-rect (case orientation ((vert) 'down) ((horz) 'right))))
               (else
@@ -392,13 +403,14 @@
                (draw-scroll-bar~ surface down-rect (case orientation ((vert) 'down) ((horz) 'right)))))
         (when thumb-rect
           (if flat?
-              @interesting
-              (frame-rect~ surface thumb-rect {Color Entry-Border})
-              (draw-raised~ surface thumb-rect)
+              (if (eq? background 'none)
+                  (frame-rect~ surface thumb-rect {Color Entry-Border})
+                (draw-raised~ surface thumb-rect))
             (draw-edge~ surface thumb-rect inner: 'raised outer: 'raised edges: 'rectangle))
           (let ((width (if flat? 1 2)))
             (let ((inflated (inflate-rect thumb-rect (- width) (- width))))
-              (fill-background~ surface inflated (if (debug-paint?) (cycle-debug-color!) (or thumb {Color Medium})))))
+              (when (neq? background 'none)
+                (fill-background~ surface inflated (if (debug-paint?) (cycle-debug-color!) (or thumb {Color Medium}))))))
           @interesting
           (let* ((height (rect-height thumb-rect))
                  (v (+ (get-top~ thumb-rect) (quotient (- height 8) 2))))

@@ -44,6 +44,7 @@
         (jazz.io)
         (jazz.jml)
         (jazz.library)
+        (jazz.library.component)
         (jazz.project)
         (jazz.system)
         (jazz.ui.view))
@@ -67,10 +68,12 @@
   (property depot-directory    initialize #f accessors generate)
   (property active-project     initialize #f accessors generate)
   (property active-traits      initialize #f accessors generate)
+  (property dynamic?           initialize #f accessors generate)
 
 
-  (slot catalog initialize #f accessors generate)
-  (slot depot   initialize #f accessors generate)
+  (slot catalog          initialize #f accessors generate)
+  (slot depot            initialize #f accessors generate)
+  (slot dynamic-projects initialize #f accessors generate)
   
   
   (property deprecated catalog? initialize #t accessors generate)
@@ -84,6 +87,40 @@
     (print-unreadable self output
       (lambda (output)
         (format output "{a}" (project-title)))))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (when dynamic?
+      (install-dynamic-projects)))
+  
+  
+  (method (install-dynamic-projects)
+    (define (get-dynamic-file)
+      (let ((project-file (get-origin~ (get-form))))
+        (new-brother~ project-file ".dynamic")))
+    
+    (define (not-found-handler ref)
+      (let ((form
+              (<form>
+                (<Project-Not-Found>))))
+        (let ((title
+                (catch (Unknown-Alias-Exception exc
+                         (get-message~ exc))
+                  (format "{a} not found" (parse~ ref)))))
+          (set-property~ form 'title title)
+          form)))
+    
+    (let ((dynamic-file (get-dynamic-file)))
+      (let ((dependencies (call-with-input-file (parse~ dynamic-file) read)))
+        (let ((added-projects (for-each (lambda (data)
+                                          (bind (name dependency) data
+                                            (let ((file (new File (cdr dependency))))
+                                              (if (exists?~ file)
+                                                  (instantiate-file file parent: self name: name)
+                                                (instantiate~ (not-found-handler file) parent: self)))))
+                                        (call-with-input-file (parse~ dynamic-file) read))))
+          (set! dynamic-projects added-projects)))))
 
 
   ;;;

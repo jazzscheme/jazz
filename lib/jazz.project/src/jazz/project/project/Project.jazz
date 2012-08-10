@@ -113,14 +113,30 @@
     
     (let ((dynamic-file (get-dynamic-file)))
       (let ((dependencies (call-with-input-file (parse~ dynamic-file) read)))
-        (let ((added-projects (for-each (lambda (data)
-                                          (bind (name dependency) data
-                                            (let ((file (new File (cdr dependency))))
-                                              (if (exists?~ file)
-                                                  (instantiate-file file parent: self name: name)
-                                                (instantiate~ (not-found-handler file) parent: self)))))
-                                        (call-with-input-file (parse~ dynamic-file) read))))
+        (let ((added-projects (map (lambda (data)
+                                     (bind (name dependency) data
+                                       (let ((file (new File (cdr dependency))))
+                                         (if (exists?~ file)
+                                             (instantiate-file file parent: self name: name)
+                                           (instantiate~ (not-found-handler file) parent: self)))))
+                                   (call-with-input-file (parse~ dynamic-file) read))))
           (set! dynamic-projects added-projects)))))
+  
+  
+  (method public (get-effective-dynamic-projects)
+    (or dynamic-projects
+        (let ((parent (get-parent)))
+          (if (is? parent Project)
+              (get-effective-dynamic-projects~ parent)
+            '()))))
+  
+  
+  (method public (get-effective-dynamic-repositories)
+    (let ((effective-dynamic-projects (get-effective-dynamic-projects)))
+      (if (not-null? effective-dynamic-projects)
+          (join (map parse~ (map get-depot-directory~ effective-dynamic-projects))
+                ";")
+        "")))
 
 
   ;;;

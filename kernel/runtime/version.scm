@@ -332,9 +332,11 @@
   (let ((settings-root "~/.jazz/"))
     (cond ((not (file-exists? settings-root))
            (let ((version (jazz:versioned-version 'settings (jazz:get-jazz-updates))))
-             (set! jazz:jazz-settings-directory (string-append settings-root (jazz:present-version version) "/"))
-             (set! jazz:jazz-settings-version version)
-             (set! jazz:named-configurations-file (string-append jazz:jazz-settings-directory ".configurations"))))
+             (if version
+                 (begin
+                   (set! jazz:jazz-settings-directory (string-append settings-root (jazz:present-version version) "/"))
+                   (set! jazz:jazz-settings-version version)
+                   (set! jazz:named-configurations-file (string-append jazz:jazz-settings-directory ".configurations"))))))
           (else
            (set! jazz:jazz-settings-directory (jazz:versioned-directory settings-root 'settings (jazz:get-jazz-updates) jazz:convert-settings))
            (set! jazz:jazz-settings-version (jazz:versioned-version 'settings (jazz:get-jazz-updates)))

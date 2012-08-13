@@ -200,7 +200,7 @@
       (let ((dialog (get-player))
             (host (get-host))
             (title (or title default-title))
-            (icon (or icon default-icon))
+            (icon (if (eq? icon 'none) #f (or icon default-icon)))
             (sound (if (eq? sound 'default) default-sound sound))
             (yes (or yes default-yes))
             (no (or no default-no))
@@ -211,8 +211,10 @@
           (set! actions (cons (list (localize no) 'no) actions)))
         (when (and yes (not (member? 'yes actions key: second)))
           (set! actions (cons (list (localize yes) 'yes) actions)))
-        (when icon
-          (set-resource~ (locate 'icon) (and process-modal? (icon-resource icon))))
+        (if icon
+            (set-resource~ (locate 'icon) (icon-resource icon))
+          (set-visible?~ (locate 'icon) #f)
+          (set-position~ (locate 'border) {Point 29 12}))
         (let* ((default-button (or default-button (second (first actions))))
                (dialog-size (layout-box (and text (localize text)) selection (and title (localize title)) size icon content actions execute default-button)))
           (when process-modal?
@@ -303,7 +305,7 @@
                 (when overflow?
                   (set-border-type~ border-view 'solid)))
               (let ((h (+ (center buttons-width dialog-width) 1))
-                    (v (+ bottom 10)))
+                    (v (+ bottom (if icon 10 15))))
                 (position-buttons action-buttons h v))
               (new Dimension dialog-width dialog-height))))))))
 

@@ -45,6 +45,7 @@
         (jazz.library)
         (jazz.locale)
         (jazz.ui)
+        (jazz.ui.skin)
         (jazz.ui.view))
 
 
@@ -153,25 +154,50 @@
   ;;;
   
   
+  (method override (draw-background surface context)
+    (let ((look (get-look)))
+      (when (neq? (get-background~ look) 'none)
+        (nextmethod surface context))))
+  
+  
   (method override (draw surface context)
     (let ((title (or (localize title) ""))
           (offset (case state ((pushed) 1) (else 0)))
           (rect (get-bounds))
+          (look (get-look))
           (enabled? (view-enabled?)))
-      (when default?
-        (frame-rect~ surface rect (if enabled? {Color Black} {Color Dark}))
-        (set! rect (inflate-rect rect -1 -1)))
-      (if flat?
-          (draw-edge~ surface rect outer: 'raised edges: 'rectangle)
-        (draw-push-button~ surface rect (if (eq? state 'pushed) #t #f)))
-      (let* ((size (get-size))
-             (width (get-width~ size))
-             (height (get-height~ size))
-             (extent (get-text-extent~ surface title))
-             (h (quotient (- width (get-width~ extent)) 2))
-             (v (quotient (- height (get-height~ extent)) 2)))
-        (set-text-color~ surface (if enabled? {Color Black} {Color Dark}))
-        (draw-text~ surface (+ h offset) (+ v offset) title enabled?))))
+      (let ((background? (neq? (get-background~ look) 'none)))
+        (when default?
+          (unless (not background?)
+            (frame-rect~ surface rect (if enabled? {Color Black} {Color Dark}))
+            (set! rect (inflate-rect rect -1 -1))))
+        (if (not background?)
+            (begin
+              (frame-rect~ surface rect {Color red: 100 green: 100 blue: 100})
+              (gradient-fill~ surface (inflate-rect rect -1 -1) (list (list 0 {Color Dark-Red alpha: .5}) (list 1 {Color red: 0 green: 0 blue: 0 alpha: .5})) direction: 'vertical))
+          (if flat?
+              (draw-edge~ surface rect outer: 'raised edges: 'rectangle)
+            (draw-push-button~ surface rect (if (eq? state 'pushed) #t #f))))
+        (let* ((size (get-size))
+               (width (get-width~ size))
+               (height (get-height~ size))
+               (extent (get-text-extent~ surface title))
+               (h (quotient (- width (get-width~ extent)) 2))
+               (v (quotient (- height (get-height~ extent)) 2)))
+          (if background?
+              (set-text-color~ surface (if enabled? {Color Black} {Color Dark}))
+            (set-font~ surface {Font font-name: "Tahoma" point-size: 8 antialias: none})
+            (set-text-color~ surface {Color red: .809 green: .701 blue: .263}))
+          (draw-text~ surface (+ h offset) (+ v offset) title enabled?)))))
+  
+  
+  ;;;
+  ;;;; Skin
+  ;;;
+  
+  
+  (method override (get-look)
+    (find-look 'button))
   
   
   ;;;

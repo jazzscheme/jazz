@@ -38,7 +38,8 @@
 (module protected jazz.ui.menu.Label-Item jazz
 
 
-(import (jazz.graphic)
+(import (jazz.geometry)
+        (jazz.graphic)
         (jazz.jml)
         (jazz.locale)
         (jazz.system)
@@ -203,9 +204,10 @@
   
   
   (method override (effective-font)
-    (if default?
-        (get-default-label-font)
-      (get-label-font)))
+    (or (get-text-font~ (get-look))
+        (if default?
+            (get-default-label-font)
+          (get-label-font))))
   
   
   (method override (draw-background surface context)
@@ -249,12 +251,18 @@
   
   
   (method (draw-body surface)
+    (define (align-horizontal title)
+      (when (eq? (get-background~ (get-look)) 'none)
+        (justify (get-width~ (get-text-extent~ surface title))
+                 (get-width)
+                 'center)))
+    
     (let ((title (localize (get-title))))
       (when title
         (let* ((height (get-font-height~ surface))
                (left (if (menubar-label?) 6 10))
                (top (if (menubar-label?) 0 1))
-               (h (+ prefix-width icon-width left))
+               (h (or (align-horizontal title) (+ prefix-width icon-width left)))
                (v (- (quotient (- (get-height) height) 2) top)))
           (set-text-color~ surface (text-color))
           (set-font~ surface (effective-font))
@@ -262,7 +270,7 @@
   
   
   (method (draw-shortcut surface)
-    (when shortcut
+    (when (and shortcut (get-display-shortcuts?~ parent))
       (let* ((text (present-shortcut~ shortcut))
              (height (get-font-height~ surface))
              (left 6)

@@ -8,13 +8,32 @@
 
 (module protected jazz.git.foreign jazz
 
-
 (import (jazz.foreign))
 ;; until we port to non-windows platforms
 (cond-expand
   (windows
 (import (jazz.platform.types))
 (import (jazz.platform.types-syntax (phase syntax)))
+
+
+;;;
+;;;; Error Handling
+;;;
+
+
+(definition private git-error-handler
+  (lambda (error-code)
+    (error "Libgit2 Error: {a}" 
+           (let ((err (git-error)))
+             (if err
+                 (git-error-message err)
+               error-code)))))
+
+(definition public (set-git-error-handler! error-handler)
+  (set! git-error-handler error-handler))
+
+(c-definition (git-call-error-handler error) (int) int "git_call_error_handler" ""
+  (git-error-handler error))
 
 
 (c-include "<time.h>")
@@ -85,10 +104,14 @@
   (GIT_OBJ_REF_DELTA 7))
 
 
-(c-enumeration git_rtype
-  (GIT_REF_INVALID  -1)
-  (GIT_REF_OID       1)
-  (GIT_REF_SYMBOLIC  2))
+(c-enumeration git_branch_t
+  (GIT_BRANCH_LOCAL 1)
+  (GIT_BRANCH_REMOTE 2))
+
+
+(c-enumeration git_reset_type
+  (GIT_RESET_SOFT 1)
+  (GIT_RESET_MIXED 2))
 
 
 (c-type char** (pointer char*))
@@ -100,8 +123,15 @@
 ;;;
 
 
+(c-type uint32_t (native "uint32_t"))
+(c-type uint32_t* (pointer uint32))
+(c-type int32_t (native "int32_t"))
+(c-type int32_t* (pointer int32_t))
+(c-type int64_t (native "int64_t"))
+(c-type int64_t* (pointer int64_t))
 (c-type time_t (native "time_t"))
 (c-type git_time (native "git_time"))
+(c-type git_reset_type int)
 (c-type git_otype int)
 (c-type git_otype* (pointer git_otype))
 (c-type git_oid (native "git_oid"))
@@ -149,9 +179,10 @@
 (c-type git_person** (pointer git_person*))
 (c-type git_index_entry (native "git_index_entry"))
 (c-type git_index_entry* (pointer git_index_entry))
-(c-type git_rtype (native "git_rtype"))
+(c-type git_ref_t (native "git_ref_t"))
 (c-type size_t* (pointer size_t))
 (c-type git_off_t (native "git_off_t"))
+(c-type git_off_t* (pointer git_off_t))
 (c-type git_odb_object (native "git_odb_object"))
 (c-type git_odb_object* (pointer git_odb_object))
 (c-type git_odb_object** (pointer git_odb_object*))
@@ -165,11 +196,6 @@
 (c-type git_treebuilder (native "git_treebuilder"))
 (c-type git_treebuilder* (pointer git_treebuilder))
 (c-type git_treebuilder** (pointer git_treebuilder*))
-(c-type git_config (native "git_config"))
-(c-type git_config* (pointer git_config))
-(c-type git_config** (pointer git_config*))
-(c-type git_config_file (native "git_config_file"))
-(c-type git_config_file* (pointer git_config_file))
 (c-type git_reflog_entry (native "git_reflog_entry"))
 (c-type git_reflog_entry* (pointer git_reflog_entry))
 (c-type git_reflog_entry** (pointer git_reflog_entry*))
@@ -179,6 +205,78 @@
 (c-type git_strarray (native "git_strarray"))
 (c-type git_strarray* (pointer git_strarray))
 (c-type git_strarray** (pointer git_strarray*))
+(c-type git_time_t (native "git_time_t"))
+(c-type git_config (native "git_config"))
+(c-type git_config* (pointer git_config))
+(c-type git_config** (pointer git_config*))
+(c-type git_config_file (native "git_config_file"))
+(c-type git_config_file* (pointer git_config_file))
+(c-type git_config_file** (pointer git_config_file*))
+(c-type git_cvar_map (native "git_cvar_map"))
+(c-type git_cvar_map* (pointer git_cvar_map))
+(c-type git_cvar_map** (pointer git_cvar_map*))
+(c-type git_diff_options (native "git_diff_options"))
+(c-type git_diff_options* (pointer git_diff_options))
+(c-type git_diff_options** (pointer git_diff_options*))
+(c-type git_diff_file_fn (native "git_diff_file_fn"))
+(c-type git_diff_file_fn* (pointer git_diff_file_fn))
+(c-type git_diff_file_fn** (pointer git_diff_file_fn*))
+(c-type git_diff_hunk_fn (native "git_diff_hunk_fn"))
+(c-type git_diff_hunk_fn* (pointer git_diff_hunk_fn))
+(c-type git_diff_hunk_fn** (pointer git_diff_hunk_fn*))
+(c-type git_diff_data_fn (native "git_diff_data_fn"))
+(c-type git_diff_data_fn* (pointer git_diff_data_fn))
+(c-type git_diff_data_fn** (pointer git_diff_data_fn*))
+(c-type git_diff_list (native "git_diff_list"))
+(c-type git_diff_list* (pointer git_diff_list))
+(c-type git_diff_list** (pointer git_diff_list*))
+(c-type git_error (native "git_error"))
+(c-type git_error* (pointer git_error))
+(c-type git_error** (pointer git_error*))
+(c-type git_branch_t (native "git_branch_t"))
+(c-type git_branch_t* (pointer git_branch_t))
+(c-type git_branch_t** (pointer git_branch_t*))
+(c-type git_index_entry_unmerged (native "git_index_entry_unmerged"))
+(c-type git_index_entry_unmerged* (pointer git_index_entry_unmerged))
+(c-type git_index_entry_unmerged** (pointer git_index_entry_unmerged*))
+(c-type git_indexer (native "git_indexer"))
+(c-type git_indexer* (pointer git_indexer))
+(c-type git_indexer** (pointer git_indexer*))
+(c-type git_indexer_stats (native "git_indexer_stats"))
+(c-type git_indexer_stats* (pointer git_indexer_stats))
+(c-type git_indexer_stats** (pointer git_indexer_stats*))
+(c-type git_indexer_stream (native "git_indexer_stream"))
+(c-type git_indexer_stream* (pointer git_indexer_stream))
+(c-type git_indexer_stream** (pointer git_indexer_stream*))
+(c-type git_note (native "git_note"))
+(c-type git_note* (pointer git_note))
+(c-type git_note** (pointer git_note*))
+(c-type git_note_data (native "git_note_data"))
+(c-type git_note_data* (pointer git_note_data))
+(c-type git_note_data** (pointer git_note_data*))
+(c-type git_oid_shorten (native "git_oid_shorten"))
+(c-type git_oid_shorten* (pointer git_oid_shorten))
+(c-type git_oid_shorten** (pointer git_oid_shorten*))
+(c-type git_refspec (native "git_refspec"))
+(c-type git_refspec* (pointer git_refspec))
+(c-type git_refspec** (pointer git_refspec*))
+(c-type git_remote (native "git_remote"))
+(c-type git_remote* (pointer git_remote))
+(c-type git_remote** (pointer git_remote*))
+(c-type git_remote_callbacks (native "git_remote_callbacks"))
+(c-type git_remote_callbacks* (pointer git_remote_callbacks))
+(c-type git_remote_callbacks** (pointer git_remote_callbacks*))
+(c-type git_headlist_cb (native "git_headlist_cb"))
+(c-type git_headlist_cb* (pointer git_headlist_cb))
+(c-type git_headlist_cb** (pointer git_headlist_cb*))
+(c-type git_status_options (native "git_status_options"))
+(c-type git_status_options* (pointer git_status_options))
+(c-type git_status_options** (pointer git_status_options*))
+(c-type git_submodule (native "git_submodule"))
+(c-type git_submodule* (pointer git_submodule))
+(c-type git_submodule** (pointer git_submodule*))
+(c-type git_treewalk_cb (native "git_treewalk_cb"))
+(c-type char-string* (pointer char-string))
 
 
 ;;;
@@ -230,7 +328,7 @@
   (git_oid oid)
   (ushort flags)
   (ushort flags_extended)
-  (UTF-8-string path))
+  (char-string path))
 
 
 (c-structure git_strarray
@@ -239,30 +337,111 @@
 
 
 ;;;
+;;;; Attr
+;;;
+
+
+(definition public git_attr_add_macro (c-function (git_repository* char-string char-string) int "git_attr_add_macro"))
+(definition public git_attr_cache_flush (c-function (git_repository*) void "git_attr_cache_flush"))
+@callback(definition public git_attr_foreach (c-function (git_repository* unsigned-int32 char-string  void* void*) int "git_attr_foreach"))
+(definition public git_attr_get (c-function (char** git_repository* unsigned-int32 char-string char-string) int "git_attr_get"))
+(definition public git_attr_get_many (c-function (char** git_repository* unsigned-int32 char-string size_t char**) int "git_attr_get_many"))
+
+
+;;;
 ;;;; Blobs
 ;;;
 
 
-(c-external (git_blob_lookup git_blob** git_repository* git_oid*) int )
-(c-external (git_blob_rawcontent git_blob*) void*)
-(c-external (git_blob_rawsize git_blob*) int)
+(definition public git_blob_create_frombuffer (c-function (git_oid* git_repository* void* size_t) int "git_blob_create_frombuffer"))
+(definition public git_blob_create_fromdisk (c-function (git_oid* git_repository* char-string) int "git_blob_create_fromdisk"))
+(definition public git_blob_create_fromfile (c-function (git_oid* git_repository* char-string) int "git_blob_create_fromfile"))
+(definition public git_blob_free (c-function (git_blob*) void "git_blob_free"))
+(definition public git_blob_lookup (c-function (git_blob** git_repository* git_oid*) int  "git_blob_lookup"))
+(definition public git_blob_lookup_prefix (c-function (git_blob** git_repository* git_oid* size_t) int "git_blob_lookup_prefix"))
+(definition public git_blob_rawcontent (c-function (git_blob*) void* "git_blob_rawcontent"))
+(definition public git_blob_rawsize (c-function (git_blob*) size_t "git_blob_rawsize"))
+
+
+;;;
+;;;; Branch
+;;;
+
+
+(definition public git_branch_create (c-function (git_reference** git_repository* char-string git_object* int) int "git_branch_create"))
+(definition public git_branch_delete (c-function (git_repository* char-string git_branch_t) int "git_branch_delete"))
+(definition public git_branch_list (c-function (git_strarray* git_repository* uint) int "git_branch_list"))
+(definition public git_branch_move (c-function (git_reference* char-string int) int "git_branch_move"))
 
 
 ;;;
 ;;;; Commits
 ;;;
 
+(definition public git_commit_author (c-function (git_commit*) git_signature* "git_commit_author"))
+(definition public git_commit_committer (c-function (git_commit*) git_signature* "git_commit_committer"))
+(definition public git_commit_create (c-function (git_oid* git_repository* char-string git_signature* git_signature* char-string char-string git_tree* int git_commit**) int "git_commit_create"))
+(definition public git_commit_create_v (c-function (git_oid* git_repository* char-string git_signature* git_signature* char-string char-string git_tree* int) int "git_commit_create_v"))
+(definition public git_commit_free (c-function (git_commit*) void "git_commit_free"))
+(definition public git_commit_id (c-function (git_commit*) git_oid* "git_commit_id"))
+(definition public git_commit_lookup (c-function (git_commit** git_repository* git_oid*) int "git_commit_lookup"))
+(definition public git_commit_lookup_prefix (c-function (git_commit** git_repository* git_oid* size_t) int "git_commit_lookup_prefix"))
+(definition public git_commit_message (c-function (git_commit*) char-string "git_commit_message"))
+(definition public git_commit_message_encoding (c-function (git_commit*) char-string "git_commit_message_encoding"))
+(definition public git_commit_parent (c-function (git_commit** git_commit* uint) int "git_commit_parent"))
+(definition public git_commit_parent_oid (c-function (git_commit* uint) git_oid* "git_commit_parent_oid"))
+(definition public git_commit_parentcount (c-function (git_commit*) uint "git_commit_parentcount"))
+(definition public git_commit_time (c-function (git_commit*) git_time_t "git_commit_time"))
+(definition public git_commit_time_offset (c-function (git_commit*) int "git_commit_time_offset"))
+(definition public git_commit_tree (c-function (git_tree** git_commit*) int "git_commit_tree"))
+(definition public git_commit_tree_oid (c-function (git_commit*) git_oid* "git_commit_tree_oid"))
 
-(c-external (git_commit_lookup git_commit** git_repository* git_oid*) int)
-(c-external (git_commit_id git_commit*) git_oid*)
-(c-external (git_commit_message git_commit*) UTF-8-string)
-(c-external (git_commit_time git_commit*) time_t)
-(c-external (git_commit_time_offset git_commit*) int)
-(c-external (git_commit_committer git_commit*) git_signature*)
-(c-external (git_commit_author git_commit*) git_signature*)
-(c-external (git_commit_tree git_tree** git_commit*) int)
-(c-external (git_commit_parentcount git_commit*) uint)
-(c-external (git_commit_parent git_commit** git_commit* uint) int)
+
+;;;
+;;;; Config
+;;;
+
+
+(definition public git_config_add_file (c-function (git_config* git_config_file* int) int "git_config_add_file"))
+(definition public git_config_add_file_ondisk (c-function (git_config* char-string int) int "git_config_add_file_ondisk"))
+(definition public git_config_delete (c-function (git_config* char-string) int "git_config_delete"))
+(definition public git_config_file__ondisk (c-function (git_config_file** char-string) int "git_config_file__ondisk"))
+(definition public git_config_find_global (c-function (char-string size_t) int "git_config_find_global"))
+(definition public git_config_find_system (c-function (char-string size_t) int "git_config_find_system"))
+@callback(definition public git_config_foreach (c-function (git_config* void* void*) int "git_config_foreach"))
+@callback(definition public git_config_foreach_match (c-function (git_config* char-string void* void*) int "git_config_foreach_match"))
+(definition public git_config_free (c-function (git_config*) void "git_config_free"))
+(definition public git_config_get_bool (c-function (int* git_config* char-string) int "git_config_get_bool"))
+(definition public git_config_get_int32 (c-function (int32_t* git_config* char-string) int "git_config_get_int32"))
+(definition public git_config_get_int64 (c-function (int64_t* git_config* char-string) int "git_config_get_int64"))
+(definition public git_config_get_mapped (c-function (int* git_config* char-string git_cvar_map* size_t) int "git_config_get_mapped"))
+@callback(definition public git_config_get_multivar (c-function (git_config* char-string char-string void* void*) int "git_config_get_multivar"))
+(definition public git_config_get_string (c-function (char** git_config* char-string) int "git_config_get_string"))
+(definition public git_config_new (c-function (git_config**) int "git_config_new"))
+(definition public git_config_open_global (c-function (git_config**) int "git_config_open_global"))
+(definition public git_config_open_ondisk (c-function (git_config** char-string) int "git_config_open_ondisk"))
+(definition public git_config_set_bool (c-function (git_config* char-string int) int "git_config_set_bool"))
+(definition public git_config_set_int32 (c-function (git_config* char-string int32_t) int "git_config_set_int32"))
+(definition public git_config_set_int64 (c-function (git_config* char-string int64_t) int "git_config_set_int64"))
+(definition public git_config_set_multivar (c-function (git_config* char-string char-string char-string) int "git_config_set_multivar"))
+(definition public git_config_set_string (c-function (git_config* char-string char-string) int "git_config_set_string"))
+
+
+;;;
+;;;; Diff
+;;;
+
+
+(definition public git_diff_blobs (c-function (git_blob* git_blob* git_diff_options* void* git_diff_file_fn git_diff_hunk_fn git_diff_data_fn) int "git_diff_blobs"))
+(definition public git_diff_foreach (c-function (git_diff_list* void* git_diff_file_fn git_diff_hunk_fn git_diff_data_fn) int "git_diff_foreach"))
+(definition public git_diff_index_to_tree (c-function (git_repository* git_diff_options* git_tree* git_diff_list**) int "git_diff_index_to_tree"))
+(definition public git_diff_list_free (c-function (git_diff_list*) void "git_diff_list_free"))
+(definition public git_diff_merge (c-function (git_diff_list* git_diff_list*) int "git_diff_merge"))
+(definition public git_diff_print_compact (c-function (git_diff_list* void* git_diff_data_fn) int "git_diff_print_compact"))
+(definition public git_diff_print_patch (c-function (git_diff_list* void* git_diff_data_fn) int "git_diff_print_patch"))
+(definition public git_diff_tree_to_tree (c-function (git_repository* git_diff_options* git_tree* git_tree* git_diff_list**) int "git_diff_tree_to_tree"))
+(definition public git_diff_workdir_to_index (c-function (git_repository* git_diff_options* git_diff_list**) int "git_diff_workdir_to_index"))
+(definition public git_diff_workdir_to_tree (c-function (git_repository* git_diff_options* git_tree* git_diff_list**) int "git_diff_workdir_to_tree"))
 
 
 ;;;
@@ -270,7 +449,18 @@
 ;;;
 
 
-(c-external (git_strerror int) UTF-8-string)
+(definition public giterr_clear (c-function () void "giterr_clear"))
+(definition public giterr_last (c-function () git_error* "giterr_last"))
+
+
+;;;
+;;;; Windows-specific
+;;;
+
+
+(definition public gitwin_get_codepage (c-function () uint "gitwin_get_codepage"))
+(definition public gitwin_set_codepage (c-function (uint) void "gitwin_set_codepage"))
+(definition public gitwin_set_utf8 (c-function () void "gitwin_set_utf8"))
 
 
 ;;;
@@ -278,30 +468,98 @@
 ;;;
 
 
-(c-external (git_index_clear git_index*) void)
-(c-external (git_index_free git_index*) void)
-(c-external (git_index_read git_index*) int)
-(c-external (git_index_write git_index*) int)
-(c-external (git_index_find git_index* UTF-8-string) int)
-(c-external (git_index_add git_index* UTF-8-string int) int)
-(c-external (git_index_remove git_index* int) int)
-(c-external (git_index_get git_index* int) git_index_entry*)
-(c-external (git_index_entrycount git_index*) uint)
+(definition public git_index_add (c-function (git_index* char-string int) int "git_index_add"))
+(definition public git_index_add2 (c-function (git_index* git_index_entry*) int "git_index_add2"))
+(definition public git_index_append (c-function (git_index* char-string int) int "git_index_append"))
+(definition public git_index_append2 (c-function (git_index* git_index_entry*) int "git_index_append2"))
+(definition public git_index_clear (c-function (git_index*) void "git_index_clear"))
+(definition public git_index_entry_stage (c-function (git_index_entry*) int "git_index_entry_stage"))
+(definition public git_index_entrycount (c-function (git_index*) uint "git_index_entrycount"))
+(definition public git_index_entrycount_unmerged (c-function (git_index*) uint "git_index_entrycount_unmerged"))
+(definition public git_index_find (c-function (git_index* char-string) int "git_index_find"))
+(definition public git_index_free (c-function (git_index*) void "git_index_free"))
+(definition public git_index_get (c-function (git_index* int) git_index_entry* "git_index_get"))
+(definition public git_index_get_unmerged_byindex (c-function (git_index* size_t) git_index_entry_unmerged* "git_index_get_unmerged_byindex"))
+(definition public git_index_get_unmerged_bypath (c-function (git_index* char-string) git_index_entry_unmerged* "git_index_get_unmerged_bypath"))
+(definition public git_index_open (c-function (git_index** char-string) int "git_index_open"))
+(definition public git_index_read (c-function (git_index*) int "git_index_read"))
+(definition public git_index_read_tree (c-function (git_index* git_tree*) int "git_index_read_tree"))
+(definition public git_index_remove (c-function (git_index* int) int "git_index_remove"))
+(definition public git_index_uniq (c-function (git_index*) void "git_index_uniq"))
+(definition public git_index_write (c-function (git_index*) int "git_index_write"))
+
+
+;;;
+;;;; Indexer
+;;;
+
+
+(definition public git_indexer_free (c-function (git_indexer*) void "git_indexer_free"))
+(definition public git_indexer_hash (c-function (git_indexer*) git_oid* "git_indexer_hash"))
+(definition public git_indexer_new (c-function (git_indexer** char-string) int "git_indexer_new"))
+(definition public git_indexer_run (c-function (git_indexer* git_indexer_stats*) int "git_indexer_run"))
+(definition public git_indexer_stream_add (c-function (git_indexer_stream* void* size_t git_indexer_stats*) int "git_indexer_stream_add"))
+(definition public git_indexer_stream_finalize (c-function (git_indexer_stream* git_indexer_stats*) int "git_indexer_stream_finalize"))
+(definition public git_indexer_stream_free (c-function (git_indexer_stream*) void "git_indexer_stream_free"))
+(definition public git_indexer_stream_hash (c-function (git_indexer_stream*) git_oid* "git_indexer_stream_hash"))
+(definition public git_indexer_stream_new (c-function (git_indexer_stream** char-string) int "git_indexer_stream_new"))
+(definition public git_indexer_write (c-function (git_indexer*) int "git_indexer_write"))
+
+
+;;;
+;;;; Library Functions
+;;;
+
+
+(definition public git_libgit2_version (c-function (int* int* int*) void "git_libgit2_version"))
+
+
+;;;
+;;;; Merge
+;;;
+
+
+(definition public git_merge_base (c-function (git_oid* git_repository* git_oid* git_oid*) int "git_merge_base"))
+
+
+;;;
+;;;; Message
+;;;
+
+
+(definition public git_message_prettify (c-function (char* size_t char-string int) int "git_message_prettify"))
+
+
+;;;
+;;;; Note
+;;;
+
+
+(definition public git_note_create (c-function (git_oid* git_repository* git_signature* git_signature* char-string git_oid* char-string) int "git_note_create"))
+(definition public git_note_default_ref (c-function (char** git_repository*) int "git_note_default_ref"))
+@callback(definition public git_note_foreach (c-function (git_repository* char-string void* void*) int "git_note_foreach"))
+(definition public git_note_free (c-function (git_note*) void "git_note_free"))
+(definition public git_note_message (c-function (git_note*) char-string "git_note_message"))
+(definition public git_note_oid (c-function (git_note*) git_oid* "git_note_oid"))
+(definition public git_note_read (c-function (git_note** git_repository* char-string git_oid*) int "git_note_read"))
+(definition public git_note_remove (c-function (git_repository* char-string git_signature* git_signature* git_oid*) int "git_note_remove"))
+
 
 
 ;;;
 ;;;; Object Management
 ;;;
 
-
-(c-external (git_object_id git_object*) git_oid*)
-(c-external (git_object_type git_object*) git_otype)
-(c-external (git_object_owner git_object*) git_repository*)
-(c-external (git_object_free git_object*) void)
-(c-external (git_object_type2string git_otype) UTF-8-string)
-(c-external (git_object_string2type UTF-8-string) git_otype)
-(c-external (git_object_typeisloose git_otype) int)
-(c-external (git_object__size git_otype) size_t)
+(definition public git_object__size (c-function (git_otype) size_t "git_object__size"))
+(definition public git_object_free (c-function (git_object*) void "git_object_free"))
+(definition public git_object_id (c-function (git_object*) git_oid* "git_object_id"))
+(definition public git_object_lookup (c-function (git_object** git_repository* git_oid* git_otype) int "git_object_lookup"))
+(definition public git_object_lookup_prefix (c-function (git_object** git_repository* git_oid* size_t git_otype) int "git_object_lookup_prefix"))
+(definition public git_object_owner (c-function (git_object*) git_repository* "git_object_owner"))
+(definition public git_object_string2type (c-function (char-string) git_otype "git_object_string2type"))
+(definition public git_object_type (c-function (git_object*) git_otype "git_object_type"))
+(definition public git_object_type2string (c-function (git_otype) char-string "git_object_type2string"))
+(definition public git_object_typeisloose (c-function (git_otype) int "git_object_typeisloose"))
 
 
 ;;;
@@ -309,28 +567,47 @@
 ;;;
 
 
-(c-external (git_odb_new git_odb**) int)
-(c-external (git_odb_open git_odb** UTF-8-string) int)
-(c-external (git_odb_add_backend git_odb* git_odb_backend* int) int) 
-(c-external (git_odb_read git_odb_object** git_odb* git_oid*) int)
-(c-external (git_odb_read_header size_t* git_otype* git_odb* git_oid*) int)
-(c-external (git_odb_write git_oid* git_odb* void* size_t git_otype) int)
-(c-external (git_odb_exists git_odb* git_oid*) int)
-(c-external (git_odb_object_data git_odb_object*) void*)
-(c-external (git_odb_open_wstream git_odb_stream** git_odb* size_t git_otype) int)
+(definition public git_odb_add_alternate (c-function (git_odb* git_odb_backend* int) int "git_odb_add_alternate"))
+(definition public git_odb_add_backend (c-function (git_odb* git_odb_backend* int) int "git_odb_add_backend"))
+(definition public git_odb_exists (c-function (git_odb* git_oid*) int "git_odb_exists"))
+@callback(definition public git_odb_foreach (c-function (git_odb* void* void*) int "git_odb_foreach"))
+(definition public git_odb_free (c-function (git_odb*) void "git_odb_free"))
+(definition public git_odb_hash (c-function (git_oid* void* size_t git_otype) int "git_odb_hash"))
+(definition public git_odb_hashfile (c-function (git_oid* char-string git_otype) int "git_odb_hashfile"))
+(definition public git_odb_new (c-function (git_odb**) int "git_odb_new"))
+(definition public git_odb_object_data (c-function (git_odb_object*) void* "git_odb_object_data"))
+(definition public git_odb_object_free (c-function (git_odb_object*) void "git_odb_object_free"))
+(definition public git_odb_object_id (c-function (git_odb_object*) git_oid* "git_odb_object_id"))
+(definition public git_odb_object_size (c-function (git_odb_object*) size_t "git_odb_object_size"))
+(definition public git_odb_object_type (c-function (git_odb_object*) git_otype "git_odb_object_type"))
+(definition public git_odb_open (c-function (git_odb** char-string) int "git_odb_open"))
+(definition public git_odb_open_rstream (c-function (git_odb_stream** git_odb* git_oid*) int "git_odb_open_rstream"))
+(definition public git_odb_open_wstream (c-function (git_odb_stream** git_odb* size_t git_otype) int "git_odb_open_wstream"))
+(definition public git_odb_read (c-function (git_odb_object** git_odb* git_oid*) int "git_odb_read"))
+(definition public git_odb_read_header (c-function (size_t* git_otype* git_odb* git_oid*) int "git_odb_read_header"))
+(definition public git_odb_read_prefix (c-function (git_odb_object** git_odb* git_oid* size_t) int "git_odb_read_prefix"))
+(definition public git_odb_write (c-function (git_oid* git_odb* void* size_t git_otype) int "git_odb_write"))
 
 
 ;;;
 ;;;; Object ID routines
 ;;;
 
-
-(c-external (git_oid_fmt UTF-8-string git_oid*) void)
-(c-external (git_oid_pathfmt UTF-8-string git_oid*) void)
-(c-external (git_oid_allocfmt git_oid*) UTF-8-string)
-(c-external (git_oid_to_string UTF-8-string size_t git_oid*) UTF-8-string)
-(c-external (git_oid_cpy git_oid* git_oid*) void)
-(c-external (git_oid_cmp git_oid* git_oid*) int)
+(definition public git_oid_allocfmt (c-function (git_oid*) char* "git_oid_allocfmt"))
+(definition public git_oid_cmp (c-function (git_oid* git_oid*) int "git_oid_cmp"))
+(definition public git_oid_cpy (c-function (git_oid* git_oid*) void "git_oid_cpy"))
+(definition public git_oid_fmt (c-function (char-string git_oid*) void "git_oid_fmt"))
+(definition public git_oid_fromraw (c-function (git_oid* uchar*) void "git_oid_fromraw"))
+(definition public git_oid_fromstr (c-function (git_oid* char-string) int "git_oid_fromstr"))
+(definition public git_oid_fromstrn (c-function (git_oid* char-string size_t) int "git_oid_fromstrn"))
+(definition public git_oid_iszero (c-function (git_oid*) int "git_oid_iszero"))
+(definition public git_oid_ncmp (c-function (git_oid* git_oid* size_t) int "git_oid_ncmp"))
+(definition public git_oid_pathfmt (c-function (char-string git_oid*) void "git_oid_pathfmt"))
+(definition public git_oid_shorten_add (c-function (git_oid_shorten* char-string) int "git_oid_shorten_add"))
+(definition public git_oid_shorten_free (c-function (git_oid_shorten*) void "git_oid_shorten_free"))
+(definition public git_oid_shorten_new (c-function (size_t) git_oid_shorten* "git_oid_shorten_new"))
+(definition public git_oid_streq (c-function (git_oid* char-string) int "git_oid_streq"))
+(definition public git_oid_tostr (c-function (char-string size_t git_oid*) char-string "git_oid_tostr"))
 
 
 ;;;
@@ -338,14 +615,85 @@
 ;;;
 
 
-(c-external (git_reference_oid git_reference*) git_oid*)
-(c-external (git_reference_target git_reference*) UTF-8-string)
-(c-external (git_reference_type git_reference*) git_rtype)
-(c-external (git_reference_name git_reference*) UTF-8-string)
-(c-external (git_reference_resolve git_reference** git_reference*) int)
-(c-external (git_reference_owner git_reference*) git_repository*)
-(c-external (git_reference_set_target git_reference* UTF-8-string) void)
-(c-external (git_reference_set_oid git_reference* git_oid*) void)
+(definition public git_reference_cmp (c-function (git_reference* git_reference*) int "git_reference_cmp"))
+(definition public git_reference_create_oid (c-function (git_reference** git_repository* char-string git_oid* int) int "git_reference_create_oid"))
+(definition public git_reference_create_symbolic (c-function (git_reference** git_repository* char-string char-string int) int "git_reference_create_symbolic"))
+(definition public git_reference_delete (c-function (git_reference*) int "git_reference_delete"))
+@callback(definition public git_reference_foreach (c-function (git_repository* uint void* void*) int "git_reference_foreach"))
+@callback(definition public git_reference_foreach_glob (c-function (git_repository* char-string uint void* void*) int "git_reference_foreach_glob"))
+(definition public git_reference_free (c-function (git_reference*) void "git_reference_free"))
+(definition public git_reference_is_packed (c-function (git_reference*) int "git_reference_is_packed"))
+(definition public git_reference_lookup (c-function (git_reference** git_repository* char-string) int "git_reference_lookup"))
+(definition public git_reference_name (c-function (git_reference*) char-string "git_reference_name"))
+(definition public git_reference_name_to_oid (c-function (git_oid* git_repository* char-string) int "git_reference_name_to_oid"))
+(definition public git_reference_oid (c-function (git_reference*) git_oid* "git_reference_oid"))
+(definition public git_reference_owner (c-function (git_reference*) git_repository* "git_reference_owner"))
+(definition public git_reference_packall (c-function (git_repository*) int "git_reference_packall"))
+(definition public git_reference_reload (c-function (git_reference*) int "git_reference_reload"))
+(definition public git_reference_rename (c-function (git_reference* char-string int) int "git_reference_rename"))
+(definition public git_reference_resolve (c-function (git_reference** git_reference*) int "git_reference_resolve"))
+(definition public git_reference_set_oid (c-function (git_reference* git_oid*) int "git_reference_set_oid"))
+(definition public git_reference_set_target (c-function (git_reference* char-string) int "git_reference_set_target"))
+(definition public git_reference_target (c-function (git_reference*) char-string "git_reference_target"))
+(definition public git_reference_type (c-function (git_reference*) git_ref_t "git_reference_type"))
+
+
+;;;
+;;;; Reflog
+;;;
+
+
+(definition public git_reflog_delete (c-function (git_reference*) int "git_reflog_delete"))
+(definition public git_reflog_entry_byindex (c-function (git_reflog* size_t) git_reflog_entry* "git_reflog_entry_byindex"))
+(definition public git_reflog_entry_committer (c-function (git_reflog_entry*) git_signature* "git_reflog_entry_committer"))
+(definition public git_reflog_entry_msg (c-function (git_reflog_entry*) char* "git_reflog_entry_msg"))
+(definition public git_reflog_entry_oidnew (c-function (git_reflog_entry*) git_oid* "git_reflog_entry_oidnew"))
+(definition public git_reflog_entry_oidold (c-function (git_reflog_entry*) git_oid* "git_reflog_entry_oidold"))
+(definition public git_reflog_entrycount (c-function (git_reflog*) uint "git_reflog_entrycount"))
+(definition public git_reflog_free (c-function (git_reflog*) void "git_reflog_free"))
+(definition public git_reflog_read (c-function (git_reflog** git_reference*) int "git_reflog_read"))
+(definition public git_reflog_rename (c-function (git_reference* char-string) int "git_reflog_rename"))
+(definition public git_reflog_write (c-function (git_reference* git_oid* git_signature* char-string) int "git_reflog_write"))
+
+
+;;;
+;;;; Refspec
+;;;
+
+
+(definition public git_refspec_dst (c-function (git_refspec*) char-string "git_refspec_dst"))
+(definition public git_refspec_parse (c-function (git_refspec* char-string) int "git_refspec_parse"))
+(definition public git_refspec_src (c-function (git_refspec*) char-string "git_refspec_src"))
+(definition public git_refspec_src_matches (c-function (git_refspec* char-string) int "git_refspec_src_matches"))
+(definition public git_refspec_transform (c-function (char* size_t git_refspec* char-string) int "git_refspec_transform"))
+
+
+;;;
+;;;; Remote
+;;;
+
+
+(definition public git_remote_add (c-function (git_remote** git_repository* char-string char-string) int "git_remote_add"))
+(definition public git_remote_connect (c-function (git_remote* int) int "git_remote_connect"))
+(definition public git_remote_connected (c-function (git_remote*) int "git_remote_connected"))
+(definition public git_remote_disconnect (c-function (git_remote*) void "git_remote_disconnect"))
+(definition public git_remote_download (c-function (git_remote* git_off_t* git_indexer_stats*) int "git_remote_download"))
+(definition public git_remote_fetchspec (c-function (git_remote*) git_refspec* "git_remote_fetchspec"))
+(definition public git_remote_free (c-function (git_remote*) void "git_remote_free"))
+(definition public git_remote_list (c-function (git_strarray* git_repository*) int "git_remote_list"))
+(definition public git_remote_load (c-function (git_remote** git_repository* char-string) int "git_remote_load"))
+(definition public git_remote_ls (c-function (git_remote* git_headlist_cb void*) int "git_remote_ls"))
+(definition public git_remote_name (c-function (git_remote*) char-string "git_remote_name"))
+(definition public git_remote_new (c-function (git_remote** git_repository* char-string char-string char-string) int "git_remote_new"))
+(definition public git_remote_pushspec (c-function (git_remote*) git_refspec* "git_remote_pushspec"))
+(definition public git_remote_save (c-function (git_remote*) int "git_remote_save"))
+@callback(definition public git_remote_set_callbacks (c-function (git_remote* git_remote_callbacks*) void "git_remote_set_callbacks"))
+(definition public git_remote_set_fetchspec (c-function (git_remote* char-string) int "git_remote_set_fetchspec"))
+(definition public git_remote_set_pushspec (c-function (git_remote* char-string) int "git_remote_set_pushspec"))
+(definition public git_remote_supported_url (c-function (char-string) int "git_remote_supported_url"))
+@callback(definition public git_remote_update_tips (c-function (git_remote* void*) int "git_remote_update_tips"))
+(definition public git_remote_url (c-function (git_remote*) char-string "git_remote_url"))
+(definition public git_remote_valid_url (c-function (char-string) int "git_remote_valid_url"))
 
 
 ;;;
@@ -353,117 +701,236 @@
 ;;;
 
 
-(c-external (git_repository_open git_repository** UTF-8-string) int)
-(c-external (git_repository_index git_index** git_repository*) int)
-(c-external (git_repository_free git_repository*) void)
-(c-external (git_repository_init git_repository** UTF-8-string uint) int)
-(c-external (git_repository_workdir git_repository*) UTF-8-string)
-(c-external (git_repository_is_empty git_repository*) int)
+(definition public git_repository_config (c-function (git_config** git_repository*) int "git_repository_config"))
+(definition public git_repository_discover (c-function (char* size_t char-string int char-string) int "git_repository_discover"))
+(definition public git_repository_free (c-function (git_repository*) void "git_repository_free"))
+(definition public git_repository_head (c-function (git_reference** git_repository*) int "git_repository_head"))
+(definition public git_repository_head_detached (c-function (git_repository*) int "git_repository_head_detached"))
+(definition public git_repository_head_orphan (c-function (git_repository*) int "git_repository_head_orphan"))
+(definition public git_repository_index (c-function (git_index** git_repository*) int "git_repository_index"))
+(definition public git_repository_init (c-function (git_repository** char-string uint) int "git_repository_init"))
+(definition public git_repository_is_bare (c-function (git_repository*) int "git_repository_is_bare"))
+(definition public git_repository_is_empty (c-function (git_repository*) int "git_repository_is_empty"))
+(definition public git_repository_odb (c-function (git_odb** git_repository*) int "git_repository_odb"))
+(definition public git_repository_open (c-function (git_repository** char-string) int "git_repository_open"))
+(definition public git_repository_open_ext (c-function (git_repository** char-string uint32_t char-string) int "git_repository_open_ext"))
+(definition public git_repository_path (c-function (git_repository*) char-string "git_repository_path"))
+(definition public git_repository_set_config (c-function (git_repository* git_config*) void "git_repository_set_config"))
+(definition public git_repository_set_index (c-function (git_repository* git_index*) void "git_repository_set_index"))
+(definition public git_repository_set_odb (c-function (git_repository* git_odb*) void "git_repository_set_odb"))
+(definition public git_repository_set_workdir (c-function (git_repository* char-string) int "git_repository_set_workdir"))
+(definition public git_repository_workdir (c-function (git_repository*) char-string "git_repository_workdir"))
 
 
 ;;;
 ;;;; Revision traversal
 ;;;
 
-
-(c-external (git_revwalk_new git_revwalk** git_repository*) int)
-(c-external (git_revwalk_reset git_revwalk*) void)
-(c-external (git_revwalk_push git_revwalk* git_oid*) int)
-(c-external (git_revwalk_hide git_revwalk* git_oid*) int)
-(c-external (git_revwalk_next git_oid* git_revwalk*) int)
-(c-external (git_revwalk_sorting git_revwalk* uint) void)
-(c-external (git_revwalk_free git_revwalk*) void)
-(c-external (git_revwalk_repository git_revwalk*) git_repository*)
+(definition public git_revwalk_free (c-function (git_revwalk*) void "git_revwalk_free"))
+(definition public git_revwalk_hide (c-function (git_revwalk* git_oid*) int "git_revwalk_hide"))
+(definition public git_revwalk_hide_ref (c-function (git_revwalk* char-string) int "git_revwalk_hide_ref"))
+(definition public git_revwalk_new (c-function (git_revwalk** git_repository*) int "git_revwalk_new"))
+(definition public git_revwalk_next (c-function (git_oid* git_revwalk*) int "git_revwalk_next"))
+(definition public git_revwalk_push (c-function (git_revwalk* git_oid*) int "git_revwalk_push"))
+(definition public git_revwalk_push_glob (c-function (git_revwalk* char-string) int "git_revwalk_push_glob"))
+(definition public git_revwalk_push_head (c-function (git_revwalk*) int "git_revwalk_push_head"))
+(definition public git_revwalk_push_ref (c-function (git_revwalk* char-string) int "git_revwalk_push_ref"))
+(definition public git_revwalk_repository (c-function (git_revwalk*) git_repository* "git_revwalk_repository"))
+(definition public git_revwalk_reset (c-function (git_revwalk*) void "git_revwalk_reset"))
+(definition public git_revwalk_sorting (c-function (git_revwalk* uint) void "git_revwalk_sorting"))
 
 
 ;;;
 ;;;; Signature
 ;;;
 
-
-(c-external (git_signature_new git_signature** UTF-8-string UTF-8-string git_time_t int) int)
-(c-external (git_signature_dup git_signature*) git_signature*)
-(c-external (git_signature_free git_signature*) void)
-
-
-;;;
-;;;; Tag management
-;;;
-
-
-(c-external (git_tag_lookup git_tag** git_repository* git_oid*) int)
-(c-external (git_tag_id git_tag*) git_oid*)
-(c-external (git_tag_target git_object** git_tag*) int)
-(c-external (git_tag_type git_tag*) git_otype)
-(c-external (git_tag_name git_tag*) UTF-8-string)
-(c-external (git_tag_tagger git_tag*) git_signature*)
-(c-external (git_tag_message git_tag*) UTF-8-string)
+(definition public git_signature_dup (c-function (git_signature*) git_signature* "git_signature_dup"))
+(definition public git_signature_free (c-function (git_signature*) void "git_signature_free"))
+(definition public git_signature_new (c-function (git_signature** char-string char-string git_time_t int) int "git_signature_new"))
+(definition public git_signature_now (c-function (git_signature** char-string char-string) int "git_signature_now"))
 
 
 ;;;
-;;;; Tree parsing and loading
+;;;; Status
 ;;;
 
 
-(c-external (git_tree_lookup git_tree** git_repository* git_oid*) int)
-(c-external (git_tree_id git_tree*) git_oid*)
-(c-external (git_tree_entrycount git_tree*) size_t)
-(c-external (git_tree_entry_attributes git_tree_entry*) uint)
-(c-external (git_tree_entry_name git_tree_entry*) UTF-8-string)
-(c-external (git_tree_entry_id git_tree_entry*) git_oid*)
-(c-external (git_tree_entry_2object git_object** git_repository* git_tree_entry*) int)
-(c-external (git_treebuilder_create git_treebuilder** git_tree*) int)
+(definition public git_status_file (c-function (uint* git_repository* char-string) int "git_status_file"))
+@callback(definition public git_status_foreach (c-function (git_repository* void* void*) int "git_status_foreach"))
+@callback(definition public git_status_foreach_ext (c-function (git_repository* git_status_options* void* voiod*) int "git_status_foreach_ext"))
+(definition public git_status_should_ignore (c-function (int* git_repository* char-string) int "git_status_should_ignore"))
 
+
+;;;
+;;;; Submodule
+;;;
+
+
+@callback(definition public git_submodule_foreach (c-function (git_repository* void* void*) int "git_submodule_foreach"))
+(definition public git_submodule_lookup (c-function (git_submodule** git_repository* char-string) int "git_submodule_lookup"))
+
+
+;;;
+;;;; Tag
+;;;
+
+
+(definition public git_tag_create (c-function (git_oid* git_repository* char-string git_object* git_signature* char-string int) int "git_tag_create"))
+(definition public git_tag_create_frombuffer (c-function (git_oid* git_repository* char-string int) int "git_tag_create_frombuffer"))
+(definition public git_tag_create_lightweight (c-function (git_oid* git_repository* char-string git_object* int) int "git_tag_create_lightweight"))
+(definition public git_tag_delete (c-function (git_repository* char-string) int "git_tag_delete"))
+(definition public git_tag_free (c-function (git_tag*) void "git_tag_free"))
+(definition public git_tag_id (c-function (git_tag*) git_oid* "git_tag_id"))
+(definition public git_tag_list (c-function (git_strarray* git_repository*) int "git_tag_list"))
+(definition public git_tag_list_match (c-function (git_strarray* char-string git_repository*) int "git_tag_list_match"))
+(definition public git_tag_lookup (c-function (git_tag** git_repository* git_oid*) int "git_tag_lookup"))
+(definition public git_tag_lookup_prefix (c-function (git_tag** git_repository* git_oid* size_t) int "git_tag_lookup_prefix"))
+(definition public git_tag_message (c-function (git_tag*) char-string "git_tag_message"))
+(definition public git_tag_name (c-function (git_tag*) char-string "git_tag_name"))
+(definition public git_tag_peel (c-function (git_object** git_tag*) int "git_tag_peel"))
+(definition public git_tag_tagger (c-function (git_tag*) git_signature* "git_tag_tagger"))
+(definition public git_tag_target (c-function (git_object** git_tag*) int "git_tag_target"))
+(definition public git_tag_target_oid (c-function (git_tag*) git_oid* "git_tag_target_oid"))
+(definition public git_tag_type (c-function (git_tag*) git_otype "git_tag_type"))
+
+
+;;;
+;;;; Threads
+;;;
+
+; Note - These should always be called before and after working with libgit2.
+; If compiled with GIT_THREADS, they will setup / shutdown the thread system.
+; If not, they are a no-op. Therefore better be safe then sorry.
+
+(definition public git_threads_init (c-function () void "git_threads_init"))
+(definition public git_threads_shutdown (c-function () void "git_threads_shutdown"))
+
+
+;;;
+;;;; Trees
+;;;
+
+
+(definition public git_tree_create_fromindex (c-function (git_oid* git_index*) int "git_tree_create_fromindex"))
+(definition public git_tree_entry_attributes (c-function (git_tree_entry*) uint "git_tree_entry_attributes"))
+(definition public git_tree_entry_byindex (c-function (git_tree* size_t) git_tree_entry* "git_tree_entry_byindex"))
+(definition public git_tree_entry_byname (c-function (git_tree* char-string) git_tree_entry* "git_tree_entry_byname"))
+(definition public git_tree_entry_id (c-function (git_tree_entry*) git_oid* "git_tree_entry_id"))
+(definition public git_tree_entry_name (c-function (git_tree_entry*) char-string "git_tree_entry_name"))
+(definition public git_tree_entry_to_object (c-function (git_object** git_repository* git_tree_entry*) int "git_tree_entry_to_object"))
+(definition public git_tree_entry_type (c-function (git_tree_entry*) git_otype "git_tree_entry_type"))
+(definition public git_tree_entrycount (c-function (git_tree*) uint "git_tree_entrycount"))
+(definition public git_tree_free (c-function (git_tree*) void "git_tree_free"))
+(definition public git_tree_id (c-function (git_tree*) git_oid* "git_tree_id"))
+(definition public git_tree_lookup (c-function (git_tree** git_repository* git_oid*) int "git_tree_lookup"))
+(definition public git_tree_lookup_prefix (c-function (git_tree** git_repository* git_oid* size_t) int "git_tree_lookup_prefix"))
+(definition public git_tree_walk (c-function (git_tree* git_treewalk_cb int void*) int "git_tree_walk"))
+
+
+;;;
+;;;; Treebuilder
+;;;
+
+
+(definition public git_treebuilder_clear (c-function (git_treebuilder*) void "git_treebuilder_clear"))
+(definition public git_treebuilder_create (c-function (git_treebuilder** git_tree*) int "git_treebuilder_create"))
+@callback(definition public git_treebuilder_filter (c-function (git_treebuilder* void* void*) int "git_treebuilder_filter"))
+(definition public git_treebuilder_free (c-function (git_treebuilder*) void "git_treebuilder_free"))
+(definition public git_treebuilder_get (c-function (git_treebuilder* char-string) git_tree_entry* "git_treebuilder_get"))
+(definition public git_treebuilder_insert (c-function (git_tree_entry** git_treebuilder* char-string git_oid* uint) int "git_treebuilder_insert"))
+(definition public git_treebuilder_remove (c-function (git_treebuilder* char-string) int "git_treebuilder_remove"))
+(definition public git_treebuilder_write (c-function (git_oid* git_repository* git_treebuilder*) int "git_treebuilder_write"))
 
 ;;;
 ;;;; Common
 ;;;
 
 
-(c-external (git_strarray_free git_strarray*) void)
-(c-external (git_libgit2_version int* int* int*) void)
+(definition public git_strarray_free (c-function (git_strarray*) void "git_strarray_free"))
 
 
 ;;;
-;;;; Git custom backend functions
+;;;; Helper functions
 ;;;
 
 
-(c-external (git_odb_backend_pack git_odb_backend** UTF-8-string) int)
-(c-external (git_odb_backend_loose git_odb_backend** UTF-8-string int int) int)
+(definition public git-error
+  giterr_last)
 
 
-;;;
-;;;; Git config management routines
-;;;
+(definition public git-error-message
+  (c-function (git_error*) char-string
+    "___result = ___arg1->message;"))
+    
+
+(definition public git-repository-open
+  (c-function (char-string) git_repository*
+    "git_repository *repo;
+     int result = git_repository_open(&repo, ___arg1);
+     if (result != 0) git_call_error_handler(result);
+     ___result_voidstar = repo;"
+    ))
+
+	
+(definition public git-repository-fetch
+  (c-function (git_repository* char-string) int64
+    "git_remote *remote;
+	 git_remote_load(&remote, ___arg1, ___arg2);
+		
+	 int error;
+	
+	 git_off_t bytes = 0;
+	 git_indexer_stats stats;
+	 git_error *err;
+	
+	 error = git_remote_connect(remote, GIT_DIR_FETCH);
+	 if (error < 0)
+	 	 goto cleanup;
+
+	 error = git_remote_download(remote, &bytes, &stats);
+	 if (error < 0) {
+ 		 git_remote_disconnect(remote);
+ 	     goto cleanup;
+     }
+	
+     git_remote_disconnect(remote);
+		
+	 error = git_remote_update_tips(remote, NULL);
+	 if (error < 0) 
+		 goto cleanup;
+		
+	 ___result = bytes;
+	
+	 cleanup:
+		 git_remote_free(remote);
+		
+		 if (error != 0) 
+			 git_call_error_handler(error);"	
+   ))
+            
+
+(definition public (git-repository-is-bare? repo)
+  (eq? 1 (git_repository_is_bare repo)))
 
 
-(c-external (git_config_open_global git_config**) int)
-(c-external (git_config_add_file_ondisk git_config* UTF-8-string int) int)
-(c-external (git_config_find_global UTF-8-string) int)
+(definition public git-repository-is-empty?
+  (lambda (repo)
+    (eq? 1 (git_repository_is_empty repo))))
 
 
-;;;
-;;;; Git reflog management routines
-;;;
+(definition public git-repository-free
+  git_repository_free)
 
 
-(c-external (git_reflog_read git_reflog** git_reference*) int)
-(c-external (git_reflog_write git_reference* git_oid* git_signature* UTF-8-string) int)
+(definition public (with-repository path proc)
+  (let ((repo #f))
+    (unwind-protect
+        (begin
+          (set! repo (git-repository-open path))
+          (proc repo))
+      (when repo
+        (git-repository-free repo)))))
 
-
-;;;
-;;;; Git reference management routines
-;;;
-
-
-;; @param reference_out pointer to the looked-up reference
-;; @param repo the repository to look up the reference
-;; @param name the long name for the reference (e.g. HEAD, ref/heads/master, refs/tags/v0.1.0, ...)
-;; @return GIT_SUCCESS or an error code
-
-(c-external (git_reference_lookup git_reference** git_repository* UTF-8-string) int)
-(c-external (git_reference_listall git_strarray* git_repository* unsigned-int) int)
 )
   (else))
 )

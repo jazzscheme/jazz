@@ -100,6 +100,14 @@
       (let ((project-file (get-origin~ (get-form))))
         (new-brother~ project-file ".dynamic")))
     
+    (define (make-dynamic-project-file data)
+      (bind (name branch) data
+        (new-file~ {Directory Home "dep"} (list (->string name) (->string branch) ".project"))))
+    
+    (define (make-dynamic-project-name data)
+      (bind (name branch) data
+        (string->symbol (string-append (->string name) "-" (->string branch)))))
+    
     (define (not-found-handler ref)
       (let ((form
               (<form>
@@ -114,11 +122,15 @@
     (let ((dynamic-file (get-dynamic-file)))
       (let ((dependencies (call-with-input-file (parse~ dynamic-file) read)))
         (let ((added-projects (map (lambda (data)
-                                     (bind (name dependency) data
-                                       (let ((file (new File (cdr dependency))))
-                                         (if (exists?~ file)
-                                             (instantiate-file file parent: self name: name)
-                                           (instantiate~ (not-found-handler file) parent: self)))))
+                                     (with-exception-catcher
+                                       (lambda (exc)
+                                         (instantiate~ (not-found-handler dynamic-file) parent: self))
+                                       (lambda ()
+                                         (let ((file (make-dynamic-project-file data))
+                                               (name (make-dynamic-project-name data)))
+                                           (if (exists?~ file)
+                                               (instantiate-file file parent: self name: name)
+                                             (instantiate~ (not-found-handler file) parent: self))))))
                                    (call-with-input-file (parse~ dynamic-file) read))))
           (set! dynamic-projects added-projects)))))
   
@@ -137,7 +149,37 @@
           (join (map parse~ (map get-depot-directory~ effective-dynamic-projects))
                 ";")
         "")))
-
+  
+  
+  (method public (update-dynamic-dependencies)
+    (define (get-static-data project-file project-name)
+      (let ((static-file (new-brother~ project-file ".static")))
+        (assert (exists?~ static-file))
+        (map (lambda (static-data)
+               (cons project-name static-data))
+             (call-with-input-file (parse~ static-file) read))))
+    
+    (let ((processed-dependencies (make-table))
+          (project-file (new-brother~ description-file ".project")))
+      (let (iter (static-data (get-static-data project-file (project-title))))
+        (let ((added-data '()))
+          (for-each (lambda (data)
+                      (bind (source name branch) data
+                        (let ((found (table-ref processed-dependencies name #f)))
+                          (if found
+                              (when (not (equal? found branch))
+                                (error "Branch mismatch for {a}: using {a} but {a} requires {a}" name found source branch))
+                            (table-set! processed-dependencies name branch)
+                            (let ((static-file (new-file~ {Directory Home "dep"} (list (->string name) (->string branch) ".static"))))
+                              (set! added-data (append added-data (get-static-data static-file name))))))))
+                    static-data)
+          (when (not-null? added-data)
+            (iter added-data))))
+      (debug
+        (map (lambda (name)
+               (list name (table-ref processed-dependencies name #f)))
+             (sort nu<? (table-keys processed-dependencies))))))
+  
 
   ;;;
   ;;;; Access

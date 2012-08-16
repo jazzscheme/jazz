@@ -256,6 +256,10 @@
     (update-catalog))
   
   
+  (method (on-update-dynamic evt)
+    (update-dynamic-dependencies))
+  
+  
   (method (on-search-project evt)
     (search-project))
   
@@ -925,6 +929,21 @@
   ;;;
   
   
+  (method (update-dynamic-dependencies)
+    (define (update object)
+      (typecase object
+        ((Project)
+         (when (get-dynamic?~ object)
+           (update-dynamic-dependencies~ object)))
+        ((Project-Group)
+         (for-each update (get-children~ object)))))
+    
+    (with-cursor :wait
+      (lambda ()
+        (let ((objects (selected-objects)))
+          (for-each update objects)))))
+  
+  
   (method (update-catalog)
     (define (update object)
       (typecase object
@@ -1317,6 +1336,8 @@
         (let ((depot (and (is? object Project) (project-depot~ object))))
           (when (not depot)
             (set-visible?~ (locate~ menu 'explore-depot) #f)))
+        (let ((dynamic? (and (is? object Project) (get-dynamic?~ object))))
+          (set-visible?~ (locate~ menu 'update-dynamic) dynamic?))
         (let ((content? (has-content?~ object)))
           (set-visible?~ (locate~ menu 'update-catalog) content?)
           (set-visible?~ (locate~ menu 'search-project) content?)))
@@ -1437,6 +1458,7 @@
       (<Separator-Item>                           before: cut)
       (<Label-Item>     name: search-project      title: "Search Project" before: cut icon: {Image-Resource "Find"} action-handler: {Action workbench-manager search-project})
       (<Label-Item>     name: update-catalog      title: "Update Catalog" before: cut icon: {Image-Resource "Catalog"} action-handler: {Action workbench-manager update-catalog})
+      (<Label-Item>     name: update-dynamic      title: "Update Dynamic" before: cut action-handler: {Action workbench-manager update-dynamic})
       (<Separator-Item>                           before: cut)
       (<Label-Item>     name: explore-depot       title: "Explore Depot" before: cut icon: {Image-Resource "Configure"} action-handler: {Action workbench-manager explore-depot})
       (<Separator-Item>                           before: cut)

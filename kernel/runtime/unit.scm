@@ -297,7 +297,7 @@
 
 
 (define (jazz:prepare-repositories)
-  (define (all-repositories build jazz binary-repositories source-repositories repositories)
+  (define (all-repositories build jazz binary-repositories source-repositories dynamic-repositories repositories)
     (define (listify repository)
       (if repository
           (%%list repository)
@@ -314,19 +314,38 @@
                         (let ((dir (jazz:absolutize-directory jazz:kernel-install path)))
                           (jazz:load-repository dir error?: #f)))
                       source-repositories)
+      ,@(jazz:collect (lambda (path)
+                        (jazz:load-repository path error?: #f))
+                      dynamic-repositories)
       ,@(listify build)
       ,@(if jazz
             (%%list jazz)
           '())))
+  
+  (define (make-dynamic-project-file data)
+    (let ((name (car data))
+          (branch (cadr data)))
+      ;; path is "C:/Home/dep/<name>/<branch>"
+      (let ((dep-dir (jazz:absolutize-directory jazz:kernel-install "../../../dep"))
+            (rel-dir (join-strings (list name branch) #\/)))
+        (%%string-append dep-dir rel-dir))))
+  
+  (define (dynamic-repositories)
+    ;; path is "C:/Home/uranos/.dynamic"
+    (let ((dynamic-file (%%string-append (jazz:absolutize-directory jazz:kernel-install "../../") ".dynamic")))
+      (if (jazz:file-exists? dynamic-file)
+          (map make-dynamic-project-file (call-with-input-file dynamic-file read))
+        '())))
   
   (let ((source-access? jazz:kernel-source-access?))
     (let ((build (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t create?: #t))
           (jazz (and source-access? (jazz:make-repository 'Jazz "lib" (or (jazz:jazz-repository) jazz:kernel-source))))
           (binary-repositories (or jazz:kernel-binary-repositories '()))
           (source-repositories (or (and source-access? jazz:kernel-source-repositories) '()))
+          (dynamic-repositories (dynamic-repositories))
           (repositories (jazz:repositories)))
       (set! jazz:Build-Repository build)
-      (set! jazz:Repositories (%%append jazz:Repositories (all-repositories build jazz binary-repositories source-repositories repositories))))))
+      (set! jazz:Repositories (%%append jazz:Repositories (all-repositories build jazz binary-repositories source-repositories dynamic-repositories repositories))))))
 
 
 (define (jazz:make-repository name library directory #!key (binary? #f) (create? #f))

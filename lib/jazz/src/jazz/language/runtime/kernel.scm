@@ -892,8 +892,12 @@
 ;;;
 
 
+(native random-source?)
 (native make-random-source)
+(native random-source-state-ref)
+(native random-source-state-set!)
 (native random-source-make-integers)
+(native random-source-make-reals)
 (native jazz:random-integer)
 (native jazz:random-real)
 (native jazz:random-source-randomize!)

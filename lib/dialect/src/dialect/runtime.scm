@@ -194,6 +194,7 @@
    (errors       getter: generate setter: generate)
    (literals     getter: generate setter: generate)
    (variables    getter: generate)
+   (statics      getter: generate)
    (references   getter: generate)
    (autoloads    getter: generate setter: generate)))
 
@@ -216,6 +217,8 @@
   (jazz:set-walker-literals (jazz:get-module-declaration-walker lib-decl) value))
 (define (jazz:get-module-declaration-walker-variables lib-decl)
   (jazz:get-walker-variables (jazz:get-module-declaration-walker lib-decl)))
+(define (jazz:get-module-declaration-walker-statics lib-decl)
+  (jazz:get-walker-statics (jazz:get-module-declaration-walker lib-decl)))
 (define (jazz:get-module-declaration-walker-references lib-decl)
   (jazz:get-walker-references (jazz:get-module-declaration-walker lib-decl)))
 (define (jazz:get-module-declaration-walker-autoloads lib-decl)
@@ -1333,6 +1336,14 @@
                (value (%%cdr variable)))
            `(jazz:define-variable ,symbol ,value)))
        (jazz:queue-list (jazz:get-module-declaration-walker-variables module-declaration))))
+
+
+(define (jazz:emit-module-statics module-declaration backend)
+  (map (lambda (static)
+         (let ((symbol (%%car static))
+               (expr (%%cdr static)))
+           `(jazz:define-variable ,symbol ,(jazz:sourcified-form (jazz:emit-expression expr module-declaration '() backend)))))
+       (jazz:queue-list (jazz:get-module-declaration-walker-statics module-declaration))))
 
 
 (define (jazz:emit-module-autoloads module-declaration environment backend)
@@ -3129,6 +3140,14 @@
       (let ((variable (%%cons symbol value)))
         (jazz:enqueue (jazz:get-module-declaration-walker-variables module-declaration) variable)
         variable))))
+
+
+(define (jazz:register-static declaration suffix expr)
+  (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
+    (let ((symbol (jazz:generate-global-symbol suffix)))
+      (let ((static (%%cons symbol expr)))
+        (jazz:enqueue (jazz:get-module-declaration-walker-statics module-declaration) static)
+        static))))
 
 
 ;;;

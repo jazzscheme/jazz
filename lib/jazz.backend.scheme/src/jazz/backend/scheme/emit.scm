@@ -400,6 +400,15 @@
 
 
 ;;;
+;;;; Static
+;;;
+
+
+(jazz:define-emit (static (scheme backend) expression declaration environment static)
+  (%%car static))
+
+
+;;;
 ;;;; Reference
 ;;;
 

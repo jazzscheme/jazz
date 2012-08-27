@@ -48,6 +48,7 @@
         (inclusions-expansion (jazz:emit-module-inclusions declaration backend))
         (literals-expansion (jazz:emit-module-literals declaration backend))
         (variables-expansion (jazz:emit-module-variables declaration backend))
+        (statics-expansion (jazz:emit-module-statics declaration backend))
         (autoloads-expansion (jazz:emit-module-autoloads declaration environment backend))
         (registration-expansion (jazz:emit-module-registration declaration environment backend)))
     `(begin
@@ -91,6 +92,7 @@
        ,@autoloads-expansion
        ,@literals-expansion
        ,@variables-expansion
+       ,@statics-expansion
        ,@body-expansion)))
 
 

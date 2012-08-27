@@ -814,7 +814,7 @@
 
 
 (define (jazz:new-jazz-walker)
-  (jazz:allocate-jazz-walker #f #f '() '() '() (jazz:new-queue) (%%make-table test: eq?) '()))
+  (jazz:allocate-jazz-walker #f #f '() '() '() (jazz:new-queue) (jazz:new-queue) (%%make-table test: eq?) '()))
 
 
 (jazz:define-method (jazz:runtime-export (jazz:Jazz-Walker walker) declaration)
@@ -1133,6 +1133,34 @@
           (values (%%cddr form)))
       (jazz:new-allocate (jazz:walk walker resume declaration environment class)
                          (jazz:walk-list walker resume declaration environment values)))))
+
+
+;;;
+;;;; Static
+;;;
+
+
+(jazz:define-class jazz:Static jazz:Expression (constructor: jazz:allocate-static)
+  ((static getter: generate)))
+
+
+(define (jazz:new-static static)
+  (jazz:allocate-static #f #f static))
+
+
+(jazz:define-method (jazz:emit-expression (jazz:Static expression) declaration environment backend)
+  (let ((static (jazz:get-static-static expression)))
+    (jazz:new-code
+      (jazz:emit 'static backend expression declaration environment static)
+      jazz:Any
+      #f)))
+
+
+(define (jazz:walk-static walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (let ((expression (%%cadr form)))
+      (let ((static (jazz:register-static declaration "static" (jazz:walk walker resume declaration environment expression))))
+        (jazz:new-static static)))))
 
 
 ;;;
@@ -2218,4 +2246,5 @@
 (jazz:define-walker-declaration with-dynamic-self    jazz jazz:walk-with-dynamic-self-declaration jazz:walk-with-dynamic-self)
 (jazz:define-walker-declaration with-local-variables jazz jazz:walk-with-local-variables-declaration jazz:walk-with-local-variables)
 (jazz:define-walker-special     cast                 jazz jazz:walk-cast)
-(jazz:define-walker-special     allocate             jazz jazz:walk-allocate))
+(jazz:define-walker-special     allocate             jazz jazz:walk-allocate)
+(jazz:define-walker-special     static               jazz jazz:walk-static))

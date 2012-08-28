@@ -99,10 +99,17 @@
   
   
   (method override (validate-component validation-context)
+    (define (test-each-pair test lst)
+      (let (iterate (lst lst))  
+        (if (or (null? lst)
+                (not (test lst)))
+            lst
+          (iterate (cdr lst)))))
+    
     (nextmethod validation-context)
-    (let ((result (for-each-pair (provide-locales)
-                                 test: (lambda (sublist)
-                                         (not (memq? (car sublist) (cdr sublist)))))))
+    (let ((result (test-each-pair (lambda (sublist)
+                                    (not (memq? (car sublist) (cdr sublist))))
+                                  (provide-locales))))
       (unless (null? result)
         (add-violation~ validation-context message: (format "multiple descendants named {a}" (car result)))))
     (unless (find-ascendant Locale-Tree include-self?: #t)

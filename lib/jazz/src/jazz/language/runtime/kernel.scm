@@ -899,7 +899,7 @@
 (native random-source-make-integers)
 (native random-source-make-reals)
 (native jazz:random-integer)
-(native jazz:random-real)
+(native jazz:random-real <:fl>)
 (native jazz:random-source-randomize!)
 (native jazz:random-source-pseudo-randomize!)
 (native jazz:default-random-source)

@@ -96,9 +96,10 @@
          (expand-body expr ...)
        #f))))
 
+
 (define-syntax jazzdoc
   (syntax-rules ()
-    ((jazzdoc ...)
+    ((jazzdoc expr ...)
      (unspecified))))
 
 

@@ -684,11 +684,6 @@
                    (iter (%%cdr scan))))))))))
 
 
-(define (jazz:present-expression-location expression)
-  (let ((location (jazz:locat->container/line/col (jazz:source-locat (jazz:get-expression-source expression)))))
-    (%%string->symbol (%%string-append "@" (%%number->string (%%fx+ (%%cadr location) 1)) "." (%%number->string (%%fx+ (%%car (%%cddr location)) 1))))))
-
-
 ;;;
 ;;;; Inlined Call
 ;;;

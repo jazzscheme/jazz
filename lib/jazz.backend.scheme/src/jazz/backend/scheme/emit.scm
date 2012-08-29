@@ -333,8 +333,11 @@
       (let ((method-declaration (lookup-method object-code)))
         (if (%%not method-declaration)
             (begin
-              (if (and (jazz:warnings?) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
-                  (jazz:debug 'Warning: 'In (jazz:get-declaration-locator declaration) 'unable 'to 'find 'dispatch 'method name))
+              (%%when (and (jazz:warnings?) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
+                (jazz:debug-string (jazz:format "Warning: In {a}{a}: Unable to find dispatch method {a}"
+                                                (jazz:get-declaration-locator declaration)
+                                                (jazz:present-expression-location expression)
+                                                name)))
               #f)
           (begin
             (jazz:add-to-module-references declaration method-declaration)
@@ -657,7 +660,7 @@
 
 (jazz:define-emit (primitive-call (scheme backend) operator locator arguments arguments-codes declaration environment)
   (if (%%not locator)
-        #f
+      #f
     (let ((patterns (jazz:get-primitive-patterns locator)))
       (let ((types (jazz:codes-types arguments-codes)))
         (let iter ((scan patterns))
@@ -666,8 +669,11 @@
                    (%%when (and (jazz:warnings?) (%%not (%%null? patterns)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
                              ;; a bit extreme for now
                              (%%not (%%memq locator '(scheme.language.runtime.kernel:car
-                                                       scheme.language.runtime.kernel:cdr))))
-                     (jazz:debug 'Warning: 'In (jazz:get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'primitive (jazz:reference-name locator)))
+                                                      scheme.language.runtime.kernel:cdr))))
+                     (jazz:debug-string (jazz:format "Warning: In {a}{a}: Unable to match call to primitive {a}"
+                                                     (jazz:get-declaration-locator declaration)
+                                                     (jazz:present-expression-location operator)
+                                                     (jazz:reference-name locator))))
                    #f)
                (jazz:bind (name function-type) (%%car scan)
                  (if (jazz:match-signature? arguments types function-type)
@@ -676,6 +682,11 @@
                        (jazz:get-function-type-result function-type)
                        #f)
                    (iter (%%cdr scan))))))))))
+
+
+(define (jazz:present-expression-location expression)
+  (let ((location (jazz:locat->container/line/col (jazz:source-locat (jazz:get-expression-source expression)))))
+    (%%string->symbol (%%string-append "@" (%%number->string (%%fx+ (%%cadr location) 1)) "." (%%number->string (%%fx+ (%%car (%%cddr location)) 1))))))
 
 
 ;;;

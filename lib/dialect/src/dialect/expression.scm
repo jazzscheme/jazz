@@ -135,10 +135,17 @@
                                                                    scheme.language.runtime.kernel:-
                                                                    scheme.language.runtime.kernel:*
                                                                    scheme.language.runtime.kernel:/))))
-                                 (jazz:debug 'Warning: 'In (jazz:get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (jazz:get-lexical-binding-name binding)))
+                                 (jazz:debug-string (jazz:format "Warning: In {a}{a}: Unable to match call to specialized {a}"
+                                                                 (jazz:get-declaration-locator declaration)
+                                                                 (jazz:present-expression-location operator)
+                                                                 (jazz:get-lexical-binding-name binding))))
                                ;; for debugging
                                (%%when (%%memq (jazz:get-lexical-binding-name binding) (jazz:debug-specializers))
-                                 (jazz:debug 'Warning: 'In (jazz:get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (jazz:get-lexical-binding-name binding) 'on types))
+                                 (jazz:debug-string (jazz:format "Warning: In {a}{a}: Unable to match call to specialized {a} on {a}"
+                                                                 (jazz:get-declaration-locator declaration)
+                                                                 (jazz:present-expression-location operator)
+                                                                 (jazz:get-lexical-binding-name binding)
+                                                                 types)))
                                #f)
                            (let ((specializer (%%car scan)))
                              (let ((function-type (jazz:get-lexical-binding-type specializer)))

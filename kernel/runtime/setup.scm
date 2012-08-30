@@ -240,7 +240,7 @@
         (%%string->symbol arg)
       arg))
   
-  (let ((exit-code (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "gvm" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
+  (let ((exit-code (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "gvm" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "dependencies" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
                      (lambda (commands options remaining)
                        (let ((nosource? (jazz:get-option "nosource" options))
                              (debug? (jazz:get-option "debug" options))
@@ -254,6 +254,7 @@
                              (build-repository (jazz:get-option "build-repository" options))
                              (jazz-repository (jazz:get-option "jazz-repository" options))
                              (repositories (jazz:get-option "repositories" options))
+                             (dependencies (jazz:get-option "dependencies" options))
                              (ev (jazz:get-option "eval" options))
                              (load (jazz:get-option "load" options))
                              (test (jazz:get-option "test" options))
@@ -287,6 +288,11 @@
                            (if build-repository (jazz:build-repository build-repository))
                            (if jazz-repository (jazz:jazz-repository jazz-repository))
                            (if repositories (jazz:repositories repositories))
+                           (if dependencies
+                               (jazz:dependencies (call-with-input-file dependencies read))
+                             (let ((dynamic-file (%%string-append (or (jazz:build-repository) jazz:kernel-install) ".dependencies")))
+                               (if (jazz:file-exists? dynamic-file)
+                                   (jazz:dependencies (call-with-input-file dynamic-file read)))))
                            (jazz:prepare-repositories)
                            (jazz:setup-repositories))
                          

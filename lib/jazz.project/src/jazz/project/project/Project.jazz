@@ -98,11 +98,11 @@
   (method (install-dynamic-projects)
     (define (get-dynamic-file)
       (let ((project-file (get-origin~ (get-form))))
-        (new-brother~ project-file ".dynamic")))
+        (new-brother~ project-file ".dependencies")))
     
     (define (make-dynamic-project-file data)
       (bind (name branch) data
-        (new-file~ {Directory Home "dep"} (list (->string name) (->string branch) ".project"))))
+        (new-file~ {Directory Home "dep" "src"} (list (->string name) (->string branch) ".project"))))
     
     (define (make-dynamic-project-name data)
       (bind (name branch) data
@@ -143,25 +143,26 @@
             '()))))
   
   
-  (method public (get-effective-dynamic-repositories)
-    (let ((effective-dynamic-projects (get-effective-dynamic-projects)))
-      (if (not-null? effective-dynamic-projects)
-          (join (map parse~ (map get-depot-directory~ effective-dynamic-projects))
-                ";")
-        "")))
+  (method public (get-effective-dependencies-file)
+    ;; direct dependencies are in the description file
+    ;; flattened .dependencies is created in the same directory
+    (if dynamic-projects
+        (new-brother~ description-file ".dependencies")
+      (when (is? parent Project)
+        (get-effective-dependencies-file~ parent))))
   
   
   (method public (update-dynamic-dependencies)
-    (define (get-static-data project-file project-name)
-      (let ((static-file (new-brother~ project-file ".static")))
-        (assert (exists?~ static-file))
-        (map (lambda (static-data)
-               (cons project-name static-data))
-             (call-with-input-file (parse~ static-file) read))))
+    (define (get-static-data project-path project-name)
+      (let ((repository (load-repository (parse~ project-path))))
+        (map (lambda (dependencies)
+               (cons project-name dependencies))
+             (or (repository-dependencies repository)
+                 '()))))
     
     (let ((processed-dependencies (make-table))
-          (project-file (new-brother~ description-file ".project")))
-      (let (iter (static-data (get-static-data project-file (project-title))))
+          (root-path (get-parent~ description-file)))
+      (let (iter (static-data (get-static-data root-path (project-title))))
         (let ((added-data '()))
           (for-each (lambda (data)
                       (bind (source name branch) data
@@ -170,15 +171,26 @@
                               (when (not (equal? found branch))
                                 (error "Branch mismatch for {a}: using {a} but {a} requires {a}" name found source branch))
                             (table-set! processed-dependencies name branch)
-                            (let ((static-file (new-file~ {Directory Home "dep"} (list (->string name) (->string branch) ".static"))))
-                              (set! added-data (append added-data (get-static-data static-file name))))))))
+                            (let ((repository-dir (new-directory~ {Directory Home "dep" "src"} (list (->string name) (->string branch)))))
+                              (set! added-data (append added-data (get-static-data repository-dir name))))))))
                     static-data)
           (when (not-null? added-data)
             (iter added-data))))
-      (debug
-        (map (lambda (name)
-               (list name (table-ref processed-dependencies name #f)))
-             (sort nu<? (table-keys processed-dependencies))))))
+      (let ((sorted (map (lambda (name)
+                           (list name (table-ref processed-dependencies name #f)))
+                         (sort nu<? (table-keys processed-dependencies))))
+            (dependencies-file (get-effective-dependencies-file)))
+        (call-with-output-file (path-settings dependencies-file char-encoding: 'UTF-8)
+          (lambda (output)
+            (cond ((or (null? sorted) (null? (cdr sorted)))
+                   (write sorted output)
+                   (newline output))
+                  (else
+                   (format output "({a}" (car sorted))
+                   (for-each (lambda (dependency)
+                               (format output "{%} {a}" dependency))
+                             (cdr sorted))
+                   (format output "){%}"))))))))
   
 
   ;;;

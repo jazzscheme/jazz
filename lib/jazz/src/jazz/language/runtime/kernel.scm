@@ -603,6 +603,7 @@
 (native jazz:repository-library-root)
 (native jazz:repository-library-directory)
 (native jazz:repository-binary?)
+(native jazz:repository-dependencies)
 (native jazz:repository-packages)
 (native jazz:repository-find-package)
 (native jazz:repository-install-packages)

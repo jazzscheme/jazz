@@ -325,16 +325,15 @@
   (define (make-dynamic-project-file data)
     (let ((name (car data))
           (branch (cadr data)))
-      ;; path is "C:/Home/dep/<name>/<branch>"
-      (let ((dep-dir (jazz:absolutize-directory jazz:kernel-install "../../../dep"))
-            (rel-dir (join-strings (list name branch) #\/)))
+      ;; path is "C:/Home/dep/src/<name>/<branch>"
+      (let ((dep-dir (jazz:absolutize-directory jazz:kernel-install "../../../dep/src"))
+            (rel-dir (jazz:join-strings (list name branch) #\/)))
         (%%string-append dep-dir rel-dir))))
   
   (define (dynamic-repositories)
-    ;; path is "C:/Home/uranos/.dynamic"
-    (let ((dynamic-file (%%string-append (jazz:absolutize-directory jazz:kernel-install "../../") ".dynamic")))
-      (if (jazz:file-exists? dynamic-file)
-          (map make-dynamic-project-file (call-with-input-file dynamic-file read))
+    (let ((dependencies (jazz:dependencies)))
+      (if dependencies
+          (map make-dynamic-project-file dependencies)
         '())))
   
   (let ((source-access? jazz:kernel-source-access?))
@@ -401,11 +400,13 @@
                           (alist (%%cddr form)))
                       (let ((directory (jazz:pathname-normalize directory))
                             (binary-pair (%%assq 'binary? alist))
-                            (library-pair (%%assq 'library alist)))
+                            (library-pair (%%assq 'library alist))
+                            (dependencies-pair (%%assq 'dependencies alist)))
                         (let ((binary? (if binary-pair (%%cadr binary-pair) #f))
-                              (library-root (if library-pair (%%cadr library-pair) #f)))
+                              (library-root (if library-pair (%%cadr library-pair) #f))
+                              (dependencies (if dependencies-pair (%%cdr dependencies-pair) '())))
                           (let ((library-directory (if (%%not library-root) directory (%%string-append directory library-root "/"))))
-                            (%%make-repository name directory library-root library-directory binary? #f))))))))
+                            (%%make-repository name directory library-root library-directory binary? #f dependencies))))))))
             #f))
       #f))
   

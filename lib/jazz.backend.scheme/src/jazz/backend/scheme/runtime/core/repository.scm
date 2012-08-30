@@ -61,6 +61,8 @@
 (define (jazz:repository-binary? repository)
   (%%get-repository-binary? repository))
 
+(define (jazz:repository-dependencies repository)
+  (%%get-repository-dependencies repository))
 
 ;;;
 ;;;; Package

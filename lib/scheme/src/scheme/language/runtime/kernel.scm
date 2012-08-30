@@ -337,6 +337,8 @@
 (native open-output-file <string:port>)
 (native close-input-port <port:void>)
 (native close-output-port <port:void>)
+(native input-port-byte-position)
+(native output-port-byte-position)
 
 
 ;;;

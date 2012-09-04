@@ -255,5 +255,4 @@
 
 (jazz:define-emit (time (scheme backend) expression declaration environment expressions)
   `(time
-     (begin
-       ,@(jazz:codes-forms expressions)))))
+     ,@(jazz:codes-forms expressions))))

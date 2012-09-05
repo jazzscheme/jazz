@@ -4054,6 +4054,10 @@
       #f)))
 
 
+(define (jazz:emit-one-expression expression declaration environment backend)
+  (jazz:emit-expression expression declaration environment backend))
+
+
 (define (jazz:emit-expressions expressions declaration environment backend)
   (map (lambda (expression)
          (jazz:emit-expression expression declaration environment backend))

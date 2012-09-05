@@ -253,6 +253,7 @@
 ;;;
 
 
-(jazz:define-emit (time (scheme backend) expression declaration environment expressions)
+(jazz:define-emit (time (scheme backend) expression declaration environment expr port)
   `(time
-     ,@(jazz:codes-forms expressions))))
+     ,(jazz:sourcified-form expr)
+     ,(jazz:sourcified-form port))))

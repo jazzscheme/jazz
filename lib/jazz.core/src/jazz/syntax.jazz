@@ -50,26 +50,32 @@
 (class Time-Special extends Expression
   
   
-  (slot expressions getter generate)
+  (slot expr getter generate)
+  (slot port getter generate)
   
   
-  (method override (initialize expressions . rest)
+  (method override (initialize expr port . rest)
     (apply nextmethod rest)
-    (set! expressions~self expressions))
+    (set! expr~self expr)
+    (set! port~self port))
   
   
   (method override (emit-expression declaration environment backend)
-    (let ((expressions-emit (emit-expressions expressions declaration environment backend)))
+    (let ((expr-emit (emit-one-expression expr declaration environment backend))
+          (port-emit (emit-one-expression port declaration environment backend)))
       (new-code
-        (emit 'time backend self declaration environment expressions-emit)
+        (emit 'time backend self declaration environment expr-emit port-emit)
         Any
         #f))))
 
 
 (define (walk-time walker resume declaration environment form-src)
   (let ((form (strip-syntactic-closures form-src)))
-    (let ((forms (cdr form)))
-      (new Time-Special (walk-list walker resume declaration environment forms)))))
+    (let ((expr (cadr form))
+          (port (if (null? (cddr form)) '(current-output-port) (caddr form))))
+      (new Time-Special
+        (walk walker resume declaration environment expr)
+        (walk walker resume declaration environment port)))))
 
 
 (define-walker-special time jazz walk-time))

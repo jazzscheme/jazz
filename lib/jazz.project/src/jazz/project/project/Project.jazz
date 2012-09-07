@@ -91,8 +91,7 @@
   
   (method override (finish rest)
     (nextmethod rest)
-    (when dynamic?
-      (install-dynamic-projects)))
+    (install-dynamic-projects))
   
   
   (method (install-dynamic-projects)
@@ -108,6 +107,11 @@
       (bind (name branch) data
         (string->symbol (string-append (->string name) "-" (->string branch)))))
     
+    (define (make-root-name dynamic-file)
+      (let ((name (get-name~ (get-parent~ (get-parent~ dynamic-file))))
+            (branch (get-name~ (get-parent~ dynamic-file))))
+        (string->symbol (string-append name "-" branch))))
+    
     (define (not-found-handler ref)
       (let ((form
               (<form>
@@ -119,20 +123,28 @@
           (set-property~ form 'title title)
           form)))
     
-    (let ((dynamic-file (get-dynamic-file)))
-      (let ((dependencies (call-with-input-file (parse~ dynamic-file) read)))
-        (let ((added-projects (map (lambda (data)
-                                     (with-exception-catcher
-                                       (lambda (exc)
-                                         (instantiate~ (not-found-handler dynamic-file) parent: self))
-                                       (lambda ()
-                                         (let ((file (make-dynamic-project-file data))
-                                               (name (make-dynamic-project-name data)))
-                                           (if (exists?~ file)
-                                               (instantiate-file file parent: self name: name)
-                                             (instantiate~ (not-found-handler file) parent: self))))))
-                                   (call-with-input-file (parse~ dynamic-file) read))))
-          (set! dynamic-projects added-projects)))))
+    (when dynamic?
+      (assert (not (and (is? parent Project) (get-dynamic?~ parent))))
+      (let ((dynamic-file (get-dynamic-file)))
+        (let ((root-name (make-root-name dynamic-file)))
+          (set-name root-name)
+          (let ((added-projects (if (exists?~ dynamic-file)
+                                    (map (lambda (data)
+                                           (with-exception-catcher
+                                             (lambda (exc)
+                                               (instantiate~ (not-found-handler dynamic-file) parent: self))
+                                             (lambda ()
+                                               (let ((file (make-dynamic-project-file data))
+                                                     (name (make-dynamic-project-name data)))
+                                                 (cond ((eq? root-name name)
+                                                        )
+                                                       ((exists?~ file)
+                                                        (instantiate-file file parent: self name: name))
+                                                       (else
+                                                        (instantiate~ (not-found-handler file) parent: self)))))))
+                                         (call-with-input-file (parse~ dynamic-file) read))
+                                  (list (not-found-handler dynamic-file)))))
+            (set! dynamic-projects added-projects))))))
   
   
   (method public (get-effective-dynamic-projects)
@@ -162,6 +174,14 @@
     
     (let ((processed-dependencies (make-table))
           (root-path (get-parent~ description-file)))
+      ;; kernel needs root repository
+      (let ((lst (get-list~ root-path)))
+        (let ((len (length lst)))
+          (assert (> len 2))
+          (let ((name (string->symbol (element lst (- len 2))))
+                (branch (string->symbol (element lst (- len 1)))))
+            (table-set! processed-dependencies name branch))))
+      ;; flatten repository dependencies
       (let (iter (static-data (get-static-data root-path (project-title))))
         (let ((added-data '()))
           (for-each (lambda (data)
@@ -176,6 +196,7 @@
                     static-data)
           (when (not-null? added-data)
             (iter added-data))))
+      ;; sorted output to .dependencies
       (let ((sorted (map (lambda (name)
                            (list name (table-ref processed-dependencies name #f)))
                          (sort nu<? (table-keys processed-dependencies))))

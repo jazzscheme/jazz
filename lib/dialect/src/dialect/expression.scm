@@ -124,6 +124,8 @@
                     (let iter ((scan specializers))
                          (if (%%null? scan)
                              (begin
+                               ;; a bit too much for now
+                               #;
                                (%%when (and (jazz:warnings?) (%%not (%%null? specializers)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
                                          ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
                                          (%%not (%%memq locator '(scheme.language.runtime.kernel:=
@@ -140,6 +142,8 @@
                                                                  (jazz:present-expression-location operator)
                                                                  (jazz:get-lexical-binding-name binding))))
                                ;; for debugging
+                               ;; a bit too much for now
+                               #;
                                (%%when (%%memq (jazz:get-lexical-binding-name binding) (jazz:debug-specializers))
                                  (jazz:debug-string (jazz:format "Warning: In {a}{a}: Unable to match call to specialized {a} on {a}"
                                                                  (jazz:get-declaration-locator declaration)

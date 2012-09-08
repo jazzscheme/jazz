@@ -1150,10 +1150,11 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:Static expression) declaration environment backend)
   (let ((static (jazz:get-static-static expression)))
-    (jazz:new-code
-      (jazz:emit 'static backend expression declaration environment static)
-      jazz:Any
-      #f)))
+    (let ((code (jazz:emit-expression (%%cdr static) declaration environment backend)))
+      (jazz:new-code
+        (jazz:emit 'static backend expression declaration environment static)
+        (jazz:get-code-type code)
+        #f))))
 
 
 (define (jazz:walk-static walker resume declaration environment form-src)

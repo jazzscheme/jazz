@@ -1089,21 +1089,27 @@
 (define trace-depth
   (make-parameter 0))
 
-
-(definition protected (trace-advice-internal field locator original set)
-  (let ((original (original)))
-    (when (procedure? original)
-      (set (lambda rest
-             (let ((column (* (trace-depth) 2)))
-               (format :terminal "{$}{_ :v}({a}{?: {l}~})" column (present-reference locator) (not-null? rest) rest)
-               (let ((result (parameterize ((trace-depth (+ (trace-depth) 1)))
-                               (apply original rest))))
-                 (format :terminal "{$}{_ :v}   => {s}" column result)
-                 result)))))))
+(define default-present-reference
+  present-reference)
 
 
-(definition protected (trace-internal what)
-  (advise what trace-advice-internal))
+(definition protected (trace-advice-internal (port: port #f) (present-reference: present-reference #f) (present-context: present-context #f))
+  (let ((port (or port :console))
+        (present-reference (or present-reference default-present-reference)))
+    (lambda (field locator original set)
+      (let ((original (original)))
+        (when (procedure? original)
+          (set (lambda rest
+                 (let ((column (* (trace-depth) 2)))
+                   (format port "{$}{_ :v}[({a}{?: {l}~}){a}" column (present-reference locator) (not-null? rest) rest (if present-context (present-context) ""))
+                   (let ((result (parameterize ((trace-depth (+ (trace-depth) 1)))
+                                   (apply original rest))))
+                     (format port "{$}{_ :v}  <= {s}]" column result)
+                     result)))))))))
+
+
+(definition protected (trace-internal what . rest)
+  (advise what (apply trace-advice-internal rest)))
 
 
 (definition protected (untrace-internal what)

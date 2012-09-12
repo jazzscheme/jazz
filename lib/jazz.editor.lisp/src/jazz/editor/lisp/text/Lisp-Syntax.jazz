@@ -184,13 +184,15 @@
   
   (method override (colorize-declarations expl colorizer)
     (define (anonymous-kind? kind)
-      (memq? kind '(script proclaim require import export form)))
+      (memq? kind '(script proclaim require import export form jazzdoc)))
     
     (walk-declarations~ expl
       #f
       ;; declaration
       (lambda (context kind modifiers symbol parameters type start end marked documented?)
-        (when (and marked (not (anonymous-kind? kind)) (not (memq? symbol '(getter setter))))
+        (when (equal? kind 'jazzdoc)
+          (apply-coloring colorizer start end 'Jazzdoc))
+        (when (and marked (not (equal? kind 'jazzdoc)) (not (anonymous-kind? kind)) (not (memq? symbol '(getter setter))))
           (apply-coloring colorizer start end (declaration-style documented?)))
         #f)
       ;; keyword
@@ -235,7 +237,9 @@
           ((feature)
            (apply-coloring colorizer start end 'Feature))
           ((metadata)
-           (apply-coloring colorizer start end 'Metadata))))
+           (apply-coloring colorizer start end 'Metadata))
+          ((jazzdoc-body)
+           (apply-coloring colorizer start end 'Jazzdoc-Body))))
       (get-documentation-cataloguer~ (get-application))))
   
   

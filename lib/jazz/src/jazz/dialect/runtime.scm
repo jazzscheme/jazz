@@ -1743,6 +1743,10 @@
               (values name specifier access compatibility initialize accessors getter setter))))))))
 
 
+(define (jazz:expand-doc walker resume declaration environment form-src)
+  #f)
+
+
 (define (jazz:expand-slot walker resume declaration environment form-src)
   (jazz:expand-slot-form walker resume declaration form-src '%slot))
 
@@ -2205,6 +2209,7 @@
 (jazz:define-walker-declaration %class               jazz jazz:walk-%class-declaration jazz:walk-%class)
 (jazz:define-walker-declaration interface            jazz jazz:walk-interface-declaration jazz:walk-interface)
 (jazz:define-walker-syntax      slot                 jazz jazz:expand-slot)
+;(jazz:define-walker-syntax      doc                  jazz jazz:expand-doc)
 (jazz:define-walker-syntax      property             jazz jazz:expand-property)
 (jazz:define-walker-declaration %slot                jazz jazz:walk-%slot-declaration jazz:walk-%slot)
 (jazz:define-walker-declaration %property            jazz jazz:walk-%slot-declaration jazz:walk-%slot)

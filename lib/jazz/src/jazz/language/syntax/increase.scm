@@ -39,7 +39,9 @@
 
 
 (export increase!
-        decrease!)
+        decrease!
+        multiply!
+        divide!)
 
 (import (jazz.language.runtime.kernel)
         (scheme.syntax-rules (phase syntax)))
@@ -58,4 +60,16 @@
     ((_ location)
      (decrease! location 1))
     ((_ location increment)
-     (set! location (- location increment))))))
+     (set! location (- location increment)))))
+
+
+(define-syntax multiply!
+  (syntax-rules ()
+    ((_ location factor)
+     (set! location (* location factor)))))
+
+
+(define-syntax divide!
+  (syntax-rules ()
+    ((_ location factor)
+     (set! location (/ location factor))))))

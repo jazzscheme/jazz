@@ -155,6 +155,7 @@
         (befores     '())
         (actions     '())
         (afters      '())
+        (prologue    '())
         (epilogue    '())
         (finally     '())
         (unique-rank 0))
@@ -202,6 +203,7 @@
 
   (define (expand-loop)
     `(let* ,(append withs bindings)
+       ,@prologue
        (while (and ,@tests)
          ,@befores
          ,@actions
@@ -279,6 +281,10 @@
   
   (define (add-after after)
     (set! afters (append afters (exit-safe (list after)))))
+  
+  
+  (define (add-prologue expr)
+    (set! prologue (append prologue (list expr))))
   
   
   (define (add-epilogue expr)
@@ -389,6 +395,13 @@
          (let ((value (car rest)))
            (add-binding variable '<Object>)
            (add-before (list 'set! variable value))))
+        ;; similar to C for loop
+        ((iterate)
+         (bind (init test iter) rest
+           (add-binding variable type)
+           (add-prologue init)
+           (add-test test)
+           (add-after iter)))
         (else
          (error "Unknown for keyword: {t}" (source-code key))))))
   

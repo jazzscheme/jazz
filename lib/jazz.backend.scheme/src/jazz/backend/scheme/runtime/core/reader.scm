@@ -190,7 +190,14 @@
     (define (jazz:char-symbol char)
       (let ((table (jazz:readtable-named-char-table jazz:jazz-readtable)))
         (let ((res (jazz:rassq char table)))
-          (and res (%%car res))))))
+          (and res (%%car res)))))
+    
+    
+    (define (six-types)
+      ##six-types)
+    
+    (define (six-types-set! types)
+      (set! ##six-types types)))
   
   
   (else))

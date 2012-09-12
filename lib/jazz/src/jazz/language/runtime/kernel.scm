@@ -258,6 +258,7 @@
 (native jazz:exception-detail)
 (native jazz:exception-location)
 (native jazz:display-exception)
+(native display-exception-in-context)
 (native jazz:display-continuation-backtrace)
 (native jazz:get-exception-hook)
 (native jazz:set-exception-hook)
@@ -933,6 +934,11 @@
 (native jazz:scheme-readtable)
 (native jazz:jazz-readtable)
 (native jazz:with-jazz-readtable)
+(native input-port-readtable)
+(native input-port-readtable-set!)
+(native readtable-start-syntax-set)
+(native six-types)
+(native six-types-set!)
 
 
 ;;;

@@ -53,7 +53,7 @@
             ##wrap-datum
             ##unwrap-datum
             (jazz:readtable-start-syntax (%%current-readtable))
-            #t)))
+            #f)))
     (%%cdr (%%source-code (%%vector-ref begin-vector 1)))))
 
 

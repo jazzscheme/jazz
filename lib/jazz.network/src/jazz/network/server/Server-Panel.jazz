@@ -134,13 +134,19 @@
                               (else #f))))
           (if (not debugger)
               (format output "Invalid debugger argument {a}{%}" argument)
-            (execute-event
-              (lambda ()
-                (setup-debuggee debugger: debugger)
-                (start-repl-thread (current-thread) #f (get-console-port))
-                (select-console)))
-            (setup-input/output)
-            (format output "Attached to debugger {a}{%}" debugger)))))
+            (when (call-event
+                    (lambda ()
+                      (with-exception-catcher
+                        (lambda (exc)
+                          (display-exception exc)
+                          #f)
+                        (lambda ()
+                          (setup-debuggee debugger: debugger)
+                          (start-repl-thread (current-thread) #f (get-console-port))
+                          (select-console)
+                          #t))))
+              (setup-input/output)
+              (format output "Attached to debugger {a}{%}" debugger))))))
     
     (define (detach-command arguments)
       (detach-from-controller)
@@ -215,9 +221,7 @@
           ((stopped)
            (if (get-controller-debugger)
                (start-stopped)
-             (with-exception-filter
-               (lambda (exc)
-                 #t)
+             (with-exception-catcher
                (lambda (exc)
                  (format output "Unable to start server: {a}{%}"
                    (format-exception exc)))

@@ -197,7 +197,11 @@
       ##six-types)
     
     (define (six-types-set! types)
-      (set! ##six-types types)))
+      (set! ##six-types types))
+    
+    
+    (define print-marker
+      ##print-marker))
   
   
   (else))

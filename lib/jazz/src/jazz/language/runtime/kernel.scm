@@ -940,6 +940,7 @@
 (native readtable-start-syntax-set)
 (native six-types)
 (native six-types-set!)
+(native print-marker)
 
 
 ;;;

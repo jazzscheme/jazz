@@ -535,7 +535,7 @@
 
   (define (process-return actions rest)
     (receive (ret ext) (get-return/exit)
-      (add-action (list 'set! ret (car rest)) actions)
+      (add-action (list 'set! ret (if (null? rest) '(unspecified) (car rest))) actions)
       (add-action (list 'set! ext #t) actions)))
   
   

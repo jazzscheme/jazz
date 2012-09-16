@@ -303,6 +303,16 @@
 
 
 ;;;
+;;;; Float
+;;;
+
+
+(native finite?)
+(native infinite?)
+(native nan?)
+
+
+;;;
 ;;;; Flonum
 ;;;
 

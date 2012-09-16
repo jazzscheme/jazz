@@ -420,13 +420,14 @@
 
 
 (definition (with-repl-thread thread reason port level thunk (step?: step? #f))
-  (parameterize ((current-repl-level level))
-    (let ((repl-thread (start-repl-thread thread reason port level step?: step?)))
-      (let ((console (thread-console thread)))
-        (unwind-protect
-            (thunk)
-          (when console
-            (stop-repl-thread console)))))))
+  (let ((previous-level (current-repl-level)))
+    (parameterize ((current-repl-level level))
+      (let ((repl-thread (start-repl-thread thread reason port level step?: step?)))
+        (let ((console (thread-console thread)))
+          (unwind-protect
+              (thunk)
+            (when console
+              (stop-repl-thread console))))))))
 
 
 (definition public (start-repl-thread thread reason port (level 0) (step?: step? #f))
@@ -1150,8 +1151,8 @@
   (invoke-releases)
   (let ((thread (current-thread))
         (port (get-console-port))
-        (level (+ (current-repl-level) 1)))
-    (with-repl-thread thread reason port level
+        (level (current-repl-level)))
+    (with-repl-thread thread reason port (+ level 1)
       (lambda ()
         (parameterize ((current-repl-frame (box #f)))
           (let ((stop (new Debuggee-Stop thread kind reason detail exc continuation (compute-restarts thread) locat stepper)))
@@ -1160,7 +1161,8 @@
               (dynamic-wind
                 (lambda ()
                   (register-stop stop)
-                  (register-stop~ controller-debugger local-process thread-proxy stop-proxy step?: (boolean stepper)))
+                  (register-stop~ controller-debugger local-process thread-proxy stop-proxy step?: (boolean stepper))
+                  (hook-debuggee thread (+ level 1)))
                 (lambda ()
                   (with-current-loop
                     (lambda ()
@@ -1171,7 +1173,8 @@
                 (lambda ()
                   (unregister-stop stop)
                   (when controller-debugger
-                    (unregister-stop~ controller-debugger local-process thread-proxy stop-proxy))))))))
+                    (unregister-stop~ controller-debugger local-process thread-proxy stop-proxy))
+                  (hook-debuggee thread level)))))))
       step?: (boolean stepper))))
 
 
@@ -1217,6 +1220,28 @@
   (for-each (lambda (hook)
               (hook syntax str container line col))
             *evaluate-hooks*))
+
+
+;;;
+;;;; Debuggee
+;;;
+
+
+(definition *debuggee-hooks*
+  '())
+
+
+(definition public (register-debuggee-hook hook)
+  (set! *debuggee-hooks* (append *debuggee-hooks* (list hook))))
+
+(definition public (unregister-debuggee-hook hook)
+  (set! *debuggee-hooks* (remove! hook *debuggee-hooks*)))
+
+
+(definition public (hook-debuggee thread level)
+  (for-each (lambda (hook)
+              (hook thread level))
+            *debuggee-hooks*))
 
 
 

@@ -60,6 +60,7 @@
   (slot protected rank    initialize #f accessors generate)
   (slot protected borders initialize #f accessors generate)
   (slot protected down?   initialize #f)
+  (slot           tree    initialize #f)
   
   
   (method override (print output readably)
@@ -68,6 +69,16 @@
         (format output "{s} {a}"
                 name
                 title))))
+  
+  
+  (method override (set-parent parent)
+    (nextmethod parent)
+    (set! tree parent))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (set! tree parent))
   
   
   ;;;
@@ -82,9 +93,9 @@
   (method public (set-title value)
     (set! title value)
     (when (and (initialized?)
-               parent
-               (get-player~ parent))
-      (let ((header (get-header~ parent)))
+               tree
+               (get-player~ tree))
+      (let ((header (get-header~ tree)))
         (when header
           (invalidate-column-header~ header self)))))
   
@@ -95,9 +106,9 @@
   
   (method public (set-width value)
     (set! width value)
-    (when parent
-      (invalidate-columns~ parent)
-      (invalidate-view~ parent)))
+    (when tree
+      (invalidate-columns~ tree)
+      (invalidate-view~ tree)))
   
   
   (method public (get-background)
@@ -106,8 +117,8 @@
   
   (method public (set-background value)
     (set! background value)
-    (when parent
-      (invalidate-view~ parent)))
+    (when tree
+      (invalidate-view~ tree)))
   
   
   (method public (get-justification)
@@ -116,16 +127,16 @@
   
   (method public (set-justification just)
     (set! justification just)
-    (when parent
-      (invalidate-view~ parent)))
+    (when tree
+      (invalidate-view~ tree)))
   
   
   (method override (set-visible? flag)
     (nextmethod flag)
-    (when parent
-      (invalidate-columns~ parent)
-      (fill-column~ parent)
-      (invalidate-view~ parent)))
+    (when tree
+      (invalidate-columns~ tree)
+      (fill-column~ tree)
+      (invalidate-view~ tree)))
   
   
   ;;;
@@ -183,7 +194,7 @@
   
   
   (method public virtual (get-header-tooltip)
-    (get-column-tooltip~ parent self))
+    (get-column-tooltip~ tree self))
   
   
   (method public virtual (get-data-tooltip data)
@@ -197,7 +208,7 @@
   
   (method public virtual (header-down pos)
     (set! down? #t)
-    (invalidate-column-header~ (get-header~ parent) self))
+    (invalidate-column-header~ (get-header~ tree) self))
   
   
   (method public virtual (header-move pos)
@@ -206,8 +217,8 @@
   
   (method public virtual (header-up pos)
     (set! down? #f)
-    (invalidate-column-header~ (get-header~ parent) self)
-    (header-click~ parent self))
+    (invalidate-column-header~ (get-header~ tree) self)
+    (header-click~ tree self))
   
   
   (method public virtual (header-double-click pos)
@@ -215,12 +226,12 @@
   
   
   (method public virtual (mouse-down cell pos shift? control?)
-    (acquire-focus~ parent)
+    (acquire-focus~ tree)
     (column-mouse-down cell pos shift? control?))
   
   
   (method public virtual (column-mouse-down cell pos shift? control?)
-    (process-selection~ parent cell shift? control? 'mouse))
+    (process-selection~ tree cell shift? control? 'mouse))
   
   
   (method public virtual (drag-move cell pos)
@@ -236,7 +247,7 @@
   
   
   (method public virtual (context-menu cell pos)
-    (call-context-menu~ parent pos))
+    (call-context-menu~ tree pos))
   
   
   ;;;
@@ -246,9 +257,9 @@
   
   (method public virtual (layout-cell row data h v width height)
     (when (is? data View)
-      (let ((merge-cell (get-merge-cell~ parent (new Site row self))))
+      (let ((merge-cell (get-merge-cell~ tree (new Site row self))))
         (if merge-cell
-            (set-rect~ data (acquire~ row parent (merge-cell-rect~ parent merge-cell)))
+            (set-rect~ data (acquire~ row tree (merge-cell-rect~ tree merge-cell)))
           (set-position~ data (new Point h v))
           (set-size~ data (new Dimension width height))))))
   
@@ -270,7 +281,7 @@
     (let ((rect (new Rect 0 0 width height)))
       (let ((color (cond ((debug-paint?)
                           (cycle-debug-color!))
-                         ((not (view-enabled?~ parent))
+                         ((not (view-enabled?~ tree))
                           {Color Medium})
                          (else
                           (background-color row data context)))))
@@ -284,26 +295,26 @@
   (method (background-color row data context)
     (let ((selected? (getf context selected?:)))
       (if (and selected? (cell-selected? context))
-          (selection-color~ parent)
+          (selection-color~ tree)
         (or (and (is? data Tree-Data) (get-background~ data))
-            (get-cell-background~ parent)
-            (or (get-background~ (get-look~ parent))
+            (get-cell-background~ tree)
+            (or (get-background~ (get-look~ tree))
                 (get-background~ row)
                 {Color Tree-Background})))))
   
   
   (method protected (cell-selected? context)
-    (case (get-selection-mode~ parent)
+    (case (get-selection-mode~ tree)
       ((cell) (let ((line (getf context line:))
-                    (col (column->col~ parent self)))
+                    (col (column->col~ tree self)))
                 (or (some? (lambda (cell)
                              (and (= line (get-line~ cell))
                                   (= col (get-col~ cell))))
-                           (get-selection~ parent))
-                    (let ((merge-cell (get-merge-cell~ parent (cell->site~ parent (new Cell line col)))))
+                           (get-selection~ tree))
+                    (let ((merge-cell (get-merge-cell~ tree (cell->site~ tree (new Cell line col)))))
                       (when merge-cell
-                        (merge-cell-selected?~ parent merge-cell))))))
-      ((node) (let ((col (column->col~ parent self)))
+                        (merge-cell-selected?~ tree merge-cell))))))
+      ((node) (let ((col (column->col~ tree self)))
                 (= col 0)))
       ((row) (let ((line (getf context line:)))
                (memv? line (get-selection~ parent))))))
@@ -333,7 +344,7 @@
           (draw-edge~ surface outer inner: 'raised outer: 'raised edges: '(right bottom))
           (let ((rect (expand-rect outer 0 0 -1 -1)))
             (draw-edge~ surface rect inner: 'raised edges: '(top left))))
-        (fill-rect~ surface inner (if (debug-paint?) (cycle-debug-color!) (or background (header-color~ parent))))
+        (fill-rect~ surface inner (if (debug-paint?) (cycle-debug-color!) (or background (header-color~ tree))))
         (set-text-color~ surface (if enabled? {Color Black} {Color Dark}))
         (with-clipping-transformation~ surface h v width (- height 1) #f
           (lambda ()
@@ -372,7 +383,7 @@
            (text-h (+ (header-title-h surface width height title) 1)))
       (set-color~ surface {Color Dark})
       (frame-rect~ surface outer {Color Dark})
-      (fill-rect~ surface inner (if (debug-paint?) (cycle-debug-color!) (or background (header-color~ parent))))
+      (fill-rect~ surface inner (if (debug-paint?) (cycle-debug-color!) (or background (header-color~ tree))))
       (set-text-color~ surface (if enabled? {Color Black} {Color Dark}))
       (with-clipping-transformation~ surface h v width (- height 1) #f
         (lambda ()

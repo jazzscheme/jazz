@@ -467,6 +467,7 @@
 (native f32vector->list)
 (native list->f32vector)
 (native f32vector-copy)
+(native subf32vector)
 
 ;; f64
 (native f64vector)

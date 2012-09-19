@@ -468,6 +468,8 @@
 (native list->f32vector)
 (native f32vector-copy)
 (native subf32vector)
+(native subf32vector-fill!)
+(native subf32vector-move!)
 
 ;; f64
 (native f64vector)
@@ -479,6 +481,9 @@
 (native f64vector->list)
 (native list->f64vector)
 (native f64vector-copy)
+(native subf64vector)
+(native subf64vector-fill!)
+(native subf64vector-move!)
 
 
 ;;;

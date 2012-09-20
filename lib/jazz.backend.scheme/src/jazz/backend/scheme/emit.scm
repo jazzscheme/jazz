@@ -655,11 +655,23 @@
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fixnum->flonum   '((##fixnum->flonum <fx:fl>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:flonum->fixnum   '(                     (##flonum->fixnum <fl:fx>)))
 
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:make-s32vector   '((##make-s32vector   <fx:s32vector>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s32vector        '((##s32vector        <fx*:s32vector>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s32vector-length '((##s32vector-length <s32vector:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s32vector-ref    '((##s32vector-ref    <s32vector^fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s32vector-set!   '((##s32vector-set!   <s32vector^fx^any:void>)))
+
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:make-f32vector   '((##make-f32vector   <fx:f32vector>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f32vector        '((##f32vector        <fl*:f32vector>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f32vector-length '((##f32vector-length <f32vector:fx>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f32vector-ref    '((##f32vector-ref    <f32vector^fx:fl>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f32vector-set!   '((##f32vector-set!   <f32vector^fx^any:void>)))
+
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:make-f64vector   '((##make-f64vector   <fx:f64vector>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f64vector        '((##f64vector        <fl*:f64vector>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f64vector-length '((##f64vector-length <f64vector:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f64vector-ref    '((##f64vector-ref    <f64vector^fx:fl>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f64vector-set!   '((##f64vector-set!   <f64vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns 'jazz.language.runtime.functional:element      '((list-ref <list^int:any>) (##vector-ref    <vector^int:any>)      (##string-ref    <string^int:char>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.functional:set-element! '(                          (##vector-set!   <vector^int^any:void>) (##string-set!   <string^int^char:void>)))

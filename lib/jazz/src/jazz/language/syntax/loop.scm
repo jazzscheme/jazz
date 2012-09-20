@@ -202,21 +202,24 @@
 
 
   (define (expand-loop)
-    `(let* ,(append withs bindings)
-       ,@prologue
-       (while (and ,@tests)
-         ,@befores
-         ,@actions
-         ,@afters)
-       ,@epilogue
-       ,@(if (eq? return noobject)
-             finally
-           `((if ,exit
-                 ,return
-               ,@(if (not-null? finally)
-                     `((begin
-                         ,@finally))
-                   '()))))))
+    (let ((iter (generate-symbol "iter")))
+      `(let* ,(append withs bindings)
+         ,@prologue
+         (let (,iter)
+           (when (and ,@tests)
+             ,@befores
+             ,@actions
+             ,@afters
+             (,iter)))
+         ,@epilogue
+         ,@(if (eq? return noobject)
+               finally
+             `((if ,exit
+                   ,return
+                 ,@(if (not-null? finally)
+                       `((begin
+                           ,@finally))
+                     '())))))))
   
   
   (define (unique prefix)

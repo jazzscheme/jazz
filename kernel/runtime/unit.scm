@@ -1734,10 +1734,10 @@
   (let ((quiet? (if (%%null? rest) #f (%%car rest))))
     (jazz:with-verbose (jazz:load-verbose?) "loading" (jazz:resource-package-pathname resource)
       (lambda ()
-        (jazz:load (%%list
-                     path: (jazz:resource-pathname resource)
-                     char-encoding: (jazz:resource-char-encoding resource))
-                   quiet?)))))
+        (jazz:load-file (%%list
+                          path: (jazz:resource-pathname resource)
+                          char-encoding: (jazz:resource-char-encoding resource))
+                        quiet?)))))
 
 
 (define (jazz:with-verbose flag action path proc)
@@ -2021,10 +2021,10 @@
                  (jazz:generate-symbol-counter 0))
     (jazz:with-extension-reader (jazz:pathname-extension path)
       (lambda ()
-        (jazz:load (%%list
-                     path: path
-                     char-encoding: 'UTF)
-                   #t)))))
+        (jazz:load-file (%%list
+                          path: path
+                          char-encoding: 'UTF)
+                        #t)))))
 
 
 (define (jazz:unload-unit unit-name)

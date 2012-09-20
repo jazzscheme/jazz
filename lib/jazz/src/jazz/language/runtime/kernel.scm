@@ -664,6 +664,7 @@
 (native jazz:load-unit)
 (native jazz:unload-unit)
 (native jazz:reload-unit)
+(native jazz:load-file)
 (native jazz:load-script)
 (native jazz:current-script-arguments)
 (native jazz:get-load-mutex)

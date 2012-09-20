@@ -48,13 +48,13 @@
 
 (cond-expand
   (gambit
-    (define (jazz:load pathname . rest)
+    (define (jazz:load-file pathname . rest)
       (let ((quiet? (if (%%null? rest) #f (%%car rest))))
         (%%load pathname (lambda rest #f) #f #t quiet?))
       (void)))
   
   (else
-    (define (jazz:load pathname . rest)
+    (define (jazz:load-file pathname . rest)
       (load pathname))))
 
 
@@ -99,7 +99,7 @@
 (define (jazz:load-configuration-files filename install?)
   (define (load-if-exists file)
     (if (file-exists? file)
-        (jazz:load file)))
+        (jazz:load-file file)))
   
   (let ((global (and jazz:jazz-settings-directory (%%string-append jazz:jazz-settings-directory filename)))
         (local filename))

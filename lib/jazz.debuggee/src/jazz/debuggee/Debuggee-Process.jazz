@@ -41,8 +41,10 @@
 (import (jazz.debuggee)
         (jazz.debuggee.stub)
         (jazz.editor.jazz.inspector)
+        (jazz.io)
         (jazz.jrm)
         (jazz.library)
+        (jazz.platform)
         (jazz.runtime)
         (jazz.system)
         (profiler))
@@ -228,6 +230,18 @@
   ;;;
   
   
+  (definition temporary-evaluation-file
+    #f)
+  
+  (definition (get-temporary-evaluation-file)
+    (or temporary-evaluation-file (let ((file (get-temporary-file)))
+                                    ;; changing the extension to jazz is a quick hack for debugger highlight
+                                    ;; the right solution is to do the same thing as (read-source-all port container line col)
+                                    ;; e.g. make it so compilation locations point to the original source file
+                                    (set! temporary-evaluation-file (new-brother~ file (make-filename (get-base~ file) "jazz")))
+                                    file)))
+  
+  
   (method (evaluate-expressions syntax str container line col walk-debugger walk-cookie)
     (define (unit/module-form? expr)
       (and (pair? (source-code expr))
@@ -268,12 +282,32 @@
                   (receive (unit-name access) (parse-unit/module (cdr (source-code first)))
                     (load-unit unit-name)
                     (outline-unit unit-name)
-                    (parameterize ((requested-unit-name unit-name)
-                                   (walk-for 'eval)
-                                   (generate-symbol-for (format "%{a}&" (eval-count)))
-                                   (generate-symbol-context unit-name)
-                                   (generate-symbol-counter 0))
-                      (present (eval evaluate))))
+                    (if (find-setting 'jazz.compile-evaluations? #f)
+                        (let ((file (get-temporary-evaluation-file)))
+                          (call-with-output-file (path-settings file char-encoding: 'UTF-8)
+                            (lambda (output)
+                              (display str output)
+                              (newline output)))
+                          (let ((pathname (parameterize ((jazz:walk-for 'compile)
+                                                         (generate-symbol-for "&")
+                                                         (generate-symbol-context unit-name)
+                                                         (generate-symbol-counter 0))
+                                            (with-jazz-readtable
+                                              (lambda ()
+                                                (compile-file (parse~ file)))))))
+                            (parameterize ((walk-for 'interpret)
+                                           (generate-symbol-for "&")
+                                           (generate-symbol-context unit-name)
+                                           (generate-symbol-counter 0))
+                              (with-jazz-readtable
+                                (lambda ()
+                                  (load-file (list path: pathname char-encoding: 'UTF) #f))))))
+                      (parameterize ((requested-unit-name unit-name)
+                                     (walk-for 'eval)
+                                     (generate-symbol-for (format "%{a}&" (eval-count)))
+                                     (generate-symbol-context unit-name)
+                                     (generate-symbol-counter 0))
+                        (present (eval evaluate)))))
                 (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
                                (generate-symbol-counter 0))
                   (present (eval evaluate)))))

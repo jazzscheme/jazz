@@ -234,7 +234,7 @@
         (%%string->symbol arg)
       arg))
   
-  (let ((exit-code (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
+  (let ((exit-code (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "gvm" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
                      (lambda (commands options remaining)
                        (let ((nosource? (jazz:get-option "nosource" options))
                              (debug? (jazz:get-option "debug" options))
@@ -242,6 +242,7 @@
                              (subbuild? (jazz:get-option "subbuild" options))
                              (keep-c? (jazz:get-option "keep-c" options))
                              (expansion? (jazz:get-option "expansion" options))
+                             (gvm? (jazz:get-option "gvm" options))
                              (emit? (jazz:get-option "emit" options))
                              (dry? (jazz:get-option "dry" options))
                              (build-repository (jazz:get-option "build-repository" options))
@@ -300,6 +301,8 @@
                                (set! jazz:compile-options (%%cons 'keep-c jazz:compile-options)))
                            (if expansion?
                                (set! jazz:compile-options (%%cons 'expansion jazz:compile-options)))
+                           (if gvm?
+                               (set! jazz:compile-options (%%cons 'gvm jazz:compile-options)))
                            (if emit?
                                (jazz:save-emit? #t))
                            (if dry?

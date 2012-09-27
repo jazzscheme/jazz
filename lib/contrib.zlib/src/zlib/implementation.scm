@@ -1027,5 +1027,13 @@
     (genport-close-input-port genport-in)
     result))
 
+(define (inflate-u8vector u8vect)
+  (let* ((genport-in (genport-open-input-u8vector u8vect))
+         (genport-in-gunzip (inflate-genport genport-in))
+         (result (genport-read-u8vector genport-in-gunzip)))
+    (genport-close-input-port genport-in-gunzip)
+    (genport-close-input-port genport-in)
+    result))
+
 ;;;============================================================================
 )

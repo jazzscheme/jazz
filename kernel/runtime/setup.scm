@@ -74,9 +74,15 @@
 ;;;
 
 
+(define jazz:path->container-override
+  (make-parameter #f))
+
+
+;; store unit name instead of path if available
 (define (jazz:path->container-hook path)
-  ;; store unit name instead of path if available
-  (jazz:find-pathname-unit path))
+  (let ((override (jazz:path->container-override)))
+    (or (and override (override path))
+        (jazz:find-pathname-unit path))))
 
 
 (define (jazz:container->path-hook container)

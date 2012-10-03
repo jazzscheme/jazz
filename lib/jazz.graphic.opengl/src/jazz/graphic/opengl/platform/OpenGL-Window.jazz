@@ -56,7 +56,12 @@
   (slot device             initialize #f accessors generate)
   (slot context            initialize #f accessors generate)
   (slot previous-placement initialize #f getter generate)
-  (slot window-mode        initialize 'windowed getter generate)
+  (slot window-mode        initialize #f getter generate)
+  
+  
+  (method override (prepare rest)
+    (nextmethod rest)
+    (set! window-mode (if (opengl-fullscreen?) 'fullscreen 'windowed)))
   
   
   (method override (size-change state size)
@@ -90,9 +95,13 @@
   
   
   (method public (toggle-windowed-mode)
-    (if (eq? window-mode 'windowed)
-        (set-fullscreen-windowed-mode)
-      (restore-windowed-mode)))
+    (case window-mode
+      ((fullscreen)
+       (restore-from-fullscreen))
+      ((windowed)
+       (set-fullscreen-windowed-mode))
+      (else
+       (restore-windowed-mode))))
 
 
   (method public (set-fullscreen-windowed-mode)
@@ -113,6 +122,25 @@
           (bitwise-ior SWP_NOOWNERZORDER SWP_FRAMECHANGED))))
     (show-window handle)
     (set! window-mode 'fullscreen-windowed))
+  
+  
+  (method public (restore-from-fullscreen)
+    (reset-fullscreen-mode)
+    (set-style handle
+               (bitwise-ior WS_CLIPSIBLINGS
+                            WS_CLIPCHILDREN
+                            WS_POPUP
+                            WS_OVERLAPPEDWINDOW
+                            WS_MINIMIZEBOX
+                            WS_SYSMENU))
+    (SetWindowPos handle HWND_TOP
+      50
+      50
+      1216
+      838
+      (bitwise-ior SWP_NOOWNERZORDER SWP_FRAMECHANGED))
+    (show-window handle)
+    (set! window-mode 'windowed))
   
   
   (method public (restore-windowed-mode)

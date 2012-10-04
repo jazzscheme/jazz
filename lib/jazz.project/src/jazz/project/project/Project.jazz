@@ -91,10 +91,10 @@
   
   (method override (finish rest)
     (nextmethod rest)
-    (install-dynamic-projects))
+    (update-dynamic-projects))
   
   
-  (method (install-dynamic-projects)
+  (method (update-dynamic-projects)
     (define (get-dynamic-file)
       (let ((project-file (get-origin~ (get-form))))
         (new-brother~ project-file ".dependencies")))
@@ -112,7 +112,15 @@
             (branch (get-name~ (get-parent~ dynamic-file))))
         (string->symbol (string-append name "-" branch))))
     
-    (define (not-found-handler ref)
+    (define (no-dependencies name)
+      (let ((form
+              (<form>
+                (<Project-Not-Found>))))
+        (let ((title (format "No dependencies for {a}" name)))
+          (set-property~ form 'title title)
+          form)))
+    
+    (define (not-found-handler ref name)
       (let ((form
               (<form>
                 (<Project-Not-Found>))))
@@ -121,6 +129,7 @@
                          (get-message~ exc))
                   (format "{a} not found" (parse~ ref)))))
           (set-property~ form 'title title)
+          (set-name~ form name)
           form)))
     
     (when dynamic?
@@ -132,7 +141,7 @@
                                     (map (lambda (data)
                                            (with-exception-catcher
                                              (lambda (exc)
-                                               (instantiate~ (not-found-handler dynamic-file) parent: self))
+                                               (instantiate~ (not-found-handler dynamic-file #f) parent: self))
                                              (lambda ()
                                                (let ((file (make-dynamic-project-file data))
                                                      (name (make-dynamic-project-name data)))
@@ -141,10 +150,14 @@
                                                        ((exists?~ file)
                                                         (instantiate-file file parent: self name: name))
                                                        (else
-                                                        (instantiate~ (not-found-handler file) parent: self)))))))
+                                                        (instantiate~ (not-found-handler file name) parent: self)))))))
                                          (call-with-input-file (parse~ dynamic-file) read))
-                                  (list (not-found-handler dynamic-file)))))
+                                  (list (instantiate~ (no-dependencies root-name) parent: self)))))
             (set! dynamic-projects added-projects))))))
+  
+  
+  (method public (dynamic-project?)
+    (and parent (is? parent Project) (get-dynamic?~ parent) (memq? self (get-dynamic-projects~ parent))))
   
   
   (method public (get-effective-dynamic-projects)
@@ -289,9 +302,13 @@
   
   (method public (require-catalog (report?: report? #f))
     (define (create/register-catalog)
-      (let ((catalog (create-catalog)))
-        (add-catalog~ (get-cataloguer~ (get-application)) catalog)
-        catalog))
+      (if (dynamic-project?)
+          (let ((cataloguer (get-cataloguer~ (get-application))))
+            (or (find-if (lambda (catalog) (eq? (get-name~ catalog) (catalog-name))) (get-catalogs~ cataloguer))
+                (let ((catalog (create-catalog)))
+                  (add-catalog~ cataloguer catalog)
+                  catalog)))
+        (create-catalog)))
     
     (unless catalog
       (set! catalog (create/register-catalog)))
@@ -308,7 +325,8 @@
                   (name (catalog-name)))
       (let ((parent (get-parent~ project)))
         (if (or (not parent)
-                (is? parent Workbench))
+                (is? parent Workbench)
+                (dynamic-project?~ project))
             name
           (iterate parent (format "{a}${a}" (catalog-name~ parent) name))))))
   
@@ -322,12 +340,24 @@
   
   
   (method public (for-each-catalog proc)
-    (for-each-project
-      (lambda (project)
-        (let ((catalog (require-catalog~ project report?: #t)))
-          (when catalog
-            (when (get-active?~ catalog)
-              (proc catalog)))))))
+    (let ((known-projects (make-table)))
+      (define (known-dynamic-project? project)
+        (when (dynamic-project?~ project)
+          (let ((name (get-name~ project)))
+            (if (table-ref known-projects name #f)
+                #t
+              (table-set! known-projects name #t)
+              #f))))
+      
+      (for-each-project
+        (lambda (project)
+          (let ((catalog (require-catalog~ project report?: #t)))
+            (when catalog
+              (when (and (get-active?~ catalog)
+                         (not (and (dynamic-project?~ project)
+                                   (table-ref known-projects (get-name~ project) #f))))
+                (proc catalog)))))
+        stop-test: known-dynamic-project?)))
 
 
   ;;;

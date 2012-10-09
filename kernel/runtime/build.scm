@@ -534,13 +534,14 @@
       (define (link-options)
         (if library-image?
             (case platform
-              ((windows) '("-shared" "-D___DYNAMIC"))
+              ((windows) '("-Wl,--large-address-aware" "-shared" "-D___DYNAMIC"))
               (else '("-bundle" "-D___DYNAMIC")))
           (case platform
             ((windows)
-             (if console?
-                 '("-mconsole")
-               '("-mwindows")))
+             (cons "-Wl,--large-address-aware"
+                   (if console?
+                       '("-mconsole")
+                     '("-mwindows"))))
             (else
              '()))))
       
@@ -943,7 +944,7 @@
               (list
                 path: "gcc"
                 arguments: `(,@(case platform
-                                 ((windows) '("-shared" "-D___DYNAMIC"))
+                                 ((windows) '("-Wl,--large-address-aware" "-shared" "-D___DYNAMIC"))
                                  (else '("-bundle" "-D___DYNAMIC")))
                              ,header-o
                              ,@(map (lambda (subunit-name)

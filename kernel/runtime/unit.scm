@@ -314,8 +314,10 @@
                         (let ((dir (jazz:absolutize-directory jazz:kernel-install path)))
                           (jazz:load-repository dir error?: #f)))
                       source-repositories)
-      ,@(jazz:collect (lambda (path)
-                        (jazz:load-repository path error?: #f))
+      ,@(jazz:collect (lambda (name/path)
+                        (let ((name (car name/path))
+                              (path (cdr name/path)))
+                          (jazz:load-repository path name: name error?: #f)))
                       dynamic-repositories)
       ,@(listify build)
       ,@(if jazz
@@ -328,7 +330,8 @@
       ;; path is "C:/Home/dep/src/<name>/<branch>"
       (let ((dep-dir (jazz:absolutize-directory jazz:kernel-install "../../../dep/src"))
             (rel-dir (jazz:join-strings (list name branch) #\/)))
-        (%%string-append dep-dir rel-dir))))
+        (cons name
+              (%%string-append dep-dir rel-dir)))))
   
   (define (dynamic-repositories)
     (let ((dependencies (jazz:dependencies)))

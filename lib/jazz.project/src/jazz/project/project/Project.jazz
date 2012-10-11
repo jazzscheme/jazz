@@ -69,8 +69,8 @@
   (property active-project     initialize #f accessors generate)
   (property active-traits      initialize #f accessors generate)
   (property dynamic?           initialize #f accessors generate)
-
-
+  
+  
   (slot catalog          initialize #f accessors generate)
   (slot depot            initialize #f accessors generate)
   (slot dynamic-projects initialize #f accessors generate)
@@ -226,12 +226,12 @@
                              (cdr sorted))
                    (format output "){%}"))))))))
   
-
+  
   ;;;
   ;;;; Access
   ;;;
-
-
+  
+  
   (method public virtual (project-title)
     (or title (if name
                   (symbol->string name)
@@ -240,8 +240,8 @@
   
   (method public (get-parent-project)
     (find-ascendant Project))
-
-
+  
+  
   ;;;
   ;;;; Concrete
   ;;;
@@ -249,8 +249,8 @@
   
   (method public virtual (concrete?)
     #f)
-
-
+  
+  
   ;;;
   ;;;; Context
   ;;;
@@ -270,8 +270,8 @@
             (let ((context-pathname (new (class-of pathname) (cons :context subpath))))
               (set-context~ context-pathname context)
               context-pathname))))))
-
-
+  
+  
   ;;;
   ;;;; Name
   ;;;
@@ -281,8 +281,8 @@
     (if title
         (string->symbol title)
       name))
-
-
+  
+  
   ;;;
   ;;;; Catalog
   ;;;
@@ -341,12 +341,20 @@
   
   
   (method public (for-each-active-catalog proc)
-    (for-each-project
-      (lambda (project)
-        (let ((catalog (require-catalog~ project report?: #t)))
-          (when catalog
-            (when (get-active?~ catalog)
-              (proc catalog)))))))
+    (let ((processed-catalogs (make-table))
+          (processed? #f))
+      (for-each-project
+        (lambda (project)
+          (set! processed? #t)
+          (when (get-active?~ project)
+            (let ((catalog (require-catalog~ project report?: #t)))
+              (let ((key (parse~ (get-file~ catalog))))
+                (when (not (table-ref processed-catalogs key #f))
+                  (table-set! processed-catalogs key #t)
+                  (set! processed? #f)
+                  (proc catalog))))))
+        stop-test: (lambda (project)
+                     processed?))))
 
 
   ;;;

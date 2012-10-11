@@ -53,7 +53,7 @@
   ;;;
 
 
-  (method public virtual (for-each-catalog context proc)
+  (method public virtual (for-each-active-catalog context proc)
     (for-each (lambda (catalog)
                 (when (get-active?~ catalog)
                   (proc catalog)))
@@ -70,16 +70,20 @@
       (set! catalogs (remove! catalog catalogs))))
 
 
-  (method public (get-catalog name (error?: error? #t) (report?: report? #t))
-    (or (find-catalog name)
+  (method public (get-catalog name (error?: error? #t))
+    (or (find-active-catalog name)
         (when error?
           (error "Unknown catalog: {t}" name))))
   
   
-  (method public (find-catalog name)
+  (method public virtual (find-catalogs name)
+    (collect-if (lambda (catalog) (eq? (get-name~ catalog) name)) catalogs))
+  
+  
+  (method public (find-active-catalog name)
     (continuation-capture
       (lambda (return)
-        (for-each-catalog (get-context)
+        (for-each-active-catalog (get-context)
           (lambda (catalog)
             (when (eq? (get-name~ catalog) name)
               (continuation-return return catalog))))
@@ -93,7 +97,7 @@
   
   (method public (save-catalogs)
     (let ((names (make-table test: equal?)))
-      (for-each-catalog (get-context)
+      (for-each-active-catalog (get-context)
         (lambda (catalog)
           (let ((name (get-name~ (get-file~ catalog))))
             (if (table-ref names name #f)
@@ -118,7 +122,7 @@
   
   (method public (get-definitions name (context: context (get-context)))
     (let ((fact (new List-Factory)))
-      (for-each-catalog context
+      (for-each-active-catalog context
         (lambda (catalog)
           (put-sequence~ fact (get-definitions~ catalog name))))
       (get-output~ fact)))
@@ -144,7 +148,7 @@
   
   (method public (search-definitions search-set (context: context (get-context)))
     (let ((fact (new List-Factory)))
-      (for-each-catalog context
+      (for-each-active-catalog context
         (lambda (catalog)
           (put-sequence~ fact (search-definitions~ catalog search-set))))
       (get-output~ fact)))
@@ -152,7 +156,7 @@
   
   (method public (search-references search-set (context: context (get-context)))
     (let ((fact (new List-Factory)))
-      (for-each-catalog context
+      (for-each-active-catalog context
         (lambda (catalog)
           (put-sequence~ fact (search-references~ catalog search-set))))
       (get-output~ fact)))
@@ -160,7 +164,7 @@
   
   (method public (get-references name (context: context (get-context)))
     (let ((fact (new List-Factory)))
-      (for-each-catalog context
+      (for-each-active-catalog context
         (lambda (catalog)
           (put-sequence~ fact (get-references~ catalog name))))
       (get-output~ fact)))
@@ -168,7 +172,7 @@
   
   (method public (get-file-entries file (context: context (get-context)))
     (let ((fact (new List-Factory)))
-      (for-each-catalog context
+      (for-each-active-catalog context
         (lambda (catalog)
           (let ((entry (get-file-entry~ catalog file)))
             (when entry
@@ -195,6 +199,6 @@
   
   
   (method public (add-completions table name (context: context (get-context)))
-    (for-each-catalog context
+    (for-each-active-catalog context
       (lambda (catalog)
         (add-completions~ catalog table name))))))

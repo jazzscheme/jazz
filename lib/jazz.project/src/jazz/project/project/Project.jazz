@@ -289,7 +289,7 @@
   
   
   (method public (save-catalogs)
-    (for-each-catalog save~))
+    (for-each-active-catalog save~))
   
   
   (method public (load-catalogs (include-inactives?: include-inactives? #f))
@@ -302,13 +302,14 @@
   
   (method public (require-catalog (report?: report? #f))
     (define (create/register-catalog)
-      (if (dynamic-project?)
-          (let ((cataloguer (get-cataloguer~ (get-application))))
-            (or (find-if (lambda (catalog) (eq? (get-name~ catalog) (catalog-name))) (get-catalogs~ cataloguer))
-                (let ((catalog (create-catalog)))
-                  (add-catalog~ cataloguer catalog)
-                  catalog)))
-        (create-catalog)))
+      (let ((cataloguer (get-cataloguer~ (get-application)))
+            (catalog-file (catalog-output))
+            (name (catalog-name)))
+        (or (find-if (lambda (catalog) (compare-pathname~ catalog-file (get-file~ catalog)))
+                     (find-catalogs~ cataloguer name))
+            (let ((catalog (create-catalog)))
+              (add-catalog~ cataloguer catalog)
+              catalog))))
     
     (unless catalog
       (set! catalog (create/register-catalog)))
@@ -339,25 +340,13 @@
     (not-null? children))
   
   
-  (method public (for-each-catalog proc)
-    (let ((known-projects (make-table)))
-      (define (known-dynamic-project? project)
-        (when (dynamic-project?~ project)
-          (let ((name (get-name~ project)))
-            (if (table-ref known-projects name #f)
-                #t
-              (table-set! known-projects name #t)
-              #f))))
-      
-      (for-each-project
-        (lambda (project)
-          (let ((catalog (require-catalog~ project report?: #t)))
-            (when catalog
-              (when (and (get-active?~ catalog)
-                         (not (and (dynamic-project?~ project)
-                                   (table-ref known-projects (get-name~ project) #f))))
-                (proc catalog)))))
-        stop-test: known-dynamic-project?)))
+  (method public (for-each-active-catalog proc)
+    (for-each-project
+      (lambda (project)
+        (let ((catalog (require-catalog~ project report?: #t)))
+          (when catalog
+            (when (get-active?~ catalog)
+              (proc catalog)))))))
 
 
   ;;;

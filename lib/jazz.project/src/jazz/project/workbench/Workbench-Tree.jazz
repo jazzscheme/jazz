@@ -127,9 +127,32 @@
   
   
   (method override (row-state component update? level)
-    (if update?
-        (if (< level 1) 'expanded 'collapsed)
-      'collapsed))
+    (if (dynamic-component? component)
+        'dynamic
+      (if update?
+          (if (< level 1) 'expanded 'collapsed)
+        'collapsed)))
+  
+  
+  (method (dynamic-component? component)
+    (and (is? component Project-Directory)
+         (not-null? (get-components~ component))
+         (get-parent~ component)
+         (not (is? (get-parent~ component) Project-Directory))))
+  
+  
+  (method override (update-row row)
+    (let ((component (get-user-data~ row)))
+      (when (dynamic-component? component)
+        (let ((rights (get-rights))
+              (update? #t)
+              (level (get-level~ row)))
+          (insert-component-list row component (get-components~ component) rights update? level)))))
+  
+  
+  (method override (insert-components row component rights update? level)
+    (unless (dynamic-component? component)
+      (insert-component-list row component (get-components~ component) rights update? level)))
   
   
   (method override (double-click evt)

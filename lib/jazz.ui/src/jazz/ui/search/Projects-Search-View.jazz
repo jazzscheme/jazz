@@ -139,39 +139,46 @@
   
   (method override (search-targets find replace)
     (define (search-files)
-      (let ((appl (get-application)))
-        (let ((search (new Projects-Search 'files find replace))
-              (project (selected-project))
-              (entries (selected-entries))
-              (cataloguer (get-cataloguer~ appl))
-              (reporter (new User-Reporter)))
-          (define (search-project resultset)
+      (let ((search (new Projects-Search 'files find replace)))
+        (let ((reporter (new User-Reporter))
+              (resultset (new Search-Resultset search)))
+          (let ((project (selected-project))
+                (entries (selected-entries))
+                (processed-table (make-table))
+                (processed? #f))
             (for-each-project~ project
               (lambda (project)
-                (if (not entries)
-                    (iterate-files~ project
-                      (lambda (file)
-                        (search-in-file search file resultset reporter)))
-                  (case entries
-                    ((projects)
-                     (let ((project-file (get-tag-reference~ (get-form~ project))))
-                       (when project-file
-                         (search-in-file search project-file resultset reporter))))
-                    ((packages)
-                     (let ((description-file (get-description-file~ project)))
-                       (when description-file
-                         (search-in-file search description-file resultset reporter))))
-                    ((documentation)
-                     (let ((documentation (get-documentation~ project)))
-                       (when documentation
-                         (search-in-file search documentation resultset reporter)))))))))
-          
-          (let ((resultset (new Search-Resultset search)))
-            (search-project resultset)
-            (post-event
-              (lambda ()
-                (let ((results (get-results)))
-                  (select-results~ results resultset)))))
+                (set! processed? #t)
+                (unless (and (dynamic-project?~ project)
+                             (let ((key (get-path~ (project-context~ project))))
+                               (if (table-ref processed-table key #f)
+                                   #t
+                                 (table-set! processed-table key #t)
+                                 #f)))
+                  (set! processed? #f)
+                  (if (not entries)
+                      (iterate-files~ project
+                        (lambda (file)
+                          (search-in-file search file resultset reporter)))
+                    (case entries
+                      ((projects)
+                       (let ((project-file (get-tag-reference~ (get-form~ project))))
+                         (when project-file
+                           (search-in-file search project-file resultset reporter))))
+                      ((packages)
+                       (let ((description-file (get-description-file~ project)))
+                         (when description-file
+                           (search-in-file search description-file resultset reporter))))
+                      ((documentation)
+                       (let ((documentation (get-documentation~ project)))
+                         (when documentation
+                           (search-in-file search documentation resultset reporter))))))))
+              stop-test: (lambda (project)
+                           processed?)))
+          (post-event
+            (lambda ()
+              (let ((results (get-results)))
+                (select-results~ results resultset))))
           (user-feedback~ reporter "Done"))))
     
     (define (search-definitions)

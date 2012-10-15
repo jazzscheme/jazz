@@ -45,6 +45,7 @@
         prog1
         while
         for
+        for-to
         unwind-protect
         catch
         ~
@@ -133,7 +134,28 @@
           (with-uniqueness to
             (lambda (t)
               `(let (,iter (,var <fx> ,from))
+                 (declare (proper-tail-calls))
                  (if (< ,var ,t)
+                     (begin
+                       ,@body
+                       (,iter (+ ,var 1)))))))
+          form-src)))))
+
+
+(define-syntax for-to
+  (lambda (form-src usage-environment macro-environment)
+    (let ((clause (source-code (cadr (source-code form-src))))
+          (body (cddr (source-code form-src)))
+          (iter (generate-symbol "iter")))
+      (let ((var (car clause))
+            (from (cadr clause))
+            (to (caddr clause)))
+        (sourcify-if
+          (with-uniqueness to
+            (lambda (t)
+              `(let (,iter (,var <fx> ,from))
+                 (declare (proper-tail-calls))
+                 (if (<= ,var ,t)
                      (begin
                        ,@body
                        (,iter (+ ,var 1)))))))

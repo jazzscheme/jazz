@@ -188,6 +188,14 @@
     (genport-close-input-port genport-in)
     result))
 
+(define (deflate-u8vector u8vect)
+  (let* ((genport-in (genport-open-input-u8vector u8vect))
+         (genport-in-gzip (deflate-genport genport-in))
+         (result (genport-read-u8vector genport-in-gzip)))
+    (genport-close-input-port genport-in-gzip)
+    (genport-close-input-port genport-in)
+    result))
+
 ;;;----------------------------------------------------------------------------
 
 ;;; Decompression.

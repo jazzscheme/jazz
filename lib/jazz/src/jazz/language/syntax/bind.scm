@@ -39,9 +39,13 @@
 (module protected jazz.language.syntax.bind scheme
 
 
-(export bind)
+(export bind
+        bind-vector)
 
 (import (jazz.language.runtime.kernel))
+
+
+(native private jazz:naturals)
 
 
 ; @syntax (bind ((a . r) b . c) tree (list a b c r))
@@ -93,4 +97,20 @@
           (lambda (tree-value)
             `(begin
                ,@(expand-bind-car bindings tree-value body))))
+        form-src))))
+
+
+(define-syntax bind-vector
+  (lambda (form-src usage-environment macro-environment)
+    (let ((bindings (source-code (cadr (source-code form-src))))
+          (vector (car (cddr (source-code form-src))))
+          (body (cdr (cddr (source-code form-src))))
+          (vec (generate-symbol "vec")))
+      (sourcify-if
+        `(let ((,vec ,vector))
+           (let ,(map (lambda (variable rank)
+                        `(,variable (vector-ref ,vec ,rank)))
+                        bindings
+                        (naturals 0 (length bindings)))
+             ,@body))
         form-src)))))

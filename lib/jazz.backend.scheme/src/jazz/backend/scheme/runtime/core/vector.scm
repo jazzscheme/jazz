@@ -43,4 +43,5 @@
 ;;;
 
 
-(define jazz:vector-copy vector-copy))
+(define jazz:vector-copy vector-copy)
+(define jazz:subvector-move! ##subvector-move!))

@@ -1261,6 +1261,7 @@
 
 
 (native jazz:vector-copy)
+(native jazz:subvector-move!)
 
 
 ;;;

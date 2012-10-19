@@ -65,6 +65,7 @@
   (slot preferences-designer initialize #f getter generate)
   (slot context              initialize #f)
   (slot exit-continuation    initialize #f)
+  (slot monitor-memory?      initialize #f)
 
   
   ;;;
@@ -121,6 +122,7 @@
   (method public virtual (boot-environment)
     (catch (Cancel-Signal signal
              #f)
+      (monitor-memory)
       (update-debuggee)
       (initialize-aliases)
       (initialize-settings)
@@ -141,6 +143,25 @@
           (system-message (format "Internal error: Load stack not empty.{%}{%}This is probably caused by a product run unit doing its initialisations at the toplevel instead of registering them using register-product-run.{%}{%}Please report this problem to the JazzScheme team if this is not the case.")))
         (run-loop))
       #f))
+  
+  
+  (method (monitor-memory)
+    (when monitor-memory?
+      (add-gc-interrupt-job!
+        (let ((n-times-over 0)
+              (active? #t))
+          (lambda ()
+            (receive (last_gc_heap_size last_gc_alloc last_gc_live last_gc_movable last_gc_nonmovable) (process-memory)
+              (let ((live (if (= (get-live-percent) 0) 50. (get-live-percent)))
+                    (current-live (round (* 100. (/ last_gc_live last_gc_heap_size)))))
+                (cond ((<= current-live live)
+                       (set! n-times-over 0)
+                       (set! active? #t))
+                      ((and active? (> n-times-over 1))
+                       (set! active? #f)
+                       (raise-heap-overflow-exception))
+                      (active?
+                       (set! n-times-over (+ n-times-over 1)))))))))))
   
   
   (method (update-debuggee)

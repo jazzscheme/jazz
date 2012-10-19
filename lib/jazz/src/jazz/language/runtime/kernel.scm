@@ -760,6 +760,9 @@
 (native jazz:f64vector-size)
 (native jazz:list-size)
 (native jazz:table-size)
+(native add-gc-interrupt-job!)
+(native get-live-percent)
+(native raise-heap-overflow-exception)
 
 
 ;;;

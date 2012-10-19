@@ -102,6 +102,18 @@
     (values count chars)))
 
 
+(define (add-gc-interrupt-job! thunk)
+  (##add-gc-interrupt-job! thunk))
+
+
+(define (get-live-percent)
+  (##get-live-percent))
+
+
+(define (raise-heap-overflow-exception)
+  (##raise-heap-overflow-exception))
+
+
 ;;;
 ;;;; Classes
 ;;;

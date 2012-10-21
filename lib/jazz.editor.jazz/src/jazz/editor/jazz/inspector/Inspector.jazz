@@ -125,7 +125,8 @@
   
   
   (method protected (calculate-forced-ordering class-symbol)
-    (when (eq? class-symbol 'jazz:Pair)
+    (when (or (eq? class-symbol 'jazz:Pair)
+              (eq? class-symbol 'jazz:Vector))
       'natural))
   
   
@@ -204,6 +205,8 @@
                         (let ((menu (new Missing-Menu client: self)))
                           (track-popup-menu menu acquired))
                       (let ((menu (new Value-Menu client: self)))
+                        (when (not (eq? class 'jazz:Continuation))
+                          (set-visible?~ (locate~ menu 'inspect) #f))
                         (when (not more?)
                           (set-visible?~ (locate~ menu 'refresh) #f))
                         (layout-menu~ menu)
@@ -225,6 +228,15 @@
           (let ((presentation (present-serial~ process serial)))
             (set-clipboard-text presentation)))
         (user-message "Content copied to clipboard"))))
+  
+  
+  (method (on-inspect evt)
+    (let ((info (get-single-selected-data)))
+      (if (not (pair? info))
+          (bell)
+        (bind (key serial class presentation more? mutable? kind) info
+          (when (eq? class 'jazz:Continuation)
+            (inspect-continuation~ (get-local-debugger~ (get-application)) process serial))))))
   
   
   (method (on-open evt)
@@ -315,6 +327,7 @@
     (<install>
       (<Label-Item>     name: copy       title: "Copy" icon: {Image-Resource "Copy"} action-handler: {Event-Handler (:form :client) on-copy-text})
       (<Label-Item>     name: copy-value title: "Copy Content" action-handler: {Event-Handler (:form :client) on-copy-content})
+      (<Label-Item>     name: inspect    title: "Inspect Continuation" action-handler: {Event-Handler (:form :client) on-inspect})
       (<Separator-Item>)
       (<Label-Item>     name: open       title: "Open in New Window" icon: {Image-Resource "Window"} action-handler: {Event-Handler (:form :client) on-open})
       (<Separator-Item>)

@@ -4209,8 +4209,9 @@
           (if (eqv? timeout 0)
               (prog1 (eof-object)
                 (mutex-unlock! mutex))
-            (mutex-unlock! mutex mutex-condition)
-            (iter)))))))
+            (if (mutex-unlock! mutex mutex-condition timeout)
+                (iter)
+              (eof-object))))))))
 
 
 ;;;
@@ -4380,7 +4381,7 @@
 (definition (get-thread-queue thread)
   (mutex-lock! thread-queues-mutex)
   (prog1 (or (table-ref thread-queues thread #f)
-             (let ((queue (new Priority-Queue (if (primordial-thread?) 3 1))))
+             (let ((queue (new Priority-Queue (if (eq? thread (primordial-thread)) 3 1))))
                (table-set! thread-queues thread queue)
                queue))
     (mutex-unlock! thread-queues-mutex)))

@@ -79,8 +79,12 @@
   
   
   (method public (attach-to-debugger controller-register debugger-cookie)
-    (attach-debuggee-to-controller controller-register focus?: #t)
-    (ready-to-controller debugger-cookie))
+    (thread-post (primordial-thread) 'attach-to-debugger
+      (lambda ()
+        (attach-debuggee-to-controller controller-register focus?: #t)
+        (start-repl-thread (current-thread) #f (get-console-port))
+        (select-console)
+        (ready-to-controller debugger-cookie))))
   
   
   (method public (exit-process)
@@ -412,6 +416,13 @@
   
   (method public (inspect-serial serial max-content)
     (inspect-value (serial->object serial) max-content: max-content))
+  
+  
+  (method public (inspect-continuation serial)
+    (let ((k (serial->object serial)))
+      (assert (continuation? k))
+      (thread-start! (make-thread (lambda () (continuation-graft k break))
+                                  serial))))
   
   
   (method public (present-serial serial)

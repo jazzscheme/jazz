@@ -41,6 +41,7 @@
 (export submodule
         constant
         when
+        jazzdoc
         unless
         prog1
         while
@@ -96,6 +97,12 @@
      (if test
          (expand-body expr ...)
        #f))))
+
+
+(define-syntax jazzdoc
+  (syntax-rules ()
+    ((jazzdoc expr ...)
+     (unspecified))))
 
 
 (define-syntax unless

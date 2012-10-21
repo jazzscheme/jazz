@@ -41,6 +41,36 @@
 (import time)
 
 
+(definition public (string->quoted-printable-string string)
+  (let ((u8-port (open-u8vector '(char-encoding: UTF-8)))
+        (string-port (open-output-string)))
+    (display string u8-port)
+    (force-output u8-port)
+    (close-output-port u8-port)
+    (let (loop (col 0) (byte (read-u8 u8-port)))
+      (if (= col 75)
+          (begin
+            (display "=\n" string-port)
+            (loop 0 byte))
+        (let ((next (read-u8 u8-port)))
+          (cond ((eof-object? byte) (get-output-string string-port))
+                ((or (and (<= 33 byte) (<= byte 60))
+                     (and (<= 62 byte) (<= byte 126))
+                     (and (or (= byte 32) (= byte 9))
+                          (not (or (eof-object? next) (= next 10) (= next 13)))))
+                 (display (integer->char byte) string-port)
+                 (loop (+ col 1) next))
+                ((>= col 73)
+                 (display "=\n" string-port)
+                 (display #\= string-port)
+                 (display (number->string byte 16) string-port)
+                 (loop 3 next))
+                (else
+                 (display #\= string-port)
+                 (display (number->string byte 16) string-port)
+                 (loop (+ col 3) next))))))))
+
+
 (class MIME-Message extends Object
   
   
@@ -71,13 +101,27 @@
   (definition line-size 72)
   
   
+  (definition encoded-subject-size 60)
+  
+  
   (definition attachment-buffer-size (* 3 (/ line-size 4)))
+  
+  
+  (definition subject-buffer-size (* 3 (/ encoded-subject-size 4)))
   
   
   (definition separator (format "--{a}\n" boundary))
   
   
   (definition ending (format "--{a}--\n" boundary))
+  
+  
+  (method (remove-unicode-characters string)
+    (list->string
+      (map (lambda (ch)
+             (let ((n (char->integer ch)))
+               (if (> n 255) #\space ch)))
+           (string->list string))))
   
   
   (method (format-mime-date date)
@@ -90,7 +134,7 @@
                    (format "{?:Cc: {a}{%}~}" (not-null? cc) (join cc ", "))
                    (format "{?:Bcc: {a}{%}~}" (not-null? bcc) (join bcc ", "))
                    (format "Date: {a}{%}" (format-mime-date (system-date)))
-                   (format "Subject: {a}{%}" subject)
+                   (format "Subject: {a}{%}" (encode-subject))
                    "MIME-Version: 1.0\n"))
   
   
@@ -104,6 +148,26 @@
               (newline port)
               (loop next-i))
           (write-substring message i length port)))))
+  
+  
+  (method (encode-subject)
+    (let ((buffer (make-u8vector subject-buffer-size))
+          (u8-port (open-u8vector '(char-encoding: UTF-8)))
+          (string-port (open-output-string)))
+      (display subject u8-port)
+      (force-output u8-port)
+      (close-output-port u8-port)
+      (let (loop)
+        (let ((size (read-subu8vector buffer 0 subject-buffer-size u8-port)))
+          (if (> size 0)
+              (let* ((last? (< size subject-buffer-size))
+                     (buffer (if last? (subu8vector buffer 0 size) buffer)))
+                (display "=?utf-8?B?" string-port)
+                (display (u8vector->base64-string buffer) string-port)
+                (display "?=" string-port)
+                (unless last? (display "\n " string-port))
+                (loop))
+            (get-output-string string-port))))))
   
   
   (method (send-file file port)
@@ -123,8 +187,9 @@
     (unless (null? attachments)
       (display (format "Content-Type: multipart/mixed; boundary={a}\n" boundary) port)
       (display separator port))
-    (display (format "Content-Type: {a};\n\n" (or content-type 'text/plain)) port)
-    (send-message port)
+    (display (format "Content-Type: {a}; charset=\"UTF-8\"\n" (or content-type 'text/plain)) port)
+    (display "Content-Transfer-Encoding: quoted-printable\n\n" port)
+    (display (string->quoted-printable-string message) port)
     (display "\n\n" port)
     (for-each (lambda (file)
                 (display separator port)

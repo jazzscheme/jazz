@@ -792,6 +792,7 @@
   (jazz:pkg-config "--modversion" libname))
 
 (define (jazz:pipe-no-return input output)
+  (declare (proper-tail-calls))
   (let iterate ()
     (let ((c (read-char input)))
       (if (%%not (or (eof-object? c) (%%eq? #\newline c)))

@@ -47,15 +47,22 @@
   72.)
 
 
-(definition public (document->pdf view file (page-setup: page-setup #f) (scaling: scaling #f))
+(definition public (with-pdf-job view file proc (page-setup: page-setup #f) (scaling: scaling #f))
   (let ((page-setup (or page-setup (new Page-Setup))))
     (let ((width (fxceiling (* (/ (get-width~ page-setup) default-resolution) pdf-dpi)))
           (height (fxceiling (* (/ (get-height~ page-setup) default-resolution) pdf-dpi))))
       (with ((surface (new PDF-Surface #f (new Dimension width height) (parse~ file))))
         (with-update-locked~ view
           (lambda ()
-            (let ((job (new PDF-Job surface view page-setup pdf-dpi scaling: scaling)))
-              (print-job~ job))))))))
+            (proc (new PDF-Job surface view page-setup pdf-dpi scaling: scaling))))))))
+
+
+(definition public (document->pdf view file (page-setup: page-setup #f) (scaling: scaling #f))
+  (with-pdf-job view file
+    (lambda (job)
+      (print-job~ job))
+    page-setup: page-setup
+    scaling: scaling))
 
 
 ;;;

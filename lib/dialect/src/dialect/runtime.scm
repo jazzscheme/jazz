@@ -4669,6 +4669,22 @@
             (values name specifier `(lambda ,parameters ,@specifier-list ,@body) parameters)))))))
 
 
+;; Until I unify signature and function type
+;; Only positional parameters as a first draft
+(define (jazz:build-function-type signature result-type)
+  (define (parameter-type parameter)
+    (or (jazz:get-lexical-binding-type parameter)
+        jazz:Any))
+  
+  (jazz:new-function-type
+    (map parameter-type (jazz:get-signature-positional signature))
+    (map parameter-type (jazz:get-signature-optional signature))
+    (map parameter-type (jazz:get-signature-named signature))
+    (let ((rest (jazz:get-signature-rest signature)))
+      (and rest (parameter-type rest)))
+    (or result-type jazz:Any)))
+
+
 ;;;
 ;;;; Symbol
 ;;;

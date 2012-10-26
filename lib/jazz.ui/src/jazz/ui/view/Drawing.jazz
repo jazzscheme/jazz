@@ -480,6 +480,17 @@
             (set! nodes (cons (full-tree child) nodes))))
         (cons view (cons #t nodes))))
     
+    (define (toplevel-tree surface view clip-rect)
+      (let ((nodes '()))
+        (for-each-view-reversed~ view
+          (lambda (child)
+            (with-self-transformation~ child surface
+              (lambda ()
+                (let ((child-rect (logical->device~ surface (get-bounds~ child))))
+                  (when (rect-intersect? clip-rect child-rect)
+                    (set! nodes (cons (full-tree child) nodes))))))))
+        (cons view (cons #t nodes))))
+    
     (case (or (painting-tree-algorithm~ surface) (get-platform-painting-tree-algorithm))
       ((region)
        (receive (coverage node) (region-tree surface self region)
@@ -488,6 +499,8 @@
       ((rectangle)
        (receive (coverage node) (rectangle-tree surface self (get-box~ region))
          node))
+      ((toplevel)
+       (toplevel-tree surface self (get-box~ region)))
       ((full)
        (full-tree self))))
 

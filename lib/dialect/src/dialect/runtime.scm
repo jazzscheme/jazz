@@ -335,7 +335,7 @@
 
 (jazz:define-class jazz:Lexical-Binding jazz:Walk-Binding ()
   ((name getter: generate)
-   (type getter: generate)
+   (type getter: generate setter: generate)
    (hits getter: generate setter: generate)))
 
 
@@ -4151,8 +4151,8 @@
    (value    getter: generate)))
 
 
-(define (jazz:new-internal-define variable value)
-  (jazz:allocate-internal-define #f #f variable value))
+(define (jazz:new-internal-define variable value type)
+  (jazz:allocate-internal-define type #f variable value))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Internal-Define expression) declaration environment backend)
@@ -4161,7 +4161,7 @@
     (jazz:new-code
       `(define ,(jazz:emit-binding-symbol variable declaration environment backend)
          ,(jazz:sourcified-form (jazz:emit-expression value declaration environment backend)))
-      jazz:Any
+      (jazz:get-expression-type expression)
       #f)))
 
 
@@ -4602,8 +4602,10 @@
 (define (jazz:walk-body walker resume declaration environment form-list)
   (define (walk-internal-define environment form-src variable)
     (receive (name specifier value parameters) (jazz:parse-define walker resume declaration (%%cdr (jazz:source-code form-src)))
-      (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any)))
-        (jazz:new-internal-define variable (jazz:walk walker resume declaration environment value)))))
+      (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
+            (signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
+        (let ((effective-type (if signature (jazz:build-function-type signature type) type)))
+          (jazz:new-internal-define variable (jazz:walk walker resume declaration environment value) effective-type)))))
   
   (let ((internal-defines '()))
     (define (process form)
@@ -4642,7 +4644,11 @@
                                     (set! augmented-environment (%%cons variable augmented-environment))))))))
                         internal-defines)
               (jazz:new-body (map (lambda (internal-define variable)
-                                    (walk-internal-define augmented-environment internal-define variable))
+                                    (let ((internal-define (walk-internal-define augmented-environment internal-define variable)))
+                                      ;; ideally we should specify the type when creating the variable
+                                      ;; we could then remove the generated lexical-binding type setter
+                                      (jazz:set-lexical-binding-type variable (jazz:get-expression-type internal-define))
+                                      internal-define))
                                   internal-defines
                                   (jazz:queue-list variables))
                              (jazz:walk-list walker resume declaration augmented-environment scan))))
@@ -4660,7 +4666,7 @@
       (jazz:parse-specifier (%%cdr rest)
         (lambda (specifier body)
           (let ((specifier-list (if specifier (%%list specifier) '())))
-            (values name #f `(lambda ,parameters ,@specifier-list ,@body) parameters)))))))
+            (values name specifier `(lambda ,parameters ,@specifier-list ,@body) parameters)))))))
 
 
 ;;;

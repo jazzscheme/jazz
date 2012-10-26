@@ -1327,7 +1327,7 @@
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((type (jazz:specifier->type walker resume declaration environment specifier)))
         (let ((signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
-          (let ((effective-type (if parameters (jazz:build-function-type signature type) type)))
+          (let ((effective-type (if signature (jazz:build-function-type signature type) type)))
             (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                        (jazz:new-definition-declaration name effective-type access compatibility '() declaration expansion signature))))
               (jazz:set-declaration-source new-declaration form-src)

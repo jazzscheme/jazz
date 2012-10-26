@@ -656,6 +656,12 @@
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fl*              '(                     (##fl* <fl^fl:fl>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fl/              '(                     (##fl/ <fl^fl:fl>)))
 
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:bitwise-not      '((##fixnum.bitwise-not <fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:bitwise-and      '((##fixnum.bitwise-and <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:bitwise-ior      '((##fixnum.bitwise-ior <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:bitwise-xor      '((##fixnum.bitwise-xor <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:arithmetic-shift '((##arithmetic-shift <fx^fx:fx>)))
+
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fixnum->flonum   '((##fixnum->flonum <fx:fl>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:flonum->fixnum   '(                     (##flonum->fixnum <fl:fx>)))
 

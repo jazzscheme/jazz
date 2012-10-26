@@ -1242,8 +1242,8 @@
 (native jazz:systime->seconds)
 (native jazz:seconds->systime)
 (native jazz:process-times)
-(native jazz:cpu-time)
-(native jazz:real-time)
+(native jazz:cpu-time <:fl>)
+(native jazz:real-time <:fl>)
 
 
 ;;;

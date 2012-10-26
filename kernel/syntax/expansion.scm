@@ -84,6 +84,14 @@
          ,(proc value)))))
 
 
+(define (jazz:with-uniqueness-typed expr specifier proc)
+  (if (##symbol? (jazz:source-code expr))
+      (proc expr)
+    (let ((value (jazz:generate-symbol "val")))
+      `(let ((,value ,specifier ,expr))
+         ,(proc value)))))
+
+
 (jazz:define-macro (%%force-uniqueness variables code)
   (if (##null? variables)
       code

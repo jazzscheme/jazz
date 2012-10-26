@@ -138,7 +138,7 @@
             (from (cadr clause))
             (to (caddr clause)))
         (sourcify-if
-          (with-uniqueness to
+          (with-uniqueness-typed to '<fx>
             (lambda (t)
               `(let (,iter (,var <fx> ,from))
                  (declare (proper-tail-calls))
@@ -158,7 +158,7 @@
             (from (cadr clause))
             (to (caddr clause)))
         (sourcify-if
-          (with-uniqueness to
+          (with-uniqueness-typed to '<fx>
             (lambda (t)
               `(let (,iter (,var <fx> ,from))
                  (declare (proper-tail-calls))

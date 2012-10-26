@@ -1109,6 +1109,7 @@
 
 (native jazz:generate-symbol)
 (native jazz:with-uniqueness)
+(native jazz:with-uniqueness-typed)
 
 
 ;;;

@@ -2290,13 +2290,13 @@
   (let ((head (%%get-queue-head queue)))
     (if (%%null? head)
         (error "Queue is empty")
-      (let ((next (cdr head)))
-        (cond ((eq? head (%%get-queue-tail queue))
+      (let ((next (%%cdr head)))
+        (cond ((%%eq? head (%%get-queue-tail queue))
                (%%set-queue-tail queue #f))
-              ((eq? head (%%get-queue-shared queue))
+              ((%%eq? head (%%get-queue-shared queue))
                (%%set-queue-shared queue (if (%%null? next) #f next))))
         (%%set-queue-head queue next)
-        (car head)))))
+        (%%car head)))))
 
 
 (define (jazz:queue-list queue)

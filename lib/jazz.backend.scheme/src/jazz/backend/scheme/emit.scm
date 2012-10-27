@@ -647,6 +647,11 @@
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:vector-ref     '((##vector-ref    <vector^int:any>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:vector-set!    '((##vector-set!   <vector^int^any:void>)))
 
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:min            '((##fixnum.min <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:max            '((##fixnum.max <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:even?          '((##fixnum.even? <fx:bool>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:odd?           '((##fixnum.odd? <fx:bool>)))
+
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx+              '((##fx+ <fx^fx:fx>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx-              '((##fx- <fx^fx:fx>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fx*              '((##fx* <fx^fx:fx>)))

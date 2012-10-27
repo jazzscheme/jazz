@@ -530,7 +530,9 @@
 (native bitwise-and <int*:int>)
 (native bitwise-ior <int*:int>)
 (native bitwise-xor <int*:int>)
-(native arithmetic-shift <int:int>)
+(native arithmetic-shift <int^int:int>)
+(native jazz:arithmetic-shift-left <int^int:int>)
+(native jazz:arithmetic-shift-right <int^int:int>)
 (native bit-set? <int^int:bool>)
 (native extract-bit-field <int^int^int:int>)
 

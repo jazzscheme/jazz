@@ -56,6 +56,13 @@
     (jazz:type-error n jazz:Flonum)))
 
 
+(define (jazz:arithmetic-shift-left x y)
+  (arithmetic-shift x y))
+
+(define (jazz:arithmetic-shift-right x y)
+  (arithmetic-shift x (- y)))
+
+
 ;;;
 ;;;; Flownum
 ;;;

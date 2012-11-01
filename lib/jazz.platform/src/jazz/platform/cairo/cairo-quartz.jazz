@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Dialogs
+;;;; Cairo Quartz
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -16,7 +16,7 @@
 ;;;
 ;;;  The Original Code is JazzScheme.
 ;;;
-;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  The Initial Developer of the Original Code is Jeremie Lasalle Ratelle.
 ;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
@@ -35,48 +35,26 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.ui.dialog jazz
+(module protected jazz.platform.cairo.cairo-quartz jazz
 
 
-(export (jazz.ui.dialog.platform.carbon  (cond carbon))
-        (jazz.ui.dialog.platform.cocoa   (cond cocoa))
-        (jazz.ui.dialog.platform.windows (cond windows))
-        (jazz.ui.dialog.platform.x11     (cond x11)))
+(import (jazz.foreign)
+        (jazz.platform.types)
+        (jazz.platform.carbon)
+        (jazz.platform.carbon.carbon-types)
+        (jazz.platform.cairo.cairo-base))
 
-(import (jazz.system))
+
+(c-include "<cairo-quartz.h>")
 
 
 ;;;
-;;;; Modal
+;;;; Surface
 ;;;
 
 
-(definition *current-modal*
-  #f)
+(c-external (cairo_quartz_surface_create_for_cg_context CGContextRef uint uint) cairo_surface_t*)
 
 
-(definition public (current-modal)
-  *current-modal*)
-
-(definition public (set-current-modal dialog)
-  (set! *current-modal* dialog))
-
-
-(definition public (in-modal?)
-  (current-modal))
-
-
-(definition public (current-window)
-  (let ((modal (current-modal)))
-    (or (and modal (get-player~ modal))
-        (get-toplevel))))
-
-
-(definition public (end-modal-dialog result)
-  (end-modal~ (current-modal) result))
-
-
-(definition public (close-modal-dialog (action #f))
-  (let ((dialog (current-modal)))
-    (when dialog
-      (close-modal~ dialog action)))))
+(definition public (create-cairo-image-surface compatibility width height)
+  (cairo_image_surface_create CAIRO_FORMAT_RGB24 width height)))

@@ -66,7 +66,18 @@
                 (ld-flags (jazz:pkg-config-libs "cairo-ft")))
             `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
-              (jazz.platform.cairo.cairo-carbon   cc-options: ,cc-flags ld-options: ,ld-flags)
+              (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags)
+              (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))
+  (cocoa
+    (define jazz:cairo-units
+      (receive (major minor build) (jazz:parse-dot-version (jazz:pkg-config-version "cairo-ft"))
+        (if (%%fx< minor 4)
+            (jazz:error "Cairo 1.4 or higher needed")
+          (let ((cc-flags (jazz:pkg-config-cflags "cairo-ft"))
+                (ld-flags (jazz:pkg-config-libs "cairo-ft")))
+            `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
+              (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
+              (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags)
               (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))
   (windows
     (define jazz:cairo-units
@@ -188,6 +199,20 @@
                           ,@jazz:cairo-units
                           ,@jazz:font-units
                           ,@jazz:carbon-units
+                          ,@jazz:clipboard-units
+                          ,@jazz:minilzo-units)))
+        (jazz:custom-compile/build unit-specs unit: unit force?: force?)
+        (if (or (not unit) (not (assq unit unit-specs)))
+            (jazz:build-product-descriptor descriptor)))))
+  (cocoa
+    (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
+      (let ((unit-specs `((jazz.platform)
+                          (jazz.platform.crash)
+                          ,@jazz:crash-units
+                          ,@jazz:types-units
+                          ,@jazz:cairo-units
+                          ,@jazz:font-units
+                          ,@jazz:cocoa-units
                           ,@jazz:clipboard-units
                           ,@jazz:minilzo-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)

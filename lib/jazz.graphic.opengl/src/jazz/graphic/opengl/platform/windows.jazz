@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Platform-dependant OpenGL (Windows)
+;;;; Windows OpenGL Definitions
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -38,206 +38,77 @@
 (module protected jazz.graphic.opengl.platform.windows jazz
 
 
-(export (jazz.graphic.opengl.platform.WinOpenGL))
-
-(import (jazz.graphic.opengl.autoload)
-        (jazz.graphic.opengl.platform.WinOpenGL)
-        (jazz.graphic.opengl.glew)
-        (jazz.geometry)
-        (jazz.platform)
-        (jazz.ui.window))
-
-
-(definition public opengl-fullscreen?
-  (make-parameter #f))
+(import (jazz.foreign)
+        (jazz.platform.windows.WinTypes))
 
 
 ;;;
-;;;; Class
+;;;; Types
 ;;;
 
 
-(definition OPENGL_CLASS_ATOM
-  #f)
-
-
-(definition (register-window-class)
-  (let ((instance (current-instance))
-        (background (class-background))
-        (wc (WNDCLASSEX-make)))
-    (WNDCLASSEX-cbSize-set! wc         (WNDCLASSEX-sizeof))
-    (WNDCLASSEX-style-set! wc          (bitwise-ior CS_HREDRAW CS_VREDRAW CS_OWNDC))
-    (WNDCLASSEX-lpfnWndProc-set! wc    call-process-hwnd-message)
-    (WNDCLASSEX-cbClsExtra-set! wc     0)
-    (WNDCLASSEX-cbWndExtra-set! wc     0)
-    (WNDCLASSEX-hInstance-set! wc      instance)
-    (WNDCLASSEX-hIcon-set! wc          (load-product-icon 32 32))
-    (WNDCLASSEX-hCursor-set! wc        NULL)
-    (WNDCLASSEX-hbrBackground-set! wc  NULL)
-    (WNDCLASSEX-lpszMenuName-set! wc   NULL)
-    (WNDCLASSEX-lpszClassName-set! wc  "JOpenGLWindow")
-    (WNDCLASSEX-hIconSm-set! wc        (load-product-icon 16 16))
-    (set! OPENGL_CLASS_ATOM (RegisterClassEx wc))))
-
-
-(register-window-class)
+(c-type HGLRC (pointer (struct "HGLRC__") handle))
 
 
 ;;;
-;;;; Window
+;;;; Constants
 ;;;
 
 
-(specific (window-class (<OpenGL-Window> window))
-  OPENGL_CLASS_ATOM)
-
-
-(specific (window-style (<OpenGL-Window> window) rest)
-  (if (opengl-fullscreen?)
-      WS_POPUP
-    (bitwise-ior WS_CLIPSIBLINGS
-                 WS_CLIPCHILDREN
-                 WS_POPUP
-                 WS_OVERLAPPEDWINDOW
-                 WS_MINIMIZEBOX
-                 WS_SYSMENU)))
-
-
-(specific (window-ex-style (<OpenGL-Window> window) rest)
-  WS_EX_APPWINDOW)
-
-
-(specific (create-handle (<OpenGL-Window> window) rest)
-  (CreateWindowEx
-    (window-ex-style window rest)
-    CLASS_ATOM
-    NULL
-    (window-style window rest)
-    0 0 1280 1024
-    (window-parent window)
-    NULL
-    (current-instance)
-    NULL))
-
-
-(definition package (create-opengl-window (class: class #f) (position: position #f) (size: size #f) (fullscreen?: fullscreen? #f) (visible?: visible? #t))
-  (let ((class (or class OpenGL-Window))
-        (position (or position {Point 50 50}))
-        (size (or size {Dimension 640 480})))
-    (let ((window (parameterize ((opengl-fullscreen? fullscreen?)) (new (or class OpenGL-Window) fullscreen?: fullscreen? visible?: #f)))
-          (pfd (PIXELFORMATDESCRIPTOR-make)))
-      (PIXELFORMATDESCRIPTOR-nSize-set! pfd (PIXELFORMATDESCRIPTOR-sizeof))
-      (PIXELFORMATDESCRIPTOR-nVersion-set! pfd 1)
-      (PIXELFORMATDESCRIPTOR-dwFlags-set! pfd (bitwise-ior PFD_DRAW_TO_WINDOW PFD_SUPPORT_OPENGL PFD_DOUBLEBUFFER))
-      (PIXELFORMATDESCRIPTOR-iPixelType-set! pfd PFD_TYPE_RGBA)
-      (PIXELFORMATDESCRIPTOR-cColorBits-set! pfd 24)
-      (PIXELFORMATDESCRIPTOR-cDepthBits-set! pfd 32)
-      (PIXELFORMATDESCRIPTOR-iLayerType-set! pfd PFD_MAIN_PLANE)
-      (let ((hdc (GetDC (get-handle~ window))))
-        (unless hdc
-          (error "Could not create an OpenGL device context"))
-        (let ((pixel-format (ChoosePixelFormat hdc pfd)))
-          (unless pixel-format
-            (error "Could not find a suitable pixelformat"))
-          (unless (SetPixelFormat hdc pixel-format pfd)
-            (error "Could not set the pixelformat"))
-          (let ((hrc (wglCreateContext hdc)))
-            (unless hrc
-              (error "Could not create an OpenGL rendering context"))
-            (make-context-current hdc hrc)
-            (set-device~ window hdc)
-            (set-context~ window hrc)
-            (set-title~ window "OpenGL")
-            (if fullscreen?
-                (let ((area (get-display-area~ (primary-monitor))))
-                  (let ((left (get-left~ area))
-                        (top (get-top~ area))
-                        (width (rect-width area))
-                        (height (rect-height area)))
-                    (set-position~ window (new Point left top))
-                    (set-size~ window (new Dimension width height))))
-              (set-position~ window position)
-              (set-size~ window size))
-            (SetTimer (get-handle~ window) 0 10 NULL)
-            (when visible?
-              (set-visible?~ window #t)
-              (select-foreground~ window))
-            window))))))
-
-
-(definition public (new-opengl-window (class: class #f) (position: position #f) (size: size #f) (fullscreen?: fullscreen? #f) (visible?: visible? #t))
-  (let ((window (create-opengl-window class: class position: position size: size fullscreen?: fullscreen? visible?: visible?)))
-    (initialize-glew)
-    (adjust-opengl-context window)
-    (setup-opengl~ window)
-    window))
+(c-constant PFD_TYPE_RGBA	    0)
+(c-constant PFD_MAIN_PLANE	    0)
+(c-constant PFD_DOUBLEBUFFER	1)
+(c-constant PFD_STEREO	        2)
+(c-constant PFD_DRAW_TO_WINDOW	4)
+(c-constant PFD_DRAW_TO_BITMAP	8)
+(c-constant PFD_SUPPORT_GDI	    16)
+(c-constant PFD_SUPPORT_OPENGL	32)
+(c-constant PFD_GENERIC_FORMAT	64)
 
 
 ;;;
-;;;; GLEW
+;;;; Structures
 ;;;
 
 
-
-(definition package initialize-glew
-  (let ((initialized? #f))
-    (lambda ()
-      (unless initialized?
-        (let ((success (glewInit)))
-          (if (= success GLEW_OK)
-              (set! initialized? #t)
-            (error "Unable to initialize GLEW")))))))
-
-
-;;;
-;;;; Context
-;;;
-
-
-(definition opengl-debug?
-  #f)
-
-
-(definition package (adjust-opengl-context window)
-  (when (wglewIsSupported "WGL_ARB_create_context")
-    (let ((hdc (get-device~ window)))
-      (let ((old-context (get-context~ window))
-            (new-context (wglCreateContextAttribsARB* hdc NULL 2 1 (if opengl-debug? WGL_CONTEXT_DEBUG_BIT_ARB 0))))
-        (release-current-context)
-        (delete-context old-context)
-        (make-context-current hdc new-context)
-        (set-context~ window new-context)))))
-
-
-(definition package (enable-vsync)
-  (when (wglewIsSupported "WGL_EXT_swap_control")
-    (wglSwapIntervalEXT 1)))
-
-
-(definition package (disable-vsync)
-  (when (wglewIsSupported "WGL_EXT_swap_control")
-    (wglSwapIntervalEXT 0)))
+(c-structure PIXELFORMATDESCRIPTOR
+  (WORD nSize)
+  (WORD nVersion)
+  (DWORD dwFlags)
+  (BYTE iPixelType)
+  (BYTE cColorBits)
+  (BYTE cRedBits)
+  (BYTE cRedShift)
+  (BYTE cGreenBits)
+  (BYTE cGreenShift)
+  (BYTE cBlueBits)
+  (BYTE cBlueShift)
+  (BYTE cAlphaBits)
+  (BYTE cAlphaShift)
+  (BYTE cAccumBits)
+  (BYTE cAccumRedBits)
+  (BYTE cAccumGreenBits)
+  (BYTE cAccumBlueBits)
+  (BYTE cAccumAlphaBits)
+  (BYTE cDepthBits)
+  (BYTE cStencilBits)
+  (BYTE cAuxBuffers)
+  (BYTE iLayerType)
+  (BYTE bReserved)
+  (DWORD dwLayerMask)
+  (DWORD dwVisibleMask)
+  (DWORD dwDamageMask))
 
 
 ;;;
-;;;; Utility
+;;;; Externals
 ;;;
 
 
-(definition package (swap-buffers device)
-  (SwapBuffers device))
-
-
-(definition package (make-context-current device context)
-  (unless (wglMakeCurrent device context)
-    (error "Could not activate the OpenGL rendering context")))
-
-
-(definition package (release-current-context)
-  (unless (wglMakeCurrent NULL NULL)
-    (error "Release of DC and RC failed")))
-
-
-(definition package (delete-context context)
-  (unless (wglDeleteContext context)
-    (error "Release rendering context failed"))))
+(c-external (ChoosePixelFormat                       HDC PIXELFORMATDESCRIPTOR*) INT)
+(c-external (SetPixelFormat                          HDC INT PIXELFORMATDESCRIPTOR*) BOOL)
+(c-external (wglCreateContext                        HDC) HGLRC)
+(c-external (wglDeleteContext                        HGLRC) BOOL)
+(c-external (wglMakeCurrent                          HDC HGLRC) BOOL)
+(c-external (wglGetCurrentContext)                   HGLRC)
+(c-external (SwapBuffers                             HDC) BOOL))

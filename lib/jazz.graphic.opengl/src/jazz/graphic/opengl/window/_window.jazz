@@ -35,17 +35,37 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.graphic.opengl.platform.OpenGL-Window jazz
+(module jazz.graphic.opengl.window jazz
 
 
 (import (jazz.debuggee)
         (jazz.geometry)
-        (jazz.graphic.opengl)
+        (jazz.graphic.opengl.glew)
         (jazz.graphic.opengl.glfw)
+        (jazz.graphic.opengl.window.windows (cond windows))
+        (jazz.graphic.opengl.window.x11     (cond x11))
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.window))
+
+
+(definition public (new-opengl-window (class: class #f) (position: position #f) (size: size #f) (fullscreen?: fullscreen? #f) (visible?: visible? #t))
+  (let ((window (create-opengl-window class: class position: position size: size fullscreen?: fullscreen? visible?: visible?)))
+    (initialize-glew)
+    (adjust-opengl-context window)
+    (setup-opengl~ window)
+    window))
+
+
+(definition package initialize-glew
+  (let ((initialized? #f))
+    (lambda ()
+      (unless initialized?
+        (let ((success (glewInit)))
+          (if (= success GLEW_OK)
+              (set! initialized? #t)
+            (error "Unable to initialize GLEW")))))))
 
 
 (class OpenGL-Window extends Overlapped
@@ -74,25 +94,30 @@
   
   
   (method protected virtual (resize-scene width <fl> height <fl>)
-    (gl-viewport 0 0 (fxround width) (fxround height))
-    (gl-matrix-mode GL_PROJECTION)
-    (gl-load-identity)
-    (glu-perspective 45.0 (/ width height) 0.1 100.0)
-    (gl-matrix-mode GL_MODELVIEW)
-    (gl-load-identity))
+    (glViewport 0 0 (fxround width) (fxround height))
+    (glMatrixMode GL_PROJECTION)
+    (glLoadIdentity)
+    (gluPerspective 45.0 (/ width height) 0.1 100.0)
+    (glMatrixMode GL_MODELVIEW)
+    (glLoadIdentity))
   
   
   (method protected virtual (setup-opengl)
-    (gl-shade-model GL_SMOOTH)
-    (gl-clear-color 0.0 0.0 0.0 0.5)
-    (gl-clear-depth 1.0)
-    (gl-enable GL_LINE_SMOOTH)
-    (gl-enable GL_POLYGON_SMOOTH)
-    (gl-enable GL_COLOR_MATERIAL)
-    (gl-enable GL_DEPTH_TEST)
-    (gl-depth-func GL_LEQUAL)
-    (gl-polygon-mode GL_FRONT_AND_BACK GL_FILL)
-    (gl-hint GL_PERSPECTIVE_CORRECTION_HINT GL_NICEST))
+    (glShadeModel GL_SMOOTH)
+    (glClearColor 0.0 0.0 0.0 0.5)
+    (glClearDepth 1.0)
+    (glEnable GL_LINE_SMOOTH)
+    (glEnable GL_POLYGON_SMOOTH)
+    (glEnable GL_COLOR_MATERIAL)
+    (glEnable GL_DEPTH_TEST)
+    (glDepthFunc GL_LEQUAL)
+    (glPolygonMode GL_FRONT_AND_BACK GL_FILL)
+    (glHint GL_PERSPECTIVE_CORRECTION_HINT GL_NICEST))
+  
+  
+  ;;;
+  ;;;; Fullscreen
+  ;;;
   
   
   (method public (toggle-windowed-mode)
@@ -107,73 +132,29 @@
 
   (method public (set-fullscreen-windowed-mode)
     (set! previous-placement (get-placement))
-    (set-style handle (bitwise-ior WS_CLIPSIBLINGS
-                                   WS_CLIPCHILDREN
-                                   WS_POPUP))
-    (let ((area (get-display-area~ (primary-monitor))))
-      (let ((left (get-left~ area))
-            (top (get-top~ area))
-            (right (get-right~ area))
-            (bottom (get-bottom~ area)))
-        (SetWindowPos handle HWND_TOP
-          left
-          top
-          (- right left)
-          (- bottom top)
-          (bitwise-ior SWP_NOOWNERZORDER SWP_FRAMECHANGED))))
-    (show-window handle)
+    (platform-set-fullscreen-windowed-mode handle)
     (set! window-mode 'fullscreen-windowed))
   
   
   (method public (restore-from-fullscreen)
-    (reset-fullscreen-mode)
-    (set-style handle
-               (bitwise-ior WS_CLIPSIBLINGS
-                            WS_CLIPCHILDREN
-                            WS_POPUP
-                            WS_OVERLAPPEDWINDOW
-                            WS_MINIMIZEBOX
-                            WS_SYSMENU))
-    (SetWindowPos handle HWND_TOP
-      50
-      50
-      1216
-      838
-      (bitwise-ior SWP_NOOWNERZORDER SWP_FRAMECHANGED))
-    (show-window handle)
+    (platform-restore-from-fullscreen handle)
     (set! window-mode 'windowed))
   
   
   (method public (restore-windowed-mode)
     (when previous-placement
       (set-window-placement handle previous-placement))
-    (set-style handle
-               (bitwise-ior WS_CLIPSIBLINGS
-                            WS_CLIPCHILDREN
-                            WS_POPUP
-                            WS_OVERLAPPEDWINDOW
-                            WS_MINIMIZEBOX
-                            WS_SYSMENU))
-    (show-window handle)
+    (platform-restore-windowed-mode handle)
     (set! window-mode 'windowed))
   
   
   (method public (set-fullscreen-mode)
-    (let ((area (get-display-area~ (primary-monitor))))
-      (let ((width (rect-width area))
-            (height (rect-height area))
-            (bits 32))
-        (let ((devmode (DEVMODE-make)))
-          (DEVMODE-dmSize-set! devmode (DEVMODE-sizeof))
-          (DEVMODE-dmPelsWidth-set! devmode width)
-          (DEVMODE-dmPelsHeight-set! devmode height)
-          (DEVMODE-dmBitsPerPel-set! devmode bits)
-          (DEVMODE-dmFields-set! devmode (bitwise-ior DM_BITSPERPEL DM_PELSWIDTH DM_PELSHEIGHT))
-          (ChangeDisplaySettings devmode CDS_FULLSCREEN)))))
+    (platform-set-fullscreen-mode handle))
   
   
-  (method public (reset-fullscreen-mode)
-    (ChangeDisplaySettings NULL 0))
+  ;;;
+  ;;;; Render
+  ;;;
   
   
   (method override (paint update-region . platform-data)

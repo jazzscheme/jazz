@@ -183,7 +183,7 @@
   
   
   (method (calendar-base)
-    (let (subtract (date (make-date 0 0 0 0 1 (date-month date) (date-year date) (date-zone-offset (current-date)))))
+    (let (subtract (date (date-add (make-date 0 0 0 0 1 (date-month date) (date-year date) (date-zone-offset (current-date))) -1 'day)))
       (if (zero? (date-week-day date))
           date
         (subtract (subtract-one-day date)))))
@@ -193,8 +193,27 @@
     (date-add date 1 'day))
   
   
+  ;; This method fix a broblem with date-add when original date is 31 and the Next or Previous Month as 30 or less days.
+  (method (select-correct-month date month)
+    (let ((new-month (if (< month 1) 12 (if (> month 12) 1 month)))
+          (correct-date date))
+      (while (> (date-month correct-date) new-month)
+        (set! correct-date (date-add correct-date -1 'day)))
+      correct-date))
+  
+  
+  (method (add-one-month date)
+    (let ((next-month-date (date-add date 1 'month)))
+      (select-correct-month next-month-date (+ (date-month date) 1))))
+  
+  
   (method (subtract-one-day date)
     (date-add date -1 'day))
+  
+  
+  (method (subtract-one-month date)
+    (let ((last-month-date (date-add date -1 'month)))
+      (select-correct-month last-month-date (- (date-month date) 1))))
   
   
   (method (normalize-date date)
@@ -293,16 +312,14 @@
   ;;;
   
   (method public (goto-previous-month)
-    (goto-month date subtract-one-day))
+    (goto-month date subtract-one-month))
   
   
   (method public (goto-next-month)
-    (goto-month date add-one-day))
+    (goto-month date add-one-month))
   
   
   (method (goto-month new-date proc)
     (let ((new-date (proc new-date)))
-      (if (not (= (date-day new-date) (date-day date)))
-          (goto-month new-date proc)
-        (set-date new-date)
-        (set-selection (find-calendar-day new-date)))))))
+      (set-date new-date)
+      (set-selection (find-calendar-day new-date))))))

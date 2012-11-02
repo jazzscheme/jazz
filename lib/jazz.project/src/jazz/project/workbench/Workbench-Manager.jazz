@@ -327,8 +327,22 @@
   
   
   (method (highlight-document-component component)
+    (define (dynamic-root tree component)
+      (if (dynamic-component?~ tree component)
+          (component-row~ tree component)
+        (let ((parent (get-parent~ component)))
+          (and parent (dynamic-root tree parent)))))
+    
+    (define (force-expand-dynamic tree component)
+      (let ((dynamic-row (dynamic-root tree component)))
+        (when dynamic-row
+          (update-row~ tree dynamic-row)
+          (set-state~ dynamic-row 'collapsed)
+          (component-row~ tree component))))
+    
     (let* ((tree (get-tree))
-           (row (component-row~ tree component)))
+           (row (or (component-row~ tree component)
+                    (force-expand-dynamic tree component))))
       (if (not row)
           (bell)
         (ensure-expanded~ tree row)

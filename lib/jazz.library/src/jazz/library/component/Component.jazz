@@ -1485,18 +1485,18 @@
   ;;;
   
   
-  (method public virtual (component-path (root creator))
-    (let ((path '())
-          (scan self))
-      (while (neq? scan root)
-        (let ((name (get-name~ scan)))
-          (if (not name)
-              (error "Component {t} must be named to be part of a path" scan)
-            (set! path (cons name path))
-            (set! scan (get-parent-component~ scan))
-            (when (null? scan)
-              (error "{t} is not a descendant of the root component {t}" self root)))))
-      (new Path path)))
+  (method public (component-path (root #f))
+    (let (iter (path '())
+               (scan self))
+      (cond ((eq? scan root)
+             (new Path path))
+            ((not scan)
+             (error "{t} is not a descendant of the root component {t}" self root))
+            (else
+             (let* ((parent-scan (get-parent~ scan))
+                    (name/rank (or (get-name~ scan) (and parent-scan (child-rank~ parent-scan scan)))))
+               (iter (cons name/rank path)
+                     parent-scan))))))
   
   
   (method public virtual (present-path root)

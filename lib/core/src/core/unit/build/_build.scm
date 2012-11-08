@@ -111,12 +111,12 @@
 
 
 (jazz:define-variable-override jazz:compile-unit-internal
-  (lambda (unit-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
+  (lambda (unit-name #!key (output-language #f) (options #f) (cc-options #f) (ld-options #f) (force? #f))
     (jazz:with-unit-resources unit-name #f
       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
         (parameterize ((jazz:requested-unit-name unit-name)
                        (jazz:requested-unit-resource src))
-          (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name options: options cc-options: cc-options ld-options: ld-options force?: force?))))))
+          (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name output-language: output-language options: options cc-options: cc-options ld-options: ld-options force?: force?))))))
 
 
 ;; this function should be unified with jazz:compile-unit-internal
@@ -162,7 +162,7 @@
       (if (or jazz:debug-user? gcc-4-2?) (string-append "-U___SINGLE_HOST " str) str))))
 
 
-(define (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
+(define (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (output-language #f) (options #f) (cc-options #f) (ld-options #f) (force? #f))
   (let ((references-valid? (and (or obj-uptodate? bin-uptodate?) (jazz:manifest-references-valid? (or obj bin)))))
     (let ((options (or options jazz:compile-options))
           (cc-options (jazz:wrap-single-host-cc-options (or cc-options "")))
@@ -178,28 +178,33 @@
               (jazz:with-extension-reader (%%get-resource-extension src)
                 (lambda ()
                   (parameterize ((jazz:walk-for 'compile))
-                    (jazz:compile-file src bin update-obj? update-bin? build-package options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))))))))
+                    (jazz:compile-file src bin update-obj? update-bin? build-package output-language: output-language options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))))))))
 
 
-(define (jazz:compile-file src bin update-obj? update-bin? build-package #!key (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz:kernel-platform))
+(define (jazz:compile-file src bin update-obj? update-bin? build-package #!key (output-language #f) (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz:kernel-platform))
   (define unit-uniqueness-prefix
     "unit:")
   
   (define bin-pathname-base
     (jazz:binary-with-extension src ""))
   
+  (define bin-extension
+    (case (or output-language 'c)
+      ((objc) ".m")
+      (else ".c")))
+  
   (define (compile)
     (let ((unique-module-name (%%string-append unit-uniqueness-prefix (%%symbol->string unit-name)))
           (src-pathname (jazz:resource-pathname src))
-          (bin-c (string-append bin-pathname-base ".c")))
+          (bin-output (string-append bin-pathname-base bin-extension)))
       (parameterize ((jazz:generate-symbol-for "^")
                      (jazz:generate-symbol-context unit-name)
                      (jazz:generate-symbol-counter 0)
                      (jazz:compiled-source src))
         ;; temporary until a cleaner solution
         (set! ##gensym-counter -1)
-        (if (not (and (compile-file-to-target src-pathname output: bin-c options: options module-name: unique-module-name)
-                      (compile-file bin-c options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
+        (if (not (and (compile-file-to-target src-pathname output: bin-output options: options module-name: unique-module-name)
+                      (compile-file bin-output options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
             (jazz:error "compilation failed")))))
   
   (define (update-manifest)
@@ -234,8 +239,9 @@
   
   (define (link-o1)
     (let ((bin-o1 (determine-o1)))
-      (let ((linkfile (string-append bin-o1 ".c")))
-        (link-flat (%%list bin-pathname-base) output: linkfile warnings?: #f)
+      (let ((bin-output (string-append bin-pathname-base bin-extension))
+            (linkfile (string-append bin-o1 bin-extension)))
+        (link-flat (%%list bin-output) output: linkfile warnings?: #f)
         (let ((exit-status
                 (##gambc-cc
                   'dyn

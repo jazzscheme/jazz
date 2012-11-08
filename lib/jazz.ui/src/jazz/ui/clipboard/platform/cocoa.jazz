@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Cairo Base
+;;;; Cocoa Clipboard
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,44 +35,77 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.platform.cairo.cairo-base jazz
+(module protected jazz.ui.clipboard.platform.cocoa jazz
 
 
-(import (jazz.foreign)
-        (jazz.platform.types))
-
-
-(cond-expand
-  (carbon  (c-include "<cairo-quartz.h>"))
-  (cocoa   (c-include "<cairo.h>"))
-  (windows (c-include "<cairo-win32.h>"))
-  (x11     (c-include "<cairo-xlib.h>"))
-  (else))
-
-
-(c-enumeration cairo_format_t
-  (CAIRO_FORMAT_ARGB32 0)
-  (CAIRO_FORMAT_RGB24  1)
-  (CAIRO_FORMAT_A8     2)
-  (CAIRO_FORMAT_A1     3))
-
-(c-type cairo_format_t int)
-
-
-(c-type cairo_surface_t       (native "cairo_surface_t"))
-(c-type cairo_surface_t*      (pointer cairo_surface_t cairo_surface_t*))
-
-
-(c-type cairo_font_face_t     (native "cairo_font_face_t"))
-(c-type cairo_font_face_t*    (pointer cairo_font_face_t cairo_font_face_t*))
-
-(c-type cairo_scaled_font_t   (native "cairo_scaled_font_t"))
-(c-type cairo_scaled_font_t*  (pointer cairo_scaled_font_t cairo_scaled_font_t*))
+(import (jazz.platform))
 
 
 ;;;
-;;;; Image Surface
+;;;; Text
 ;;;
 
 
-(c-external (cairo_image_surface_create cairo_format_t int int) cairo_surface_t*))
+(definition package (initialize-clipboard)
+  )
+
+
+(definition internal-clipboard "")
+
+
+(definition public (get-clipboard-text (format: format #f))
+  internal-clipboard)
+
+
+(definition public (set-clipboard-text text (format: format #f))
+  (set! internal-clipboard text))
+
+
+(definition public undocumented (register-clipboard-format name format)
+  @unimplemented
+  (let ((id (RegisterClipboardFormat format)))
+    (table-set! Formats name id)))
+
+
+(definition public undocumented (clipboard-format-available? format)
+  #f
+  @unimplemented
+  (define (get-format format)
+    (or (table-ref Formats format #f)
+        (error "Unknown clipboard format: {t}" format)))
+  @unimplemented
+  (memq? format (available-clipboard-formats)))
+
+
+(definition public undocumented (available-clipboard-formats)
+  ;; quick hack until a proper implementation
+  (if (get-clipboard-text)
+      '(unicode-text)
+    '()))
+
+
+(definition public undocumented (available-clipboard-ids)
+  '()
+  @unimplemented
+  (with-opened-clipboard
+    (lambda ()
+      (let ((formats (new List-Factory)))
+        (let (iter (previous 0))
+          (let ((format (EnumClipboardFormats previous)))
+            (when (/= format 0)
+              (put~ formats format)
+              (iter format))))
+        (get-output~ formats)))))
+
+
+;;;
+;;;; Mouse
+;;;
+
+
+(definition package (mouse-select-copy proc)
+  #f)
+
+
+(definition package (middle-mouse-paste proc)
+  #f))

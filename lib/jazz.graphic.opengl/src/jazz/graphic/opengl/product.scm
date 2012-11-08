@@ -67,7 +67,7 @@
       (let ((glut-include-path (jazz:quote-jazz-pathname "foreign/opengl/freeglut/include"))
             (glut-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/freeglut/lib"))
             (glew-include-path (jazz:quote-jazz-pathname "foreign/opengl/glew/include"))
-            (glew-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/glew/lib")))
+            (glew-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/glew/lib/windows")))
         `((jazz.graphic.opengl.foreign.gl-header)
           (jazz.graphic.opengl.foreign.gl ld-options: "-lopengl32")
           (jazz.graphic.opengl.foreign.glext-header)
@@ -80,6 +80,12 @@
           (jazz.graphic.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglew32"))
           (jazz.graphic.opengl.glew.windows cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -lopengl32 -lglew32"))
           (jazz.graphic.opengl.platform.windows cc-options: "-DUNICODE -D_WIN32_WINNT=0x0502" ld-options: "-mwindows -lopengl32")))))
+  (cocoa
+    (define jazz:opengl-units
+      (let ((glew-include-path (jazz:quote-jazz-pathname "foreign/opengl/glew/include"))
+            (glew-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/glew/lib/mac")))
+        `((jazz.graphic.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))
+          (jazz.graphic.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))))))
   (else
     (define jazz:opengl-units
       '())))

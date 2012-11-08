@@ -167,6 +167,11 @@
     (jazz.platform.x11.x11-types)))
 
 
+(define jazz:cocoa-units
+  (let ((opengl-include-path (jazz:quote-jazz-pathname "foreign/opengl/include")))
+    `((jazz.platform.cocoa cc-options: ,(string-append "-I" opengl-include-path) ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" output-language: objc))))
+
+
 (cond-expand
   (mac
    (define jazz:clipboard-units

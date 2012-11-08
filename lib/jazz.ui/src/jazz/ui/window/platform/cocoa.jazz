@@ -66,11 +66,6 @@
     0))
 
 
-(definition (is-window-HIView? window)
-  (not (or (is? window Toplevel)
-           (is? window Desktop))))
-
-
 ;;;
 ;;;; Window
 ;;;
@@ -115,54 +110,19 @@
 
 
 (definition package (prepare-handle window rest)
-  (if (is-window-HIView? window)
-      (create-HIView-handle window rest)
-    (let* ((window-handle (create-window-handle window rest))
-           (handle (HIViewGetContent window-handle)))
-      (InstallControlEventHandler handle)
-      handle)))
-
-
-(definition (create-HIView-handle window rest)
-  (let* ((parent (window-parent window))
-         (new-handle (HIViewCreate)))
-    (HIViewAddSubview parent new-handle)
-    (HIViewChangeFeatures new-handle kHIViewFeatureAllowsSubviews 0)
-    (HIViewSetFrame new-handle 0.0 0.0 500.0 500.0)
-    (InstallControlEventHandler new-handle)
-    new-handle))
+  )
 
 
 (definition (create-window-handle window rest)
-  (let ((handle (CreateNewWindow kDocumentWindowClass
-                  (bitwise-ior kWindowStandardDocumentAttributes
-                               kWindowStandardHandlerAttribute
-                               kWindowLiveResizeAttribute
-                               kWindowCompositingAttribute)
-                  0
-                  0
-                  500
-                  500)))
-    (InstallWindowEventHandler handle)
-    (when (is? window Desktop)
-      (set! desktop window)
-      (receive (x y w h) (HIWindowGetAvailablePositioningBounds)
-        (WindowSetBounds handle kWindowStructureRgn (fxfloor x) (fxfloor y) (fxfloor w) (fxfloor h))))
-    handle))
+  )
 
 
 (definition package (destroy-window handle)
-  (let ((window (get-window handle)))
-    @with-x11
-    (when (= handle (platform-get-focus))
-      (focus-lose~ window))
-    (if (is-window-HIView? window)
-        (DestroyView handle)
-      (DestroyWindow (HIViewGetWindow handle)))))
+  )
 
 
 (definition (dispatch-message window msg)
-  (process-window-message window msg))
+  )
 
 
 ;;;
@@ -180,13 +140,16 @@
 
 
 (definition package (process-messages-single-threaded thunk)
+  @convert-cocoa
   (RunApplicationEventLoop))
 
 
 (definition package (process-messages-multi-threaded)
+  @convert-cocoa
   (define (process)
     (RunApplicationEventLoop))
   
+  @convert-cocoa
   (new-thread process 'message-pump))
 
 
@@ -196,13 +159,7 @@
 
 
 (definition package (show-window handle)
-  ;; We must fix this.
-  (if (is? (get-window handle) Desktop)
-      #f
-    (if (is-window-HIView? (get-window handle))
-        (HIViewSetVisible handle #t)
-      (ShowWindow (HIViewGetWindow handle))
-      (SelectWindow (HIViewGetWindow handle)))))
+  )
 
 
 (definition package (show-maximized handle)
@@ -214,9 +171,7 @@
 
 
 (definition package (hide-window handle)
-  (if (is-window-HIView? (get-window handle))
-      (HIViewSetVisible handle #f)
-    (HideWindow (HIViewGetWindow handle))))
+  )
 
 
 (definition package (bring-window-to-top handle)
@@ -288,96 +243,10 @@
 
 
 (definition (process-window-message handler event userdata)
-  (let ((class (GetEventClass event))
-        (type  (GetEventKind event)))
-    (cond
-      ((= class kEventClassWindow)
-       (cond
-         ((= type kEventWindowClose)
-          (QuitApplicationEventLoop)
-          noErr)
-         ((= type kEventWindowBoundsChanged)
-          noErr)
-         (else eventNotHandledErr)))
-      ((= class kEventClassMouse)
-       (cond
-         ((= type kEventMouseMoved)
-          (let ((window (eventWindowRef event)))
-            (receive (x y) (eventMouseLocation event)
-              (receive (glo-x glo-y) (convertPointToGlobal window x y)
-                (set! current-mouse-x glo-x)
-                (set! current-mouse-y glo-y)
-                (let* ((view (HIViewForPoint window x y))
-                       (win (get-window view)))
-                  (if win
-                      (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
-                        (mouse-move~ win (flonum->fixnum x) (flonum->fixnum y))
-                        noErr)
-                    eventNotHandledErr))))))
-         ((= type kEventMouseUp)
-          (let ((window (eventWindowRef event)))
-            (receive (x y) (eventMouseLocation event)
-              (let* ((view (HIViewForPoint window x y))
-                     (win (get-window view)))
-                (if win
-                    (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
-                      (mouse-up~ win (flonum->fixnum x) (flonum->fixnum y))
-                      noErr)
-                  eventNotHandledErr)))))
-         ((= type kEventMouseDown)
-          (let ((window (eventWindowRef event)))
-            (receive (x y) (eventMouseLocation event)
-              (let* ((view (HIViewForPoint window x y))
-                     (win (get-window view)))
-                (if win
-                    (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
-                      (mouse-down~ win (flonum->fixnum x) (flonum->fixnum y))
-                      noErr)
-                  eventNotHandledErr)))))
-         (else eventNotHandledErr)))
-      ((= class kEventClassKeyboard)
-       (cond
-         ((= type kEventRawKeyDown)
-          (let* ((keycode (eventKeyCode event))
-                 (keyboard (eventKeyboardType event))
-                 (state   (eventKeyMods    event))
-                 (unmodified (unmodifiedKey keycode keyboard state))
-                 (unicode (eventKeyUnicode event)))
-            (let ((unmodified (convert-key unmodified keycode))
-                  (unicode (convert-key unicode keycode))
-                  (mods '()))
-              (when (bit-set? shiftKeyBit state)   (set! mods (cons :shift mods)))
-              (when (bit-set? controlKeyBit state) (set! mods (cons :control mods)))
-              (when (bit-set? optionKeyBit state)  (set! mods (cons :alt mods)))
-              (when (not (dispatch-shortcut~ (get-application) (new Shortcut mods unmodified)))
-                (let ((unicode (if (eq? unicode 'Space) #\space unicode)))
-                  (when (and unicode (char? unicode))
-                    (call-key-press~ (get-current-focus) unicode))))))
-          noErr)
-         (else eventNotHandledErr)))
-      (else eventNotHandledErr))))
+  )
 
+@convert-cocoa
 (set-process-window-message process-window-message)
-
-
-(definition (process-control-message handler event userdata)
-  (let ((type (GetEventKind event))
-        (handle (void*->HIViewRef userdata)))
-    (cond ((= type kEventControlDraw)
-           (let ((context (EventCGContext event)))
-             (paint~ (get-window handle) (new Region rect: (eventControlRgn event)) context))
-           noErr)
-          ((= type kEventControlBoundsChanged)
-           (receive (left top width height) (HIViewGetBounds handle)
-             (when (is? (get-window handle) Docked-Host)
-               (show-window handle))
-             (call-size-change~ (get-window handle) 'restored (flonum->fixnum width) (flonum->fixnum height))
-             (call-position-change~ (get-window handle) (flonum->fixnum left) (flonum->fixnum top)))
-           noErr)
-          (else
-           eventNotHandledErr))))
-
-(set-process-control-message process-control-message)
 
 
 ;;;
@@ -409,7 +278,7 @@
 ;;;
 
 
-(definition (set-capture handle)
+(definition public (set-capture handle)
   #f)
 
 
@@ -460,9 +329,7 @@
 
 
 (definition package (platform-set-parent handle parent)
-  (when (HIViewGetSuperview handle)
-    (HIViewRemoveFromSuperview handle))
-  (HIViewAddSubview (get-handle~ parent) handle))
+  )
 
 
 (definition package (platform-get-first-child handle)
@@ -498,10 +365,7 @@
 
 
 (definition public (acquire-point to-handle from-handle shape)
-  (let ((x (get-h~ shape))
-        (y (get-v~ shape)))
-    (receive (x y) (convertCoordinates from-handle to-handle (fixnum->flonum x) (fixnum->flonum y))
-      (new Point (flonum->fixnum x) (flonum->fixnum y)))))
+  )
 
 
 (definition public (acquire-rect to-handle from-handle shape)
@@ -518,12 +382,7 @@
 
 
 (definition package (platform-set-position handle pos)
-  (receive (left top width height) (platform-get-system-rect handle)
-    (let ((left (get-h~ pos))
-          (top (get-v~ pos)))
-      (if (is-window-HIView? (get-window handle))
-          (HIViewSetFrame handle (fixnum->flonum left) (fixnum->flonum top) (fixnum->flonum width) (fixnum->flonum height))
-        (WindowSetBounds (HIViewGetWindow handle) kWindowContentRgn left top width height)))))
+  )
 
 
 (definition package (platform-get-size handle)
@@ -536,19 +395,11 @@
 
 
 (definition package (platform-get-system-rect handle)
-  (cond ((is-window-HIView? (get-window handle))
-         (HIViewGetFrame handle))
-        (else
-         (WindowGetBounds (HIViewGetWindow handle) kWindowContentRgn))))
+  )
 
 
 (definition package (platform-set-window-size handle size)
-  (receive (left top width height) (platform-get-system-rect handle)
-    (let ((width (get-width~ size))
-          (height (get-height~ size)))
-      (if (is-window-HIView? (get-window handle))
-          (HIViewSetFrame handle (fixnum->flonum left) (fixnum->flonum top) (fixnum->flonum width) (fixnum->flonum height))
-        (WindowSetBounds (HIViewGetWindow handle) kWindowContentRgn left top width height)))))
+  )
 
 
 (definition package (platform-set-position-size handle pos size)
@@ -636,18 +487,10 @@
   @w (platform-update-window handle))
 
 
-;; Correct this to really invalidate the rect
 (definition package (platform-invalidate-rect handle rect)
-  (when rect
-    (let ((left (fixnum->flonum (get-left~ rect)))
-          (top (fixnum->flonum (get-top~ rect)))
-          (right (fixnum->flonum (get-right~ rect)))
-          (bottom (fixnum->flonum (get-bottom~ rect))))
-      (unless (and (= 0 left) (= 0 top) (= 0 right) (= 0 bottom))
-        (HIViewSetNeedsDisplayInRect handle left top (- right left) (- bottom top))))))
+  )
 
 
-;; Correct this to really invalidate the region
 (definition package (platform-invalidate-region handle region)
   (for-each (lambda (rect)
               (platform-invalidate-rect handle rect))
@@ -659,13 +502,7 @@
 
 
 (definition package (platform-redraw-window handle rect region)
-  (if rect
-      (platform-invalidate-rect handle rect)
-    (platform-invalidate-region handle region))
-  (HIViewRender handle)
-  (HIWindowFlush (HIViewGetWindow handle))
-  @wait
-  (platform-update-window handle))
+  )
 
 
 (definition package (platform-get-update-rect handle)
@@ -691,9 +528,6 @@
 
 
 (definition package (platform-update-window handle)
-  (HIViewSetNeedsDisplay handle #t)
-  (HIViewRender handle)
-  (HIWindowFlush (HIViewGetWindow handle))
   @wait
   (when handle
     (let* ((size (platform-get-size handle))
@@ -710,20 +544,15 @@
 
 
 (definition package (platform-bring-window-to-front handle)
-  (if (is-window-HIView? (get-window handle))
-      (HIViewSetZOrder handle kHIViewZOrderAbove #f)
-    (SelectWindow (HIViewGetWindow handle))))
+  )
 
 
 (definition package (platform-send-window-to-back handle)
-  (if (is-window-HIView? (get-window handle))
-      (HIViewSetZOrder handle kHIViewZOrderBelow #f)
-    (SendBehind (HIViewGetWindow handle) #f)))
+  )
 
 
 (definition package (platform-select-foreground-window handle)
-  (makeFrontProcess)
-  (SelectWindow (HIViewGetWindow handle)))
+  )
 
 
 ;;;
@@ -747,6 +576,7 @@
 
 (definition package (platform-set-focus handle)
   (set! current-focus (get-window handle))
+  @convert-cocoa
   (SetUserFocusWindow (HIViewGetWindow handle)))
 
 

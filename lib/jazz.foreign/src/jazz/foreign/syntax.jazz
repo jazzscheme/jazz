@@ -215,11 +215,12 @@
   (slot inclusions    getter generate)
   (slot c-to-scheme   getter generate)
   (slot scheme-to-c   getter generate)
+  (slot cleanup       getter generate)
   (slot declare-name  getter generate)
 
   
   (method override (initialize . rest)
-    (bind-keywords ((kind #f) (expansion #f) (base-type #f) (inclusions #f) (c-to-scheme #f) (scheme-to-c #f) (declare-name #f) . others) rest
+    (bind-keywords ((kind #f) (expansion #f) (base-type #f) (inclusions #f) (c-to-scheme #f) (scheme-to-c #f) (cleanup #t) (declare-name #f) . others) rest
       (apply nextmethod others)
       (set! kind~self kind)
       (set! expansion~self expansion)
@@ -228,6 +229,7 @@
       (set! inclusions~self inclusions)
       (set! c-to-scheme~self c-to-scheme)
       (set! scheme-to-c~self scheme-to-c)
+      (set! cleanup~self cleanup)
       (set! declare-name~self declare-name)))
   
   
@@ -241,7 +243,7 @@
   
   (method override (expand-referenced-declaration)
     `(c-define-type ,locator ,expansion ,@(if (and c-to-scheme scheme-to-c)
-                                              (list c-to-scheme scheme-to-c #f)
+                                              (list c-to-scheme scheme-to-c cleanup)
                                             '()))))
 
 
@@ -255,13 +257,14 @@
     (bind (name c-type . conversions) rest
       (let ((type Any))
         (if (null? conversions)
-            (values name type access compatibility c-type #f #f #f)
-          (bind (c-to-scheme scheme-to-c declare-name) conversions
-            (values name type access compatibility c-type c-to-scheme scheme-to-c declare-name)))))))
+            (values name type access compatibility c-type #f #f #f #f)
+          (bind (c-to-scheme scheme-to-c cleanup . rest) conversions
+            (let ((declare-name (if (null? rest) #f (car rest))))
+              (values name type access compatibility c-type c-to-scheme scheme-to-c cleanup declare-name))))))))
 
 
 (define (walk-c-type-declaration walker resume declaration environment form-src)
-  (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare-name) (parse-c-type walker resume declaration (cdr (strip-syntactic-closures form-src)))
+  (receive (name type access compatibility c-type c-to-scheme scheme-to-c cleanup declare-name) (parse-c-type walker resume declaration (cdr (strip-syntactic-closures form-src)))
     (if (is? declaration Module-Declaration)
         (receive (kind expansion base-type-declaration inclusions) (resolve-c-type walker resume declaration environment c-type)
           (let ((inclusions (if declare-name
@@ -270,7 +273,7 @@
                                   (walk-error walker resume declaration form-src "{s} defined with c-to-scheme and scheme-to-c but expansion is not a string: {s}" name expansion))
                               inclusions)))
             (let ((new-declaration (or (find-declaration-child declaration name)
-                                       (new C-Type-Declaration name: name type: type access: access compatibility: compatibility attributes: '() parent: declaration kind: kind expansion: expansion base-type: base-type-declaration inclusions: inclusions c-to-scheme: c-to-scheme scheme-to-c: scheme-to-c declare-name: declare-name))))
+                                       (new C-Type-Declaration name: name type: type access: access compatibility: compatibility attributes: '() parent: declaration kind: kind expansion: expansion base-type: base-type-declaration inclusions: inclusions c-to-scheme: c-to-scheme scheme-to-c: scheme-to-c cleanup: cleanup declare-name: declare-name))))
               (when base-type-declaration
                 (set-pointer-types~ base-type-declaration (cons new-declaration (get-pointer-types~ base-type-declaration))))
               (let ((effective-declaration (add-declaration-child walker resume declaration new-declaration)))
@@ -280,7 +283,7 @@
 
 (define (walk-c-type walker resume declaration environment form-src)
   (let ((form (strip-syntactic-closures form-src)))
-    (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare-name) (parse-c-type walker resume declaration (cdr form))
+    (receive (name type access compatibility c-type c-to-scheme scheme-to-c cleanup declare-name) (parse-c-type walker resume declaration (cdr form))
       (require-declaration declaration name))))
 
 

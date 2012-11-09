@@ -43,6 +43,7 @@
         (jazz.graphic.opengl.platform)
         (jazz.geometry)
         (jazz.platform)
+        (jazz.platform.cocoa)
         (jazz.ui.window))
 
 
@@ -51,7 +52,19 @@
 
 
 (definition package (create-opengl-window (class: class #f) (position: position #f) (size: size #f) (fullscreen?: fullscreen? #f) (visible?: visible? #t))
-  )
+  (let ((class (or class OpenGL-Window))
+        (position (or position {Point 50 50}))
+        (size (or size {Dimension 640 480})))
+    (let ((window (new class fullscreen?: fullscreen? visible?: #f)))
+      (let ((handle (get-handle~ window)))
+        (platformMakeContextCurrent handle)
+        (platformReshapeHack handle)
+        (platformSetWindowTitle handle "Hello world from Jazz!")
+        (set-handle~ window handle)
+        (when visible?
+          (set-visible?~ window #t)
+          (select-foreground~ window))
+        window))))
 
 
 ;;;
@@ -101,8 +114,8 @@
 ;;;
 
 
-(definition package (swap-buffers device)
-  )
+(definition package (swap-buffers handle device)
+  (platformSwapBuffers handle))
 
 
 (definition package (make-context-current device context)

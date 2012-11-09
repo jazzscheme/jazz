@@ -84,12 +84,19 @@
   (slot previous-placement initialize #f getter generate)
   (slot window-mode        initialize #f getter generate)
   (slot render-pulse       initialize #f getter generate)
+
+
+  (method override (opengl?)
+    #t)
   
   
   (method override (prepare rest)
     (nextmethod rest)
     (set! window-mode (if (opengl-fullscreen?) 'fullscreen 'windowed))
-    (set! render-pulse (new Pulse 'render .01 (lambda () (render-scene)))))
+    (set! render-pulse (new Pulse 'render .01
+                            (lambda ()
+                              (when (get-visible?)
+                                (render-scene))))))
   
   
   (method override (destroy)
@@ -101,10 +108,12 @@
   
   (method override (size-change state size)
     (nextmethod state size)
-    (when context
+    (when (opened?)
       (let ((width (get-width~ size))
             (height (get-height~ size)))
-        (resize-scene (cast <fl> width) (cast <fl> height)))))
+        (resize-scene (cast <fl> width) (cast <fl> height)))
+      @interesting-but-can-get-called-too-early
+      (render-scene)))
   
   
   (method protected virtual (resize-scene width <fl> height <fl>)
@@ -182,19 +191,15 @@
     (invalidate-rect clip-rect))
   
   
+  (method protected virtual (render-scene)
+    (make-context-current device context)
+    (draw-scene)
+    (swap-buffers handle device))
+  
+  
   (method protected virtual (draw-scene)
     )
   
   
-  (method protected virtual (render-scene)
-    (make-context-current device context)
-    (draw-scene)
-    (swap-buffers device))
-  
-  
   (method override (close-window)
-    ;; on Windows Vista and upward, the WM_CLOSE message must go through to completion
-    (delay-event
-      (lambda ()
-        (exit)))
-    processed)))
+    (close-requested))))

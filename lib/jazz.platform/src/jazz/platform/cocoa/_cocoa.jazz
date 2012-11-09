@@ -761,7 +761,7 @@ typedef struct _GLFWlibrary     _GLFWlibrary;
 typedef void (*GLFWglproc)(void);
 
 /* Window handle type */
-typedef void* GLFWwindow;
+typedef _GLFWwindow* GLFWwindow;
 
 /* Function pointer types */
 typedef void (* GLFWerrorfun)(int,const char*);
@@ -809,7 +809,7 @@ GLFWAPI void glfwGetDesktopMode(GLFWvidmode* mode);
 /* Window handling */
 GLFWAPI void glfwDefaultWindowHints(void);
 GLFWAPI void glfwWindowHint(int target, int hint);
-GLFWAPI GLFWwindow glfwCreateWindow(int width, int height, int mode, const char* title, GLFWwindow share);
+GLFWAPI GLFWwindow glfwCreateWindow(int width, int height, int mode, const char* title, GLFWwindow share, bool opengl);
 GLFWAPI void glfwDestroyWindow(GLFWwindow window);
 GLFWAPI void glfwSetWindowTitle(GLFWwindow window, const char* title);
 GLFWAPI void glfwGetWindowSize(GLFWwindow window, int* width, int* height);
@@ -1167,7 +1167,7 @@ double _glfwPlatformGetTime(void);
 void _glfwPlatformSetTime(double time);
 
 // Window management
-int  _glfwPlatformCreateWindow(_GLFWwindow* window, const _GLFWwndconfig* wndconfig, const _GLFWfbconfig* fbconfig);
+int  _glfwPlatformCreateWindow(_GLFWwindow* window, const _GLFWwndconfig* wndconfig, const _GLFWfbconfig* fbconfig, bool opengl);
 void _glfwPlatformDestroyWindow(_GLFWwindow* window);
 void _glfwPlatformSetWindowTitle(_GLFWwindow* window, const char* title);
 void _glfwPlatformSetWindowSize(_GLFWwindow* window, int width, int height);
@@ -1239,6 +1239,20 @@ const _GLFWfbconfig* _glfwChooseFBConfig(const _GLFWfbconfig* desired,
 GLboolean _glfwRefreshContextParams(void);
 GLboolean _glfwIsValidContextConfig(_GLFWwndconfig* wndconfig);
 GLboolean _glfwIsValidContext(_GLFWwndconfig* wndconfig);
+
+"#)
+
+
+;;;
+;;;; Platform Callbacks
+;;;
+
+
+(c-declare #"
+
+void call_error(char* msg);
+void call_reshape(_GLFWwindow* window, int width, int height);
+void call_close(_GLFWwindow* window);
 
 "#)
 
@@ -2260,7 +2274,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
                                                userInfo:nil];
 
     [self addTrackingArea:trackingArea];
-	[super updateTrackingAreas];
+	 [super updateTrackingAreas];
 }
 
 - (void)keyDown:(NSEvent *)event
@@ -2700,7 +2714,8 @@ static GLboolean createContext(_GLFWwindow* window,
 
 int _glfwPlatformCreateWindow(_GLFWwindow* window,
                               const _GLFWwndconfig* wndconfig,
-                              const _GLFWfbconfig* fbconfig)
+                              const _GLFWfbconfig* fbconfig,
+                              bool opengl)
 {
     if (!initializeAppKit())
         return GL_FALSE;
@@ -2807,6 +2822,16 @@ void _glfwPlatformDestroyWindow(_GLFWwindow* window)
 
 
 //========================================================================
+// Get the window title
+//========================================================================
+
+NSString* _glfwPlatformGetWindowTitle(_GLFWwindow* window)
+{
+    return [window->NS.object title];
+}
+
+
+//========================================================================
 // Set the window title
 //========================================================================
 
@@ -2894,6 +2919,23 @@ void _glfwPlatformHideWindow(_GLFWwindow* window)
 
 void _glfwPlatformRefreshWindowParams(_GLFWwindow* window)
 {
+}
+
+
+//========================================================================
+// Check for new window and input events
+//========================================================================
+
+bool _glfwPlatformEventAvailable(void)
+{
+    NSEvent* event;
+
+    event = [NSApp nextEventMatchingMask:NSAnyEventMask
+                                   untilDate:[NSDate distantPast]
+                                      inMode:NSDefaultRunLoopMode
+                                     dequeue:NO];
+
+     return event != NULL;
 }
 
 
@@ -3110,8 +3152,6 @@ static GLFWerrorfun _glfwErrorCallback = NULL;
 
 void _glfwSetError(int error, const char* format, ...)
 {
-    if (_glfwErrorCallback)
-    {
         char buffer[16384];
         const char* description;
 
@@ -3132,10 +3172,7 @@ void _glfwSetError(int error, const char* format, ...)
         else
             description = glfwErrorString(error);
 
-        _glfwErrorCallback(error, description);
-    }
-    else
-        _glfwError = error;
+        call_error((char *) description);
 }
 
 
@@ -4918,10 +4955,7 @@ void _glfwInputWindowDamage(_GLFWwindow* window)
 
 void _glfwInputWindowCloseRequest(_GLFWwindow* window)
 {
-    if (window->windowCloseCallback)
-        window->closeRequested = window->windowCloseCallback(window);
-    else
-        window->closeRequested = GL_TRUE;
+    call_close(window);
 }
 
 
@@ -4935,7 +4969,8 @@ void _glfwInputWindowCloseRequest(_GLFWwindow* window)
 
 GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
                                     int mode, const char* title,
-                                    GLFWwindow share)
+                                    GLFWwindow share,
+                                    bool opengl)
 {
     _GLFWfbconfig fbconfig;
     _GLFWwndconfig wndconfig;
@@ -4971,7 +5006,7 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
     wndconfig.title          = title;
     wndconfig.refreshRate    = Max(_glfwLibrary.hints.refreshRate, 0);
     wndconfig.resizable      = _glfwLibrary.hints.resizable ? GL_TRUE : GL_FALSE;
-    wndconfig.visible        = _glfwLibrary.hints.visible ? GL_TRUE : GL_FALSE;
+    wndconfig.visible        = GL_FALSE;
     wndconfig.clientAPI      = _glfwLibrary.hints.clientAPI;
     wndconfig.glMajor        = _glfwLibrary.hints.glMajor;
     wndconfig.glMinor        = _glfwLibrary.hints.glMinor;
@@ -4982,11 +5017,12 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
     wndconfig.share          = (_GLFWwindow*) share;
 
     // Check the OpenGL bits of the window config
-    if (!_glfwIsValidContextConfig(&wndconfig))
+    if (opengl && !_glfwIsValidContextConfig(&wndconfig))
         return GL_FALSE;
 
     // Save the currently current context so it can be restored later
-    previous = glfwGetCurrentContext();
+    if (opengl)
+        previous = glfwGetCurrentContext();
 
     if (mode != GLFW_WINDOWED && mode != GLFW_FULLSCREEN)
     {
@@ -4995,6 +5031,8 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
         return GL_FALSE;
     }
 
+    if (opengl)
+    {
     // Check width & height
     if (width > 0 && height <= 0)
     {
@@ -5011,6 +5049,7 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
         // Default window size
         width  = 640;
         height = 480;
+    }
     }
 
     window = (_GLFWwindow*) calloc(1, sizeof(_GLFWwindow));
@@ -5032,20 +5071,22 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
     window->systemKeys = GL_TRUE;
 
     // Open the actual window and create its context
-    if (!_glfwPlatformCreateWindow(window, &wndconfig, &fbconfig))
+    if (!_glfwPlatformCreateWindow(window, &wndconfig, &fbconfig, opengl))
     {
         glfwDestroyWindow(window);
-        glfwMakeContextCurrent(previous);
+        if (opengl)
+            glfwMakeContextCurrent(previous);
         return GL_FALSE;
     }
 
     // Cache the actual (as opposed to requested) window parameters
     _glfwPlatformRefreshWindowParams(window);
 
-    glfwMakeContextCurrent(window);
+    if (opengl)
+        glfwMakeContextCurrent(window);
 
     // Cache the actual (as opposed to requested) context parameters
-    if (!_glfwRefreshContextParams())
+    if (opengl && !_glfwRefreshContextParams())
     {
         glfwDestroyWindow(window);
         glfwMakeContextCurrent(previous);
@@ -5053,13 +5094,15 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
     }
 
     // Verify the context against the requested parameters
-    if (!_glfwIsValidContext(&wndconfig))
+    if (opengl && !_glfwIsValidContext(&wndconfig))
     {
         glfwDestroyWindow(window);
         glfwMakeContextCurrent(previous);
         return GL_FALSE;
     }
 
+    if (opengl)
+    {
     // Clearing the front buffer to black to avoid garbage pixels left over
     // from previous uses of our bit of VRAM
     glClear(GL_COLOR_BUFFER_BIT);
@@ -5067,6 +5110,7 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
 
     // Restore the previously current context (or NULL)
     glfwMakeContextCurrent(previous);
+    }
 
     // The GLFW specification states that fullscreen windows have the cursor
     // captured by default
@@ -5246,6 +5290,18 @@ GLFWAPI void glfwDestroyWindow(GLFWwindow handle)
 
 
 //========================================================================
+// Get the window title
+//========================================================================
+
+GLFWAPI NSString* glfwGetWindowTitle(GLFWwindow handle)
+{
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+
+    return _glfwPlatformGetWindowTitle(window);
+}
+
+
+//========================================================================
 // Set the window title
 //========================================================================
 
@@ -5418,12 +5474,6 @@ GLFWAPI void glfwRestoreWindow(GLFWwindow handle)
 GLFWAPI void glfwShowWindow(GLFWwindow handle)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
 
     if (window->mode == GLFW_FULLSCREEN)
         return;
@@ -5681,22 +5731,9 @@ bool platformglfwInit()
 }
 
 
-void reshape( GLFWwindow window, int width, int height )
+void reshapeCallback(GLFWwindow window, int width, int height)
 {
-  GLfloat h = (GLfloat) height / (GLfloat) width;
-  GLfloat xmax, znear, zfar;
-
-  znear = 5.0f;
-  zfar  = 30.0f;
-  xmax  = znear * 0.5f;
-
-  glViewport( 0, 0, (GLint) width, (GLint) height );
-  glMatrixMode( GL_PROJECTION );
-  glLoadIdentity();
-  glFrustum( -xmax, xmax, -xmax*h, xmax*h, znear, zfar );
-  glMatrixMode( GL_MODELVIEW );
-  glLoadIdentity();
-  glTranslatef( 0.0, 0.0, -20.0 );
+  call_reshape(window, width, height);
 }
 
 
@@ -5704,66 +5741,17 @@ void platformReshapeHack(_GLFWwindow* window)
 {
     int width, height;
     glfwGetWindowSize(window, &width, &height);
-    reshape(window, width, height);
+    call_reshape(window, width, height);
 }
 
 
-_GLFWwindow* platformCreateWindow()
+_GLFWwindow* platformCreateWindow(bool opengl)
 {
-    _GLFWwindow* window = glfwCreateWindow(600, 400, GLFW_WINDOWED, "Test", NULL);
+        _GLFWwindow* window = glfwCreateWindow(600, 400, GLFW_WINDOWED, "Test", NULL, opengl);
   
-    glfwSetWindowSizeCallback(window, reshape);
+        glfwSetWindowSizeCallback(window, reshapeCallback);
     
-    return window;
-    /*
-    initializeAppKit();
-    
-    unsigned int styleMask = 0;
-
-    if (1)
-    {
-        styleMask = NSTitledWindowMask | NSClosableWindowMask |
-                    NSMiniaturizableWindowMask;
-
-        if (1)
-            styleMask |= NSResizableWindowMask;
-    }
-    else
-        styleMask = NSBorderlessWindowMask;
-
-    _GLFWwindow* window = (_GLFWwindow*) calloc(1, sizeof(_GLFWwindow));
-    int width = 600;
-    int height = 400;
-    window->object = [[NSWindow alloc]
-        initWithContentRect:NSMakeRect(0, 0, width, height)
-                  styleMask:styleMask
-                    backing:NSBackingStoreBuffered
-                      defer:NO];
-
-    // from showwindow
-    [window makeKeyAndOrderFront:nil];
-    // _glfwInputWindowVisibility(window, GL_TRUE);
-
-    if (window == nil)
-    {
-     //   _glfwSetError(GLFW_PLATFORM_ERROR, "Cocoa: Failed to create window");
-        return NULL;
-    }
-
-    id view;
-    view = [[GLFWContentView alloc] initWithGlfwWindow:window];
-
-    [window setTitle:[NSString stringWithUTF8String:wndconfig->title]];
-    [window setContentView:view];
-  //  [window setDelegate:window->NS.delegate];
-    [window setAcceptsMouseMovedEvents:YES];
-    [window center];
-
-    if ([window respondsToSelector:@selector(setRestorable:)])
-        [window setRestorable:NO];
-
-    return window;
-    */
+        return window;
 }
 
 
@@ -5773,9 +5761,21 @@ void platformMakeContextCurrent(_GLFWwindow* window)
 }
 
 
-void platformSetWindowTitle(_GLFWwindow* window)
+NSString* platformGetWindowTitle(_GLFWwindow* window)
 {
-    glfwSetWindowTitle(window, "Hello world from Jazz!");
+    return glfwGetWindowTitle(window);
+}
+
+
+void platformSetWindowTitle(_GLFWwindow* window, char* title)
+{
+    glfwSetWindowTitle(window, title);
+}
+
+
+void platformShowWindow(_GLFWwindow* window)
+{
+    glfwShowWindow(window);
 }
 
 
@@ -5785,29 +5785,27 @@ void platformSwapBuffers(_GLFWwindow* window)
 }
 
 
+bool platformEventAvailable(void)
+{
+    return _glfwPlatformEventAvailable();
+}
+
+
 void platformPoolEvents(void)
 {
- glfwPollEvents();
-               /*
-    NSEvent* event;
-
-    do
-    {
-        event = [NSApp nextEventMatchingMask:NSAnyEventMask
-                                   untilDate:[NSDate distantPast]
-                                      inMode:NSDefaultRunLoopMode
-                                     dequeue:YES];
-
-        if (event)
-            [NSApp sendEvent:event];
-    }
-    while (event);
-    */
+    glfwPollEvents();
 }
+
 
 bool platformContinueLoop(_GLFWwindow* window)
 {
     return glfwGetWindowParam(window, GLFW_CLOSE_REQUESTED) == GL_FALSE && glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS;
+}
+
+
+void platformDestroyWindow(_GLFWwindow* window)
+{
+    glfwDestroyWindow(window);
 }
 
 "#)
@@ -5817,13 +5815,51 @@ bool platformContinueLoop(_GLFWwindow* window)
 
 
 (c-external (platformglfwInit) bool)
-(c-external (platformCreateWindow) glfwwindow)
+(c-external (platformCreateWindow bool) glfwwindow)
 (c-external (platformMakeContextCurrent glfwwindow) void)
 (c-external (platformReshapeHack glfwwindow) void)
-(c-external (platformSetWindowTitle glfwwindow) void)
+(c-external (platformGetWindowTitle glfwwindow) NSString*)
+(c-external (platformSetWindowTitle glfwwindow char-string) void)
+(c-external (platformShowWindow glfwwindow) void)
 (c-external (platformSwapBuffers glfwwindow) void)
+(c-external (platformEventAvailable) bool)
 (c-external (platformPoolEvents) void)
 (c-external (platformContinueLoop glfwwindow) bool)
+(c-external (platformDestroyWindow glfwwindow) void)
+(c-external (glfwGetCocoaWindow glfwwindow) id)
+
+
+(definition get-window
+  #f)
+
+(definition public (set-get-window proc)
+  (set! get-window proc))
+
+
+(c-definition (call-error msg) (char-string) void "call_error" ""
+  (error msg))
+
+(c-definition (call-reshape handle width height) (glfwwindow int int) void "call_reshape" ""
+  (when get-window
+    (let ((window (get-window handle)))
+      (call-size-change~ window 'restored width height))))
+
+(c-definition (call-close handle) (glfwwindow) void "call_close" ""
+  (when get-window
+    (let ((window (get-window handle)))
+      (close-window~ window))))
+
+
+(definition public (initialize-cocoa)
+  (platformglfwInit))
+
+
+;;;
+;;;; Types
+;;;
+
+
+(c-type CGContextRef (pointer (struct "CGContext")))
 
 
 ;;;

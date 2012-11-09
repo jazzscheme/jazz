@@ -75,10 +75,6 @@
   (make-table test: eqv?))
 
 
-(definition public Window-Title-Table
-  (make-table test: eqv?))
-
-
 (definition public inline (get-window hwnd)
   (let ((hwnd (if (foreign? hwnd) (foreign-address hwnd) hwnd)))
     (table-ref Windows-Table hwnd #f)))
@@ -88,12 +84,12 @@
   (table-set! Windows-Table (foreign-address hwnd) window))
 
 
-(definition public inline (platform-get-window-handle-title handle)
-  (table-ref Window-Title-Table handle #f))
+(definition public (platform-get-window-handle-title handle)
+  (platformGetWindowTitle handle))
 
 
-(definition public inline (set-window-title handle title)
-  (table-set! Window-Title-Table handle title))
+(definition public (set-window-title handle title)
+  (platformSetWindowTitle handle title))
 
 
 (definition package (window-parent window)
@@ -110,7 +106,7 @@
 
 
 (definition package (prepare-handle window rest)
-  )
+  (platformCreateWindow (opengl?~ window)))
 
 
 (definition (create-window-handle window rest)
@@ -118,7 +114,11 @@
 
 
 (definition package (destroy-window handle)
-  )
+  (platformDestroyWindow handle))
+
+
+(definition package (close-requested)
+  (exit))
 
 
 (definition (dispatch-message window msg)
@@ -134,32 +134,33 @@
   )
 
 
+(set-get-window get-window)
+
+
 ;;;
 ;;;; Messages
 ;;;
 
 
 (definition package (process-messages-single-threaded thunk)
-  @convert-cocoa
-  (RunApplicationEventLoop))
+  (declare (proper-tail-calls))
+  (let (loop)
+    (platformPoolEvents)
+    (thunk)
+    (sleep .001)
+    (loop)))
 
 
 (definition package (process-messages-multi-threaded)
-  @convert-cocoa
-  (define (process)
-    (RunApplicationEventLoop))
-  
-  @convert-cocoa
-  (new-thread process 'message-pump))
+  )
 
 
-;; todo optimize
 (definition package (message-available?)
-  #f)
+  (platformEventAvailable))
 
 
 (definition package (show-window handle)
-  )
+  (platformShowWindow handle))
 
 
 (definition package (show-maximized handle)
@@ -365,7 +366,8 @@
 
 
 (definition public (acquire-point to-handle from-handle shape)
-  )
+  ;; TODO
+  shape)
 
 
 (definition public (acquire-rect to-handle from-handle shape)
@@ -395,7 +397,7 @@
 
 
 (definition package (platform-get-system-rect handle)
-  )
+  (values 0. 0. 600. 400.))
 
 
 (definition package (platform-set-window-size handle size)

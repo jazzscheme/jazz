@@ -45,6 +45,7 @@
         (jazz.graphic.opengl.window.cocoa   (cond cocoa))
         (jazz.graphic.opengl.window.windows (cond windows))
         (jazz.graphic.opengl.window.x11     (cond x11))
+        (jazz.library)
         (jazz.platform)
         (jazz.system)
         (jazz.ui)
@@ -52,10 +53,13 @@
 
 
 (definition public (new-opengl-window (class: class #f) (position: position #f) (size: size #f) (fullscreen?: fullscreen? #f) (visible?: visible? #t))
-  (let ((window (create-opengl-window class: class position: position size: size fullscreen?: fullscreen? visible?: visible?)))
+  (let ((window (create-opengl-window class: class position: position size: size fullscreen?: fullscreen?)))
     (initialize-glew)
     (adjust-opengl-context window)
     (setup-opengl~ window)
+    (when visible?
+      (set-visible?~ window #t)
+      (select-foreground~ window))
     window))
 
 
@@ -79,11 +83,20 @@
   (slot context            initialize #f accessors generate)
   (slot previous-placement initialize #f getter generate)
   (slot window-mode        initialize #f getter generate)
+  (slot render-pulse       initialize #f getter generate)
   
   
   (method override (prepare rest)
     (nextmethod rest)
-    (set! window-mode (if (opengl-fullscreen?) 'fullscreen 'windowed)))
+    (set! window-mode (if (opengl-fullscreen?) 'fullscreen 'windowed))
+    (set! render-pulse (new Pulse 'render .01 (lambda () (render-scene)))))
+  
+  
+  (method override (destroy)
+    (when render-pulse
+      (close~ render-pulse)
+      (set! render-pulse #f))
+    (nextmethod))
   
   
   (method override (size-change state size)
@@ -177,11 +190,6 @@
     (make-context-current device context)
     (draw-scene)
     (swap-buffers device))
-  
-  
-  (method override (timer-pulse)
-    (unless (> (current-repl-level) 0)
-      (render-scene)))
   
   
   (method override (close-window)

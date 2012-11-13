@@ -83,10 +83,11 @@
   (slot cc getter generate)
   (slot bcc getter generate)
   (slot content-type getter generate)
-  (slot attachments getter generate)  
+  (slot attachments getter generate)
+  (slot quoted-printable? getter generate)
   
   
-  (method override (initialize from to subject message (cc: cc '()) (bcc: bcc '()) (content-type: content-type #f) (attachments: attachments '()))
+  (method override (initialize from to subject message (cc: cc '()) (bcc: bcc '()) (content-type: content-type #f) (attachments: attachments '()) (quoted-printable?: quoted-printable? #t))
     (set! from~self from)
     (set! to~self to)
     (set! subject~self subject)
@@ -94,7 +95,8 @@
     (set! cc~self cc)
     (set! bcc~self bcc)
     (set! content-type~self content-type)
-    (set! attachments~self attachments))
+    (set! attachments~self attachments)
+    (set! quoted-printable?~self quoted-printable?))
   
   
   (definition boundary "CF69BC42-C9CB-11E0-82A0-A5C34824019B")
@@ -190,8 +192,9 @@
       (display (format "Content-Type: multipart/mixed; boundary={a}\n" boundary) port)
       (display separator port))
     (display (format "Content-Type: {a}; charset=\"UTF-8\"\n" (or content-type 'text/plain)) port)
-    (display "Content-Transfer-Encoding: quoted-printable\n\n" port)
-    (display (string->quoted-printable-string message) port)
+    (when quoted-printable?
+      (display "Content-Transfer-Encoding: quoted-printable\n\n" port))
+    (display (if quoted-printable? (string->quoted-printable-string message) message) port)
     (display "\n\n" port)
     (for-each (lambda (file)
                 (display separator port)

@@ -38,11 +38,8 @@
 (module protected jazz.platform.cocoa jazz
 
 
-(export (jazz.platform.cocoa.objectivec))
-
 (import (jazz.foreign)
-        (jazz.platform.types)
-        (jazz.platform.cocoa.objectivec))
+        (jazz.platform.types))
 
 
 ;;;
@@ -1253,6 +1250,10 @@ GLboolean _glfwIsValidContext(_GLFWwndconfig* wndconfig);
 void call_error(char* msg);
 void call_reshape(_GLFWwindow* window, int width, int height);
 void call_close(_GLFWwindow* window);
+void key_press_callback(_GLFWwindow* window, int key, int action);
+void char_callback(_GLFWwindow* window, int c);
+void button_callback(_GLFWwindow* window, int x, int y, int button, int action);
+void move_callback(_GLFWwindow* window, int x, int y);
 
 "#)
 
@@ -3021,6 +3022,7 @@ void _glfwPlatformSetCursorMode(_GLFWwindow* window, int mode)
             CGAssociateMouseAndMouseCursorPosition(true);
             break;
         case GLFW_CURSOR_HIDDEN:
+            [NSCursor hide];
             break;
         case GLFW_CURSOR_CAPTURED:
             [NSCursor hide];
@@ -4374,8 +4376,8 @@ void _glfwInputKey(_GLFWwindow* window, int key, int action)
     }
 
     // Call user callback function
-    if (window->keyCallback && (window->keyRepeat || !repeated))
-        window->keyCallback(window, key, action);
+    if (window->keyRepeat || !repeated)
+        key_press_callback(window, key, action);
 }
 
 
@@ -4389,8 +4391,7 @@ void _glfwInputChar(_GLFWwindow* window, int character)
     if (!((character >= 32 && character <= 126) || character >= 160))
         return;
 
-    if (window->charCallback)
-        window->charCallback(window, character);
+    char_callback(window, character);
 }
 
 
@@ -4423,8 +4424,11 @@ void _glfwInputMouseClick(_GLFWwindow* window, int button, int action)
     else
         window->mouseButton[button] = (char) action;
 
-    if (window->mouseButtonCallback)
-        window->mouseButtonCallback(window, button, action);
+    // for jazz
+    int x;
+    int y;
+    glfwGetCursorPos(window, &x, &y);
+    button_callback(window, x, y, button, action);
 }
 
 
@@ -4451,12 +4455,9 @@ void _glfwInputCursorMotion(_GLFWwindow* window, int x, int y)
         window->cursorPosY = y;
     }
 
-    if (window->cursorPosCallback)
-    {
-        window->cursorPosCallback(window,
+    move_callback(window,
                                   window->cursorPosX,
                                   window->cursorPosY);
-    }
 }
 
 
@@ -5785,13 +5786,48 @@ void platformSwapBuffers(_GLFWwindow* window)
 }
 
 
+___SCMOBJ platformGetMousePosition(_GLFWwindow* window)
+{
+    int x;
+    int y;
+    glfwGetCursorPos(window, &x, &y);
+    // quicky
+    ___SCMOBJ xy = ___EXT(___make_pair) (___FIX(x), ___FIX(y), ___STILL);
+    return xy;
+}
+
+
+void platformSetMousePosition(_GLFWwindow* window, int x, int y)
+{
+    glfwSetCursorPos(window, x, y);
+}
+
+
+void platformHideCursor(_GLFWwindow* window)
+{
+    setCursorMode(window, GLFW_CURSOR_HIDDEN);
+}
+
+
+void platformShowCursor(_GLFWwindow* window)
+{
+    setCursorMode(window, GLFW_CURSOR_NORMAL);
+}
+
+
+bool platformKeyDown(_GLFWwindow* window, int key)
+{
+    return glfwGetKey(window, key) == GLFW_PRESS;
+}
+
+
 bool platformEventAvailable(void)
 {
     return _glfwPlatformEventAvailable();
 }
 
 
-void platformPoolEvents(void)
+void platformPollEvents(void)
 {
     glfwPollEvents();
 }
@@ -5822,11 +5858,38 @@ void platformDestroyWindow(_GLFWwindow* window)
 (c-external (platformSetWindowTitle glfwwindow char-string) void)
 (c-external (platformShowWindow glfwwindow) void)
 (c-external (platformSwapBuffers glfwwindow) void)
+(c-external (platformGetMousePosition glfwwindow) scheme-object)
+(c-external (platformSetMousePosition glfwwindow int int) void)
+(c-external (platformHideCursor glfwwindow) void)
+(c-external (platformShowCursor glfwwindow) void)
+(c-external (platformKeyDown glfwwindow int) bool)
 (c-external (platformEventAvailable) bool)
-(c-external (platformPoolEvents) void)
+(c-external (platformPollEvents) void)
 (c-external (platformContinueLoop glfwwindow) bool)
 (c-external (platformDestroyWindow glfwwindow) void)
 (c-external (glfwGetCocoaWindow glfwwindow) id)
+
+
+(definition public (platform-get-mouse-position window)
+  (let ((pair (platformGetMousePosition window)))
+    (new Point (car pair) (cdr pair))))
+
+
+;; quicky
+(define GLFW_RELEASE 0)
+(define GLFW_PRESS 1)
+
+(define GLFW_MOUSE_BUTTON_LEFT 0)
+(define GLFW_MOUSE_BUTTON_RIGHT 1)
+(define GLFW_MOUSE_BUTTON_MIDDLE 2)
+
+
+;; quicky
+(define translate-shortcut-hook
+  #f)
+
+(definition public (set-translate-shortcut-hook hook)
+  (set! translate-shortcut-hook hook))
 
 
 (definition get-window
@@ -5837,21 +5900,81 @@ void platformDestroyWindow(_GLFWwindow* window)
 
 
 (c-definition (call-error msg) (char-string) void "call_error" ""
+  ;(terminal 'error msg)
   (error msg))
 
 (c-definition (call-reshape handle width height) (glfwwindow int int) void "call_reshape" ""
+  ;(terminal 'reshape width height)
   (when get-window
     (let ((window (get-window handle)))
       (call-size-change~ window 'restored width height))))
 
 (c-definition (call-close handle) (glfwwindow) void "call_close" ""
+  ;(terminal 'close)
   (when get-window
     (let ((window (get-window handle)))
       (close-window~ window))))
 
+(c-definition (key-press-callback handle key action) (glfwwindow int int) void "key_press_callback" ""
+  ;(terminal 'key key action)
+  (let ()
+    (define (translate key)
+      (case key
+        ((256) #\escape)
+        (else #f)))
+    
+    (when (and get-window (eq? action GLFW_PRESS))
+      (let ((window (get-window handle)))
+        (let ((translated (translate key)))
+          (if translated
+              (or (translate-shortcut-hook translated)
+                  (call-key-press~ window translated))
+            (debug 'key key)))))))
+
+(c-definition (char-callback handle c) (glfwwindow int) void "char_callback" ""
+  ;(terminal 'char c)
+  (when get-window
+    (let ((window (get-window handle))
+          (c (integer->char c)))
+      (or (translate-shortcut-hook c)
+          (call-key-press~ window c)))))
+
+(c-definition (button-callback handle x y button action) (glfwwindow int int int int) void "button_callback" ""
+  ;(terminal 'button x y button action)
+  (when get-window
+    (let ((window (get-window handle)))
+      (ecase button
+        ((GLFW_MOUSE_BUTTON_LEFT)
+         (ecase action
+           ((GLFW_PRESS) (mouse-down~ window x y))
+           ((GLFW_RELEASE) (mouse-up~ window x y))))
+        ((GLFW_MOUSE_BUTTON_RIGHT)
+         (ecase action
+           ((GLFW_PRESS) (right-mouse-down~ window x y))
+           ((GLFW_RELEASE) (right-mouse-up~ window x y))))))))
+
+(c-definition (move-callback handle x y) (glfwwindow int int) void "move_callback" ""
+  ;(terminal 'move x y)
+  (when get-window
+    (let ((window (get-window handle)))
+      (mouse-move~ window x y))))
+
 
 (definition public (initialize-cocoa)
   (platformglfwInit))
+
+
+;; hack
+(definition public window-to-use-hack
+  (make-parameter #f))
+
+
+;; quicky
+(definition public VK_LEFT 0)
+(definition public VK_RIGHT 0)
+(definition public VK_DOWN 0)
+(definition public VK_UP 0)
+(definition public VK_RBUTTON 0)
 
 
 ;;;

@@ -966,6 +966,7 @@
       (or (jazz:extension? ext "c")
           (jazz:extension? ext "dgs")
           (jazz:extension? ext "mnf")
+          (jazz:extension? ext "otl")
           (jazz:extension? ext "o")
           (jazz:numeric-extension? ext "o"))))
   

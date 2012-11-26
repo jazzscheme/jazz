@@ -330,8 +330,10 @@
       ;; path is "C:/Home/dep/src/<name>/<branch>"
       (let ((dep-dir (jazz:absolutize-directory jazz:kernel-install "../../../dep/src"))
             (rel-dir (jazz:join-strings (list name branch) #\/)))
-        (cons name
-              (%%string-append dep-dir rel-dir)))))
+        (if (not dep-dir)
+            (jazz:error "Invalid .dependencies" name directory)
+          (cons name
+                (%%string-append dep-dir rel-dir))))))
   
   (define (dynamic-repositories)
     (let ((dependencies (jazz:dependencies)))

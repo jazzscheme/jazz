@@ -331,7 +331,7 @@
       (let ((dep-dir (jazz:absolutize-directory jazz:kernel-install "../../../dep/src"))
             (rel-dir (jazz:join-strings (list name branch) #\/)))
         (if (not dep-dir)
-            (jazz:error "Invalid .dependencies" name directory)
+            (jazz:error "Invalid .dependencies")
           (cons name
                 (%%string-append dep-dir rel-dir))))))
   

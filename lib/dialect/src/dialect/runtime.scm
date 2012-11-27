@@ -4792,10 +4792,13 @@
 
 
 (define (jazz:include-resource filename)
-  (let ((resource (jazz:requested-unit-resource)))
-    (%%make-resource (%%get-resource-package resource)
-                     (jazz:pathname-brother (%%get-resource-path resource) filename)
-                     #f)))
+  (let ((pathname (jazz:requested-pathname)))
+    (if pathname
+        (jazz:pathname-brother pathname filename)
+      (let ((resource (jazz:requested-unit-resource)))
+        (%%make-resource (%%get-resource-package resource)
+                         (jazz:pathname-brother (%%get-resource-path resource) filename)
+                         #f)))))
 
 
 (define (jazz:include-forms filename)

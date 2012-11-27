@@ -795,6 +795,10 @@
     (nextmethod class subtype)))
 
 
+(jazz:define-method (jazz:emit-specifier (jazz:Object-Class class))
+  'Object)
+
+
 ;;;
 ;;;; Field
 ;;;

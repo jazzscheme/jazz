@@ -463,9 +463,11 @@
   (jazz:error "Unable to outline extract: {s}" declaration))
 
 
-(define (jazz:outline-generate-filter-access declarations)
+(define (jazz:outline-generate-filter-access declarations #!optional (public-lookup #f))
   (jazz:collect-if (lambda (decl)
-                     (%%not (%%eq? (jazz:get-declaration-access decl) 'private)))
+                     (or (%%not (%%eq? (jazz:get-declaration-access decl) 'private))
+                         (and public-lookup
+                              (%%table-ref public-lookup (jazz:get-lexical-binding-name decl) #f))))
                    declarations))
 
 
@@ -505,10 +507,13 @@
     '()))
 
 
-(define (jazz:outline-generate-access-list access)
-  (if access
-      (list access)
-    '()))
+(define (jazz:outline-generate-access-list declaration)
+  (if (%%table-ref (jazz:get-public-lookup (jazz:get-declaration-toplevel declaration)) (jazz:get-lexical-binding-name declaration) #f)
+      '(public)
+    (let ((access (jazz:get-declaration-access declaration)))
+      (if access
+          (list access)
+        '()))))
 
 
 (define (jazz:outline-generate-phase-list phase)
@@ -1493,8 +1498,8 @@
 
 
 (jazz:define-method (jazz:outline-generate (jazz:Module-Declaration declaration) output)
-  (let ((declarations (jazz:outline-generate-filter-access (jazz:resolve-bindings (jazz:queue-list (jazz:get-namespace-declaration-children declaration))))))
-    (jazz:format output "(module {a} jazz" (jazz:get-lexical-binding-name declaration))
+  (let ((declarations (jazz:outline-generate-filter-access (jazz:resolve-bindings (jazz:queue-list (jazz:get-namespace-declaration-children declaration))) (jazz:get-public-lookup declaration))))
+    (jazz:format output "(module {a} {a}" (jazz:get-lexical-binding-name declaration) (jazz:get-module-declaration-dialect-name declaration))
     (for-each (lambda (spec)
                 (jazz:parse-require spec
                   (lambda (unit-name feature-requirement phase)
@@ -1504,7 +1509,14 @@
                 (let ((name (jazz:get-module-invoice-name module-invoice))
                       (phase (jazz:get-module-invoice-phase module-invoice)))
                   (if name
-                      (jazz:format output "{%}  {s}" `(export (,name ,@(jazz:outline-generate-phase-list phase)))))))
+                      (let ((autoload (jazz:get-export-invoice-autoload module-invoice)))
+                        (if autoload
+                            (let ((autoload-names
+                                    (map (lambda (declaration-reference)
+                                           (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
+                                         autoload)))
+                              (jazz:format output "{%}  {s}" `(export (,name (autoload ,@autoload-names)))))
+                          (jazz:format output "{%}  {s}" `(export (,name ,@(jazz:outline-generate-phase-list phase)))))))))
               (jazz:get-module-declaration-exports declaration))
     (for-each (lambda (module-invoice)
                 (let ((name (jazz:get-module-invoice-name module-invoice))
@@ -2756,8 +2768,7 @@
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Syntax-Declaration declaration))
-  `(syntax ,(jazz:get-declaration-access declaration)
-           (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-syntax-declaration-signature declaration)))))
+  `(syntax ,@(jazz:outline-generate-access-list declaration) ,(jazz:get-lexical-binding-name declaration)))
 
 
 (define jazz:current-walker
@@ -5386,15 +5397,15 @@
   (make-parameter #f))
 
 
-(define (jazz:test-outline unit-name src obj)
+(define (jazz:test-outline unit-name src bin)
   (if (let ((testing (jazz:testing)))
         (or (%%eq? testing #t)
             (and testing (%%memq unit-name testing))
             (%%not src)))
-      (let ((path (%%get-resource-path obj)))
+      (let ((path (%%get-resource-path bin)))
         (if src
             (jazz:debug unit-name))
-        (%%make-resource (%%get-resource-package obj)
+        (%%make-resource (%%get-resource-package bin)
                          (jazz:pathname-brother path (jazz:add-extension (jazz:pathname-base path) "otl"))
                          #f))
     src))
@@ -5404,7 +5415,7 @@
   (define (load-toplevel-declaration)
     (jazz:with-unit-resources unit-name #f
       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-        (set! src (jazz:test-outline unit-name src obj))
+        (set! src (jazz:test-outline unit-name src bin))
         (if (and (%%not src) (%%not error?))
             #f
           (jazz:with-verbose (jazz:outline-verbose?) "outlining" (jazz:resource-pathname src)

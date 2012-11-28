@@ -51,7 +51,8 @@
         catch
         ~
         local-context
-        hook)
+        hook
+        expand-body)
 
 (import (jazz.language.runtime.kernel)
         (scheme.core.kernel)

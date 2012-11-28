@@ -163,9 +163,8 @@
     `(c-declare ,code))
   
   
-  ;; not sure
   (method override (outline-extract)
-    #f))
+    `(c-named-declare ,name ,code)))
 
 
 (define c-named-declare-modifiers
@@ -213,6 +212,7 @@
 (class C-Type-Declaration extends Declaration
   
   
+  (slot form          getter generate)
   (slot kind          getter generate)
   (slot expansion     getter generate)
   (slot base-type     getter generate)
@@ -224,9 +224,10 @@
   (slot declare-name  getter generate)
 
   
-  (method override (initialize . rest)
+  (method override (initialize form . rest)
     (bind-keywords ((kind #f) (expansion #f) (base-type #f) (inclusions #f) (c-to-scheme #f) (scheme-to-c #f) (cleanup #t) (declare-name #f) . others) rest
       (apply nextmethod others)
+      (set! form~self form)
       (set! kind~self kind)
       (set! expansion~self expansion)
       (set! base-type~self base-type)
@@ -253,7 +254,7 @@
   
   
   (method override (outline-extract)
-    `(c-type ,name)))
+    form))
 
 
 (define c-type-modifiers
@@ -282,7 +283,7 @@
                                   (walk-error walker resume declaration form-src "{s} defined with c-to-scheme and scheme-to-c but expansion is not a string: {s}" name expansion))
                               inclusions)))
             (let ((new-declaration (or (find-declaration-child declaration name)
-                                       (new C-Type-Declaration name: name type: type access: access compatibility: compatibility attributes: '() parent: declaration kind: kind expansion: expansion base-type: base-type-declaration inclusions: inclusions c-to-scheme: c-to-scheme scheme-to-c: scheme-to-c cleanup: cleanup declare-name: declare-name))))
+                                       (new C-Type-Declaration (desourcify-all form-src) name: name type: type access: access compatibility: compatibility attributes: '() parent: declaration kind: kind expansion: expansion base-type: base-type-declaration inclusions: inclusions c-to-scheme: c-to-scheme scheme-to-c: scheme-to-c cleanup: cleanup declare-name: declare-name))))
               (when base-type-declaration
                 (set-pointer-types~ base-type-declaration (cons new-declaration (get-pointer-types~ base-type-declaration))))
               (let ((effective-declaration (add-declaration-child walker resume declaration new-declaration)))
@@ -616,7 +617,7 @@
   
   
   (method override (outline-extract)
-    `(c-definition ,name)))
+    #f))
 
 
 (define c-definition-modifiers

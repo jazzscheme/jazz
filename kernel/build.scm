@@ -708,10 +708,7 @@
 (define (jazz:configuration-directory configuration)
   (let ((dynamic? (jazz:getf (jazz:get-configuration-properties configuration) dynamic?:)))
     (if dynamic?
-        (let ((destination (jazz:get-configuration-destination configuration))
-              (branch (path-strip-directory (path-strip-trailing-directory-separator jazz:source)))
-              (repo (path-strip-directory (path-strip-trailing-directory-separator (path-directory (path-strip-trailing-directory-separator jazz:source))))))
-          (string-append destination "/" repo "/" branch "/"))
+        (jazz:build-dynamic-path (jazz:get-configuration-destination configuration) jazz:source)
       (jazz:destination-directory
         (jazz:get-configuration-name configuration)
         (jazz:get-configuration-destination configuration)

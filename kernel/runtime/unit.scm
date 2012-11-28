@@ -327,8 +327,7 @@
   (define (make-dynamic-project-file data)
     (let ((name (car data))
           (branch (cadr data)))
-      ;; path is "C:/Home/dep/src/<name>/<branch>"
-      (let ((dep-dir (jazz:absolutize-directory jazz:kernel-install "../../../dep/src"))
+      (let ((dep-dir (jazz:absolutize-directory jazz:source "../../"))
             (rel-dir (jazz:join-strings (list name branch) #\/)))
         (if (not dep-dir)
             (jazz:error "Invalid .dependencies")
@@ -595,7 +594,7 @@
          (dst (jazz:repository-pathname jazz:Build-Repository path)))
     (define (load-package)
       (let ((package (jazz:load-package jazz:Build-Repository bin-parent name dst)))
-        (%%table-set! (%%get-repository-packages-table jazz:Build-Repository)
+        (%%table-set! (jazz:repository-packages-table jazz:Build-Repository)
                       name
                       package)
         package))
@@ -1322,6 +1321,18 @@
       (set! jazz:process-icon (or (%%get-product-icon product) (jazz:product-descriptor-icon descriptor))))
     (if jazz:debugger
         (jazz:load-debuggee))
+    (let ((product-source-directory (%%get-repository-directory (%%get-package-repository (%%get-product-package product))))
+          (kernel-root-directory (path-directory (path-strip-trailing-directory-separator
+                                                   (path-directory (path-strip-trailing-directory-separator
+                                                                     jazz:kernel-install))))))
+      (let ((product-build-directory (jazz:build-dynamic-path kernel-root-directory product-source-directory))
+            (current-build-directory (%%get-repository-directory jazz:Build-Repository)))
+        (if (not (equal? product-build-directory current-build-directory))
+            (let ((new-build-repository (jazz:make-repository 'Build "lib" product-build-directory binary?: #t create?: #t)))
+              (jazz:build-dynamic-path jazz:kernel-install product-source-directory)
+              (jazz:setup-repository new-build-repository)
+              (set! jazz:Repositories (cons new-build-repository (jazz:remove jazz:Build-Repository jazz:Repositories)))
+              (set! jazz:Build-Repository new-build-repository)))))
     product))
 
 
@@ -1423,11 +1434,9 @@
           (descriptor (%%get-product-descriptor product)))
       (jazz:feedback "make {a}" name)
       (jazz:load-build)
-      
       (if build
           (build descriptor)
         (jazz:build-product-descriptor descriptor))
-      
       (if (jazz:link-libraries?)
           (if build-library
               (build-library descriptor)

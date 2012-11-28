@@ -5397,43 +5397,37 @@
   (make-parameter #f))
 
 
-(define (jazz:test-outline unit-name src bin)
-  (if (let ((testing (jazz:testing)))
-        (or (%%eq? testing #t)
-            (and testing (%%memq unit-name testing))
-            (%%not src)))
-      (let ((path (%%get-resource-path bin)))
-        (if src
-            (jazz:debug unit-name))
-        (%%make-resource (%%get-resource-package bin)
-                         (jazz:pathname-brother path (jazz:add-extension (jazz:pathname-base path) "otl"))
-                         #f))
-    src))
-
-
 (define (jazz:outline-unit unit-name #!key (use-catalog? #t) (error? #t))
   (define (load-toplevel-declaration)
     (jazz:with-unit-resources unit-name #f
       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-        (set! src (jazz:test-outline unit-name src bin))
-        (if (and (%%not src) (%%not error?))
-            #f
-          (jazz:with-verbose (jazz:outline-verbose?) "outlining" (jazz:resource-pathname src)
-            (lambda ()
-              ;; not reading the literals is necessary as reading a literal will load units
-              (let ((form (jazz:read-toplevel-form src read-literals?: #f)))
-                (parameterize ((jazz:requested-unit-name unit-name)
-                               (jazz:requested-unit-resource src)
-                               (jazz:walk-for 'interpret)
-                               (jazz:generate-symbol-for "%outline^")
-                               (jazz:generate-symbol-context unit-name)
-                               (jazz:generate-symbol-counter 0))
-                  (let ((kind (jazz:source-code (%%car (jazz:source-code form)))))
-                    (case kind
-                      ((unit)
-                       (jazz:parse-unit-declaration (%%cdr (jazz:source-code form))))
-                      ((module)
-                       (jazz:parse-module-declaration (%%cdr (jazz:source-code form))))))))))))))
+        (let ((src (try-sourceless-outline unit-name src bin)))
+          (if (and (%%not src) (%%not error?))
+              #f
+            (jazz:with-verbose (jazz:outline-verbose?) "outlining" (jazz:resource-pathname src)
+              (lambda ()
+                ;; not reading the literals is necessary as reading a literal will load units
+                (let ((form (jazz:read-toplevel-form src read-literals?: #f)))
+                  (parameterize ((jazz:requested-unit-name unit-name)
+                                 (jazz:requested-unit-resource src)
+                                 (jazz:walk-for 'interpret)
+                                 (jazz:generate-symbol-for "%outline^")
+                                 (jazz:generate-symbol-context unit-name)
+                                 (jazz:generate-symbol-counter 0))
+                    (let ((kind (jazz:source-code (%%car (jazz:source-code form)))))
+                      (case kind
+                        ((unit)
+                         (jazz:parse-unit-declaration (%%cdr (jazz:source-code form))))
+                        ((module)
+                         (jazz:parse-module-declaration (%%cdr (jazz:source-code form)))))))))))))))
+  
+  (define (try-sourceless-outline unit-name src bin)
+    (if (and (%%not src) bin)
+        (let ((path (%%get-resource-path bin)))
+          (%%make-resource (%%get-resource-package bin)
+                           (jazz:pathname-brother path (jazz:add-extension (jazz:pathname-base path) "otl"))
+                           #f))
+      src))
   
   (if (not use-catalog?)
       (load-toplevel-declaration)

@@ -689,7 +689,12 @@
                     (display "(jazz:executable-main)" output)
                     (newline output)))))))
       
+      (define (interpret-properties properties)
+        (jazz:build-source-access? (jazz:getf properties source-access?: #f))
+        (jazz:build-single-objects? (jazz:getf properties single-objects?: #f)))
+      
       (jazz:invoke-build-setup platform safety optimize? source destination properties)
+      (interpret-properties properties)
       
       (jazz:create-directories product-dir feedback: feedback)
       (jazz:create-directories (kernel-file "syntax/") feedback: feedback)

@@ -321,12 +321,14 @@
           ,@(jazz:collect (lambda (entry)
                             (let ((name (car entry))
                                   (branch (cadr entry)))
+                              ;; add source dynamic repositories in $SOURCE/$REPO/$BRANCH
                               (let ((path (%%string-append source-dynamic-root (jazz:join-strings (list name branch) #\/))))
                                 (jazz:load-repository path name: name error?: #f))))
                           dynamic-repositories)
           ,@(jazz:collect (lambda (entry)
                             (let ((name (car entry))
                                   (branch (cadr entry)))
+                              ;; add binary dynamic repositories in $BINARY/$REPO/$BRANCH
                               (let ((path (%%string-append binary-dynamic-root (jazz:join-strings (list name branch) #\/))))
                                 (jazz:load-repository path name: name error?: #f))))
                           dynamic-repositories)
@@ -1316,18 +1318,26 @@
       (set! jazz:process-icon (or (%%get-product-icon product) (jazz:product-descriptor-icon descriptor))))
     (if jazz:debugger
         (jazz:load-debuggee))
-    (let ((product-source-directory (%%get-repository-directory (%%get-package-repository (%%get-product-package product))))
-          (kernel-root-directory (path-directory (path-strip-trailing-directory-separator
-                                                   (path-directory (path-strip-trailing-directory-separator
-                                                                     jazz:kernel-install))))))
-      (let ((product-build-directory (jazz:build-dynamic-path kernel-root-directory product-source-directory))
-            (current-build-directory (%%get-repository-directory jazz:Build-Repository)))
-        (if (not (equal? product-build-directory current-build-directory))
-            (let ((new-build-repository (jazz:make-repository 'Build "lib" product-build-directory binary?: #t create?: #t)))
-              (jazz:build-dynamic-path jazz:kernel-install product-source-directory)
-              (jazz:setup-repository new-build-repository)
-              (set! jazz:Repositories (cons new-build-repository (jazz:remove jazz:Build-Repository jazz:Repositories)))
-              (set! jazz:Build-Repository new-build-repository)))))
+    ;; dynamic repositories - build location mirrors the source location
+    ;; we want to build in $BINARY/$REPO/$BRANCH
+    ;; where: kernel.exe is in $BINARY/jazz/master
+    ;; where: source repo is in $SOURCE/$REPO/$BRANCH
+    ;; jazz:Build-Repository is the destination
+    ;; jazz:Repositories is used to locate which files are up-to-date
+    (let ((dynamic? (jazz:getf (jazz:get-configuration-properties configuration) dynamic?:)))
+      (if dynamic?
+          (let ((product-source-directory (%%get-repository-directory (%%get-package-repository (%%get-product-package product))))
+                (kernel-root-directory (path-directory (path-strip-trailing-directory-separator
+                                                         (path-directory (path-strip-trailing-directory-separator
+                                                                           jazz:kernel-install))))))
+            (let ((product-build-directory (jazz:build-dynamic-path kernel-root-directory product-source-directory))
+                  (current-build-directory (%%get-repository-directory jazz:Build-Repository)))
+              (if (not (equal? product-build-directory current-build-directory))
+                  (let ((new-build-repository (jazz:make-repository 'Build "lib" product-build-directory binary?: #t create?: #t)))
+                    (jazz:build-dynamic-path jazz:kernel-install product-source-directory)
+                    (jazz:setup-repository new-build-repository)
+                    (set! jazz:Repositories (cons new-build-repository (jazz:remove jazz:Build-Repository jazz:Repositories)))
+                    (set! jazz:Build-Repository new-build-repository)))))))
     product))
 
 

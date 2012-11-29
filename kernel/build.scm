@@ -707,6 +707,10 @@
 
 (define (jazz:configuration-directory configuration)
   (let ((dynamic? (jazz:getf (jazz:get-configuration-properties configuration) dynamic?:)))
+    ;; dynamic repositories - build location mirrors the source location
+    ;; we will build kernel in $BINARY/$REPO/$BRANCH/kernel
+    ;; where: $BINARY is destination in the configuration file
+    ;; where: jazz:source is in $SOURCE/$REPO/$BRANCH
     (if dynamic?
         (jazz:build-dynamic-path (jazz:get-configuration-destination configuration) jazz:source)
       (jazz:destination-directory

@@ -35,6 +35,8 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(declare (not proper-tail-calls))
+
 ;;;
 ;;;; Versions
 ;;;
@@ -323,7 +325,8 @@
     (lambda (input)
       (let ((data (read input)))
         ;; quicky until a full-fledged jazz:versioned-file similar to jazz:versioned-directory
-        (apply jazz:validate-configuration jazz:unspecified-configuration (jazz:convert-configuration-205001 (jazz:convert-configuration-205000 (parse-properties data))))))))
+        ;; removing jazz:convert-configuration-205001 buggy for absolute path ("c:/" -> "c//")
+        (apply jazz:validate-configuration jazz:unspecified-configuration (parse-properties data))))))
 
 
 (define (jazz:save-configurations)

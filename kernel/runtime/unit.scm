@@ -1324,7 +1324,7 @@
     ;; where: source repo is in $SOURCE/$REPO/$BRANCH
     ;; jazz:Build-Repository is the destination
     ;; jazz:Repositories is used to locate which files are up-to-date
-    (let ((dynamic? (jazz:getf (jazz:get-configuration-properties configuration) dynamic?:)))
+    (let ((dynamic? (jazz:getf jazz:kernel-properties dynamic?:)))
       (if dynamic?
           (let ((product-source-directory (%%get-repository-directory (%%get-package-repository (%%get-product-package product))))
                 (kernel-root-directory (path-directory (path-strip-trailing-directory-separator

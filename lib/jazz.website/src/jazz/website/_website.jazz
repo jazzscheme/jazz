@@ -63,16 +63,15 @@
 ;;;
 
 
-(definition public (extract-doc modules-info)
+(definition public (extract-doc modules-info reference-dir)
   (define (extract-toplevel-doc info)
-    (bind (name . units) info
+    (bind (name . units) (if (symbol? info) (cons info '()) info)
       (user-feedback "Extracting {a}..." name)
-      (let ((reference-dir {Directory Jazz "lib" "jazz.website" "reference"}))
-        (create-directories~ reference-dir)
-        (call-with-output-file (path-settings (new-file~ reference-dir (format "{a}.jml" name)))
-          (lambda (port)
-            (let ((form (parse-form `(data jazz.ide.data.doc (form ,(extract-unit/module-doc name units))))))
-              (print-form-data form port)))))))
+      (create-directories~ reference-dir)
+      (call-with-output-file (path-settings (new-file~ reference-dir (format "{a}.jml" name)))
+        (lambda (port)
+          (let ((form (parse-form `(data jazz.ide.data.doc (form ,(extract-unit/module-doc name units))))))
+            (print-form-data form port))))))
   
   (define (extract-unit/module-doc name units)
     (load-build)
@@ -93,6 +92,7 @@
   (define (extract-declaration-doc declaration)
     (typecase declaration
       ((Export-Declaration) (extract-export-doc declaration))
+      ((Export-Syntax-Declaration) (extract-export-doc declaration))
       ((Define-Declaration) (extract-define-doc declaration))
       ((Define-Macro-Declaration) (extract-define-macro-doc declaration))
       ((Definition-Declaration) (extract-definition-doc declaration))

@@ -690,7 +690,7 @@
                     (newline output)))))))
       
       (define (interpret-properties properties)
-        (jazz:build-source-access? (jazz:getf properties source-access?: #f))
+        (jazz:build-source-access? (jazz:getf properties source-access?: #t))
         (jazz:build-single-objects? (jazz:getf properties single-objects?: #f)))
       
       (jazz:invoke-build-setup platform safety optimize? source destination properties)

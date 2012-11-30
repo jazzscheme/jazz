@@ -261,7 +261,7 @@
             (iter (cdr updates)))))))
 
 
-(define (jazz:versioned-directory root target updates converter)
+(define (jazz:versioned-directory root target updates converter #!key (feedback? #t))
   (define (determine-version)
     (let ((uptodate? #t))
       (continuation-capture
@@ -288,18 +288,21 @@
             (conversion-dir (string-append root "conversion/")))
         (if (file-exists? conversion-dir)
             (begin
-              (jazz:feedback "; deleting {a}..." conversion-dir)
+              (if feedback?
+                  (jazz:feedback "; deleting {a}..." conversion-dir))
               (jazz:delete-directory conversion-dir)
               ;; workaround to yet another windows bug
               (thread-sleep! .1)))
-        (jazz:feedback "; converting {a}..." target)
-        (jazz:copy-directory current-dir conversion-dir feedback: (lambda (src level) (if (<= level 1) (jazz:feedback "; copying {a}..." src))))
+        (if feedback?
+            (jazz:feedback "; converting {a}..." target))
+        (jazz:copy-directory current-dir conversion-dir feedback: (and feedback? (lambda (src level) (if (<= level 1) (jazz:feedback "; copying {a}..." src)))))
         (let iter ((working-version-number current-version-number))
              (let ((converted-version-number (converter conversion-dir working-version-number)))
                (if converted-version-number
                    (iter converted-version-number)
                  (let ((dir (version-directory working-version-number)))
-                   (jazz:feedback "; {a} converted to version {a}" target (jazz:present-version working-version-number))
+                   (if feedback?
+                       (jazz:feedback "; {a} converted to version {a}" target (jazz:present-version working-version-number)))
                    (rename-file conversion-dir dir)
                    dir))))))))
 

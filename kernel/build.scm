@@ -35,8 +35,6 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(declare (not proper-tail-calls))
-
 ;;;
 ;;;; Versions
 ;;;

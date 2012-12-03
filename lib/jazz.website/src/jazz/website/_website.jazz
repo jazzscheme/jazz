@@ -146,6 +146,26 @@
        ,@(extract-result-type declaration)))
   
   (define (extract-class-doc declaration)
+    (define (filter-accessors declarations)
+      (let ((accessor-names (make-table test: eq?))
+            (queue (new-queue)))
+        (for-each (lambda (decl)
+                    (cond ((is? decl Slot-Declaration)
+                           (let ((getter-name (get-getter-name~ decl))
+                                 (setter-name (get-setter-name~ decl)))
+                             (when getter-name
+                               (table-set! accessor-names getter-name #t))
+                             (when setter-name
+                               (table-set! accessor-names setter-name #t))
+                             (enqueue queue decl)))
+                          ((is? decl Method-Declaration)
+                           (unless (table-ref accessor-names (get-name~ decl) #f)
+                             (enqueue queue decl)))
+                          (else
+                           (enqueue queue decl))))
+                  declarations)
+        (queue-list queue)))
+    
     (let ((name (symbol->string (get-name~ declaration)))
           (ascendant (get-ascendant~ declaration))
           (interfaces (get-interfaces~ declaration)))
@@ -154,7 +174,7 @@
         `(<Class-Doc> name: ,(extract-locator declaration) title: ,name
            ascendant: ,(if ascendant (extract-locator (resolve-binding ascendant)) #f)
            interfaces: ,(map extract-locator (resolve-declarations interfaces))
-           ,@(map extract-declaration-doc (filter-access/compatibility-declarations (queue-list (get-children~ declaration))))))))
+           ,@(map extract-declaration-doc (filter-accessors (filter-access/compatibility-declarations (queue-list (get-children~ declaration)))))))))
   
   (define (extract-interface-doc declaration)
     (let ((ascendants (get-ascendants~ declaration)))
@@ -166,7 +186,11 @@
     `(<Slot-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
   
   (define (extract-property-doc declaration)
-    `(<Property-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
+    (let ((getter (get-getter-name~ declaration))
+          (setter (get-setter-name~ declaration)))
+      `(<Property-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
+         ,@(if getter `(getter: ,getter) '())
+         ,@(if setter `(setter: ,setter) '()))))
   
   (define (extract-method-doc declaration)
     (define (extract-propagation-list)
@@ -234,6 +258,7 @@
     (collect-if (lambda (decl)
                   (and (let ((access (get-access~ decl)))
                          (or (eq? access 'public)
+                             (is? decl Property-Declaration)
                              (and (eq? access 'protected)
                                   (is? decl Method-Declaration)
                                   (memq? (get-propagation~ decl) '(virtual chained)))))

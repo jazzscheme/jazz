@@ -66,7 +66,7 @@
 ;;;
 
 
-(definition public (extract-doc modules-info reference-dir)
+(definition public (extract-doc modules-info reference-dir (sort?: sort? #t))
   (define (extract-toplevel-doc info)
     (bind (name . units) (if (symbol? info) (cons info '()) info)
       (user-feedback "Extracting {a}..." name)
@@ -87,8 +87,8 @@
     `(<Unit-Doc> name: ,name title: ,(symbol->string name)))
   
   (define (extract-module-doc name declaration)
-    (let ((declarations (filter-access/compatibility-declarations (resolve-declarations (table-values (get-public-lookup declaration))))))
-      (let ((sorted (sort string<? declarations key: (lambda (decl) (symbol->string (get-name~ decl))))))
+    (let ((declarations (filter-access/compatibility-declarations (resolve-declarations (queue-list (get-children~ declaration))))))
+      (let ((sorted (if sort? (sort string<? declarations key: (lambda (decl) (symbol->string (get-name~ decl)))) declarations)))
         `(<Module-Doc> name: ,name title: ,(symbol->string name)
            ,@(collect extract-declaration-doc sorted)))))
   
@@ -177,10 +177,14 @@
   
   (define (extract-c-definition-doc declaration)
     `(<C-Definition-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
-  
+
   (define (extract-signature signature)
-    (define (extract-name parameter)
-      (get-name~ parameter))
+    (define (extract-parameter parameter)
+      (let ((name (get-name~ parameter))
+            (type (get-type~ parameter)))
+        (if (not type)
+            name
+          (list name (type->specifier type)))))
     
     (if (not signature)
         #f
@@ -188,10 +192,10 @@
             (optional (get-optional~ signature))
             (named (get-named~ signature))
             (rest (get-rest~ signature)))
-        `(,@(if (null? positional) '() (list positional: (map extract-name positional)))
-          ,@(if (null? optional) '() (list optional: (map extract-name optional)))
-          ,@(if (null? named) '() (list named: (map extract-name named)))
-          ,@(if (not rest) '() (list rest: (extract-name rest)))))))
+        `(,@(if (null? positional) '() (list positional: (map extract-parameter positional)))
+          ,@(if (null? optional) '() (list optional: (map extract-parameter optional)))
+          ,@(if (null? named) '() (list named: (map extract-parameter named)))
+          ,@(if (not rest) '() (list rest: (extract-parameter rest)))))))
   
   ;; temp hack to obtain the same format as when sub-modules are well integrated
   (define (extract-locator declaration)

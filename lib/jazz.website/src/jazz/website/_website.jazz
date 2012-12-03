@@ -117,27 +117,33 @@
   
   (define (extract-define-doc declaration)
     `(<Definition-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
-       parameters: ,(extract-signature (get-signature~ declaration))))
+       parameters: ,(extract-signature (get-signature~ declaration))
+       ,@(extract-result-type declaration)))
   
   (define (extract-define-macro-doc declaration)
     `(<Syntax-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
-       parameters: ,(extract-signature (get-signature~ declaration))))
+       parameters: ,(extract-signature (get-signature~ declaration))
+       ,@(extract-result-type declaration)))
   
   (define (extract-definition-doc declaration)
     `(<Definition-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
-       parameters: ,(extract-signature (get-signature~ declaration))))
+       parameters: ,(extract-signature (get-signature~ declaration))
+       ,@(extract-result-type declaration)))
   
   (define (extract-generic-doc declaration)
     `(<Generic-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
-       parameters: ,(extract-signature (get-signature~ declaration))))
+       parameters: ,(extract-signature (get-signature~ declaration))
+       ,@(extract-result-type declaration)))
   
   (define (extract-macro-doc declaration)
     `(<Syntax-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
-       parameters: ,(extract-signature (get-signature~ declaration))))
+       parameters: ,(extract-signature (get-signature~ declaration))
+       ,@(extract-result-type declaration)))
   
   (define (extract-syntax-doc declaration)
     `(<Syntax-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
-       parameters: ,(extract-signature (get-signature~ declaration))))
+       parameters: ,(extract-signature (get-signature~ declaration))
+       ,@(extract-result-type declaration)))
   
   (define (extract-class-doc declaration)
     (let ((name (symbol->string (get-name~ declaration)))
@@ -170,7 +176,8 @@
     `(<Method-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))
        access: ,(get-access~ declaration)
        ,@(extract-propagation-list)
-       parameters: ,(extract-signature (get-signature~ declaration))))
+       parameters: ,(extract-signature (get-signature~ declaration))
+       ,@(extract-result-type declaration)))
   
   (define (extract-c-type-doc declaration)
     `(<C-Type-Doc> name: ,(extract-locator declaration) title: ,(symbol->string (get-name~ declaration))))
@@ -196,6 +203,15 @@
           ,@(if (null? optional) '() (list optional: (map extract-parameter optional)))
           ,@(if (null? named) '() (list named: (map extract-parameter named)))
           ,@(if (not rest) '() (list rest: (extract-parameter rest)))))))
+  
+  (define (extract-result-type declaration)
+    (let ((type (get-type~ declaration)))
+      (if (is? type Function-Type)
+          (let ((result (get-result~ type)))
+            (if (and result (is-not? result (class-of Any)))
+                `(result-type: ,(type->specifier (get-result~ type)))
+              '()))
+        '())))
   
   ;; temp hack to obtain the same format as when sub-modules are well integrated
   (define (extract-locator declaration)

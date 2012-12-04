@@ -620,6 +620,12 @@
       ;;;; Kernel Interpret
       ;;;
       
+      (define (print-absolute/relative-path-variable variable directory output)
+        (receive (rel-dir relative?) (jazz:maybe-relativise-directory destination-directory "./" directory)
+          (if relative?
+              (jazz:print-expression-variable variable `(string-append install-dir ,rel-dir) output)
+            (jazz:print-variable variable (jazz:pathname-standardize (path-normalize rel-dir)) output))))
+      
       (define (generate-kernel-interpret)
         (let ((file (dest-file "kernel-interpret")))
           (if (%%not (file-exists? file))
@@ -659,17 +665,11 @@
                     (newline output)
                     (jazz:print-expression-variable 'jazz:built 'install-dir output)
                     (newline output)
-                    (receive (gambit-dir relative?) (jazz:maybe-relativise-directory destination-directory "./" gambit-dir)
-                      (if relative?
-                          (jazz:print-expression-variable 'jazz:gambit-dir `(string-append install-dir ,gambit-dir) output)
-                        (jazz:print-variable 'jazz:gambit-dir (jazz:pathname-standardize (path-normalize gambit-dir)) output)))
+                    (print-absolute/relative-path-variable 'jazz:gambit-dir gambit-dir output)
                     (newline output)
                     (jazz:print-variable 'jazz:source-built (jazz:pathname-standardize (path-normalize source)) output)
                     (newline output)
-                    (receive (source-dir relative?) (jazz:maybe-relativise-directory destination-directory "./" source)
-                      (if relative?
-                          (jazz:print-expression-variable 'jazz:source `(string-append install-dir ,source-dir) output)
-                        (jazz:print-variable 'jazz:source (jazz:pathname-standardize (path-normalize source)) output)))
+                    (print-absolute/relative-path-variable 'jazz:source source output)
                     (newline output)
                     (jazz:print-variable 'jazz:binary-repositories (jazz:determine-binary-repositories destination-directory) output)
                     (newline output)

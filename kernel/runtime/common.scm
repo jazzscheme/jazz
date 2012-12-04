@@ -494,6 +494,10 @@
     (jazz:pathname-normalize reldir #f)))
 
 
+(define (jazz:parent-directory dir)
+  (path-directory (path-strip-trailing-directory-separator dir)))
+
+
 (define (jazz:quote-pathname pathname #!optional (platform jazz:kernel-platform))
   (case platform
     ((windows)
@@ -518,7 +522,7 @@
 (define (jazz:build-dynamic-path destination-root source-path)
   (let ((root (path-strip-trailing-directory-separator destination-root))
         (branch (path-strip-directory (path-strip-trailing-directory-separator source-path)))
-        (repo (path-strip-directory (path-strip-trailing-directory-separator (path-directory (path-strip-trailing-directory-separator source-path))))))
+        (repo (path-strip-directory (path-strip-trailing-directory-separator (jazz:parent-directory source-path)))))
     (string-append root "/" repo "/" branch "/")))
 
 

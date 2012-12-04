@@ -310,37 +310,38 @@
               (%%list repository)
             '()))
         
-        (let ((binary-dynamic-root (jazz:absolutize-directory jazz:kernel-install "../../"))
-              (source-dynamic-root (jazz:absolutize-directory jazz:source "../../")))
+        (let ((binary-dynamic-root (jazz:parent-directory (jazz:parent-directory jazz:kernel-install)))
+              (source-dynamic-root (jazz:parent-directory (jazz:parent-directory jazz:source))))
           (if (and (or binary-dynamic-root (null? binary-dynamic-repositories))
                    (or source-dynamic-root (null? source-dynamic-repositories)))
-              `(,@(if repositories
-                      (map jazz:load-repository (jazz:split-string repositories #\;))
-                    '())
-                ,@(jazz:collect (lambda (path)
-                                  (let ((dir (jazz:absolutize-directory jazz:kernel-install path)))
-                                    (jazz:load-repository dir name: 'Binaries error?: #f)))
-                                binary-repositories)
-                ,@(jazz:collect (lambda (path)
-                                  (let ((dir (jazz:absolutize-directory jazz:kernel-install path)))
-                                    (jazz:load-repository dir error?: #f)))
-                                source-repositories)
-                ,@(jazz:collect (lambda (entry)
-                                  (let ((name (car entry))
-                                        (branch (cadr entry)))
-                                    ;; add source dynamic repositories in $SOURCE/$REPO/$BRANCH
-                                    (let ((path (%%string-append source-dynamic-root (jazz:join-strings (list name branch) #\/))))
-                                      (jazz:load-repository path name: name error?: #f))))
-                                source-dynamic-repositories)
-                ,@(jazz:collect (lambda (entry)
-                                  (let ((name (car entry))
-                                        (branch (cadr entry)))
-                                    ;; add binary dynamic repositories in $BINARY/$REPO/$BRANCH
-                                    (let ((path (%%string-append binary-dynamic-root (jazz:join-strings (list name branch) #\/))))
-                                      (jazz:load-repository path name: name error?: #f))))
-                                binary-dynamic-repositories)
-                ,@(listify build)
-                ,@(listify jazz))
+              (let ((repositories-list (if repositories
+                                           (map jazz:load-repository (jazz:split-string repositories #\;))
+                                         '()))
+                    (binary-list (jazz:collect (lambda (path)
+                                                 (let ((dir (jazz:absolutize-directory jazz:kernel-install path)))
+                                                   (jazz:load-repository dir name: 'Binaries error?: #f)))
+                                               binary-repositories))
+                    (source-list (jazz:collect (lambda (path)
+                                                 (let ((dir (jazz:absolutize-directory jazz:kernel-install path)))
+                                                   (jazz:load-repository dir error?: #f)))
+                                               source-repositories))
+                    (dynamic-binary-list (jazz:collect (lambda (entry)
+                                                         (let ((name (car entry))
+                                                               (branch (cadr entry)))
+                                                           ;; add source dynamic repositories in $SOURCE/$REPO/$BRANCH
+                                                           (let ((path (%%string-append source-dynamic-root (jazz:join-strings (list name branch) #\/))))
+                                                             (jazz:load-repository path name: name error?: #f))))
+                                                       source-dynamic-repositories))
+                    (dynamic-source-list (jazz:collect (lambda (entry)
+                                                         (let ((name (car entry))
+                                                               (branch (cadr entry)))
+                                                           ;; add binary dynamic repositories in $BINARY/$REPO/$BRANCH
+                                                           (let ((path (%%string-append binary-dynamic-root (jazz:join-strings (list name branch) #\/))))
+                                                             (jazz:load-repository path name: name error?: #f))))
+                                                       binary-dynamic-repositories))
+                    (build-list (if build (%%list build) '()))
+                    (jazz-list (if jazz (%%list jazz) '())))
+                (append repositories-list binary-list source-list dynamic-binary-list dynamic-source-list build-list jazz-list))
             (jazz:error "Invalid .dependencies"))))))
   
   (let ((build (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t create?: #t)))
@@ -1318,27 +1319,28 @@
       (set! jazz:process-icon (or (%%get-product-icon product) (jazz:product-descriptor-icon descriptor))))
     (if jazz:debugger
         (jazz:load-debuggee))
-    ;; dynamic repositories - build location mirrors the source location
-    ;; we want to build in $BINARY/$REPO/$BRANCH
-    ;; where: kernel.exe is in $BINARY/jazz/master
-    ;; where: source repo is in $SOURCE/$REPO/$BRANCH
-    ;; jazz:Build-Repository is the destination
-    ;; jazz:Repositories is used to locate which files are up-to-date
-    (let ((dynamic? (jazz:getf jazz:kernel-properties dynamic?:)))
-      (if dynamic?
-          (let ((product-source-directory (%%get-repository-directory (%%get-package-repository (%%get-product-package product))))
-                (kernel-root-directory (path-directory (path-strip-trailing-directory-separator
-                                                         (path-directory (path-strip-trailing-directory-separator
-                                                                           jazz:kernel-install))))))
-            (let ((product-build-directory (jazz:build-dynamic-path kernel-root-directory product-source-directory))
-                  (current-build-directory (%%get-repository-directory jazz:Build-Repository)))
-              (if (not (equal? product-build-directory current-build-directory))
-                  (let ((new-build-repository (jazz:make-repository 'Build "lib" product-build-directory binary?: #t create?: #t)))
-                    (jazz:build-dynamic-path jazz:kernel-install product-source-directory)
-                    (jazz:setup-repository new-build-repository)
-                    (set! jazz:Repositories (cons new-build-repository (jazz:remove jazz:Build-Repository jazz:Repositories)))
-                    (set! jazz:Build-Repository new-build-repository)))))))
     product))
+
+
+(define (jazz:adjust-build-repository product)
+  ;; dynamic repositories - build location mirrors the source location
+  ;; we want to build in $BINARY/$REPO/$BRANCH
+  ;; where: kernel.exe is in $BINARY/jazz/master
+  ;; where: source repo is in $SOURCE/$REPO/$BRANCH
+  ;; jazz:Build-Repository is the destination
+  ;; jazz:Repositories is used to locate which files are up-to-date
+  (if (jazz:getf jazz:kernel-properties dynamic?:)
+      (let ((product-source-directory (%%get-repository-directory (%%get-package-repository (%%get-product-package product))))
+            (kernel-root-directory (path-directory (path-strip-trailing-directory-separator
+                                                     (path-directory (path-strip-trailing-directory-separator
+                                                                       jazz:kernel-install))))))
+        (let ((product-build-directory (jazz:build-dynamic-path kernel-root-directory product-source-directory))
+              (current-build-directory (%%get-repository-directory jazz:Build-Repository)))
+          (if (not (equal? product-build-directory current-build-directory))
+              (let ((new-build-repository (jazz:make-repository 'Build "lib" product-build-directory binary?: #t create?: #t)))
+                (jazz:setup-repository new-build-repository)
+                (set! jazz:Repositories (cons new-build-repository (jazz:remove jazz:Build-Repository jazz:Repositories)))
+                (set! jazz:Build-Repository new-build-repository)))))))
 
 
 (define (jazz:register-product-run name proc)
@@ -1419,6 +1421,7 @@
 
 (define (jazz:update-product name)
   (let ((product (jazz:setup-product name)))
+    (jazz:adjust-build-repository product)
     (let ((update (%%get-product-update product))
           (descriptor (%%get-product-descriptor product)))
       (if update
@@ -1434,6 +1437,7 @@
 
 (define (jazz:build-product name)
   (let ((product (jazz:setup-product name)))
+    (jazz:adjust-build-repository product)
     (let ((build (%%get-product-build product))
           (build-library (%%get-product-build-library product))
           (descriptor (%%get-product-descriptor product)))

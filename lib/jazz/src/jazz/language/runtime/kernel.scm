@@ -248,6 +248,14 @@
 (native jazz:enumerator->symbol)
 (native jazz:symbol->enumerator)
 
+;;;
+;;;; Environment
+;;;
+
+
+(native getenv)
+(native setenv)
+
 
 ;;;
 ;;;; Exception

@@ -46,6 +46,9 @@
 ;;;; Readtable
 ;;;
 
+;; We can only use the readtable for reading json because there is no way for the writer to know the context
+;; of its writing such as the first symbol of the list (:object :array). That prevents us from adding the correct
+;; separators (: ,)
 
 (definition json-additional-escaped-chars
   '((#\/ . #\/)))
@@ -115,16 +118,30 @@
 
 
 (definition public (print-json json port)
-  (define (escape-double-quotes string)
-    (let ((printer (open-output-string))
-          (reader (open-input-string string)))
+  (define json-escape-sequences
+    '((#\slash . "\\/")
+      (#\backslash . "\\\\")
+      (#\" . "\\\"")
+      (#\newline . "\\n")
+      (#\page . "\\f")
+      (#\backspace . "\\b")
+      (#\return . "\\r")
+      (#\tab . "\\t")))
+  
+  ;; We can't use a simple gambit write to escape the string because it will try to escape
+  ;; non-ascii characters and there is no way to specify a character set. Moreover, we have
+  ;; to escape the forward slash. We must explicitely escape with json escape sequences.
+  (define (print-string string)
+    (write-char #\" port)
+    (let ((reader (open-input-string string)))
       (let (iterate (c (read-char reader)))
         (unless (eof-object? c)
-          (when (or (eqv? c #\") (eqv? c #\backslash))
-            (write-char #\backslash printer))
-          (write-char c printer)
-          (iterate (read-char reader))))
-      (get-output-string printer)))
+          (let ((escape-sequence (assq-value c json-escape-sequences #f)))
+            (if escape-sequence
+                (display escape-sequence port)
+              (write-char c port)))
+          (iterate (read-char reader)))))
+    (write-char #\" port))
   
   (define (print obj depth)
     (define (standardize-real obj)
@@ -145,8 +162,8 @@
     (cond ((eq? obj #f) (display "false" port))
           ((eq? obj #t) (display "true" port))
           ((null? obj) (display "null" port))
-          ((string? obj) (format port "\"{a}\"" (escape-double-quotes obj)))
-          ((date? obj) (format port "\"{a}\"" (date->string obj "~Y/~m/~d")))
+          ((string? obj) (print-string obj))
+          ((date? obj) (print-string (date->string obj "~Y/~m/~d")))
           ((number? obj) (cond ((integer? obj)
                                 (if (exact? obj)
                                     (write obj port)
@@ -156,12 +173,12 @@
                                ((real? obj)
                                 (display (standardize-real obj) port))
                                (else
-                                (display obj port))))
+                                (error "Unsupported json number {a}" obj))))
           ((pair? obj) (print-sequence obj depth for-each))
           ((vector? obj) (print-sequence obj depth vector-for-each))          
           ((table? obj) (print-object obj depth))
-          ;; this code from VS is wrong. cases should be explicit and else should error
-          (else (format port "\"{s}\"" obj))))
+          (else
+           (error "Unsupported json object {a}" obj))))
   
   (define (print-sequence obj depth iterator-func)
     (display "[" port)
@@ -180,7 +197,7 @@
           (bind (key . value) pair
             (newline port)
             (format port "{& :v}" (+ depth 1))
-            (write key port)
+            (print-string key)
             (display ": " port)
             (print value (+ depth 1))
             (when (not-null? remain)

@@ -304,7 +304,14 @@
         '()))
     
     `(,@(if repositories
-            (map jazz:load-repository (jazz:split-string repositories #\;))
+            (map (lambda (info)
+                   (receive (dir name) (jazz:split-colon info)
+                     (if (not name)
+                         (jazz:load-repository dir)
+                       (let ((repo (jazz:load-repository dir)))
+                         (%%set-repository-name repo (%%string->symbol name))
+                         repo))))
+                 (jazz:split-string repositories #\;))
           '())
       ,@(jazz:collect (lambda (path)
                         (let ((dir (jazz:absolutize-directory jazz:kernel-install path)))

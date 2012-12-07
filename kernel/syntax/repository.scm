@@ -52,7 +52,7 @@
 
 
 (jazz:define-structure Repository () (constructor: %%make-repository predicate: jazz:repository? accessors-type: macro)
-  ((name              getter: generate)
+  ((name              getter: generate setter: generate)
    (directory         getter: generate)
    (library-root      getter: generate)
    (library-directory getter: generate)

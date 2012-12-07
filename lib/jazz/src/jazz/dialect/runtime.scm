@@ -447,7 +447,11 @@
         (%%when metaclass
           (jazz:format output " metaclass {a}" metaclass))
         (%%when ascendant
-          (jazz:format output " extends {a}" ascendant))
+          (let ((ascendant-name (%%symbol->string ascendant))
+                (class-suffix "~Class"))
+            (if (jazz:string-ends-with? ascendant-name class-suffix)
+                (jazz:format output " extends (:class {a})" (substring ascendant-name 0 (- (string-length ascendant-name) (string-length class-suffix))))
+              (jazz:format output " extends {a}" ascendant))))
         (%%when (%%not-null? interfaces)
           (if (%%null? (%%cdr interfaces))
               (jazz:format output " implements {a}" (%%car interfaces))

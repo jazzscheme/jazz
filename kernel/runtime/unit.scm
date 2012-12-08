@@ -2117,6 +2117,23 @@
 
 
 ;;;
+;;;; Distributed Service
+;;;
+
+
+(define jazz:Distributed-Services
+  (%%make-table test: eq?))
+
+
+(define (jazz:register-distributed-service name thunk)
+  (%%table-set! jazz:Distributed-Services name (%%table-ref jazz:Distributed-Services name '())))
+
+
+(define (jazz:get-distributed-service name)
+  (%%table-ref jazz:Distributed-Services name '()))
+
+
+;;;
 ;;;; Literal
 ;;;
 

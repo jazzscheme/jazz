@@ -221,7 +221,7 @@
 (define jazz:jazz-updates-file
   #f)
 
-(define jazz:jazz-updates
+(define jazz:jazz-updates-cache
   #f)
 
 
@@ -236,11 +236,11 @@
           (call-with-input-file (list path: file eol-encoding: 'cr-lf)
             (lambda (input)
               (jazz:list->updates (read-all input read))))
-        '())))
+        #f)))
   
-  (if (not jazz:jazz-updates)
-      (set! jazz:jazz-updates (load-updates)))
-  jazz:jazz-updates)
+  (if (not jazz:jazz-updates-cache)
+      (set! jazz:jazz-updates-cache (or (load-updates) jazz:jazz-updates '())))
+  jazz:jazz-updates-cache)
 
 
 (define (jazz:list->updates lst)

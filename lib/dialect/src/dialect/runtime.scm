@@ -92,6 +92,7 @@
 
 
 (define (jazz:require-dialect name)
+  (jazz:load-unit name)
   (or (jazz:get-dialect name)
       (jazz:error "Unknown dialect: {s}" name)))
 

@@ -153,15 +153,6 @@
 
 
 ;;;
-;;;; Crash
-;;;
-
-
-(jazz:define-setting jazz:crash-file
-  #f)
-
-
-;;;
 ;;;; Debug
 ;;;
 

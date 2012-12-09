@@ -104,7 +104,7 @@
 (define jazz:jazz-versions-file
   #f)
 
-(define jazz:jazz-versions
+(define jazz:jazz-versions-cache
   #f)
 
 (define jazz:jazz-version-number
@@ -129,8 +129,8 @@
           (if (and file (file-exists? file))
               (call-with-input-file (list path: file eol-encoding: 'cr-lf)
                 (lambda (input)
-                  (set! jazz:jazz-versions (list->versions (read-all input read)))
-                  (set! jazz:jazz-version-number (jazz:get-version-number (car jazz:jazz-versions))))))))
+                  (list->versions (read-all input read))))
+            jazz:jazz-versions)))
       
       (define (list->versions lst)
         (map (lambda (arguments)
@@ -138,8 +138,8 @@
              lst))
       
       (define (setup-jazz-gambit-version/stamp)
-        (if jazz:jazz-versions
-            (let iter ((jazz-versions jazz:jazz-versions))
+        (if jazz:jazz-versions-cache
+            (let iter ((jazz-versions jazz:jazz-versions-cache))
               (if (not (null? jazz-versions))
                   (let ((jazz-version (car jazz-versions)))
                     (let ((gambit-version (jazz:get-version-gambit-version jazz-version))
@@ -152,14 +152,15 @@
       
       (if (not loaded?)
           (begin
-            (load-versions)
+            (set! jazz:jazz-versions-cache (load-versions))
+            (set! jazz:jazz-version-number (jazz:get-version-number (car jazz:jazz-versions-cache)))
             (setup-jazz-gambit-version/stamp)
             (set! loaded? #t))))))
 
 
 (define (jazz:get-jazz-versions)
   (jazz:load-jazz-versions)
-  jazz:jazz-versions)
+  jazz:jazz-versions-cache)
 
 
 (define (jazz:get-jazz-version-number)

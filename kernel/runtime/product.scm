@@ -62,5 +62,8 @@
 (define jazz:single-objects?
   #f)
 
+(define jazz:jazz-versions
+  #f)
+
 (define jazz:jazz-updates
   #f)

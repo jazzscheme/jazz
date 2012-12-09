@@ -47,6 +47,7 @@
     "kernel/syntax/structure"
     "kernel/syntax/syntax"
     "kernel/syntax/runtime"
+    "kernel/runtime/product"
     "kernel/runtime/settings"
     "kernel/runtime/base"
     "kernel/runtime/record"

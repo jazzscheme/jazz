@@ -114,9 +114,12 @@
   (lambda (unit-name #!key (output-language #f) (options #f) (cc-options #f) (ld-options #f) (force? #f))
     (jazz:with-unit-resources unit-name #f
       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-        (parameterize ((jazz:requested-unit-name unit-name)
-                       (jazz:requested-unit-resource src))
-          (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name output-language: output-language options: options cc-options: cc-options ld-options: ld-options force?: force?))))))
+        (if src
+            (parameterize ((jazz:requested-unit-name unit-name)
+                           (jazz:requested-unit-resource src))
+              (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name output-language: output-language options: options cc-options: cc-options ld-options: ld-options force?: force?))
+          (%%unless (and bin (file-exists? (jazz:resource-pathname (jazz:bin->otl bin))))
+            (jazz:error "Unable to find source for: {s}" unit-name)))))))
 
 
 ;; this function should be unified with jazz:compile-unit-internal

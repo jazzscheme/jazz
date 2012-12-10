@@ -5398,6 +5398,13 @@
   (make-parameter #f))
 
 
+(define (jazz:bin->otl bin)
+  (let ((path (%%get-resource-path bin)))
+    (%%make-resource (%%get-resource-package bin)
+                     (jazz:pathname-brother path (jazz:add-extension (jazz:pathname-base path) "otl"))
+                     #f)))
+
+
 (define (jazz:outline-unit unit-name #!key (use-catalog? #t) (error? #t))
   (define (load-toplevel-declaration)
     (jazz:with-unit-resources unit-name #f
@@ -5424,10 +5431,7 @@
   
   (define (try-sourceless-outline unit-name src bin)
     (if (and (%%not src) bin)
-        (let ((path (%%get-resource-path bin)))
-          (%%make-resource (%%get-resource-package bin)
-                           (jazz:pathname-brother path (jazz:add-extension (jazz:pathname-base path) "otl"))
-                           #f))
+        (jazz:bin->otl bin)
       src))
   
   (if (not use-catalog?)

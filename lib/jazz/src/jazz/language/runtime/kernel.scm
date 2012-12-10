@@ -697,6 +697,7 @@
 (native jazz:require-service)
 (native jazz:register-distributed-service)
 (native jazz:get-distributed-service)
+(native jazz:activate-distributed-service)
 (native jazz:global-bound?)
 (native jazz:global-ref)
 (native jazz:global-set!)

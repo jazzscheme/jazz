@@ -2126,11 +2126,19 @@
 
 
 (define (jazz:register-distributed-service name thunk)
-  (%%table-set! jazz:Distributed-Services name (%%table-ref jazz:Distributed-Services name '())))
+  (%%table-set! jazz:Distributed-Services name
+    (cons thunk
+          (%%table-ref jazz:Distributed-Services name '()))))
 
 
 (define (jazz:get-distributed-service name)
   (%%table-ref jazz:Distributed-Services name '()))
+
+
+(define (jazz:activate-distributed-service name)
+  (for-each (lambda (proc)
+              (proc))
+            (jazz:get-distributed-service name)))
 
 
 ;;;

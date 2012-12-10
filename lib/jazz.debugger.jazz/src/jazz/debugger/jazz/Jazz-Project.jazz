@@ -54,15 +54,17 @@
 (class Jazz-Project extends Gambit-Project
   
   
-  (property directory        initialize #f accessors generate)
-  (property configuration    initialize #f accessors generate)
-  (property product          initialize #f accessors generate)
-  (property profile          initialize #f accessors generate)
-  (property arguments        initialize #f accessors generate)
-  (property debug-script     initialize #f accessors generate)
-  (property test-unit        initialize #f accessors generate)
-  (property validate-script  initialize #f accessors generate)
-  (property script-arguments initialize #f accessors generate)
+  (property directory         initialize #f accessors generate)
+  (property configuration     initialize #f accessors generate)
+  (property product           initialize #f accessors generate)
+  (property profile           initialize #f accessors generate)
+  (property home              initialize #f accessors generate)
+  (property working           initialize #f accessors generate)
+  (property arguments         initialize #f accessors generate)
+  (property debug-script      initialize #f accessors generate)
+  (property test-unit         initialize #f accessors generate)
+  (property validate-script   initialize #f accessors generate)
+  (property script-arguments  initialize #f accessors generate)
 
 
   ;;;
@@ -208,6 +210,7 @@
              (runtime-arg              (list @wait "-:m250000,h1000000"))
              (product-arg              (list (or action "-run") (->string product)))
              (kernel-arguments-arg     (if kernel-arguments kernel-arguments '()))
+             (home-arg                 (if home (list "-home" home) '()))
              (debugger-arg             (if debugger? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
              (debugger-cookie-arg      (if debugger? (list "-debugger-cookie" (->string cookie)) '()))
              (debugger-interactive-arg (if (and debugger? debugger-interactive?) (list "-debugger-interactive" "true") '()))
@@ -228,14 +231,14 @@
                                                    (if toplevel-monitor (list "-toplevel-monitor" (->string toplevel-monitor)) '())
                                                    (if toplevel-position (list "-toplevel-position" (point->argument toplevel-position)) '())
                                                    (if toplevel-size (list "-toplevel-size" (dimension->argument toplevel-size)) '())))))
-             (arguments                (append runtime-arg action-arg product-arg kernel-arguments-arg debugger-arg debugger-cookie-arg debugger-interactive-arg process-title-arg process-traits-arg validate-arg profile-arg arguments-arg project-arg toplevel-arg)))
+             (arguments                (append runtime-arg action-arg product-arg kernel-arguments-arg home-arg debugger-arg debugger-cookie-arg debugger-interactive-arg process-title-arg process-traits-arg validate-arg profile-arg arguments-arg project-arg toplevel-arg)))
         (save-all~ ide)
         (when debugger?
           (user-message "{a} {a}..." (or invite "Debugging") (get-presentation-property)))
         @debug
         (debug arguments)
         (launch-executable executable
-          directory: (or directory directory~self)
+          directory: (or directory working)
           arguments: arguments
           show-console?: show-console?))))
   
@@ -252,7 +255,7 @@
                                   ((string? configuration)
                                    (new-file~ (new-directory~ directory configuration) kernel-name))
                                   ((not configuration)
-                                   (find-actual-kernel))
+                                   (new-file~ directory kernel-name)
                                   (else
                                    (error "Ill-formed configuration: {s}" configuration))))
                         (find-actual-kernel))))
@@ -334,6 +337,10 @@
         (<Property-Descriptor> name: product
           (<Value-Domain>      name: domain           nullable?: #t))
         (<Property-Descriptor> name: profile
+          (<Value-Domain>      name: domain           nullable?: #t))
+        (<Property-Descriptor> name: home
+          (<Value-Domain>      name: domain           nullable?: #t))
+        (<Property-Descriptor> name: working
           (<Value-Domain>      name: domain           nullable?: #t))
         (<Property-Descriptor> name: arguments
           (<Value-Domain>      name: domain           nullable?: #t))

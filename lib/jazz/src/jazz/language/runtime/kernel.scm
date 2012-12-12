@@ -308,6 +308,7 @@
 (native jazz:-infinity)
 (native fxmodulo)
 (native fxquotient)
+(native fxand)
 
 
 ;;;

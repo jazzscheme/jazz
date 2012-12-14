@@ -171,7 +171,7 @@
         new-declaration))))
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Define-Declaration declaration))
+(jazz:define-method (jazz:outline-extract (jazz:Define-Declaration declaration) meta)
   #f)
 
 
@@ -328,7 +328,7 @@
         new-declaration))))
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Define-Macro-Declaration declaration))
+(jazz:define-method (jazz:outline-extract (jazz:Define-Macro-Declaration declaration) meta)
   #f)
 
 

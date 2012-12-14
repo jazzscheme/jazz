@@ -135,7 +135,7 @@
   (jazz:tree-fold (jazz:get-definition-declaration-value expression) down up here seed environment))
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Definition-Declaration declaration))
+(jazz:define-method (jazz:outline-extract (jazz:Definition-Declaration declaration) meta)
   (let ((signature (jazz:get-definition-declaration-signature declaration)))
     (if (not signature)
         `(definition ,(jazz:get-declaration-access declaration) ,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type declaration)))
@@ -203,7 +203,7 @@
     #f))
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Generic-Declaration declaration))
+(jazz:define-method (jazz:outline-extract (jazz:Generic-Declaration declaration) meta)
   `(generic (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-generic-declaration-signature declaration)))))
 
 
@@ -456,6 +456,13 @@
           (if (%%null? (%%cdr interfaces))
               (jazz:format output " implements {a}" (%%car interfaces))
             (jazz:format output " implements {a}" interfaces))))
+      (%%when (and metaclass (%%not metaclass-explicit?))
+        (let ((children (jazz:outline-generate-filter-access (jazz:queue-list (jazz:get-namespace-declaration-children metaclass)))))
+          (for-each (lambda (decl)
+                      (let ((expr (jazz:outline-extract decl '(meta))))
+                        (if expr
+                            (jazz:format output "{%}    {s}" expr))))
+                    children)))
       (let ((children (jazz:outline-generate-filter-access (jazz:queue-list (jazz:get-namespace-declaration-children declaration)))))
         (let ((accessor-names (%%make-table test: eq?)))
           (for-each (lambda (decl)
@@ -470,7 +477,7 @@
           (for-each (lambda (decl)
                       (%%unless (and (%%is? decl jazz:Method-Declaration)
                                      (%%table-ref accessor-names (jazz:get-lexical-binding-name decl) #f))
-                        (let ((expr (jazz:outline-extract decl)))
+                        (let ((expr (jazz:outline-extract decl '())))
                           (if expr
                               (jazz:format output "{%}    {s}" expr)))))
                     children)))
@@ -549,11 +556,19 @@
       (if (%%null? (%%cdr ascendants))
           (jazz:format output " extends {a}" (%%car ascendants))
         (jazz:format output " extends {a}" ascendants)))
-    (for-each (lambda (decl)
-                (let ((expr (jazz:outline-extract decl)))
-                  (if expr
-                      (jazz:format output "{%}    {s}" expr))))
-              (jazz:outline-generate-filter-access (jazz:queue-list (jazz:get-namespace-declaration-children declaration))))
+    (%%when (and metaclass (%%not metaclass-explicit?))
+      (let ((children (jazz:outline-generate-filter-access (jazz:queue-list (jazz:get-namespace-declaration-children metaclass)))))
+        (for-each (lambda (decl)
+                    (let ((expr (jazz:outline-extract decl '(meta))))
+                      (if expr
+                          (jazz:format output "{%}    {s}" expr))))
+                  children)))
+    (let ((children (jazz:outline-generate-filter-access (jazz:queue-list (jazz:get-namespace-declaration-children declaration)))))
+      (for-each (lambda (decl)
+                  (let ((expr (jazz:outline-extract decl '())))
+                    (if expr
+                        (jazz:format output "{%}    {s}" expr))))
+                children))
     (jazz:format output ")")))
 
 
@@ -622,8 +637,9 @@
       (jazz:error "Illegal assignment to a slot: {s}" (jazz:get-declaration-locator declaration)))))
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Slot-Declaration declaration))
-  `(slot ,@(jazz:outline-generate-access-list declaration)
+(jazz:define-method (jazz:outline-extract (jazz:Slot-Declaration declaration) meta)
+  `(slot ,@meta
+         ,@(jazz:outline-generate-access-list declaration)
          ,(jazz:get-lexical-binding-name declaration)
          ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type declaration))
          ,@(jazz:outline-generate-accessors declaration)))
@@ -668,8 +684,9 @@
   (jazz:expand-slot-form walker resume declaration form-src '%property))
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Property-Declaration declaration))
-  `(property ,@(jazz:outline-generate-access-list declaration)
+(jazz:define-method (jazz:outline-extract (jazz:Property-Declaration declaration) meta)
+  `(property ,@meta
+             ,@(jazz:outline-generate-access-list declaration)
              ,(jazz:get-lexical-binding-name declaration)
              ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type declaration))
              ,@(jazz:outline-generate-accessors declaration)))
@@ -856,12 +873,13 @@
       (jazz:tree-fold body down up here seed environment))))
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Method-Declaration declaration))
+(jazz:define-method (jazz:outline-extract (jazz:Method-Declaration declaration) meta)
   (define (generate-propagation-list)
     (let ((propagation (jazz:get-method-declaration-propagation declaration)))
       (list propagation)))
   
-  `(method ,(jazz:get-declaration-access declaration)
+  `(method ,@meta
+           ,(jazz:get-declaration-access declaration)
            ,@(generate-propagation-list)
            (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-method-declaration-signature declaration)))
            ,@(jazz:outline-generate-type-list (jazz:get-function-type-result (jazz:get-lexical-binding-type declaration)))))

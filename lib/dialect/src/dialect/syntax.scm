@@ -87,7 +87,7 @@
 (jazz:define-virtual-syntax (jazz:emit-declaration (jazz:Declaration declaration) environment backend))
 (jazz:define-virtual-syntax (jazz:expand-referenced-declaration (jazz:Declaration declaration)))
 (jazz:define-virtual-syntax (jazz:outline-generate (jazz:Declaration declaration) output))
-(jazz:define-virtual-syntax (jazz:outline-extract (jazz:Declaration declaration)))
+(jazz:define-virtual-syntax (jazz:outline-extract (jazz:Declaration declaration) meta))
 
 
 ;;;

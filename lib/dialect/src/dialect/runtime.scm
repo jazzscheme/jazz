@@ -425,7 +425,7 @@
 (jazz:define-virtual (jazz:emit-declaration (jazz:Declaration declaration) environment backend))
 (jazz:define-virtual (jazz:expand-referenced-declaration (jazz:Declaration declaration)))
 (jazz:define-virtual (jazz:outline-generate (jazz:Declaration declaration) output))
-(jazz:define-virtual (jazz:outline-extract (jazz:Declaration declaration)))
+(jazz:define-virtual (jazz:outline-extract (jazz:Declaration declaration) meta))
 
 
 (jazz:define-method (jazz:compose-declaration-locator (jazz:Declaration declaration))
@@ -455,12 +455,12 @@
 
 
 (jazz:define-method (jazz:outline-generate (jazz:Declaration declaration) output)
-  (let ((expr (jazz:outline-extract declaration)))
+  (let ((expr (jazz:outline-extract declaration '())))
     (if expr
         (jazz:format output "{%}  {s}" expr))))
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Declaration declaration))
+(jazz:define-method (jazz:outline-extract (jazz:Declaration declaration) meta)
   (jazz:error "Unable to outline extract: {s}" declaration))
 
 
@@ -1642,7 +1642,7 @@
   (jazz:new-begin #f '()))
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Export-Declaration declaration))
+(jazz:define-method (jazz:outline-extract (jazz:Export-Declaration declaration) meta)
   `(native ,(jazz:get-export-declaration-symbol declaration)))
 
 
@@ -1677,7 +1677,7 @@
     #f))
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Export-Syntax-Declaration declaration))
+(jazz:define-method (jazz:outline-extract (jazz:Export-Syntax-Declaration declaration) meta)
   `(native-syntax ,(jazz:get-export-syntax-declaration-symbol declaration)))
 
 
@@ -2640,7 +2640,7 @@
       binding)))
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Macro-Declaration declaration))
+(jazz:define-method (jazz:outline-extract (jazz:Macro-Declaration declaration) meta)
   `(macro ,(jazz:get-declaration-access declaration)
           (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-macro-declaration-signature declaration)))))
 
@@ -2768,7 +2768,7 @@
   #t)
 
 
-(jazz:define-method (jazz:outline-extract (jazz:Syntax-Declaration declaration))
+(jazz:define-method (jazz:outline-extract (jazz:Syntax-Declaration declaration) meta)
   `(syntax ,@(jazz:outline-generate-access-list declaration) ,(jazz:get-lexical-binding-name declaration)))
 
 

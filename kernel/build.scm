@@ -400,9 +400,9 @@
           (delete-file jazz:anonymous-configuration-file)))
     (let ((configurations (jazz:sort-configurations named)))
       (if (not (null? configurations))
-          (begin
-            (jazz:create-directories "~/.jazz" feedback: jazz:feedback)
-            (call-with-output-file (list path: jazz:named-configurations-file eol-encoding: (jazz:platform-eol-encoding (jazz:guess-platform)))
+          (let ((path jazz:named-configurations-file))
+            (jazz:create-directories (jazz:pathname-dir path) feedback: jazz:feedback)
+            (call-with-output-file (list path: path eol-encoding: (jazz:platform-eol-encoding (jazz:guess-platform)))
               (lambda (output)
                 (for-each (lambda (configuration)
                             (print-configuration configuration output)

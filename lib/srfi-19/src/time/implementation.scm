@@ -303,10 +303,10 @@
 
 (cond-expand
   (gambit
-    (define (current-seconds)
+    (define (current-time-seconds)
       (inexact->exact (floor (time->seconds (current-time)))))
     
-    (define (current-milliseconds)
+    (define (current-time-milliseconds)
       (inexact->exact (floor (* 1000 (time->seconds (current-time))))))
     
     (define (current-process-milliseconds)

@@ -623,6 +623,7 @@
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:truncate       '(                     (##fltruncate <fl:fl>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:round          '(                     (##flround    <fl:fl>)))
 
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:abs            '(                     (##flabs      <fl:fl>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:sqrt           '(                     (##flsqrt     <fl:fl>)))
 
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:sin            '(                     (##flsin      <fl:fl>)))

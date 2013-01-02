@@ -284,15 +284,21 @@
                                  (jazz:setup-settings)
                                  (jazz:process-jazzini #t))))
                          
+                         (define (locate-dependencies root-path)
+                           (and root-path
+                                (let ((dynamic-file (%%string-append root-path ".dependencies")))
+                                  (and (jazz:file-exists? dynamic-file)
+                                       dynamic-file))))
+                         
                          (define (setup-repositories)
                            (if build-repository (jazz:build-repository build-repository))
                            (if jazz-repository (jazz:jazz-repository jazz-repository))
                            (if repositories (jazz:repositories repositories))
-                           (if dependencies
-                               (jazz:dependencies (call-with-input-file dependencies read))
-                             (let ((dynamic-file (%%string-append (or (jazz:build-repository) jazz:kernel-install) ".dependencies")))
-                               (if (jazz:file-exists? dynamic-file)
-                                   (jazz:dependencies (call-with-input-file dynamic-file read)))))
+                           (let ((dynamic-file (or dependencies
+                                                   (locate-dependencies (jazz:build-repository))
+                                                   (locate-dependencies jazz:kernel-install))))
+                             (if dynamic-file
+                                 (jazz:dependencies (call-with-input-file dynamic-file read))))
                            (jazz:prepare-repositories)
                            (jazz:setup-repositories))
                          

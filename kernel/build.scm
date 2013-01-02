@@ -1135,7 +1135,12 @@
          (list
            path: (string-append (jazz:configuration-directory configuration) "kernel")
            arguments: `("-make"
-                        ,(symbol->string product) "-:daqD"
+                        ,(symbol->string product)
+                        ,@(let ((dependencies (string-append (current-directory) ".dependencies")))
+                            (if (jazz:file-exists? dependencies)
+                                `("-dependencies" ,dependencies)
+                              '()))
+                        "-:daqD"
                         ,@(if link `("-link" ,(symbol->string link)) '())
                         ,@(if jobs `("-jobs" ,(number->string jobs)) '()))))))
 

@@ -74,21 +74,50 @@
 ;;;
 
 
+(definition snapshot-file-creation-mutex (make-mutex))
+
+
+(definition (create-timestamped-file directory prefix extension)
+  (mutex-lock! snapshot-file-creation-mutex)
+  (prog1 (with-exception-catcher
+           (lambda (exc)
+             (console "Snapshot timestamped file creation failed" exc)
+             #f)
+           (lambda ()
+             (let ((file (timestamped-file (or directory (snapshots-directory)) (or prefix (->string (current-process-name))) (or extension "snapshot"))))
+               (create~ file)
+               file)))
+    (mutex-unlock! snapshot-file-creation-mutex)))
+
+
+(definition (call-with-snapshot-output-file args proc)
+  (bind-keywords ((directory #f) (prefix #f) (extension #f) . others) args
+    (let ((file (create-timestamped-file directory prefix extension)))
+      (call-with-output-file (path-settings file)
+        (lambda (output)
+          (apply proc output others)))
+      file)))
+
+
 (definition public (snapshot-process . rest)
   (disable-interrupts!)
   (prog1 (continuation-capture
            (lambda (continuation)
-             (bind-keywords ((directory #f) (prefix #f) (extension #f) . others) rest
-               (let ((file (timestamped-file (or directory (snapshots-directory)) (or prefix (->string (current-process-name))) (or extension "snapshot"))))
-                 (create-directories~ file)
-                 (call-with-output-file (path-settings file)
-                   (lambda (output)
-                     (apply print-process-snapshot continuation output others)))
-                 file))))
+             (call-with-snapshot-output-file rest
+               (lambda (output . rest)
+                 (apply print-process-snapshot continuation output rest)))))
     (enable-interrupts!)))
 
 
-(definition (print-process-snapshot continuation output (reason: reason #f) (exception: exception #f) (max-depth: max-depth (snapshot-max-depth)) (max-width: max-width (snapshot-max-width)) (max-content: max-content (snapshot-max-content)))
+(definition public (snapshot-current-thread . rest)
+  (continuation-capture
+    (lambda (continuation)
+      (call-with-snapshot-output-file rest
+        (lambda (output . rest)
+          (apply print-process-snapshot continuation output current-thread-only?: #t rest))))))
+
+
+(definition (print-process-snapshot continuation output (reason: reason #f) (exception: exception #f) (max-depth: max-depth (snapshot-max-depth)) (max-width: max-width (snapshot-max-width)) (max-content: max-content (snapshot-max-content)) (current-thread-only?: current-thread-only? #f))
   (let ((cache (make-table test: eqv?)))
     (define package-info-serial first)
     (define package-info-class second)
@@ -120,12 +149,13 @@
       (format output "{%}")
       (format output "  (<threads>")
       (print-thread (current-thread) continuation)
-      (for-each (lambda (thread)
-                  (when (neq? thread (current-thread))
-                    (let ((continuation (thread-continuation thread)))
-                      (when continuation
-                        (print-thread thread continuation)))))
-                (top-threads))
+      (unless current-thread-only?
+        (for-each (lambda (thread)
+                    (when (neq? thread (current-thread))
+                      (let ((continuation (thread-continuation thread)))
+                        (when continuation
+                          (print-thread thread continuation)))))
+                  (top-threads)))
       (format output ")"))
     
     (define (print-thread thread continuation)

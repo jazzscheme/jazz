@@ -1542,6 +1542,10 @@
                                                ,@(if (jazz:build-repository) `("-build-repository" ,(jazz:build-repository)) '())
                                                ,@(if (jazz:jazz-repository) `("-jazz-repository" ,(jazz:jazz-repository)) '())
                                                ,@(if (jazz:repositories) `("-repositories" ,(jazz:repositories)) '())
+                                               ,@(let ((dependencies (string-append (current-directory) ".dependencies")))
+                                                   (if (jazz:file-exists? dependencies)
+                                                       `("-dependencies" ,dependencies)
+                                                     '()))
                                                "-jobs" "1"
                                                "-port" ,(number->string (socket-info-port-number (tcp-server-socket-info listening-port))))
                                   stdin-redirection: #t

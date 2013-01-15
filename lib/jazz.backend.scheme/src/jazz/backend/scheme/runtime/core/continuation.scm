@@ -55,6 +55,10 @@
       (%%continuation-graft cont proc))
     
     
+    (define (jazz:continuation-graft-no-winding cont proc)
+      (%%continuation-graft-no-winding cont proc))
+    
+    
     (define jazz:continuation-return
       continuation-return)
     

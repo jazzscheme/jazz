@@ -110,6 +110,7 @@
 (native jazz:continuation?)
 (native jazz:continuation-capture)
 (native jazz:continuation-graft)
+(native jazz:continuation-graft-no-winding)
 (native jazz:continuation-return)
 (native jazz:continuation-checkpoint)
 (native jazz:continuation-parent)

@@ -38,11 +38,14 @@
 (module protected jazz.designer.toolbox.Toolbox-Module jazz
 
 
-(import (jazz.designer)
+(import (jazz.debugger)
+        (jazz.designer)
         (jazz.designer.view)
+        (jazz.editor.jazz)
         (jazz.jml)
         (jazz.library)
-        (jazz.locale.components))
+        (jazz.locale.components)
+        (jazz.runtime))
 
 
 (class undocumented Toolbox-Module extends Toolbox-Group
@@ -107,18 +110,71 @@
                                  (getf plist title:))))
   
   
+  (method (require-toolbox-module)
+    (with-exception-filter
+      (lambda (exception)
+        (is? exception Error))
+      (lambda (error)
+        (designer-error (get-message~ error)))
+      (lambda ()
+        (require-module module-name))))
+  
+  
+  (method public (collect-module-elements)
+    (map (lambda (name)
+           (module-ref module-name name))
+         (table-keys (get-exports~ (require-toolbox-module)))))
+  
+  
   (method public (add-module-elements add)
     (when module-name
-      (let* ((module (with-exception-filter
-                       (lambda (exception)
-                         (is? exception Error))
-                       (lambda (error)
-                         (designer-error (get-message~ error)))
-                       (lambda ()
-                         (require-module module-name))))
+      (let* ((module (require-toolbox-module))
              (valid-names (collect-valid-names (table-keys (get-exports~ module))))
              (plists (sort-elements (collect-valid-elements-properties valid-names))))
         (for-each add (map get-element-class plists) plists))))
+  
+  
+  (method public (add-element runtime-reference class-name)
+    (bind (unit model) (parse-runtime-reference runtime-reference)
+      (call-with-saved-text (find-unit-source module-name)
+        (lambda (text)
+          (let ((imports (cons 'jazz.jml (if (eq? module-name unit) '() (list unit)))))
+            (insert-imports text imports)
+            (insert-class text class-name model)
+            (insert-new-form text class-name)
+            (evaluate-range~ text (location-range~ text (list class-name))))))))
+  
+  
+  ;;;
+  ;;;; Delete
+  ;;;
+  
+  
+  (method public (remove-text-location symbol)
+    (call-with-saved-text (find-unit-source module-name)
+      (lambda (text)
+        (let* ((range (location-range~ text (list symbol) toplevel-location: (list module-name)))
+               (explorer (new Jazz-Explorer (get-model~ text) range: range)))
+          (backward-expr~ explorer)
+          (set-selection~ text (new Range$Cell$ (get-end~ explorer) (get-end~ range)))
+          (delete-selection~ text)))))
+  
+  
+  (method public (remove-from-runtime symbol)
+    (let* ((run-module 'jazz.runtime)
+           (str (object->string
+                  `(module ,run-module jazz
+                   (let ((module (require-module ',module-name)))
+                     (table-set! (get-exports~ module) ',symbol)
+                     (table-set! (get-entries~ module) ',symbol)
+                     (module-undefine ',module-name ',symbol)
+                     #!void)))))
+      (evaluate-filename-expressions~ (get-debugger-manager) (parse~ (find-unit-source run-module)) 'jazz str #f #f #f)))
+  
+  
+  (method public (remove-element symbol)
+    (remove-text-location symbol)
+    (remove-from-runtime symbol))
   
   
   ;;;

@@ -82,25 +82,12 @@
     (<install> portfolio: :images draggable?: #t reorderable?: #t multiple-selection?: #f selection-mode: row))
   
   
-  (method (request-unique-name-in-module unit)
-    (let ((symbols (table-keys (get-exports~ (require-module unit)))))
-      (request-name accepts-empty?: #f unicity-domain: (map symbol->string symbols))))
-  
-  
   (method override (add-component-class ref)
     (let ((parent (selected-component)))
       (if (is? parent Toolbox-Module)
-          (let ((module-name (get-module-name~ parent)))
-            (bind (unit model) (parse-runtime-reference ref)
-              (let ((class-name (request-unique-name-in-module module-name)))
-                (call-with-saved-text (find-unit-source module-name)
-                  (lambda (text)
-                    (let ((imports (if (eq? module-name unit) '() (list unit))))
-                      (insert-imports text imports)
-                      (insert-class text class-name model)
-                      (insert-new-form text class-name)
-                      (evaluate-range~ text (location-range~ text (list class-name)))
-                      (nextmethod (reference Toolbox-Model) presentation: (symbol->string class-name) properties: (list unit: module-name model: class-name))))))))
+          (let ((class-name (request-unique-name-in-module (get-module-name~ parent))))
+            (add-element~ parent ref class-name)
+            (nextmethod (reference Toolbox-Model) presentation: (symbol->string class-name) properties: (list unit: (get-module-name~ Toolbox-Module) model: class-name)))
         (nextmethod ref))))
   
   
@@ -256,28 +243,6 @@
         (nextmethod))))
   
   
-  (method (remove-text-location unit symbol)
-    (call-with-saved-text (find-unit-source unit)
-      (lambda (text)
-        (let* ((range (location-range~ text (list symbol) toplevel-location: (list unit)))
-               (explorer (new Jazz-Explorer (get-model~ text) range: range)))
-          (backward-expr~ explorer)
-          (set-selection~ text (new Range$Cell$ (get-end~ explorer) (get-end~ range)))
-          (delete-selection~ text)))))
-  
-  
-  (method (remove-from-runtime unit symbol)
-    (let* ((run-module 'jazz.runtime)
-           (str (object->string
-                  `(module ,run-module jazz
-                   (let ((module (require-module ',unit)))
-                     (table-set! (get-exports~ module) ',symbol)
-                     (table-set! (get-entries~ module) ',symbol)
-                     (module-undefine ',unit ',symbol)
-                     #!void)))))
-      (evaluate-filename-expressions~ (get-debugger-manager) (parse~ (find-unit-source run-module)) 'jazz str #f #f #f 'interpret)))
-  
-  
   (method virtual (delete-tool tool parent (confirm? #t))
     (define (confirm-delete)
       (let ((code (message-box "Delete selected object?" type: 'confirmation)))
@@ -286,7 +251,8 @@
           ((no) #f)
           ((cancel) (signal-cancel)))))
     
-    (if (is? tool Toolbox-Model)
+    (if (and (is? tool Toolbox-Model)
+             (is? parent Toolbox-Module))
         (with-safe-toolbox tool
           (lambda ()
             (with-blocked-toolbox-operation tool
@@ -294,10 +260,8 @@
                 (if (find-editor (get-tool-origin tool))
                     (message-box "Please close this object before deleting it." type: 'problem)
                   (when (or (not confirm?) (confirm-delete))
-                    (let ((unit (get-unit~ tool))
-                          (symbol (get-model~ tool)))
-                      (remove-text-location unit symbol)
-                      (remove-from-runtime unit symbol)
+                    (let ((symbol (get-model~ tool)))
+                      (remove-element~ parent symbol)
                       (remove-child~ (get-designer) tool))))))))
       (bell)))
   
@@ -315,7 +279,8 @@
   
   
   (method virtual (rename-tool tool parent)
-    (if (is? tool Toolbox-Model)
+    (if (and (is? tool Toolbox-Model)
+             (is? parent Toolbox-Module))
         (with-safe-toolbox tool
           (lambda ()
             (with-blocked-toolbox-operation tool
@@ -330,7 +295,7 @@
                         (replace-selection~ text (list (symbol->string name)))
                         (set-caret~ text (get-end~ range))
                         (evaluate-selection~ text))))
-                  (remove-from-runtime unit symbol)
+                  (remove-from-runtime~ parent symbol)
                   (set-property~ designer tool 'model name)
                   (set-property~ designer tool 'title (symbol->string name)))))))
       (bell)))

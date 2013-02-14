@@ -659,6 +659,8 @@
                     (newline output)
                     (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination properties output)
                     (newline output)
+                    (jazz:print-variable 'jazz:kernel-interpreted? #t output)
+                    (newline output)
                     (jazz:print-variable 'jazz:product #f output)
                     (newline output)
                     (jazz:print-variable 'jazz:image (or image 'executable) output)
@@ -983,6 +985,8 @@
 
 
 (define (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? destination properties output)
+  (jazz:print-variable 'jazz:kernel-interpreted? #f output)
+  (newline output)
   (jazz:print-variable 'jazz:kernel-system system output)
   (newline output)
   (jazz:print-variable 'jazz:kernel-platform platform output)

@@ -314,6 +314,8 @@
                            (set! jazz:link (or link (jazz:build-link)))
                            (set! jazz:link-options (jazz:parse-link jazz:link))
                            (set! jazz:jobs jobs)
+                           (if (not jazz:kernel-interpreted?)
+                               (jazz:disable-crash-window))
                            (if (or debug? (%%eqv? jobs 0) dry?)
                                (jazz:debug-build? #t))
                            (if keep-c?

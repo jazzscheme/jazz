@@ -51,6 +51,17 @@
 
 (cond-expand
   (windows
+    
+    (define SEM_FAILCRITICALERRORS #x0001)
+    
+    (define SEM_NOGPFAULTERRORBOX #x0002)
+    
+    (define SetErrorMode
+      (c-lambda (unsigned-int) unsigned-int "SetErrorMode"))
+    
+    (define (jazz:disable-crash-window)
+      (SetErrorMode (bitwise-ior SEM_FAILCRITICALERRORS SEM_NOGPFAULTERRORBOX)))
+    
     (c-define (jazz:call_crash_reporter ignore) ((pointer void)) void "jazz_call_crash_reporter" ""
       (jazz:crash-reporter ignore))
 
@@ -75,6 +86,10 @@ END-OF-DECLARES
       (c-lambda () void
         "RaiseException(CRASH_PROCESS, EXCEPTION_NONCONTINUABLE , 0, NULL);")))
   (else
+   
+   (define (jazz:disable-crash-window)
+     )
+   
    (c-define (jazz:call_crash_reporter ignore) (int) void "jazz_call_crash_reporter" ""
      (jazz:crash-reporter ignore))
 

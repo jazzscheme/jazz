@@ -88,7 +88,7 @@ END-OF-DECLARES
   (else
    
    (define (jazz:disable-crash-window)
-     )
+     #!void)
    
    (c-define (jazz:call_crash_reporter ignore) (int) void "jazz_call_crash_reporter" ""
      (jazz:crash-reporter ignore))

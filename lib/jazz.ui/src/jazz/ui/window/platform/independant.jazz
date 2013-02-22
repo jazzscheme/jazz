@@ -116,9 +116,13 @@
 
 
 (definition public (delay-event thunk)
-  (if (get-events-single-threaded?)
-      (write-delayed-event thunk)
-    (thread-write (event-thread) thunk 2)))
+  ;; delayed events are part of the current event and are processed before other system/mailbox events
+  ;; external threads are not allowed to break this constraint
+  (if (event-thread?)
+      (if (get-events-single-threaded?)
+          (write-delayed-event thunk)
+        (thread-write (event-thread) thunk 2))
+    (post-event thunk)))
 
 
 (definition public (message-event thunk)

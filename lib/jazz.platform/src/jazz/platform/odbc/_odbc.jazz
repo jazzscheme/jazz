@@ -430,6 +430,16 @@
       (lambda ()
         (SQLCHAR*-free StatementText)))))
 
+(definition public (SQLExecDirectW StatementHandle StatementText)
+  (let ((StatementText (UTF-16-string->SQLWCHAR* StatementText)))
+    (handle-sql-result SQL_HANDLE_STMT StatementHandle
+      (lambda ()
+        (SQLExecDirectW$ StatementHandle StatementText SQL_NTS))
+      (lambda (result state)
+        #t)
+      (lambda ()
+        (SQLWCHAR*-free StatementText)))))
+
 (definition public (SQLNumResultCols StatementHandle)
   (let ((ColumnCountPtr (SQLSMALLINT*-alloc 1)))
     (handle-sql-result SQL_HANDLE_STMT StatementHandle
@@ -599,13 +609,18 @@
   (slot columns accessors generate)
   (slot dispatch-cache accessors generate)
   (slot strategy accessors generate)
+  (slot statement-text accessors generate)
   
   
   (method override (initialize connection statement-text (strategy: strategy 'mixed) (timeout: timeout 60))
     (set! strategy~self strategy)
     (set! hstmt (SQLAllocHandleStd SQL_HANDLE_STMT (get-hdbc~ connection)))
-    (SQLSetStmtAttr hstmt SQL_ATTR_QUERY_TIMEOUT timeout 0)
-    (SQLExecDirect hstmt statement-text))
+    (set! statement-text~self statement-text)
+    (SQLSetStmtAttr hstmt SQL_ATTR_QUERY_TIMEOUT timeout 0))
+  
+  
+  (method (execute)
+    (SQLExecDirectW hstmt statement-text))
   
   
   (method override (close)

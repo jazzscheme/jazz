@@ -70,6 +70,31 @@
 
 
 ;;;
+;;;; Callbacks
+;;;
+
+
+(definition *snapshot-callbacks*
+  '())
+
+
+(definition public (register-snapshot-callbacks proc)
+  (assert (procedure? proc))
+  (set! *snapshot-callbacks* (cons proc *snapshot-callbacks*)))
+
+
+(definition public (get-snapshot-callback-continuations)
+  (apply append (map (lambda (proc) (proc)) *snapshot-callbacks*)))
+
+
+@w
+(thread-start! (make-thread (lambda ()
+                              ;; Prevent problems with continuation-checkpoints
+                              (continuation-graft-no-winding k break))
+                            serial))
+
+
+;;;
 ;;;; Snapshot
 ;;;
 
@@ -155,7 +180,9 @@
                       (let ((continuation (thread-continuation thread)))
                         (when continuation
                           (print-thread thread continuation)))))
-                  (top-threads)))
+                  (top-threads))
+        (for-each print-continuation
+                  (get-snapshot-callback-continuations)))
       (format output ")"))
     
     (define (print-thread thread continuation)
@@ -179,6 +206,20 @@
       (when continuation
         (print-stack continuation))
       (format output ")"))
+    
+    (define (print-continuation continuation)
+      (when continuation
+        (format output "{%}")
+        (let ((serial (object->serial continuation)))
+          (unless (table-ref cache serial #f)
+            (let ((info (package-info continuation mutable?: #t max-width: max-width)))
+              (table-set! cache serial info)))
+          (format output "    (<thread>")
+          (format output " name: {s}" serial))
+        (force-output output)
+        (when (continuation? continuation)
+          (print-stack continuation))
+        (format output ")")))
     
     (define (print-stack continuation)
       (loop (for cont in (get-continuation-stack continuation #f))

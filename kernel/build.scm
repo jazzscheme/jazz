@@ -1093,36 +1093,35 @@
                             image:                 image
                             kernel?:               #t
                             console?:              #t))))
-
+    
     (define (compare-configuration configuration-jazz configuration-kernel)
       (define (compare-parameter name proc)
         (if (not (equal? (proc configuration-jazz) (proc configuration-kernel)))
             (list name (proc configuration-jazz) (proc configuration-kernel))
           #f))
-
-      (or (compare-parameter system:                  jazz:get-configuration-system)
-          (compare-parameter platform:                jazz:get-configuration-platform)
-          (compare-parameter windowing:               jazz:get-configuration-windowing)
-          (compare-parameter safety:                  jazz:get-configuration-safety)
-          (compare-parameter optimize?:               jazz:get-configuration-optimize?)
-          (compare-parameter debug-environments?:     jazz:get-configuration-debug-environments?)
-          (compare-parameter debug-location?:         jazz:get-configuration-debug-location?)
-          (compare-parameter debug-source?:           jazz:get-configuration-debug-source?)
-          (compare-parameter mutable-bindings:        jazz:get-configuration-mutable-bindings?)
-          (compare-parameter kernel-interpret?:       jazz:get-configuration-kernel-interpret?)
-          (compare-parameter destination:             jazz:get-configuration-destination)
-          (compare-parameter properties:              jazz:get-configuration-properties)))
-
+      
+      (or (compare-parameter system:              jazz:get-configuration-system)
+          (compare-parameter platform:            jazz:get-configuration-platform)
+          (compare-parameter windowing:           jazz:get-configuration-windowing)
+          (compare-parameter safety:              jazz:get-configuration-safety)
+          (compare-parameter optimize?:           jazz:get-configuration-optimize?)
+          (compare-parameter debug-environments?: jazz:get-configuration-debug-environments?)
+          (compare-parameter debug-location?:     jazz:get-configuration-debug-location?)
+          (compare-parameter debug-source?:       jazz:get-configuration-debug-source?)
+          (compare-parameter mutable-bindings:    jazz:get-configuration-mutable-bindings?)
+          (compare-parameter kernel-interpret?:   jazz:get-configuration-kernel-interpret?)
+          (compare-parameter destination:         jazz:get-configuration-destination)
+          (compare-parameter properties:          jazz:get-configuration-properties)))
+    
     (jazz:feedback "make kernel")
     (let ((configuration (or configuration (jazz:require-default-configuration))))
       (let ((configuration-file (jazz:configuration-file configuration)))
         (if (file-exists? configuration-file)
-            (begin
-              (let ((compare (compare-configuration configuration (jazz:load-configuration configuration-file))))
-                (if compare
-                    (error "Configuration mismatch in " compare)
-                  (build (jazz:load-configuration configuration-file))
-                  )))
+            (let ((file-configuration (jazz:load-configuration configuration-file)))
+              (let ((difference (compare-configuration configuration file-configuration)))
+                (if difference
+                    (jazz:error "Configuration mismatch in {a}" difference)
+                  (build file-configuration))))
           (build configuration)))))
   
   (define (build-recursive target configuration image)

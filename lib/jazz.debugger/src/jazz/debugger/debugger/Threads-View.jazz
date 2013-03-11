@@ -263,6 +263,15 @@
               (terminate-thread~ process thread preserve-console?)))))))
   
   
+  (method (kill-thread)
+    (let ((thread (selected-thread)))
+      (with-thread-refresh thread
+        (lambda ()
+          (with-jrm-exception-handler process
+            (lambda ()
+              (kill-thread~ process thread)))))))
+  
+  
   (method (update-tools)
     (receive (restarts break? continue?) (selected-state)
       (set-enabled?~ (locate 'restart) (not-null? restarts))
@@ -421,7 +430,17 @@
           (layout-menu~ menu)
           menu)))
     
+    (define (new-continuation-menu thread)
+      (let ((menu (new Thread-Menu)))
+        (new Label-Item parent: menu title: "Close" action-handler: (make-handler (lambda () (kill-thread))))
+        (layout-menu~ menu)
+        menu))
+    
     (typecase object
+      ((Debugged-Continuation)
+       (with-jrm-exception-handler process
+         (lambda ()
+           (new-continuation-menu object))))
       ((Debugged-Thread)
        (with-jrm-exception-handler process
          (lambda ()

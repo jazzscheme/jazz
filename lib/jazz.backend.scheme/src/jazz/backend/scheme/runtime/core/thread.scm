@@ -80,6 +80,7 @@
     (define jazz:thread-mailbox-rewind thread-mailbox-rewind)
     (define jazz:thread-mailbox-extract-and-rewind thread-mailbox-extract-and-rewind)
     (define jazz:thread-interrupt! thread-interrupt!)
+    (define jazz:make-thread-group make-thread-group)
     (define jazz:thread-thread-group thread-thread-group)
     (define jazz:thread-group->thread-group-list thread-group->thread-group-list)
     (define jazz:thread-group->thread-group-vector thread-group->thread-group-vector)

@@ -1233,6 +1233,7 @@
 (native jazz:thread-cont)
 (native jazz:thread-continuation)
 (native jazz:pristine-thread-continuation)
+(native jazz:make-thread-group)
 (native jazz:mutex?)
 (native jazz:make-mutex)
 (native jazz:mutex-name)

@@ -88,6 +88,33 @@
 
 
 ;;;
+;;;; Exception Filter
+;;;
+
+
+(definition public (with-exception-snapshot filter catcher thunk)
+  (with-exception-filter
+    (lambda (exc)
+      (when (filter exc)
+        (if (using-debugger?)
+            (jazz-exception-debugger exc)
+          (let ((reason (exception-reason exc)))
+            (snapshot-process directory: {Directory Settings "problems"} reason: reason exception: exc)))
+        #t))
+    catcher
+    thunk))
+
+
+(definition public (new-safe-thread catcher thunk . rest)
+  (with-exception-snapshot
+    (lambda (exc)
+      #t)
+    catcher
+    (lambda ()
+      (apply new-thread thunk rest))))
+
+
+;;;
 ;;;; Snapshot
 ;;;
 

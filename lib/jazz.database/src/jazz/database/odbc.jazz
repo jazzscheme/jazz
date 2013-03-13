@@ -74,29 +74,30 @@
   
   
   (method override (execute request)
-    (let ((statement (new ODBC-Statement self (post-process-request~ data-source request))))
-      (execute~ statement)
-      (close~ statement)))
+    (with ((statement (new ODBC-Statement self (post-process-request~ data-source request))))
+      (execute~ statement)))
   
   
   (method override (load-request request (convert?: convert? #t))
-    (let* ((request (post-process-request~ data-source request))
-           (statement (new ODBC-Statement self request)))
-      (execute~ statement)
-      (let ((resultset (load-single-resultset~ statement)))
-        (close~ statement)
-        (if convert?
-            (resultset->Data-Table resultset)
-          resultset))))
+    (define (autoconvert resultset)
+      (if convert?
+          (resultset->Data-Table resultset)
+        resultset))
+    
+    (autoconvert (let ((request (post-process-request~ data-source request)))
+                   (with ((statement (new ODBC-Statement self request)))
+                     (execute~ statement)
+                     (load-single-resultset~ statement)))))
   
   
   (method override (load-multirequest request (convert?: convert? #t) (strategy: strategy 'mixed))
-    (let* ((request (post-process-request~ data-source request))
-           (statement (new ODBC-Statement self request strategy: strategy)))
-      (execute~ statement)
-      (let ((resultsets (load-multiple-resultsets~ statement)))
-        (close~ statement)
-        (if convert?
-            (map resultset->Data-Table resultsets)
-          resultsets))))))
+    (define (autoconvert resultsets)
+      (if convert?
+          (map resultset->Data-Table resultsets)
+        resultsets))
+    
+    (autoconvert (let ((request (post-process-request~ data-source request)))
+                   (with ((statement (new ODBC-Statement self request strategy: strategy)))
+                     (execute~ statement)
+                     (load-multiple-resultsets~ statement)))))))
             

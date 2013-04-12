@@ -39,7 +39,8 @@
 (module protected jazz.ui.window.platform.independant jazz
 
 
-(import (jazz.graphic))
+(import (jazz.graphic)
+        (jazz.snapshot))
 
 
 ;;;
@@ -103,6 +104,37 @@
 
 
 ;;;
+;;;; Event Capture
+;;;
+
+
+(definition *previous-event-continuations*
+  '())
+
+
+(definition *capture-previous-event-continuations?*
+  #t)
+
+
+(definition public (get-previous-event-continuations)
+  *previous-event-continuations*)
+
+
+(definition public (set-capture-previous-event-continuations state)
+  (set! *previous-event-continuations* state))
+
+
+(definition public (capture-event-continuation)
+  (when (null? *previous-event-continuations*)
+    (register-snapshot-callbacks get-previous-event-continuations))
+  (when (> (length *previous-event-continuations*) 4)
+    (set! *previous-event-continuations* (butlast *previous-event-continuations*)))
+  (continuation-capture
+    (lambda (cont)
+      (set! *previous-event-continuations* (cons cont *previous-event-continuations*)))))
+
+
+;;;
 ;;;; Event
 ;;;
 
@@ -119,9 +151,12 @@
   ;; delayed events are part of the current event and are processed before other system/mailbox events
   ;; external threads are not allowed to break this constraint
   (if (event-thread?)
-      (if (get-events-single-threaded?)
-          (write-delayed-event thunk)
-        (thread-write (event-thread) thunk 2))
+      (begin
+        (when *capture-previous-event-continuations?*
+          (capture-event-continuation))
+        (if (get-events-single-threaded?)
+            (write-delayed-event thunk)
+          (thread-write (event-thread) thunk 2)))
     (post-event thunk)))
 
 

@@ -167,20 +167,33 @@
   ;;;
 
   
-  (method package (update-borders)
-    (let ((n 0)
-          (h 2))
-      (for-each (lambda (header)
-                  (let* ((title (localize (get-title~ header)))
-                         (closable? (and (get-closable?~ header)
-                                         (or (not keep-one-sheet?)
-                                             (and keep-one-sheet?
-                                                  (> (length children) 1)))))
-                         (next (+ h padding (if title (+ (get-width~ (text-extent~ (effective-font) title)) (if closable? 8 0)) 10) padding)))
-                    (set-borders~ header (cons h next))
-                    (increase! n)
-                    (set! h next)))
-                children)))
+  (method package (update-borders)   ;; Quick fix : a little scaling if the tabs go beyond the width of the view.
+    (let ((view-width (get-width)))  ;; No text clipping, no "...", all the text will still be printed.  
+      (let loop ((n 0)
+                 (h 2)
+                 (borders (list))
+                 (chx-in children)
+                 (chx-out (list)))
+           (if (pair? chx-in)
+               (let* ((header (car chx-in))
+                      (title (localize (get-title~ header)))
+                      (closable? (and (get-closable?~ header)
+                                      (or (not keep-one-sheet?)
+                                          (and keep-one-sheet?
+                                               (> (length children) 1)))))
+                      (next (+ h padding (if title (+ (get-width~ (text-extent~ (effective-font) title))
+                                                      (if closable? 8 0)) 10) padding)))
+                 (loop (+ n 1) next (cons (cons h next) borders) (cdr chx-in) (cons header chx-out)))
+             (when (pair? chx-out)
+               (let ((max (cdr (car borders))))
+                 (if (and (> max view-width) (not (= view-width 0)))
+                     (let* ((scale (let ((r (/ view-width max)))  
+                                     (lambda (border) 
+                                       (cons (inexact->exact (round (* r (car border))))
+                                             (inexact->exact (round (* r (cdr border)))))))))
+                       (for-each (lambda (header border) (set-borders~ header (scale border)))
+                                 chx-out borders))
+                   (for-each set-borders~ chx-out borders))))))))
 
   
   (method (find-header pt)
@@ -222,7 +235,7 @@
   
   
   (method override (add-child child)
-    (let ((empty? (null? children)))
+    (let* ((empty? (null? children)))
       (nextmethod child)
       (when (not empty?)
         (set-visible?~ child #f))
@@ -432,7 +445,8 @@
                             ;; title
                             (when title
                               (set-text-color~ surface (or title-color {Color Black}))
-                              (draw-text~ surface (+ lf 5) (+ top 3) title))
+                              (draw-text~ surface (+ lf 5) (+ top 3) title)
+                              )
                             ;; close
                             (when (and (get-closable?~ header)
                                        selected?

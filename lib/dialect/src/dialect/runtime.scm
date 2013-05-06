@@ -92,6 +92,7 @@
 
 
 (define (jazz:require-dialect name)
+  (jazz:load-unit name)
   (or (jazz:get-dialect name)
       (jazz:error "Unknown dialect: {s}" name)))
 
@@ -346,6 +347,12 @@
   binding)
 
 
+(define (jazz:resolve-bindings bindings)
+  (map (lambda (binding)
+         (jazz:resolve-binding binding))
+       bindings))
+
+
 (jazz:define-method (jazz:print-object (jazz:Lexical-Binding binding) output detail)
   (jazz:format output "#<{a} {a} #{a}>"
                (%%get-category-identifier (%%get-object-class binding))
@@ -417,6 +424,8 @@
 (jazz:define-virtual (jazz:get-nextmethod-signature (jazz:Declaration declaration)))
 (jazz:define-virtual (jazz:emit-declaration (jazz:Declaration declaration) environment backend))
 (jazz:define-virtual (jazz:expand-referenced-declaration (jazz:Declaration declaration)))
+(jazz:define-virtual (jazz:outline-generate (jazz:Declaration declaration) output))
+(jazz:define-virtual (jazz:outline-extract (jazz:Declaration declaration) meta))
 
 
 (jazz:define-method (jazz:compose-declaration-locator (jazz:Declaration declaration))
@@ -443,6 +452,75 @@
 
 (jazz:define-method (jazz:expand-referenced-declaration (jazz:Declaration declaration))
   '())
+
+
+(jazz:define-method (jazz:outline-generate (jazz:Declaration declaration) output)
+  (let ((expr (jazz:outline-extract declaration '())))
+    (if expr
+        (jazz:format output "{%}  {s}" expr))))
+
+
+(jazz:define-method (jazz:outline-extract (jazz:Declaration declaration) meta)
+  (jazz:error "Unable to outline extract: {s}" declaration))
+
+
+(define (jazz:outline-generate-filter-access declarations #!optional (public-lookup #f))
+  (jazz:collect-if (lambda (decl)
+                     (or (%%not (%%eq? (jazz:get-declaration-access decl) 'private))
+                         (and public-lookup
+                              (%%table-ref public-lookup (jazz:get-lexical-binding-name decl) #f))))
+                   declarations))
+
+
+(define (jazz:outline-generate-signature signature)
+  (if (not signature)
+      #f
+    (let ((queue (jazz:new-queue)))
+      (define (add-positional parameter)
+        (jazz:enqueue-list queue `(,(jazz:get-lexical-binding-name parameter) ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type parameter)))))
+      
+      ;; adding (unspecified) is a quick solution
+      (define (add-optional parameter)
+        (jazz:enqueue queue `(,(jazz:get-lexical-binding-name parameter) (unspecified))))
+      
+      ;; adding (unspecified) is a quick solution
+      (define (add-keyword parameter)
+        (let ((name (jazz:get-lexical-binding-name parameter)))
+          (jazz:enqueue queue `(,(string->keyword (symbol->string name)) ,name (unspecified)))))
+      
+      (define (add-rest parameter)
+        (jazz:enqueue-list queue (jazz:get-lexical-binding-name parameter)))
+      
+      (let ((positional (jazz:get-signature-positional signature))
+            (optional (jazz:get-signature-optional signature))
+            (named (jazz:get-signature-named signature))
+            (rest (jazz:get-signature-rest signature)))
+        (for-each add-positional positional)
+        (for-each add-optional optional)
+        (for-each add-keyword named)
+        (%%when rest (add-rest rest)))
+      (jazz:queue-list queue))))
+
+
+(define (jazz:outline-generate-type-list type)
+  (if (and type (%%is-not? type jazz:Any-Class))
+      (list (jazz:type->specifier type))
+    '()))
+
+
+(define (jazz:outline-generate-access-list declaration)
+  (if (%%table-ref (jazz:get-public-lookup (jazz:get-declaration-toplevel declaration)) (jazz:get-lexical-binding-name declaration) #f)
+      '(public)
+    (let ((access (jazz:get-declaration-access declaration)))
+      (if access
+          (list access)
+        '()))))
+
+
+(define (jazz:outline-generate-phase-list phase)
+  (if (and phase (%%neq? phase 'runtime))
+      `((phase ,phase))
+    '()))
 
 
 (define (jazz:declaration-result)
@@ -687,6 +765,16 @@
           (jazz:new-unit-declaration name access #f requires))))))
 
 
+(jazz:define-method (jazz:outline-generate (jazz:Unit-Declaration declaration) output)
+  (jazz:format output "(unit {a}" (jazz:get-lexical-binding-name declaration))
+  (for-each (lambda (spec)
+              (jazz:parse-require spec
+                (lambda (unit-name feature-requirement phase)
+                  (jazz:format output "{%}  {s}" `(require (,unit-name ,@(jazz:outline-generate-phase-list phase)))))))
+            (jazz:get-unit-declaration-requires declaration))
+  (jazz:format output "){%}"))
+
+
 ;;;
 ;;;; Namespace
 ;;;
@@ -754,11 +842,19 @@
 
 
 (define (jazz:add-module-require module-declaration require)
+  (define (find-require requires)
+    (let ((require-name (%%car require)))
+      (jazz:find-if (lambda (req)
+                      (%%eq? (%%car req) require-name))
+                    requires)))
+  
   (jazz:parse-require require
     (lambda (unit-name feature-requirement phase)
       (%%when (%%eq? phase 'syntax)
         (jazz:load-unit unit-name))))
-  (jazz:set-module-declaration-requires module-declaration (%%append (jazz:get-module-declaration-requires module-declaration) (%%list require))))
+  (let ((requires (jazz:get-module-declaration-requires module-declaration)))
+    (if (%%not (find-require requires))
+        (jazz:set-module-declaration-requires module-declaration (%%append requires (%%list require))))))
 
 
 (define (jazz:add-module-import module-declaration module-invoice register?)
@@ -1402,6 +1498,39 @@
          #f)))
 
 
+(jazz:define-method (jazz:outline-generate (jazz:Module-Declaration declaration) output)
+  (let ((declarations (jazz:outline-generate-filter-access (jazz:resolve-bindings (jazz:queue-list (jazz:get-namespace-declaration-children declaration))) (jazz:get-public-lookup declaration))))
+    (jazz:format output "(module {a} {a}" (jazz:get-lexical-binding-name declaration) (jazz:get-module-declaration-dialect-name declaration))
+    (for-each (lambda (spec)
+                (jazz:parse-require spec
+                  (lambda (unit-name feature-requirement phase)
+                    (jazz:format output "{%}  {s}" `(require (,unit-name ,@(jazz:outline-generate-phase-list phase)))))))
+              (jazz:get-module-declaration-requires declaration))
+    (for-each (lambda (module-invoice)
+                (let ((name (jazz:get-module-invoice-name module-invoice))
+                      (phase (jazz:get-module-invoice-phase module-invoice)))
+                  (if name
+                      (let ((autoload (jazz:get-export-invoice-autoload module-invoice)))
+                        (if autoload
+                            (let ((autoload-names
+                                    (map (lambda (declaration-reference)
+                                           (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
+                                         autoload)))
+                              (jazz:format output "{%}  {s}" `(export (,name (autoload ,@autoload-names)))))
+                          (jazz:format output "{%}  {s}" `(export (,name ,@(jazz:outline-generate-phase-list phase)))))))))
+              (jazz:get-module-declaration-exports declaration))
+    (for-each (lambda (module-invoice)
+                (let ((name (jazz:get-module-invoice-name module-invoice))
+                      (phase (jazz:get-module-invoice-phase module-invoice)))
+                  (if name
+                      (jazz:format output "{%}  {s}" `(import (,name ,@(jazz:outline-generate-phase-list phase)))))))
+              (jazz:get-module-declaration-imports declaration))
+    (for-each (lambda (decl)
+                (jazz:outline-generate decl output))
+              declarations)
+    (jazz:format output "){%}")))
+
+
 ;;;
 ;;;; Module Invoice
 ;;;
@@ -1513,6 +1642,11 @@
   (jazz:new-begin #f '()))
 
 
+(jazz:define-method (jazz:outline-extract (jazz:Export-Declaration declaration) meta)
+  `(native ,(jazz:get-export-declaration-symbol declaration)))
+
+
+
 ;;;
 ;;;; Export Syntax
 ;;;
@@ -1541,6 +1675,10 @@
     (jazz:emit 'export-syntax-reference backend declaration)
     jazz:Any
     #f))
+
+
+(jazz:define-method (jazz:outline-extract (jazz:Export-Syntax-Declaration declaration) meta)
+  `(native-syntax ,(jazz:get-export-syntax-declaration-symbol declaration)))
 
 
 ;;;
@@ -1736,7 +1874,7 @@
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Opt-Type type))
-  (let ((type-specifier (jazz:emit-specifier (jazz:get-opt-type-type type))))
+  (let ((type-specifier (jazz:type->specifier (jazz:get-opt-type-type type) #t)))
     (%%string->symbol (%%string-append "opt<" (%%symbol->string type-specifier) ">"))))
 
 
@@ -1756,7 +1894,7 @@
 
 (jazz:define-method (jazz:emit-specifier (jazz:Key-Type type))
   (let ((key (jazz:get-key-type-key type))
-        (type-specifier (jazz:emit-specifier (jazz:get-key-type-type type))))
+        (type-specifier (jazz:type->specifier (jazz:get-key-type-type type) #t)))
     (%%string->symbol (%%string-append "key<" (%%keyword->string key) ":" (%%symbol->string type-specifier) ">"))))
 
 
@@ -1774,7 +1912,7 @@
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Rest-Type type))
-  (let ((type-specifier (jazz:emit-specifier (jazz:get-rest-type-type type))))
+  (let ((type-specifier (jazz:type->specifier (jazz:get-rest-type-type type))))
     (%%string->symbol (%%string-append (%%symbol->string type-specifier) "*"))))
 
 
@@ -1812,15 +1950,15 @@
                   (if first?
                       (set! first? #f)
                     (write-char #\^ output))
-                  (display (jazz:emit-specifier type) output))
+                  (display (jazz:type->specifier type) output))
                 (jazz:get-function-type-positional type))
       (let ((rest (jazz:get-function-type-rest type)))
         (%%when rest
           (%%when (%%not first?)
             (write-char #\^ output))
-          (display (jazz:emit-specifier type) output))))
+          (display (jazz:type->specifier rest) output))))
     (write-char #\: output)
-    (display (jazz:emit-specifier (jazz:get-function-type-result type)) output)
+    (display (jazz:type->specifier (jazz:get-function-type-result type)) output)
     (%%string->symbol (get-output-string output))))
 
 
@@ -1858,7 +1996,7 @@
   (let ((output (open-output-string)))
     (display "category" output)
     (write-char #\< output)
-    (display (jazz:emit-specifier (jazz:get-category-type-declaration type)) output)
+    (display (jazz:type->specifier (jazz:get-category-type-declaration type) #t) output)
     (write-char #\> output)
     (%%string->symbol (get-output-string output))))
 
@@ -1885,7 +2023,7 @@
                   (if first?
                       (set! first? #f)
                     (write-char #\/ output))
-                  (display (jazz:emit-specifier type) output))
+                  (display (jazz:type->specifier type) output))
                 (jazz:get-values-type-types type)))
     (write-char #\> output)
     (%%string->symbol (get-output-string output))))
@@ -1950,14 +2088,14 @@
 
 (jazz:define-method (jazz:emit-specifier (jazz:Template-Type type))
   (let ((output (open-output-string)))
-    (display (jazz:emit-specifier (jazz:get-template-type-class type)) output)
+    (display (jazz:type->specifier (jazz:get-template-type-class type)) output)
     (write-char #\< output)
     (let ((first? #t))
       (for-each (lambda (type)
                   (if first?
                       (set! first? #f)
                     (write-char #\/ output))
-                  (display (jazz:emit-specifier type) output))
+                  (display (jazz:type->specifier type) output))
                 (jazz:get-template-type-types type)))
     (write-char #\> output)
     (%%string->symbol (get-output-string output))))
@@ -1982,7 +2120,7 @@
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Nillable-Type type))
-  (let ((type-specifier (jazz:emit-specifier (jazz:get-nillable-type-type type))))
+  (let ((type-specifier (jazz:type->specifier (jazz:get-nillable-type-type type) #t)))
     (%%string->symbol (%%string-append (%%symbol->string type-specifier) "+"))))
 
 
@@ -2270,11 +2408,18 @@
     #f))
 
 
-(define (jazz:type->specifier type)
-  (let ((symbol (jazz:emit-specifier type)))
-    (if (jazz:specifier? symbol)
-        symbol
-      (jazz:name->specifier symbol))))
+(define (jazz:type->specifier type #!optional (internal? #f))
+  (define (name->specifier name)
+    (if (and internal? (%%symbol? name))
+        name
+      (jazz:name->specifier name)))
+  
+  (if (%%is? type jazz:Declaration)
+      (name->specifier (jazz:get-lexical-binding-name type))
+    (let ((symbol (jazz:emit-specifier type)))
+      (if (jazz:specifier? symbol)
+          symbol
+        (name->specifier symbol)))))
 
 
 ;;;
@@ -2495,6 +2640,11 @@
       binding)))
 
 
+(jazz:define-method (jazz:outline-extract (jazz:Macro-Declaration declaration) meta)
+  `(macro ,(jazz:get-declaration-access declaration)
+          (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-macro-declaration-signature declaration)))))
+
+
 ;;;
 ;;;; Local Macro
 ;;;
@@ -2618,6 +2768,10 @@
   #t)
 
 
+(jazz:define-method (jazz:outline-extract (jazz:Syntax-Declaration declaration) meta)
+  `(syntax ,@(jazz:outline-generate-access-list declaration) ,(jazz:get-lexical-binding-name declaration)))
+
+
 (define jazz:current-walker
   (make-parameter #f))
 
@@ -2673,7 +2827,7 @@
   (receive (access compatibility rest) (jazz:parse-modifiers walker resume declaration jazz:syntax-modifiers (%%cdr (jazz:source-code form-src)))
     (let ((name (jazz:source-code (%%car rest))))
       (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                 (jazz:new-syntax-declaration name jazz:Any access compatibility '() declaration '() #f))))
+                                 (jazz:new-syntax-declaration name jazz:Any access compatibility '() declaration #f #f))))
         (jazz:set-declaration-source new-declaration form-src)
         (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
           effective-declaration)))))
@@ -4601,7 +4755,7 @@
 
 (define (jazz:walk-body walker resume declaration environment form-list)
   (define (walk-internal-define environment form-src variable)
-    (receive (name specifier value parameters) (jazz:parse-define walker resume declaration (%%cdr (jazz:source-code form-src)))
+    (receive (name specifier value parameters) (jazz:parse-define walker resume declaration #t (%%cdr (jazz:source-code form-src)))
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
             (signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
         (let ((effective-type (if signature (jazz:build-function-type signature type) type)))
@@ -4655,12 +4809,12 @@
         (iter (%%cdr scan))))))
 
 
-(define (jazz:parse-define walker resume declaration rest)
+(define (jazz:parse-define walker resume declaration walk? rest)
   (if (%%symbol? (jazz:source-code (%%car rest)))
       (let ((name (jazz:source-code (%%car rest))))
         (jazz:parse-specifier (%%cdr rest)
           (lambda (specifier rest)
-            (values name specifier (%%car rest) #f))))
+            (values name specifier (and walk? (%%car rest)) #f))))
     (let ((name (jazz:source-code (%%car (jazz:source-code (%%car rest)))))
           (parameters (%%cdr (%%desourcify (%%car rest)))))
       (jazz:parse-specifier (%%cdr rest)
@@ -4792,10 +4946,13 @@
 
 
 (define (jazz:include-resource filename)
-  (let ((resource (jazz:requested-unit-resource)))
-    (%%make-resource (%%get-resource-package resource)
-                     (jazz:pathname-brother (%%get-resource-path resource) filename)
-                     #f)))
+  (let ((pathname (jazz:requested-pathname)))
+    (if pathname
+        (jazz:pathname-brother pathname filename)
+      (let ((resource (jazz:requested-unit-resource)))
+        (%%make-resource (%%get-resource-package resource)
+                         (jazz:pathname-brother (%%get-resource-path resource) filename)
+                         #f)))))
 
 
 (define (jazz:include-forms filename)
@@ -5050,12 +5207,12 @@
                      ((optional #!optional)
                       (jazz:parse-specifier (%%cdr parameter)
                         (lambda (specifier rest)
-                          (%%when (%%not (%%fx= (%%length rest) 1))
+                          (%%when (and walk? (%%not (%%fx= (%%length rest) 1)))
                             (jazz:walk-error walker resume declaration parameter-src "Ill-formed optional parameter: {s}" (jazz:desourcify parameter-src)))
                           (let ((variable (jazz:source-code (%%car parameter)))
                                 (type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) #f))
-                                (default (%%car rest)))
-                            (let ((optional-parameter (jazz:new-optional-parameter variable type (if walk? (jazz:walk walker resume declaration augmented-environment default) #f))))
+                                (default (if walk? (jazz:walk walker resume declaration augmented-environment (%%car rest)) #f)))
+                            (let ((optional-parameter (jazz:new-optional-parameter variable type default)))
                               (jazz:enqueue optionals optional-parameter)
                               (augment-environment optional-parameter)))))
                       (iterate-parameters (%%cdr scan) (%%memq section sections)))
@@ -5064,15 +5221,15 @@
                         (jazz:walk-error walker resume declaration parameter-src "Ill-formed keyword parameter: {s}" (jazz:desourcify parameter-src)))
                       (jazz:parse-specifier (if (%%eq? section #!key) (%%cdr parameter) (%%cddr parameter))
                         (lambda (specifier rest)
-                          (%%when (%%not (%%fx= (%%length rest) 1))
+                          (%%when (and walk? (%%not (%%fx= (%%length rest) 1)))
                             (jazz:walk-error walker resume declaration parameter-src "Ill-formed keyword parameter: {s}" (jazz:desourcify parameter-src)))
                           (let ((keyword (if (%%eq? section #!key) (%%string->keyword (%%symbol->string (jazz:source-code (%%car parameter)))) (jazz:source-code (%%car parameter))))
                                 (variable (if (%%eq? section #!key) (jazz:source-code (%%car parameter)) (jazz:source-code (%%cadr parameter))))
                                 (type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) #f))
-                                (default (%%car rest)))
+                                (default (if walk? (jazz:walk walker resume declaration augmented-environment (%%car rest)) #f)))
                             (%%when (%%not (%%eq? (%%string->symbol (%%keyword->string keyword)) variable))
                               (jazz:walk-error walker resume declaration parameter-src "Mismatched key/name for keyword parameter: {s}" (jazz:desourcify parameter-src)))
-                            (let ((keyword-parameter (jazz:new-named-parameter variable type (if walk? (jazz:walk walker resume declaration augmented-environment default) #f))))
+                            (let ((keyword-parameter (jazz:new-named-parameter variable type default)))
                               (jazz:enqueue keywords keyword-parameter)
                               (augment-environment keyword-parameter)))))
                       (iterate-parameters (%%cdr scan) (%%memq section sections)))
@@ -5241,27 +5398,41 @@
   (make-parameter #f))
 
 
+(define (jazz:bin->otl bin)
+  (let ((path (%%get-resource-path bin)))
+    (%%make-resource (%%get-resource-package bin)
+                     (jazz:pathname-brother path (jazz:add-extension (jazz:pathname-base path) "otl"))
+                     #f)))
+
+
 (define (jazz:outline-unit unit-name #!key (use-catalog? #t) (error? #t))
   (define (load-toplevel-declaration)
-    (let ((src (jazz:find-unit-src unit-name '("jazz" "scm") error?)))
-      (if (and (%%not src) (%%not error?))
-          #f
-        (jazz:with-verbose (jazz:outline-verbose?) "outlining" (jazz:resource-pathname src)
-          (lambda ()
-            ;; not reading the literals is necessary as reading a literal will load units
-            (let ((form (jazz:read-toplevel-form src read-literals?: #f)))
-              (parameterize ((jazz:requested-unit-name unit-name)
-                             (jazz:requested-unit-resource src)
-                             (jazz:walk-for 'interpret)
-                             (jazz:generate-symbol-for "%outline^")
-                             (jazz:generate-symbol-context unit-name)
-                             (jazz:generate-symbol-counter 0))
-                (let ((kind (jazz:source-code (%%car (jazz:source-code form)))))
-                  (case kind
-                    ((unit)
-                     (jazz:parse-unit-declaration (%%cdr (jazz:source-code form))))
-                    ((module)
-                     (jazz:parse-module-declaration (%%cdr (jazz:source-code form)))))))))))))
+    (jazz:with-unit-resources unit-name #f
+      (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+        (let ((src (try-sourceless-outline unit-name src bin)))
+          (if (and (%%not src) (%%not error?))
+              #f
+            (jazz:with-verbose (jazz:outline-verbose?) "outlining" (jazz:resource-pathname src)
+              (lambda ()
+                ;; not reading the literals is necessary as reading a literal will load units
+                (let ((form (jazz:read-toplevel-form src read-literals?: #f)))
+                  (parameterize ((jazz:requested-unit-name unit-name)
+                                 (jazz:requested-unit-resource src)
+                                 (jazz:walk-for 'interpret)
+                                 (jazz:generate-symbol-for "%outline^")
+                                 (jazz:generate-symbol-context unit-name)
+                                 (jazz:generate-symbol-counter 0))
+                    (let ((kind (jazz:source-code (%%car (jazz:source-code form)))))
+                      (case kind
+                        ((unit)
+                         (jazz:parse-unit-declaration (%%cdr (jazz:source-code form))))
+                        ((module)
+                         (jazz:parse-module-declaration (%%cdr (jazz:source-code form)))))))))))))))
+  
+  (define (try-sourceless-outline unit-name src bin)
+    (if (and (%%not src) bin)
+        (jazz:bin->otl bin)
+      src))
   
   (if (not use-catalog?)
       (load-toplevel-declaration)
@@ -5294,11 +5465,11 @@
   (make-parameter #t))
 
 
-(define (jazz:read-toplevel-forms resource #!key (read-literals? #t))
-  (let ((source (jazz:resource-pathname resource)))
+(define (jazz:read-toplevel-forms pathname/resource #!key (read-literals? #t))
+  (let ((source (if (string? pathname/resource) pathname/resource (jazz:resource-pathname pathname/resource))))
     (jazz:with-extension-reader (jazz:pathname-extension source)
       (lambda ()
-        (let ((char-encoding (jazz:resource-char-encoding resource))
+        (let ((char-encoding (if (string? pathname/resource) jazz:default-char-encoding (jazz:resource-char-encoding pathname/resource)))
               (eol-encoding 'cr-lf))
           (call-with-input-file (%%list path: source char-encoding: char-encoding eol-encoding: eol-encoding)
             (lambda (port)

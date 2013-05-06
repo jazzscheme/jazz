@@ -133,6 +133,9 @@
 (jazz:define-setting jazz:build-jobs
   1)
 
+(jazz:define-setting jazz:force-outlines?
+  #f)
+
 (jazz:define-setting jazz:dry-run?
   #f)
 
@@ -146,15 +149,6 @@
 
 
 (jazz:define-setting jazz:install-root
-  #f)
-
-
-;;;
-;;;; Crash
-;;;
-
-
-(jazz:define-setting jazz:crash-file
   #f)
 
 

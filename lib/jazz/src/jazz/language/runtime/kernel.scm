@@ -248,6 +248,14 @@
 (native jazz:enumerator->symbol)
 (native jazz:symbol->enumerator)
 
+;;;
+;;;; Environment
+;;;
+
+
+(native getenv)
+(native setenv)
+
 
 ;;;
 ;;;; Exception
@@ -300,6 +308,7 @@
 (native jazz:-infinity)
 (native fxmodulo)
 (native fxquotient)
+(native fxand)
 
 
 ;;;
@@ -1247,6 +1256,7 @@
 (native jazz:process-times)
 (native jazz:cpu-time <:fl>)
 (native jazz:real-time <:fl>)
+(native current-seconds)
 
 
 ;;;
@@ -1288,6 +1298,7 @@
 (native jazz:specifier?)
 (native jazz:binding-specifier)
 (native jazz:parse-specifier)
+(native jazz:type->specifier)
 (native jazz:requested-unit-name)
 (native jazz:requested-unit-resource)
 (native jazz:get-private-lookup)

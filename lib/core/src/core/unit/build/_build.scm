@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.unit.build
+(unit core.unit.build
 
 
 (require (core.base)
@@ -114,9 +114,12 @@
   (lambda (unit-name #!key (output-language #f) (options #f) (cc-options #f) (ld-options #f) (force? #f))
     (jazz:with-unit-resources unit-name #f
       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-        (parameterize ((jazz:requested-unit-name unit-name)
-                       (jazz:requested-unit-resource src))
-          (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name output-language: output-language options: options cc-options: cc-options ld-options: ld-options force?: force?))))))
+        (if src
+            (parameterize ((jazz:requested-unit-name unit-name)
+                           (jazz:requested-unit-resource src))
+              (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name output-language: output-language options: options cc-options: cc-options ld-options: ld-options force?: force?))
+          (%%unless (and bin (file-exists? (jazz:resource-pathname (jazz:bin->otl bin))))
+            (jazz:error "Unable to find source for: {s}" unit-name)))))))
 
 
 ;; this function should be unified with jazz:compile-unit-internal
@@ -169,16 +172,24 @@
           (ld-options (or ld-options ""))
           (update-obj? (or force? (not obj-uptodate?) (not references-valid?)))
           (update-bin? (or force? (not bin-uptodate?) (not references-valid?))))
-      (if (or update-obj? (and update-bin? (jazz:link-objects?)))
-          (let ((package (%%get-resource-package src))
-                (pathname (jazz:resource-pathname src))
-                (bindir (jazz:resource-build-dir src)))
-            (let ((build-package (jazz:create-build-package package)))
-              (jazz:create-directories bindir)
-              (jazz:with-extension-reader (%%get-resource-extension src)
-                (lambda ()
-                  (parameterize ((jazz:walk-for 'compile))
-                    (jazz:compile-file src bin update-obj? update-bin? build-package output-language: output-language options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name))))))))))
+      (let ((compile? (or update-obj? (and update-bin? (jazz:link-objects?)))))
+        (if compile?
+            (let ((package (%%get-resource-package src))
+                  (pathname (jazz:resource-pathname src))
+                  (bindir (jazz:resource-build-dir src)))
+              (let ((build-package (jazz:create-build-package package)))
+                (jazz:create-directories bindir)
+                (jazz:with-extension-reader (%%get-resource-extension src)
+                  (lambda ()
+                    (parameterize ((jazz:walk-for 'compile))
+                      (jazz:compile-file src bin update-obj? update-bin? build-package output-language: output-language options: options cc-options: cc-options ld-options: ld-options unit-name: manifest-name)))))))
+        (if (or compile? (jazz:force-outlines?))
+            (let ((path (jazz:binary-with-extension src ".otl")))
+              (jazz:create-directories (jazz:pathname-dir path))
+              (call-with-output-file (list path: path eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
+                (lambda (output)
+                  (let ((declaration (jazz:outline-unit manifest-name)))
+                    (jazz:outline-generate declaration output))))))))))
 
 
 (define (jazz:compile-file src bin update-obj? update-bin? build-package #!key (output-language #f) (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz:kernel-platform))

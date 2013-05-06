@@ -273,6 +273,11 @@
 (definition public initialize-aliases
   (let ((initialized? #f))
     (lambda ()
+      (define (initialize-home)
+        (let ((arg (command-argument "home" error?: #f)))
+          (when arg
+            (setenv "HOME" arg))))
+      
       (define (register-home)
         (register-alias 'Home (tokenise-filename (pathname-normalize "~"))))
       
@@ -292,6 +297,7 @@
       
       (when (not initialized?)
         (register-platform-aliases)
+        (initialize-home)
         (register-home)
         (register-settings)
         (register-repositories)
@@ -319,7 +325,7 @@
                                     root: repository-alias)))
                 (repository-packages repository))))
   
-  (unless (repository-binary? repository)
+  (unless (memq? (repository-name repository) '(Build Binaries))
     (let ((repository-alias (register-repository-alias repository)))
       (when repository-alias
         (register-repository-packages repository repository-alias)))))
@@ -1421,6 +1427,22 @@
   (is? obj Directory))
 
 
+;; quick solution
+(definition public (digest-directory dir algorithm)
+  (let ((output (open-output-string)))
+    (iterate-directory~ dir
+      (lambda (path)
+        (typecase path
+          ((File)
+           (display (digest-file (parse~ path) algorithm) output))
+          ((Directory)
+           (display (get-name~ path) output))))
+      files?: #t
+      directories?: #t
+      recursive?: #t)
+    (digest-string (get-output-string output) algorithm)))
+
+
 (definition public (get-current-directory)
   (new Directory (tokenise-filename (current-directory))))
 
@@ -1453,10 +1475,10 @@
     ))
 
 (definition public Jazz-Extensions
-  '("jazz" "jml" "mnf" "dgs" "repository" "package" "configuration" "settings" "project"))
+  '("jazz" "jml" "dgs" "mnf" "otl" "repository" "package" "configuration" "settings" "project"))
 
 (definition public Jazz-All-Extensions
-  '("jazz" "jcat" "jlog" "jml" "mnf" "dgs" "repository" "package" "configuration" "settings" "snapshot" "project"))
+  '("jazz" "jcat" "jlog" "jml" "dgs" "mnf" "otl" "repository" "package" "configuration" "settings" "snapshot" "project"))
 
 (definition public Lisp-Extensions
   (append Scheme-Extensions
@@ -1471,7 +1493,7 @@
   '("sql"))
 
 (definition public Text-Extensions
-  '(#f "conf" "css" "erl" "ftx" "htm" "java" "js" "log" "lua" "mnf" "package" "prop" "properties" "py" "rc" "repository" "sh" "sql" "template" "txt"))
+  '(#f "conf" "css" "erl" "ftx" "htm" "java" "js" "log" "lua" "dgs" "mnf" "otl" "package" "prop" "properties" "py" "rc" "repository" "sh" "sql" "template" "txt"))
 
 (definition public Textual-Extensions
   (append Lisp-Extensions
@@ -1510,7 +1532,7 @@
   CommonLisp-Extensions)
 
 (definition Jazz-Include-Extensions
-  '("jazz" "jml" "mnf" "repository" "package"))
+  '("jazz" "jml" "repository" "package"))
 
 (definition Lisp-Include-Extensions
   (append Scheme-Include-Extensions

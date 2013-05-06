@@ -623,6 +623,7 @@
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:truncate       '(                     (##fltruncate <fl:fl>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:round          '(                     (##flround    <fl:fl>)))
 
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:abs            '(                     (##flabs      <fl:fl>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:sqrt           '(                     (##flsqrt     <fl:fl>)))
 
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:sin            '(                     (##flsin      <fl:fl>)))
@@ -649,6 +650,7 @@
 
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:min            '((##fixnum.min <fx^fx:fx>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:max            '((##fixnum.max <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:modulo         '((##fixnum.modulo <fx^fx:fx>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:even?          '((##fixnum.even? <fx:bool>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:odd?           '((##fixnum.odd? <fx:bool>)))
 

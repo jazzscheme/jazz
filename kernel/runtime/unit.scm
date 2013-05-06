@@ -1835,7 +1835,6 @@
 
 (define (jazz:load-build)
   (jazz:load-foundation)
-  ;; backend-rebase???
   (jazz:load-unit 'core.unit.runtime)
   (jazz:load-unit 'core.unit.build))
 
@@ -1936,6 +1935,9 @@
 (define jazz:requested-unit-resource
   (make-parameter #f))
 
+(define jazz:requested-pathname
+  (make-parameter #f))
+
 
 (define jazz:compiled-source
   (make-parameter #f))
@@ -2018,7 +2020,8 @@
   (parameterize ((jazz:walk-for 'interpret)
                  (jazz:generate-symbol-for "&")
                  (jazz:generate-symbol-context (gensym))
-                 (jazz:generate-symbol-counter 0))
+                 (jazz:generate-symbol-counter 0)
+                 (jazz:requested-pathname path))
     (jazz:with-extension-reader (jazz:pathname-extension path)
       (lambda ()
         (jazz:load-file (%%list

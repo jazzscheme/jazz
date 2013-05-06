@@ -97,16 +97,31 @@
   (method override (prepare rest)
     (nextmethod rest)
     (set! window-mode (if (opengl-fullscreen?) 'fullscreen 'windowed))
-    (set! render-pulse (new Pulse 'render (find-setting 'jazz.render-pulse .01)
-                            (lambda ()
-                              (when (get-visible?)
-                                (render-scene))))))
+    (prepare-pulse))
+  
+  
+  (cond-expand
+    (windows
+     (method (prepare-pulse)
+       )
+     
+     (method (destroy-pulse)
+       ))
+    (else
+     (method (prepare-pulse)
+       (set! render-pulse (new Pulse 'render (find-setting 'jazz.render-pulse .001)
+                               (lambda ()
+                                 (when (get-visible?)
+                                   (render-scene))))))
+     
+     (method (destroy-pulse)
+       (when render-pulse
+         (close~ render-pulse)
+         (set! render-pulse #f)))))
   
   
   (method override (destroy)
-    (when render-pulse
-      (close~ render-pulse)
-      (set! render-pulse #f))
+    (destroy-pulse)
     (nextmethod))
   
   
@@ -140,6 +155,14 @@
     (glDepthFunc GL_LEQUAL)
     (glPolygonMode GL_FRONT_AND_BACK GL_FILL)
     (glHint GL_PERSPECTIVE_CORRECTION_HINT GL_NICEST))
+  
+  
+  (cond-expand
+    (windows
+     (method override (timer-pulse)
+       (unless (> (current-repl-level) 0)
+         (render-scene))))
+    (else))
   
   
   ;;;

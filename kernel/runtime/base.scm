@@ -151,6 +151,14 @@
                 (%%string->symbol (%%substring str (%%fx+ n 1) (%%string-length str))))))))
 
 
+(define (jazz:split-colon str)
+  (let ((n (jazz:string-find str #\:)))
+    (if (%%not n)
+        (values str #f)
+      (values (%%substring str 0 n)
+              (%%substring str (%%fx+ n 1) (%%string-length str))))))
+
+
 ;;;
 ;;;; Pathname
 ;;;

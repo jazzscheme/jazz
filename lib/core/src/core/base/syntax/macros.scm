@@ -66,6 +66,21 @@
 
 
 ;;;
+;;;; Unless
+;;;
+
+
+(jazz:define-syntax %%unless
+  (lambda (src)
+    (let ((test (%%cadr (jazz:source-code src)))
+          (body (%%cddr (jazz:source-code src))))
+      `(if (%%not ,test)
+           (begin
+             ,@body)
+         #f))))
+
+
+;;;
 ;;;; While
 ;;;
 

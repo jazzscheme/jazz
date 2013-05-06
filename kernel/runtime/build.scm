@@ -430,6 +430,8 @@
                     (newline output)
                     (jazz:print-variable 'jazz:single-objects? (jazz:build-single-objects?) output)
                     (newline output)
+                    (jazz:print-variable 'jazz:jazz-versions (map jazz:record->vector (jazz:get-jazz-versions)) output)
+                    (newline output)
                     (jazz:print-variable 'jazz:jazz-updates (map jazz:record->vector (jazz:get-jazz-updates)) output)))
                 #t)
             #f)))

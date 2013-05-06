@@ -44,4 +44,10 @@
 (define jazz:seconds->systime seconds->time)
 (define jazz:process-times process-times)
 (define jazz:cpu-time cpu-time)
-(define jazz:real-time real-time))
+(define jazz:real-time real-time)
+
+
+(define (current-seconds)
+  (let ((f64vec (##vector-ref (##run-queue) 14)))
+    (##get-current-time! f64vec)
+    (##f64vector-ref f64vec 0))))

@@ -70,7 +70,7 @@
   '("nosource"))
 
 
-(define (jazz:command-argument name)
+(define (jazz:command-argument name #!key (error? #t))
   (define (skip-scripts arguments)
     (let iter ((arguments arguments))
       (if (or (%%null? arguments)
@@ -88,7 +88,9 @@
                      (iter (%%cdr arguments)))
                     ((or (%%not (jazz:switch? arg))
                          (%%null? (%%cdr arguments)))
-                     (jazz:error "Unable to parse command line: {a}" all))
+                     (if error?
+                         (jazz:error "Unable to parse command line: {a}" all)
+                       #f))
                     ((%%equal? name (jazz:switch-name arg))
                      (%%cadr arguments))
                     (else

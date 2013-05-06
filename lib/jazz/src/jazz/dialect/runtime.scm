@@ -135,6 +135,13 @@
   (jazz:tree-fold (jazz:get-definition-declaration-value expression) down up here seed environment))
 
 
+(jazz:define-method (jazz:outline-extract (jazz:Definition-Declaration declaration) meta)
+  (let ((signature (jazz:get-definition-declaration-signature declaration)))
+    (if (not signature)
+        `(definition ,(jazz:get-declaration-access declaration) ,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type declaration)))
+      `(definition ,(jazz:get-declaration-access declaration) (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature signature)) ,@(jazz:outline-generate-type-list (jazz:get-function-type-result (jazz:get-lexical-binding-type declaration)))))))
+
+
 ;;;
 ;;;; Specialize
 ;;;
@@ -196,6 +203,10 @@
     #f))
 
 
+(jazz:define-method (jazz:outline-extract (jazz:Generic-Declaration declaration) meta)
+  `(generic (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-generic-declaration-signature declaration)))))
+
+
 ;;;
 ;;;; Specific-Declaration
 ;;;
@@ -240,8 +251,9 @@
 
 
 (jazz:define-class jazz:Category-Declaration jazz:Namespace-Declaration ()
-  ((implementor getter: generate)
-   (metaclass   getter: generate)))
+  ((implementor         getter: generate)
+   (metaclass           getter: generate)
+   (metaclass-explicit? getter: generate)))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Category-Declaration declaration) source-declaration environment backend)
@@ -263,8 +275,8 @@
    (interfaces         getter: generate)))
 
 
-(define (jazz:new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant ascendant-relation ascendant-base interfaces)
-  (let ((new-declaration (jazz:allocate-class-declaration name type #f access compatibility attributes #f parent #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass ascendant ascendant-relation ascendant-base interfaces)))
+(define (jazz:new-class-declaration name type access compatibility attributes parent implementor metaclass metaclass-explicit? ascendant ascendant-relation ascendant-base interfaces)
+  (let ((new-declaration (jazz:allocate-class-declaration name type #f access compatibility attributes #f parent #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass metaclass-explicit? ascendant ascendant-relation ascendant-base interfaces)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -420,6 +432,58 @@
   (validate-slots))
 
 
+(jazz:define-method (jazz:outline-generate (jazz:Class-Declaration declaration) output)
+  (let ((name (symbol->string (jazz:get-lexical-binding-name declaration)))
+        (metaclass (jazz:get-category-declaration-metaclass declaration))
+        (metaclass-explicit? (jazz:get-category-declaration-metaclass-explicit? declaration))
+        (ascendant (jazz:get-class-declaration-ascendant declaration))
+        (interfaces (jazz:get-class-declaration-interfaces declaration)))
+    (%%unless (jazz:string-ends-with? name "~Class")
+      (let ((name (jazz:get-lexical-binding-name declaration))
+            (metaclass (and metaclass metaclass-explicit? (jazz:get-lexical-binding-name (jazz:resolve-binding metaclass))))
+            (ascendant (and ascendant (jazz:get-lexical-binding-name (jazz:resolve-binding ascendant))))
+            (interfaces (map jazz:get-lexical-binding-name (jazz:resolve-bindings interfaces))))
+        (jazz:format output "{%}  (class {a}" name)
+        (%%when metaclass
+          (jazz:format output " metaclass {a}" metaclass))
+        (%%when ascendant
+          (let ((ascendant-name (%%symbol->string ascendant))
+                (class-suffix "~Class"))
+            (if (jazz:string-ends-with? ascendant-name class-suffix)
+                (jazz:format output " extends (:class {a})" (substring ascendant-name 0 (- (string-length ascendant-name) (string-length class-suffix))))
+              (jazz:format output " extends {a}" ascendant))))
+        (%%when (%%not-null? interfaces)
+          (if (%%null? (%%cdr interfaces))
+              (jazz:format output " implements {a}" (%%car interfaces))
+            (jazz:format output " implements {a}" interfaces))))
+      (%%when (and metaclass (%%not metaclass-explicit?))
+        (let ((children (jazz:outline-generate-filter-access (jazz:queue-list (jazz:get-namespace-declaration-children metaclass)))))
+          (for-each (lambda (decl)
+                      (let ((expr (jazz:outline-extract decl '(meta))))
+                        (if expr
+                            (jazz:format output "{%}    {s}" expr))))
+                    children)))
+      (let ((children (jazz:outline-generate-filter-access (jazz:queue-list (jazz:get-namespace-declaration-children declaration)))))
+        (let ((accessor-names (%%make-table test: eq?)))
+          (for-each (lambda (decl)
+                      (%%when (%%is? decl jazz:Slot-Declaration)
+                        (let ((getter-name (jazz:get-slot-declaration-getter-name decl))
+                              (setter-name (jazz:get-slot-declaration-setter-name decl)))
+                          (%%when getter-name
+                            (%%table-set! accessor-names getter-name #t))
+                          (%%when setter-name
+                            (%%table-set! accessor-names setter-name #t)))))
+                    children)
+          (for-each (lambda (decl)
+                      (%%unless (and (%%is? decl jazz:Method-Declaration)
+                                     (%%table-ref accessor-names (jazz:get-lexical-binding-name decl) #f))
+                        (let ((expr (jazz:outline-extract decl '())))
+                          (if expr
+                              (jazz:format output "{%}    {s}" expr)))))
+                    children)))
+      (jazz:format output ")"))))
+
+
 ;;;
 ;;;; Interface-Declaration
 ;;;
@@ -429,8 +493,8 @@
   ((ascendants getter: generate)))
 
 
-(define (jazz:new-interface-declaration name type access compatibility attributes parent implementor metaclass ascendants)
-  (let ((new-declaration (jazz:allocate-interface-declaration name type #f access compatibility attributes #f parent #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass ascendants)))
+(define (jazz:new-interface-declaration name type access compatibility attributes parent implementor metaclass metaclass-explicit? ascendants)
+  (let ((new-declaration (jazz:allocate-interface-declaration name type #f access compatibility attributes #f parent #f #f (jazz:make-access-lookups jazz:protected-access) (jazz:new-queue) #f implementor metaclass metaclass-explicit? ascendants)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -479,6 +543,33 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Interface-Declaration declaration) environment backend)
   (jazz:emit 'interface backend declaration environment))
+
+
+(jazz:define-method (jazz:outline-generate (jazz:Interface-Declaration declaration) output)
+  (let ((metaclass (jazz:get-category-declaration-metaclass declaration))
+        (metaclass-explicit? (jazz:get-category-declaration-metaclass-explicit? declaration))
+        (ascendants (map jazz:get-lexical-binding-name (jazz:resolve-bindings (jazz:get-interface-declaration-ascendants declaration)))))
+    (jazz:format output "{%}  (interface {a}" (jazz:get-lexical-binding-name declaration))
+    (%%when (and metaclass metaclass-explicit?)
+      (jazz:format output " metaclass {a}" (jazz:get-lexical-binding-name (jazz:resolve-binding metaclass))))
+    (%%when (%%not-null? ascendants)
+      (if (%%null? (%%cdr ascendants))
+          (jazz:format output " extends {a}" (%%car ascendants))
+        (jazz:format output " extends {a}" ascendants)))
+    (%%when (and metaclass (%%not metaclass-explicit?))
+      (let ((children (jazz:outline-generate-filter-access (jazz:queue-list (jazz:get-namespace-declaration-children metaclass)))))
+        (for-each (lambda (decl)
+                    (let ((expr (jazz:outline-extract decl '(meta))))
+                      (if expr
+                          (jazz:format output "{%}    {s}" expr))))
+                  children)))
+    (let ((children (jazz:outline-generate-filter-access (jazz:queue-list (jazz:get-namespace-declaration-children declaration)))))
+      (for-each (lambda (decl)
+                  (let ((expr (jazz:outline-extract decl '())))
+                    (if expr
+                        (jazz:format output "{%}    {s}" expr))))
+                children))
+    (jazz:format output ")")))
 
 
 ;;;
@@ -546,6 +637,23 @@
       (jazz:error "Illegal assignment to a slot: {s}" (jazz:get-declaration-locator declaration)))))
 
 
+(jazz:define-method (jazz:outline-extract (jazz:Slot-Declaration declaration) meta)
+  `(slot ,@meta
+         ,@(jazz:outline-generate-access-list declaration)
+         ,(jazz:get-lexical-binding-name declaration)
+         ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type declaration))
+         ,@(jazz:outline-generate-accessors declaration)))
+
+
+(define (jazz:outline-generate-accessors declaration)
+  (let ((getter (jazz:get-slot-declaration-getter-name declaration))
+        (setter (jazz:get-slot-declaration-setter-name declaration)))
+    (cond ((and getter setter) '(accessors generate))
+          (getter '(getter generate))
+          (setter '(setter generate))
+          (else '()))))
+
+
 ;;;
 ;;;; Property
 ;;;
@@ -574,6 +682,14 @@
 
 (define (jazz:expand-property walker resume declaration environment form-src)
   (jazz:expand-slot-form walker resume declaration form-src '%property))
+
+
+(jazz:define-method (jazz:outline-extract (jazz:Property-Declaration declaration) meta)
+  `(property ,@meta
+             ,@(jazz:outline-generate-access-list declaration)
+             ,(jazz:get-lexical-binding-name declaration)
+             ,@(jazz:outline-generate-type-list (jazz:get-lexical-binding-type declaration))
+             ,@(jazz:outline-generate-accessors declaration)))
 
 
 ;;;
@@ -755,6 +871,18 @@
     (if (%%not body)
         (here expression seed environment)
       (jazz:tree-fold body down up here seed environment))))
+
+
+(jazz:define-method (jazz:outline-extract (jazz:Method-Declaration declaration) meta)
+  (define (generate-propagation-list)
+    (let ((propagation (jazz:get-method-declaration-propagation declaration)))
+      (list propagation)))
+  
+  `(method ,@meta
+           ,(jazz:get-declaration-access declaration)
+           ,@(generate-propagation-list)
+           (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-method-declaration-signature declaration)))
+           ,@(jazz:outline-generate-type-list (jazz:get-function-type-result (jazz:get-lexical-binding-type declaration)))))
 
 
 ;;;
@@ -1303,13 +1431,13 @@
     ((inline onsite) . onsite)))
 
 
-(define (jazz:parse-definition walker resume declaration rest)
+(define (jazz:parse-definition walker resume declaration walk? rest)
   (receive (access compatibility expansion rest) (jazz:parse-modifiers walker resume declaration jazz:definition-modifiers rest)
     (if (%%symbol? (jazz:unwrap-syntactic-closure (%%car rest)))
         (let ((name (jazz:unwrap-syntactic-closure (%%car rest))))
           (jazz:parse-specifier (%%cdr rest)
             (lambda (specifier rest)
-              (values name specifier access compatibility expansion (%%car rest) #f))))
+              (values name specifier access compatibility expansion (and walk? (%%car rest)) #f))))
       (let* ((name (jazz:source-code (%%car (jazz:unwrap-syntactic-closure (%%car rest)))))
              (parameters (%%cdr (%%desourcify (%%car rest)))))
         (jazz:parse-specifier (%%cdr rest)
@@ -1323,7 +1451,7 @@
 
 
 (define (jazz:walk-definition-declaration walker resume declaration environment form-src)
-  (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration #f (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((type (jazz:specifier->type walker resume declaration environment specifier)))
         (let ((signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
@@ -1341,7 +1469,7 @@
 
 
 (define (jazz:walk-definition walker resume declaration environment form-src)
-  (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
+  (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration #t (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((new-declaration (jazz:require-declaration declaration name)))
         (%%when (%%neq? expansion 'inline)
@@ -1588,26 +1716,34 @@
                         ,@metaclass-body)
                      form-src)
                   ,(jazz:sourcify-if
-                     `(%class ,access ,abstraction ,compatibility ,implementor ,name metaclass ,metaclass-name extends ,ascendant-name implements ,interface-names
+                     `(%class ,access ,abstraction ,compatibility ,implementor ,name metaclass (:generated ,metaclass-name) extends ,ascendant-name implements ,interface-names
                         ,@class-body)
                      form-src))))))))
 
 
 (define (jazz:walk-%class-declaration walker resume declaration environment form-src)
+  (define (lookup-metaclass walker resume declaration environment ascendant metaclass-name)
+    (cond ((or (jazz:unspecified? metaclass-name) (%%eq? metaclass-name 'Object-Class))
+           (values #f #f))
+          ((%%symbol? metaclass-name)
+           (values (jazz:lookup-reference walker resume declaration environment metaclass-name) #t))
+          (else
+           (values (jazz:lookup-reference walker resume declaration environment (%%cadr metaclass-name)) #f))))
+  
   (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz:parse-class walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Module-Declaration) (jazz:walk-error walker resume declaration form-src "Classes can only be defined at the module level: {s}" name)
       ;; explicit test on Object-Class is to break circularity
       (receive (ascendant ascendant-relation ascendant-base) (jazz:lookup-ascendant walker resume declaration environment ascendant-name)
-        (let ((metaclass (jazz:lookup-metaclass walker resume declaration environment ascendant metaclass-name))
-              (interfaces (if (jazz:unspecified? interface-names) '() (map (lambda (interface-name) (jazz:lookup-reference walker resume declaration environment interface-name)) (jazz:listify interface-names)))))
-          (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                     (jazz:new-class-declaration name type access compatibility attributes declaration implementor metaclass ascendant ascendant-relation ascendant-base interfaces))))
-            (jazz:set-declaration-source new-declaration form-src)
-            (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
-              (jazz:setup-class-lookups effective-declaration)
-              (let ((new-environment (%%cons effective-declaration environment)))
-                (jazz:walk-declarations walker resume effective-declaration new-environment body)
-                effective-declaration))))))))
+        (receive (metaclass metaclass-explicit?) (lookup-metaclass walker resume declaration environment ascendant metaclass-name)
+          (let ((interfaces (if (jazz:unspecified? interface-names) '() (map (lambda (interface-name) (jazz:lookup-reference walker resume declaration environment interface-name)) (jazz:listify interface-names)))))
+            (let ((new-declaration (or (jazz:find-declaration-child declaration name)
+                                       (jazz:new-class-declaration name type access compatibility attributes declaration implementor metaclass metaclass-explicit? ascendant ascendant-relation ascendant-base interfaces))))
+              (jazz:set-declaration-source new-declaration form-src)
+              (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
+                (jazz:setup-class-lookups effective-declaration)
+                (let ((new-environment (%%cons effective-declaration environment)))
+                  (jazz:walk-declarations walker resume effective-declaration new-environment body)
+                  effective-declaration)))))))))
 
 
 (define (jazz:walk-%class walker resume declaration environment form-src)
@@ -1622,12 +1758,6 @@
             (jazz:set-namespace-declaration-body new-declaration (jazz:walk-namespace walker resume new-declaration new-environment body))
             (jazz:set-declaration-source new-declaration form-src)
             new-declaration))))))
-
-
-(define (jazz:lookup-metaclass walker resume declaration environment ascendant metaclass-name)
-  (if (or (jazz:unspecified? metaclass-name) (%%eq? metaclass-name 'Object-Class))
-      #f
-    (jazz:lookup-reference walker resume declaration environment metaclass-name)))
 
 
 (define (jazz:lookup-ascendant walker resume declaration environment ascendant-name)
@@ -1696,7 +1826,7 @@
         (let ((metaclass (if (or (jazz:unspecified? metaclass-name) (%%eq? metaclass-name 'Interface)) #f (jazz:lookup-reference walker resume declaration environment metaclass-name)))
               (ascendants (if (jazz:unspecified? ascendant-names) '() (map (lambda (ascendant-name) (jazz:lookup-reference walker resume declaration environment ascendant-name)) (jazz:listify ascendant-names)))))
           (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                     (jazz:new-interface-declaration name type access compatibility attributes declaration implementor metaclass ascendants))))
+                                     (jazz:new-interface-declaration name type access compatibility attributes declaration implementor metaclass (%%boolean metaclass) ascendants))))
             (jazz:set-declaration-source new-declaration form-src)
             (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
               (jazz:setup-interface-lookups effective-declaration)
@@ -1921,7 +2051,7 @@
   
   (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz:parse-method walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Category-Declaration) (jazz:walk-error walker resume declaration form-src "Methods can only be defined inside categories: {s}" name)
-      (let ((type (if specifier (jazz:new-function-type '() '() '() #f (jazz:walk-specifier walker resume declaration environment specifier)) jazz:Procedure))
+      (let ((type (jazz:new-function-type '() '() '() #f (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any)))
             (inline? (and (%%eq? expansion 'inline) body)))
         (receive (signature augmented-environment)
             ;; yuck. to clean

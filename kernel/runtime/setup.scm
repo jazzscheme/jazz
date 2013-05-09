@@ -272,7 +272,8 @@
                            (if (and jazz:kernel-install (jazz:global-bound? '##set-gambcdir!))
                                (let ((gambcdir (jazz:absolutize-directory jazz:kernel-install jazz:gambit-dir)))
                                  (if (and gambcdir (jazz:directory-exists? gambcdir))
-                                     (##set-gambcdir! gambcdir))))
+                                     (let ((setter (jazz:global-ref '##set-gambcdir!)))
+                                       (setter gambcdir)))))
                            (set! ##allow-inner-global-define? #t)
                            (set! jazz:debugger debugger)
                            (if nosource?

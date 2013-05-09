@@ -41,29 +41,7 @@
 
 
 (define (jazz:setup-versions)
-  (define (validate-gambit-version)
-    (define (wrong-version message)
-      (display message)
-      (newline)
-      (exit 1))
-    
-    (define (vendor)
-      (let ((vendor-f (##global-var-ref 'system-vendor)))
-        (and (not (##unbound? vendor-f))
-             (system-vendor))))
-    
-    (if (or (not (jazz:gambit-jazz? (vendor)))
-            (not (jazz:gambit-uptodate? (system-version) (system-stamp))))
-        (let ((jazz-gambit-version (jazz:get-jazz-gambit-version))
-              (jazz-gambit-stamp (jazz:get-jazz-gambit-stamp)))
-          (let ((stamp (if jazz-gambit-stamp (jazz:format " stamp {a}" jazz-gambit-stamp) "")))
-            (wrong-version
-              (jazz:format "JazzScheme needs Gambit-Jazz version {a}{a} or higher to build{%}See INSTALL for details on installing the latest version of Gambit"
-                           jazz-gambit-version
-                           stamp))))))
-  
-  (set! jazz:jazz-versions-file (string-append jazz:source "kernel/versions"))
-  (validate-gambit-version))
+  (set! jazz:jazz-versions-file (string-append jazz:source "kernel/versions")))
 
 
 ;;;

@@ -269,7 +269,7 @@
                              (jobs (number-argument (jazz:get-option "jobs" options)))
                              (port (number-argument (jazz:get-option "port" options))))
                          (define (setup-kernel)
-                           (if jazz:kernel-install
+                           (if (and jazz:kernel-install (jazz:global-bound? '##set-gambcdir!))
                                (let ((gambcdir (jazz:absolutize-directory jazz:kernel-install jazz:gambit-dir)))
                                  (if (and gambcdir (jazz:directory-exists? gambcdir))
                                      (##set-gambcdir! gambcdir))))

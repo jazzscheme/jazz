@@ -84,10 +84,22 @@
       `(##vector-length ,record))
     
     (jazz:define-macro (%%record-ref record n)
-      `(##vector-ref ,record ,n))
+      (if jazz:debug-core?
+          (jazz:with-uniqueness record
+            (lambda (rec)
+              `(if (%%not (%%record? ,rec))
+                   (jazz:not-record-error ,rec)
+                 (##vector-ref ,rec ,n))))
+        `(##vector-ref ,record ,n)))
     
     (jazz:define-macro (%%record-set! record n value)
-      `(##vector-set! ,record ,n ,value)))
+      (if jazz:debug-core?
+          (jazz:with-uniqueness record
+            (lambda (rec)
+              `(if (%%not (%%record? ,rec))
+                   (jazz:not-record-error ,rec)
+                 (##vector-set! ,rec ,n ,value))))
+        `(##vector-set! ,record ,n ,value))))
   
   (else
     (define %%record-marker
@@ -137,7 +149,8 @@
 ;; defined as functions until structure / class unification
 (define (%%record-structure? expr)
   (and (##pair? expr)
-       (##eq? (##cdr expr) jazz:structure-marker)))
+       ;; eq? doesn't work probably due to records read by the reader
+       (##equal? (##cdr expr) jazz:structure-marker)))
 
 
 ;; defined as functions until structure / class unification
@@ -169,6 +182,14 @@
     `(let ((,record (%%make-vector ,size (%%unspecified))))
        (%%set-record-structure ,record (%%make-record-structure ,name))
        ,record)))
+
+
+(define (jazz:not-record-error obj)
+  (jazz:error "Jazz record expected: {s}" obj))
+
+
+(define (jazz:outside-record-error obj rnk)
+  (jazz:error "Invalid access to record outside its bounds: {s}" obj))
 
 
 (define (jazz:record->vector record)

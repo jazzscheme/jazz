@@ -115,9 +115,10 @@
       (%%fx+ jazz:structure-offset 1))
     
     (jazz:define-macro (%%record? expr)
-      `(and (%%vector? ,expr)
-            (%%fx> (%%record-length ,expr) 0)
-            (%%eq? (%%record-ref expr 0) %%record-marker)))
+      `(or (%%jazz? expr)
+           (and (%%vector? ,expr)
+                (%%fx> (%%record-length ,expr) 0)
+                (%%eq? (%%record-ref expr 0) %%record-marker))))
     
     (jazz:define-macro (%%record structure . rest)
       `(%%vector %%record-marker structure ,@rest))
@@ -164,9 +165,10 @@
 
 ;; defined as functions until structure / class unification
 (define (%%record? expr)
-  (and (##vector? expr)
-       (##fx> (##vector-length expr) 0)
-       (%%record-structure? (##vector-ref expr 0))))
+  (or (%%jazz? expr)
+      (and (##vector? expr)
+           (##fx> (##vector-length expr) 0)
+           (%%record-structure? (##vector-ref expr 0)))))
 
 
 (jazz:define-macro (%%record name . rest)

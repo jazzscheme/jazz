@@ -65,9 +65,10 @@
     
     #; ;; defined as functions until structure / class unification
     (jazz:define-macro (%%record? expr)
-      `(and (##vector? ,expr)
-            (##fx> (##vector-length ,expr) 0)
-            (##symbol? (##vector-ref ,expr 0))))
+      `(or (%%jazz? ,expr)
+           (and (##vector? ,expr)
+                (##fx> (##vector-length ,expr) 0)
+                (##symbol? (##vector-ref ,expr 0)))))
     
     #; ;; defined as functions until structure / class unification
     (jazz:define-macro (%%record structure . rest)
@@ -115,7 +116,7 @@
       (%%fx+ jazz:structure-offset 1))
     
     (jazz:define-macro (%%record? expr)
-      `(or (%%jazz? expr)
+      `(or (%%jazz? ,expr)
            (and (%%vector? ,expr)
                 (%%fx> (%%record-length ,expr) 0)
                 (%%eq? (%%record-ref expr 0) %%record-marker))))

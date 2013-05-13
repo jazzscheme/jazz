@@ -5410,8 +5410,10 @@
     (jazz:with-unit-resources unit-name #f
       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
         (let ((src (try-sourceless-outline unit-name src bin)))
-          (if (and (%%not src) (%%not error?))
-              #f
+          (if (%%not src)
+              (if (%%not error?)
+                  #f
+                (jazz:error "Unable to locate unit source: {s}" unit-name))
             (jazz:with-verbose (jazz:outline-verbose?) "outlining" (jazz:resource-pathname src)
               (lambda ()
                 ;; not reading the literals is necessary as reading a literal will load units

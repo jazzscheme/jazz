@@ -471,7 +471,7 @@
                                               (import-pathname project-component dir src-component #t))
                                             src-content)))))))
                       (save~ (get-project-designer~ designer project-component))
-                      (update-project-catalog project-component)
+                      (update-project-catalogs project-component)
                       (acquire-focus~ tree)
                       (process-refresh~ designer project-component 'descendants)
                       (select-component~ tree project-component)
@@ -564,6 +564,7 @@
         (when (validate-pathnames project (list directory))
           (let ((component (import-pathname project directory parent #f)))
             (process-refresh~ designer component 'descendants))
+          (update-project-catalog project)
           (user-message "{a} imported" (parse~ directory))))))
   
   
@@ -573,7 +574,8 @@
            (files (with-import-directory current-directory? parent
                     (lambda (directory)
                       (choose-file multiple-selection?: #t directory: directory)))))
-      (import-pathnames project files parent)))
+      (import-pathnames project files parent)
+      (update-project-catalog project)))
   
   
   (method protected (import-pathnames project pathnames parent)
@@ -779,6 +781,7 @@
                                                   (let ((component (import-pathname project right parent #f)))
                                                     (process-refresh~ designer component 'descendants))
                                                   (increase! added))))))))))
+                                 (update-project-catalog project)
                                  (user-message "{a} added, {a} removed"
                                                added
                                                removed)))))))))))))))))
@@ -966,7 +969,7 @@
     (define (update object)
       (typecase object
         ((Project)
-         (update-project-catalog object))
+         (update-project-catalogs object))
         ((Project-Group)
          (for-each update (get-children~ object)))))
     
@@ -977,6 +980,15 @@
   
   
   (method (update-project-catalog project)
+    (post-catalog
+      (lambda ()
+        (let ((catalog (require-catalog~ project report?: #f)))
+          (load-content~ catalog report?: #f)
+          (update~ catalog report?: #t))
+        (user-feedback "Done"))))
+  
+  
+  (method (update-project-catalogs project)
     (post-catalog
       (lambda ()
         (for-each-project~ project

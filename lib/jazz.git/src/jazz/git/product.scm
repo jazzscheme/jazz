@@ -46,8 +46,8 @@
 (cond-expand
   (windows
     (define jazz:git-units
-      (let ((git-include-path  (jazz:quote-jazz-pathname "foreign/libgit2/include/git"))
-	        (git-lib-path      (jazz:quote-jazz-pathname "foreign/libgit2/lib"))
+      (let ((git-include-path  (jazz:quote-jazz-pathname "foreign/libgit2/include"))
+            (git-lib-path      (jazz:quote-jazz-pathname "foreign/libgit2/lib"))
             (zlib-include-path (jazz:quote-jazz-pathname "foreign/zlib/include")))
         `((jazz.git.foreign cc-options: ,(string-append "-I" git-include-path " -I" zlib-include-path) 
 		                    ld-options: ,(string-append "-L" git-lib-path " -lgit2"))))))

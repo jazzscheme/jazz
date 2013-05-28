@@ -1,0 +1,198 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Git Tester
+;;;
+
+
+(module protected jazz.git.validate.Git-Tester jazz
+
+
+(import (jazz.io)
+        (jazz.jml)
+        (jazz.git.foreign)
+        (jazz.git.interface)
+        (jazz.validation))
+
+
+(class Git-Tester extends Tester
+  
+  
+  (form
+    (<install> title: "Git-Tester"))
+
+
+  (method override (test)
+    (initialize-aliases)
+    (invoke "Version" test-version)
+    (invoke "OID" test-oid)
+    (invoke "Signature" test-signature)
+    (invoke "Repository" test-repository)
+    (invoke "Remote" test-remote)
+    (invoke "Config" test-config)
+    (invoke "Index" test-index)
+    (invoke "Commit" test-commit)
+    (invoke "Branch" test-branch)
+    (invoke "Reference" test-reference)
+    (invoke "Tag" test-tag)
+    (invoke "Blob" test-blob)
+    (invoke "Tree" test-tree)
+    (invoke "ODB" test-odb))
+  
+  
+  ;;;
+  ;;;; Version
+  ;;;
+
+
+  (method (test-version)
+    (validate (equal? '(0 . 18) (git-version))))
+  
+  
+  ;;;
+  ;;;; OID
+  ;;;
+  
+  
+  (method (test-oid)
+    )
+  
+  
+  ;;;
+  ;;;; Signature
+  ;;;
+  
+  
+  (method (test-signature)
+    )
+  
+  
+  ;;;
+  ;;;; Repository
+  ;;;
+
+
+  (method (test-repository)
+    @comment
+    (let ((dir {Directory Home "zoo"}))
+      (create-directories~ dir)
+      (let ((repo (git-repository-init dir)))
+        (debug repo)
+        (git-repository-free repo)))
+    (let ((dir {Directory Home "foo"}))
+      (with-repository (parse~ dir)
+        (lambda (repo)
+          (debug bare?: (git-repository-bare? repo))
+          (debug empty?: (git-repository-empty? repo))
+          (validate (filename=? (git-repository-path repo) (format "{a}.git/" (parse~ dir))))))))
+  
+  
+  ;;;
+  ;;;; Remote
+  ;;;
+
+
+  (method (test-remote)
+    (let ((dir {Directory Home "foo"}))
+      (with-repository (parse~ dir)
+        (lambda (repo)
+          (let ((remote (git-remote-load repo "origin")))
+            (git-remote-connect remote 0)
+            (git-remote-download remote)
+            (git-remote-disconnect remote)
+            (git-remote-update-tips remote))))))
+  
+  
+  ;;;
+  ;;;; Config
+  ;;;
+
+
+  (method (test-config)
+    )
+  
+  
+  ;;;
+  ;;;; Index
+  ;;;
+
+
+  (method (test-index)
+    (let ((dir {Directory Home "foo"}))
+      (with-repository (parse~ dir)
+        (lambda (repo)
+          (let ((index (git-repository-index repo)))
+            (debug index-count: (git-index-entrycount index))
+            (debug index-list: (git-index-list index))
+            (for-each (lambda (entry)
+                        @crashes
+                        (debug (git-index-entry-ctime entry))
+                        @crashes
+                        (debug (git-index-entry-mtime entry))
+                        (debug entry: (git-index-entry-path entry)))
+                      (git-index-list index))
+            (git-index-free index))))))
+  
+  
+  ;;;
+  ;;;; Commit
+  ;;;
+
+
+  (method (test-commit)
+    )
+  
+  
+  ;;;
+  ;;;; Branch
+  ;;;
+
+
+  (method (test-branch)
+    )
+  
+  
+  ;;;
+  ;;;; Reference
+  ;;;
+
+
+  (method (test-reference)
+    )
+  
+  
+  ;;;
+  ;;;; Tag
+  ;;;
+
+
+  (method (test-tag)
+    )
+  
+  
+  ;;;
+  ;;;; Blob
+  ;;;
+
+
+  (method (test-blob)
+    )
+  
+  
+  ;;;
+  ;;;; Tree
+  ;;;
+
+
+  (method (test-tree)
+    )
+  
+  
+  ;;;
+  ;;;; ODB
+  ;;;
+
+
+  (method (test-odb)
+    )))

@@ -1,0 +1,38 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Git Syntax
+;;;
+
+
+(module jazz.git.syntax jazz
+
+
+(macro public (git-external signature type . rest)
+  (define (out-parameter? obj)
+    (and (pair? obj)
+         (eq? (car obj) 'out)))
+  
+  (define (expand-args count)
+    (let ((out ""))
+      (loop (for n from 1 to count)
+            (set! out (string-append out (format ", ___arg{a}" n))))
+      out))
+  
+  (let* ((s-name (car signature))
+         (params (cdr signature))
+         (c-name-or-code (if (null? rest) (symbol->string s-name) (car rest))))
+    (if (or (null? params)
+            (not (out-parameter? (car params))))
+        `(definition public ,s-name
+           (c-function ,params ,type ,c-name-or-code))
+      (let ((out-type (cadr (car params)))
+            (parameters (cdr params)))
+        (let ((c-code
+                (string-append (format "{a} out;{%}" out-type)
+                               (format "int result = {a}(&out{a});{%}" c-name-or-code (expand-args (length parameters)))
+                               (format "if (result != 0) git_call_error_handler(result);{%}")
+                               "___result_voidstar = out;")))
+          `(definition public ,s-name
+             (c-function ,parameters ,out-type ,c-code))))))))

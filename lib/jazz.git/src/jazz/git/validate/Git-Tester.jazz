@@ -25,7 +25,9 @@
 
   (method override (test)
     (initialize-aliases)
-    (test-all)
+    (test-pull)
+    (describe-repository)
+    @w (
     (invoke "Version" test-version)
     (invoke "OID" test-oid)
     (invoke "Signature" test-signature)
@@ -39,15 +41,32 @@
     (invoke "Tag" test-tag)
     (invoke "Blob" test-blob)
     (invoke "Tree" test-tree)
-    (invoke "ODB" test-odb))
+    (invoke "ODB" test-odb)))
   
   
   ;;;
-  ;;;; All
+  ;;;; Pull
   ;;;
   
   
-  (method (test-all)
+  (method (test-pull)
+    (let ((dir {Directory Home "foo"}))
+      (with-repository (parse~ dir)
+        (lambda (repo)
+          (let ((remote (git-remote-load repo "origin")))
+            (git-remote-connect remote 0)
+            (git-remote-download remote)
+            (git-remote-disconnect remote)
+            (git-remote-update-tips remote)
+            (git-remote-free remote))))))
+  
+  
+  ;;;
+  ;;;; Describe
+  ;;;
+  
+  
+  (method (describe-repository)
     (let ((dir {Directory Home "foo"}))
       (with-repository (parse~ dir)
         (lambda (repo)
@@ -55,7 +74,7 @@
           (debug bare?: (git-repository-bare? repo))
           (debug empty?: (git-repository-empty? repo))
           (debug path: (git-repository-path repo))
-          ;; branches
+          ;; Branch
           (let ((iterate-branches
                   (lambda (kind)
                     (git-branch-for-each repo kind
@@ -65,6 +84,10 @@
                             (debug branch-name: branch-name branch-type: branch-type head?: head?))))))))
             (iterate-branches GIT_BRANCH_LOCAL)
             (iterate-branches GIT_BRANCH_REMOTE))
+          ;; Reference
+          (git-reference-for-each repo
+            (lambda (reference-name)
+              (debug reference-name: reference-name)))
           ;; Index
           (let ((index (git-repository-index repo)))
             (debug index-count: (git-index-entrycount index))
@@ -76,7 +99,68 @@
                         (debug (git-index-entry-mtime entry))
                         (debug entry: (git-index-entry-path entry)))
                       (git-index-list index))
-            (git-index-free index))))))
+            (git-index-free index))
+          ;; Commit
+          (let ((head (git-repository-head repo)))
+            (let ((name (git-reference-name head))
+                  (target (git-reference-target head)))
+              (debug head: head name: name target: target)
+              (let ((commit (git-commit-lookup repo target)))
+                (define (describe-signature prefix sig)
+                  (debug prefix (git_signature-name-ref sig) (git_signature-email-ref sig)))
+                
+                (debug commit: commit)
+                (describe-signature author: (git-commit-author commit))
+                (describe-signature committer: (git-commit-committer commit))
+                (debug id: (git-commit-id commit))
+                (debug message: (git-commit-message commit))
+                (debug message-encoding: (git-commit-message-encoding commit))
+                (let ((count (git-commit-parentcount commit)))
+                  (debug parentcount: count)
+                  (loop (for n from 0 below count)
+                        (debug parent: (git-commit-parent commit 0))
+                        (debug parent-id: (git-commit-parent-id commit 0))))
+                (debug time: (git-commit-time commit))
+                (debug time-offset: (git-commit-time-offset commit))
+                (debug tree: (git-commit-tree commit))
+                (debug tree-id: (git-commit-tree-id commit))
+                ;; Tree
+                (let ((tree (git-commit-tree commit)))
+                  (define (describe-tree tree)
+                    (debug tree: tree)
+                    (loop (for n from 0 below (git-tree-entrycount tree))
+                          (let ((entry (git-tree-entry-byindex tree n)))
+                            (describe-entry entry))))
+                  
+                  ;; Entry
+                  (define (describe-entry entry)
+                    (let ((id (git-tree-entry-id entry))
+                          (name (git-tree-entry-name entry))
+                          (type (git-tree-entry-type entry)))
+                      (debug entry: entry id: (oid->string id) name: name type: (git-type->symbol type))
+                      (ecase type
+                        ((GIT_OBJ_BLOB) (describe-blob (git-blob-lookup repo id)))
+                        ((GIT_OBJ_TREE) (describe-tree (git-tree-lookup repo id))))))
+                  
+                  ;; Blob
+                  (define (describe-blob blob)
+                    (let ((binary? (git-blob-binary? blob)))
+                      (debug blob: blob binary?: binary? id: (git-blob-id blob) rawsize: (git-blob-rawsize blob))
+                      (unless binary?
+                        (debug text: (git-blob-text blob)))))
+                  
+                  (describe-tree tree)))))
+          ;; OID
+          (let ((oid (string->oid "1385f264afb75a56a5bec74243be9b367ba4ca08")))
+            (debug oid: oid string: (oid->string oid))
+            (free-oid oid))
+          ;; ODB
+          (let ((odb (git-repository-odb repo)))
+            (debug odb: odb)
+            (git-odb-for-each odb
+              (lambda (oid)
+                (debug oid: (oid->string oid))))
+            (git-odb-free odb))))))
   
   
   ;;;

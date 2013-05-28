@@ -114,12 +114,24 @@
 (c-enumerant GIT_TREEWALK_POST)
 
 
+(definition public (git-type->symbol type)
+  (ecase type
+    ((GIT_OBJ_ANY) 'any)
+    ((GIT_OBJ_BAD) 'bad)
+    ((GIT_OBJ_COMMIT) 'commit)
+    ((GIT_OBJ_TREE) 'tree)
+    ((GIT_OBJ_BLOB) 'blob)
+    ((GIT_OBJ_TAG) 'tag)
+    (else (error "Unknown git type: {s}" type))))
+
+
 ;;;
 ;;;; Types
 ;;;
 
 
 (c-type char** (pointer char*))
+(c-type char-string* (pointer char-string))
 (c-type uint32_t (native "uint32_t"))
 (c-type uint32_t* (pointer uint32))
 (c-type int32_t (native "int32_t"))
@@ -292,7 +304,6 @@
 (c-type git_submodule* (pointer git_submodule))
 (c-type git_submodule** (pointer git_submodule*))
 (c-type git_treewalk_cb (native "git_treewalk_cb"))
-(c-type char-string* (pointer char-string))
 
 
 ;;;
@@ -349,6 +360,12 @@
   (char-string path))
 
 
+(c-structure git_signature
+  (char-string name)
+  (char-string email)
+  (git_time when))
+
+
 (c-structure git_transfer_progress
   (uint total_objects)
   (uint indexed_objects)
@@ -384,11 +401,24 @@
 (git-external (git-blob-free git_blob*) void "git_blob_free")
 (git-external (git-blob-id git_blob*) git_oid* "git_blob_id")
 (git-external (git-blob-is-binary git_blob*) int "git_blob_is_binary")
-(git-external (git-blob-lookup git_blob** git_repository* git_oid*) int "git_blob_lookup")
-(git-external (git-blob-lookup-prefix git_blob** git_repository* git_oid* size_t) int "git_blob_lookup_prefix")
+(git-external (git-blob-lookup (out git_blob*) git_repository* git_oid*) int "git_blob_lookup")
+(git-external (git-blob-lookup-prefix (out git_blob*) git_repository* git_oid* size_t) int "git_blob_lookup_prefix")
 (git-external (git-blob-owner git_blob*) git_repository* "git_blob_owner")
 (git-external (git-blob-rawcontent git_blob*) void* "git_blob_rawcontent")
 (git-external (git-blob-rawsize git_blob*) size_t "git_blob_rawsize")
+
+
+(definition public (git-blob-binary? blob)
+  (= 1 (git-blob-is-binary blob)))
+
+
+(definition public git-blob-text
+  (c-function (git_blob*) char-string
+    #<<end-of-c-code
+    void* text = git_blob_rawcontent(___arg1);
+    ___result = text;
+end-of-c-code
+))
 
 
 ;;;
@@ -397,7 +427,6 @@
 
 
 (git-external (git-branch-create (out git_reference*) git_repository* char-string git_object* int) int "git_branch_create")
-(git-external (git-branch-create git_reference** git_repository* char-string git_object* int) int "git_branch_create")
 (git-external (git-branch-delete git_reference*) int "git_branch_delete")
 (git-external (git-branch-foreach git_repository* uint void* void*) int "git_branch_foreach")
 (git-external (git-branch-is-head git_reference*) int "git_branch_is_head")
@@ -414,21 +443,22 @@
 (c-definition (branch-foreach-procedure proc branch_name branch_type) (scheme-object char-string git_branch_t) void "branch_foreach_procedure" ""
   (proc branch_name branch_type))
 
-
 (c-declare #<<end-of-c-declare
 static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, void *payload)
 {
-    branch_foreach_procedure(payload, branch_name, branch_type);
+    branch_foreach_procedure(___EXT(___data_rc)(payload), branch_name, branch_type);
     return 0;
 }
 end-of-c-declare
 )
 
-
 (definition public git-branch-for-each
   (c-function (git_repository* uint scheme-object) void
     #<<end-of-c-code
-    git_branch_foreach(___arg1, ___arg2, &branch_foreach_cb, ___arg3);
+    void* p = ___EXT(___alloc_rc)(0);
+    ___EXT(___set_data_rc)(p, ___arg3);
+    git_branch_foreach(___arg1, ___arg2, &branch_foreach_cb, p);
+    ___EXT(___release_rc)(p);
 end-of-c-code
 ))
 
@@ -462,16 +492,16 @@ end-of-c-code
 (git-external (git-commit-create-v git_oid* git_repository* char-string git_signature* git_signature* char-string char-string git_tree* int) int "git_commit_create_v")
 (git-external (git-commit-free git_commit*) void "git_commit_free")
 (git-external (git-commit-id git_commit*) git_oid* "git_commit_id")
-(git-external (git-commit-lookup git_commit** git_repository* git_oid*) int "git_commit_lookup")
-(git-external (git-commit-lookup-prefix git_commit** git_repository* git_oid* size_t) int "git_commit_lookup_prefix")
+(git-external (git-commit-lookup (out git_commit*) git_repository* git_oid*) int "git_commit_lookup")
+(git-external (git-commit-lookup-prefix (out git_commit*) git_repository* git_oid* size_t) int "git_commit_lookup_prefix")
 (git-external (git-commit-message git_commit*) char-string "git_commit_message")
 (git-external (git-commit-message-encoding git_commit*) char-string "git_commit_message_encoding")
-(git-external (git-commit-parent git_commit** git_commit* uint) int "git_commit_parent")
+(git-external (git-commit-parent (out git_commit*) git_commit* uint) int "git_commit_parent")
 (git-external (git-commit-parent-id git_commit* uint) git_oid* "git_commit_parent_id")
 (git-external (git-commit-parentcount git_commit*) uint "git_commit_parentcount")
 (git-external (git-commit-time git_commit*) git_time_t "git_commit_time")
 (git-external (git-commit-time-offset git_commit*) int "git_commit_time_offset")
-(git-external (git-commit-tree git_tree** git_commit*) int "git_commit_tree")
+(git-external (git-commit-tree (out git_tree*) git_commit*) int "git_commit_tree")
 (git-external (git-commit-tree-id git_commit*) git_oid* "git_commit_tree_id")
 
 
@@ -528,7 +558,7 @@ end-of-c-code
 
 
 ;;;
-;;;; GitErr
+;;;; Git Error
 ;;;
 
 
@@ -608,7 +638,7 @@ end-of-c-code
 
 
 ;;;
-;;;; Libgit2
+;;;; Library
 ;;;
 
 
@@ -702,6 +732,29 @@ end-of-c-code
 (git-external (git-odb-write git_oid* git_odb* void* size_t git_otype) int "git_odb_write")
 
 
+(c-definition (odb-foreach-procedure proc oid) (scheme-object git_oid*) void "odb_foreach_procedure" ""
+  (proc oid))
+
+(c-declare #<<end-of-c-declare
+static int odb_foreach_cb(git_oid* oid, void *payload)
+{
+    odb_foreach_procedure(___EXT(___data_rc)(payload), oid);
+    return 0;
+}
+end-of-c-declare
+)
+
+(definition public git-odb-for-each
+  (c-function (git_odb* scheme-object) void
+    #<<end-of-c-code
+    void* p = ___EXT(___alloc_rc)(0);
+    ___EXT(___set_data_rc)(p, ___arg2);
+    git_odb_foreach(___arg1, &odb_foreach_cb, p);
+    ___EXT(___release_rc)(p);
+end-of-c-code
+))
+
+
 ;;;
 ;;;; Object ID
 ;;;
@@ -722,6 +775,34 @@ end-of-c-code
 (git-external (git-oid-shorten-new size_t) git_oid_shorten* "git_oid_shorten_new")
 (git-external (git-oid-streq git_oid* char-string) int "git_oid_streq")
 (git-external (git-oid-tostr char-string size_t git_oid*) char-string "git_oid_tostr")
+
+
+(definition public string->oid
+  (c-function (char-string) git_oid*
+    #<<end-of-c-code
+    git_oid* oid = calloc(1, sizeof(git_oid));
+    git_oid_fromstr(oid, ___arg1);
+    ___result_voidstar = oid;
+end-of-c-code
+))
+
+
+(definition public oid->string
+  (c-function (git_oid*) char-string
+    #<<end-of-c-code
+    char oidstr[GIT_OID_HEXSZ + 1];
+    git_oid_tostr(oidstr, sizeof(oidstr), ___arg1);
+    ___result = oidstr;
+end-of-c-code
+))
+
+
+(definition public free-oid
+  (c-function (git_oid*) void
+    #<<end-of-c-code
+    free(___arg1);
+end-of-c-code
+))
 
 
 ;;;
@@ -758,8 +839,31 @@ end-of-c-code
 (git-external (git-reference-rename git_reference** git_reference* char-string int) int "git_reference_rename")
 (git-external (git-reference-resolve git_reference** git_reference*) int "git_reference_resolve")
 (git-external (git-reference-set-target git_reference** git_reference* char-string) int "git_reference_set_target")
-(git-external (git-reference-target git_reference*) char-string "git_reference_target")
+(git-external (git-reference-target git_reference*) git_oid* "git_reference_target")
 (git-external (git-reference-type git_reference*) git_ref_t "git_reference_type")
+
+
+(c-definition (reference-foreach-procedure proc reference_name) (scheme-object char-string) void "reference_foreach_procedure" ""
+  (proc reference_name))
+
+(c-declare #<<end-of-c-declare
+static int reference_foreach_cb(const char *reference_name, void *payload)
+{
+    reference_foreach_procedure(___EXT(___data_rc)(payload), reference_name);
+    return 0;
+}
+end-of-c-declare
+)
+
+(definition public git-reference-for-each
+  (c-function (git_repository* scheme-object) void
+    #<<end-of-c-code
+    void* p = ___EXT(___alloc_rc)(0);
+    ___EXT(___set_data_rc)(p, ___arg2);
+    git_reference_foreach(___arg1, &reference_foreach_cb, p);
+    ___EXT(___release_rc)(p);
+end-of-c-code
+))
 
 
 ;;;
@@ -831,14 +935,14 @@ end-of-c-code
 (git-external (git-repository-config git_config** git_repository*) int "git_repository_config")
 (git-external (git-repository-discover char* size_t char-string int char-string) int "git_repository_discover")
 (git-external (git-repository-free git_repository*) void "git_repository_free")
-(git-external (git-repository-head git_reference** git_repository*) int "git_repository_head")
+(git-external (git-repository-head (out git_reference*) git_repository*) int "git_repository_head")
 (git-external (git-repository-head-detached git_repository*) int "git_repository_head_detached")
 (git-external (git-repository-head-orphan git_repository*) int "git_repository_head_orphan")
 (git-external (git-repository-index (out git_index*) git_repository*) int "git_repository_index")
 (git-external (git-repository-init_ (out git_repository*) char-string uint) int "git_repository_init")
 (git-external (git-repository-is-bare git_repository*) int "git_repository_is_bare")
 (git-external (git-repository-is-empty git_repository*) int "git_repository_is_empty")
-(git-external (git-repository-odb git_odb** git_repository*) int "git_repository_odb")
+(git-external (git-repository-odb (out git_odb*) git_repository*) int "git_repository_odb")
 (git-external (git-repository-open (out git_repository*) char-string) int "git_repository_open")
 (git-external (git-repository-open-ext git_repository** char-string uint32_t char-string) int "git_repository_open_ext")
 (git-external (git-repository-path git_repository*) char-string "git_repository_path")
@@ -1015,8 +1119,8 @@ end-of-c-code
 (git-external (git-tree-entrycount git_tree*) uint "git_tree_entrycount")
 (git-external (git-tree-free git_tree*) void "git_tree_free")
 (git-external (git-tree-id git_tree*) git_oid* "git_tree_id")
-(git-external (git-tree-lookup git_tree** git_repository* git_oid*) int "git_tree_lookup")
-(git-external (git-tree-lookup-prefix git_tree** git_repository* git_oid* size_t) int "git_tree_lookup_prefix")
+(git-external (git-tree-lookup (out git_tree*) git_repository* git_oid*) int "git_tree_lookup")
+(git-external (git-tree-lookup-prefix (out git_tree*) git_repository* git_oid* size_t) int "git_tree_lookup_prefix")
 (git-external (git-tree-walk git_tree* git_treewalk_mode void* void*) int "git_tree_walk")
 
 

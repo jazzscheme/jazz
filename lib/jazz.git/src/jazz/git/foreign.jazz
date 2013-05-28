@@ -17,6 +17,10 @@
         (jazz.platform.types-syntax (phase syntax)))
 
 
+(c-include "<git2.h>")
+
+
+;;;
 ;;;; Error Handling
 ;;;
 
@@ -34,10 +38,6 @@
 
 (c-definition (git-call-error-handler error) (int) int "git_call_error_handler" ""
   (git-error-handler error))
-
-
-(c-include "<time.h>")
-(c-include "<git2.h>")
 
 
 ;;;
@@ -59,31 +59,26 @@
 
 
 ;;;
-;;;; Error Constants
+;;;; Error Codes
 ;;;
 
 
-(c-constant GIT_SUCCESS 0)
-(c-constant GIT_ERROR -1)
-(c-constant GIT_ENOTOID (- GIT_ERROR 1))
-(c-constant GIT_ENOTFOUND (- GIT_ERROR 2))
-(c-constant GIT_ENOMEM (- GIT_ERROR 3))
-(c-constant GIT_EOSERR (- GIT_ERROR 4))
-(c-constant GIT_EOBJTYPE (- GIT_ERROR 5))
-(c-constant GIT_EOBJCORRUPTED (- GIT_ERROR 6))
-(c-constant GIT_ENOTAREPO (- GIT_ERROR 7))
-(c-constant GIT_EINVALIDTYPE (- GIT_ERROR 8))
-(c-constant GIT_EMISSINGOBJDATA (- GIT_ERROR 9))
-(c-constant GIT_EPACKCORRUPTED (- GIT_ERROR 10))
-(c-constant GIT_EFLOCKFAIL (- GIT_ERROR 11))
-(c-constant GIT_EZLIB (- GIT_ERROR 12))
-(c-constant GIT_EBUSY (- GIT_ERROR 13))
-(c-constant GIT_EBAREINDEX (- GIT_ERROR 14))
-(c-constant GIT_EVALIDREFNAME (- GIT_ERROR 15))
-(c-constant GIT_EREFCORRUPTED (- GIT_ERROR 16))
-(c-constant GIT_ETOONESTEDSYMREF (- GIT_ERROR 17))
-(c-constant GIT_EPACKEDREFSCORRUPTED (- GIT_ERROR 18))
-(c-constant GIT_EINVALIDPATH (- GIT_ERROR 19))
+(c-enumeration git_error_code
+  (GIT_OK 0)
+  (GIT_ERROR -1)
+  (GIT_ENOTFOUND -3)
+  (GIT_EEXISTS -4)
+  (GIT_EAMBIGUOUS -5)
+  (GIT_EBUFS -6)
+  (GIT_EUSER -7)
+  (GIT_EBAREREPO -8)
+  (GIT_EORPHANEDHEAD -9)
+  (GIT_EUNMERGED -10)
+  (GIT_ENONFASTFORWARD -11)
+  (GIT_EINVALIDSPEC -12)
+  (GIT_EMERGECONFLICT -13)
+  (GIT_PASSTHROUGH -30)
+  (GIT_ITEROVER -31))
 
 
 ;;;
@@ -109,9 +104,10 @@
   (GIT_BRANCH_REMOTE 2))
 
 
-(c-enumeration git_reset_type
-  (GIT_RESET_SOFT 1)
-  (GIT_RESET_MIXED 2))
+(c-enumeration git_reset_t
+  (GIT_RESET_SOFT  1)
+  (GIT_RESET_MIXED 2)
+  (GIT_RESET_HARD  3))
 
 
 (c-type char** (pointer char*))
@@ -131,7 +127,7 @@
 (c-type int64_t* (pointer int64_t))
 (c-type time_t (native "time_t"))
 (c-type git_time (native "git_time"))
-(c-type git_reset_type int)
+(c-type git_reset_t int)
 (c-type git_otype int)
 (c-type git_otype* (pointer git_otype))
 (c-type git_oid (native "git_oid"))
@@ -141,6 +137,12 @@
 (c-type git_odb** (pointer git_odb*))
 (c-type git_odb_backend (native "git_odb_backend"))
 (c-type git_odb_backend* (pointer git_odb_backend))
+(c-type git_packbuilder (native "git_packbuilder"))
+(c-type git_packbuilder* (pointer git_packbuilder))
+(c-type git_packbuilder** (pointer git_packbuilder*))
+(c-type git_push (native "git_push"))
+(c-type git_push* (pointer git_push))
+(c-type git_push** (pointer git_push*))
 (c-type git_repository (native "git_repository"))
 (c-type git_repository* (pointer git_repository))
 (c-type git_repository** (pointer git_repository*))
@@ -150,6 +152,9 @@
 (c-type git_object (native "git_object"))
 (c-type git_object* (pointer git_object))
 (c-type git_object** (pointer git_object*))
+(c-type git_revspec (native "git_revspec"))
+(c-type git_revspec* (pointer git_revspec))
+(c-type git_revspec** (pointer git_revspec*))
 (c-type git_revwalk (native "git_revwalk"))
 (c-type git_revwalk* (pointer git_revwalk))
 (c-type git_revwalk** (pointer git_revwalk*))
@@ -159,6 +164,12 @@
 (c-type git_blob (native "git_blob"))
 (c-type git_blob* (pointer git_blob))
 (c-type git_blob** (pointer git_blob*))
+(c-type git_checkout_opts (native "git_checkout_opts"))
+(c-type git_checkout_opts* (pointer git_checkout_opts))
+(c-type git_checkout_opts** (pointer git_checkout_opts*))
+(c-type git_clone_options (native "git_clone_options"))
+(c-type git_clone_options* (pointer git_clone_options))
+(c-type git_clone_options** (pointer git_clone_options*))
 (c-type git_commit (native "git_commit"))
 (c-type git_commit* (pointer git_commit))
 (c-type git_commit** (pointer git_commit*))
@@ -214,21 +225,24 @@
 (c-type git_config_file (native "git_config_file"))
 (c-type git_config_file* (pointer git_config_file))
 (c-type git_config_file** (pointer git_config_file*))
+(c-type git_cred (native "git_cred"))
+(c-type git_cred* (pointer git_cred))
+(c-type git_cred** (pointer git_cred*))
 (c-type git_cvar_map (native "git_cvar_map"))
 (c-type git_cvar_map* (pointer git_cvar_map))
 (c-type git_cvar_map** (pointer git_cvar_map*))
 (c-type git_diff_options (native "git_diff_options"))
 (c-type git_diff_options* (pointer git_diff_options))
 (c-type git_diff_options** (pointer git_diff_options*))
-(c-type git_diff_file_fn (native "git_diff_file_fn"))
-(c-type git_diff_file_fn* (pointer git_diff_file_fn))
-(c-type git_diff_file_fn** (pointer git_diff_file_fn*))
-(c-type git_diff_hunk_fn (native "git_diff_hunk_fn"))
-(c-type git_diff_hunk_fn* (pointer git_diff_hunk_fn))
-(c-type git_diff_hunk_fn** (pointer git_diff_hunk_fn*))
-(c-type git_diff_data_fn (native "git_diff_data_fn"))
-(c-type git_diff_data_fn* (pointer git_diff_data_fn))
-(c-type git_diff_data_fn** (pointer git_diff_data_fn*))
+(c-type git_diff_file_cb (native "git_diff_file_cb"))
+(c-type git_diff_file_cb* (pointer git_diff_file_cb))
+(c-type git_diff_file_cb** (pointer git_diff_file_cb*))
+(c-type git_diff_hunk_cb (native "git_diff_hunk_cb"))
+(c-type git_diff_hunk_cb* (pointer git_diff_hunk_cb))
+(c-type git_diff_hunk_cb** (pointer git_diff_hunk_cb*))
+(c-type git_diff_data_cb (native "git_diff_data_cb"))
+(c-type git_diff_data_cb* (pointer git_diff_data_cb))
+(c-type git_diff_data_cb** (pointer git_diff_data_cb*))
 (c-type git_diff_list (native "git_diff_list"))
 (c-type git_diff_list* (pointer git_diff_list))
 (c-type git_diff_list** (pointer git_diff_list*))
@@ -301,6 +315,7 @@
 (define-pointer-to-pointer git_treebuilder* "git_treebuilder*")
 (define-pointer-to-pointer git_index* "git_index*")
 (define-pointer-to-pointer git_config* "git_config*")
+(define-pointer-to-pointer git_cred* "git_cred*")
 (define-pointer-to-pointer git_reflog_entry* "git_reflog_entry*")
 (define-pointer-to-pointer git_reflog* "git_reflog*")
 (define-pointer-to-pointer git_reference* "git_reference*")
@@ -352,7 +367,7 @@
 
 (definition public git_attr_add_macro (c-function (git_repository* char-string char-string) int "git_attr_add_macro"))
 (definition public git_attr_cache_flush (c-function (git_repository*) void "git_attr_cache_flush"))
-@callback(definition public git_attr_foreach (c-function (git_repository* unsigned-int32 char-string  void* void*) int "git_attr_foreach"))
+(definition public git_attr_foreach (c-function (git_repository* unsigned-int32 char-string void* void*) int "git_attr_foreach"))
 (definition public git_attr_get (c-function (char** git_repository* unsigned-int32 char-string char-string) int "git_attr_get"))
 (definition public git_attr_get_many (c-function (char** git_repository* unsigned-int32 char-string size_t char**) int "git_attr_get_many"))
 
@@ -364,10 +379,13 @@
 
 (definition public git_blob_create_frombuffer (c-function (git_oid* git_repository* void* size_t) int "git_blob_create_frombuffer"))
 (definition public git_blob_create_fromdisk (c-function (git_oid* git_repository* char-string) int "git_blob_create_fromdisk"))
-@removed18!?(definition public git_blob_create_fromfile (c-function (git_oid* git_repository* char-string) int "git_blob_create_fromfile"))
-@wait18(definition public git_blob_free (c-function (git_blob*) void "git_blob_free"))
-(definition public git_blob_lookup (c-function (git_blob** git_repository* git_oid*) int  "git_blob_lookup"))
+(definition public git_blob_create_fromworkdir (c-function (git_oid* git_repository* char-string) int "git_blob_create_fromworkdir"))
+(definition public git_blob_free (c-function (git_blob*) void "git_blob_free"))
+(definition public git_blob_id (c-function (git_blob*) git_oid* "git_blob_id"))
+(definition public git_blob_is_binary (c-function (git_blob*) int "git_blob_is_binary"))
+(definition public git_blob_lookup (c-function (git_blob** git_repository* git_oid*) int "git_blob_lookup"))
 (definition public git_blob_lookup_prefix (c-function (git_blob** git_repository* git_oid* size_t) int "git_blob_lookup_prefix"))
+(definition public git_blob_owner (c-function (git_blob*) git_repository* "git_blob_owner"))
 (definition public git_blob_rawcontent (c-function (git_blob*) void* "git_blob_rawcontent"))
 (definition public git_blob_rawsize (c-function (git_blob*) size_t "git_blob_rawsize"))
 
@@ -379,8 +397,30 @@
 
 (definition public git_branch_create (c-function (git_reference** git_repository* char-string git_object* int) int "git_branch_create"))
 (definition public git_branch_delete (c-function (git_reference*) int "git_branch_delete"))
-@removed18!?(definition public git_branch_list (c-function (git_strarray* git_repository* uint) int "git_branch_list"))
+(definition public git_branch_foreach (c-function (git_repository* uint void* void*) int "git_branch_foreach"))
+(definition public git_branch_is_head (c-function (git_reference*) int "git_branch_is_head"))
+(definition public git_branch_lookup (c-function (git_reference** git_repository* char-string git_branch_t) int "git_branch_lookup"))
 (definition public git_branch_move (c-function (git_reference** git_reference* char-string int) int "git_branch_move"))
+(definition public git_branch_name (c-function (char** git_reference*) int "git_branch_name"))
+(definition public git_branch_upstream (c-function (git_reference** git_reference*) int "git_branch_upstream"))
+
+
+;;;
+;;;; Checkout
+;;;
+
+
+(definition public git_checkout_head (c-function (git_repository* git_checkout_opts*) int "git_checkout_head"))
+(definition public git_checkout_index (c-function (git_repository* git_index* git_checkout_opts*) int "git_checkout_index"))
+(definition public git_checkout_tree (c-function (git_repository* git_object* git_checkout_opts*) int "git_checkout_tree"))
+
+
+;;;
+;;;; Clone
+;;;
+
+
+(definition public git_clone (c-function (git_repository** char-string char-string git_clone_options*) int "git_clone"))
 
 
 ;;;
@@ -412,24 +452,20 @@
 ;;;
 
 
-@wait18(definition public git_config_add_file (c-function (git_config* git_config_file* int) int "git_config_add_file"))
-@wait18(definition public git_config_add_file_ondisk (c-function (git_config* char-string int) int "git_config_add_file_ondisk"))
+(definition public git_config_add_file_ondisk (c-function (git_config* char-string uint int) int "git_config_add_file_ondisk"))
 (definition public git_config_delete_entry (c-function (git_config* char-string) int "git_config_delete_entry"))
-@wait18(definition public git_config_file__ondisk (c-function (git_config_file** char-string) int "git_config_file__ondisk"))
 (definition public git_config_find_global (c-function (char-string size_t) int "git_config_find_global"))
 (definition public git_config_find_system (c-function (char-string size_t) int "git_config_find_system"))
-@callback(definition public git_config_foreach (c-function (git_config* void* void*) int "git_config_foreach"))
-@callback(definition public git_config_foreach_match (c-function (git_config* char-string void* void*) int "git_config_foreach_match"))
+(definition public git_config_foreach (c-function (git_config* void* void*) int "git_config_foreach"))
+(definition public git_config_foreach_match (c-function (git_config* char-string void* void*) int "git_config_foreach_match"))
 (definition public git_config_free (c-function (git_config*) void "git_config_free"))
 (definition public git_config_get_bool (c-function (int* git_config* char-string) int "git_config_get_bool"))
 (definition public git_config_get_int32 (c-function (int32_t* git_config* char-string) int "git_config_get_int32"))
 (definition public git_config_get_int64 (c-function (int64_t* git_config* char-string) int "git_config_get_int64"))
 (definition public git_config_get_mapped (c-function (int* git_config* char-string git_cvar_map* size_t) int "git_config_get_mapped"))
-@callback(definition public git_config_get_multivar (c-function (git_config* char-string char-string void* void*) int "git_config_get_multivar"))
+(definition public git_config_get_multivar (c-function (git_config* char-string char-string void* void*) int "git_config_get_multivar"))
 (definition public git_config_get_string (c-function (char** git_config* char-string) int "git_config_get_string"))
 (definition public git_config_new (c-function (git_config**) int "git_config_new"))
-@wait18(definition public git_config_open_global (c-function (git_config**) int "git_config_open_global"))
-@wait18(definition public git_config_open_ondisk (c-function (git_config** char-string) int "git_config_open_ondisk"))
 (definition public git_config_set_bool (c-function (git_config* char-string int) int "git_config_set_bool"))
 (definition public git_config_set_int32 (c-function (git_config* char-string int32_t) int "git_config_set_int32"))
 (definition public git_config_set_int64 (c-function (git_config* char-string int64_t) int "git_config_set_int64"))
@@ -438,25 +474,33 @@
 
 
 ;;;
+;;;; Cred
+;;;
+
+
+@ssh(definition public git_cred_ssh_keyfile_passphrase_new (c-function (git_cred** char-string char-string char-string) int "git_cred_ssh_keyfile_passphrase_new"))
+@ssh(definition public git_cred_ssh_publickey_new (c-function (git_cred** char-string size_t void*) int "git_cred_ssh_publickey_new"))
+(definition public git_cred_userpass (c-function (git_cred** char-string char-string uint void*) int "git_cred_userpass"))
+(definition public git_cred_userpass_plaintext_new (c-function (git_cred** char-string char-string) int "git_cred_userpass_plaintext_new"))
+
+
+;;;
 ;;;; Diff
 ;;;
 
 
-@wait18 (
-(definition public git_diff_blobs (c-function (git_blob* git_blob* git_diff_options* void* git_diff_file_fn git_diff_hunk_fn git_diff_data_fn) int "git_diff_blobs"))
-(definition public git_diff_foreach (c-function (git_diff_list* void* git_diff_file_fn git_diff_hunk_fn git_diff_data_fn) int "git_diff_foreach"))
-(definition public git_diff_index_to_tree (c-function (git_repository* git_diff_options* git_tree* git_diff_list**) int "git_diff_index_to_tree"))
+(definition public git_diff_blobs (c-function (git_blob* git_blob* git_diff_options* void* git_diff_file_cb git_diff_hunk_cb git_diff_data_cb) int "git_diff_blobs"))
+(definition public git_diff_foreach (c-function (git_diff_list* void* git_diff_file_cb git_diff_hunk_cb git_diff_data_cb) int "git_diff_foreach"))
+(definition public git_diff_index_to_workdir (c-function (git_diff_list** git_repository* git_index* git_diff_options*) int "git_diff_index_to_workdir"))
 (definition public git_diff_list_free (c-function (git_diff_list*) void "git_diff_list_free"))
 (definition public git_diff_merge (c-function (git_diff_list* git_diff_list*) int "git_diff_merge"))
-(definition public git_diff_print_compact (c-function (git_diff_list* void* git_diff_data_fn) int "git_diff_print_compact"))
-(definition public git_diff_print_patch (c-function (git_diff_list* void* git_diff_data_fn) int "git_diff_print_patch"))
+(definition public git_diff_print_compact (c-function (git_diff_list* void* git_diff_data_cb) int "git_diff_print_compact"))
+(definition public git_diff_print_patch (c-function (git_diff_list* void* git_diff_data_cb) int "git_diff_print_patch"))
 (definition public git_diff_tree_to_tree (c-function (git_repository* git_diff_options* git_tree* git_tree* git_diff_list**) int "git_diff_tree_to_tree"))
-(definition public git_diff_workdir_to_index (c-function (git_repository* git_diff_options* git_diff_list**) int "git_diff_workdir_to_index"))
-(definition public git_diff_workdir_to_tree (c-function (git_repository* git_diff_options* git_tree* git_diff_list**) int "git_diff_workdir_to_tree"))
-)
+
 
 ;;;
-;;;; Error
+;;;; GitErr
 ;;;
 
 
@@ -474,38 +518,40 @@
 
 
 ;;;
-;;;; Windows
+;;;; Graph
 ;;;
 
 
-@removed18!?(definition public gitwin_get_codepage (c-function () uint "gitwin_get_codepage"))
-@removed18!?(definition public gitwin_set_codepage (c-function (uint) void "gitwin_set_codepage"))
-@removed18!?(definition public gitwin_set_utf8 (c-function () void "gitwin_set_utf8"))
+(definition public git_graph_ahead_behind (c-function (size_t size_t git_repository* git_oid* git_oid*) int "git_graph_ahead_behind"))
 
 
 ;;;
-;;;; Indexes
+;;;; Ignore
+;;;
+
+
+(definition public git_ignore_add_rule (c-function (git_repository* char-string) int "git_ignore_add_rule"))
+(definition public git_ignore_clear_internal_rules (c-function (git_repository*) int "git_ignore_clear_internal_rules"))
+(definition public git_ignore_path_is_ignored (c-function (int* git_repository* char-string) int "git_ignore_path_is_ignored"))
+
+
+;;;
+;;;; Index
 ;;;
 
 
 (definition public git_index_add (c-function (git_index* git_index_entry*) int "git_index_add"))
 (definition public git_index_add_bypath (c-function (git_index* char-string) int "git_index_add_bypath"))
-@removed18!?(definition public git_index_append (c-function (git_index* char-string int) int "git_index_append"))
-@removed18!?(definition public git_index_append2 (c-function (git_index* git_index_entry*) int "git_index_append2"))
 (definition public git_index_clear (c-function (git_index*) void "git_index_clear"))
 (definition public git_index_entry_stage (c-function (git_index_entry*) int "git_index_entry_stage"))
 (definition public git_index_entrycount (c-function (git_index*) uint "git_index_entrycount"))
-@removed18!?(definition public git_index_entrycount_unmerged (c-function (git_index*) uint "git_index_entrycount_unmerged"))
 (definition public git_index_find (c-function (size_t* git_index* char-string) int "git_index_find"))
 (definition public git_index_free (c-function (git_index*) void "git_index_free"))
 (definition public git_index_get_byindex (c-function (git_index* int) git_index_entry* "git_index_get_byindex"))
-@removed18!?(definition public git_index_get_unmerged_byindex (c-function (git_index* size_t) git_index_entry_unmerged* "git_index_get_unmerged_byindex"))
-@removed18!?(definition public git_index_get_unmerged_bypath (c-function (git_index* char-string) git_index_entry_unmerged* "git_index_get_unmerged_bypath"))
 (definition public git_index_open (c-function (git_index** char-string) int "git_index_open"))
 (definition public git_index_read (c-function (git_index*) int "git_index_read"))
 (definition public git_index_read_tree (c-function (git_index* git_tree*) int "git_index_read_tree"))
 (definition public git_index_remove (c-function (git_index* char-string int) int "git_index_remove"))
-@removed18!?(definition public git_index_uniq (c-function (git_index*) void "git_index_uniq"))
 (definition public git_index_write (c-function (git_index*) int "git_index_write"))
 
 
@@ -546,23 +592,27 @@
 (definition public git_indexer_stream_finalize (c-function (git_indexer_stream* git_transfer_progress*) int "git_indexer_stream_finalize"))
 (definition public git_indexer_stream_free (c-function (git_indexer_stream*) void "git_indexer_stream_free"))
 (definition public git_indexer_stream_hash (c-function (git_indexer_stream*) git_oid* "git_indexer_stream_hash"))
-@wait18(definition public git_indexer_stream_new (c-function (git_indexer_stream** char-string) int "git_indexer_stream_new"))
+(definition public git_indexer_stream_new (c-function (git_indexer_stream** char-string void* void*) int "git_indexer_stream_new"))
 
 
 ;;;
-;;;; Version
+;;;; Libgit2
 ;;;
 
 
+(definition public git_libgit2_capabilities (c-function () int "git_libgit2_capabilities"))
 (definition public git_libgit2_version (c-function (int* int* int*) void "git_libgit2_version"))
 
 
 (definition public git-version
   (c-function () scheme-object
-    "int major, minor, rev;
-     git_libgit2_version(&major, &minor, &rev);
-     ___SCMOBJ version = ___EXT(___make_pair) (___FIX(major), ___FIX(minor), ___STILL);
-     ___result = version;"))
+    #<<end-of-c-code
+    int major, minor, rev;
+    git_libgit2_version(&major, &minor, &rev);
+    ___SCMOBJ version = ___EXT(___make_pair) (___FIX(major), ___FIX(minor), ___STILL);
+    ___result = version;
+end-of-c-code
+))
 
 
 ;;;
@@ -586,9 +636,9 @@
 ;;;
 
 
-@wait18(definition public git_note_create (c-function (git_oid* git_repository* git_signature* git_signature* char-string git_oid* char-string) int "git_note_create"))
+(definition public git_note_create (c-function (git_oid* git_repository* git_signature* git_signature* char-string git_oid* char-string int) int "git_note_create"))
 (definition public git_note_default_ref (c-function (char** git_repository*) int "git_note_default_ref"))
-@callback(definition public git_note_foreach (c-function (git_repository* char-string void* void*) int "git_note_foreach"))
+(definition public git_note_foreach (c-function (git_repository* char-string void* void*) int "git_note_foreach"))
 (definition public git_note_free (c-function (git_note*) void "git_note_free"))
 (definition public git_note_message (c-function (git_note*) char-string "git_note_message"))
 (definition public git_note_oid (c-function (git_note*) git_oid* "git_note_oid"))
@@ -621,7 +671,7 @@
 (definition public git_odb_add_alternate (c-function (git_odb* git_odb_backend* int) int "git_odb_add_alternate"))
 (definition public git_odb_add_backend (c-function (git_odb* git_odb_backend* int) int "git_odb_add_backend"))
 (definition public git_odb_exists (c-function (git_odb* git_oid*) int "git_odb_exists"))
-@callback(definition public git_odb_foreach (c-function (git_odb* void* void*) int "git_odb_foreach"))
+(definition public git_odb_foreach (c-function (git_odb* void* void*) int "git_odb_foreach"))
 (definition public git_odb_free (c-function (git_odb*) void "git_odb_free"))
 (definition public git_odb_hash (c-function (git_oid* void* size_t git_otype) int "git_odb_hash"))
 (definition public git_odb_hashfile (c-function (git_oid* char-string git_otype) int "git_odb_hashfile"))
@@ -663,6 +713,22 @@
 
 
 ;;;
+;;;; Pack Builder
+;;;
+
+
+(definition public git_packbuilder_new (c-function (git_packbuilder** git_repository*) int "git_packbuilder_new"))
+
+
+;;;
+;;;; Push
+;;;
+
+
+(definition public git_push_new (c-function (git_push** git_remote*) int "git_push_new"))
+
+
+;;;
 ;;;; References
 ;;;
 
@@ -670,20 +736,15 @@
 (definition public git_reference_cmp (c-function (git_reference* git_reference*) int "git_reference_cmp"))
 (definition public git_reference_create (c-function (git_reference** git_repository* char-string git_oid* int) int "git_reference_create"))
 (definition public git_reference_delete (c-function (git_reference*) int "git_reference_delete"))
-@callback(definition public git_reference_foreach (c-function (git_repository* uint void* void*) int "git_reference_foreach"))
-@callback(definition public git_reference_foreach_glob (c-function (git_repository* char-string uint void* void*) int "git_reference_foreach_glob"))
+(definition public git_reference_foreach (c-function (git_repository* void* void*) int "git_reference_foreach"))
+(definition public git_reference_foreach_glob (c-function (git_repository* char-string void* void*) int "git_reference_foreach_glob"))
 (definition public git_reference_free (c-function (git_reference*) void "git_reference_free"))
-@removed18!?(definition public git_reference_is_packed (c-function (git_reference*) int "git_reference_is_packed"))
 (definition public git_reference_lookup (c-function (git_reference** git_repository* char-string) int "git_reference_lookup"))
 (definition public git_reference_name (c-function (git_reference*) char-string "git_reference_name"))
 (definition public git_reference_name_to_id (c-function (git_oid* git_repository* char-string) int "git_reference_name_to_id"))
-@removed18!?(definition public git_reference_oid (c-function (git_reference*) git_oid* "git_reference_oid"))
 (definition public git_reference_owner (c-function (git_reference*) git_repository* "git_reference_owner"))
-@removed18!?(definition public git_reference_packall (c-function (git_repository*) int "git_reference_packall"))
-@removed18!?(definition public git_reference_reload (c-function (git_reference*) int "git_reference_reload"))
 (definition public git_reference_rename (c-function (git_reference** git_reference* char-string int) int "git_reference_rename"))
 (definition public git_reference_resolve (c-function (git_reference** git_reference*) int "git_reference_resolve"))
-@removed18!?(definition public git_reference_set_oid (c-function (git_reference* git_oid*) int "git_reference_set_oid"))
 (definition public git_reference_set_target (c-function (git_reference** git_reference* char-string) int "git_reference_set_target"))
 (definition public git_reference_target (c-function (git_reference*) char-string "git_reference_target"))
 (definition public git_reference_type (c-function (git_reference*) git_ref_t "git_reference_type"))
@@ -713,7 +774,6 @@
 
 
 (definition public git_refspec_dst (c-function (git_refspec*) char-string "git_refspec_dst"))
-@removed18!?(definition public git_refspec_parse (c-function (git_refspec* char-string) int "git_refspec_parse"))
 (definition public git_refspec_src (c-function (git_refspec*) char-string "git_refspec_src"))
 (definition public git_refspec_src_matches (c-function (git_refspec* char-string) int "git_refspec_src_matches"))
 (definition public git_refspec_transform (c-function (char* size_t git_refspec* char-string) int "git_refspec_transform"))
@@ -724,23 +784,19 @@
 ;;;
 
 
-@removed18!?(definition public git_remote_add (c-function (git_remote** git_repository* char-string char-string) int "git_remote_add"))
+(definition public git_remote_add_fetch (c-function (git_remote* char-string) int "git_remote_add_fetch"))
+(definition public git_remote_add_push (c-function (git_remote* char-string) int "git_remote_add_push"))
 (definition public git_remote_connect (c-function (git_remote* int) int "git_remote_connect"))
 (definition public git_remote_connected (c-function (git_remote*) int "git_remote_connected"))
 (definition public git_remote_disconnect (c-function (git_remote*) void "git_remote_disconnect"))
-@wait18(definition public git_remote_download (c-function (git_remote* git_off_t* git_indexer_stats*) int "git_remote_download"))
-@wait18(definition public git_remote_fetchspec (c-function (git_remote*) git_refspec* "git_remote_fetchspec"))
+(definition public git_remote_download (c-function (git_remote* void* void*) int "git_remote_download"))
 (definition public git_remote_free (c-function (git_remote*) void "git_remote_free"))
 (definition public git_remote_list (c-function (git_strarray* git_repository*) int "git_remote_list"))
 (definition public git_remote_load (c-function (git_remote** git_repository* char-string) int "git_remote_load"))
 (definition public git_remote_ls (c-function (git_remote* git_headlist_cb void*) int "git_remote_ls"))
 (definition public git_remote_name (c-function (git_remote*) char-string "git_remote_name"))
-@removed18!?(definition public git_remote_new (c-function (git_remote** git_repository* char-string char-string char-string) int "git_remote_new"))
-@wait18(definition public git_remote_pushspec (c-function (git_remote*) git_refspec* "git_remote_pushspec"))
 (definition public git_remote_save (c-function (git_remote*) int "git_remote_save"))
-@callback(definition public git_remote_set_callbacks (c-function (git_remote* git_remote_callbacks*) void "git_remote_set_callbacks"))
-@wait18(definition public git_remote_set_fetchspec (c-function (git_remote* char-string) int "git_remote_set_fetchspec"))
-@wait18(definition public git_remote_set_pushspec (c-function (git_remote* char-string) int "git_remote_set_pushspec"))
+(definition public git_remote_set_callbacks (c-function (git_remote* git_remote_callbacks*) void "git_remote_set_callbacks"))
 (definition public git_remote_supported_url (c-function (char-string) int "git_remote_supported_url"))
 (definition public git_remote_update_tips (c-function (git_remote*) int "git_remote_update_tips"))
 (definition public git_remote_url (c-function (git_remote*) char-string "git_remote_url"))
@@ -902,7 +958,23 @@ end-of-c-code
 
 
 ;;;
-;;;; Revision traversal
+;;;; Reset
+;;;
+
+
+(definition public git_reset (c-function (git_repository* git_object* git_reset_t) void "git_reset"))
+
+
+;;;
+;;;; Revision Parse
+;;;
+
+
+(definition public git_revparse (c-function (git_revspec* git_repository* char-string) int "git_revparse"))
+
+
+;;;
+;;;; Revision Walk
 ;;;
 
 
@@ -937,9 +1009,17 @@ end-of-c-code
 
 
 (definition public git_status_file (c-function (uint* git_repository* char-string) int "git_status_file"))
-@callback(definition public git_status_foreach (c-function (git_repository* void* void*) int "git_status_foreach"))
-@callback(definition public git_status_foreach_ext (c-function (git_repository* git_status_options* void* voiod*) int "git_status_foreach_ext"))
+(definition public git_status_foreach (c-function (git_repository* void* void*) int "git_status_foreach"))
+(definition public git_status_foreach_ext (c-function (git_repository* git_status_options* void* void*) int "git_status_foreach_ext"))
 (definition public git_status_should_ignore (c-function (int* git_repository* char-string) int "git_status_should_ignore"))
+
+
+;;;
+;;;; StrArray
+;;;
+
+
+(definition public git_strarray_free (c-function (git_strarray*) void "git_strarray_free"))
 
 
 ;;;
@@ -947,7 +1027,7 @@ end-of-c-code
 ;;;
 
 
-@callback(definition public git_submodule_foreach (c-function (git_repository* void* void*) int "git_submodule_foreach"))
+(definition public git_submodule_foreach (c-function (git_repository* void* void*) int "git_submodule_foreach"))
 (definition public git_submodule_lookup (c-function (git_submodule** git_repository* char-string) int "git_submodule_lookup"))
 
 
@@ -989,12 +1069,18 @@ end-of-c-code
 
 
 ;;;
-;;;; Trees
+;;;; Trace
 ;;;
 
 
-@removed18!?(definition public git_tree_create_fromindex (c-function (git_oid* git_index*) int "git_tree_create_fromindex"))
-@removed18!?(definition public git_tree_entry_attributes (c-function (git_tree_entry*) uint "git_tree_entry_attributes"))
+(definition public git_trace_set (c-function (int void*) int "git_trace_set"))
+
+
+;;;
+;;;; Tree
+;;;
+
+
 (definition public git_tree_entry_byindex (c-function (git_tree* size_t) git_tree_entry* "git_tree_entry_byindex"))
 (definition public git_tree_entry_byname (c-function (git_tree* char-string) git_tree_entry* "git_tree_entry_byname"))
 (definition public git_tree_entry_id (c-function (git_tree_entry*) git_oid* "git_tree_entry_id"))
@@ -1006,7 +1092,7 @@ end-of-c-code
 (definition public git_tree_id (c-function (git_tree*) git_oid* "git_tree_id"))
 (definition public git_tree_lookup (c-function (git_tree** git_repository* git_oid*) int "git_tree_lookup"))
 (definition public git_tree_lookup_prefix (c-function (git_tree** git_repository* git_oid* size_t) int "git_tree_lookup_prefix"))
-@wait18(definition public git_tree_walk (c-function (git_tree* git_treewalk_cb int void*) int "git_tree_walk"))
+(definition public git_tree_walk (c-function (git_tree* void* void* void*) int "git_tree_walk"))
 
 
 ;;;
@@ -1016,20 +1102,12 @@ end-of-c-code
 
 (definition public git_treebuilder_clear (c-function (git_treebuilder*) void "git_treebuilder_clear"))
 (definition public git_treebuilder_create (c-function (git_treebuilder** git_tree*) int "git_treebuilder_create"))
-@callback(definition public git_treebuilder_filter (c-function (git_treebuilder* void* void*) int "git_treebuilder_filter"))
+(definition public git_treebuilder_filter (c-function (git_treebuilder* void* void*) int "git_treebuilder_filter"))
 (definition public git_treebuilder_free (c-function (git_treebuilder*) void "git_treebuilder_free"))
 (definition public git_treebuilder_get (c-function (git_treebuilder* char-string) git_tree_entry* "git_treebuilder_get"))
 (definition public git_treebuilder_insert (c-function (git_tree_entry** git_treebuilder* char-string git_oid* uint) int "git_treebuilder_insert"))
 (definition public git_treebuilder_remove (c-function (git_treebuilder* char-string) int "git_treebuilder_remove"))
 (definition public git_treebuilder_write (c-function (git_oid* git_repository* git_treebuilder*) int "git_treebuilder_write"))
-
-
-;;;
-;;;; Array
-;;;
-
-
-(definition public git_strarray_free (c-function (git_strarray*) void "git_strarray_free"))
 
 )
   (else))

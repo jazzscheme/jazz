@@ -25,6 +25,8 @@
 
   (method override (test)
     (initialize-aliases)
+    (test-all)
+    @wait (
     (invoke "Version" test-version)
     (invoke "OID" test-oid)
     (invoke "Signature" test-signature)
@@ -38,7 +40,44 @@
     (invoke "Tag" test-tag)
     (invoke "Blob" test-blob)
     (invoke "Tree" test-tree)
-    (invoke "ODB" test-odb))
+    (invoke "ODB" test-odb)))
+  
+  
+  ;;;
+  ;;;; All
+  ;;;
+  
+  
+  (method (test-all)
+    (let ((dir {Directory Home "foo"}))
+      (with-repository (parse~ dir)
+        (lambda (repo)
+          ;; Repository
+          (debug bare?: (git-repository-bare? repo))
+          (debug empty?: (git-repository-empty? repo))
+          (debug path: (git-repository-path repo))
+          ;; branches
+          (let ((iterate-branches
+                  (lambda (kind)
+                    (git-branch-for-each repo kind
+                      (lambda (branch-name branch-type)
+                        (let ((ref (git-branch-lookup repo branch-name branch-type)))
+                          (let ((head? (git-branch-head? ref)))
+                            (debug branch-name: branch-name branch-type: branch-type head?: head?))))))))
+            (iterate-branches GIT_BRANCH_LOCAL)
+            (iterate-branches GIT_BRANCH_REMOTE))
+          ;; Index
+          (let ((index (git-repository-index repo)))
+            (debug index-count: (git-index-entrycount index))
+            (debug index-list: (git-index-list index))
+            (for-each (lambda (entry)
+                        @crashes
+                        (debug (git-index-entry-ctime entry))
+                        @crashes
+                        (debug (git-index-entry-mtime entry))
+                        (debug entry: (git-index-entry-path entry)))
+                      (git-index-list index))
+            (git-index-free index))))))
   
   
   ;;;

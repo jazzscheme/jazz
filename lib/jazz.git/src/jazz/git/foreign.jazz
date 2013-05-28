@@ -13,6 +13,7 @@
 (cond-expand
   (windows
 (import (jazz.foreign)
+        (jazz.git.syntax (phase syntax))
         (jazz.platform.types)
         (jazz.platform.types-syntax (phase syntax)))
 
@@ -127,6 +128,7 @@
 (c-type int64_t* (pointer int64_t))
 (c-type time_t (native "time_t"))
 (c-type git_time (native "git_time"))
+(c-type git_branch_t int)
 (c-type git_reset_t int)
 (c-type git_treewalk_mode int)
 (c-type git_otype int)
@@ -250,9 +252,6 @@
 (c-type git_error (native "git_error"))
 (c-type git_error* (pointer git_error))
 (c-type git_error** (pointer git_error*))
-(c-type git_branch_t (native "git_branch_t"))
-(c-type git_branch_t* (pointer git_branch_t))
-(c-type git_branch_t** (pointer git_branch_t*))
 (c-type git_index_entry_unmerged (native "git_index_entry_unmerged"))
 (c-type git_index_entry_unmerged* (pointer git_index_entry_unmerged))
 (c-type git_index_entry_unmerged** (pointer git_index_entry_unmerged*))
@@ -405,6 +404,43 @@
 (definition public git_branch_move (c-function (git_reference** git_reference* char-string int) int "git_branch_move"))
 (definition public git_branch_name (c-function (char** git_reference*) int "git_branch_name"))
 (definition public git_branch_upstream (c-function (git_reference** git_reference*) int "git_branch_upstream"))
+
+
+(definition public (git-branch-head? ref)
+  (= 1 (git_branch_is_head ref)))
+
+
+(definition public git-branch-lookup
+  (c-function (git_repository* char-string git_branch_t) git_reference*
+    #<<end-of-c-code
+    git_reference* ref;
+    int result = git_branch_lookup(&ref, ___arg1, ___arg2, ___arg3);
+    if (result != 0) git_call_error_handler(result);
+    ___result_voidstar = ref;
+end-of-c-code
+))
+
+
+(c-definition (branch-foreach-procedure proc branch_name branch_type) (scheme-object char-string git_branch_t) void "branch_foreach_procedure" ""
+  (proc branch_name branch_type))
+
+
+(c-declare #<<end-of-c-declare
+static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, void *payload)
+{
+    branch_foreach_procedure(payload, branch_name, branch_type);
+    return 0;
+}
+end-of-c-declare
+)
+
+
+(definition public git-branch-for-each
+  (c-function (git_repository* uint scheme-object) void
+    #<<end-of-c-code
+    git_branch_foreach(___arg1, ___arg2, &branch_foreach_cb, ___arg3);
+end-of-c-code
+))
 
 
 ;;;

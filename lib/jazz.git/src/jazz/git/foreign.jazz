@@ -103,6 +103,25 @@
 (c-enumerant GIT_BRANCH_REMOTE)
 
 
+;; git_delta_t
+(c-enumerant GIT_DELTA_UNMODIFIED)
+(c-enumerant GIT_DELTA_ADDED)
+(c-enumerant GIT_DELTA_DELETED)
+(c-enumerant GIT_DELTA_MODIFIED)
+(c-enumerant GIT_DELTA_RENAMED)
+(c-enumerant GIT_DELTA_COPIED)
+(c-enumerant GIT_DELTA_IGNORED)
+(c-enumerant GIT_DELTA_UNTRACKED)
+(c-enumerant GIT_DELTA_TYPECHANGE)
+
+
+;; git_indexcap_t
+(c-enumerant GIT_INDEXCAP_IGNORE_CASE)
+(c-enumerant GIT_INDEXCAP_NO_FILEMODE)
+(c-enumerant GIT_INDEXCAP_NO_SYMLINKS)
+(c-enumerant GIT_INDEXCAP_FROM_OWNER)
+
+
 ;; git_reset_t
 (c-enumerant GIT_RESET_SOFT)
 (c-enumerant GIT_RESET_MIXED)
@@ -141,6 +160,7 @@
 (c-type time_t (native "time_t"))
 (c-type git_time (native "git_time"))
 (c-type git_branch_t int)
+(c-type git_delta_t int)
 (c-type git_reset_t int)
 (c-type git_treewalk_mode int)
 (c-type git_otype int)
@@ -205,6 +225,7 @@
 (c-type git_person** (pointer git_person*))
 (c-type git_index_entry (native "git_index_entry"))
 (c-type git_index_entry* (pointer git_index_entry))
+(c-type git_index_entry** (pointer git_index_entry*))
 (c-type git_transfer_progress (native "git_transfer_progress"))
 (c-type git_transfer_progress* (pointer git_transfer_progress))
 (c-type git_ref_t (native "git_ref_t"))
@@ -246,9 +267,15 @@
 (c-type git_cvar_map (native "git_cvar_map"))
 (c-type git_cvar_map* (pointer git_cvar_map))
 (c-type git_cvar_map** (pointer git_cvar_map*))
+(c-type git_diff_delta (native "git_diff_delta"))
+(c-type git_diff_delta* (pointer git_diff_delta))
+(c-type git_diff_delta** (pointer git_diff_delta*))
 (c-type git_diff_options (native "git_diff_options"))
 (c-type git_diff_options* (pointer git_diff_options))
 (c-type git_diff_options** (pointer git_diff_options*))
+(c-type git_diff_find_options (native "git_diff_find_options"))
+(c-type git_diff_find_options* (pointer git_diff_find_options))
+(c-type git_diff_find_options** (pointer git_diff_find_options*))
 (c-type git_diff_file_cb (native "git_diff_file_cb"))
 (c-type git_diff_file_cb* (pointer git_diff_file_cb))
 (c-type git_diff_file_cb** (pointer git_diff_file_cb*))
@@ -261,6 +288,12 @@
 (c-type git_diff_list (native "git_diff_list"))
 (c-type git_diff_list* (pointer git_diff_list))
 (c-type git_diff_list** (pointer git_diff_list*))
+(c-type git_diff_patch (native "git_diff_patch"))
+(c-type git_diff_patch* (pointer git_diff_patch))
+(c-type git_diff_patch** (pointer git_diff_patch*))
+(c-type git_diff_range (native "git_diff_range"))
+(c-type git_diff_range* (pointer git_diff_range))
+(c-type git_diff_range** (pointer git_diff_range*))
 (c-type git_error (native "git_error"))
 (c-type git_error* (pointer git_error))
 (c-type git_error** (pointer git_error*))
@@ -276,6 +309,9 @@
 (c-type git_indexer_stream (native "git_indexer_stream"))
 (c-type git_indexer_stream* (pointer git_indexer_stream))
 (c-type git_indexer_stream** (pointer git_indexer_stream*))
+(c-type git_merge_tree_opts (native "git_merge_tree_opts"))
+(c-type git_merge_tree_opts* (pointer git_merge_tree_opts))
+(c-type git_merge_tree_opts** (pointer git_merge_tree_opts*))
 (c-type git_note (native "git_note"))
 (c-type git_note* (pointer git_note))
 (c-type git_note** (pointer git_note*))
@@ -396,6 +432,7 @@
 
 
 (git-external (git-blob-create-frombuffer git_oid* git_repository* void* size_t) int "git_blob_create_frombuffer")
+(git-external (git-blob-create-fromchunks git_oid* git_repository* char-string void* void*) int "git_blob_create_fromchunks")
 (git-external (git-blob-create-fromdisk git_oid* git_repository* char-string) int "git_blob_create_fromdisk")
 (git-external (git-blob-create-fromworkdir git_oid* git_repository* char-string) int "git_blob_create_fromworkdir")
 (git-external (git-blob-free git_blob*) void "git_blob_free")
@@ -433,34 +470,44 @@ end-of-c-code
 (git-external (git-branch-lookup (out git_reference*) git_repository* char-string git_branch_t) int "git_branch_lookup")
 (git-external (git-branch-move git_reference** git_reference* char-string int) int "git_branch_move")
 (git-external (git-branch-name char** git_reference*) int "git_branch_name")
+(git-external (git-branch-remote-name char-string size_t git_repository* char-string) int "git_branch_remote_name")
 (git-external (git-branch-upstream git_reference** git_reference*) int "git_branch_upstream")
+(git-external (git-branch-upstream-name char-string size_t git_repository* char-string) int "git_branch_upstream_name")
 
 
 (definition public (git-branch-head? ref)
   (= 1 (git-branch-is-head ref)))
 
 
-(c-definition (branch-foreach-procedure proc branch_name branch_type) (scheme-object char-string git_branch_t) void "branch_foreach_procedure" ""
-  (proc branch_name branch_type))
+(c-definition (branch-foreach-procedure proc branch_name branch_type) (scheme-object char-string git_branch_t) int "branch_foreach_procedure" ""
+  (if (proc branch_name branch_type)
+      1
+    0))
 
 (c-declare #<<end-of-c-declare
 static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, void *payload)
 {
-    branch_foreach_procedure(___EXT(___data_rc)(payload), branch_name, branch_type);
-    return 0;
+    return branch_foreach_procedure(___EXT(___data_rc)(payload), branch_name, branch_type);
 }
 end-of-c-declare
 )
 
-(definition public git-branch-for-each
-  (c-function (git_repository* uint scheme-object) void
+(definition public git-branch-for-each-stoppable
+  (c-function (git_repository* uint scheme-object) int
     #<<end-of-c-code
     void* p = ___EXT(___alloc_rc)(0);
     ___EXT(___set_data_rc)(p, ___arg3);
-    git_branch_foreach(___arg1, ___arg2, &branch_foreach_cb, p);
+    int result = git_branch_foreach(___arg1, ___arg2, &branch_foreach_cb, p);
     ___EXT(___release_rc)(p);
+    ___result = result;
 end-of-c-code
 ))
+
+(definition public (git-branch-for-each repo flags proc)
+  (git-branch-for-each-stoppable repo flags
+    (lambda (branch_name branch_type)
+      (proc branch_name branch_type)
+      #f)))
 
 
 ;;;
@@ -496,6 +543,7 @@ end-of-c-code
 (git-external (git-commit-lookup-prefix (out git_commit*) git_repository* git_oid* size_t) int "git_commit_lookup_prefix")
 (git-external (git-commit-message git_commit*) char-string "git_commit_message")
 (git-external (git-commit-message-encoding git_commit*) char-string "git_commit_message_encoding")
+(git-external (git-commit-owner git_commit*) git_repository* "git_commit_owner")
 (git-external (git-commit-parent (out git_commit*) git_commit* uint) int "git_commit_parent")
 (git-external (git-commit-parent-id git_commit* uint) git_oid* "git_commit_parent_id")
 (git-external (git-commit-parentcount git_commit*) uint "git_commit_parentcount")
@@ -548,13 +596,26 @@ end-of-c-code
 
 
 (git-external (git-diff-blobs git_blob* git_blob* git_diff_options* void* git_diff_file_cb git_diff_hunk_cb git_diff_data_cb) int "git_diff_blobs")
+(git-external (git-diff-find-similar git_diff_list* git_diff_find_options*) int "git_diff_find_similar")
 (git-external (git-diff-foreach git_diff_list* void* git_diff_file_cb git_diff_hunk_cb git_diff_data_cb) int "git_diff_foreach")
-(git-external (git-diff-index-to-workdir git_diff_list** git_repository* git_index* git_diff_options*) int "git_diff_index_to_workdir")
+(git-external (git-diff-get-patch git_diff_patch** git_diff_delta** git_diff_list* size_t) int "git_diff_get_patch")
+(git-external (git-diff-index-to-workdir (out git_diff_list*) git_repository* git_index* git_diff_options*) int "git_diff_index_to_workdir")
 (git-external (git-diff-list-free git_diff_list*) void "git_diff_list_free")
 (git-external (git-diff-merge git_diff_list* git_diff_list*) int "git_diff_merge")
+(git-external (git-diff-num-deltas git_diff_list*) size_t "git_diff_num_deltas")
+(git-external (git-diff-num-deltas-of-type git_diff_list* git_delta_t) size_t "git_diff_num_deltas_of_type")
+(git-external (git-diff-patch-delta git_diff_patch*) git_diff_delta* "git_diff_patch_delta")
+(git-external (git-diff-patch-free git_diff_patch*) void "git_diff_patch_free")
+(git-external (git-diff-patch-get-hunk git_diff_range** char** size_t* size_t* git_diff_patch* size_t) int "git_diff_patch_get_hunk")
+(git-external (git-diff-patch-get-line-in-hunk char* char** size_t* int* int* git_diff_patch* size_t size_t) int "git_diff_patch_get_line_in_hunk")
+(git-external (git-diff-patch-line_stats size_t* size_t* size_t* git_diff_patch*) int "git_diff_patch_line_stats")
+(git-external (git-diff-patch-num-hunks git_diff_patch*) size_t "git_diff_patch_num_hunks")
+(git-external (git-diff-patch-num-lines-in-hunk git_diff_patch* size_t) int "git_diff_patch_num_lines_in_hunk")
 (git-external (git-diff-print-compact git_diff_list* void* git_diff_data_cb) int "git_diff_print_compact")
 (git-external (git-diff-print-patch git_diff_list* void* git_diff_data_cb) int "git_diff_print_patch")
+(git-external (git-diff-tree-to-index git_diff_list** git_repository* git_tree* git_index* git_diff_options*) int "git_diff_tree_to_index")
 (git-external (git-diff-tree-to-tree git_repository* git_diff_options* git_tree* git_tree* git_diff_list**) int "git_diff_tree_to_tree")
+(git-external (git-diff-tree-to-workdir git_diff_list** git_repository* git_tree* git_diff_options*) int "git_diff_tree_to_workdir")
 
 
 ;;;
@@ -579,6 +640,23 @@ end-of-c-code
 (git-external (git-graph-ahead-behind size_t size_t git_repository* git_oid* git_oid*) int "git_graph_ahead_behind")
 
 
+(definition public git-graph-ahead-behind
+  (c-function (git_repository* git_oid* git_oid*) scheme-object
+    #<<end-of-c-code
+    int ahead, behind;
+    int result = git_graph_ahead_behind(&ahead, &behind, ___arg1, ___arg2, ___arg3);
+    if (result != 0) git_call_error_handler(result);
+    ___SCMOBJ pair = ___EXT(___make_pair) (___FIX(ahead), ___FIX(behind), ___STILL);
+    ___result = pair;
+end-of-c-code
+))
+
+
+(definition public (git-graph-fast-forward? repo local upstream)
+  (bind (ahead . behind) (git-graph-ahead-behind repo local upstream)
+    (= 0 behind)))
+
+
 ;;;
 ;;;; Ignore
 ;;;
@@ -596,17 +674,37 @@ end-of-c-code
 
 (git-external (git-index-add git_index* git_index_entry*) int "git_index_add")
 (git-external (git-index-add-bypath git_index* char-string) int "git_index_add_bypath")
+(git-external (git-index-caps git_index*) uint "git_index_caps")
 (git-external (git-index-clear git_index*) void "git_index_clear")
+(git-external (git_index_conflict_add git_index* git_index_entry* git_index_entry* git_index_entry*) int "git_index_conflict_add")
+(git-external (git_index_conflict_cleanup git_index*) void "git_index_conflict_cleanup")
+(git-external (git_index_conflict_get git_index_entry** git_index_entry** git_index_entry** git_index* char-string) int "git_index_conflict_get")
+(git-external (git_index_conflict_remove git_index* char-string) int "git_index_conflict_remove")
 (git-external (git-index-entry-stage git_index_entry*) int "git_index_entry_stage")
 (git-external (git-index-entrycount git_index*) uint "git_index_entrycount")
 (git-external (git-index-find size_t* git_index* char-string) int "git_index_find")
 (git-external (git-index-free git_index*) void "git_index_free")
 (git-external (git-index-get-byindex git_index* int) git_index_entry* "git_index_get_byindex")
-(git-external (git-index-open git_index** char-string) int "git_index_open")
+(git-external (git-index-get-bypath git_index* char-string int) git_index_entry* "git_index_get_bypath")
+(git-external (git-index-has-conflicts git_index*) int "git_index_has_conflicts")
+(git-external (git_index_name_add git_index* char-string char-string char-string) int "git_index_name_add")
+(git-external (git_index_name_clear git_index*) void "git_index_name_clear")
+(git-external (git_index_name_entrycount git_index*) uint "git_index_name_entrycount")
+(git-external (git_index_name_get_byindex git_index* size_t) git_index_entry* "git_index_name_get_byindex")
+(git-external (git-index-new (out git_index*)) int "git_index_new")
+(git-external (git-index-open (out git_index*) char-string) int "git_index_open")
 (git-external (git-index-read git_index*) int "git_index_read")
 (git-external (git-index-read-tree git_index* git_tree*) int "git_index_read_tree")
 (git-external (git-index-remove git_index* char-string int) int "git_index_remove")
+(git-external (git_index_remove_bypath git_index* char-string) int "git_index_remove_bypath")
+(git-external (git_index_remove_directory git_index* char-string int) int "git_index_remove_directory")
 (git-external (git-index-write git_index*) int "git_index_write")
+(git-external (git-index-write-tree git_oid* git_index*) int "git_index_write_tree")
+(git-external (git-index-write-tree-to git_oid* git_index* git_repository*) int "git_index_write_tree_to")
+
+
+(definition public (git-index-has-conflicts? index)
+  (= 1 (git-index-has-conflicts index)))
 
 
 (definition public (git-index-list index)
@@ -643,6 +741,7 @@ end-of-c-code
 
 
 (git-external (git-libgit2-capabilities) int "git_libgit2_capabilities")
+(git-external (git_libgit2_opts int) int "git_libgit2_opts")
 (git-external (git-libgit2-version int* int* int*) void "git_libgit2_version")
 
 
@@ -663,6 +762,7 @@ end-of-c-code
 
 
 (git-external (git-merge-base git_oid* git_repository* git_oid* git_oid*) int "git_merge_base")
+(git-external (git_merge_trees (out git_index*) git_repository* git_tree* git_tree* git_tree* git_merge_tree_opts*) int "git_merge_trees")
 
 
 ;;;
@@ -694,10 +794,11 @@ end-of-c-code
 
 
 (git-external (git-object--size git_otype) size_t "git_object__size")
+(git-external (git_object_dup (out git_object*) git_object*) int "git_object_dup")
 (git-external (git-object-free git_object*) void "git_object_free")
 (git-external (git-object-id git_object*) git_oid* "git_object_id")
-(git-external (git-object-lookup git_object** git_repository* git_oid* git_otype) int "git_object_lookup")
-(git-external (git-object-lookup-prefix git_object** git_repository* git_oid* size_t git_otype) int "git_object_lookup_prefix")
+(git-external (git-object-lookup (out git_object*) git_repository* git_oid* git_otype) int "git_object_lookup")
+(git-external (git-object-lookup-prefix (out git_object*) git_repository* git_oid* size_t git_otype) int "git_object_lookup_prefix")
 (git-external (git-object-owner git_object*) git_repository* "git_object_owner")
 (git-external (git-object-string2type char-string) git_otype "git_object_string2type")
 (git-external (git-object-type git_object*) git_otype "git_object_type")
@@ -732,27 +833,35 @@ end-of-c-code
 (git-external (git-odb-write git_oid* git_odb* void* size_t git_otype) int "git_odb_write")
 
 
-(c-definition (odb-foreach-procedure proc oid) (scheme-object git_oid*) void "odb_foreach_procedure" ""
-  (proc oid))
+(c-definition (odb-foreach-procedure proc oid) (scheme-object git_oid*) int "odb_foreach_procedure" ""
+  (if (proc oid)
+      1
+    0))
 
 (c-declare #<<end-of-c-declare
 static int odb_foreach_cb(git_oid* oid, void *payload)
 {
-    odb_foreach_procedure(___EXT(___data_rc)(payload), oid);
-    return 0;
+    return odb_foreach_procedure(___EXT(___data_rc)(payload), oid);
 }
 end-of-c-declare
 )
 
-(definition public git-odb-for-each
-  (c-function (git_odb* scheme-object) void
+(definition public git-odb-for-each-stoppable
+  (c-function (git_odb* scheme-object) int
     #<<end-of-c-code
     void* p = ___EXT(___alloc_rc)(0);
     ___EXT(___set_data_rc)(p, ___arg2);
-    git_odb_foreach(___arg1, &odb_foreach_cb, p);
+    int result = git_odb_foreach(___arg1, &odb_foreach_cb, p);
     ___EXT(___release_rc)(p);
+    ___result = result;
 end-of-c-code
 ))
+
+(definition public (git-odb-for-each db proc)
+  (git-odb-for-each-stoppable db
+    (lambda (oid)
+      (proc oid)
+      #f)))
 
 
 ;;;
@@ -777,7 +886,7 @@ end-of-c-code
 (git-external (git-oid-tostr char-string size_t git_oid*) char-string "git_oid_tostr")
 
 
-(definition public string->oid
+(definition public git-string->id
   (c-function (char-string) git_oid*
     #<<end-of-c-code
     git_oid* oid = calloc(1, sizeof(git_oid));
@@ -787,7 +896,7 @@ end-of-c-code
 ))
 
 
-(definition public oid->string
+(definition public git-id->string
   (c-function (git_oid*) char-string
     #<<end-of-c-code
     char oidstr[GIT_OID_HEXSZ + 1];
@@ -797,7 +906,7 @@ end-of-c-code
 ))
 
 
-(definition public free-oid
+(definition public git-free-id
   (c-function (git_oid*) void
     #<<end-of-c-code
     free(___arg1);
@@ -818,7 +927,12 @@ end-of-c-code
 ;;;
 
 
-(git-external (git-push-new git_push** git_remote*) int "git_push_new")
+(git-external (git_push_finish git_push*) int "git_push_finish")
+(git-external (git-push-free git_push*) void "git_push_free")
+(git-external (git-push-new (out git_push*) git_remote*) int "git_push_new")
+(git-external (git_push_status_foreach git_push* void* void*) int "git_push_status_foreach")
+(git-external (git_push_unpack_ok git_push*) int "git_push_unpack_ok")
+(git-external (git_push_update_tips git_push*) int "git_push_update_tips")
 
 
 ;;;
@@ -827,43 +941,70 @@ end-of-c-code
 
 
 (git-external (git-reference-cmp git_reference* git_reference*) int "git_reference_cmp")
-(git-external (git-reference-create git_reference** git_repository* char-string git_oid* int) int "git_reference_create")
+(git-external (git-reference-create (out git_reference*) git_repository* char-string git_oid* int) int "git_reference_create")
 (git-external (git-reference-delete git_reference*) int "git_reference_delete")
 (git-external (git-reference-foreach git_repository* void* void*) int "git_reference_foreach")
 (git-external (git-reference-foreach-glob git_repository* char-string void* void*) int "git_reference_foreach_glob")
 (git-external (git-reference-free git_reference*) void "git_reference_free")
-(git-external (git-reference-lookup git_reference** git_repository* char-string) int "git_reference_lookup")
+(git-external (git_reference_has_log git_reference*) int "git_reference_has_log")
+(git-external (git_reference_is_branch git_reference*) int "git_reference_is_branch")
+(git-external (git_reference_is_remote git_reference*) int "git_reference_is_remote")
+(git-external (git_reference_is_valid_name char-string) int "git_reference_is_valid_name")
+(git-external (git-reference-lookup (out git_reference*) git_repository* char-string) int "git_reference_lookup")
 (git-external (git-reference-name git_reference*) char-string "git_reference_name")
 (git-external (git-reference-name-to-id git_oid* git_repository* char-string) int "git_reference_name_to_id")
 (git-external (git-reference-owner git_reference*) git_repository* "git_reference_owner")
-(git-external (git-reference-rename git_reference** git_reference* char-string int) int "git_reference_rename")
-(git-external (git-reference-resolve git_reference** git_reference*) int "git_reference_resolve")
-(git-external (git-reference-set-target git_reference** git_reference* char-string) int "git_reference_set_target")
+(git-external (git-reference-rename (out git_reference*) git_reference* char-string int) int "git_reference_rename")
+(git-external (git-reference-resolve (out git_reference*) git_reference*) int "git_reference_resolve")
+(git-external (git-reference-set-target (out git_reference*) git_reference* git_oid*) int "git_reference_set_target")
 (git-external (git-reference-target git_reference*) git_oid* "git_reference_target")
 (git-external (git-reference-type git_reference*) git_ref_t "git_reference_type")
 
 
-(c-definition (reference-foreach-procedure proc reference_name) (scheme-object char-string) void "reference_foreach_procedure" ""
-  (proc reference_name))
+(definition public git-reference-name->id
+  (c-function (git_repository* char-string) git_oid*
+    #<<end-of-c-code
+    git_oid* oid = calloc(1, sizeof(git_oid));
+    int result = git_reference_name_to_id(oid, ___arg1, ___arg2);
+    if (result != 0) git_call_error_handler(result);
+    ___result_voidstar = oid;
+end-of-c-code
+))
+
+
+(definition public (git-reference->id repo ref)
+  (git-reference-name->id repo (git-reference-name ref)))
+
+
+(c-definition (reference-foreach-procedure proc reference_name) (scheme-object char-string) int "reference_foreach_procedure" ""
+  (if (proc reference_name)
+      1
+    0))
 
 (c-declare #<<end-of-c-declare
 static int reference_foreach_cb(const char *reference_name, void *payload)
 {
-    reference_foreach_procedure(___EXT(___data_rc)(payload), reference_name);
-    return 0;
+    return reference_foreach_procedure(___EXT(___data_rc)(payload), reference_name);
 }
 end-of-c-declare
 )
 
-(definition public git-reference-for-each
-  (c-function (git_repository* scheme-object) void
+(definition public git-reference-for-each-stoppable
+  (c-function (git_repository* scheme-object) int
     #<<end-of-c-code
     void* p = ___EXT(___alloc_rc)(0);
     ___EXT(___set_data_rc)(p, ___arg2);
-    git_reference_foreach(___arg1, &reference_foreach_cb, p);
+    int result = git_reference_foreach(___arg1, &reference_foreach_cb, p);
     ___EXT(___release_rc)(p);
+    ___result = result;
 end-of-c-code
 ))
+
+(definition public (git-reference-for-each repo proc)
+  (git-reference-for-each-stoppable repo
+    (lambda (reference_name)
+      (proc reference_name)
+      #f)))
 
 
 ;;;
@@ -1041,6 +1182,38 @@ end-of-c-code
 (git-external (git-status-foreach git_repository* void* void*) int "git_status_foreach")
 (git-external (git-status-foreach-ext git_repository* git_status_options* void* void*) int "git_status_foreach_ext")
 (git-external (git-status-should-ignore int* git_repository* char-string) int "git_status_should_ignore")
+
+
+(c-definition (status-foreach-procedure proc path status_flags) (scheme-object char-string uint) int "status_foreach_procedure" ""
+  (if (proc path status_flags)
+      1
+    0))
+      
+
+(c-declare #<<end-of-c-declare
+static int status_foreach_cb(const char *path, unsigned int status_flags, void *payload)
+{
+    return status_foreach_procedure(___EXT(___data_rc)(payload), path, status_flags);
+}
+end-of-c-declare
+)
+
+(definition public git-status-for-each-stoppable
+  (c-function (git_repository* scheme-object) int
+    #<<end-of-c-code
+    void* p = ___EXT(___alloc_rc)(0);
+    ___EXT(___set_data_rc)(p, ___arg2);
+    int result = git_status_foreach(___arg1, &status_foreach_cb, p);
+    ___EXT(___release_rc)(p);
+    ___result = result;
+end-of-c-code
+))
+
+(definition public (git-status-for-each repo proc)
+  (git-status-for-each-stoppable repo
+    (lambda (path status_flags)
+      (proc path status_flags)
+      #f)))
 
 
 ;;;

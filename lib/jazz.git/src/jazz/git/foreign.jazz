@@ -115,6 +115,11 @@
 (c-enumerant GIT_DELTA_TYPECHANGE)
 
 
+;; git_direction
+(c-enumerant GIT_DIRECTION_FETCH)
+(c-enumerant GIT_DIRECTION_PUSH)
+
+
 ;; git_indexcap_t
 (c-enumerant GIT_INDEXCAP_IGNORE_CASE)
 (c-enumerant GIT_INDEXCAP_NO_FILEMODE)
@@ -438,8 +443,8 @@
 (git-external (git-blob-free git_blob*) void "git_blob_free")
 (git-external (git-blob-id git_blob*) git_oid* "git_blob_id")
 (git-external (git-blob-is-binary git_blob*) int "git_blob_is_binary")
-(git-external (git-blob-lookup (out git_blob*) git_repository* git_oid*) :error "git_blob_lookup")
-(git-external (git-blob-lookup-prefix (out git_blob*) git_repository* git_oid* size_t) :error "git_blob_lookup_prefix")
+(git-external (git-blob-lookup (out git_blob*) git_repository* git_oid*) :lookup "git_blob_lookup")
+(git-external (git-blob-lookup-prefix (out git_blob*) git_repository* git_oid* size_t) :lookup "git_blob_lookup_prefix")
 (git-external (git-blob-owner git_blob*) git_repository* "git_blob_owner")
 (git-external (git-blob-rawcontent git_blob*) void* "git_blob_rawcontent")
 (git-external (git-blob-rawsize git_blob*) size_t "git_blob_rawsize")
@@ -467,7 +472,7 @@ end-of-c-code
 (git-external (git-branch-delete git_reference*) :error "git_branch_delete")
 (git-external (git-branch-foreach git_repository* uint void* void*) :error "git_branch_foreach")
 (git-external (git-branch-is-head git_reference*) int "git_branch_is_head")
-(git-external (git-branch-lookup (out git_reference*) git_repository* char-string git_branch_t) :error "git_branch_lookup")
+(git-external (git-branch-lookup (out git_reference*) git_repository* char-string git_branch_t) :lookup "git_branch_lookup")
 (git-external (git-branch-move (out git_reference*) git_reference* char-string int) :error "git_branch_move")
 (git-external (git-branch-name char** git_reference*) :error "git_branch_name")
 (git-external (git-branch-remote-name char-string size_t git_repository* char-string) :error "git_branch_remote_name")
@@ -539,8 +544,8 @@ end-of-c-code
 (git-external (git-commit-create-v git_oid* git_repository* char-string git_signature* git_signature* char-string char-string git_tree* int) :error "git_commit_create_v")
 (git-external (git-commit-free git_commit*) void "git_commit_free")
 (git-external (git-commit-id git_commit*) git_oid* "git_commit_id")
-(git-external (git-commit-lookup (out git_commit*) git_repository* git_oid*) :error "git_commit_lookup")
-(git-external (git-commit-lookup-prefix (out git_commit*) git_repository* git_oid* size_t) :error "git_commit_lookup_prefix")
+(git-external (git-commit-lookup (out git_commit*) git_repository* git_oid*) :lookup "git_commit_lookup")
+(git-external (git-commit-lookup-prefix (out git_commit*) git_repository* git_oid* size_t) :lookup "git_commit_lookup_prefix")
 (git-external (git-commit-message git_commit*) char-string "git_commit_message")
 (git-external (git-commit-message-encoding git_commit*) char-string "git_commit_message_encoding")
 (git-external (git-commit-owner git_commit*) git_repository* "git_commit_owner")
@@ -797,8 +802,8 @@ end-of-c-code
 (git-external (git_object_dup (out git_object*) git_object*) :error "git_object_dup")
 (git-external (git-object-free git_object*) void "git_object_free")
 (git-external (git-object-id git_object*) git_oid* "git_object_id")
-(git-external (git-object-lookup (out git_object*) git_repository* git_oid* git_otype) :error "git_object_lookup")
-(git-external (git-object-lookup-prefix (out git_object*) git_repository* git_oid* size_t git_otype) :error "git_object_lookup_prefix")
+(git-external (git-object-lookup (out git_object*) git_repository* git_oid* git_otype) :lookup "git_object_lookup")
+(git-external (git-object-lookup-prefix (out git_object*) git_repository* git_oid* size_t git_otype) :lookup "git_object_lookup_prefix")
 (git-external (git-object-owner git_object*) git_repository* "git_object_owner")
 (git-external (git-object-string2type char-string) git_otype "git_object_string2type")
 (git-external (git-object-type git_object*) git_otype "git_object_type")
@@ -950,7 +955,7 @@ end-of-c-code
 (git-external (git_reference_is_branch git_reference*) int "git_reference_is_branch")
 (git-external (git_reference_is_remote git_reference*) int "git_reference_is_remote")
 (git-external (git_reference_is_valid_name char-string) int "git_reference_is_valid_name")
-(git-external (git-reference-lookup (out git_reference*) git_repository* char-string) :error "git_reference_lookup")
+(git-external (git-reference-lookup (out git_reference*) git_repository* char-string) :lookup "git_reference_lookup")
 (git-external (git-reference-name git_reference*) char-string "git_reference_name")
 (git-external (git-reference-name-to-id git_oid* git_repository* char-string) :error "git_reference_name_to_id")
 (git-external (git-reference-owner git_reference*) git_repository* "git_reference_owner")
@@ -1061,11 +1066,27 @@ end-of-c-code
 (git-external (git-remote-valid-url char-string) int "git_remote_valid_url")
 
 
-(definition public (git-remote-download remote)
-  (c-function (git_remote*) void
+(c-definition (remote-download-procedure proc total_objects indexed_objects received_objects received_bytes) (scheme-object unsigned-int unsigned-int unsigned-int unsigned-int) void "remote_download_procedure" ""
+  (when proc
+    (proc total_objects indexed_objects received_objects received_bytes)))
+
+(c-declare #<<end-of-c-declare
+    int remote_download_cb(const git_transfer_progress *stats, void *payload)
+    {
+        remote_download_procedure(___EXT(___data_rc)(payload), stats->total_objects, stats->indexed_objects, stats->received_objects, stats->received_bytes);
+        return 0;
+    }
+end-of-c-declare
+)
+
+(definition public git-remote-download
+  (c-lambda (git_remote* scheme-object) void
     #<<end-of-c-code
-    int result = git_remote_download(___arg1, NULL, NULL);
+    void* p = ___EXT(___alloc_rc)(0);
+    ___EXT(___set_data_rc)(p, ___arg2);
+    int result = git_remote_download(___arg1, &remote_download_cb, p);
     if (result != 0) git_call_error_handler(result);
+    ___EXT(___release_rc)(p);
 end-of-c-code
 ))
 
@@ -1112,7 +1133,7 @@ end-of-c-code
 
 (definition public (git-repository-fetch repo name)
   (let ((remote (git-remote-load repo name)))
-    (git-remote-connect remote 0)
+    (git-remote-connect remote GIT_DIRECTION_FETCH)
     (git-remote-download remote)
     (git-remote-disconnect remote)
     (git-remote-update-tips remote)
@@ -1232,7 +1253,7 @@ end-of-c-code
 
 
 (git-external (git-submodule-foreach git_repository* void* void*) :error "git_submodule_foreach")
-(git-external (git-submodule-lookup (out git_submodule*) git_repository* char-string) :error "git_submodule_lookup")
+(git-external (git-submodule-lookup (out git_submodule*) git_repository* char-string) :lookup "git_submodule_lookup")
 
 
 ;;;
@@ -1248,8 +1269,8 @@ end-of-c-code
 (git-external (git-tag-id git_tag*) git_oid* "git_tag_id")
 (git-external (git-tag-list git_strarray* git_repository*) :error "git_tag_list")
 (git-external (git-tag-list-match git_strarray* char-string git_repository*) :error "git_tag_list_match")
-(git-external (git-tag-lookup (out git_tag*) git_repository* git_oid*) :error "git_tag_lookup")
-(git-external (git-tag-lookup-prefix (out git_tag*) git_repository* git_oid* size_t) :error "git_tag_lookup_prefix")
+(git-external (git-tag-lookup (out git_tag*) git_repository* git_oid*) :lookup "git_tag_lookup")
+(git-external (git-tag-lookup-prefix (out git_tag*) git_repository* git_oid* size_t) :lookup "git_tag_lookup_prefix")
 (git-external (git-tag-message git_tag*) char-string "git_tag_message")
 (git-external (git-tag-name git_tag*) char-string "git_tag_name")
 (git-external (git-tag-peel (out git_object*) git_tag*) :error "git_tag_peel")
@@ -1294,8 +1315,8 @@ end-of-c-code
 (git-external (git-tree-entrycount git_tree*) uint "git_tree_entrycount")
 (git-external (git-tree-free git_tree*) void "git_tree_free")
 (git-external (git-tree-id git_tree*) git_oid* "git_tree_id")
-(git-external (git-tree-lookup (out git_tree*) git_repository* git_oid*) :error "git_tree_lookup")
-(git-external (git-tree-lookup-prefix (out git_tree*) git_repository* git_oid* size_t) :error "git_tree_lookup_prefix")
+(git-external (git-tree-lookup (out git_tree*) git_repository* git_oid*) :lookup "git_tree_lookup")
+(git-external (git-tree-lookup-prefix (out git_tree*) git_repository* git_oid* size_t) :lookup "git_tree_lookup_prefix")
 (git-external (git-tree-walk git_tree* git_treewalk_mode void* void*) :error "git_tree_walk")
 
 

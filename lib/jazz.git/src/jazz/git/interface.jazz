@@ -18,27 +18,25 @@
 ;;;
 
 
-(definition public (git-pull repo remote (initial? #f))
-  (git-remote-connect remote 0)
-  (git-remote-download remote)
+(definition public (git-fetch repo remote (download-callback: download-callback #f))
+  (git-remote-connect remote GIT_DIRECTION_FETCH)
+  (git-remote-download remote download-callback)
   (git-remote-disconnect remote)
   (git-remote-update-tips remote)
-  (git-remote-free remote)
-  @w
-  (if initial?
-      (let ((upstream (git-reference-lookup repo "refs/remotes/origin/master")))
+  (git-remote-free remote))
+
+
+(definition public (git-pull repo remote (download-callback: download-callback #f))
+  (git-fetch repo remote download-callback: download-callback)
+  (let ((upstream (git-reference-lookup repo "refs/remotes/origin/master"))
+        (local (git-branch-lookup repo "master" GIT_BRANCH_LOCAL)))
+    (if (and local (not (git-graph-fast-forward? repo (git-reference->id repo local) (git-reference->id repo upstream))))
+        'not-fast-forward
+      (if (not (git-workdir-clean? repo))
+          'workdir-not-clean
         (let ((commit (git-object-lookup repo (git-reference->id repo upstream) GIT_OBJ_COMMIT)))
-          (git-reset repo commit GIT_RESET_HARD)
-          #f))
-    (let ((local (git-branch-lookup repo "master" GIT_BRANCH_LOCAL))
-          (upstream (git-reference-lookup repo "refs/remotes/origin/master")))
-      (if (not (git-graph-fast-forward? repo (git-reference->id repo local) (git-reference->id repo upstream)))
-          'not-fast-forward
-        (if (not (git-workdir-clean? repo))
-            'workdir-not-clean
-          (let ((commit (git-object-lookup repo (git-reference->id repo upstream) GIT_OBJ_COMMIT)))
-            (git-reset repo commit GIT_RESET_HARD))
-          #f)))))
+          (git-reset repo commit GIT_RESET_HARD))
+        #f))))
 
 
 ;;;

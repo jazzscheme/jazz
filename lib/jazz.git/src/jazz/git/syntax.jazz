@@ -38,7 +38,10 @@
         (let ((c-code
                 (string-append (format "{a} out;{%}" out-type)
                                (format "int result = {a}(&out{a});{%}" c-name-or-code (expand-args (length parameters) #t))
-                               (format "if (result != 0) git_call_error_handler(result);{%}")
-                               "___result_voidstar = out;")))
+                               (format "if (result == 0) ___result_voidstar = out;{%}")
+                               (if (eq? type :lookup)
+                                   (format "else if (result == GIT_ENOTFOUND) ___result_voidstar = NULL;{%}")
+                                 "")
+                               (format "else git_call_error_handler(result);"))))
           `(definition public ,s-name
              (c-function ,parameters ,out-type ,c-code))))))))

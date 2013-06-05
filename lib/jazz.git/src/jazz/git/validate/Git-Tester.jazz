@@ -24,27 +24,28 @@
 
   (method override (test)
     (initialize-aliases)
-    @w
-    (let ((dir {Directory Home "aaa" "test"}))
-      (with-repository (parse~ dir)
-        (lambda (repo)
-          (let ((remote (git-remote-create repo "yii" "aaa")))
-            (debug (git-remote-rename remote "i n v a l i d" #f #f))))))
-    @w
-    (debug (git-clone "git://github.com/jazzscheme/test.git" (parse~ {Directory Home "aaa" "test"}) #f))
-    @w
     (let ((url "git://github.com/jazzscheme/test.git")
           (dir {Directory Home "aaa" "test"}))
       (create-directories~ dir)
       (let ((repo (git-repository-init dir)))
         (debug repo)
         (let ((remote (git-remote-create repo "origin" url)))
-          (git-remote-save remote)
           (debug remote)
-          (debug (git-pull repo remote #t))
+          (debug (git-pull repo remote download-callback: #f))
+          (git-repository-free repo))))
+    @w
+    (let ((url "git://github.com/jazzscheme/test.git")
+          (dir {Directory Home "aaa" "test"}))
+      (let ((repo (git-repository-open (parse~ dir))))
+        (debug repo)
+        (let ((remote (git-remote-load repo "origin") @w (git-remote-create repo "origin" url)))
+          (debug remote)
+          (git-fetch repo remote)
+          ;;(debug (git-pull repo remote #t))
           (git-repository-free repo))))
     @w
     (test-pull)
+    @w
     (describe-repository)
     @w (
     (invoke "Version" test-version)
@@ -78,11 +79,7 @@
           (let ((remote (git-remote-load repo "origin")))
             (debug remote: remote)
             (debug name: (git-remote-name remote) url: (git-remote-url remote))
-            (git-remote-connect remote 0)
-            (git-remote-download remote)
-            (git-remote-disconnect remote)
-            (git-remote-update-tips remote)
-            (git-remote-free remote)
+            (git-fetch repo remote)
             (let ((local (git-branch-lookup repo "master" GIT_BRANCH_LOCAL))
                   (upstream (git-reference-lookup repo "refs/remotes/origin/master")))
               (if (not (git-graph-fast-forward? repo (git-reference->id repo local) (git-reference->id repo upstream)))
@@ -278,11 +275,7 @@
       (with-repository (parse~ dir)
         (lambda (repo)
           (let ((remote (git-remote-load repo "origin")))
-            (git-remote-connect remote 0)
-            (git-remote-download remote)
-            (git-remote-disconnect remote)
-            (git-remote-update-tips remote)
-            (git-remote-free remote))))))
+            (git-fetch repo remote))))))
   
   
   ;;;

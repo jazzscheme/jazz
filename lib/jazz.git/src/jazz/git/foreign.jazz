@@ -1048,6 +1048,7 @@ end-of-c-code
 
 (git-external (git-remote-add-fetch git_remote* char-string) :error "git_remote_add_fetch")
 (git-external (git-remote-add-push git_remote* char-string) :error "git_remote_add_push")
+(git-external (git-remote-check-cert git_remote* int) void "git_remote_check_cert")
 (git-external (git-remote-connect git_remote* int) :error "git_remote_connect")
 (git-external (git-remote-connected git_remote*) int "git_remote_connected")
 (git-external (git-remote-create (out git_remote*) git_repository* char-string char-string) :error "git_remote_create")
@@ -1080,13 +1081,37 @@ end-of-c-declare
 )
 
 (definition public git-remote-download
-  (c-lambda (git_remote* scheme-object) void
+  (c-function (git_remote* scheme-object) void
     #<<end-of-c-code
     void* p = ___EXT(___alloc_rc)(0);
     ___EXT(___set_data_rc)(p, ___arg2);
     int result = git_remote_download(___arg1, &remote_download_cb, p);
     if (result != 0) git_call_error_handler(result);
     ___EXT(___release_rc)(p);
+end-of-c-code
+))
+
+
+(c-definition (cred-acquire-procedure proc) (scheme-object) git_cred* "cred_acquire_procedure" ""
+  (proc))
+
+(c-declare #<<end-of-c-declare
+    int cred_acquire_cb(git_cred **out, const char * url, const char * username_from_url, void * payload)
+    {
+        return git_cred_userpass_plaintext_new(out, "gcartieruser", "narhval235");
+        //*out = cred_acquire_procedure(___EXT(___data_rc)(payload));
+        //return 0;
+    }
+end-of-c-declare
+)
+
+(definition public git-remote-set-cred-acquire-cb
+  (c-function (git_remote* scheme-object) void
+    #<<end-of-c-code
+    git_remote_set_cred_acquire_cb(___arg1, &cred_acquire_cb, NULL);
+    //void* p = ___EXT(___alloc_rc)(0);
+    //___EXT(___set_data_rc)(p, ___arg2);
+    //git_remote_set_cred_acquire_cb(___arg1, &cred_acquire_cb, p);
 end-of-c-code
 ))
 

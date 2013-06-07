@@ -118,6 +118,8 @@
       ((:c-declare)        walk-c-declare)
       ((:c-initialize)     walk-c-initialize)
       ((:c-define)         walk-c-define)
+      ((:c-constant)       walk-c-constant)
+      ((:c-structure)      walk-c-structure)
       ((:c-external)       walk-c-external)
       (else                (nextmethod name))))
 
@@ -438,6 +440,32 @@
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
         (when (and (forward-expr) (eq? kind 'symbol))
           (set! entry (declaration context 'c-type modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (walk-expressions entry expression)
+        entry)))
+
+  
+  (method (walk-c-constant context symbol form declaration keyword expression doc)
+    (let ((entry context))
+      (keyword context start end)
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context 'c-constant modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (walk-expressions entry expression)
+        entry)))
+  
+  
+  (method (walk-c-structure context symbol form declaration keyword expression doc)
+    (let ((entry context))
+      (keyword context start end)
+      (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
+        (forward-whites)
+        (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+          (when list?
+            (enter-list))
+          (when (and (forward-expr) (eq? kind 'symbol))
+            (set! entry (declaration context 'c-structure modifiers symbol '() #f start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+          (when list?
+            (exit-list)))
         (walk-expressions entry expression)
         entry)))
 

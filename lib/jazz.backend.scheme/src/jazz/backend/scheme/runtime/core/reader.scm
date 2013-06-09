@@ -200,7 +200,6 @@
       (set! ##six-types types))
     
     
-    #; ;; wait until jazz uses latest gambit
     (define print-marker
       ##print-marker))
   

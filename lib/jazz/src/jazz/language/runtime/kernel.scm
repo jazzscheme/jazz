@@ -979,7 +979,6 @@
 (native readtable-start-syntax-set)
 (native six-types)
 (native six-types-set!)
-#; ;; wait until jazz uses latest gambit
 (native print-marker)
 
 

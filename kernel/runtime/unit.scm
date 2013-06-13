@@ -302,8 +302,8 @@
       (let ((jazz (and source-access? (jazz:make-repository 'Jazz "lib" (or (jazz:jazz-repository) jazz:kernel-source))))
             (binary-repositories (or jazz:kernel-binary-repositories '()))
             (source-repositories (or (and source-access? jazz:kernel-source-repositories) '()))
-            (source-dynamic-repositories (or (and source-access? (jazz:dependencies)) '()))
             (binary-dynamic-repositories (or (jazz:dependencies) '()))
+            (source-dynamic-repositories (or (and source-access? (jazz:dependencies)) '()))
             (repositories (jazz:repositories)))
         (define (listify repository)
           (if repository
@@ -323,7 +323,7 @@
                                                binary-repositories))
                     (source-list (jazz:collect (lambda (path)
                                                  (let ((dir (jazz:absolutize-directory jazz:kernel-install path)))
-                                                   (jazz:load-repository dir error?: #f)))
+                                                   (and dir (jazz:load-repository dir error?: #f))))
                                                source-repositories))
                     (dynamic-binary-list (jazz:collect (lambda (entry)
                                                          (let ((name (car entry))

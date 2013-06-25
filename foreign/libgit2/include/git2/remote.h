@@ -259,7 +259,7 @@ GIT_EXTERN(int) git_remote_ls(git_remote *remote, git_headlist_cb list_cb, void 
  * @param progress_cb function to call with progress information.  Be aware that
  * this is called inline with network and indexing operations, so performance
  * may be affected.
- * @param progress_payload payload for the progress callback
+ * @param payload payload for the progress callback
  * @return 0 or an error code
  */
 GIT_EXTERN(int) git_remote_download(
@@ -320,7 +320,7 @@ GIT_EXTERN(int) git_remote_update_tips(git_remote *remote);
  * Return whether a string is a valid remote URL
  *
  * @param url the url to check
- * @param 1 if the url is valid, 0 otherwise
+ * @return 1 if the url is valid, 0 otherwise
  */
 GIT_EXTERN(int) git_remote_valid_url(const char *url);
 
@@ -426,10 +426,9 @@ GIT_EXTERN(int) git_remote_set_callbacks(git_remote *remote, git_remote_callback
 GIT_EXTERN(const git_transfer_progress *) git_remote_stats(git_remote *remote);
 
 typedef enum {
-	GIT_REMOTE_DOWNLOAD_TAGS_UNSET,
-	GIT_REMOTE_DOWNLOAD_TAGS_NONE,
-	GIT_REMOTE_DOWNLOAD_TAGS_AUTO,
-	GIT_REMOTE_DOWNLOAD_TAGS_ALL
+	GIT_REMOTE_DOWNLOAD_TAGS_AUTO = 0,
+	GIT_REMOTE_DOWNLOAD_TAGS_NONE = 1,
+	GIT_REMOTE_DOWNLOAD_TAGS_ALL = 2
 } git_remote_autotag_option_t;
 
 /**

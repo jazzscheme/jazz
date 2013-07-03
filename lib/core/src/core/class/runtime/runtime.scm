@@ -2257,6 +2257,10 @@
   (jazz:allocate-queue '() #f #f))
 
 
+(define (jazz:queue-empty? queue)
+  (%%null? (%%get-queue-head queue)))
+
+
 (define (jazz:enqueue queue object)
   (let ((added (%%cons object '())))
     (jazz:enqueue-impl queue added

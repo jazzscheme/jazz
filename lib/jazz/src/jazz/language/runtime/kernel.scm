@@ -909,22 +909,12 @@
 
 
 (native jazz:new-queue)
+(native jazz:queue-empty?)
 (native jazz:enqueue)
 (native jazz:enqueue-list)
 (native jazz:dequeue)
 (native jazz:queue-list)
 (native jazz:reset-queue)
-
-
-;;;
-;;;; Fast-Queue
-;;;
-
-
-(native jazz:new-fast-queue)
-(native jazz:fast-enqueue)
-(native jazz:fast-queue-list)
-(native jazz:reset-fast-queue)
 
 
 ;;;

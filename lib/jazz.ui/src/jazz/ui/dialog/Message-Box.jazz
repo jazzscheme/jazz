@@ -123,35 +123,40 @@
                   action-buttons))))
   
   
-  (method (process-return)
+  (method protected virtual (process-return)
     (let ((dialog (get-host)))
       (end-modal-dialog default-button)))
   
   
-  (method (process-escape)
+  (method protected virtual (process-escape)
     (bind (default-title default-icon default-sound default-yes default-no default-cancel cancelable? close-result) (type-info type)
       (when cancelable?
         (let ((dialog (get-host)))
           (end-modal-dialog close-result)))))
   
   
-  (method (process-key key)
+  (method protected virtual (process-key key)
     (when process-keys?
-      (continuation-capture
-        (lambda (return)
-          (let* ((dialog (get-host))
-                 (try-button
-                   (lambda (button)
-                     (when (get-visible?~ button)
-                       (bind (title name . optional) (get-user-data~ button)
-                         (let ((shortcut-key (if (null? optional) #f (car optional))))
-                           (let* ((result (get-name~ button))
-                                  (title (localize (get-title~ button)))
-                                  (first (or shortcut-key (element title 0))))
-                             (when (ci=? first key)
-                               (end-modal-dialog result)
-                               (continuation-return return)))))))))
-            (for-each try-button action-buttons))))))
+      (let ((button (find-button key)))
+        (when button
+          (end-modal-dialog (get-name~ button))))))
+  
+  
+  (method (find-button key)
+    (continuation-capture
+      (lambda (return)
+        (let ((dialog (get-host)))
+          (define (try-button button)
+            (when (get-visible?~ button)
+              (bind (title name . optional) (get-user-data~ button)
+                (let ((shortcut-key (if (null? optional) #f (car optional)))
+                      (title (localize (get-title~ button))))
+                  (let ((first (or shortcut-key (element title 0))))
+                    (when (ci=? first key)
+                      (continuation-return return button)))))))
+          
+          (for-each try-button action-buttons)
+          #f))))
   
   
   (method (on-select evt)

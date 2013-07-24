@@ -146,6 +146,8 @@
 
 
 (define jazz:unix-odbc-units
+  '((jazz.platform.odbc.odbc-lowlevel))
+  #; ;; some platforms are missing sql.h
   '((jazz.platform.odbc.odbc-lowlevel ld-options: "-lodbc")))
 
 

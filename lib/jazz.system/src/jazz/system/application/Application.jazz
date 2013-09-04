@@ -979,6 +979,12 @@
   
   (method (initialize-actions)
     (set-application-actions (get-class-actions self)))
+  
+  
+  (method (update-actions update)
+    (unregister-actions-shortcuts application-actions)
+    (update)
+    (register-actions-shortcuts (get-class-actions self)))
 
   
   ;;;
@@ -1001,17 +1007,13 @@
   
   (method (setup-shortcuts)
     (set! shortcut-table (make-table test: shortcut=? hash: shortcut-hash)))
-      
   
-  (method (register-actions-shortcuts old-actions new-actions)
+  
+  (method (unregister-actions-shortcuts old-actions)
     (define (unregister-shortcut action-item shortcut)
       ;; the second test is necessary because bindings can be changed on-the-fly in the ide
       (when (and shortcut (table-ref shortcut-table shortcut #f))
         (table-remove! shortcut-table shortcut action-item)))
-    
-    (define (register-shortcut action-item shortcut)
-      (when shortcut
-        (table-add shortcut-table shortcut action-item)))
     
     (when shortcut-table
       (for-each (lambda (actions)
@@ -1020,7 +1022,15 @@
                                 (unregister-shortcut action-item (get-shortcut~ action-item))
                                 (unregister-shortcut action-item (get-alternate-shortcut~ action-item))))
                             (get-children~ actions)))
-                old-actions)
+                old-actions)))
+  
+  
+  (method (register-actions-shortcuts new-actions)
+    (define (register-shortcut action-item shortcut)
+      (when shortcut
+        (table-add shortcut-table shortcut action-item)))
+    
+    (when shortcut-table
       (for-each-reversed (lambda (actions)
                            (for-each (lambda (action-item)
                                        (when (get-visible?~ action-item)
@@ -1028,6 +1038,11 @@
                                          (register-shortcut action-item (get-alternate-shortcut~ action-item))))
                                      (get-children~ actions)))
                          new-actions)))
+      
+  
+  (method (update-actions-shortcuts old-actions new-actions)
+    (unregister-actions-shortcuts old-actions)
+    (register-actions-shortcuts new-actions))
   
   
   (method public (update-shortcut action-item old-shortcut new-shortcut)
@@ -1213,22 +1228,22 @@
   
   
   (method public (set-application-actions actions-list)
-    (register-actions-shortcuts application-actions actions-list)
+    (update-actions-shortcuts application-actions actions-list)
     (set! application-actions actions-list))
   
   
   (method public (set-profile-actions actions-list)
-    (register-actions-shortcuts profile-actions actions-list)
+    (update-actions-shortcuts profile-actions actions-list)
     (set! profile-actions actions-list))
 
 
   (method public (set-guest-actions actions-list)
-    (register-actions-shortcuts guest-actions actions-list)
+    (update-actions-shortcuts guest-actions actions-list)
     (set! guest-actions actions-list))
   
   
   (method public (set-focus-actions actions-list)
-    (register-actions-shortcuts focus-actions actions-list)
+    (update-actions-shortcuts focus-actions actions-list)
     (set! focus-actions actions-list))
 
   

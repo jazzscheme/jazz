@@ -107,8 +107,8 @@
       (jazz:global-ref '##bytes-allocated!)
     (lambda (vec)
       (let ((vec (##process-statistics)))
-        (let ((last_gc_alloc (f64vector-ref vec 16)))
-          (f64vector-set! vec 0 last_gc_alloc))))))
+        (let ((last_gc_alloc (##f64vector-ref vec 16)))
+          (##f64vector-set! vec 0 last_gc_alloc))))))
 
 
 (define (add-gc-interrupt-job! thunk)

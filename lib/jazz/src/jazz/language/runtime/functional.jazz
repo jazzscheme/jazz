@@ -336,6 +336,17 @@
 
 
 ;;;
+;;;; Call-Site
+;;;
+
+
+(class Call-Site extends Object
+  
+  
+  (slot procedure accessors generate))
+
+
+;;;
 ;;;; Queue
 ;;;
 
@@ -5470,26 +5481,28 @@
 
 
 ;;;
-;;;; Hook
+;;;; Site
 ;;;
 
 
-(definition *hooks*
+(definition call-sites
   (make-table test: eq?))
 
 
-(definition public (installed-hook name)
-  (table-set! *hooks* name #f))
+(definition public (registered-sites)
+  call-sites)
 
-(definition public (install-hook name proc)
-  (table-set! *hooks* name proc))
+(definition public (registered-site name)
+  (table-ref call-sites name))
 
-(definition public (uninstall-hook name)
-  (table-set! *hooks* name #f))
+(definition public (register-site name)
+  (let ((site (new-call-site (lambda (thunk) (thunk)))))
+    (table-set! call-sites name site)
+    site))
 
 
-(definition protected (invoke-hook name proc)
-  (let ((hook (table-ref *hooks* name #f)))
-    (if hook
-        (hook name proc)
-      (proc)))))
+(definition public (call-site-ref name)
+  (get-procedure~ (registered-site name)))
+
+(definition public (call-site-set! name value)
+  (set-procedure~ (registered-site name) value)))

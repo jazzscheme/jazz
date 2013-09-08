@@ -3924,31 +3924,31 @@
     (let iter-frames ((frames environment))
       (if (%%null? frames)
           #f
-          (let ((annotated-frame (%%car frames)))
-            (or (let iter-variables ((variables
-                                      (cond ((%%class-is? annotated-frame jazz:Annotated-Frame)
-                                             (jazz:get-annotated-frame-variables annotated-frame))
-                                            ((%%class-is? annotated-frame jazz:Variable)
-                                             (list annotated-frame))
-                                            (else
-                                             '()))))
-                  (if (%%null? variables)
-                      #f
-                    (let ((annotated-variable (%%car variables)))
-                      (if (%%class-is? annotated-variable jazz:Restricted-Binding)
-                          (let ((binding (jazz:get-restricted-binding-binding annotated-variable)))
-                            ;; this is really for slots so i need to think about this
-                            (if (and (%%class-is? binding jazz:Declaration) (%%eq? binding variable))
-                                (values #f annotated-variable (jazz:get-restricted-binding-type annotated-variable))
-                              (begin
-                                ;; keep outermost type
-                                (if (and (%%not type) (%%eq? binding variable))
-                                    (set! type (jazz:get-restricted-binding-type annotated-variable)))
-                                (iter-variables (%%cdr variables)))))
-                        (if (%%eq? (jazz:get-annotated-variable-variable annotated-variable) variable)
-                            (values annotated-frame annotated-variable (or type (jazz:get-annotated-variable-type annotated-variable)))
-                          (iter-variables (%%cdr variables)))))))
-                (iter-frames (%%cdr frames))))))))
+        (let ((annotated-frame (%%car frames)))
+          (or (let iter-variables ((variables
+                                     (cond ((%%class-is? annotated-frame jazz:Annotated-Frame)
+                                            (jazz:get-annotated-frame-variables annotated-frame))
+                                           ((%%class-is? annotated-frame jazz:Variable)
+                                            (list annotated-frame))
+                                           (else
+                                            '()))))
+                   (if (%%null? variables)
+                       #f
+                     (let ((annotated-variable (%%car variables)))
+                       (if (%%class-is? annotated-variable jazz:Restricted-Binding)
+                           (let ((binding (jazz:get-restricted-binding-binding annotated-variable)))
+                             ;; this is really for slots so i need to think about this
+                             (if (and (%%class-is? binding jazz:Declaration) (%%eq? binding variable))
+                                 (values #f annotated-variable (jazz:get-restricted-binding-type annotated-variable))
+                               (begin
+                                 ;; keep outermost type
+                                 (if (and (%%not type) (%%eq? binding variable))
+                                     (set! type (jazz:get-restricted-binding-type annotated-variable)))
+                                 (iter-variables (%%cdr variables)))))
+                         (if (%%eq? (jazz:get-annotated-variable-variable annotated-variable) variable)
+                             (values annotated-frame annotated-variable (or type (jazz:get-annotated-variable-type annotated-variable)))
+                           (iter-variables (%%cdr variables)))))))
+              (iter-frames (%%cdr frames))))))))
 
 
 (define (jazz:find-annotated-type binding environment)

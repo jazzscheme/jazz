@@ -2246,6 +2246,18 @@
 
 
 ;;;
+;;;; Call-Site
+;;;
+
+
+(jazz:define-class-runtime jazz:Call-Site)
+
+
+(define (jazz:new-call-site procedure)
+  (jazz:allocate-call-site procedure))
+
+
+;;;
 ;;;; Queue
 ;;;
 

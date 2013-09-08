@@ -52,6 +52,7 @@
         ~
         local-context
         hook
+        site
         expand-body)
 
 (import (jazz.language.runtime.kernel)
@@ -223,13 +224,16 @@
         form-src))))
 
 
-(define-syntax hook
+(define-syntax site
   (lambda (form-src usage-environment macro-environment)
-    (let ((control (source-code (cadr (source-code form-src))))
+    (let ((name (source-code (cadr (source-code form-src))))
           (body (cddr (source-code form-src))))
-      (let ((name control))
+      (let ((site (generate-symbol "site")))
         (sourcify-if
-          `(invoke-hook ',name (lambda () ,@body))
+          `(let ((,site (static (register-site ',name))))
+             ((get-procedure~ ,site)
+              (lambda ()
+                ,@body)))
           form-src)))))
 
 

@@ -908,34 +908,24 @@
   *advices*)
 
 
-@comment
-(definition public (profile-advice field locator original set)
-  (let ((original (original)))
-    (when (procedure? original)
-      (set (lambda rest
-             (profile-code original
-               (lambda ()
-                 (apply original rest))))))))
-
-
-;; a.b.c:d/e (a.b.c d e)
+;; a.b.c:d/e
+;; (a.b.c d e)
+;; :site
 (definition protected (advise-internal what proc)
   (define (advise-all)
     (iterate-table (get-modules)
       (lambda (module-name module)
         (advise-module module))))
   
-  (define (advise-hook enumerator)
+  (define (advise-site enumerator)
     (let ((name (enumerator->symbol enumerator))
           (locator enumerator))
-      (proc name
-            locator
-            (lambda ()
-              #f)
-            (lambda (value)
-              (if value
-                  (install-hook name value)
-                (uninstall-hook name))))))
+      (call-proc name
+                 locator
+                 (lambda ()
+                   (call-site-ref name))
+                 (lambda (value)
+                   (call-site-set! name value)))))
   
   (define (advise-symbol symbol)
     (receive (module-name name) (break-reference symbol)
@@ -1027,7 +1017,7 @@
         ((not what)
          (advise-all))
         ((enumerator? what)
-         (advise-hook what))
+         (advise-site what))
         ((symbol? what)
          (advise-symbol what))
         ((null/pair? what)
@@ -1042,6 +1032,7 @@
             (set #f))))
 
 
+;; for the debugger
 (let ((original-procedure-name procedure-name))
   (procedure-name-set!
     (lambda (procedure)

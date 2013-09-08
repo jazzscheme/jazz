@@ -75,6 +75,14 @@
 
 
 ;;;
+;;;; Call-Site
+;;;
+
+
+(native jazz:new-call-site)
+
+
+;;;
 ;;;; Category
 ;;;
 

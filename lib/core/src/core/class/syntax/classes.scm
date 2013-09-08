@@ -327,6 +327,15 @@
 
 
 ;;;
+;;;; Call-Site
+;;;
+
+
+(jazz:define-class-syntax jazz:Call-Site jazz:Object (constructor: jazz:allocate-call-site accessors-type: macro)
+  ((procedure getter: generate setter: generate)))
+
+
+;;;
 ;;;; Queue
 ;;;
 

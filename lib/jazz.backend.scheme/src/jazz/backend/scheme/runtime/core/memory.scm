@@ -102,24 +102,18 @@
     (values count chars)))
 
 
-(define bytes-allocated!
+(define jazz:bytes-allocated!
   (if (jazz:global-bound? '##bytes-allocated!)
       (jazz:global-ref '##bytes-allocated!)
     (lambda (vec)
-      (let ((vec (##process-statistics)))
-        (let ((last_gc_alloc (##f64vector-ref vec 16)))
-          (##f64vector-set! vec 0 last_gc_alloc))))))
+      (##f64vector-set! vec 0 (##f64vector-ref (##process-statistics) 7)))))
 
 
-(define (add-gc-interrupt-job! thunk)
-  (##add-gc-interrupt-job! thunk))
-
-
-(define (get-live-percent)
+(define (jazz:get-live-percent)
   (##get-live-percent))
 
 
-(define (raise-heap-overflow-exception)
+(define (jazz:raise-heap-overflow-exception)
   (##raise-heap-overflow-exception))
 
 

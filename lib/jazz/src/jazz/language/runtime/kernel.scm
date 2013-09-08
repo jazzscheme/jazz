@@ -767,14 +767,14 @@
 (native jazz:last-gc-real-time)
 (native jazz:process-memory)
 (native jazz:symbols-memory)
+(native jazz:bytes-allocated!)
 (native jazz:classes-statistics)
 (native jazz:vector-size)
 (native jazz:f64vector-size)
 (native jazz:list-size)
 (native jazz:table-size)
-(native add-gc-interrupt-job!)
-(native get-live-percent)
-(native raise-heap-overflow-exception)
+(native jazz:get-live-percent)
+(native jazz:raise-heap-overflow-exception)
 
 
 ;;;
@@ -1263,7 +1263,7 @@
 (native jazz:process-times)
 (native jazz:cpu-time <:fl>)
 (native jazz:real-time <:fl>)
-(native current-seconds)
+(native jazz:current-seconds)
 
 
 ;;;

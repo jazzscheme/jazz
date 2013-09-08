@@ -47,7 +47,7 @@
 (define jazz:real-time real-time)
 
 
-(define (current-seconds)
+(define (jazz:current-seconds)
   (let ((f64vec (##vector-ref (##run-queue) 14)))
     (##get-current-time! f64vec)
     (##f64vector-ref f64vec 0))))

@@ -230,7 +230,7 @@
           (body (cddr (source-code form-src))))
       (let ((site (generate-symbol "site")))
         (sourcify-if
-          `(let ((,site (static (register-site ',name))))
+          `(let ((,site <Call-Site> (static (register-site ',name))))
              ((get-procedure~ ,site)
               (lambda ()
                 ,@body)))

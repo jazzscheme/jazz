@@ -185,8 +185,8 @@
             (bind (key . rest) (source-code clause)
               (case (source-code key)
                 ((with)    (process-with    actions rest))
-                ((for)     (process-for     actions rest))
                 ((repeat)  (process-repeat  actions rest))
+                ((for)     (process-for     actions rest))
                 ((some)    (process-some    actions rest))
                 ((every)   (process-every   actions rest))
                 ((when)    (process-when    actions rest))
@@ -310,6 +310,19 @@
   
   
   ;;;
+  ;;;; repeat
+  ;;;
+
+
+  (define (process-repeat actions rest)
+    (bind (count) rest
+      (let ((rpt (unique "rpt")))
+        (add-binding rpt '<fx> count)
+        (add-test (list '> rpt 0))
+        (add-after (list 'decrease! rpt)))))
+  
+  
+  ;;;
   ;;;; for
   ;;;
 
@@ -398,13 +411,6 @@
          (let ((value (car rest)))
            (add-binding variable '<Object>)
            (add-before (list 'set! variable value))))
-        ;; similar to C for loop
-        ((iterate)
-         (bind (init test iter) rest
-           (add-binding variable type)
-           (add-prologue init)
-           (add-test test)
-           (add-after iter)))
         (else
          (error "Unknown for keyword: {t}" (source-code key))))))
   
@@ -416,19 +422,6 @@
             (values variable type key rest))
         (bind (key . rest) rest
           (values variable #f key rest)))))
-  
-  
-  ;;;
-  ;;;; repeat
-  ;;;
-
-
-  (define (process-repeat actions rest)
-    (bind (count) rest
-      (let ((rpt (unique "rpt")))
-        (add-binding rpt '<fx> count)
-        (add-test (list '> rpt 0))
-        (add-after (list 'decrease! rpt)))))
   
   
   ;;;

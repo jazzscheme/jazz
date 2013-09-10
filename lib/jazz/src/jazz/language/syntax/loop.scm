@@ -51,112 +51,25 @@
 
 
 ;;;
-;;;; Samples
+;;;; Loop
 ;;;
-
-
-#; ;; @syntax
-(loop (repeat n)
-      (do (bell)))
-
-#; ;; @expansion
-(let ((rpt0 n))
-  (while (and (> rpt0 0))
-    (bell)
-    (decrease! rpt0)))
-
-
-#; ;; @syntax
-(loop (for x from 0 below (upper-bound))
-      (for y in (get-list))
-      (sum (* x y))
-      (do (debug x))
-      (finally (message-box "Done")))
-
-#; ;; @expansion
-(let ((x <fx> 0)
-      (end0 <fx> (upper-bound))
-      (for1 <Object> (get-list))
-      (y <Object> #f)
-      (res2 <fx> 0))
-  (while (and (< x end0) (not (eq? for1 #f)))
-    (set! y (car for1))
-    (increase! res2 (* x y))
-    (debug x)
-    (finally (message-box "Done"))
-    (increase! x 1)
-    (set! for1 (cdr for1)))
-  res2)
-
-
-#; ;; @syntax
-(loop (for x in list)
-      (some (test? x)))
-
-#; ;; @expansion
-(let ((for0 <Object> list)
-      (x <Object>)
-      (res1 <bool> #f))
-  (while (and (not (eq? for0 #f)))
-    (set! x (car for0))
-    (when (test? x)
-      (set! res1 #t))
-    (set! for0 (cdr for0)))
-  res1)
-
-
-#; ;; @syntax
-(loop (for n in lst)
-      (when (even? n)
-        (return n))
-      (debug n))
-
-#; ;; @expansion
-(let ((for0 <Object> lst)
-      (n <Object>)
-      (ext1 <bool> #f))
-  (while (and (not ext1) (not (eq? for0 #f)))
-    (set! n (car for0))
-    (set! for0 (cdr for0))
-    (when (even? n)
-      (set! ext1 #t))
-    (when (not ext1)
-      (debug n)))
-  n)
-
-
-#; ;; @syntax
-(loop (for n in (naturals 0 10))
-      (when (even? n)
-        (collect (* n n) in even))
-      (when (odd? n)
-        (sum (+ n n) in odd))
-      (finally (list even odd)))
 
 
 (define-syntax loop
   (lambda (form-src usage-environment macro-environment)
     (let ((clauses (cdr (source-code form-src))))
       (sourcify-if
-        (expand-loop clauses)
+        (loop-expand clauses)
         form-src))))
 
 
-(define noobject
-  (list 'noobject))
-
-
-(define (expand-loop clauses)
-  (let ((bindings    '())
-        (return      noobject)
-        (exit        noobject)
+(define (loop-expand clauses)
+  (let ((globals     '())
+        (variables   '())
         (tests       '())
-        (withs       '())
-        (befores     '())
-        (actions     '())
-        (afters      '())
-        (prologue    '())
-        (epilogue    '())
+        (bindings    '())
+        (alterations '())
+        (iterations  '())
         (finally     '())
         (unique-rank 0))
     
@@ -166,8 +79,8 @@
   ;;;
 
 
-  (define (expand clauses)
-    (set! actions (process-clauses clauses))
+  (define (expand)
+    (process-clauses #f clauses)
     (expand-loop))
     
   
@@ -176,126 +89,186 @@
   ;;;
 
   
-  (define (process-clauses clauses)
-    (let ((actions (new-queue)))
-      (while (not-null? clauses)
-        (let ((clause (car clauses)))
-          (if (not (pair? (source-code clause)))
-              (add-action clause actions)
-            (bind (key . rest) (source-code clause)
-              (case (source-code key)
-                ((with)    (process-with    actions rest))
-                ((repeat)  (process-repeat  actions rest))
-                ((for)     (process-for     actions rest))
-                ((some)    (process-some    actions rest))
-                ((every)   (process-every   actions rest))
-                ((when)    (process-when    actions rest))
-                ((unless)  (process-unless  actions rest))
-                ((do)      (process-do      actions rest))
-                ((sum)     (process-sum     actions rest))
-                ((collect) (process-collect actions rest))
-                ((return)  (process-return  actions rest))
-                ((finally) (process-finally actions rest))
-                (else      (add-action clause actions))))))
-        (set! clauses (cdr clauses)))
-      (queue-list actions)))
-
-
-  (define (expand-loop)
-    (let ((iter (generate-symbol "iter")))
-      `(let* ,(append withs bindings)
-         ,@prologue
-         (let (,iter)
-           (when (and ,@tests)
-             ,@befores
-             ,@actions
-             ,@afters
-             (,iter)))
-         ,@epilogue
-         ,@(if (eq? return noobject)
-               finally
-             `((if ,exit
-                   ,return
-                 ,@(if (not-null? finally)
-                       `((begin
-                           ,@finally))
-                     '())))))))
+  (define (process-clauses test clauses)
+    (for-each (lambda (clause)
+                (if (not (pair? (source-code clause)))
+                    (process-actions test (list clause))
+                  (bind (key . rest) (source-code clause)
+                    (case (source-code key)
+                      ((with)    (process-with    test rest))
+                      ((repeat)  (process-repeat  test rest))
+                      ((for)     (process-for     test rest))
+                      ((when)    (process-when    test rest))
+                      ((unless)  (process-unless  test rest))
+                      ((if)      (process-if      test rest))
+                      ((do)      (process-do      test rest))
+                      ((sum)     (process-sum     test rest))
+                      ((collect) (process-collect test rest))
+                      ((some)    (process-some    test rest))
+                      ((every)   (process-every   test rest))
+                      ((return)  (process-return  test rest))
+                      ((finally) (process-finally test rest))
+                      (else      (process-actions test (list clause)))))))
+              clauses))
+  
+  
+  (define (process-actions test actions)
+    (add-action
+      (if (not test)
+          (simplify-begin `(begin ,@actions))
+        `(when ,(car test) ,@actions))))
   
   
   (define (unique prefix)
     (let ((symbol (string->symbol (string-append prefix (->string unique-rank)))))
       (increase! unique-rank)
       symbol))
+
+
+  (define (expand-loop)
+    (let ((iter (unique "iter")))
+      (expand-globals
+        (expand-variables iter
+          (expand-tests
+            (expand-bindings
+              (simplify-begin
+                `(begin
+                   ,@(expand-alterations iter))))
+             finally)))))
   
   
-  (define Unbound
-    (cons #f #f))
+  (define (expand-globals inner)
+    (define (process scan)
+      (if (null? scan)
+          inner
+        `(let (,(car scan))
+           ,(process (cdr scan)))))
+    
+    (process globals))
   
   
-  (define (add-binding variable type . rest)
-    (let ((value (if (null? rest) Unbound (car rest))))
-      (let ((binding (cons variable (cons type (if (eq? value Unbound) (list #f) (list value))))))
-        (set! bindings (append bindings (list binding))))
-      variable))
+  (define (expand-variables iter inner)
+    (if (null? variables)
+        inner
+      `(let (,iter ,@variables)
+         (declare (proper-tail-calls))
+         ,inner)))
   
   
-  (define (add-with with)
-    (set! withs (append withs (list with))))
+  (define (expand-tests yes no)
+    (if (null? tests)
+        (simplify-begin `(begin ,yes ,@no))
+      `(if ,(simplify-and `(and ,@tests))
+           ,yes
+         ,@no)))
   
   
-  (define (get-return/exit)
-    (when (eq? return noobject)
-      (let ((ret (unique "ret"))
-            (ext (unique "ext")))
-        (add-binding ret '<Object+> #f)
-        (add-binding ext '<bool> '#f)
-        (add-initial-test (list 'not ext))
-        (set! return ret)
-        (set! exit ext)))
-    (values return exit))
+  (define (expand-bindings body)
+    (define (process scan)
+      (if (null? scan)
+          body
+        (bind (var type value) (car scan)
+          `(let ((,var ,type ,value))
+             ,(process (cdr scan))))))
+    
+    (process bindings))
   
   
-  (define (exit-safe actions)
-    (if (eq? exit noobject)
-        actions
-      `((when (not ,exit)
-          ,@actions))))
+  (define (expand-alterations iter)
+    (define (process scan)
+      (if (null? scan)
+          (if (null? variables)
+              '()
+            `((,iter ,@(expand-iterations))))
+        (let ((alter (car scan)))
+          (if (procedure? alter)
+              (alter (process (cdr scan)))
+            (bind (var value) alter
+              `((let ((,var ,value))
+                  ,@(process (cdr scan)))))))))
+    
+    (process alterations))
+  
+  
+  (define (expand-iterations)
+    (map (lambda (var)
+           (let ((name (car var)))
+             (let ((pair (assq name iterations)))
+               (if pair
+                   (cadr pair)
+                 (error "Unable to find iteration for: {s}" name)))))
+         variables))
+  
+  
+  (define (add-global variable type . rest)
+    (let ((binding (cons variable (cons type (if (null? rest) (list #f) rest)))))
+      (set! globals (append globals (list binding)))))
+  
+  
+  (define (add-variable variable type value)
+    (let ((binding (list variable type value)))
+      (set! variables (append variables (list binding)))))
   
   
   (define (add-test test)
     (set! tests (append tests (list test))))
   
   
-  (define (add-initial-test test)
-    (set! tests (cons test tests)))
+  (define (add-binding variable type . rest)
+    (let ((binding (cons variable (cons type (if (null? rest) (list #f) rest)))))
+      (set! bindings (append bindings (list binding)))))
   
   
-  (define (add-before before)
-    (set! befores (append befores (exit-safe (list before)))))
+  (define (add-action action)
+    (add-control
+      (lambda (remain)
+        (cons action remain))))
   
   
-  (define (add-action action actions)
-    (add-actions (list action) actions))
+  (define (add-control alter)
+    (set! alterations (append alterations (list alter))))
   
   
-  (define (add-actions action-list actions)
-    (enqueue-list actions (exit-safe action-list)))
+  (define (add-alteration variable value)
+    (let ((alter (list variable value)))
+      (set! alterations (append alterations (list alter)))))
   
   
-  (define (add-after after)
-    (set! afters (append afters (exit-safe (list after)))))
-  
-  
-  (define (add-prologue expr)
-    (set! prologue (append prologue (list expr))))
-  
-  
-  (define (add-epilogue expr)
-    (set! epilogue (append epilogue (list expr))))
+  (define (add-iteration variable value)
+    (let ((iter (list variable value)))
+      (set! iterations (append iterations (list iter)))))
   
   
   (define (set-finally lst)
-    (set! finally lst))
+    (if (null? finally)
+        (set! finally lst)
+      (error "More than one return path found in loop")))
+  
+  
+  (define (no-test test)
+    (if test
+        (error "Invalid clauses found in loop test: {s}" (desourcify-all (cdr test)))))
+  
+  
+  (define (test-if test yes no)
+    (if (not test)
+        yes
+      `(if ,(car test)
+           ,yes
+         ,no)))
+  
+  
+  (define (test-and test value)
+    (if (not test)
+        value
+      `(and ,(car test) ,value)))
+  
+  
+  (define (simplify-and form)
+    (if (and (pair? (cdr form))
+             (null? (cddr form)))
+        (cadr form)
+      form))
   
   
   ;;;
@@ -303,10 +276,10 @@
   ;;;
 
 
-  (define (process-with actions rest)
+  (define (process-with test rest)
+    (no-test test)
     (bind (variable equal value) rest
-      (let ((binding (list variable value)))
-        (add-with binding))))
+      (add-global variable '<Object> value)))
   
   
   ;;;
@@ -314,12 +287,13 @@
   ;;;
 
 
-  (define (process-repeat actions rest)
+  (define (process-repeat test rest)
+    (no-test test)
     (bind (count) rest
       (let ((rpt (unique "rpt")))
-        (add-binding rpt '<fx> count)
-        (add-test (list '> rpt 0))
-        (add-after (list 'decrease! rpt)))))
+        (add-variable rpt '<fx> count)
+        (add-test `(> ,rpt 0))
+        (add-iteration rpt `(- ,rpt 1)))))
   
   
   ;;;
@@ -327,63 +301,66 @@
   ;;;
 
 
-  (define (process-for actions rest)
+  (define (process-for test rest)
+    (define (parse-for rest)
+      (bind (variable . rest) rest
+        (if (specifier? (source-code (car rest)))
+            (bind (type key . rest) rest
+              (values variable type key rest))
+          (bind (key . rest) rest
+            (values variable #f key rest)))))
+    
+    (no-test test)
     (receive (variable type key rest) (parse-for rest)
       (case (source-code key)
         ((in)
          (bind (lst . rest) rest
            (let ((for (unique "for")))
-             (add-binding for '<Object> lst)
-             (add-binding variable (or type '<Object>))
-             (add-test (list 'not (list 'null? for)))
-             (add-before (list 'set! variable (list 'car for)))
-             (add-before (list 'set! for (list 'cdr for)))
+             (add-variable for '<list> lst)
+             (add-test `(not (null? ,for)))
+             (add-binding variable (or type '<Object>) `(car ,for))
+             (add-iteration for `(cdr ,for))
              (when (not-null? rest)
                (bind (keyword value) rest
                  (case (source-code keyword)
                    ((remainder)
-                    (add-binding value '<Object+>)
-                    (add-before (list 'set! value for)))
+                    (add-binding value '<Object+> `(cdr ,for)))
                    (else (error "Unknown for in keyword: {t}" keyword))))))))
         ((in-vector)
          (bind (vector . rest) rest
            (let ((vec (unique "vec"))
                  (for (unique "for"))
                  (len (unique "len")))
-             (add-binding vec '<vector> vector)
-             (add-binding for '<fx> 0)
-             (add-binding len '<fx> (list 'length vec))
-             (add-binding variable (or type '<Object>))
-             (add-test (list '< for len))
-             (add-before (list 'set! variable (list 'element vec for)))
-             (add-before (list 'set! for (list '+ for 1))))))
+             (add-global vec '<vector> vector)
+             (add-global len '<fx> `(length ,vec))
+             (add-variable for '<fx> 0)
+             (add-binding variable (or type '<Object>) `(element ,vec ,for))
+             (add-test `(< ,for ,len))
+             (add-iteration for `(+ ,for 1)))))
         ((in-sequence)
          (bind (iterator) rest
            (let ((val (unique "val"))
                  (itr (unique "itr")))
-             (add-binding val '<Object> iterator)
-             (add-binding itr '<Iterator> (list 'if (list 'is? val 'Iterator) val (list 'iterate-sequence val)))
-             (add-binding variable '<Object> #f)
-             (add-test (list 'not (list 'done?~ itr)))
-             (add-before (list 'set! variable (list 'get-next~ itr))))))
+             (add-global val '<Object> iterator)
+             (add-variable itr '<Iterator> `(if (is? ,val Iterator) ,val (iterate-sequence ,val)))
+             (add-binding variable '<Object> `(get-next~ ,itr))
+             (add-test `(not (done?~ ,itr)))
+             (add-iteration itr itr))))
         ((in-properties)
          (bind (keyword value) (source-code variable)
            (bind (lst) rest
              (let ((for (unique "for")))
-               (add-binding for '<Object> lst)
-               (add-binding keyword '<Object> #f)
-               (add-binding value '<Object> #f)
-               (add-test (list 'not (list 'null? for)))
-               (add-before (list 'set! keyword (list 'car for)))
-               (add-before (list 'set! for (list 'cdr for)))
-               (add-before (list 'set! value (list 'car for)))
-               (add-before (list 'set! for (list 'cdr for)))))))
+               (add-variable for '<Object> lst)
+               (add-test `(not (null? ,for)))
+               (add-binding keyword `(car ,for))
+               (add-binding value `(cadr ,for))
+               (add-iteration for `(cddr ,for))))))
         ((from)
          (bind (from . rest) rest
            (let ((type (or type '<fx>))
                  (to #f)
                  (test #f)
-                 (update 'increase!)
+                 (oper '+)
                  (by 1)
                  (scan rest))
              (while (not-null? scan)
@@ -391,65 +368,29 @@
                  (case key
                    ((to) (set! to (cadr scan)) (set! test '<=) (set! scan (cddr scan)))
                    ((below) (set! to (cadr scan)) (set! test '<) (set! scan (cddr scan)))
-                   ((downto) (set! to (cadr scan)) (set! test '>=) (set! update 'decrease!) (set! scan (cddr scan)))
+                   ((downto) (set! to (cadr scan)) (set! test '>=) (set! oper '-) (set! scan (cddr scan)))
                    ((by) (set! by (cadr scan)) (set! scan (cddr scan)))
                    (else (error "Unknown for keyword: {t}" key)))))
-             (add-binding variable type from)
+             (add-variable variable type from)
              (when to
-               (let ((end (if (symbol? to) to (unique "end"))))
+               (let ((end (if (or (symbol? (source-code to)) (number? (source-code to))) to (unique "end"))))
                  (when (not (eq? end to))
-                   (add-binding end type to))
+                   (add-global end type to))
                  (add-test (list test variable end))))
-             (add-after (list update variable by)))))
+             (add-iteration variable (list oper variable by)))))
         ((first)
          (bind (first . rest) rest
-           (add-binding variable '<Object> first)
-           (when (not-null? rest)
-             (bind (then-key then) rest
-               (add-after (list 'set! variable then))))))
+           (add-variable variable '<Object> first)
+           (add-iteration variable
+                          (if (null? rest)
+                              variable
+                            (bind (then-key then) rest
+                              then)))))
         ((=)
          (let ((value (car rest)))
-           (add-binding variable '<Object>)
-           (add-before (list 'set! variable value))))
+           (add-binding variable '<Object> value)))
         (else
          (error "Unknown for keyword: {t}" (source-code key))))))
-  
-  
-  (define (parse-for rest)
-    (bind (variable . rest) rest
-      (if (specifier? (source-code (car rest)))
-          (bind (type key . rest) rest
-            (values variable type key rest))
-        (bind (key . rest) rest
-          (values variable #f key rest)))))
-  
-  
-  ;;;
-  ;;;; some
-  ;;;
-
-
-  (define (process-some actions rest)
-    (bind (what . rest) rest
-      (let ((res (if (null? rest) (unique "res") (cadr rest))))
-        (add-binding res '<bool> '#f)
-        (add-test (list 'not res))
-        (add-action (list 'when what (list 'set! res #t)) actions)
-        (set-finally (list res)))))
-  
-  
-  ;;;
-  ;;;; every
-  ;;;
-
-
-  (define (process-every actions rest)
-    (bind (what . rest) rest
-      (let ((res (if (null? rest) (unique "res") (cadr rest))))
-        (add-binding res '<bool> '#t)
-        (add-test res)
-        (add-action (list 'when (list 'not what) (list 'set! res #f)) actions)
-        (set-finally (list res)))))
   
   
   ;;;
@@ -457,12 +398,12 @@
   ;;;
 
 
-  (define (process-when actions rest)
+  (define (process-when test rest)
+    (no-test test)
     (bind (test . body) rest
-      (let ((when-actions (process-clauses body)))
-        (add-action `(when ,test
-                       ,@when-actions)
-                    actions))))
+      (let ((var (unique "test")))
+        (add-binding var '<Object> test)
+        (process-clauses (cons var test) body))))
   
   
   ;;;
@@ -470,12 +411,28 @@
   ;;;
 
 
-  (define (process-unless actions rest)
+  (define (process-unless test rest)
+    (no-test test)
     (bind (test . body) rest
-      (let ((unless-actions (process-clauses body)))
-        (add-action `(unless ,test
-                       ,@unless-actions)
-                    actions))))
+      (let ((var (unique "test")))
+        (add-binding var '<Object> `(not ,test))
+        (process-clauses (cons var test) body))))
+  
+  
+  ;;;
+  ;;;; if
+  ;;;
+
+
+  (define (process-if test rest)
+    (no-test test)
+    (bind (test yes . no) rest
+      (let ((var (unique "test")))
+        (add-binding var '<Object> test)
+        (process-clauses (cons var test) (list yes)))
+      (let ((var (unique "test")))
+        (add-binding var '<Object> `(not ,test))
+        (process-clauses (cons var test) no))))
   
   
   ;;;
@@ -483,8 +440,8 @@
   ;;;
 
 
-  (define (process-do actions rest)
-    (add-actions rest actions))
+  (define (process-do test rest)
+    (process-actions test rest))
   
   
   ;;;
@@ -492,12 +449,15 @@
   ;;;
 
 
-  (define (process-sum actions rest)
+  (define (process-sum test rest)
     (bind (what . rest) rest
-      (let ((res (if (null? rest) (unique "res") (cadr rest))))
-        (add-binding res '<fx> 0)
-        (add-action (list 'increase! res what) actions)
-        (set-finally (list res)))))
+      (let ((into (if (null? rest) #f (cadr rest))))
+        (let ((res (or into (unique "res"))))
+          (add-variable res '<fx> 0)
+          (add-alteration res (test-if test `(+ ,res ,what) res))
+          (add-iteration res res)
+          (when (not into)
+            (set-finally (list res)))))))
   
   
   ;;;
@@ -505,23 +465,65 @@
   ;;;
 
 
-  (define (process-collect actions rest)
+  (define (process-collect test rest)
     (bind (what . rest) rest
-      (let ((res (if (null? rest) (unique "res") (cadr rest)))
-            (ptr (unique "ptr"))
-            (cns (unique "cns")))
-        (add-binding res '<list> ''())
-        (add-binding ptr '<list> ''())
-        (add-binding cns '<list+>)
-        (add-action (list 'set! cns (list 'cons what ''())) actions)
-        (add-action (list 'if (list 'null? ptr)
-                          (list 'begin
-                                (list 'set! ptr cns)
-                                (list 'set! res ptr))
-                          (list 'set-cdr! ptr cns)
-                          (list 'set! ptr cns))
-                    actions)
-        (set-finally (list res)))))
+      (let ((into (if (null? rest) #f (cadr rest))))
+        (let ((res (or into (unique "res")))
+              (ptr (unique "ptr"))
+              (cns (unique "cns"))
+              (nul (unique "nul")))
+          (add-variable res '<list> ''())
+          (add-variable ptr '<list> ''())
+          (add-binding cns '<list+> (test-and test `(cons ,what '())))
+          (add-binding nul '<bool> (test-and test `(null? ,ptr)))
+          (add-alteration ptr (test-if test `(if ,nul
+                                                 ,cns
+                                               (begin
+                                                 (set-cdr! ,ptr ,cns)
+                                                 ,cns))
+                                ptr))
+          (add-alteration res (test-if test `(if ,nul
+                                                 ,ptr
+                                               ,res)
+                                res))
+          (add-iteration ptr ptr)
+          (add-iteration res res)
+          (when (not into)
+            (set-finally (list res)))))))
+  
+  
+  ;;;
+  ;;;; some
+  ;;;
+
+
+  (define (process-some test rest)
+    (no-test test)
+    (bind (what . rest) rest
+      (let ((into (if (null? rest) #f (cadr rest))))
+        (let ((res (or into (unique "res"))))
+          (add-variable res '<bool> '#f)
+          (add-test `(not ,res))
+          (add-iteration res `(or ,res ,what))
+          (when (not into)
+            (set-finally (list res)))))))
+  
+  
+  ;;;
+  ;;;; every
+  ;;;
+
+
+  (define (process-every test rest)
+    (no-test test)
+    (bind (what . rest) rest
+      (let ((into (if (null? rest) #f (cadr rest))))
+        (let ((res (or into (unique "res"))))
+          (add-variable res '<bool> '#t)
+          (add-test res)
+          (add-iteration res `(and ,res ,what))
+          (when (not into)
+            (set-finally (list res)))))))
   
   
   ;;;
@@ -529,10 +531,20 @@
   ;;;
 
 
-  (define (process-return actions rest)
-    (receive (ret ext) (get-return/exit)
-      (add-action (list 'set! ret (if (null? rest) '(unspecified) (car rest))) actions)
-      (add-action (list 'set! ext #t) actions)))
+  (define (process-return test rest)
+    (let ((effective
+            (if (null? rest)
+                finally
+              rest)))
+      (if (not test)
+          (add-control
+            (lambda (remain)
+              effective))
+        (add-control
+          (lambda (remain)
+            `((if ,(car test)
+                  ,(simplify-begin `(begin ,@effective))
+                ,@remain)))))))
   
   
   ;;;
@@ -540,7 +552,7 @@
   ;;;
 
 
-  (define (process-finally actions rest)
+  (define (process-finally test rest)
     (set-finally rest))
   
   
@@ -549,4 +561,4 @@
   ;;;
   
   
-  (expand clauses))))
+  (expand))))

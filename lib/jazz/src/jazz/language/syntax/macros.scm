@@ -45,8 +45,6 @@
         unless
         prog1
         while
-        for
-        for-to
         unwind-protect
         catch
         ~

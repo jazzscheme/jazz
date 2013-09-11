@@ -215,7 +215,7 @@
             (right (get-columns-right~ client))
             (width (get-width))
             (height (get-header-height))
-            (background (if (view-enabled?~ client) (or background {Color Dark}) {Color Dark}))
+            (header-background (if (view-enabled?~ client) (or background {Color Dark}) {Color Dark}))
             (empty-background (if (view-enabled?~ client) (or empty-background {Color Dark}) {Color Medium})))
         (when (< (get-top~ clipper) height)
           (fill-rect~ surface (new Rect right 0 width height) empty-background)
@@ -227,6 +227,7 @@
                    (columns (get-columns))
                    (last-column (and (not-null? columns) (last columns)))
                    (look (get-look))
+                   (background (get-background~ look))
                    (flat? (get-flat?~ look))
                    (enabled? (view-enabled?~ client))
                    (rank 0))
@@ -240,9 +241,9 @@
                           (let ((right (+ h width (if spaced? cs 0))))
                             (when (< h right-clip)
                               (when (> right left-clip)
-                                (draw-header~ column surface context h 0 width height sorted (and spaced? (> cs 0)) flat? enabled?)
-                                (when (eq? column last-column)
-                                  (set-color~ surface background)
+                                (draw-header~ column surface context h 0 width height look sorted (and spaced? (> cs 0)) flat? enabled?)
+                                (when (and (eq? column last-column) (neq? background 'none))
+                                  (set-color~ surface header-background)
                                   (set-line-width~ surface 1)
                                   (let ((h (- right 1)))
                                     (line~ surface h 0 h height))))
@@ -269,7 +270,7 @@
 
 
   (method override (cursor-update evt)
-    (if (and (view-enabled?~ client) (or resizing? (resized-col (- (get-h~ (get-position~ evt)) (get-hscroll-amount)))))
+    (if (and selectable? (view-enabled?~ client) (or resizing? (resized-col (- (get-h~ (get-position~ evt)) (get-hscroll-amount)))))
         (set-cursor :west-east)
       (set-cursor :arrow)))
   
@@ -332,33 +333,34 @@
   
   
   (method override (mouse-down evt)
-    (let ((pos (get-position~ evt)))
-      (acquire-capture)
-      (set! autofiting? #f)
-      (let ((h (- (get-h~ pos) (get-hscroll-amount)))
-            (v (- (get-v~ pos) (get-vscroll-amount))))
-        (let ((col (resized-col h)))
-          (if (not col)
-              (let ((col (h->col h)))
-                (when col
-                  (let ((column (get-column col)))
-                    (header-down~ column (header-coordinates column pos)))))
-            (set! resizing? #t)
-            (set! resized-column (get-column col))
-            (set! resized-column-ref col)
-            (set! resize-start-width (get-width~ resized-column))
-            (set! resize-start-h h)))
-        @wait-buggy-when-resizing-a-column-and-scrolled-vertically
-        (let ((tree (get-client)))
-          (let ((line (v->line~ tree v)))
-            (when line
-              (let ((row (get-row~ tree line)))
-                (set! initial-line line)
-                (selector-down~ row))))))))
+    (when selectable?
+      (let ((pos (get-position~ evt)))
+        (acquire-capture)
+        (set! autofiting? #f)
+        (let ((h (- (get-h~ pos) (get-hscroll-amount)))
+              (v (- (get-v~ pos) (get-vscroll-amount))))
+          (let ((col (resized-col h)))
+            (if (not col)
+                (let ((col (h->col h)))
+                  (when col
+                    (let ((column (get-column col)))
+                      (header-down~ column (header-coordinates column pos)))))
+              (set! resizing? #t)
+              (set! resized-column (get-column col))
+              (set! resized-column-ref col)
+              (set! resize-start-width (get-width~ resized-column))
+              (set! resize-start-h h)))
+          @wait-buggy-when-resizing-a-column-and-scrolled-vertically
+          (let ((tree (get-client)))
+            (let ((line (v->line~ tree v)))
+              (when line
+                (let ((row (get-row~ tree line)))
+                  (set! initial-line line)
+                  (selector-down~ row)))))))))
   
   
   (method override (drag-move evt)
-    (when (view-enabled?~ client)
+    (when (and selectable? (view-enabled?~ client))
       (let ((pos (get-position~ evt)))
         (let ((h (- (get-h~ pos) (get-hscroll-amount)))
               (v (- (get-v~ pos) (get-vscroll-amount))))
@@ -380,39 +382,41 @@
   
   
   (method override (drag-up evt . rest)
-    (let ((pos (get-position~ evt)))
-      (let ((h (- (get-h~ pos) (get-hscroll-amount)))
-            (v (- (get-v~ pos) (get-vscroll-amount))))
-        (if (not resizing?)
-            (unless autofiting?
-              (let ((col (h->col h)))
-                (when col
-                  (let ((column (get-column col)))
-                    (header-up~ column (header-coordinates column pos)))))
-              @wait-buggy-when-resizing-a-column-and-scrolled-vertically
-              (when initial-line
-                (let ((tree client))
-                  (let ((row (get-row~ tree initial-line)))
-                    (selector-up~ row)))))
-          (set! resizing? #f)
-          (set! resized-column #f)
-          (set! initial-line #f))
-        (release-capture))))
+    (when selectable?
+      (let ((pos (get-position~ evt)))
+        (let ((h (- (get-h~ pos) (get-hscroll-amount)))
+              (v (- (get-v~ pos) (get-vscroll-amount))))
+          (if (not resizing?)
+              (unless autofiting?
+                (let ((col (h->col h)))
+                  (when col
+                    (let ((column (get-column col)))
+                      (header-up~ column (header-coordinates column pos)))))
+                @wait-buggy-when-resizing-a-column-and-scrolled-vertically
+                (when initial-line
+                  (let ((tree client))
+                    (let ((row (get-row~ tree initial-line)))
+                      (selector-up~ row)))))
+            (set! resizing? #f)
+            (set! resized-column #f)
+            (set! initial-line #f))
+          (release-capture)))))
   
   
   (method override (double-click evt)
-    (let ((pos (get-position~ evt)))
-      (let ((h (- (get-h~ pos) (get-hscroll-amount)))
-            (v (get-v~ pos)))
-        (let ((col (resized-col h)))
-          (if col
-              (begin
-                (autofit-column (get-column col))
-                (set! autofiting? #t))
-            (let ((col (h->col h)))
-              (when col
-                (let ((column (get-column col)))
-                  (header-double-click~ column (header-coordinates column pos))))))))))
+    (when selectable?
+      (let ((pos (get-position~ evt)))
+        (let ((h (- (get-h~ pos) (get-hscroll-amount)))
+              (v (get-v~ pos)))
+          (let ((col (resized-col h)))
+            (if col
+                (begin
+                  (autofit-column (get-column col))
+                  (set! autofiting? #t))
+              (let ((col (h->col h)))
+                (when col
+                  (let ((column (get-column col)))
+                    (header-double-click~ column (header-coordinates column pos)))))))))))
   
   
   (method (resize-column column width)

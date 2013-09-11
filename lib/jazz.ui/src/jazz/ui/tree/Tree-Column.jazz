@@ -321,40 +321,64 @@
                (memv? line (get-selection~ parent))))))
   
   
-  (method public virtual (draw-header surface context h v width height sorted spaced? flat? enabled?)
-    (draw-header-at surface h v width height (localize title) down? sorted spaced? flat? enabled?))
+  (method public virtual (draw-header surface context h v width height look sorted spaced? flat? enabled?)
+    (draw-header-at surface h v width height look (localize title) down? sorted spaced? flat? enabled?))
   
   
-  (method (draw-header-at surface h v width height title down? sorted spaced? flat? enabled?)
+  (method (draw-header-at surface h v width height look title down? sorted spaced? flat? enabled?)
     (if down?
-        (draw-sunken-button surface h v width height title sorted spaced? flat? enabled?)
-      (draw-raised-button surface h v width height title sorted spaced? flat? enabled?)))
+        (draw-sunken-button surface h v width height look title sorted spaced? flat? enabled?)
+      (draw-raised-button surface h v width height look title sorted spaced? flat? enabled?)))
   
   
-  (method (draw-raised-button surface h v width height title sorted spaced? flat? enabled?)
+  (method (draw-raised-button surface h v width height look title sorted spaced? flat? enabled?)
     (let ((thick (if flat? -1 -2)))
       ;; when spaced, it's the background that draws the right side shadow
       (let* ((outer (new Rect h v (+ h width) (+ v height)))
              (inner (expand-rect outer 1 1 (if spaced? 0 thick) thick))
-             (text-h (header-title-h surface width height title))
-             (color (if enabled? {Color Black} {Color Dark})))
-        (if flat?
-            (if spaced?
-                (let ((smaller (expand-rect outer 0 0 0 -1)))
-                  (draw-edge~ surface smaller inner: 'raised edges: '(top left)))
-              (draw-edge~ surface outer inner: 'raised edges: 'rectangle))
-          (draw-edge~ surface outer inner: 'raised outer: 'raised edges: '(right bottom))
-          (let ((rect (expand-rect outer 0 0 -1 -1)))
-            (draw-edge~ surface rect inner: 'raised edges: '(top left))))
-        (fill-rect~ surface inner (if (debug-paint?) (cycle-debug-color!) (or background (header-color~ tree))))
+             (text-h (header-title-h surface width height look title))
+             (background (get-background~ look))
+             (color (if enabled? (or (get-title-color~ look) {Color Black}) {Color Dark})))
+        (unless (eq? background 'none)
+          (if flat?
+              (if spaced?
+                  (let ((smaller (expand-rect outer 0 0 0 -1)))
+                    (draw-edge~ surface smaller inner: 'raised edges: '(top left)))
+                (draw-edge~ surface outer inner: 'raised edges: 'rectangle))
+            (draw-edge~ surface outer inner: 'raised outer: 'raised edges: '(right bottom))
+            (let ((rect (expand-rect outer 0 0 -1 -1)))
+              (draw-edge~ surface rect inner: 'raised edges: '(top left))))
+          (fill-rect~ surface inner (if (debug-paint?) (cycle-debug-color!) background)))
         (with-clipping-transformation~ surface h v width (- height 1) #f
           (lambda ()
             (draw-text~ surface text-h 1 title color)
             (draw-sorted surface width 0 title sorted))))))
+  
+  
+  (method (draw-sunken-button surface h v width height look title sorted spaced? flat? enabled?)
+    (let* ((outer (new Rect h v (+ h width) (+ v height)))
+           (inner (inflate-rect outer -1 -1))
+           (text-h (+ (header-title-h surface width height look title) 1))
+           (background (get-background~ look))
+           (color (if enabled? (or (get-title-color~ look) {Color Black}) {Color Dark})))
+      (unless (eq? background 'none)
+        (set-color~ surface {Color Dark})
+        (frame-rect~ surface outer {Color Dark})
+        (fill-rect~ surface inner (if (debug-paint?) (cycle-debug-color!) background)))
+      (with-clipping-transformation~ surface h v width (- height 1) #f
+        (lambda ()
+          (draw-text~ surface text-h 2 title color)
+          (draw-sorted surface (+ width 1) 1 title sorted)))))
+  
+  
+  (method protected virtual (header-title-offset look)
+    (if (eq? (get-background~ look) 'none)
+        0
+      2))
     
   
-  (method protected (header-title-h surface width height title)
-    (+ 2 (get-h~ (justify-title surface (- width 4) height title justification))))
+  (method protected (header-title-h surface width height look title)
+    (+ (header-title-offset look) (get-h~ (justify-title surface (- width 4) height title justification))))
   
   
   (method protected (justify-title surface width height title justification)
@@ -376,20 +400,6 @@
         (case sorted
           ((ascending) (draw-arrow-tip~ surface h v size 'up))
           ((descending #f) (draw-arrow-tip~ surface h v size 'down))))))
-  
-  
-  (method (draw-sunken-button surface h v width height title sorted spaced? flat? enabled?)
-    (let* ((outer (new Rect h v (+ h width) (+ v height)))
-           (inner (inflate-rect outer -1 -1))
-           (text-h (+ (header-title-h surface width height title) 1))
-           (color (if enabled? {Color Black} {Color Dark})))
-      (set-color~ surface {Color Dark})
-      (frame-rect~ surface outer {Color Dark})
-      (fill-rect~ surface inner (if (debug-paint?) (cycle-debug-color!) (or background (header-color~ tree))))
-      (with-clipping-transformation~ surface h v width (- height 1) #f
-        (lambda ()
-          (draw-text~ surface text-h 2 title (if enabled? {Color Black} {Color Dark}))
-          (draw-sorted surface (+ width 1) 1 title sorted)))))
 
   
   ;;;

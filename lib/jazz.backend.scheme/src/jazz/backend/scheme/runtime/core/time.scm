@@ -47,8 +47,8 @@
 (define jazz:real-time real-time)
 
 
-(define (jazz:current-seconds! f64vec)
-  (##get-current-time! f64vec))
+(define jazz:current-seconds!
+  ##get-current-time!)
 
 
 (define (jazz:current-seconds)

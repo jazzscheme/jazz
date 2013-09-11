@@ -1264,7 +1264,7 @@
 (native jazz:cpu-time <:fl>)
 (native jazz:real-time <:fl>)
 (native jazz:current-seconds!)
-(native jazz:current-seconds)
+(native jazz:current-seconds <:fl>)
 
 
 ;;;

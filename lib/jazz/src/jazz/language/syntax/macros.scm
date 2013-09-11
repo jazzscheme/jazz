@@ -184,12 +184,13 @@
 
 (define-syntax site
   (lambda (form-src usage-environment macro-environment)
-    (let ((name (source-code (cadr (source-code form-src))))
+    (let ((header (source-code (cadr (source-code form-src))))
           (body (cddr (source-code form-src))))
       (let ((site (generate-symbol "site")))
         (sourcify-if
-          `(let ((,site <Call-Site> (static (register-site ',name))))
+          `(let ((,site <Call-Site> (static (register-site ',header))))
              ((get-procedure~ ,site)
+              ,site
               (lambda ()
                 ,@body)))
           form-src)))))

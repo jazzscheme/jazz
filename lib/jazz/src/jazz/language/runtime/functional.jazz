@@ -343,7 +343,17 @@
 (class Call-Site extends Object
   
   
-  (slot procedure accessors generate))
+  (slot name       accessors generate)
+  (slot parent     accessors generate)
+  (slot properties accessors generate)
+  (slot procedure  accessors generate)
+  (slot profile    accessors generate)
+  
+  
+  (method override (print output detail)
+    (print-unreadable self output
+      (lambda (output)
+        (system-format output "{s}" name)))))
 
 
 ;;;
@@ -5495,10 +5505,13 @@
 (definition public (registered-site name)
   (table-ref call-sites name))
 
-(definition public (register-site name)
-  (let ((site (new-call-site (lambda (thunk) (thunk)))))
-    (table-set! call-sites name site)
-    site))
+(definition public (register-site header)
+  (let ((name (if (pair? header) (car header) header))
+        (properties (if (pair? header) (cdr header) '())))
+    (let ((parent (getf properties parent:)))
+      (let ((site (new-call-site name parent properties (lambda (site thunk) (thunk)))))
+        (table-set! call-sites name site)
+        site))))
 
 
 (definition public (call-site-ref name)

@@ -103,10 +103,7 @@
 
 
 (define jazz:bytes-allocated!
-  (if (jazz:global-bound? '##bytes-allocated!)
-      (jazz:global-ref '##bytes-allocated!)
-    (lambda (vec)
-      (##f64vector-set! vec 0 (##f64vector-ref (##process-statistics) 7)))))
+  ##get-bytes-allocated!)
 
 
 (define (jazz:get-live-percent)

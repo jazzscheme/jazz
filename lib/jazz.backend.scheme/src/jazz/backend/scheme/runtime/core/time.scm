@@ -51,9 +51,9 @@
   ##get-current-time!)
 
 
-(define (jazz:current-seconds)
-  (let ((f64vec (##vector-ref (##run-queue) 14)))
-    (##get-current-time! f64vec)
+(define jazz:current-seconds
+  (let ((f64vec (##make-f64vector 1)))
+    (##get-current-time! f64vec 0)
     (##f64vector-ref f64vec 0)))
 
 ;; for backward compatibility

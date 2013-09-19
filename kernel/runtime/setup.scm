@@ -135,6 +135,15 @@
 
 
 ;;;
+;;;; Compiler
+;;;
+
+
+(define (jazz:compiler-present?)
+  (jazz:global-bound? '##gambc-cc))
+
+
+;;;
 ;;;; Library
 ;;;
 

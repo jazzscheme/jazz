@@ -415,11 +415,11 @@
 
 (definition package (setup-events)
   ;; one millisecond
-  (define events-heartbeat
+  (define single-threaded-events-heartbeat
     1)
   
   (if (get-events-single-threaded?)
-      (set-timer~ (get-toplevel) 0 events-heartbeat)
+      (set-timer~ (get-toplevel) 0 single-threaded-events-heartbeat)
     (thread-priority-boost-set! (event-thread) 1)))
 
 
@@ -487,6 +487,7 @@
     (MSG-free msg)))
 
 
+@w
 (definition package (process-messages-multi-threaded)
   (define (process-message msg)
     (unless (translate-shortcut msg)
@@ -509,7 +510,7 @@
   
   (new-thread process 'message-pump))
 
-@w
+
 (definition package (process-messages-multi-threaded)
   (define (process-message msg)
     (execute-event
@@ -526,6 +527,7 @@
     
     ;; because MsgWaitForMultipleObjects will *not* remove messages already present
     ;; in the message queue, we need to process those before the blocking call to read
+    @comment
     (let ((msg (MSG-make)))
       (while (PeekMessage msg NULL 0 0 PM_REMOVE)
         (process-message msg))
@@ -536,7 +538,7 @@
       (let (loop)
         (let ((msg (read port)))
           (process-message msg)
-          (MSG-free msg))
+          (foreign-release! msg))
         (when (thread-loop? thread)
           (loop)))))
   

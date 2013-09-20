@@ -409,21 +409,6 @@
 
 
 ;;;
-;;;; Events
-;;;
-
-
-(definition package (setup-events)
-  ;; one millisecond
-  (define single-threaded-events-heartbeat
-    1)
-  
-  (if (get-events-single-threaded?)
-      (set-timer~ (get-toplevel) 0 single-threaded-events-heartbeat)
-    (thread-priority-boost-set! (event-thread) 1)))
-
-
-;;;
 ;;;; C Stack unwinding
 ;;;
 
@@ -468,50 +453,7 @@
 ;;;
 
 
-(definition package (process-messages-single-threaded thunk)
-  (define (process-message msg)
-    (unless (translate-shortcut msg)
-      (TranslateMessage msg)
-      (with-c-stack-unwinding-entry
-        (lambda ()
-          (DispatchMessage msg)))))
-  
-  (declare (proper-tail-calls))
-  (let ((msg (MSG-make)))
-    (let (loop)
-      (let ((message (GetMessage msg NULL 0 0)))
-        (when message
-          (process-message msg)
-          (thunk)
-          (loop))))
-    (MSG-free msg)))
-
-
-@w
-(definition package (process-messages-multi-threaded)
-  (define (process-message msg)
-    (unless (translate-shortcut msg)
-      (TranslateMessage msg)
-      (with-c-stack-unwinding-entry
-        (lambda ()
-          (DispatchMessage msg)))))
-  
-  (define (process)
-    (declare (proper-tail-calls))
-    (let ((msg (MSG-make)))
-      (let (loop)
-        (let ((message? (GetMessage msg NULL 0 0)))
-          (when message?
-            (message-event
-              (lambda ()
-                (process-message msg)))
-            (loop))
-          (MSG-free msg)))))
-  
-  (new-thread process 'message-pump))
-
-
-(definition package (process-messages-multi-threaded)
+(definition package (process-messages)
   (define (process-message msg)
     (execute-event
       (lambda ()
@@ -521,18 +463,6 @@
   
   (define (process)
     (declare (proper-tail-calls))
-    
-    ;; put back here to see if moving it before the read was the cause of many
-    ;; intermittent bugs
-    
-    ;; because MsgWaitForMultipleObjects will *not* remove messages already present
-    ;; in the message queue, we need to process those before the blocking call to read
-    @comment
-    (let ((msg (MSG-make)))
-      (while (PeekMessage msg NULL 0 0 PM_REMOVE)
-        (process-message msg))
-      (MSG-free msg))
-    
     (let ((port (open-event-queue QS_ALLINPUT))
           (thread (current-thread)))
       (let (loop)
@@ -543,14 +473,6 @@
           (loop)))))
   
   (new-thread process 'message-pump))
-
-
-(definition *peek-msg*
-  (MSG-make))
-
-
-(definition package (message-available?)
-  (PeekMessage *peek-msg* NULL 0 0 PM_NOYIELD))
 
 
 ;;;
@@ -583,28 +505,23 @@
   (declare (proper-tail-calls))
   (with-c-stack-unwinding-exit
     (lambda ()
-      (if (get-events-single-threaded?)
-          (if (primordial-thread?)
-              (process)
-            (snapshot-process reason: "Message callback from non-primordial thread")
-            (exit 1))
-        (let ((level (begin
-                       (mutex-lock! callback-thread-mutex)
-                       (increase! callback-level)
-                       (prog1 callback-level
-                         (mutex-unlock! callback-thread-mutex)))))
-          (unwind-protect
-              (call-event process)
-            (let (iterate)
-              (mutex-lock! callback-thread-mutex)
-              (if (= level callback-level)
-                  (begin
-                    (decrease! callback-level)
-                    (mutex-unlock! callback-thread-mutex))
-                @debug
-                (terminal 'interleaved-problem-detected (current-thread) level callback-level hwnd msg wparam lparam)
-                (mutex-unlock! callback-thread-mutex callback-thread-condition)
-                (iterate)))))))
+      (let ((level (begin
+                     (mutex-lock! callback-thread-mutex)
+                     (increase! callback-level)
+                     (prog1 callback-level
+                       (mutex-unlock! callback-thread-mutex)))))
+        (unwind-protect
+            (call-event process)
+          (let (iterate)
+            (mutex-lock! callback-thread-mutex)
+            (if (= level callback-level)
+                (begin
+                  (decrease! callback-level)
+                  (mutex-unlock! callback-thread-mutex))
+              @debug
+              (terminal 'interleaved-problem-detected (current-thread) level callback-level hwnd msg wparam lparam)
+              (mutex-unlock! callback-thread-mutex callback-thread-condition)
+              (iterate))))))
     (lambda ()
       (DefWindowProc hwnd msg wparam lparam))))
 

@@ -445,10 +445,6 @@
 ;;;
 
 
-(definition package (setup-events)
-  )
-
-
 (definition (process-message msg)
   (execute-event
     (lambda ()
@@ -459,41 +455,26 @@
             (dispatch-message window msg)))))))
 
 
-(definition package (process-messages-single-threaded thunk)
-  (declare (proper-tail-calls))
-  (let* ((msg (XEvent-make))
-         (display-fd (ConnectionNumber x11-default-display))
-         (fdset (setup-fdset display-fd)))
-    (let (loop)
-      (process-inval-rects)
-      (select (+ display-fd 1) fdset #f #f 0 1000)
-      (if (= 0 (XPending x11-default-display))
-          (thread-sleep! 0.01)
-        (XNextEvent x11-default-display msg)
-        (process-message msg))
-      (thunk)
-      (when (thread-loop? (current-thread))
-        (loop)))
-    (XEvent-free msg)
-    (free-fdset fdset)))
-
-
-(definition package (process-messages-multi-threaded)
+;; untested
+(definition package (process-messages)
   (define (process)
     (declare (proper-tail-calls))
-    (let ((msg (XEvent-make)))
+    (let* ((msg (XEvent-make))
+           (display-fd (ConnectionNumber x11-default-display))
+           (fdset (setup-fdset display-fd)))
       (let (loop)
-        (XNextEvent x11-default-display msg)
-        (process-message msg)
+        (process-inval-rects)
+        (select (+ display-fd 1) fdset #f #f 0 1000)
+        (if (= 0 (XPending x11-default-display))
+            (thread-sleep! 0.01)
+          (XNextEvent x11-default-display msg)
+          (process-message msg))
         (when (thread-loop? (current-thread))
           (loop)))
-      (XEvent-free msg)))
+      (XEvent-free msg)
+      (free-fdset fdset)))
   
   (new-thread process 'message-pump))
-
-
-(definition package (message-available?)
-  (> (XPending x11-default-display) 0))
 
 
 ;;;

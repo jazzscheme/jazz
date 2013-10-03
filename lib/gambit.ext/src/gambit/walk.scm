@@ -4,6 +4,9 @@
 
 (unit gambit.walk
 
+(declare (proper-tail-calls)
+         (optimize-dead-local-variables))
+
 (include "~~lib/_gambit#.scm")
 
 ;;; guard for unimplemented functions (will be integrated to _kernel.scm)

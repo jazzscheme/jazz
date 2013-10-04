@@ -47,14 +47,14 @@
   ((name    getter: generate)
    (access  getter: generate)
    (exports getter: generate)
-   (entries getter: generate)))
+   (entries getter: generate setter: generate)))
 
 
 (jazz:define-class-runtime jazz:Module)
 
 
 (define (jazz:new-module name access)
-  (jazz:allocate-module name access (%%make-table test: eq?) (%%make-table test: eq?)))
+  (jazz:allocate-module name access (%%make-table test: eq?) #f))
 
 
 ;;;
@@ -169,14 +169,28 @@
       (jazz:error "Unknown module: {s}" name)))
 
 
+;; having all module entries only make sense for debugging purpose
+;; add an api so we can decide at runtime if we want or not this info
+(define jazz:register-entries?
+  #f)
+
+
 (define (jazz:get-module-entry module-name entry-name)
-  (%%table-ref (%%get-module-entries (jazz:get-module module-name)) entry-name #f))
+  (let ((entries (%%get-module-entries (jazz:get-module module-name))))
+    (and entries (%%table-ref entries entry-name #f))))
 
 (define (jazz:set-module-entry module-name entry-name entry)
-  (%%table-set! (%%get-module-entries (jazz:get-module module-name)) entry-name entry))
+  (let ((module (jazz:get-module module-name)))
+    (let ((entries (%%get-module-entries module)))
+      (if entries
+          (%%table-set! entries entry-name entry)
+        (let ((table (%%make-table test: eq?)))
+          (%%set-module-entries module table)
+          (%%table-set! table entry-name entry))))))
 
 (define (jazz:register-module-entry module-name entry-name entry)
-  (jazz:set-module-entry module-name entry-name entry))
+  (if jazz:register-entries?
+      (jazz:set-module-entry module-name entry-name entry)))
 
 
 (define (jazz:module-get module-name name #!key (not-found #f))

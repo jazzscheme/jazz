@@ -73,6 +73,7 @@
   (slot protected locked-anchor?         initialize #f)
   (slot protected mouse-selecting?       initialize #f)
   (slot protected selection-mode         initialize 'char)
+  (slot protected selection-inhibit?     initialize #f)
   (slot protected special-mode           initialize #f)
   (slot protected virtual-h              initialize #f)
   (slot protected caret-pulse            initialize #f)
@@ -393,7 +394,9 @@
     (show-text-cursor)
     (update-caret)
     (when (and focus-selects-all? (not (activating-window?)))
-      (select-all))
+      (focus-select-all)
+      (when (eq? (event-type) 'mouse)
+        (set! selection-inhibit? #t)))
     (when (has-selection?)
       (invalidate-selection (get-selection)))
     (invalidate-non-showed-highlights))
@@ -419,6 +422,10 @@
   
   (method override (focus-document)
     (acquire-focus))
+  
+  
+  (method protected virtual (focus-select-all)
+    (select-all))
   
   
   (method override (mouse-leave)
@@ -839,6 +846,7 @@
                   (set-selection mouse-copy-selection ensure-displayed?: #f)
                   (mouse-insert~ mouse-copy-destination copy))))
           (ensure-displayed))
+        (set! selection-inhibit? #f)
         (set! mouse-copy-selection #f)
         (set! mouse-copy-destination #f)
         (when (and (not alt?) control? (not shift?))
@@ -1664,7 +1672,8 @@
                                   (generate-event?: generate-event? #t)
                                   (set-anchor?: set-anchor? #t))
     (validate-range range)
-    (when (or force? (/= (cast <Range$Cell$> (get-selection)) range))
+    (when (and (or force? (/= (cast <Range$Cell$> (get-selection)) range))
+               (not selection-inhibit?))
       (hide-caret)
       (when set-anchor?
         (set-selection-anchor range))

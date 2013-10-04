@@ -267,17 +267,63 @@ end-of-code
   (##walk-interned-symbols scan-symbol-and-global-var)
   (##walk-interned-keywords scan-keyword))
 
+(define ##seen-count
+  0)
+
+(define ##seen-card
+  4)
+
+(define (##make-seen)
+  (let ((seen (##make-vector ##seen-card)))
+    (let loop ((n 0))
+         (if (##fx< n ##seen-card)
+             (begin
+               (##vector-set! seen n (##make-table 0 #f #f #f ##eq?))
+               (loop (##fx+ n 1)))))
+    seen))
+
+(define (##seen? seen obj)
+  (let loop ((n 0))
+       (if (##fx< n ##seen-card)
+           (let ((table (##vector-ref seen n)))
+             (let ((value (##table-ref table obj 'not-found)))
+               (if (##eq? value 'not-found)
+                   (loop (##fx+ n 1))
+                 value)))
+         #f)))
+
+(define (##seen! seen obj)
+  (let ((table (##vector-ref seen (##modulo ##seen-count ##seen-card))))
+    (##table-set! table obj #t)
+    (set! ##seen-count (##fx+ ##seen-count 1))))
+
 (define (##update-reachable! special-roots substitute)
 
-  (define seen (##make-table 0 #f #f #f ##eq?))
-
+  (define seen (##make-seen))
+  
   (define (visit container i obj)
-    (if (##table-ref seen obj #f)
+    (if (##seen? seen obj)
         (macro-walk-no-recursive-scan)
-        (begin
-          (if (##mem-allocated? obj)
-              (##table-set! seen obj #t))
-          (macro-walk-continue))))
+      (begin
+        (if (##mem-allocated? obj)
+            (begin
+              (if (= 0 (modulo ##seen-count 100000))
+                  (pp ##seen-count))
+              (##seen! seen obj)))
+        (macro-walk-continue))))
+  
+  ;(define seen (##make-table 0 #f #f #f ##eq?))
+  ;
+  ;(define (visit container i obj)
+  ;  (if (##table-ref seen obj #f)
+  ;      (macro-walk-no-recursive-scan)
+  ;    (begin
+  ;      (if (##mem-allocated? obj)
+  ;          (begin
+  ;            (if (= 0 (modulo (table-length seen) 1000))
+  ;                (pp (table-length seen)))
+  ;            (##table-set! seen obj #t)))
+  ;      (macro-walk-continue))))
 
   (macro-walk-seq
    (##update-reachable-from-object! special-roots visit substitute)

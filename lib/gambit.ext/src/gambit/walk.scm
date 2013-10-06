@@ -267,49 +267,60 @@ end-of-code
   (##walk-interned-symbols scan-symbol-and-global-var)
   (##walk-interned-keywords scan-keyword))
 
-(define ##seen-count
-  0)
+(define-type register
+  constructor: make-register
+  count
+  cardinality
+  unique
+  content
+  )
 
-(define ##seen-card
-  4)
-
-(define (##make-seen)
-  (let ((seen (##make-vector ##seen-card)))
+(define (##new-register cardinality)
+  (let ((content (##make-vector cardinality)))
     (let loop ((n 0))
-         (if (##fx< n ##seen-card)
+         (if (##fx< n cardinality)
              (begin
-               (##vector-set! seen n (##make-table 0 #f #f #f ##eq?))
+               (##vector-set! content n (##make-table 0 #f #f #f ##eq?))
                (loop (##fx+ n 1)))))
-    seen))
+    (make-register 0 cardinality 'not-found content)))
 
-(define (##seen? seen obj)
-  (let loop ((n 0))
-       (if (##fx< n ##seen-card)
-           (let ((table (##vector-ref seen n)))
-             (let ((value (##table-ref table obj 'not-found)))
-               (if (##eq? value 'not-found)
-                   (loop (##fx+ n 1))
-                 value)))
-         #f)))
+(define (##register-ref register key default)
+  (let ((cardinality (register-cardinality register))
+        (unique (register-unique register))
+        (content (register-content register)))
+    (let loop ((n 0))
+         (if (##fx< n cardinality)
+             (let ((table (##vector-ref content n)))
+               (let ((value (##table-ref table key unique)))
+                 (if (##eq? value unique)
+                     (loop (##fx+ n 1))
+                   value)))
+           default))))
 
-(define (##seen! seen obj)
-  (let ((table (##vector-ref seen (##modulo ##seen-count ##seen-card))))
-    (##table-set! table obj #t)
-    (set! ##seen-count (##fx+ ##seen-count 1))))
+(define (##register-set! register key value)
+  (let ((count (register-count register))
+        (cardinality (register-cardinality register))
+        (unique (register-unique register))
+        (content (register-content register)))
+    (let ((table (##vector-ref content (##modulo count cardinality))))
+      (##table-set! table key value)
+      (register-count-set! register (##fx+ count 1)))))
 
-(define (##update-reachable! special-roots substitute)
+(define (##update-reachable! special-roots substitute #!optional (feedback? #f))
 
-  (define seen (##make-seen))
+  (define seen (##new-register 4))
   
   (define (visit container i obj)
-    (if (##seen? seen obj)
+    (if (##register-ref seen obj #f)
         (macro-walk-no-recursive-scan)
       (begin
         (if (##mem-allocated? obj)
             (begin
-              (if (= 0 (modulo ##seen-count 100000))
-                  (pp ##seen-count))
-              (##seen! seen obj)))
+              (if feedback?
+                  (let ((count (register-count seen)))
+                    (if (= 0 (modulo count 10000))
+                        (display "." (console-port)))))
+              (##register-set! seen obj #t)))
         (macro-walk-continue))))
   
   ;(define seen (##make-table 0 #f #f #f ##eq?))
@@ -357,18 +368,26 @@ end-of-code
 
 (define (##make-domain)
   (make-initialized-domain
-   (##make-table 0 #f #f #f ##eq?)
+   ;(##make-table 0 #f #f #f ##eq?)
+   (##new-register 4)
    0))
 
 (define (##copy-object obj kind domain)
-
+  
   (define (register-copy! obj copy)
-    (##table-set! (domain-copies domain) obj copy))
-
+    (##register-set! (domain-copies domain) obj copy))
+  
   (define (existing-copy-of obj)
     ;;TODO: check if the existing copy is of the kind we want
-    (##table-ref (domain-copies domain) obj #f))
-
+    (##register-ref (domain-copies domain) obj #f))
+  
+  ;(define (register-copy! obj copy)
+  ;  (##table-set! (domain-copies domain) obj copy))
+  ;
+  ;(define (existing-copy-of obj)
+  ;  ;;TODO: check if the existing copy is of the kind we want
+  ;  (##table-ref (domain-copies domain) obj #f))
+  
   (define (count-bytes-copied! obj)
     (domain-bytes-copied-set!
      domain
@@ -455,7 +474,9 @@ end-of-code
                      (error "cannot copy frame:" obj))
 
                     ((##fx= st (macro-subtype-continuation))
-                     (error "cannot copy continuation:" obj))
+                     #;
+                     (error "cannot copy continuation:" obj)
+                     obj)
 
                     ((##fx= st (macro-subtype-weak))
                      (if (##will? obj)
@@ -471,7 +492,9 @@ end-of-code
                      (error "cannot copy return:" obj))
 
                     ((##fx= st (macro-subtype-foreign))
-                     (error "cannot copy foreign:" obj))
+                     #;
+                     (error "cannot copy foreign:" obj)
+                     obj)
 
                     ((or (##fx= st (macro-subtype-string))
                          (##fx= st (macro-subtype-s8vector))
@@ -502,9 +525,16 @@ end-of-code
 
 ;;; Public interface
 
+(define new-register ##new-register)
+(define register-ref ##register-ref)
+(define register-set! ##register-set!)
+
 (define make-domain ##make-domain)
 (define copy-to ##copy-object)
 (define update-reachable! ##update-reachable!)
+
+(define gc-hash-table? ##gc-hash-table?)
+(define mem-allocated? ##mem-allocated?)
 
 ;;; Test it:
 
@@ -516,16 +546,20 @@ end-of-code
 
 (define (mem-allocated-kind obj)
   (let ((k (bitwise-and
-            (if (##fx= 4 (##u8vector-length '#(0)))
-                (##u32vector-ref (##type-cast obj 1) -1)
-                (##u64vector-ref (##type-cast obj 1) -1))
-            7)))
+             (if (##fx= 4 (##u8vector-length '#(0)))
+                 (##u32vector-ref (##type-cast obj 1) -1)
+               (##u64vector-ref (##type-cast obj 1) -1))
+             7)))
     (cond ((##fx= k MOVABLE0) 'MOVABLE0)
           ((##fx= k MOVABLE1) 'MOVABLE1)
           ((##fx= k MOVABLE2) 'MOVABLE2)
           ((##fx= k STILL)    'STILL)
           ((##fx= k PERM)     'PERM)
           (else '???))))
+
+(define (mem-allocated-size obj)
+  (##fx+ (##u8vector-length obj)
+         (##u8vector-length '#(1))))
 
 (define make-adder ;; a classic closure creator
   (lambda (x) (lambda (y) (+ x y))))

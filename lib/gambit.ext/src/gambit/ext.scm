@@ -4,9 +4,15 @@
 (require gambit.walk)
 
 
+(native new-register)
+(native register-count)
+(native register-ref)
+(native register-set!)
+
 (native make-domain)
 (native domain-copies)
 (native domain-bytes-copied)
+(native domain-bytes-copied-set!)
 (native copy-to)
 (native update-reachable!)
 
@@ -16,4 +22,7 @@
 (native STILL)
 (native PERM)
 
-(native mem-allocated-kind))
+(native gc-hash-table?)
+(native mem-allocated?)
+(native mem-allocated-kind)
+(native mem-allocated-size))

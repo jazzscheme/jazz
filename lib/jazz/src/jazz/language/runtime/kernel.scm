@@ -699,6 +699,7 @@
 (native jazz:module-get)
 (native jazz:module-ref)
 (native jazz:module-set!)
+(native jazz:register-reader-extension)
 (native jazz:walk-literal)
 (native jazz:walk-for)
 (native jazz:register-service)

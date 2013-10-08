@@ -5,9 +5,10 @@
 
 
 (native new-register)
-(native register-count)
 (native register-ref)
 (native register-set!)
+(native register-length)
+(native iterate-register)
 
 (native make-domain)
 (native domain-copies)
@@ -25,4 +26,9 @@
 (native gc-hash-table?)
 (native mem-allocated?)
 (native mem-allocated-kind)
-(native mem-allocated-size))
+(native mem-allocated-size)
+
+(native walk-interned-symbols)
+(native walk-interned-keywords)
+
+(native symbol-name))

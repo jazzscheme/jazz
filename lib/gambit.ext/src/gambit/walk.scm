@@ -275,14 +275,14 @@ end-of-code
   content
   )
 
-(define (##new-register cardinality)
+(define (##new-register #!optional (cardinality 4))
   (let ((content (##make-vector cardinality)))
     (let loop ((n 0))
          (if (##fx< n cardinality)
              (begin
                (##vector-set! content n (##make-table 0 #f #f #f ##eq?))
                (loop (##fx+ n 1)))))
-    (make-register 0 cardinality 'not-found content)))
+    (make-register 0 cardinality (list 'not-found) content)))
 
 (define (##register-ref register key default)
   (let ((cardinality (register-cardinality register))
@@ -300,15 +300,34 @@ end-of-code
 (define (##register-set! register key value)
   (let ((count (register-count register))
         (cardinality (register-cardinality register))
-        (unique (register-unique register))
         (content (register-content register)))
     (let ((table (##vector-ref content (##modulo count cardinality))))
       (##table-set! table key value)
       (register-count-set! register (##fx+ count 1)))))
 
-(define (##update-reachable! special-roots substitute #!optional (feedback? #f))
+(define (##register-length register)
+  (let ((cardinality (register-cardinality register))
+        (content (register-content register))
+        (len 0))
+    (let loop ((n 0))
+         (if (##fx< n cardinality)
+             (let ((table (##vector-ref content n)))
+               (set! len (##fx+ len (##table-length table)))
+               (loop (##fx+ n 1)))
+           len))))
 
-  (define seen (##new-register 4))
+(define (##iterate-register register proc)
+  (let ((cardinality (register-cardinality register))
+        (content (register-content register)))
+    (let loop ((n 0))
+         (if (##fx< n cardinality)
+             (let ((table (##vector-ref content n)))
+               (##table-for-each proc table)
+               (loop (##fx+ n 1)))))))
+
+(define (##update-reachable! substitute #!optional (roots #f) (seen #f) (feedback? #f))
+
+  (let ((seen (or seen (##new-register))))
   
   (define (visit container i obj)
     (if (##register-ref seen obj #f)
@@ -336,26 +355,32 @@ end-of-code
   ;            (##table-set! seen obj #t)))
   ;      (macro-walk-continue))))
 
-  (macro-walk-seq
-   (##update-reachable-from-object! special-roots visit substitute)
-   (##update-reachable-from-roots! visit substitute)))
+  (if roots
+   (##update-reachable-from-object! roots visit substitute)
+   (##update-reachable-from-roots! visit substitute))))
 
 ;;; procedures to create deep copies of objects
 
 (define (##alloc-pair kind)
   ((c-lambda (scheme-object) scheme-object
-             "___result = ___EXT(___make_pair) (___FIX(0), ___FIX(0), ___INT(___arg1));")
+             "___SCMOBJ r = ___EXT(___make_pair) (___FIX(0), ___FIX(0), ___INT(___arg1));
+              ___EXT(___release_scmobj)(r);
+              ___result = r;")
    kind))
 
 (define (##alloc-ovector len kind)
   ((c-lambda (scheme-object scheme-object) scheme-object
-             "___result = ___EXT(___make_vector) (___INT(___arg1), ___FIX(0), ___INT(___arg2));")
+             "___SCMOBJ r = ___EXT(___make_vector) (___INT(___arg1), ___FIX(0), ___INT(___arg2));
+              ___EXT(___release_scmobj)(r);
+              ___result = r;")
    len
    kind))
 
 (define (##alloc-bvector subtype len kind)
   ((c-lambda (scheme-object scheme-object scheme-object) scheme-object
-             "___result = ___EXT(___alloc_scmobj) (___INT(___arg1), ___INT(___arg2), ___INT(___arg3));")
+             "___SCMOBJ r = ___EXT(___alloc_scmobj) (___INT(___arg1), ___INT(___arg2), ___INT(___arg3));
+              ___EXT(___release_scmobj)(r);
+              ___result = r;")
    subtype
    len
    kind))
@@ -369,10 +394,10 @@ end-of-code
 (define (##make-domain)
   (make-initialized-domain
    ;(##make-table 0 #f #f #f ##eq?)
-   (##new-register 4)
+   (##new-register)
    0))
 
-(define (##copy-object obj kind domain)
+(define (##copy-object obj kind domain #!optional (visit #f))
   
   (define (register-copy! obj copy)
     (##register-set! (domain-copies domain) obj copy))
@@ -406,6 +431,8 @@ end-of-code
     (count-bytes-copied! (##alloc-bvector st len kind)))
 
   (define (copy-pair obj)
+    (if visit
+        (visit obj))
     (let ((copy (new-pair)))
       (register-copy! obj copy)
       (##set-car! copy (copy-object (##car obj)))
@@ -413,6 +440,8 @@ end-of-code
       copy))
 
   (define (copy-ovector obj st)
+    (if visit
+        (visit obj))
     (let* ((len (##vector-length obj))
            (copy (new-ovector len)))
       (##subtype-set! copy st)
@@ -425,6 +454,8 @@ end-of-code
             copy))))
 
   (define (copy-bvector obj st)
+    (if visit
+        (visit obj))
     (let* ((len (##u8vector-length obj))
            (copy (new-bvector st len)))
       (register-copy! obj copy)
@@ -528,6 +559,8 @@ end-of-code
 (define new-register ##new-register)
 (define register-ref ##register-ref)
 (define register-set! ##register-set!)
+(define register-length ##register-length)
+(define iterate-register ##iterate-register)
 
 (define make-domain ##make-domain)
 (define copy-to ##copy-object)
@@ -535,6 +568,16 @@ end-of-code
 
 (define gc-hash-table? ##gc-hash-table?)
 (define mem-allocated? ##mem-allocated?)
+
+(define walk-interned-symbols ##walk-interned-symbols)
+(define walk-interned-keywords ##walk-interned-keywords)
+
+(define alloc-pair ##alloc-pair)
+(define alloc-ovector ##alloc-ovector)
+(define alloc-bvector ##alloc-bvector)
+
+(define (symbol-name s)
+  (macro-symbol-name s))
 
 ;;; Test it:
 
@@ -583,7 +626,6 @@ end-of-code
 
     ;; update foobar to point to the permanent copies
     (##update-reachable!
-     '()
      (lambda (container i obj)
        (or (table-ref (domain-copies domain) obj #f)
            obj)))

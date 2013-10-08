@@ -102,6 +102,13 @@
     (values count chars)))
 
 
+(define jazz:symbol-table
+  ##symbol-table)
+
+(define jazz:keyword-table
+  ##keyword-table)
+
+
 (define jazz:bytes-allocated!
   ##get-bytes-allocated!)
 

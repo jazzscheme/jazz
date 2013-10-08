@@ -769,6 +769,8 @@
 (native jazz:last-gc-real-time)
 (native jazz:process-memory)
 (native jazz:symbols-memory)
+(native jazz:symbol-table)
+(native jazz:keyword-table)
 (native jazz:bytes-allocated!)
 (native jazz:classes-statistics)
 (native jazz:vector-size)

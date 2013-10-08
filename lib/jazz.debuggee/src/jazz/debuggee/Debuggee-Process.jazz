@@ -197,7 +197,7 @@
   ;;;
   
   
-  (method public (transmit-runtime-information)
+  (method public (transmit-runtime-information what)
     (thread-start!
       (new-safe-thread
         (lambda (exception)
@@ -211,22 +211,24 @@
             
             (let ((process (get-process)))
               (let ((properties (runtime-properties~ process)))
-                ;; immediately transmit properties before doing
-                ;; the potentially long computation of filenames
-                (transmit-information #f #f properties)
-                (when kernel-source-access?
-                  (when (remote-proxy? (get-controller-debugger))
-                    (let ((product (runtime-product~ process)))
-                      (when product
-                        (for-each add-unit (product-units product))))
-                    (let ((products (runtime-products~ process)))
-                      (for-each (lambda (product)
-                                  (for-each add-unit (product-units product)))
-                                products)))
-                  (for-each add-unit (runtime-units~ process)))
-                (let ((filenames (queue-list queue))
-                      (processes (evaluation-processes~ process)))
-                  (transmit-information filenames processes properties))))))
+                (if (eq? what 'properties)
+                    (transmit-information '() '() properties)
+                  ;; immediately transmit properties before doing
+                  ;; the potentially long computation of filenames
+                  (transmit-information #f #f properties)
+                  (when kernel-source-access?
+                    (when (remote-proxy? (get-controller-debugger))
+                      (let ((product (runtime-product~ process)))
+                        (when product
+                          (for-each add-unit (product-units product))))
+                      (let ((products (runtime-products~ process)))
+                        (for-each (lambda (product)
+                                    (for-each add-unit (product-units product)))
+                                  products)))
+                    (for-each add-unit (runtime-units~ process)))
+                  (let ((filenames (queue-list queue))
+                        (processes (evaluation-processes~ process)))
+                    (transmit-information filenames processes properties)))))))
         'runtime-information)))
   
   

@@ -63,7 +63,7 @@
   (slot unzoomed-stops      initialize (make-table test: debugged=? hash: debugged-hash))
   (slot liveliness-cache    initialize (make-table test: debugged=? hash: debugged-hash))
   (slot evaluated-processes initialize (make-table test: debugged=? hash: debugged-hash))
-  (slot evaluated-when      initialize #f getter generate)
+  (slot evaluate-when       initialize #f getter generate)
   (slot focused-mode?       initialize #t getter generate)
   (slot focused-process     initialize #f getter generate)
   
@@ -74,7 +74,7 @@
   
   (method override (initialize)
     (nextmethod)
-    (set! evaluated-when (get-evaluated-when~ (get-preferences 'debug)))
+    (set! evaluate-when (get-evaluate-when~ (get-preferences 'debug)))
     (set! focused-mode? (get-focused-mode?~ (get-preferences 'debug))))
   
   
@@ -163,7 +163,7 @@
   
   
   (method public (process-evaluate-when process)
-    (table-ref evaluated-processes process (or evaluated-when 'known)))
+    (table-ref evaluated-processes process (or evaluate-when 'known)))
   
   
   (method public (process-evaluate-never process)
@@ -638,10 +638,16 @@
       (collect-if get-alive? (queue-list queue))))
   
   
+  (method public (process-needs-filenames? process)
+    (eq? (process-evaluate-when process) 'known))
+  
+  
   (method public (process-received-filenames? process)
-    (let ((process (get-reference~ process)))
-      (let ((debugger (get-process-debugger process)))
-        (and debugger (received-runtime-filenames?~ debugger process)))))
+    (if (process-needs-filenames? process)
+        (let ((process (get-reference~ process)))
+          (let ((debugger (get-process-debugger process)))
+            (and debugger (received-runtime-filenames?~ debugger process))))
+      #t))
   
   
   (method public (evaluate-filename-expressions filename syntax str container line col evaluation-mode)

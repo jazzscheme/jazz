@@ -105,6 +105,31 @@
 
 
 ;;;
+;;;; Mutation
+;;;
+
+
+(define jazz:loading-module
+  (make-parameter #f))
+
+
+(define jazz:Mutations
+  (%%make-table test: eq?))
+
+
+(define (jazz:get-mutations)
+  jazz:Mutations)
+
+
+(define (jazz:reset-mutations)
+  (set! jazz:Mutations (%%make-table test: eq?)))
+
+
+(define (jazz:register-mutation obj)
+  (%%table-set! jazz:Mutations obj #t))
+
+
+;;;
 ;;;; Object
 ;;;
 
@@ -662,6 +687,7 @@
     (%%set-class-interface-table class #f)
     (%%set-category-ancestors class (%%list->vector (compute-class-ancestors class ascendant interfaces)))
     (%%when ascendant
+      (jazz:register-mutation ascendant)
       (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
     (jazz:create-class-tables class)
     (jazz:initialize-slots class)

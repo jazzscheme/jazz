@@ -430,7 +430,7 @@ end-of-code
 ;;;; Copy
 ;;;
 
-(define (##copy-object obj kind domain #!optional (visit #f))
+(define (##copy-object obj kind domain #!key (copy? #f) (visit #f))
   
   (define (register-copy! obj copy)
     (##register-set! (domain-copies domain) obj copy))
@@ -500,7 +500,8 @@ end-of-code
             copy))))
 
   (define (copy-object obj)
-    (if (##not (##mem-allocated? obj))
+    (if (or (##not (##mem-allocated? obj))
+            (and copy? (not (copy? obj))))
 
         obj
 
@@ -606,7 +607,6 @@ end-of-code
 (define walk-object! ##update-reachable!)
 (define walk-continue (macro-walk-continue))
 (define walk-prune (macro-walk-no-recursive-scan))
-(define walk-abort #f)
 
 (define gc-hash-table? ##gc-hash-table?)
 (define mem-allocated? ##mem-allocated?)

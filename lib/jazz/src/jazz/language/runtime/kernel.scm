@@ -782,6 +782,17 @@
 
 
 ;;;
+;;;; Mutation
+;;;
+
+
+(native jazz:loading-module)
+(native jazz:get-mutations)
+(native jazz:reset-mutations)
+(native jazz:register-mutation)
+
+
+;;;
 ;;;; Network
 ;;;
 

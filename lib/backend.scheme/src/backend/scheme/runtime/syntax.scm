@@ -169,12 +169,6 @@
       (jazz:error "Unknown module: {s}" name)))
 
 
-;; having all module entries only make sense for debugging purpose
-;; add an api so we can decide at runtime if we want or not this info
-(define jazz:register-entries?
-  #f)
-
-
 (define (jazz:get-module-entry module-name entry-name)
   (let ((entries (%%get-module-entries (jazz:get-module module-name))))
     (and entries (%%table-ref entries entry-name #f))))
@@ -189,8 +183,7 @@
           (%%table-set! table entry-name entry))))))
 
 (define (jazz:register-module-entry module-name entry-name entry)
-  (if jazz:register-entries?
-      (jazz:set-module-entry module-name entry-name entry)))
+  (jazz:set-module-entry module-name entry-name entry))
 
 
 (define (jazz:module-get module-name name #!key (not-found #f))

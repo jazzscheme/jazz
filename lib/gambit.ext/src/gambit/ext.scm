@@ -16,6 +16,7 @@
 (native domain-bytes-copied-set!)
 
 (native walk-object!)
+(native walk-continue)
 (native walk-prune)
 (native walk-abort)
 

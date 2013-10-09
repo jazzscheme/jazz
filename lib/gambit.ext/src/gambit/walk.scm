@@ -344,7 +344,7 @@ end-of-code
   (##walk-interned-symbols scan-symbol-and-global-var)
   (##walk-interned-keywords scan-keyword))
 
-(define (##update-reachable! substitute #!optional (roots #f) (seen #f) (feedback? #f))
+(define (##update-reachable! substitute #!key (walk #f) (root #f) (seen #f) (feedback? #f))
 
   (let ((seen (or seen (##new-register))))
   
@@ -359,7 +359,9 @@ end-of-code
                     (if (= 0 (modulo count 10000))
                         (display "." (console-port)))))
               (##register-set! seen obj #t)))
-        (macro-walk-continue))))
+        (if walk
+            (walk container i obj)
+          (macro-walk-continue)))))
   
   ;(define seen (##make-table 0 #f #f #f ##eq?))
   ;
@@ -374,8 +376,8 @@ end-of-code
   ;            (##table-set! seen obj #t)))
   ;      (macro-walk-continue))))
 
-  (if roots
-   (##update-reachable-from-object! roots visit substitute)
+  (if root
+   (##update-reachable-from-object! root visit substitute)
    (##update-reachable-from-roots! visit substitute))))
 
 ;;;
@@ -602,6 +604,7 @@ end-of-code
 (define make-domain ##make-domain)
 (define copy-to ##copy-object)
 (define walk-object! ##update-reachable!)
+(define walk-continue (macro-walk-continue))
 (define walk-prune (macro-walk-no-recursive-scan))
 (define walk-abort #f)
 

@@ -2,12 +2,20 @@
 
 ;;; Compile and run with: gsc walk;gsi walk
 
+;;;
+;;;; Walk
+;;;
+
 (unit gambit.walk
 
 (declare (proper-tail-calls)
          (optimize-dead-local-variables))
 
 (include "~~lib/_gambit#.scm")
+
+;;;
+;;;; Kernel
+;;;
 
 ;;; guard for unimplemented functions (will be integrated to _kernel.scm)
 
@@ -47,7 +55,71 @@ end-of-code
    i
    val))
 
-;;; Type dispatcher
+;;;
+;;;; Register
+;;;
+
+(define-type register
+  constructor: make-register
+  count
+  cardinality
+  unique
+  content
+  )
+
+(define (##new-register #!optional (cardinality 4))
+  (let ((content (##make-vector cardinality)))
+    (let loop ((n 0))
+         (if (##fx< n cardinality)
+             (begin
+               (##vector-set! content n (##make-table 0 #f #f #f ##eq?))
+               (loop (##fx+ n 1)))))
+    (make-register 0 cardinality (list 'not-found) content)))
+
+(define (##register-ref register key default)
+  (let ((cardinality (register-cardinality register))
+        (unique (register-unique register))
+        (content (register-content register)))
+    (let loop ((n 0))
+         (if (##fx< n cardinality)
+             (let ((table (##vector-ref content n)))
+               (let ((value (##table-ref table key unique)))
+                 (if (##eq? value unique)
+                     (loop (##fx+ n 1))
+                   value)))
+           default))))
+
+(define (##register-set! register key value)
+  (let ((count (register-count register))
+        (cardinality (register-cardinality register))
+        (content (register-content register)))
+    (let ((table (##vector-ref content (##modulo count cardinality))))
+      (##table-set! table key value)
+      (register-count-set! register (##fx+ count 1)))))
+
+(define (##register-length register)
+  (let ((cardinality (register-cardinality register))
+        (content (register-content register))
+        (len 0))
+    (let loop ((n 0))
+         (if (##fx< n cardinality)
+             (let ((table (##vector-ref content n)))
+               (set! len (##fx+ len (##table-length table)))
+               (loop (##fx+ n 1)))
+           len))))
+
+(define (##iterate-register register proc)
+  (let ((cardinality (register-cardinality register))
+        (content (register-content register)))
+    (let loop ((n 0))
+         (if (##fx< n cardinality)
+             (let ((table (##vector-ref content n)))
+               (##table-for-each proc table)
+               (loop (##fx+ n 1)))))))
+
+;;;
+;;;; Dispatcher
+;;;
 
 (define-macro (macro-case-type obj)
   `(let ((obj ,obj))
@@ -200,27 +272,9 @@ end-of-code
 
      (walk-object #t 0 obj)))
 
-(define (##update-reachable-from-object! obj visit substitute)
-
-  (define-macro (macro-walk-visit recursive-scan)
-    `(let ((result (visit container i obj)))
-       (if (##eq? result (macro-walk-no-recursive-scan))
-           (macro-walk-continue)
-           (macro-walk-seq
-            result
-            ,recursive-scan))))
-
-  (define-macro (macro-walk-object-seq container i subobject update-subobject! continue)
-    `(let* ((container ,container)
-            (i ,i)
-            (subobject ,subobject))
-       (macro-walk-seq
-        (walk-object container i subobject)
-        (let ((new-subobject (substitute container i subobject)))
-          ,update-subobject!
-          ,continue))))
-
-  (macro-walk-object obj))
+;;;
+;;;; Walk
+;;;
 
 (define (##walk-interned-symbols proc)
   (let ((tbl (##symbol-table)))
@@ -246,6 +300,28 @@ end-of-code
                  (loop2 (macro-keyword-next obj)))))
           (macro-walk-continue)))))
 
+(define (##update-reachable-from-object! obj visit substitute)
+
+  (define-macro (macro-walk-visit recursive-scan)
+    `(let ((result (visit container i obj)))
+       (if (##eq? result (macro-walk-no-recursive-scan))
+           (macro-walk-continue)
+           (macro-walk-seq
+            result
+            ,recursive-scan))))
+
+  (define-macro (macro-walk-object-seq container i subobject update-subobject! continue)
+    `(let* ((container ,container)
+            (i ,i)
+            (subobject ,subobject))
+       (macro-walk-seq
+        (walk-object container i subobject)
+        (let ((new-subobject (substitute container i subobject)))
+          ,update-subobject!
+          ,continue))))
+
+  (macro-walk-object obj))
+
 (define (##update-reachable-from-roots! visit substitute)
 
   (define (scan-symbol-and-global-var obj)
@@ -266,64 +342,6 @@ end-of-code
 
   (##walk-interned-symbols scan-symbol-and-global-var)
   (##walk-interned-keywords scan-keyword))
-
-(define-type register
-  constructor: make-register
-  count
-  cardinality
-  unique
-  content
-  )
-
-(define (##new-register #!optional (cardinality 4))
-  (let ((content (##make-vector cardinality)))
-    (let loop ((n 0))
-         (if (##fx< n cardinality)
-             (begin
-               (##vector-set! content n (##make-table 0 #f #f #f ##eq?))
-               (loop (##fx+ n 1)))))
-    (make-register 0 cardinality (list 'not-found) content)))
-
-(define (##register-ref register key default)
-  (let ((cardinality (register-cardinality register))
-        (unique (register-unique register))
-        (content (register-content register)))
-    (let loop ((n 0))
-         (if (##fx< n cardinality)
-             (let ((table (##vector-ref content n)))
-               (let ((value (##table-ref table key unique)))
-                 (if (##eq? value unique)
-                     (loop (##fx+ n 1))
-                   value)))
-           default))))
-
-(define (##register-set! register key value)
-  (let ((count (register-count register))
-        (cardinality (register-cardinality register))
-        (content (register-content register)))
-    (let ((table (##vector-ref content (##modulo count cardinality))))
-      (##table-set! table key value)
-      (register-count-set! register (##fx+ count 1)))))
-
-(define (##register-length register)
-  (let ((cardinality (register-cardinality register))
-        (content (register-content register))
-        (len 0))
-    (let loop ((n 0))
-         (if (##fx< n cardinality)
-             (let ((table (##vector-ref content n)))
-               (set! len (##fx+ len (##table-length table)))
-               (loop (##fx+ n 1)))
-           len))))
-
-(define (##iterate-register register proc)
-  (let ((cardinality (register-cardinality register))
-        (content (register-content register)))
-    (let loop ((n 0))
-         (if (##fx< n cardinality)
-             (let ((table (##vector-ref content n)))
-               (##table-for-each proc table)
-               (loop (##fx+ n 1)))))))
 
 (define (##update-reachable! substitute #!optional (roots #f) (seen #f) (feedback? #f))
 
@@ -359,6 +377,10 @@ end-of-code
    (##update-reachable-from-object! roots visit substitute)
    (##update-reachable-from-roots! visit substitute))))
 
+;;;
+;;;; Alloc
+;;;
+
 ;;; procedures to create deep copies of objects
 
 (define (##alloc-pair kind)
@@ -385,6 +407,10 @@ end-of-code
    len
    kind))
 
+;;;
+;;;; Domain
+;;;
+
 (define-type domain
   constructor: make-initialized-domain
   copies
@@ -396,6 +422,10 @@ end-of-code
    ;(##make-table 0 #f #f #f ##eq?)
    (##new-register)
    0))
+
+;;;
+;;;; Copy
+;;;
 
 (define (##copy-object obj kind domain #!optional (visit #f))
   
@@ -547,6 +577,10 @@ end-of-code
 
   (copy-object obj))
 
+;;;
+;;;; Debug
+;;;
+
 (define (wr obj)
   (parameterize ((current-readtable
                   (readtable-sharing-allowed?-set
@@ -554,7 +588,9 @@ end-of-code
                    #t)))
     (object->string obj 79)))
 
-;;; Public interface
+;;;
+;;;; Interface
+;;;
 
 (define new-register ##new-register)
 (define register-ref ##register-ref)
@@ -564,7 +600,9 @@ end-of-code
 
 (define make-domain ##make-domain)
 (define copy-to ##copy-object)
-(define update-reachable! ##update-reachable!)
+(define walk-object! ##update-reachable!)
+(define walk-prune (macro-walk-no-recursive-scan))
+(define walk-abort #f)
 
 (define gc-hash-table? ##gc-hash-table?)
 (define mem-allocated? ##mem-allocated?)
@@ -579,7 +617,9 @@ end-of-code
 (define (symbol-name s)
   (macro-symbol-name s))
 
-;;; Test it:
+;;;
+;;;; Test
+;;;
 
 (define MOVABLE0 0)
 (define MOVABLE1 1)

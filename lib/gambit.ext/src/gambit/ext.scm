@@ -14,8 +14,12 @@
 (native domain-copies)
 (native domain-bytes-copied)
 (native domain-bytes-copied-set!)
+
+(native walk-object!)
+(native walk-prune)
+(native walk-abort)
+
 (native copy-to)
-(native update-reachable!)
 
 (native MOVABLE0)
 (native MOVABLE1)
@@ -24,6 +28,7 @@
 (native PERM)
 
 (native gc-hash-table?)
+
 (native mem-allocated?)
 (native mem-allocated-kind)
 (native mem-allocated-size)

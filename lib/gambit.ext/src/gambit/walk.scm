@@ -154,9 +154,10 @@ end-of-code
                  ((##fx= subtype (macro-subtype-symbol))
                   (macro-handle-type-mixed-vector
                    symbol
-                   (macro-symbol-name macro-symbol-name-set!)
-                   (macro-symbol-hash macro-symbol-hash-set!)
-                   (macro-symbol-next macro-symbol-next-set!)))
+                   ;(macro-symbol-name macro-symbol-name-set!)
+                   ;(macro-symbol-hash macro-symbol-hash-set!)
+                   ;(macro-symbol-next macro-symbol-next-set!)
+                   ))
 
                  ((##fx= subtype (macro-subtype-keyword))
                   (macro-handle-type-mixed-vector

@@ -9,6 +9,7 @@
 (native register-set!)
 (native register-length)
 (native iterate-register)
+(native register-content)
 
 (native make-domain)
 (native domain-copies)
@@ -27,6 +28,7 @@
 (native STILL)
 (native PERM)
 
+(native table-gcht)
 (native gc-hash-table?)
 
 (native mem-allocated?)

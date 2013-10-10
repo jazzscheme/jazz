@@ -608,6 +608,7 @@ end-of-code
 (define walk-continue (macro-walk-continue))
 (define walk-prune (macro-walk-no-recursive-scan))
 
+(define (table-gcht table) (macro-table-gcht table))
 (define gc-hash-table? ##gc-hash-table?)
 (define mem-allocated? ##mem-allocated?)
 

@@ -170,13 +170,18 @@ end-of-code
                   (macro-handle-type-frame))
 
                  ((##fx= subtype (macro-subtype-continuation))
-
+                  ;; quick hack as ##continuation-frame crashes
+                  (macro-handle-type-atomic)
+                  
+                  #;
+                  (
                   (##continuation-frame obj) ;; force frame into heap
 
                   (macro-handle-type-simple
                    macro-make-continuation
                    (macro-continuation-frame macro-continuation-frame-set!)
                    (macro-continuation-denv macro-continuation-denv-set!)))
+                 )
 
                  ((##fx= subtype (macro-subtype-weak))
                   (if (##will? obj)

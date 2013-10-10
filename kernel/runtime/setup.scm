@@ -375,7 +375,9 @@
                                 ((jazz:global-ref 'jazz:expand) (%%string->symbol expand)))
                                (compile
                                 (setup-build)
-                                (jazz:custom-compile-unit (%%string->symbol compile) force?: force?))
+                                (for-each (lambda (name)
+                                            (jazz:custom-compile-unit (%%string->symbol name) force?: force?))
+                                          (jazz:split-string compile #\;)))
                                (update
                                 (setup-build)
                                 (jazz:update-product (%%string->symbol update)))

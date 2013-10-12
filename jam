@@ -3,90 +3,102 @@
 REL="$(dirname "$0")"
 ABS="$(cd "$REL"; pwd)"
 
-gam () {
-	[ -n "${GAMBITDIR:+x}" ] && echo "$GAMBITDIR" || echo "$REL/gambit"
+gambitinstall () {
+	[ -n "${GAMBITDIR:+x}" ] && echo "$GAMBITDIR" || echo "$REL/foreign/gambit"
 }
 
-BGA="$REL/bootstrap/gambit"
-GAM=$(gam)
-GSC="$GAM/bin/gsc"
+GAMBITSOURCE="$REL/gambit"
+GAMBITINSTALL=$(gambitinstall)
+GSC="$GAMBITINSTALL/bin/gsc"
 SCM="$REL/kernel/jam.scm"
 
 ## no git submodules
 #UPDATE_SUBMODULES="true"
 UPDATE_SUBMODULES="false"
 
-bootstrap_init () {
+gambit_init () {
     cd "$REL"
     git submodule init
 }
 
-bootstrap_update () {
+gambit_update () {
     cd "$REL"
     git submodule update
 }
 
-bootstrap_configure () {
-    PREFIX="$ABS/gambit"
-    cd "$BGA" &&
+gambit_configure () {
+    PREFIX="$ABS/foreign/gambit"
+    cd "$GAMBITSOURCE" &&
     ./configure --prefix="$PREFIX" $(host)
 }
 
-bootstrap_make () {
-    ( [ -f "$BGA/config.status" ] || bootstrap_configure ) &&
-    cd "$BGA" &&
-	make -j $(jobs) bootstrap &&
-	make -j $(jobs) bootclean &&
-	make -j $(jobs) bootstrap &&
-	make -j $(jobs) bootclean &&
-    make -j $(jobs)
+gambit_make () {
+    ( [ -f "$GAMBITSOURCE/config.status" ] || gambit_configure ) &&
+    cd "$GAMBITSOURCE" &&
+	make -j $(jobs) from-scratch
 }
 
-bootstrap_install () {
-    cd "$BGA" &&
+gambit_install () {
+    cd "$GAMBITSOURCE" &&
     make install
 }
 
-bootstrap () {
-    (bootstrap_init) &&
-    (bootstrap_update) &&
-    (bootstrap_make) &&
-    (bootstrap_install)
+gambit_clean () {
+    cd "$GAMBITSOURCE" &&
+    make clean
 }
 
-bootstrap_dispatch () {
+gambit_realclean () {
+    cd "$GAMBITSOURCE" &&
+    make realclean
+}
+
+gambit () {
+    (gambit_init) &&
+    (gambit_update) &&
+    (gambit_make) &&
+    (gambit_install)
+}
+
+gambit_dispatch () {
     case "$1" in
 	"init" )
-	    bootstrap_init
+	    gambit_init
 	    ;;
 	"update" )
-	    bootstrap_update
+	    gambit_update
 	    ;;
 	"configure" )
-	    bootstrap_configure
+	    gambit_configure
 	    ;;
 	"make" )
-	    bootstrap_make
+	    gambit_make
 	    ;;
 	"install" )
-	    bootstrap_install
+	    gambit_install
+	    ;;
+	"clean" )
+	    gambit_clean
+	    ;;
+	"realclean" )
+	    gambit_realclean
 	    ;;
 	"" )
-	    bootstrap
+	    gambit
 	    ;;
 	* )
-	    echo "Unknown bootstrap option : $1"
+	    echo "Unknown gambit option : $1"
 	    return 1
 	    ;;
     esac
 }
 
 jobs () {
-    [ -n "${JAZZ_JOBS:+x}" ] && echo "$JAZZ_JOBS" || echo 1
+    [ -n "${GAMBITJOBS:+x}" ] && echo "$GAMBITJOBS" || echo 1
 }
 
 host () {
-    if [ ! -n "${JAZZ_MULTIHOST:+x}" ] || [ "$JAZZ_MULTIHOST" == "0" ]; then
+    if [ ! -n "${GAMBITMULTIHOST:+x}" ] || [ "$GAMBITMULTIHOST" == "0" ]; then
 		echo "--enable-single-host"
     fi
 }
@@ -114,8 +126,8 @@ done
 shift $((OPTIND-1))
 
 case "$1" in
-	"bootstrap" )
-		bootstrap_dispatch $2
+	"gambit" )
+		gambit_dispatch $2
 		exit
 		;;
 
@@ -127,8 +139,8 @@ case "$1" in
 	"environment" )
 		echo "REL: $REL"
 		echo "ABS: $ABS"
-		echo "BGA: $BGA"
-		echo "GAM: $GAM"
+		echo "GAMBITSOURCE: $GAMBITSOURCE"
+		echo "GAMBITINSTALL: $GAMBITINSTALL"
 		echo "GSC: $GSC"
 		echo "SCM: $SCM"
 		echo $(host)
@@ -137,14 +149,14 @@ case "$1" in
 esac
 
 if [ ! -f "$GSC" ]; then
-	bootstrap
+	gambit
 fi
 
 if [ ! -f "$GSC" ]; then
-	echo "Unable to find ./gambit/bin/gsc"
+	echo "Unable to find ./foreign/gambit/bin/gsc"
 	exit 1
 fi
 
-#echo "$GSC" -:="$GAM" -i "$SCM" "$@"
+#echo "$GSC" -:="$GAMBITINSTALL" -i "$SCM" "$@"
 #exit
-exec "$GSC" -:="$GAM" -i "$SCM" "$@"
+exec "$GSC" -:="$GAMBITINSTALL" -i "$SCM" "$@"

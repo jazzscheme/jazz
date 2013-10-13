@@ -329,7 +329,9 @@ end-of-code
             (subobject ,subobject))
        (macro-walk-seq
         (walk-object container i subobject)
-        (let ((new-subobject (substitute container i subobject)))
+        (let ((new-subobject (if substitute
+                                 (substitute container i subobject)
+                               subobject)))
           ,update-subobject!
           ,continue))))
 
@@ -345,7 +347,9 @@ end-of-code
                 (val (##global-var-ref var)))
            (macro-walk-seq
             (##walk-from-object! val visit substitute)
-            (let ((new-val (substitute val 0 val)))
+            (let ((new-val (if substitute
+                               (substitute val 0 val)
+                             val)))
               (##global-var-set! var new-val)
               (macro-walk-continue))))
          (macro-walk-continue))))

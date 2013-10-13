@@ -688,6 +688,7 @@
 (native jazz:unit-status)
 (native jazz:unit-uptodate-binary?)
 (native jazz:load-unit)
+(native jazz:load-hook)
 (native jazz:unload-unit)
 (native jazz:reload-unit)
 (native jazz:load-file)

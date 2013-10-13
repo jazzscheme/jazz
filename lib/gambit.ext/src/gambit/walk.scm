@@ -117,6 +117,13 @@ end-of-code
                (##table-for-each proc table)
                (loop (##fx+ n 1)))))))
 
+(define (##register->table register)
+  (let ((table (##make-table 0 #f #f #f ##eq?)))
+    (##iterate-register register
+      (lambda (key value)
+        (##table-set! table key value)))
+    table))
+
 ;;;
 ;;;; Dispatcher
 ;;;
@@ -306,7 +313,7 @@ end-of-code
                  (loop2 (macro-keyword-next obj)))))
           (macro-walk-continue)))))
 
-(define (##update-reachable-from-object! obj visit substitute)
+(define (##walk-from-object! obj visit substitute)
 
   (define-macro (macro-walk-visit recursive-scan)
     `(let ((result (visit container i obj)))
@@ -328,28 +335,28 @@ end-of-code
 
   (macro-walk-object obj))
 
-(define (##update-reachable-from-roots! visit substitute)
+(define (##walk-from-roots! visit substitute)
 
   (define (scan-symbol-and-global-var obj)
     (macro-walk-seq
-     (##update-reachable-from-object! obj visit substitute)
+     (##walk-from-object! obj visit substitute)
      (if (##global-var? obj)
          (let* ((var (##make-global-var obj))
                 (val (##global-var-ref var)))
            (macro-walk-seq
-            (##update-reachable-from-object! val visit substitute)
+            (##walk-from-object! val visit substitute)
             (let ((new-val (substitute val 0 val)))
               (##global-var-set! var new-val)
               (macro-walk-continue))))
          (macro-walk-continue))))
 
   (define (scan-keyword obj)
-    (##update-reachable-from-object! obj visit substitute))
+    (##walk-from-object! obj visit substitute))
 
   (##walk-interned-symbols scan-symbol-and-global-var)
   (##walk-interned-keywords scan-keyword))
 
-(define (##update-reachable! substitute #!key (walk #f) (root #f) (seen #f) (feedback? #f))
+(define (##walk-object! walk substitute #!key (root #f) (seen #f) (feedback? #f))
 
   (let ((seen (or seen (##new-register))))
   
@@ -382,8 +389,8 @@ end-of-code
   ;      (macro-walk-continue))))
 
   (if root
-   (##update-reachable-from-object! root visit substitute)
-   (##update-reachable-from-roots! visit substitute))))
+   (##walk-from-object! root visit substitute)
+   (##walk-from-roots! visit substitute))))
 
 ;;;
 ;;;; Alloc
@@ -606,10 +613,11 @@ end-of-code
 (define register-set! ##register-set!)
 (define register-length ##register-length)
 (define iterate-register ##iterate-register)
+(define register->table ##register->table)
 
 (define make-domain ##make-domain)
 (define copy-to ##copy-object)
-(define walk-object! ##update-reachable!)
+(define walk-object! ##walk-object!)
 (define walk-continue (macro-walk-continue))
 (define walk-prune (macro-walk-no-recursive-scan))
 
@@ -675,10 +683,12 @@ end-of-code
     (pp (map mem-allocated-kind (list-ref foobar 2)))
 
     ;; update foobar to point to the permanent copies
-    (##update-reachable!
-     (lambda (container i obj)
-       (or (table-ref (domain-copies domain) obj #f)
-           obj)))
+    (##walk-object!
+      (lambda (container i obj)
+        walk-continue)
+      (lambda (container i obj)
+        (or (table-ref (domain-copies domain) obj #f)
+            obj)))
 
     ;; foobar now contains copies
     (pp (map mem-allocated-kind foobar))

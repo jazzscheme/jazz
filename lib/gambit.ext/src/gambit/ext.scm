@@ -8,8 +8,9 @@
 (native register-ref)
 (native register-set!)
 (native register-length)
-(native iterate-register)
 (native register-content)
+(native iterate-register)
+(native register->table)
 
 (native make-domain)
 (native domain-copies)

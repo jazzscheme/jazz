@@ -92,8 +92,19 @@ end-of-code
 (define (##register-set! register key value)
   (let ((count (register-count register))
         (cardinality (register-cardinality register))
+        (unique (register-unique register))
         (content (register-content register)))
-    (let ((table (##vector-ref content (##modulo count cardinality))))
+    (define (actual-table)
+      (let loop ((n 0))
+           (if (##fx< n cardinality)
+               (let ((table (##vector-ref content n)))
+                 (let ((value (##table-ref table key unique)))
+                   (if (##eq? value unique)
+                       (loop (##fx+ n 1))
+                     table)))
+             #f)))
+    
+    (let ((table (or (actual-table) (##vector-ref content (##modulo count cardinality)))))
       (##table-set! table key value)
       (register-count-set! register (##fx+ count 1)))))
 
@@ -174,6 +185,10 @@ end-of-code
                    (macro-keyword-next macro-keyword-next-set!)))
 
                  ((##fx= subtype (macro-subtype-frame))
+                  ;; quick hack don't walk frames for now
+                  (macro-handle-type-atomic)
+                  
+                  #;
                   (macro-handle-type-frame))
 
                  ((##fx= subtype (macro-subtype-continuation))
@@ -348,7 +363,7 @@ end-of-code
            (macro-walk-seq
             (##walk-from-object! val visit substitute)
             (let ((new-val (if substitute
-                               (substitute val 0 val)
+                               (substitute var 0 val)
                              val)))
               (##global-var-set! var new-val)
               (macro-walk-continue))))

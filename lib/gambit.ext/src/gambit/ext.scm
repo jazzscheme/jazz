@@ -20,6 +20,8 @@
 (native walk-object!)
 (native walk-continue)
 (native walk-prune)
+(native walk-test)
+(native walk-test-set!)
 
 (native copy-to)
 

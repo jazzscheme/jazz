@@ -396,6 +396,13 @@ end-of-code
    (##walk-from-object! root visit substitute)
    (##walk-from-roots! visit substitute))))
 
+(define walk-test
+  #f)
+
+(define (walk-test-set! obj)
+  (set! walk-test obj))
+
+
 ;;;
 ;;;; Alloc
 ;;;

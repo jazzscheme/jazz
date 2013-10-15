@@ -1335,6 +1335,8 @@
 (native jazz:get-catalog-entry)
 (native jazz:release-catalog-entries)
 (native jazz:outline-feedback)
+(native jazz:get-outline-hook)
+(native jazz:set-outline-hook)
 (native jazz:outline-unit)
 (native jazz:walk-unit)
 (native jazz:expand)

@@ -5405,6 +5405,16 @@
                      #f)))
 
 
+(define jazz:outline-hook
+  #f)
+
+(define (jazz:get-outline-hook)
+  jazz:outline-hook)
+
+(define (jazz:set-outline-hook hook)
+  (set! jazz:outline-hook hook))
+
+
 (define (jazz:outline-unit unit-name #!key (use-catalog? #t) (error? #t))
   (define (load-toplevel-declaration)
     (jazz:with-unit-resources unit-name #f
@@ -5452,6 +5462,8 @@
                   (if error?
                       (jazz:error "Unable to locate unit declaration: {s}" unit-name))
                 (jazz:set-catalog-entry unit-name declaration))
+              (if jazz:outline-hook
+                  (jazz:outline-hook unit-name declaration))
               declaration))))))
 
 

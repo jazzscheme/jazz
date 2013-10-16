@@ -5461,9 +5461,10 @@
               (if (%%not declaration)
                   (if error?
                       (jazz:error "Unable to locate unit declaration: {s}" unit-name))
-                (jazz:set-catalog-entry unit-name declaration))
-              (if jazz:outline-hook
-                  (jazz:outline-hook unit-name declaration))
+                (jazz:set-catalog-entry unit-name
+                                        (if jazz:outline-hook
+                                            (jazz:outline-hook unit-name declaration)
+                                          declaration)))
               declaration))))))
 
 

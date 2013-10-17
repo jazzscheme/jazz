@@ -69,6 +69,8 @@
     (define jazz:thread-base-priority-set! thread-base-priority-set!)
     (define jazz:thread-priority-boost thread-priority-boost)
     (define jazz:thread-priority-boost-set! thread-priority-boost-set!)
+    (define jazz:thread-quantum thread-quantum)
+    (define jazz:thread-quantum-set! thread-quantum-set!)
     (define jazz:thread-start! thread-start!)
     (define jazz:thread-yield! thread-yield!)
     (define jazz:thread-sleep! thread-sleep!)

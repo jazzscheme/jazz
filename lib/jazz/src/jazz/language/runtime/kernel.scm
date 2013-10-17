@@ -1221,6 +1221,8 @@
 (native jazz:thread-base-priority-set!)
 (native jazz:thread-priority-boost)
 (native jazz:thread-priority-boost-set!)
+(native jazz:thread-quantum)
+(native jazz:thread-quantum-set!)
 (native jazz:thread-start!)
 (native jazz:thread-yield!)
 (native jazz:thread-sleep!)

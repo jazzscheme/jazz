@@ -84,7 +84,6 @@
   (slot context            initialize #f accessors generate)
   (slot previous-placement initialize #f getter generate)
   (slot window-mode        initialize #f getter generate)
-  (slot render-pulse       initialize #f getter generate)
 
 
   (method override (opengl?)
@@ -93,33 +92,7 @@
   
   (method override (prepare rest)
     (nextmethod rest)
-    (set! window-mode (if (opengl-fullscreen?) 'fullscreen 'windowed))
-    (prepare-pulse))
-  
-  
-  (cond-expand
-    (windows
-     (method (prepare-pulse)
-       )
-     
-     (method (destroy-pulse)
-       ))
-    (else
-     (method (prepare-pulse)
-       (set! render-pulse (new Pulse 'render (find-setting 'jazz.render-pulse .01)
-                               (lambda ()
-                                 (when (get-visible?)
-                                   (render-scene))))))
-     
-     (method (destroy-pulse)
-       (when render-pulse
-         (close~ render-pulse)
-         (set! render-pulse #f)))))
-  
-  
-  (method override (destroy)
-    (destroy-pulse)
-    (nextmethod))
+    (set! window-mode (if (opengl-fullscreen?) 'fullscreen 'windowed)))
   
   
   (method override (size-change state size)
@@ -152,15 +125,6 @@
     (glDepthFunc GL_LEQUAL)
     (glPolygonMode GL_FRONT_AND_BACK GL_FILL)
     (glHint GL_PERSPECTIVE_CORRECTION_HINT GL_NICEST))
-  
-  
-  (cond-expand
-    (windows
-     (method override (timer-pulse)
-       (when (and (get-visible?)
-                  (= (current-repl-level) 0))
-         (render-scene))))
-    (else))
   
   
   ;;;
@@ -218,11 +182,15 @@
   
   (method protected virtual (render-scene)
     (draw-scene)
-    (swap-buffers handle device))
+    (render-sync))
   
   
   (method protected virtual (draw-scene)
     )
+  
+  
+  (method public (render-sync)
+    (swap-buffers handle device))
   
   
   (method override (close-window)

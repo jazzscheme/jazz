@@ -1,0 +1,178 @@
+;;; resqlite3/resqtest.scm -- (C) 2012 Jussi Piitulainen
+
+;;; This program exercises much of resqlite3. Compile resqlite3.scm to
+;;; a resqlite3.on (Gambit-C object file, numbered automatically) and
+;;; invoke resqtest with gsi as follows:
+;;;
+;;; $ gsi resqlite3 resqtest
+;;;
+;;; Or load both into an interactive session with gsi. The expected
+;;; result is a report in stdout of values being inserted into a
+;;; database (file "testi.db" is deleted, created, and left there) and
+;;; then being selected back from the database.
+
+;;; An experimental interface to binding parameters in a prepared
+;;; statement - not too bad. Missing: int64 for exact integers that do
+;;; not fit in an int. Intentionally missing: null, raw blob.
+
+(define (bind statement . bindings)
+  (sqlite3-reset! statement)
+  (do ((bindings bindings (cddr bindings)))
+      ((null? bindings) statement)
+    (let* ((key (car bindings))
+	   (value (cadr bindings))
+	   (index (sqlite3-bind-parameter-index statement key)))
+      ((cond
+	((and (integer? value)
+	      (exact? value))    sqlite3-bind-int!)
+	((and (real? value)
+	      (inexact? value))  sqlite3-bind-double!)
+	((string? value)         sqlite3-bind-text!)
+	;; sqlite3-bind-blob! works for all blobs now
+	((u8vector? value)       sqlite3-bind-blob!)
+	((s8vector? value)       sqlite3-bind-blob!)
+	((u16vector? value)      sqlite3-bind-blob!)
+	((s16vector? value)      sqlite3-bind-blob!)
+	((u32vector? value)      sqlite3-bind-blob!)
+	((s32vector? value)      sqlite3-bind-blob!)
+	((u64vector? value)      sqlite3-bind-blob!)
+	((s64vector? value)      sqlite3-bind-blob!)
+	((f32vector? value)      sqlite3-bind-blob!)
+	((f64vector? value)      sqlite3-bind-blob!)
+	(else
+	 (error "unhandled binding type" key value)))
+       statement index value))))
+
+(define db
+  (let ((dbname "testi.db"))
+    (if (file-exists? dbname)
+	(delete-file dbname))
+    (sqlite3-open dbname)))
+
+(display "opened fresh database") (newline)
+
+(sqlite3-step! (sqlite3-prepare db "begin transaction;"))
+
+(define creation
+  (sqlite3-prepare
+   db (string-append
+       "create table\n"
+       "data(type text,\n"
+       "     size int,\n"
+       "     mean double,\n"
+       "     sample blob);")))
+
+(newline)
+(display "prepared table creation statement") (newline)
+
+(bind creation)
+(display "bound table creation statement (vacuously)") (newline)
+
+(sqlite3-step! creation)
+(display "created table") (newline)
+
+(newline)
+
+(define insertion
+  (sqlite3-prepare
+   db (string-append
+       "insert into data\n"
+       "values (:type, :size, :mean, :sample)")))
+
+(newline)
+
+(define (insert type list->type sample-list)
+  (let* ((sample (list->type sample-list))
+	 (size (length sample-list))
+	 (mean (if (zero? size)
+		   0
+		   (exact->inexact
+		    (/ (apply + sample-list)
+		       size)))))
+    (display "inserting: ")
+    (write (list type size mean sample)) (newline)
+    (bind insertion
+	  ":type" type
+	  ":size" size
+	  ":mean" mean
+	  ":sample" sample)
+    (let ((status (sqlite3-step! insertion)))
+      (display "status: ")
+      (write status) (newline))))
+
+(let ((types (list (cons "u8vector" list->u8vector)
+		   (cons "s8vector" list->s8vector)
+		   (cons "u16vector" list->u16vector)
+		   (cons "s16vector" list->s16vector)
+		   (cons "u32vector" list->u32vector)
+		   (cons "s32vector" list->s32vector)
+		   (cons "u64vector" list->u64vector)
+		   (cons "s64vector" list->s64vector))))
+  (for-each (lambda (small-but-random-integers)
+	      (for-each (lambda (type list->type)
+			  (insert type
+				  list->type
+				  small-but-random-integers))
+		      (map car types)
+		      (map cdr types)))
+	    '((3 1 4 1 5 9 2 6) (2) ())))
+
+(let ((types (list (cons "f32vector" list->f32vector)
+		   (cons "f64vector" list->f64vector))))
+  (for-each (lambda (random-floats)
+	      (for-each (lambda (type list->type)
+			  (insert type
+				  list->type
+				  random-floats))
+			(map car types)
+			(map cdr types)))
+	    (list (list (acos -1) (exp 1) -1. 0. 1.)
+		  (list (acos -1))
+		  (list))))
+
+(newline)
+
+(sqlite3-step! (sqlite3-prepare db "end transaction;"))
+
+(define selection
+  (sqlite3-prepare
+   db (string-append
+       "select type, size, mean, sample from data\n"
+       "where type = :type;")))
+
+(let ((types (list (cons "u8vector" sqlite3-column-u8vector)
+		   (cons "s8vector" sqlite3-column-s8vector)
+		   (cons "u16vector" sqlite3-column-u16vector)
+		   (cons "s16vector" sqlite3-column-s16vector)
+		   (cons "u32vector" sqlite3-column-u32vector)
+		   (cons "s32vector" sqlite3-column-s32vector)
+		   (cons "u64vector" sqlite3-column-u64vector)
+		   (cons "s64vector" sqlite3-column-s64vector)
+		   (cons "f32vector" sqlite3-column-f32vector)
+		   (cons "f64vector" sqlite3-column-f64vector))))
+  (for-each (lambda (type column-type)
+	      (bind selection ":type" type)
+	      (display "selecting: ")
+	      (write type) (newline)
+	      (let walk ()
+		(let ((status (sqlite3-step! selection)))
+		  (display "status: ")
+		  (write status)
+		  (newline)
+		  (if status
+		      (begin
+			(display "row: ")
+			(write (sqlite3-column-text selection 0))
+			(write-char #\space)
+			(write (sqlite3-column-int selection 1))
+			(write-char #\space)
+			(write (sqlite3-column-double selection 2))
+			(write-char #\space)
+			(write (column-type selection 3))
+			(newline)
+			(walk))))))
+	    (map car types)
+	    (map cdr types)))
+
+;(write insertion) (newline)
+;(write selection) (newline)

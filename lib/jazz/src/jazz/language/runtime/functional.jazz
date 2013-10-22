@@ -4383,7 +4383,7 @@
 (definition package (thread-loop)
   (declare (proper-tail-calls))
   (let (loop)
-    (thread-process)
+    (thread-process hook?: #f)
     (when (thread-loop? (current-thread))
       (loop))))
 
@@ -4449,15 +4449,14 @@
   (set! thread-process-hook hook))
 
 
-(definition public (thread-process (timeout: timeout +infinity))
+(definition public (thread-process (hook?: hook? #t) (timeout: timeout +infinity))
   (let ((msg (thread-read-message timeout: timeout)))
     (process-delayed-events)
     (when (not (eof-object? msg))
       (bind (thunk . chain) msg
         (parameterize ((current-continuation-chain chain))
-          (if thread-process-hook
+          (if (and hook? thread-process-hook)
               (thread-process-hook thunk)
-            (terminal thunk)
             (thunk)))))))
 
 

@@ -260,6 +260,12 @@ char *str;
 }
 
 
+void g_invalidate()
+{
+  call_g_invalidate();
+}
+
+
 window g_window( name, width, height, colors, nbcolors,redraw, point, click, key, resize )
 char *name;
 int width, height;
@@ -305,6 +311,18 @@ void plot_resize(int w, int h)
   current_window->w = w;
   current_window->h = h;
   resize(current_window);
+}
+
+
+void plot_click(int x1, int y1, int x2, int y2)
+{
+  (*current_window->click)(current_window, x1, y1, x2, y2);
+}
+
+
+void plot_key(int k)
+{
+  (*current_window->key)(current_window, k);
 }
 
 
@@ -2062,7 +2080,7 @@ int but;
                                          plot_width));
     compute_plot (min_time, max_time);
     compute_hist();
-    draw_all( win );
+    g_invalidate( win );
   }
   else
   { int z1 = x1-BORDER_LEFT;
@@ -2110,7 +2128,7 @@ int send_to_printer;
   while (*p1 != '\0') *p2++ = *p1++;
   *p2 = '\0';
   graph_postscript_begin( win, postscript_file, send_to_printer, postscript_zoom );
-  draw_all( win );
+  g_invalidate( win );
   graph_postscript_end( win );
   if (send_to_printer)
   { sprintf( command, "lpr %s", postscript_file );
@@ -2124,15 +2142,15 @@ int key( win, c )
 window win;
 char c;
 { if ((c == 'q') || (c == 'Q')) return 1;
-  else if (c == '.') draw_all( win );
+  else if (c == '.') g_invalidate( win );
   else if ((c == 'e') || (c == 'E'))
     {
-      draw_all( win );
+      g_invalidate( win );
       print_plot( win, 0 );
     }
   else if ((c == 'w') || (c == 'W'))
     {
-      draw_all( win );
+      g_invalidate( win );
       print_plot( win, 1 );
     }
   else if ((c == 't') || (c == 'T'))
@@ -2162,13 +2180,13 @@ char c;
   }
   else if ((c == 'f') || (c == 'F'))
   { first_state_only = !first_state_only;
-    draw_all( win );
+    g_invalidate( win );
   }
   else if ((c >= '0') && (c <= '9'))
   { smooth_passes = c-'0';
     compute_plot (min_time, max_time);
     compute_hist();
-    draw_all( win );
+    g_invalidate( win );
   }
   else if ((c == 'i') || (c == 'I'))
   {
@@ -2176,7 +2194,7 @@ char c;
     smooth_passes = 0;
     compute_plot (U64_init (0, 0), log_max_time);
     compute_hist();
-    draw_all( win );
+    g_invalidate( win );
   }
   else if ((c == 'z') || (c == 'Z'))
   {
@@ -2189,7 +2207,7 @@ char c;
     max_time = U64_add_U64 (max_time, U64_mul_U32 (duration, 5));
     compute_plot (min_time, max_time);
     compute_hist();
-    draw_all( win );
+    g_invalidate( win );
   }
   return 0;
 }

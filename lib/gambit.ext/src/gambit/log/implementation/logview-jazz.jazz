@@ -1,0 +1,62 @@
+;;;===========================================================================
+
+;;; File: "view-scm.scm"
+
+;;; Copyright (c) 2013 by Marc Feeley, All Rights Reserved.
+
+;;;===========================================================================
+
+(module protected gambit.log.implementation.logview-jazz jazz
+
+(import (jazz.geometry)
+        (jazz.graphic)
+        (jazz.foreign)
+        (jazz.platform)
+        (jazz.platform.types))
+
+
+(define current-view
+  #f)
+
+(definition public (plot-view view)
+  (set! current-view view))
+
+(definition public (plot-view-ref)
+  current-view)
+
+
+(definition public current-surface
+  (make-parameter #f))
+
+
+(c-definition package (call-box r g b x y w h) (int int int int int int int) void "call_g_box" "static"
+  (let ((height (get-height~ current-view))
+        (color (if (and (= r 255) (= g 255) (= b 255)) {Color Gray} (new Color red: r green: g blue: b))))
+    (fill-rect~ (current-surface) (h/v/width/height->rect x y w h) color)))
+
+
+(c-definition package (call-text r g b where x y str) (int int int int int int char-string) void "call_g_text" "static"
+  (let ((height (get-height~ current-view))
+        (color (if (and (= r 255) (= g 255) (= b 255)) {Color Gray} (new Color red: r green: g blue: b))))
+    (draw-text~ (current-surface) x y str color)))
+
+
+(c-declare #<<end-of-c-declare
+
+#include "logview.c"
+
+end-of-c-declare
+)
+
+
+(definition public plot-setup
+  (c-lambda (char-string) void
+    "plot_setup(___arg1);"))
+
+(definition public plot-draw
+  (c-lambda () void
+    "plot_draw();"))
+
+(definition public plot-resize
+  (c-lambda (int int) void
+    "plot_resize(___arg1, ___arg2);")))

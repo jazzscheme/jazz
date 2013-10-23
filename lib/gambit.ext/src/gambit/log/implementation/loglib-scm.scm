@@ -6,7 +6,7 @@
 
 ;;;===========================================================================
 
-(unit gambit.log.loglib-scm
+(unit protected gambit.log.implementation.loglib-scm
 
 (c-declare #<<end-of-c-declare
 

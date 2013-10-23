@@ -6,7 +6,7 @@
 
 ;;;===========================================================================
 
-(module gambit.log.demo-scm jazz
+(module gambit.log.implementation.demo-scm jazz
 
 (import (gambit.log))
 

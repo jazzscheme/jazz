@@ -10,6 +10,8 @@
 #include "arith64.h"
 #include "loglib.h"
 
+#define JAZZ
+
 
 int debug_level = 1; /* show warnings only */
 
@@ -215,6 +217,102 @@ int col;
   else
     return stipple[OTHER+(col-OTHER)%(sizeof(stipple)/STIPPLE_H-OTHER)];
 }
+
+/*--------------------------------------------------------------------------*/
+
+#ifdef JAZZ
+
+window current_window;
+
+
+void g_init ()
+{
+  graph_screen_width  = 800;
+  graph_screen_height = 600;
+}
+
+
+void g_clear( win )
+window win;
+{
+}
+
+
+void g_box( win, color, x, y, w, h )
+window win;
+int color;
+int x, y, w, h;
+{
+  RGB col = win_get_color(win, color);
+  call_g_box(RED(col), GREEN(col), BLUE(col), x, y, w, h);
+}
+
+
+void g_text( win, color, where, x, y, str )
+window win;
+int color;
+int where;
+int x, y;
+char *str;
+{
+  RGB col = win_get_color(win, color);
+  call_g_text(RED(col), GREEN(col), BLUE(col), where, x, y, str);
+}
+
+
+window g_window( name, width, height, colors, nbcolors,redraw, point, click, key, resize )
+char *name;
+int width, height;
+RGB *colors;
+int nbcolors;
+void (*redraw)();
+void (*point)();
+void (*click)();
+int (*key)();
+void (*resize)();
+{ window      win;
+
+  win = (window)malloc( sizeof(*win) );
+  if (win == NULL)
+  { fprintf( stderr, "can't allocate window\n" );
+    exit (1);
+  }
+
+  win->name    = name;
+  win->w       = width;
+  win->h       = height;
+  win->ps_file = NULL;
+  win->colors  = colors;
+  win->nbcolors= nbcolors;
+  win->redraw  = redraw;
+  win->point   = point;
+  win->click   = click;
+  win->key     = key;
+  win->resize  = resize;
+
+  return win;
+}
+
+
+void g_resize( win )
+window win;
+{
+}
+
+
+void plot_resize(int w, int h)
+{
+  current_window->w = w;
+  current_window->h = h;
+  resize(current_window);
+}
+
+
+void g_idle( win )
+window win;
+{
+}
+#endif
 
 /*--------------------------------------------------------------------------*/
 
@@ -2108,6 +2206,102 @@ window win;
   compute_plot (min_time, max_time);
   compute_hist();
 }
+
+
+#ifdef JAZZ
+void plot_setup(char* filename)
+{ int i;
+  int print_stats = 0;
+  window win;
+  
+  log_filename = filename;
+
+  {
+    int i;
+    for (i=0; i<MAX_NB_EVENT_TYPES; i++)
+      xlate[i] = i;
+  }
+  
+  graph_init();
+
+  full_plot_width = graph_screen_width - BORDER_RIGHT - BORDER_LEFT;
+  plot_height = DEFAULT_PLOT_HEIGHT;
+  hist_height = DEFAULT_HIST_HEIGHT;
+  hist_span_at_width = 0;
+
+  if (show_states) plot_height /= 2;
+
+  if (full_plot_width < MIN_PLOT_WIDTH) full_plot_width = MIN_PLOT_WIDTH;
+  else if (full_plot_width > MAX_PLOT_WIDTH) full_plot_width = MAX_PLOT_WIDTH;
+
+  plot_width = full_plot_width;
+  smooth_passes = 0;
+
+  read_log (log_filename);
+
+  {
+    int i;
+    for (i=0; i<log_nb_events; i++)
+    {
+      U64 *p1;
+      ULONG *p2;
+      p1 = malloc ((MAX_PLOT_WIDTH+1) * sizeof(U64));
+      if (p1 == NULL)
+        {
+          fprintf( stderr, "memory overflow\n" );
+          exit (1);
+        }
+      count[i] = p1;
+      p2 = malloc ((MAX_PLOT_WIDTH+1) * sizeof(ULONG));
+      if (p2 == NULL)
+        {
+          fprintf( stderr, "memory overflow\n" );
+          exit (1);
+        }
+      hist[i] = p2;
+    }
+  }
+
+  if (log_nb_traces > 64)
+  { bar_height  = 3;
+    bar_spacing = 1;
+  }
+  else if (log_nb_traces > 32)
+  { bar_height  = 6;
+    bar_spacing = 2;
+  }
+  else
+  { bar_height  = 9;
+    bar_spacing = 3;
+  }
+
+  win = graph_window( log_filename,
+                      full_plot_width+BORDER_RIGHT+BORDER_LEFT,
+                      THEIGHT,
+                      log_event_color,
+                      log_nb_events,
+                      draw_all,
+                      point,
+                      click,
+                      key,
+                      resize );
+
+  compute_plot (U64_init (0, 0), log_max_time);
+  compute_hist();
+
+  print_statistics = print_stats;
+
+  print_statistics = 0;
+
+  current_window = win;
+}
+
+
+void plot_draw()
+{
+  draw_all(current_window);
+}
+#endif
 
 
 int main( argc, argv )

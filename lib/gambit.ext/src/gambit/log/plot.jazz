@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit Ext Product
+;;;; Gambit Plot
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,31 +35,37 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit gambit.product
+(module gambit.log.plot jazz
 
 
-;;;
-;;;; Build
-;;;
+(import (gambit.log)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.ui)
+        (jazz.ui.view))
 
 
-(define jazz:gambit-ext-units
-  (let ((gambit-include-path (jazz:quote-jazz-pathname "lib/gambit.ext/src/gambit/log/implementation")))
-    `((gambit.log.implementation.loglib-scm cc-options: ,(string-append "-I" gambit-include-path))
-      (gambit.log.implementation.logview-jazz cc-options: ,(string-append "-I" gambit-include-path)))))
+(definition public (plot-graph filename)
+  (let ((frame (new-frame Plot host-visible?: #f host-title: (format "Plot: {a}" filename))))
+    (let ((plot (get-guest~ frame)))
+      (plot-view plot)
+      (plot-setup filename)
+      (set-visible?~ frame #t))))
 
 
-(define (jazz:build-gambit-ext descriptor #!key (unit #f) (force? #f))
-  (let ((unit-specs jazz:gambit-ext-units))
-    (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-    (if (or (not unit) (not (assq unit unit-specs)))
-        (jazz:build-product-descriptor descriptor))))
-
-
-;;;
-;;;; Register
-;;;
-
-
-(jazz:register-product 'gambit.ext
-  build: jazz:build-gambit-ext))
+(class Plot extends View
+  
+  
+  (form
+    (<install> background: {Color Gray}))
+  
+  
+  (method override (size-change size)
+    (nextmethod size)
+    (when (plot-view-ref)
+      (plot-resize (get-width~ size) (get-height~ size))))
+  
+  
+  (method override (draw surface context)
+    (parameterize ((current-surface surface))
+      (plot-draw)))))

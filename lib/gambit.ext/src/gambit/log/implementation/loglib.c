@@ -9,6 +9,9 @@
 #include "arith64.h"
 #include "loglib.h"
 
+#define USE_RDTSC
+//#define USE_Performance
+
 
 /*---------------------------------------------------------------------------*/
 
@@ -28,11 +31,15 @@ char *msg;
 /* Elapsed real time. */
 
 
+#ifndef USE_RDTSC
+#ifndef USE_Performance
 #ifndef USE_time
 #ifndef USE_ftime
 #ifndef USE_gettimeofday
 #ifndef USE_TickCount
 #define USE_gettimeofday
+#endif
+#endif
 #endif
 #endif
 #endif
@@ -51,10 +58,29 @@ char *msg;
 #endif
 
 
+#ifdef USE_Performance
+LARGE_INTEGER frequency;
+#endif
+
+
 static U64 abs_real_time ()
 {
-
   U64 result;
+
+#ifdef USE_RDTSC
+
+  __asm__ __volatile__("rdtsc": "=A" (result));
+  result = result * 10 / 34;
+
+#endif
+
+#ifdef USE_Performance
+
+  LARGE_INTEGER counter;
+  QueryPerformanceCounter(&counter);
+  result = counter.QuadPart * 1000000000 / frequency.QuadPart;
+
+#endif
   
 #ifdef USE_time
 
@@ -115,6 +141,10 @@ static U64 abs_real_time ()
 
 static void init_abs_real_time ()
 {
+#ifdef USE_Performance
+  QueryPerformanceFrequency(&frequency);
+#endif
+
   /* Some systems (e.g. DJGPP) need a first call to define the time origin. */
   abs_real_time (); /* reset origin */
 }
@@ -283,6 +313,17 @@ U16 state;
 {
   init_abs_real_time ();
   log_transition (context, state);
+}
+
+
+U16 log_state (context)
+struct log_context *context;
+{
+  struct log_state_transition *p = context->ptr;
+  if (p != NULL)
+      return (p-1)->state;
+  else
+      return 0;
 }
 
 

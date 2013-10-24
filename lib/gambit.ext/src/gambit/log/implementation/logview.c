@@ -314,9 +314,15 @@ void plot_resize(int w, int h)
 }
 
 
+void plot_move(int x, int y)
+{
+  (*current_window->point)(current_window, x, y);
+}
+
+
 void plot_click(int x1, int y1, int x2, int y2)
 {
-  (*current_window->click)(current_window, x1, y1, x2, y2);
+  (*current_window->click)(current_window, x1, y1, x2, y2, 0);
 }
 
 
@@ -1840,6 +1846,8 @@ window win;
         sprintf( str, "%d%%", peak );
         graph_box( win, BLACK, x_pos-3, b+hist_height, 3, 1 );
         graph_text( win, BLACK, RIGHT, x_pos-5, b+hist_height, str );
+        sprintf( str, "n=%d", events_of_type[event_num].len );
+        graph_text( win, BLACK, LEFT, x_pos+5, b+hist_height, str );
         if (print_statistics)
           {
             char max_str[100];
@@ -2051,11 +2059,12 @@ window win;
 void point( win, x, y )
 window win;
 int x, y;
-{ flip_cross_hair( win );
+{ // flip_cross_hair( win );
   last_point_x = x;
   last_point_y = y;
-  flip_cross_hair( win );
-  draw_cross_hair_info( win );
+  // flip_cross_hair( win );
+  g_invalidate( );
+ // draw_cross_hair_info( win );
 }
 
 
@@ -2103,13 +2112,14 @@ int but;
         }
       }
       temp = xlate[aaa]; xlate[aaa] = xlate[bbb]; xlate[bbb] = temp;
-      flip_cross_hair( win );
-      graph_box( win, WHITE, 0, 0, BORDER_LEFT+BORDER_RIGHT+full_plot_width, b);
-      draw_labels( win );
-      if (show_hist) draw_hist( win );
-      draw_perc_plot( win );
-      flip_cross_hair( win );
-      draw_cross_hair_info( win );
+    //  flip_cross_hair( win );
+    //  graph_box( win, WHITE, 0, 0, BORDER_LEFT+BORDER_RIGHT+full_plot_width, b);
+    //  draw_labels( win );
+    //  if (show_hist) draw_hist( win );
+    //  draw_perc_plot( win );
+    //  flip_cross_hair( win );
+    //  draw_cross_hair_info( win );
+      g_invalidate( win );
     }
   }
 }

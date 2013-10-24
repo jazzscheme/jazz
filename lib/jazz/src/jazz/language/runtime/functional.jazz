@@ -4360,9 +4360,7 @@
   (let ((msg (read-delayed-event)))
     (when (not (eof-object? msg))
       (let ((thunk (car msg)))
-        (if thread-process-hook
-            (thread-process-hook thunk)
-          (thunk))
+        (thunk)
         (process-delayed-events)))))
 
 
@@ -4383,7 +4381,7 @@
 (definition package (thread-loop)
   (declare (proper-tail-calls))
   (let (loop)
-    (thread-process hook?: #f)
+    (thread-process)
     (when (thread-loop? (current-thread))
       (loop))))
 
@@ -4439,25 +4437,13 @@
       (car msg))))
 
 
-(definition thread-process-hook
-  #f)
-
-(definition public (get-thread-process-hook)
-  thread-process-hook)
-
-(definition public (set-thread-process-hook hook)
-  (set! thread-process-hook hook))
-
-
-(definition public (thread-process (hook?: hook? #t) (timeout: timeout +infinity))
+(definition public (thread-process (timeout: timeout +infinity))
   (let ((msg (thread-read-message timeout: timeout)))
     (process-delayed-events)
     (when (not (eof-object? msg))
       (bind (thunk . chain) msg
         (parameterize ((current-continuation-chain chain))
-          (if (and hook? thread-process-hook)
-              (thread-process-hook thunk)
-            (thunk)))))))
+          (thunk))))))
 
 
 (definition public (thread-post thread name thunk (priority 0))

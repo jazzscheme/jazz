@@ -60,6 +60,20 @@ end-of-c-declare
 
 ;;;---------------------------------------------------------------------------
 
+(define (setup-logging-heartbeat! parameter)
+  (%%interrupt-vector-set! 1 (logging-heartbeat! parameter)))
+
+(define (logging-heartbeat! parameter)
+  (lambda ()
+    (declare (not interrupts-enabled))
+    (let ((log-context (parameter)))
+      (if log-context
+          (let ((last-state (log-state log-context)))
+            (log-transition log-context 0)
+            (##thread-heartbeat!)
+            (log-transition log-context last-state))
+        (##thread-heartbeat!)))))
+
 (define log-setup
   (c-lambda (log-context*         ;; log context
              nonnull-char-string  ;; program name
@@ -84,6 +98,11 @@ end-of-c-declare
              unsigned-int16)      ;; starting state number
             void
             "log_start"))
+
+(define log-state
+  (c-lambda (log-context*)        ;; log context
+            unsigned-int16
+            "log_state"))
 
 (define log-transition
   (c-lambda (log-context*         ;; log context

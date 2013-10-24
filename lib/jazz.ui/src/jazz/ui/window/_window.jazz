@@ -199,7 +199,8 @@
                     (format " {a}" level)))))))
   
   (declare (proper-tail-calls))
-  (let ((pump (process-messages)))
+  (let ((process (get-process))
+        (pump (process-messages)))
     (when pump
       (thread-start-loop pump)
       (thread-start! pump))
@@ -208,11 +209,9 @@
           (with-restart-catcher 'resume-loop (present-event-loop-restart)
             (lambda ()
               (catch Cancel-Signal
-                (let (loop)
-                  (with-exception-debugger (get-exception-debugger)
-                    (lambda ()
-                      (thread-process)))
-                  (loop)))))
+                (with-exception-debugger (get-exception-debugger)
+                  (lambda ()
+                    (thread-process-loop~ process))))))
           (restart-loop))
       (when pump
         (thread-stop-loop pump)))))

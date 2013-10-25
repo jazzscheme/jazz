@@ -223,6 +223,7 @@ struct log_context *context;
   if (f == NULL)
     fatal_error ("Can't open log file");
 
+  write_string (f, context->name);
   write_U32 (f, context->nb_states);
 
   for (i=0; i<context->nb_states; i++)
@@ -252,9 +253,10 @@ struct log_context *context;
 /* User callable routines. */
 
 
-void log_setup (context, prog_name, pnum, nb_states, max_nb_trans)
+void log_setup (context, prog_name, ctx_name, pnum, nb_states, max_nb_trans)
 struct log_context *context;
 char *prog_name;
+char *ctx_name;
 int pnum;
 int nb_states;
 int max_nb_trans;
@@ -262,6 +264,7 @@ int max_nb_trans;
   int i;
 
   context->prog_name = prog_name;
+  context->name = ctx_name;
   context->pnum = pnum;
   context->nb_states = nb_states;
 

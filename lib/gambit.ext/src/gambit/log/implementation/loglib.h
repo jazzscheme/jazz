@@ -58,6 +58,7 @@ struct log_state_transition
 struct log_context
   {
     char *prog_name;
+    char *name;
     int pnum;
     int nb_states;
     struct log_state_def *states;

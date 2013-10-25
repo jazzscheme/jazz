@@ -77,12 +77,14 @@ end-of-c-declare
 (define log-setup
   (c-lambda (log-context*         ;; log context
              nonnull-char-string  ;; program name
+             nonnull-char-string  ;; context name
              int                  ;; processor number
              int                  ;; number of states
              int)                 ;; maximum number of state transitions
             void
             "___EXT(___addref_string)(___arg2); /* prevent deallocation of string */
-             log_setup(___arg1, ___arg2, ___arg3, ___arg4, ___arg5);"))
+             ___EXT(___addref_string)(___arg3); /* prevent deallocation of string */
+             log_setup(___arg1, ___arg2, ___arg3, ___arg4, ___arg5, ___arg6);"))
 
 (define log-define-state
   (c-lambda (log-context*         ;; log context

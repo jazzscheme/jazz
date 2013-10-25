@@ -17,11 +17,12 @@
 (define locked    2)
 (define nb-states 3)
 
-(define (new-log-context i)
+(define (new-log-context name i)
   (let ((log-context (log-context-alloc)))
 
     (log-setup log-context
                "demo-scm"
+               name
                i
                nb-states
                1000000)
@@ -61,8 +62,8 @@
 
              (loop (+ i 1))))))))
 
-(define log-context0 (new-log-context 0)) ;; for thread p0
-(define log-context1 (new-log-context 1)) ;; for thread p1
+(define log-context0 (new-log-context "thread0" 0)) ;; for thread p0
+(define log-context1 (new-log-context "thread1" 1)) ;; for thread p1
 
 (define p0 (create-thread log-context0))
 (define p1 (create-thread log-context1))

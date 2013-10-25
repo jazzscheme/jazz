@@ -1021,6 +1021,7 @@ char *log_event_name[MAX_NB_EVENT_TYPES];
 RGB log_event_color[MAX_NB_EVENT_TYPES];
 
 struct {
+  char* name;
   unsigned int len;
   struct transition *event;
   } log_trace[MAX_NB_TRACES];
@@ -1048,6 +1049,8 @@ FILE *f;
   U16 last_state;
   U64 last_tim;
 
+  if (!read_string (f, &log_trace[log_nb_traces].name))
+    goto err;
   if (!read_U32 (f, &nb_states))
     goto err;
 
@@ -1107,7 +1110,7 @@ FILE *f;
       if (state == last_state)
         {
           if (debug_level > 0)
-            fprintf (stderr, "warning: ignoring repeated state\n");
+            fprintf (stderr, "warning: ignoring repeated state %d in %s\n", state, log_trace[log_nb_traces].name);
         }
       else
         {
@@ -2027,9 +2030,9 @@ window win;
       last_event_time = event_time;
     }
     draw_event (win, i, last_event_num, last_event_time, log_max_time);
-    if (i % 5 == 0)
+    // if (i % 5 == 0)
     { char num[10];
-      sprintf( num, "P%d", i );
+      sprintf( num, " %s", log_trace[i].name );
       graph_text( win, BLACK, LEFT, BORDER_LEFT+plot_width+8, b+i*(BAR_HEIGHT+BAR_SPACING)+BAR_SPACING+BAR_HEIGHT/2+1, num );
       graph_box( win, BLACK, BORDER_LEFT+plot_width, b+i*(BAR_HEIGHT+BAR_SPACING)+BAR_SPACING+BAR_HEIGHT/2+1, TICK_LONG, 1 );
     }

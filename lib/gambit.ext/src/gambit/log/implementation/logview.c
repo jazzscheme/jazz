@@ -2265,7 +2265,7 @@ void plot_setup(char* filename)
   else if (full_plot_width > MAX_PLOT_WIDTH) full_plot_width = MAX_PLOT_WIDTH;
 
   plot_width = full_plot_width;
-  smooth_passes = 0;
+  smooth_passes = 9;
 
   read_log (log_filename);
 
@@ -2486,7 +2486,7 @@ char **argv;
 #endif
 
   plot_width = full_plot_width;
-  smooth_passes = 0;
+  smooth_passes = 9;
 
   read_log (av[arg]);
 

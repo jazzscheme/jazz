@@ -60,16 +60,16 @@ end-of-c-declare
 
 ;;;---------------------------------------------------------------------------
 
-(define (setup-logging-heartbeat! parameter)
-  (%%interrupt-vector-set! 1 (logging-heartbeat! parameter)))
+(define (setup-logging-heartbeat! parameter state)
+  (%%interrupt-vector-set! 1 (logging-heartbeat! parameter state)))
 
-(define (logging-heartbeat! parameter)
+(define (logging-heartbeat! parameter state)
   (lambda ()
     (declare (not interrupts-enabled))
     (let ((log-context (parameter)))
       (if log-context
           (let ((last-state (log-state log-context)))
-            (log-transition log-context 0)
+            (log-transition log-context state)
             (##thread-heartbeat!)
             (log-transition log-context last-state))
         (##thread-heartbeat!)))))

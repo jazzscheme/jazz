@@ -227,8 +227,6 @@ window current_window;
 
 void g_init ()
 {
-  graph_screen_width  = 800;
-  graph_screen_height = 600;
 }
 
 

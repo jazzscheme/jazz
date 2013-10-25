@@ -303,6 +303,7 @@ void (*resize)();
 void g_resize( win )
 window win;
 {
+  g_invalidate();
 }
 
 

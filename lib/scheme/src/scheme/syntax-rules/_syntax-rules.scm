@@ -49,7 +49,7 @@
 (syntax syntax-rules
   (rsc-macro-transformer
     (lambda (expr macro-env)
-      (define (rename x) (make-syntactic-closure macro-env '() x))
+      (define (rename x) (make-syntactic-closure macro-env '() expr x))
       (define (compare x y) (identifier=? macro-env x macro-env y))
       (let* ((expr (unwrap-syntactic-closure expr))
              (srfi-46? (identifier? (cadr expr)))

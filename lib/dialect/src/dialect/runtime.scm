@@ -3621,6 +3621,9 @@
 (jazz:define-class jazz:Syntactic-Closure jazz:Object (constructor: jazz:allocate-syntactic-closure)
   ((environment getter: generate)
    (variables   getter: generate)
+   ;; quick solution to form often not containing source info
+   ;; for example in (increase! x) (ask Alex Shinn for the correct solution)
+   (expression  getter: generate)
    (form        getter: generate)))
 
 
@@ -3635,13 +3638,13 @@
   (%%class-is? x jazz:Syntactic-Closure))
 
 
-(define (jazz:make-syntactic-closure env vars form)
+(define (jazz:make-syntactic-closure env vars expression form)
   (if (or (%%symbol? form)
           (%%pair? form)
           (and (%%source? form)
                (or (%%symbol? (%%source-code form))
                    (%%pair? (%%source-code form)))))
-      (jazz:allocate-syntactic-closure env vars form)
+      (jazz:allocate-syntactic-closure env vars expression form)
     form))
 
 
@@ -3716,7 +3719,7 @@
 (define sc-macro-transformer
   (lambda (f)
     (lambda (expr usage-env macro-env)
-      (jazz:make-syntactic-closure macro-env '() (f expr usage-env)))))
+      (jazz:make-syntactic-closure macro-env '() expr (f expr usage-env)))))
 
 
 (define rsc-macro-transformer
@@ -3733,7 +3736,7 @@
                 (lambda (identifier)
                   (cond ((assq identifier renames) => cdr)
                         (else
-                         (let ((name (jazz:make-syntactic-closure macro-env '() identifier)))
+                         (let ((name (jazz:make-syntactic-closure macro-env '() expr identifier)))
                            (set! renames (cons (cons identifier name) renames))
                            name))))))
             (compare
@@ -4234,10 +4237,13 @@
 
 (define (jazz:present-expression-location expression)
   (let ((src (jazz:get-expression-source expression)))
-    (if (%%source? src)
-        (let ((location (jazz:locat->container/line/col (jazz:source-locat src))))
-          (%%string->symbol (%%string-append "@" (%%number->string (%%fx+ (%%cadr location) 1)) "." (%%number->string (%%fx+ (%%car (%%cddr location)) 1)))))
-      "")))
+    (let ((src (if (jazz:syntactic-closure? src)
+                   (jazz:get-syntactic-closure-expression src)
+                 src)))
+      (if (%%source? src)
+          (let ((location (jazz:locat->container/line/col (jazz:source-locat src))))
+            (%%string->symbol (%%string-append "@" (%%number->string (%%fx+ (%%cadr location) 1)) "." (%%number->string (%%fx+ (%%car (%%cddr location)) 1)))))
+        ""))))
 
 
 ;;;

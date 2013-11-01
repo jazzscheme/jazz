@@ -291,6 +291,14 @@
 
 
 ;;;
+;;;; Exception-Detail
+;;;
+
+
+(native jazz:new-exception-detail)
+
+
+;;;
 ;;;; Field
 ;;;
 

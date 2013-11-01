@@ -40,10 +40,13 @@
 
 (import (jazz.debuggee.stub)
         (jazz.debugger)
+        (jazz.io)
         (jazz.jml)
         (jazz.library)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.dialog)
+        (jazz.ui.view)
         (jazz.ui.window))
 
 
@@ -53,6 +56,8 @@
   (form
     (<install>                      layout-type: border
       (<!>           name: tools
+        (<Push-Tool> name: open     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open Problems" resource: {Image-Resource "Open"} portfolio: :images action-handler: {Event-Handler :guest on-open-problems})
+        (<Separator>                size: {Dimension 6 0})
         (<Push-Tool> name: edit     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Resolved" resource: {Image-Resource "Done"} portfolio: :images action-handler: {Event-Handler :guest on-resolved})
         (<Push-Tool> name: pop      size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Clear" resource: {Image-Resource "ClearResults"} portfolio: :images action-handler: {Event-Handler :guest on-clear}))
       (<!>           name: scroller
@@ -97,6 +102,13 @@
   ;;;
   
   
+  (method (on-open-problems evt)
+    (with-cursor :wait
+      (lambda ()
+        (let ((file (choose-file)))
+          (report-problems (open-problems file))))))
+  
+  
   (method (on-resolved evt)
     (let ((row (selected-row)))
       (when row
@@ -114,6 +126,43 @@
     (empty-table details)
     (update)
     (set-selection~ (get-tree) '()))
+  
+  
+  ;;;
+  ;;;; File
+  ;;;
+  
+  
+  (method (open-problems file)
+    (let ((queue (new-queue)))
+      (define (process line)
+        (let ((header "Warning: In "))
+          (when (starts-with? line header)
+            (let ((start (string-length header)))
+              (let ((at (find line #\@ start: start)))
+                (let ((colon (find line #\: start: start))
+                      (period (and at (find line #\. start: at)))
+                      (message-colon (search line ": " start: (or at start))))
+                  (let ((container (string->symbol (substring line start (if colon colon at))))
+                        (line (if at (- (string->number (substring line (+ at 1) period)) 1) 0))
+                        (col (if at (- (string->number (substring line (+ period 1) message-colon)) 1) 0))
+                        (message (substring line (+ message-colon 2) (string-length line))))
+                    (enqueue queue (new-exception-detail "Green" message (list container line col) '())))))))))
+      
+      (call-with-input-file (path-settings file)
+        (lambda (port)
+          (let (iter)
+            (let ((line (read-line port)))
+              (unless (eof-object? line)
+                (process line)
+                (iter))))))
+      (let ((partition (partition (queue-list queue) key: (lambda (detail) (car (get-location~ detail))))))
+        (new-exception-detail "Warning" #f #f
+          (map (lambda (partition)
+                 (bind (container . details) partition
+                   (new-exception-detail "Warning" (symbol->string container) #f
+                     details)))
+               partition)))))
 
   
   ;;;

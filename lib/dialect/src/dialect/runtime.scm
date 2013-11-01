@@ -2177,19 +2177,27 @@
 
 (cond-expand
   (release
-    (define (jazz:emit-type-cast code type source-declaration environment backend)
-      (if (or (%%not type) (%%subtype? (jazz:get-code-type code) type))
-         (jazz:sourcified-form code)
-       (let ((value (jazz:generate-symbol "val")))
-         ;; coded the flonum case here for now has it is the only castable type
-         (if (%%eq? type jazz:Flonum)
-             `(let ((,value (let () ,(jazz:sourcified-form code))))
-                (if (%%fixnum? ,value)
-                    (%%fixnum->flonum ,value)
-                  ,value))
-           (jazz:sourcified-form code))))))
+    (define (jazz:emit-type-cast code type expression source-declaration environment backend)
+      (cond ((or (%%not type) (%%subtype? (jazz:get-code-type code) type))
+             (jazz:sourcified-form code))
+            ((%%subtype? (jazz:get-code-type code) jazz:Fixnum)
+             `(%%fixnum->flonum ,(jazz:sourcified-form code)))
+            (else
+             (let ((value (jazz:generate-symbol "val")))
+               ;; coded the flonum case here for now has it is the only castable type
+               (if (%%eq? type jazz:Flonum)
+                   (begin
+                     (%%when (and (jazz:warnings?) (jazz:get-module-warn? (jazz:get-declaration-toplevel source-declaration) 'optimizations))
+                       (jazz:debug-string (jazz:format "Warning: In {a}{a}: Untyped cast <fl>"
+                                                       (jazz:get-declaration-locator source-declaration)
+                                                       (jazz:present-expression-location expression))))
+                     `(let ((,value (let () ,(jazz:sourcified-form code))))
+                        (if (%%fixnum? ,value)
+                            (%%fixnum->flonum ,value)
+                          ,value)))
+                 (jazz:sourcified-form code)))))))
   (else
-   (define (jazz:emit-type-cast code type source-declaration environment backend)
+   (define (jazz:emit-type-cast code type expression source-declaration environment backend)
      (if (or (%%not type) 
              (%%eq? type jazz:Void)
              (%%subtype? (jazz:get-code-type code) type))

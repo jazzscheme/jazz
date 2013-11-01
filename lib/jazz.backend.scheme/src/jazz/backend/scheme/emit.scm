@@ -387,6 +387,7 @@
   (jazz:emit-type-cast
     expression-emit
     type
+    expression
     declaration
     environment
     backend))

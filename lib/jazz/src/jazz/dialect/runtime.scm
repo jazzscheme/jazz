@@ -1223,8 +1223,8 @@
 
 
 (define (jazz:walk-cast walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (let ((specifier (%%cadr form))
+  (let ((form (jazz:source-code form-src)))
+    (let ((specifier (%%desourcify (%%cadr form)))
           (expression (%%car (%%cddr form))))
       (jazz:new-cast (jazz:walk-specifier walker resume declaration environment specifier)
                      (jazz:walk walker resume declaration environment expression)))))

@@ -650,6 +650,9 @@
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:vector-ref     '((##vector-ref    <vector^int:any>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:vector-set!    '((##vector-set!   <vector^int^any:void>)))
 
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:table-ref      '((##table-ref  <table^any:any>) (##table-ref    <table^any^any:any>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:table-set!     '((##table-set! <table^any^any:void>)))
+
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:min            '((##fixnum.min <fx^fx:fx>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:max            '((##fixnum.max <fx^fx:fx>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:modulo         '((##fixnum.modulo <fx^fx:fx>)))

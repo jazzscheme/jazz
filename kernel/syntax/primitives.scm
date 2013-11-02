@@ -124,7 +124,17 @@
     (jazz:define-macro (%%closure-code closure)
       (%%force-uniqueness (closure)
         `(%%check-closure ,closure 1 (%%closure-code ,closure)
-           (##closure-code ,closure)))))
+           (##closure-code ,closure))))
+    
+    (jazz:define-macro (%%closure-length closure)
+      (%%force-uniqueness (closure)
+        `(%%check-closure ,closure 1 (%%closure-length ,closure)
+           (##closure-length ,closure))))
+    
+    (jazz:define-macro (%%closure-ref closure n)
+      (%%force-uniqueness (closure)
+        `(%%check-closure ,closure 1 (%%closure-length ,closure ,n)
+           (##closure-ref ,closure ,n)))))
   
   (else))
 

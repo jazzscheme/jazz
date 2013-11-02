@@ -61,6 +61,12 @@
     (define (jazz:closure-code closure)
       (%%closure-code closure))
     
+    (define (jazz:closure-length closure)
+      (%%closure-length closure))
+    
+    (define (jazz:closure-ref closure n)
+      (%%closure-ref closure n))
+    
     
     (define jazz:hidden-frames
       (%%list

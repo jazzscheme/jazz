@@ -440,7 +440,7 @@
 
 
 (native table?)
-(native make-table)
+(native make-table <object*:table>)
 (native table-copy)
 (native table-for-each)
 (native table-search)

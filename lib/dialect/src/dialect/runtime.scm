@@ -4294,11 +4294,19 @@
     (jazz:with-annotated-frame (jazz:annotate-internal-defines internal-defines)
       (lambda (frame)
         (let ((augmented-environment (%%cons frame environment)))
-          (jazz:new-code
-            (%%append (jazz:codes-forms (jazz:emit-expressions internal-defines declaration augmented-environment backend))
-                      (jazz:codes-forms (jazz:emit-expressions expressions declaration augmented-environment backend)))
-            jazz:Any
-            #f))))))
+          ;; return unique expression type
+          (if (and (%%null? internal-defines)
+                   (%%null? (%%cdr expressions)))
+              (let ((expressions (jazz:emit-expressions expressions declaration augmented-environment backend)))
+                (jazz:new-code
+                  (jazz:codes-forms expressions)
+                  (jazz:get-code-type (%%car expressions))
+                  #f))
+            (jazz:new-code
+              (%%append (jazz:codes-forms (jazz:emit-expressions internal-defines declaration augmented-environment backend))
+                        (jazz:codes-forms (jazz:emit-expressions expressions declaration augmented-environment backend)))
+              jazz:Any
+              #f)))))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Body expression) down up here seed environment)

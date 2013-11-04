@@ -632,7 +632,7 @@
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:tan            '(                     (##fltan      <fl:fl>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:asin           '(                     (##flasin     <fl:fl>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:acos           '(                     (##flacos     <fl:fl>)))
-(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:atan           '(                     (##flatan     <fl:fl>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:atan           '(                     (##flatan     <fl:fl>) (##flatan <fl^fl:fl>)))
 
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:not            '((##not  <any:bool>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:eq?            '((##eq?  <any^any:bool>)))

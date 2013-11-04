@@ -355,7 +355,7 @@
           augmented
         (let ((expr (%%car scan)))
           (let ((newenv (process-expr expr augmented)))
-            (iter (%%cdr scan) (%%cons (%%car newenv) (%%cdr env))))))))
+            (iter (%%cdr scan) (%%cons (%%car newenv) (%%car newenv))))))))
   
   (define (process-or expr-list env)
     (let iter ((scan expr-list) (augmented env))
@@ -363,7 +363,7 @@
           augmented
         (let ((expr (%%car scan)))
           (let ((newenv (process-expr expr augmented)))
-            (iter (%%cdr scan) (%%cons (%%car env) (%%cdr newenv))))))))
+            (iter (%%cdr scan) (%%cons (%%cdr newenv) (%%cdr newenv))))))))
   
   (define (process-is expr type-expr env)
     (receive (origin actual-type) (extract-binding expr env)

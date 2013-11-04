@@ -665,10 +665,20 @@
                    (jazz:bind (yes-environment . no-environment) (jazz:branch-types expression environment)
                      (let ((code (jazz:emit-expression expression declaration environment backend)))
                        (%%cons code (recurse (%%cdr expressions) no-environment)))))))))
-    (jazz:new-code
-      (jazz:emit 'or backend expression declaration environment expressions)
-      jazz:Any
-      (jazz:get-expression-source expression))))
+    (let ((type (cond ((%%null? expressions) jazz:Any)
+                      ((%%null? (%%cdr expressions)) (jazz:get-code-type (%%car expressions)))
+                      (else (let ((last-type (jazz:get-code-type (jazz:last expressions))))
+                              (if (jazz:every? (lambda (code)
+                                                 (let ((type (jazz:get-code-type code)))
+                                                   (and (%%is? type jazz:Nillable-Type)
+                                                        (%%eq? (jazz:get-nillable-type-type type) last-type))))
+                                               (jazz:butlast expressions))
+                                  last-type
+                                jazz:Any))))))
+      (jazz:new-code
+        (jazz:emit 'or backend expression declaration environment expressions)
+        type
+        (jazz:get-expression-source expression)))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Or expression) down up here seed environment)

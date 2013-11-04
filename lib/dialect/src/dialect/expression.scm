@@ -507,15 +507,38 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:Cond expression) declaration environment backend)
   (let ((clauses (jazz:get-cond-clauses expression)))
-    (jazz:new-code
-      (jazz:emit 'cond backend expression declaration environment)
-      (jazz:extend-types (map (lambda (clause)
-                                (jazz:get-code-type
-                                  (let ((test (%%car clause))
-                                        (body (%%cddr clause)))
-                                    (jazz:emit-expression (or body test) declaration environment backend))))
-                              clauses))
-      (jazz:get-expression-source expression))))
+    (let ((clauses
+            (let recurse ((clauses clauses)
+                          (environment environment))
+                 (if (%%null? clauses)
+                     '()
+                   (let ((clause (%%car clauses)))
+                     (let ((test (%%car clause))
+                           (arrow? (%%cadr clause))
+                           (body (%%cddr clause)))
+                       (jazz:bind (yes-environment . no-environment) (jazz:branch-types test environment)
+                         (let ((test (and test (jazz:emit-expression test declaration environment backend)))
+                               (body (and body (jazz:emit-expression body declaration yes-environment backend))))
+                           (let ((output
+                                   `(,(if (%%not test)
+                                          'else
+                                        (jazz:sourcified-form test))
+                                     ,@(if arrow?
+                                           `(=>)
+                                         '())
+                                     ,@(if body
+                                           (%%list (jazz:sourcified-form body))
+                                         '())))
+                                 (type
+                                   (cond (arrow? jazz:Any)
+                                         (body (jazz:get-code-type body))
+                                         (test (jazz:get-code-type test))
+                                         (else jazz:Any))))
+                             (%%cons (%%cons output type) (recurse (%%cdr clauses) no-environment)))))))))))
+      (jazz:new-code
+        (jazz:emit 'cond backend expression declaration environment (map car clauses))
+        (jazz:extend-types (map cdr clauses))
+        (jazz:get-expression-source expression)))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Cond expression) down up here seed environment)

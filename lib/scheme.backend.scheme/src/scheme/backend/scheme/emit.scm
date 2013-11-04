@@ -157,28 +157,8 @@
 ;;;
 
 
-(jazz:define-emit (cond (scheme backend) expression declaration environment)
-  (let ((clauses (jazz:get-cond-clauses expression)))
-    `(cond ,@(let recurse ((clauses clauses)
-                           (environment environment))
-                  (if (%%null? clauses)
-                      '()
-                    (let ((clause (%%car clauses)))
-                      (let ((test (%%car clause))
-                            (arrow? (%%cadr clause))
-                            (body (%%cddr clause)))
-                        (jazz:bind (yes-environment . no-environment) (jazz:branch-types test environment)
-                          (let ((output
-                                  `(,(if (%%not test)
-                                         'else
-                                       (jazz:sourcified-form (jazz:emit-expression test declaration environment backend)))
-                                    ,@(if arrow?
-                                          `(=>)
-                                        '())
-                                    ,@(if body
-                                          (%%list (jazz:sourcified-form (jazz:emit-expression body declaration yes-environment backend)))
-                                        '()))))
-                            (%%cons output (recurse (%%cdr clauses) no-environment)))))))))))
+(jazz:define-emit (cond (scheme backend) expression declaration environment clauses)
+  `(cond ,@clauses))
 
 
 ;;;

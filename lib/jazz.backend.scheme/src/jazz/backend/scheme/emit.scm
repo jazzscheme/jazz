@@ -653,8 +653,8 @@
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:table-ref      '((##table-ref  <table^any:any>) (##table-ref    <table^any^any:any>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:table-set!     '((##table-set! <table^any^any:void>)))
 
-(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:min            '((##fixnum.min <fx^fx:fx>)))
-(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:max            '((##fixnum.max <fx^fx:fx>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:min            '((##fixnum.min <fx^fx:fx>) (##flonum.min <fl^fl:fl>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:max            '((##fixnum.max <fx^fx:fx>) (##flonum.max <fl^fl:fl>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:modulo         '((##fixnum.modulo <fx^fx:fx>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:even?          '((##fixnum.even? <fx:bool>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:odd?           '((##fixnum.odd? <fx:bool>)))

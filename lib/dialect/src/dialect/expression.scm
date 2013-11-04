@@ -613,7 +613,15 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:And expression) declaration environment backend)
-  (let ((expressions (jazz:emit-expressions (jazz:get-and-expressions expression) declaration environment backend)))
+  (let ((expressions
+          (let recurse ((expressions (jazz:get-and-expressions expression))
+                        (environment environment))
+               (if (%%null? expressions)
+                   '()
+                 (let ((expression (%%car expressions)))
+                   (jazz:bind (yes-environment . no-environment) (jazz:branch-types expression environment)
+                     (let ((code (jazz:emit-expression expression declaration environment backend)))
+                       (%%cons code (recurse (%%cdr expressions) yes-environment)))))))))
     (let ((type (cond ((%%null? expressions) jazz:Any)
                       ((%%null? (%%cdr expressions)) (jazz:get-code-type (%%car expressions)))
                       (else (let ((last-type (jazz:get-code-type (jazz:last expressions))))
@@ -648,7 +656,15 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Or expression) declaration environment backend)
-  (let ((expressions (jazz:emit-expressions (jazz:get-or-expressions expression) declaration environment backend)))
+  (let ((expressions
+          (let recurse ((expressions (jazz:get-or-expressions expression))
+                        (environment environment))
+               (if (%%null? expressions)
+                   '()
+                 (let ((expression (%%car expressions)))
+                   (jazz:bind (yes-environment . no-environment) (jazz:branch-types expression environment)
+                     (let ((code (jazz:emit-expression expression declaration environment backend)))
+                       (%%cons code (recurse (%%cdr expressions) no-environment)))))))))
     (jazz:new-code
       (jazz:emit 'or backend expression declaration environment expressions)
       jazz:Any

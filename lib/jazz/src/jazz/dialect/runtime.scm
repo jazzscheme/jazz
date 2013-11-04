@@ -1237,38 +1237,38 @@
 
 (jazz:define-class jazz:Allege jazz:Expression (constructor: jazz:allocate-allege)
   ((test    getter: generate)
-   (body    getter: generate)
+   (expr    getter: generate)
    (message getter: generate)))
 
 
-(define (jazz:new-allege source test body message)
-  (jazz:allocate-allege #f source test body message))
+(define (jazz:new-allege source test expr message)
+  (jazz:allocate-allege #f source test expr message))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Allege expression) declaration environment backend)
   (let ((test (jazz:get-allege-test expression))
-        (body (jazz:get-allege-body expression))
+        (expr (jazz:get-allege-expr expression))
         (message (jazz:get-allege-message expression)))
     (jazz:bind (yes-environment . no-environment) (jazz:branch-types test environment)
-      (let ((body (jazz:emit-expression body declaration yes-environment backend)))
+      (let ((expr (jazz:emit-expression expr declaration yes-environment backend)))
         (if jazz:debug-user?
             (let ((test (jazz:emit-expression test declaration environment backend)))
               (jazz:new-code
                 `(if ,(jazz:sourcified-form test)
-                     ,(jazz:sourcified-form body)
+                     ,(jazz:sourcified-form expr)
                    (error ,message))
-                (jazz:get-code-type body)
+                (jazz:get-code-type expr)
                 (jazz:get-expression-source expression)))
           (jazz:new-code
-            (jazz:simplify-begin (jazz:sourcified-form body))
-            (jazz:get-code-type body)
+            (jazz:sourcified-form expr)
+            (jazz:get-code-type expr)
             (jazz:get-expression-source expression)))))))
 
 
-(define (jazz:walk-allege walker resume declaration environment form-src)
+(define (jazz:walk-%allege walker resume declaration environment form-src)
   (let ((form (jazz:source-code form-src)))
     (let ((test (%%cadr form))
-          (body (%%cddr form)))
+          (expr (%%car (%%cddr form))))
       (let ((message (and jazz:debug-user? (let ((port (open-output-string)))
                                              (display "Allege " port)
                                              (write (jazz:desourcify-all test) port)
@@ -1276,7 +1276,7 @@
                                              (get-output-string port)))))
         (jazz:new-allege form-src
                          (jazz:walk walker resume declaration environment test)
-                         (jazz:walk-body walker resume declaration environment body)
+                         (jazz:walk walker resume declaration environment expr)
                          message)))))
 
 
@@ -2416,6 +2416,6 @@
 (jazz:define-walker-declaration with-dynamic-self    jazz jazz:walk-with-dynamic-self-declaration jazz:walk-with-dynamic-self)
 (jazz:define-walker-declaration with-local-variables jazz jazz:walk-with-local-variables-declaration jazz:walk-with-local-variables)
 (jazz:define-walker-special     cast                 jazz jazz:walk-cast)
-(jazz:define-walker-special     allege               jazz jazz:walk-allege)
+(jazz:define-walker-special     %allege              jazz jazz:walk-%allege)
 (jazz:define-walker-special     allocate             jazz jazz:walk-allocate)
 (jazz:define-walker-special     static               jazz jazz:walk-static))

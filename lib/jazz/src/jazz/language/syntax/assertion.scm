@@ -40,6 +40,7 @@
 
 (export assert
         assertion
+        allege
         debug-assert
         debug-assertion)
 
@@ -58,6 +59,28 @@
       ;; we really want assertions in release and not in a new distribution safety
       (expand-assertion-test #t form-src)
       form-src)))
+
+
+(define-syntax allege
+  (lambda (form-src usage-environment macro-environment)
+    (let ((test (cadr (source-code form-src)))
+          (body (cddr (source-code form-src))))
+      (cond ((null? body)
+             (let ((temp (generate-symbol "temp")))
+               (sourcify-if
+                 (if (symbol? (source-code test))
+                     `(%allege ,test ,test)
+                   `(let ((,temp ,test))
+                      (%allege ,temp ,temp)))
+                 form-src)))
+            ((null? (cdr body))
+             (sourcify-if
+               `(%allege ,test ,(car body))
+               form-src))
+            (else
+             (sourcify-if
+               `(%allege ,test (begin ,@body))
+               form-src))))))
 
 
 (define-syntax debug-assert

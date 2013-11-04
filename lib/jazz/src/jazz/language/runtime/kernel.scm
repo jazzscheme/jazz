@@ -399,7 +399,7 @@
 
 ;; s8
 (native s8vector)
-(native make-s8vector <int^opt<int>:s8vector>)
+(native make-s8vector <fx^opt<int>:s8vector>)
 (native s8vector-length)
 (native s8vector-ref)
 (native s8vector-set!)
@@ -409,7 +409,7 @@
 
 ;; u8
 (native u8vector)
-(native make-u8vector <int^opt<int>:u8vector>)
+(native make-u8vector <fx^opt<int>:u8vector>)
 (native u8vector-length)
 (native u8vector-ref)
 (native u8vector-set!)
@@ -425,7 +425,7 @@
 
 ;; s16
 (native s16vector)
-(native make-s16vector <int^opt<int>:s16vector>)
+(native make-s16vector <fx^opt<int>:s16vector>)
 (native s16vector-length)
 (native s16vector-ref)
 (native s16vector-set!)
@@ -435,7 +435,7 @@
 
 ;; u16
 (native u16vector)
-(native make-u16vector <int^opt<int>:u16vector>)
+(native make-u16vector <fx^opt<int>:u16vector>)
 (native u16vector-length)
 (native u16vector-ref)
 (native u16vector-set!)
@@ -445,7 +445,7 @@
 
 ;; s32
 (native s32vector)
-(native make-s32vector <int^opt<int>:s32vector>)
+(native make-s32vector <fx^opt<int>:s32vector>)
 (native s32vector-length)
 (native s32vector-ref)
 (native s32vector-set!)
@@ -455,7 +455,7 @@
 
 ;; u32
 (native u32vector)
-(native make-u32vector <int^opt<int>:u32vector>)
+(native make-u32vector <fx^opt<int>:u32vector>)
 (native u32vector-length)
 (native u32vector-ref)
 (native u32vector-set!)
@@ -465,7 +465,7 @@
 
 ;; s64
 (native s64vector)
-(native make-s64vector <int^opt<int>:s64vector>)
+(native make-s64vector <fx^opt<int>:s64vector>)
 (native s64vector-length)
 (native s64vector-ref)
 (native s64vector-set!)
@@ -475,7 +475,7 @@
 
 ;; u64
 (native u64vector)
-(native make-u64vector <int^opt<int>:u64vector>)
+(native make-u64vector <fx^opt<int>:u64vector>)
 (native u64vector-length)
 (native u64vector-ref)
 (native u64vector-set!)
@@ -485,7 +485,7 @@
 
 ;; f32
 (native f32vector)
-(native make-f32vector <int^opt<int>:f32vector>)
+(native make-f32vector <fx^opt<fl>:f32vector>)
 (native f32vector-length)
 (native f32vector-ref)
 (native f32vector-set!)
@@ -499,7 +499,7 @@
 
 ;; f64
 (native f64vector)
-(native make-f64vector <int^opt<int>:f64vector>)
+(native make-f64vector <fx^opt<fl>:f64vector>)
 (native f64vector-length)
 (native f64vector-ref)
 (native f64vector-set!)

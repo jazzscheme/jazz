@@ -275,16 +275,16 @@
 
 
 (native vector? <object:bool>)
-(native make-vector <int^opt<object>:vector>)
+(native make-vector <fx^opt<object>:vector>)
 (native vector <object*:vector>)
 (native vector-append <vector^vector:vector>)
-(native vector-length <vector:int>)
-(native vector-ref <vector^int:object>)
-(native vector-set! <vector^int^object:void>)
+(native vector-length <vector:fx>)
+(native vector-ref <vector^fx:object>)
+(native vector-set! <vector^fx^object:void>)
 (native vector->list <vector:list>)
 (native list->vector <list:vector>)
 (native vector-fill! <vector^object:void>)
-(native subvector <vector^int^int:vector>)
+(native subvector <vector^fx^fx:vector>)
 
 
 ;;;

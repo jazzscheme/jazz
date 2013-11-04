@@ -643,12 +643,12 @@
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:length         '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:null?          '((##null?  <any:bool>)))
 
-(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:string-length  '((##string-length <string:int>)))
-(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:string-ref     '((##string-ref    <string^int:char>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:string-length  '((##string-length <string:fx>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:string-ref     '((##string-ref    <string^fx:char>)))
 
-(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:vector-length  '((##vector-length <vector:int>)))
-(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:vector-ref     '((##vector-ref    <vector^int:any>)))
-(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:vector-set!    '((##vector-set!   <vector^int^any:void>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:vector-length  '((##vector-length <vector:fx>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:vector-ref     '((##vector-ref    <vector^fx:any>)))
+(jazz:add-primitive-patterns 'scheme.language.runtime.kernel:vector-set!    '((##vector-set!   <vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:table-ref      '((##table-ref  <table^any:any>) (##table-ref    <table^any^any:any>)))
 (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:table-set!     '((##table-set! <table^any^any:void>)))
@@ -679,15 +679,15 @@
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:fixnum->flonum   '((##fixnum->flonum <fx:fl>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:flonum->fixnum   '(                     (##flonum->fixnum <fl:fx>)))
 
-(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s8vector        '((##s8vector        <fx*:s8vector>)))
-(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s8vector-length '((##s8vector-length <s8vector:fx>)))
-(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s8vector-ref    '((##s8vector-ref    <s8vector^fx:fx>)))
-(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s8vector-set!   '((##s8vector-set!   <s8vector^fx^any:void>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s8vector         '((##s8vector         <fx*:s8vector>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s8vector-length  '((##s8vector-length  <s8vector:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s8vector-ref     '((##s8vector-ref     <s8vector^fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s8vector-set!    '((##s8vector-set!    <s8vector^fx^any:void>)))
 
-(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:u8vector        '((##u8vector        <fx*:u8vector>)))
-(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:u8vector-length '((##u8vector-length <u8vector:fx>)))
-(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:u8vector-ref    '((##u8vector-ref    <u8vector^fx:fx>)))
-(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:u8vector-set!   '((##u8vector-set!   <u8vector^fx^any:void>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:u8vector         '((##u8vector         <fx*:u8vector>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:u8vector-length  '((##u8vector-length  <u8vector:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:u8vector-ref     '((##u8vector-ref     <u8vector^fx:fx>)))
+(jazz:add-primitive-patterns 'jazz.language.runtime.kernel:u8vector-set!    '((##u8vector-set!    <u8vector^fx^any:void>)))
 
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s16vector        '((##s16vector        <fx*:s16vector>)))
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s16vector-length '((##s16vector-length <s16vector:fx>)))

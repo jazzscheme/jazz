@@ -2179,6 +2179,11 @@
   (release
     (define (jazz:emit-type-cast code type expression source-declaration environment backend)
       (cond ((or (%%not type) (%%subtype? (jazz:get-code-type code) type))
+             #; ;; creates too many warnings due to loop generated casts
+             (%%when (and (jazz:warnings?) (jazz:get-module-warn? (jazz:get-declaration-toplevel source-declaration) 'optimizations))
+               (jazz:debug-string (jazz:format "Warning: In {a}{a}: Unnecessary cast"
+                                               (jazz:get-declaration-locator source-declaration)
+                                               (jazz:present-expression-location expression))))
              (jazz:sourcified-form code))
             ((%%subtype? (jazz:get-code-type code) jazz:Fixnum)
              `(%%fixnum->flonum ,(jazz:sourcified-form code)))

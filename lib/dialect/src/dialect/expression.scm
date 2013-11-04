@@ -614,10 +614,16 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:And expression) declaration environment backend)
   (let ((expressions (jazz:emit-expressions (jazz:get-and-expressions expression) declaration environment backend)))
-    (jazz:new-code
-      (jazz:emit 'and backend expression declaration environment expressions)
-      jazz:Any
-      (jazz:get-expression-source expression))))
+    (let ((type (cond ((%%null? expressions) jazz:Any)
+                      ((%%null? (%%cdr expressions)) (jazz:get-code-type (%%car expressions)))
+                      (else (let ((last-type (jazz:get-code-type (jazz:last expressions))))
+                              (if (%%eq? last-type jazz:Any)
+                                  jazz:Any
+                                (jazz:new-nillable-type last-type)))))))
+      (jazz:new-code
+        (jazz:emit 'and backend expression declaration environment expressions)
+        type
+        (jazz:get-expression-source expression)))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:And expression) down up here seed environment)

@@ -137,19 +137,19 @@
                                                                    scheme.language.runtime.kernel:-
                                                                    scheme.language.runtime.kernel:*
                                                                    scheme.language.runtime.kernel:/))))
-                                 (jazz:debug-string (jazz:format "Warning: In {a}{a}: Unable to match call to specialized {a}"
-                                                                 (jazz:get-declaration-locator declaration)
-                                                                 (jazz:present-expression-location operator)
-                                                                 (jazz:get-lexical-binding-name binding))))
+                                 (jazz:feedback "Warning: In {a}{a}: Unable to match call to specialized {a}"
+                                                (jazz:get-declaration-locator declaration)
+                                                (jazz:present-expression-location operator)
+                                                (jazz:get-lexical-binding-name binding)))
                                ;; for debugging
                                ;; a bit too much for now
                                #;
                                (%%when (%%memq (jazz:get-lexical-binding-name binding) (jazz:debug-specializers))
-                                 (jazz:debug-string (jazz:format "Warning: In {a}{a}: Unable to match call to specialized {a} on {a}"
-                                                                 (jazz:get-declaration-locator declaration)
-                                                                 (jazz:present-expression-location operator)
-                                                                 (jazz:get-lexical-binding-name binding)
-                                                                 types)))
+                                 (jazz:feedback "Warning: In {a}{a}: Unable to match call to specialized {a} on {a}"
+                                                (jazz:get-declaration-locator declaration)
+                                                (jazz:present-expression-location operator)
+                                                (jazz:get-lexical-binding-name binding)
+                                                types))
                                #f)
                            (let ((specializer (%%car scan)))
                              (let ((function-type (jazz:get-lexical-binding-type specializer)))

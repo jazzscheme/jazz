@@ -334,10 +334,10 @@
         (if (%%not method-declaration)
             (begin
               (%%when (and (jazz:warnings?) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
-                (jazz:debug-string (jazz:format "Warning: In {a}{a}: Unable to find dispatch method {a}"
-                                                (jazz:get-declaration-locator declaration)
-                                                (jazz:present-expression-location expression)
-                                                name)))
+                (jazz:feedback "Warning: In {a}{a}: Unable to find dispatch method {a}"
+                               (jazz:get-declaration-locator declaration)
+                               (jazz:present-expression-location expression)
+                               name))
               #f)
           (begin
             (jazz:add-to-module-references declaration method-declaration)
@@ -738,10 +738,10 @@
                              ;; a bit extreme for now
                              (%%not (%%memq locator '(scheme.language.runtime.kernel:car
                                                       scheme.language.runtime.kernel:cdr))))
-                     (jazz:debug-string (jazz:format "Warning: In {a}{a}: Unable to match call to primitive {a}"
-                                                     (jazz:get-declaration-locator declaration)
-                                                     (jazz:present-expression-location operator)
-                                                     (jazz:reference-name locator))))
+                     (jazz:feedback "Warning: In {a}{a}: Unable to match call to primitive {a}"
+                                    (jazz:get-declaration-locator declaration)
+                                    (jazz:present-expression-location operator)
+                                    (jazz:reference-name locator)))
                    #f)
                (jazz:bind (name function-type) (%%car scan)
                  (if (jazz:match-signature? arguments types function-type)

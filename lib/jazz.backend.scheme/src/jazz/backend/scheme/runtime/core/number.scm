@@ -74,6 +74,10 @@
 (define jazz:sharp/sharp/fl/ ##fl/)
 
 
+(define (flalloc)
+  (##subtype-set! (##make-f64vector 1) 30))
+
+
 ;;;
 ;;;; Infinity
 ;;;

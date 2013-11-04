@@ -352,6 +352,8 @@
 (native undocumented jazz:sharp/sharp/fl* <fl^fl:fl>)
 (native undocumented jazz:sharp/sharp/fl/ <fl^fl:fl>)
 
+(native flalloc)
+
 
 ;;;
 ;;;; Foreign

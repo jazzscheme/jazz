@@ -3910,12 +3910,17 @@
        bindings))
 
 
-(define (jazz:annotate-receive parameters)
-  (map (lambda (parameter)
-         (let ((declared-type (jazz:get-lexical-binding-type parameter)))
-           (let ((type (or declared-type jazz:Any)))
-             (jazz:new-annotated-variable parameter declared-type type))))
-       parameters))
+(define (jazz:annotate-receive parameters expr-type)
+  (let ((expr-types (and (%%is? expr-type jazz:Values-Type) (jazz:get-values-type-types expr-type))))
+    (map (lambda (parameter)
+           (let ((expr-type #f))
+             (%%when expr-types
+               (set! expr-type (%%car expr-types))
+               (set! expr-types (%%cdr expr-types)))
+             (let ((declared-type (jazz:get-lexical-binding-type parameter)))
+               (let ((type (or expr-type declared-type jazz:Any)))
+                 (jazz:new-annotated-variable parameter declared-type type)))))
+         parameters)))
 
 
 (define (jazz:annotate-internal-defines internal-defines)

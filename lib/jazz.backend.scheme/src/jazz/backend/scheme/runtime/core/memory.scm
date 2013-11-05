@@ -121,6 +121,10 @@
   (##raise-heap-overflow-exception))
 
 
+(define (jazz:get-heap-pointer)
+  (##c-code "___RESULT = ___CAST(___SCMOBJ, ___hp);"))
+
+
 ;;;
 ;;;; Classes
 ;;;

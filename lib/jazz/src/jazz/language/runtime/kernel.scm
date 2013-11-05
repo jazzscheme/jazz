@@ -795,6 +795,7 @@
 (native jazz:table-size)
 (native jazz:get-live-percent)
 (native jazz:raise-heap-overflow-exception)
+(native jazz:get-heap-pointer)
 
 
 ;;;

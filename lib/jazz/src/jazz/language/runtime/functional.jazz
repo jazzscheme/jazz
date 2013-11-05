@@ -224,7 +224,7 @@
 
 
 (definition public (typed? obj category-identifier)
-  (some? (lambda (category)
+  (some? (lambda (category <Category>)
            (eq? (get-name~ category) category-identifier))
          (get-ancestors~ (class-of obj))))
 
@@ -683,7 +683,7 @@
     (#\u #\ù #\û #\U #\Ù #\Û)))
 
 
-(definition (make-diacritic-table equivalences)
+(definition (make-diacritic-table equivalences) <table>
   (let ((table (make-table test: eqv?)))
     (for-each (lambda (equivalences)
                 (let ((equivalent (car equivalences)))
@@ -693,7 +693,7 @@
               equivalences)
     table))
 
-(definition Diacritic-Table
+(definition Diacritic-Table <table>
   (make-diacritic-table Diacritic-Equivalences))
 
 
@@ -1239,6 +1239,12 @@
 
 
 (class primitive Flonum metaclass Flonum-Class extends Real)
+
+
+(definition public (fl x) <fl>
+  (cond ((flonum? x) x)
+        ((fixnum? x) (cast <fl> x))
+        (else (error "Unable to convert into a float: {s}" x))))
 
 
 ;; until proper call site casting of calls to natives
@@ -2494,7 +2500,7 @@
   (allocate Search-Context target whole-words? ignore-case? ignore-diacritic? regexp? match-test constituent-test #f user-data))
 
 
-(definition public (->search-set obj)
+(definition public (->search-set obj) <Search-Set>
   (cond ((is? obj Search-Set) obj)
         ((is? obj Search-Context) (allocate-search-set (search-context-regexp obj) (list obj)))
         ((string? obj) (->search-set (->search-context obj)))
@@ -2538,7 +2544,7 @@
 
 (definition (regular-search-impl seq <Sequence> target <any> match-test <procedure+> constituent-test <procedure+> start <fx+> end <fx+> reversed? <bool>)
   (let* ((search-set (->search-set target))
-         (first-context (car (get-contexts~ search-set)))
+         (first-context <Search-Context> (car (get-contexts~ search-set)))
          (whole-words? (get-whole-words?~ first-context))
          (match-test (or match-test (get-match-test~ first-context)))
          (constituent-test (or constituent-test (get-constituent-test~ first-context) word-constituent?))
@@ -2663,7 +2669,7 @@
            (get-output~ result)))))
 
 
-(definition public (split-justified seq <Object> width separators <Object> (column: column 0))
+(definition public (split-justified seq <Object> width separators <Object> (column: column <fx> 0))
   (let ((pos 0)
         (size (cardinality seq))
         (result (new List-Factory))
@@ -3708,21 +3714,21 @@
           (table-length self))))))
 
 
-(definition public (table-add table <Table> key value)
+(definition public (table-add table <table> key value)
   (table-set! table key (cons value (table-ref table key '()))))
 
 
-(definition public (table-remove! table <Table> name value)
+(definition public (table-remove! table <table> name value)
   (table-set! table name (remove! value (table-ref table name '()))))
 
 
-(definition public (empty-table table)
+(definition public (empty-table table <table>)
   (iterate-table table
     (lambda (k v)
       (table-clear table k))))
 
 
-(definition public (table-keys table)
+(definition public (table-keys table <table>)
   (let ((list '()))
     (iterate-table table
       (lambda (key value)
@@ -3730,7 +3736,7 @@
     list))
 
 
-(definition public (table-values table)
+(definition public (table-values table <table>)
   (let ((list '()))
     (iterate-table table
       (lambda (key value)
@@ -3738,7 +3744,7 @@
     list))
 
 
-(definition public (table-keys/values table)
+(definition public (table-keys/values table <table>)
   (let ((list '()))
     (iterate-table table
       (lambda (key value)
@@ -3746,7 +3752,7 @@
     list))
 
 
-(definition public (table-find table value (test: test eqv?))
+(definition public (table-find table <table> value (test: test eqv?))
   (continuation-capture
     (lambda (return)
       (iterate-table table
@@ -3756,7 +3762,7 @@
       #f)))
 
 
-(definition public (table-load table input error-on-duplicates?)
+(definition public (table-load table <table> input error-on-duplicates?)
   (declare (proper-tail-calls))
   (let (iterate)
     (let ((name (read input))
@@ -3790,7 +3796,7 @@
               (iter (apply compose-identifier path)))))))))
 
 
-(definition *serialized-classes*
+(definition *serialized-classes* <table>
   (make-table test: eq?))
 
 
@@ -3805,7 +3811,7 @@
   (make-serialized (serialize-class class) content))
 
 
-(definition *deserialized-classes*
+(definition *deserialized-classes* <table>
   (make-table test: eq?))
 
 
@@ -3991,26 +3997,26 @@
 
 
 (specialize inline (element string <string> n) <char>
-  (string-ref string (cast <int> n)))
+  (string-ref string (cast <fx> n)))
 
 
 (specialize inline (set-element! string <string> n c) <void>
-  (string-set! string (cast <int> n) (cast <char> c)))
+  (string-set! string (cast <fx> n) (cast <char> c)))
 
 
-(specialize inline (cardinality string <string>) <int>
+(specialize inline (cardinality string <string>) <fx>
   (string-length string))
 
 
 (specialize inline (subseq string <string> start end) <string>
-  (substring string (cast <int> start) (cast <int> end)))
+  (substring string (cast <fx> start) (cast <fx> end)))
 
 
 (specialize (replace-subseq! string <string> start end replacement) <string>
   ;; should become append! when append! is a specialized definition
-  (string-append (subseq string 0 (cast <int> start))
+  (string-append (subseq string 0 (cast <fx> start))
                  (cast <string> replacement)
-                 (subseq string (cast <int> end) (cardinality string))))
+                 (subseq string (cast <fx> end) (cardinality string))))
 
 
 (instantiate-for-each string-for-each <string>)
@@ -4200,7 +4206,7 @@
   (method public (size)
     (let ((count 0))
       (loop (for queue in-vector queue-vector)
-            (increase! count (length (queue-list queue))))
+            (increase! count (cast <fx> (length (queue-list queue)))))
       count))
   
   
@@ -4393,7 +4399,7 @@
     thread))
 
 
-(definition thread-queues
+(definition thread-queues <table>
   (make-table test: eq? weak-keys: #t))
 
 (definition thread-queues-mutex
@@ -4404,7 +4410,7 @@
   (boolean (table-ref thread-queues thread #f)))
 
 
-(definition (get-thread-queue thread)
+(definition (get-thread-queue thread) <Priority-Queue>
   (mutex-lock! thread-queues-mutex)
   (prog1 (or (table-ref thread-queues thread #f)
              (let ((queue (new Priority-Queue (if (eq? thread (primordial-thread)) 3 1))))
@@ -4618,11 +4624,11 @@
   (vector-set! vector (cast <fx> n) obj))
 
 
-(specialize inline (cardinality vector <vector>) <int>
+(specialize inline (cardinality vector <vector>) <fx>
   (vector-length vector))
 
 
-(definition public (vector-map proc vector . vectors)
+(definition public (vector-map proc vector <vector> . vectors)
   (declare (proper-tail-calls))
   (let* ((length (vector-length vector))
          (new-vector (make-vector length)))
@@ -4633,14 +4639,14 @@
             (loop (+ i 1))))
       (let (loop (i 0))
         (when (< i length)
-          (vector-set! new-vector i (apply proc (vector-ref vector i) (map (lambda (vector)
+          (vector-set! new-vector i (apply proc (vector-ref vector i) (map (lambda (vector <vector>)
                                                                              (vector-ref vector i))
                                                                            vectors)))
           (loop (+ i 1)))))
     new-vector))
 
 
-(definition public (vector-for-each proc vector . vectors)
+(definition public (vector-for-each proc vector <vector> . vectors)
   (declare (proper-tail-calls))
   (let ((size (vector-length vector)))
     (if (null? vectors)
@@ -4650,7 +4656,7 @@
             (loop (+ i 1))))
       (let (loop (i 0))
         (when (< i size)
-          (apply proc (vector-ref vector i) (map (lambda (vector)
+          (apply proc (vector-ref vector i) (map (lambda (vector <vector>)
                                                    (vector-ref vector i))
                                                  vectors))
           (loop (+ i 1)))))))
@@ -4826,7 +4832,7 @@
   (vector-set! (get-content~ axis) (cast <fx> n) obj))
 
 
-(specialize inline as axis-cardinality (cardinality axis <Axis>) <int>
+(specialize inline as axis-cardinality (cardinality axis <Axis>) <fx>
   (get-size~ axis))
 
 
@@ -5211,7 +5217,7 @@
 ;;;
 
 
-(definition *printers*
+(definition *printers* <table>
   (make-table test: eq?))
 
 
@@ -5494,7 +5500,7 @@
 ;;;
 
 
-(definition call-sites
+(definition call-sites <table>
   (make-table test: eq?))
 
 

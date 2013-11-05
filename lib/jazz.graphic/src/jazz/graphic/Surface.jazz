@@ -51,11 +51,11 @@
 (class Surface extends Object
   
   
-  (slot handle                                getter generate)
-  (slot context                               getter generate)
-  (slot font                    initialize #f)
-  (slot glyph-array             initialize #f)
-  (slot glyph-array-length <fx> initialize 0)
+  (slot handle                                  getter generate)
+  (slot context                                 getter generate)
+  (slot font               <Font> initialize #f)
+  (slot glyph-array               initialize #f)
+  (slot glyph-array-length <fx>   initialize 0)
 
   
   (method override (initialize handle . rest)
@@ -268,7 +268,7 @@
           width))))
 
 
-  (method public (get-char-widths (first: first 0) (last: last 255))
+  (method public (get-char-widths (first: first <fx> 0) (last: last <fx> 255))
     (let ((ext (cairo_text_extents_t-make))
           (gly (cairo_glyph_t-make)))
       (let ((vec (make-vector (+ (- last first) 1))))
@@ -320,7 +320,7 @@
       (let ((uph h)
             (font-ext (cairo_font_extents_t-make))
             (extents (cairo_text_extents_t-make))
-            (len (cardinality str)))
+            (len <fx> (cardinality str)))
         (when (< glyph-array-length len)
           (destroy-glyph-array)
           (set! glyph-array (glyph-array-make (* len 2)))
@@ -362,7 +362,7 @@
       (let ((uph h)
             (font-ext (cairo_font_extents_t-make))
             (extents (cairo_text_extents_t-make))
-            (len (cardinality str)))
+            (len <fx> (cardinality str)))
         (when (< glyph-array-length len)
           (destroy-glyph-array)
           (set! glyph-array (glyph-array-make (* len 2)))
@@ -452,10 +452,10 @@
           (bottom (get-bottom~ rect)))
       (let ((w (- right left))
             (h (- bottom top)))
-        (let ((tx (+ left (/ (cast <fl> w) 2)))
-              (ty (+ top (/ (cast <fl> h) 2))))
+        (let ((tx (+ (cast <fl> left) (/ (cast <fl> w) 2.)))
+              (ty (+ (cast <fl> top) (/ (cast <fl> h) 2.))))
           (cairo_translate context tx ty)
-          (cairo_scale context (/ (cast <fl> w) 2) (/ (cast <fl> h) 2))
+          (cairo_scale context (/ (cast <fl> w) 2.) (/ (cast <fl> h) 2.))
           (cairo_arc context 0. 0. 1. 0. PI*2)
           (cairo_scale context (/ 2. w) (/ 2. h))
           (cairo_translate context (- tx) (- ty)))))
@@ -488,13 +488,13 @@
       (else (error "Unable to fill background with {s}" background))))
   
   
-  (method public (fill-gradient rect gradient)
+  (method public (fill-gradient rect <Rect> gradient <Gradient>)
     (let ((parts (get-parts~ gradient)))
       (let ((stops (if (every? (lambda (part)
                                  (is? part Color))
                                parts)
                        (let ((stop 0.)
-                             (incr (/ 1. (- (length parts) 1))))
+                             (incr (/ 1. (- (fl (length parts)) 1.))))
                          (map (lambda (color)
                                 (prog1 (list stop color)
                                   (increase! stop incr)))
@@ -504,7 +504,7 @@
         (gradient-fill rect stops direction: direction))))
   
   
-  (method public (fill-texture rect texture)
+  (method public (fill-texture rect <Rect> texture <Texture>)
     (define (texture-image)
       (let ((content (get-content~ texture)))
         (typecase content
@@ -520,33 +520,33 @@
           (fill-image rect image mode: mode position: position size: size)))))
   
   
-  (method public (fill-image rect image (mode: mode 'stretch) (position: position #f) (size: size #f))
-    (define (draw-position image)
-      (let ((position (or position {Point 0 0})))
-        (draw-at~ image self #f (get-h~ position) (get-v~ position))))
-    
-    (define (draw-center image)
-      (let ((pos (center (image-size~ image) (rect-size rect))))
+  (method public (fill-image rect <Rect> image <Image> (mode: mode 'stretch) (position: position #f) (size: size #f))
+    (define (draw-position)
+      (let ((pos <Point> (or position {Point 0 0})))
         (draw-at~ image self #f (get-h~ pos) (get-v~ pos))))
     
-    (define (draw-fill image)
-      (draw-scale image 'fill))
+    (define (draw-center)
+      (let ((pos <Point> (center (image-size~ image) (rect-size rect))))
+        (draw-at~ image self #f (get-h~ pos) (get-v~ pos))))
     
-    (define (draw-fit image)
-      (draw-scale image 'fit))
+    (define (draw-fill)
+      (draw-scale 'fill))
     
-    (define (draw-scale image mode)
+    (define (draw-fit)
+      (draw-scale 'fit))
+    
+    (define (draw-scale mode)
       (let ((image-size (image-size~ image))
             (rect-size (rect-size rect)))
         (let ((ratio (fit-dimensions image-size rect-size mode)))
-          (with ((resized (new Image handle: (resize-image (get-handle~ image) (fxround (* (get-width~ image-size) ratio)) (fxround (* (get-height~ image-size) ratio))))))
-            (draw-at~ resized self #f 0 0)))))
+          (with ((resized (new Image handle: (resize-image (get-handle~ image) (fxround (* (cast <fl> (get-width~ image-size)) ratio)) (fxround (* (cast <fl> (get-height~ image-size)) ratio))))))
+            (draw-at~ (cast <Image> resized) self #f 0 0)))))
     
-    (define (draw-stretch image)
-      (with ((resized (new Image handle: (resize-image (get-handle~ image) (rect-width rect) (rect-height rect)))))
+    (define (draw-stretch)
+      (with ((resized <Image> (new Image handle: (resize-image (get-handle~ image) (rect-width rect) (rect-height rect)))))
         (draw-at~ resized self #f 0 0)))
     
-    (define (draw-tile image)
+    (define (draw-tile)
       (let ((handle (get-handle~ image)))
         (set-source-surface handle 0 0)
         (cairo_pattern_set_extend (get-source) CAIRO_EXTEND_REPEAT)
@@ -554,12 +554,12 @@
         (cairo_fill context)))
     
     (case mode
-      ((position) (draw-position image))
-      ((center) (draw-center image))
-      ((fill) (draw-fill image))
-      ((fit) (draw-fit image))
-      ((stretch) (draw-stretch image))
-      ((tile) (draw-tile image))
+      ((position) (draw-position))
+      ((center) (draw-center))
+      ((fill) (draw-fill))
+      ((fit) (draw-fit))
+      ((stretch) (draw-stretch))
+      ((tile) (draw-tile))
       (else (error "Unknown fill mode: {s}" mode))))
   
   
@@ -613,7 +613,7 @@
              (line-to (- (get-right~ rect) 6) (- (get-bottom~ rect) 4))
              (stroke))
             ((eq? type 'restore)
-             (move-to (+ (get-left~ rect) 3) (- (get-bottom~ rect) 3 0.5))
+             (move-to (+ (get-left~ rect) 3) (- (cast <fl> (- (get-bottom~ rect) 3)) 0.5))
              (line-to-rel 5.5 0)
              (line-to-rel 0 -4)
              (line-to-rel -5.5 0)
@@ -621,7 +621,7 @@
              (line-to-rel 6 0)
              (move-to-rel -5.5 0)
              (line-to-rel 0 5)
-             (move-to (+ (get-left~ rect) 8) (- (get-bottom~ rect) 6 0.5))
+             (move-to (+ (get-left~ rect) 8) (- (cast <fl> (- (get-bottom~ rect) 6)) 0.5))
              (line-to-rel 2.5 0)
              (line-to-rel 0 -4)
              (line-to-rel -5.5 0)
@@ -631,7 +631,7 @@
              (line-to-rel 0 3)
              (stroke))
             ((eq? type 'maximize)
-             (move-to (+ (get-left~ rect) 3) (- (get-bottom~ rect) 3 0.5))
+             (move-to (+ (get-left~ rect) 3) (- (cast <fl> (- (get-bottom~ rect) 3)) 0.5))
              (line-to-rel 8.5 0)
              (line-to-rel 0 -7)
              (line-to-rel -8.5 0)
@@ -706,19 +706,21 @@
     (cairo_set_source_surface context (if (is? surface/handle Surface)
                                           (get-handle~ surface/handle)
                                         surface/handle)
-      (cast <fl> x)
-      (cast <fl> y)))
+      (fl x)
+      (fl y)))
   
   
-  (method public (blit-surface surface (destination: destination {Point 0 0}))
+  (method public (blit-surface surface (destination: destination <Point> {Point 0 0}))
     (set-source-surface surface (cast <fl> (get-h~ destination)) (cast <fl> (get-v~ destination)))
     (paint))
   
   
   (method public (blit-surface-ext surface h v width height destination-h destination-v)
-    (set-source-surface surface (- destination-h h) (- destination-v v))
-    (cairo_rectangle context (cast <fl> destination-h) (cast <fl> destination-v) (cast <fl> width) (cast <fl> height))
-    (cairo_fill context))
+    (let ((dest-h (fl destination-h))
+          (dest-v (fl destination-v)))
+      (set-source-surface surface (- dest-h (fl h)) (- dest-v (fl v)))
+      (cairo_rectangle context dest-h dest-v (fl width) (fl height))
+      (cairo_fill context)))
   
   
   ;;;
@@ -865,7 +867,7 @@
     (line-to (get-left~ rect) (- (get-bottom~ rect) 1)))
   
   
-  (method public (draw-arrow-tip h v size direction)
+  (method public (draw-arrow-tip h <fx> v <fx> size <fx> direction <symbol>)
     (set-line-width 1)
     (case direction
       ((up)
@@ -1011,19 +1013,19 @@
   
   
   (method public (cairo-move-to h v)
-    (cairo_move_to context (cast <fl> h) (cast <fl> v)))
+    (cairo_move_to context (fl h) (fl v)))
   
   
   (method public (cairo-line-to h v)
-    (cairo_line_to context (cast <fl> h) (cast <fl> v)))
+    (cairo_line_to context (fl h) (fl v)))
   
   
   (method public (arc hc vc radius angle1 angle2)
-    (cairo_arc context (cast <fl> hc) (cast <fl> vc) (cast <fl> radius) (cast <fl> angle1) (cast <fl> angle2)))
+    (cairo_arc context (fl hc) (fl vc) (fl radius) (fl angle1) (fl angle2)))
   
   
   (method public (curve-to-relative dx1 dy1 dx2 dy2 dx3 dy3)
-    (cairo_rel_curve_to context (cast <fl> dx1) (cast <fl> dy1) (cast <fl> dx2) (cast <fl> dy2) (cast <fl> dx3) (cast <fl> dy3)))
+    (cairo_rel_curve_to context (fl dx1) (fl dy1) (fl dx2) (fl dy2) (fl dx3) (fl dy3)))
   
   
   (method public (close-path)
@@ -1031,7 +1033,7 @@
   
   
   (definition (create-linear-pattern sh sv eh ev)
-    (cairo_pattern_create_linear (cast <fl> sh) (cast <fl> sv) (cast <fl> eh) (cast <fl> ev)))
+    (cairo_pattern_create_linear (fl sh) (fl sv) (fl eh) (fl ev)))
   
   
   (method public (get-source)
@@ -1043,15 +1045,15 @@
   
   
   (method public (translate th tv)
-    (cairo_translate context (cast <fl> th) (cast <fl> tv)))
+    (cairo_translate context (fl th) (fl tv)))
   
   
   (method public (scale sh sv)
-    (cairo_scale context (cast <fl> sh) (cast <fl> sv)))
+    (cairo_scale context (fl sh) (fl sv)))
   
   
   (method public (rotate angle)
-    (cairo_rotate context (cast <fl> angle)))
+    (cairo_rotate context (fl angle)))
   
   
   ;;;
@@ -1060,27 +1062,27 @@
   
   
   (method public (move-to h v)
-    (cairo_move_to context (cast <fl> h) (cast <fl> v)))
+    (cairo_move_to context (fl h) (fl v)))
   
   
   (method public (line-path h v)
-    (cairo_line_to context (cast <fl> h) (cast <fl> v)))
+    (cairo_line_to context (fl h) (fl v)))
   
   
   (method public (line-to h v)
-    (line-to-no-stroke (cast <fl> h) (cast <fl> v))
+    (line-to-no-stroke (fl h) (fl v))
     (stroke))
   
   
   (method public (line-to-preserve h v)
-    (line-to-no-stroke (cast <fl> h) (cast <fl> v))
+    (line-to-no-stroke (fl h) (fl v))
     (stroke-preserve))
   
 
   (method public (line-to-no-stroke h v)
     (let ((pt (cairo_current_point context))
-          (h (cast <fl> h))
-          (v (cast <fl> v)))
+          (h (fl h))
+          (v (fl v)))
       (let ((cur-h (get-h~ pt))
             (cur-v (get-v~ pt)))
         (let ((h (if (= cur-h h)
@@ -1097,11 +1099,11 @@
   
   
   (method public (line-to-rel dh dv)
-    (cairo_rel_line_to context (cast <fl> dh) (cast <fl> dv)))
+    (cairo_rel_line_to context (fl dh) (fl dv)))
   
   
   (method public (move-to-rel dh dv)
-    (cairo_rel_move_to context (cast <fl> dh) (cast <fl> dv)))
+    (cairo_rel_move_to context (fl dh) (fl dv)))
   
   
   (method public (line h v dest-h dest-v)
@@ -1112,11 +1114,11 @@
   (method public (pixel-to h v)
     (set-line-width 1)
     (move-to h v)
-    (line-to (+ h 1) v))
+    (line-to (+ (fl h) 1.) v))
   
   
   (method public (set-line-width w)
-    (cairo_set_line_width context (cast <fl> w)))
+    (cairo_set_line_width context (fl w)))
   
   
   (method public (get-line-width)
@@ -1179,15 +1181,15 @@
       (cairo_set_source_rgba context r g b a)))
   
   
-  (definition (add-color-stop pattern offset color)
+  (definition (add-color-stop pattern offset color <Color>)
     (let ((r (get-red~ color))
           (g (get-green~ color))
           (b (get-blue~ color))
           (a (get-alpha~ color)))
-      (cairo_pattern_add_color_stop_rgba pattern (cast <fl> offset) r g b a)))
+      (cairo_pattern_add_color_stop_rgba pattern (fl offset) r g b a)))
   
   
-  (method public (export-to-png file)
+  (method public (export-to-png file <File>)
     (cairo_surface_write_to_png handle (parse~ file)))
   
 

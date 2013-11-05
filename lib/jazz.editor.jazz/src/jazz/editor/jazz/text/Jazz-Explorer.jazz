@@ -43,7 +43,8 @@
 
 (import (jazz.editor.jazz)
         (jazz.editor.lisp)
-        (jazz.editor.scheme))
+        (jazz.editor.scheme)
+        (jazz.ui))
 
 
 (proclaim (warn optimizations))
@@ -52,8 +53,8 @@
 (class Jazz-Explorer extends Scheme-Explorer
   
   
-  (method override (expression-comment? mark)
-    (define (get-first-char range)
+  (method override (expression-comment? mark <Explorer-Mark>)
+    (define (get-first-char range <Range$Cell$>)
       (get-char (get-start~ range)))
     
     (or (char=? (get-first-char (get-range~ mark)) #\at)
@@ -364,19 +365,19 @@
         (unless found?
           (with-atomic-undo~ (get-undoer~ model)
             (lambda ()
-              (let ((text (single-client~ model))
+              (let ((text <Lisp-Text-View+> (single-client~ model))
                     (copy (get-end)))
-                (assert text)
-                (set-caret~ text (get-end))
-                (cond (first?
-                        (insert-string~ text (format " ({a}{? {a}~})" unit parameter))
-                        (unless none?
-                          (insert-newline~ text))
-                        (tabulate~ text))
-                      (else
-                       (insert-newline~ text)
-                       (tabulate~ text)
-                       (insert-string~ text (format "({a}{? {a}~})" unit parameter)))))))))))
+                (allege text
+                  (set-caret~ text (get-end))
+                  (cond (first?
+                         (insert-string~ text (format " ({a}{? {a}~})" unit parameter))
+                         (unless none?
+                           (insert-newline~ text))
+                         (tabulate~ text))
+                        (else
+                         (insert-newline~ text)
+                         (tabulate~ text)
+                         (insert-string~ text (format "({a}{? {a}~})" unit parameter))))))))))))
   
   
   (method public (remove-import-invoice unit)
@@ -387,11 +388,11 @@
         (when found?
           (with-atomic-undo~ (get-undoer~ model)
             (lambda ()
-              (let ((text (single-client~ model)))
-                (assert text)
-                (delete-range~ model (get-range))
-                (when first?
-                  (remove-spaces~ text (get-start) keep: 'one)))))))))
+              (let ((text <Lisp-Text-View+> (single-client~ model)))
+                (allege text
+                  (delete-range~ model (get-range))
+                  (when first?
+                    (remove-spaces~ text (get-start) keep: 'one))))))))))
 
 
   ;;;
@@ -434,16 +435,16 @@
       (else               (nextmethod name))))
   
   
-  (method (walk-proclaim context symbol form declaration keyword expression doc)
+  (method (walk-proclaim context symbol form <Expression-Syntax> declaration keyword expression doc)
     (walk-anonymous context 'proclaim symbol form declaration keyword expression doc))
 
   
-  (method (walk-properties context symbol form declaration keyword expression doc)
+  (method (walk-properties context symbol form <Expression-Syntax> declaration keyword expression doc)
     (keyword context start end)
     (walk-expressions context expression))
   
   
-  (method (walk-attributes context symbol form declaration keyword expression doc)
+  (method (walk-attributes context symbol form <Expression-Syntax> declaration keyword expression doc)
     (keyword context start end)
     (walk-expression context expression 'code #f)
     (forward-expr)
@@ -454,7 +455,7 @@
         (forward-expr)
         (when (eq? kind 'symbol)
           (let ((marked (get-marked)))
-            (let ((entry (declaration context 'definition '() symbol '() #f start end marked (symbol-documented? (find-marked-symbol) doc))))
+            (let ((entry <Lisp-Entry> (declaration context 'definition '() symbol '() #f start end marked (symbol-documented? (find-marked-symbol) doc))))
               (declaration context 'accessor '() 'getter '() #f start end (string-append "get-" marked) #f)
               (declaration context 'accessor '() 'setter '() #f start end (string-append "set-" marked) #f)
               (let ((keywords '()))
@@ -478,7 +479,7 @@
         (iterate))))
   
   
-  (method (walk-state context symbol form declaration keyword expression doc)
+  (method (walk-state context symbol form <Expression-Syntax> declaration keyword expression doc)
     (keyword context start end)
     (walk-expression context expression 'code #f)
     (forward-expr)
@@ -489,7 +490,7 @@
         (forward-expr)
         (when (eq? kind 'symbol)
           (let ((marked (get-marked)))
-            (let ((entry (declaration context 'definition '() symbol '() #f start end marked (symbol-documented? (find-marked-symbol) doc))))
+            (let ((entry <Lisp-Entry> (declaration context 'definition '() symbol '() #f start end marked (symbol-documented? (find-marked-symbol) doc))))
               (let ((keywords '()))
                 (define (add-keyword keyword value)
                   (set! keywords (cons (cons keyword value) keywords)))
@@ -517,7 +518,7 @@
         (iterate))))
 
   
-  (method (walk-definition context symbol form declaration keyword expression doc)
+  (method (walk-definition context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
@@ -537,7 +538,7 @@
         entry)))
   
   
-  (method (walk-specialize context symbol form declaration keyword expression doc)
+  (method (walk-specialize context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context)
           (as #f))
       (keyword context start end)
@@ -569,20 +570,20 @@
         entry)))
 
   
-  (method (walk-class context symbol form declaration keyword expression doc)
+  (method (walk-class context symbol form <Expression-Syntax> declaration keyword expression doc)
     (walk-namespace context 'class symbol form declaration keyword expression doc))
 
-  (method (walk-interface context symbol form declaration keyword expression doc)
+  (method (walk-interface context symbol form <Expression-Syntax> declaration keyword expression doc)
     (walk-namespace context 'interface symbol form declaration keyword expression doc))
 
-  (method (walk-remotable-stub context symbol form declaration keyword expression doc)
+  (method (walk-remotable-stub context symbol form <Expression-Syntax> declaration keyword expression doc)
     (walk-namespace context 'remotable-stub symbol form declaration keyword expression doc))
 
-  (method (walk-submodule context symbol form declaration keyword expression doc)
+  (method (walk-submodule context symbol form <Expression-Syntax> declaration keyword expression doc)
     (walk-namespace context 'submodule symbol form declaration keyword expression doc))
   
   
-  (method public (walk-method context symbol form declaration keyword expression doc)
+  (method public (walk-method context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
@@ -624,7 +625,7 @@
          (declare-accessor 'setter)))))
   
   
-  (method (walk-slot/property-accessors context entry slot-name declaration keyword expression doc)
+  (method (walk-slot/property-accessors context entry <Lisp-Entry> slot-name declaration keyword expression doc)
     (walk-specifier entry expression 'code)
     (let ((keywords '()))
       (define (add-keyword keyword value)
@@ -641,7 +642,7 @@
             ((getter setter accessors)
              (keyword context start end)
              (if (enter-list)
-                 (let ((form (find-expression-syntax 'method)))
+                 (let ((form <Expression-Syntax> (find-expression-syntax 'method)))
                    (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
                      (forward-whites)
                      (when (forward-expr)
@@ -659,7 +660,7 @@
         (set-parameters~ entry (reverse! keywords)))))
   
   
-  (method (walk-slot context symbol form declaration keyword expression doc)
+  (method (walk-slot context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
@@ -672,9 +673,8 @@
         entry)))
   
   
-  (method (walk-jazzdoc context symbol form declaration keyword expression doc)    
-    (let ((entry context))
-      (set! entry (declaration context 'jazzdoc '() symbol '() #f start end (get-marked) #f))
+  (method (walk-jazzdoc context symbol form <Expression-Syntax> declaration keyword expression doc)    
+    (let ((entry <Lisp-Entry> (declaration context 'jazzdoc '() symbol '() #f start end (get-marked) #f)))
       (expression context start end 'code
         (if (specifier-marked?)
             'tag
@@ -688,7 +688,7 @@
       entry))
   
   
-  (method (walk-property context symbol form declaration keyword expression doc)
+  (method (walk-property context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
@@ -700,11 +700,11 @@
         entry)))
   
   
-  (method (walk-form context symbol form declaration keyword expression doc)
+  (method (walk-form context symbol form <Expression-Syntax> declaration keyword expression doc)
     (walk-anonymous context 'form symbol form declaration keyword expression doc))
         
   
-  (method (walk-global context symbol form declaration keyword expression doc)
+  (method (walk-global context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
@@ -713,7 +713,7 @@
         entry)))
     
   
-  (method (walk-constant context symbol form declaration keyword expression doc)
+  (method (walk-constant context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
@@ -723,7 +723,7 @@
         entry)))
   
   
-  (method (walk-enumeration context symbol form declaration keyword expression doc)
+  (method (walk-enumeration context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
@@ -733,7 +733,7 @@
         entry)))
   
   
-  (method (walk-c-enumeration context symbol form declaration keyword expression doc)
+  (method (walk-c-enumeration context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
@@ -743,17 +743,17 @@
         entry)))
 
   
-  (method (walk-c-named-declare context symbol form declaration keyword expression doc)
+  (method (walk-c-named-declare context symbol form <Expression-Syntax> declaration keyword expression doc)
     (keyword context start end)
     (walk-expressions context expression))
 
   
-  (method (walk-c-include context symbol form declaration keyword expression doc)
+  (method (walk-c-include context symbol form <Expression-Syntax> declaration keyword expression doc)
     (keyword context start end)
     (walk-expressions context expression))
 
   
-  (method (walk-com-external context symbol form declaration keyword expression doc)
+  (method (walk-com-external context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
@@ -769,7 +769,7 @@
         entry)))
   
   
-  (method (walk-datacontainer context symbol form declaration keyword expression doc)
+  (method (walk-datacontainer context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (when (forward-expr)
@@ -778,7 +778,7 @@
       entry))
   
   
-  (method (walk-define-handler context symbol form declaration keyword expression doc)
+  (method (walk-define-handler context symbol form <Expression-Syntax> declaration keyword expression doc)
     (let ((entry context))
       (keyword context start end)
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))

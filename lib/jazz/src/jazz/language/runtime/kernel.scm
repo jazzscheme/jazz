@@ -954,7 +954,7 @@
 (native jazz:enqueue)
 (native jazz:enqueue-list)
 (native jazz:dequeue)
-(native jazz:queue-list)
+(native jazz:queue-list <any:list>)
 (native jazz:reset-queue)
 
 

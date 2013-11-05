@@ -77,6 +77,9 @@
 (define (flalloc)
   (##subtype-set! (##make-f64vector 1) 30))
 
+(define (flset! fl val)
+  (##f64vector-set! fl 0 val))
+
 
 ;;;
 ;;;; Infinity

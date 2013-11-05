@@ -328,7 +328,7 @@
                            (if (or debug? (%%eqv? jobs 0) dry?)
                                (jazz:debug-build? #t))
                            (if keep-c?
-                               (set! jazz:compile-options (%%cons 'keep-c jazz:compile-options)))
+                               (set! jazz:compile-options (%%cons 'keep-c (%%cons 'track-scheme jazz:compile-options))))
                            (if expansion?
                                (set! jazz:compile-options (%%cons 'expansion jazz:compile-options)))
                            (if gvm?

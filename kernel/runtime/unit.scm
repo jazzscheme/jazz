@@ -1536,7 +1536,7 @@
                                   path: (jazz:install-path "kernel")
                                   arguments: `("-:daqQ-" "-subbuild"
                                                "-link" ,(%%symbol->string jazz:link)
-                                               ,@(if (%%memq 'keep-c jazz:compile-options) `("-keep-c") '())
+                                               ,@(if (%%memq 'keep-c jazz:compile-options) `("-keep-c" "-track-scheme") '())
                                                ,@(if (%%memq 'expansion jazz:compile-options) `("-expansion") '())
                                                ,@(if (jazz:save-emit?) `("-emit") '())
                                                ,@(if (jazz:build-repository) `("-build-repository" ,(jazz:build-repository)) '())

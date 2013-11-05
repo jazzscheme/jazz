@@ -4296,6 +4296,7 @@
         (let ((augmented-environment (%%cons frame environment)))
           ;; return unique expression type
           (if (and (%%null? internal-defines)
+                   (%%not-null? expressions)
                    (%%null? (%%cdr expressions)))
               (let ((expressions (jazz:emit-expressions expressions declaration augmented-environment backend)))
                 (jazz:new-code

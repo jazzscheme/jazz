@@ -1047,6 +1047,11 @@
         `(%%check-source ,src 2 (%%sourcify ,expr ,src)
            (##sourcify ,expr ,src))))
     
+    (jazz:define-macro (%%sourcify-deep expr src)
+      (%%force-uniqueness (expr src)
+        `(%%check-source ,src 2 (%%sourcify-deep ,expr ,src)
+           (##sourcify-deep ,expr ,src))))
+    
     (jazz:define-macro (%%locat? expr)
       `(##locat? ,expr))
     

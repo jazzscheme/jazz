@@ -109,6 +109,16 @@
     expr))
 
 
+(define (jazz:sourcify-deep expr src)
+  (%%sourcify-deep expr src))
+
+
+(define (jazz:sourcify-deep-if expr src)
+  (if (jazz:source? src)
+      (jazz:sourcify-deep expr src)
+    expr))
+
+
 (define (jazz:sourcify-list lst src)
   (map (lambda (expr)
          (jazz:sourcify-if (jazz:desourcify-all expr) src))

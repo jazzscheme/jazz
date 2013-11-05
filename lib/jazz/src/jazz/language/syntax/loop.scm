@@ -58,7 +58,7 @@
 (define-syntax loop
   (lambda (form-src usage-environment macro-environment)
     (let ((clauses (cdr (source-code form-src))))
-      (sourcify-if
+      (sourcify-deep-if
         (loop-expand clauses)
         form-src))))
 

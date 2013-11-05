@@ -391,6 +391,8 @@
 (native jazz:desourcify-all)
 (native jazz:sourcify)
 (native jazz:sourcify-if)
+(native jazz:sourcify-deep)
+(native jazz:sourcify-deep-if)
 (native jazz:present-source)
 (native jazz:locat-container)
 (native jazz:locat-position)

@@ -68,7 +68,8 @@
                 (<!> name: detail   toplevel-controls?: #t))))))))
 
 
-  (slot details initialize (make-table test: equal?))
+  (slot details       initialize (make-table test: equal?))
+  (slot problems-file initialize #f)
 
   
   (method meta override (external-name . rest)
@@ -105,8 +106,14 @@
   (method (on-open-problems evt)
     (with-cursor :wait
       (lambda ()
-        (let ((file (choose-file)))
-          (report-problems (open-problems file))))))
+        (if (get-shift?~ evt)
+            (if (not problems-file)
+                (bell)
+              (empty-table details)
+              (report-problems (open-problems problems-file)))
+          (let ((file (choose-file)))
+            (report-problems (open-problems file))
+            (set! problems-file file))))))
   
   
   (method (on-resolved evt)

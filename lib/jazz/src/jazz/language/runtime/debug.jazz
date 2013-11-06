@@ -84,33 +84,40 @@
 ;;;
 
 
+(definition console-mutex
+  (make-mutex 'console))
+
+(definition (with-console-mutex thunk)
+  (mutex-lock! console-mutex)
+  (prog1 (thunk)
+    (mutex-unlock! console-mutex)))
+
+
+(definition public (console-string string (color: color #f))
+  (with-console-mutex
+    (lambda ()
+      (let ((output (console-output-port)))
+        (if (not output)
+            (terminal-string string)
+          (format output "{a}{%}" string)
+          @wait-new-console-completion (
+                                        (format output #"\($\)\(color Debug {a}\)\(%\){%}"# string)
+                                        (format output #"\(prompt\){%}"#)
+                                        )
+          (force-output output)))
+      (unspecified))))
+
+
 (definition public (console . rest)
   (console-string (format "{l detail: :describe}" rest)))
 
 
-(definition public (console-string string (color: color #f))
-  (let ((output (console-output-port)))
-    (if (not output)
-        (terminal-string string)
-      (format output "{a}{%}" string)
-      @wait-new-console-completion (
-      (format output #"\($\)\(color Debug {a}\)\(%\){%}"# string)
-      (format output #"\(prompt\){%}"#)
-      )
-      (force-output output)))
-  (unspecified))
+(definition public (debug-string . rest)
+  (apply console-string rest))
 
 
 (definition public (debug . rest)
-  (thread-execute (primordial-thread) 'debug
-    (lambda ()
-      (apply console rest))))
-
-
-(definition public (debug-string . rest)
-  (thread-execute (primordial-thread) 'debug-string
-    (lambda ()
-      (apply console-string rest))))
+  (apply console rest))
 
 
 ;;;

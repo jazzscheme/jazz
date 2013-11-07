@@ -77,7 +77,7 @@
 (define (flalloc)
   (##subtype-set! (##make-f64vector 1) 30))
 
-(define (flset! fl val)
+(define (flset! fl ignore val)
   (##f64vector-set! fl 0 val))
 
 

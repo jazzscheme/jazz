@@ -71,6 +71,19 @@
 ;;;
 
 
+(define jazz:get-min-heap
+  ##get-min-heap)
+
+(define jazz:set-min-heap!
+  ##set-min-heap!)
+
+(define jazz:get-max-heap
+  ##get-max-heap)
+
+(define jazz:set-max-heap!
+  ##set-max-heap!)
+
+
 (define (jazz:process-memory)
   (let ((vec (##process-statistics)))
     (let ((last_gc_heap_size  (f64vector-ref vec 15))

@@ -47,7 +47,8 @@
   (gambit
     (define jazz:close-port close-port)
     (define jazz:input-port-timeout-set! input-port-timeout-set!)
-    (define jazz:output-port-timeout-set! output-port-timeout-set!))
+    (define jazz:output-port-timeout-set! output-port-timeout-set!)
+    (define jazz:write-string ##write-string))
   
   (else))
 

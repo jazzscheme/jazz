@@ -914,6 +914,7 @@
 (native jazz:read-subu8vector)
 (native jazz:write-subu8vector)
 (native write-substring)
+(native jazz:write-string)
 
 ;(native jazz:read-line)
 (native jazz:read-proper-line)

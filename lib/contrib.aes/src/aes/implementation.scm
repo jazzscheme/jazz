@@ -29,9 +29,11 @@
 ;; in little-endian format).
 
 (declare
-   (standard-bindings)
-   (fixnum)
-   (not safe))
+  (standard-bindings)
+  (fixnum)
+  (not safe)
+  (proper-tail-calls)
+  (optimize-dead-local-variables))
 
 (define (make-vect32 n)
   (snow-make-u16vector (* 2 n)))

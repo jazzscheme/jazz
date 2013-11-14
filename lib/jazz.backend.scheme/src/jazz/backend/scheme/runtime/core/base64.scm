@@ -20,6 +20,8 @@
   (block)
   (not safe)
   (fixnum)
+  (proper-tail-calls)
+  (optimize-dead-local-variables)
 )
 
 ;==============================================================================

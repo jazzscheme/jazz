@@ -17,6 +17,8 @@
   (block)
   (fixnum)
   (not safe)
+  (proper-tail-calls)
+  (optimize-dead-local-variables)
 )
 
 (define-type genport

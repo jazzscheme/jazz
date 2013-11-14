@@ -14,7 +14,9 @@
  (standard-bindings)
  (extended-bindings)
  (not inline)
- (not safe))
+ (not safe)
+ (proper-tail-calls)
+ (optimize-dead-local-variables))
 
 (define-macro (fx+ . args) `(##fx+ ,@args))
 (define-macro (fx- . args) `(##fx- ,@args))

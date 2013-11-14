@@ -30,7 +30,9 @@
   (extended-bindings)
   (block)
   (fixnum)
-  (not safe))
+  (not safe)
+  (proper-tail-calls)
+  (optimize-dead-local-variables))
 
 ;;;============================================================================
 

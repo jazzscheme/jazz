@@ -15,6 +15,8 @@
   (extended-bindings)
   (block)
   (not safe)
+  (proper-tail-calls)
+  (optimize-dead-local-variables)
 )
 
 ;==============================================================================

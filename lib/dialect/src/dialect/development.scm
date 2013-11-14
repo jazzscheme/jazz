@@ -80,7 +80,7 @@
                      (jazz:generate-symbol-counter 0))
         (case kind
           ((unit) (jazz:expand-unit-source rest))
-          ((module) (jazz:walk-module rest backend)))))))
+          ((module) (jazz:generate-module rest backend)))))))
 
 
 (define (jazz:expand unit-name . rest)

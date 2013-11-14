@@ -1297,7 +1297,7 @@
     (list environment)))
 
 
-(define (jazz:walk-module partial-form #!optional (backend-name 'scheme))
+(define (jazz:generate-module partial-form #!optional (backend-name 'scheme))
   (receive (name access dialect-name dialect-invoice? body) (jazz:parse-module partial-form)
     (if (and (jazz:requested-unit-name) (%%neq? name (jazz:requested-unit-name)))
         (jazz:error "Module at {s} is defining {s}" (jazz:requested-unit-name) name)
@@ -1323,7 +1323,7 @@
             declaration))))))
 
 
-(define (jazz:walk-script partial-form #!optional (backend-name #f))
+(define (jazz:generate-script partial-form #!optional (backend-name #f))
   (let ((name (gensym 'script)))
     (receive (dialect-name dialect-invoice? body) (jazz:parse-script partial-form)
       (parameterize ((jazz:walk-context (jazz:new-walk-context #f name #f)))
@@ -5539,7 +5539,11 @@
           (jazz:error "Found invalid unit declaration in {a}" source))))))
 
 
-(define (jazz:walk-unit unit-name #!optional (backend 'scheme))
+(define (jazz:walk-unit unit-name)
+  (jazz:generate-unit unit-name #f))
+
+
+(define (jazz:generate-unit unit-name #!optional (backend 'scheme))
   (let ((src (jazz:find-unit-src unit-name '("jazz" "scm"))))
     (parameterize ((jazz:requested-unit-name unit-name)
                    (jazz:requested-unit-resource src)
@@ -5552,7 +5556,7 @@
           ((unit)
            #f)
           ((module)
-           (jazz:walk-module (%%cdr (jazz:source-code form)) backend)))))))
+           (jazz:generate-module (%%cdr (jazz:source-code form)) backend)))))))
 
 
 ;;;
@@ -5562,11 +5566,11 @@
 
 (jazz:define-syntax module
   (lambda (form-src)
-    (let ((emit (jazz:walk-module (%%cdr (jazz:source-code form-src)) 'scheme)))
+    (let ((emit (jazz:generate-module (%%cdr (jazz:source-code form-src)) 'scheme)))
       (jazz:save-emit-if emit)
       emit)))
 
 
 (jazz:define-syntax script
   (lambda (form-src)
-    (jazz:walk-script (%%cdr (jazz:source-code form-src)) 'scheme))))
+    (jazz:generate-script (%%cdr (jazz:source-code form-src)) 'scheme))))

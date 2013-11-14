@@ -1361,6 +1361,7 @@
 (native jazz:set-outline-hook)
 (native jazz:outline-unit)
 (native jazz:walk-unit)
+(native jazz:generate-unit)
 (native jazz:expand)
 (native jazz:expand-unit)
 (native jazz:expand-source)

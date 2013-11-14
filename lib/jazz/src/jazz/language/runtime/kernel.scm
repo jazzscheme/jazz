@@ -742,6 +742,7 @@
 (native jazz:crash-process)
 (native jazz:invoke-process)
 (native jazz:call-process)
+(native jazz:feedback)
 (native jazz:unit-loadable?)
 (native jazz:load-foundation)
 (native jazz:load-runtime)

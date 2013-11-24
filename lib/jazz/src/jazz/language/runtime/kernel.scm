@@ -426,6 +426,7 @@
 (native u8vector-shrink!)
 (native append-u8vectors)
 (native u8vector-append)
+(native u8vector-fill!)
 (native subu8vector)
 
 ;; s16
@@ -446,6 +447,7 @@
 (native u16vector-set!)
 (native u16vector?)
 (native u16vector->list)
+(native u16vector-fill!)
 (native list->u16vector)
 
 ;; s32

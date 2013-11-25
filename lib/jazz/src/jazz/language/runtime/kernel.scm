@@ -963,6 +963,7 @@
 (native jazz:enqueue-list)
 (native jazz:dequeue)
 (native jazz:queue-list <any:list>)
+(native jazz:trim-queue)
 (native jazz:reset-queue)
 
 

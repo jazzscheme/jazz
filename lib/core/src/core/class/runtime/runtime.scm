@@ -2349,6 +2349,26 @@
   (%%get-queue-head queue))
 
 
+;; should be made to work with shared content
+(define (jazz:trim-queue queue keep)
+  (define (tail lst n)
+    (if (or (%%null? lst) (%%fx= n 0))
+        lst
+      (tail (%%cdr lst) (%%fx- n 1))))
+  
+  (if (%%fx= keep 0)
+      (let ((trimmed (%%length (%%get-queue-head queue))))
+        (jazz:reset-queue queue)
+        trimmed)
+    (let ((tail (tail (%%get-queue-head queue) (%%fx- keep 1))))
+      (if (and (%%not-null? tail) (%%not-null? (%%cdr tail)))
+          (let ((trimmed (%%length (%%cdr tail))))
+            (%%set-cdr! tail '())
+            (%%set-queue-tail queue tail)
+            trimmed)
+        0))))
+
+
 (define (jazz:reset-queue queue)
   (%%set-queue-head queue '())
   (%%set-queue-tail queue #f)

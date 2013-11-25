@@ -4186,13 +4186,15 @@
 (class Priority-Queue extends Object
   
   
+  (slot priority-count  <fx>)
   (slot queue-vector    <vector>)
   (slot mutex                    initialize (make-mutex))
   (slot mutex-condition          initialize (make-condition))
   
   
-  (method override (initialize priority-count)
+  (method override (initialize count)
     (nextmethod)
+    (set! priority-count count)
     (set! queue-vector
           (list->vector (map (lambda (n) (new-queue))
                              (naturals 0 priority-count)))))
@@ -4205,14 +4207,16 @@
   
   
   (method public (size)
-    (let ((count 0))
-      (loop (for queue in-vector queue-vector)
-            (increase! count (cast <fx> (length (queue-list queue)))))
-      count))
+    (mutex-lock! mutex)
+    (prog1 (let ((count 0))
+             (loop (for queue in-vector queue-vector)
+                   (increase! count (cast <fx> (length (queue-list queue)))))
+             count)
+      (mutex-unlock! mutex)))
   
   
   (method (top-queue)
-    (let (iter (priority (- (vector-length queue-vector) 1)))
+    (let (iter (priority (- priority-count 1)))
       (if (>= priority 0)
           (let ((queue (element queue-vector priority)))
             (if (null? (queue-list queue))
@@ -4222,7 +4226,7 @@
   
   
   (method public (push obj (priority 0))
-    (assert (< priority (vector-length queue-vector)))
+    (assert (< priority priority-count))
     (mutex-lock! mutex)
     (enqueue (element queue-vector priority) obj)
     (mutex-unlock! mutex)

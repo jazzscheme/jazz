@@ -911,7 +911,7 @@
 (native call-with-input-u8vector)
 (native open-u8vector)
 (native open-output-u8vector)
-(native get-output-u8vector)
+(native get-output-u8vector <any:u8vector>)
 (native jazz:read-u8)
 (native jazz:write-u8)
 (native jazz:read-subu8vector)

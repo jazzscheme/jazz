@@ -75,13 +75,21 @@
 
 (define-syntax constant
   (lambda (form-src usage-environment macro-environment)
-    (let ((name (cadr (source-code form-src))))
-      (parse-specifier (cddr (source-code form-src))
-        (lambda (specifier body)
-          (let ((value (car body)))
-            (sourcify-if
-              `(definition public ,name ,@(if specifier (list specifier) '()) ,value)
-              form-src)))))))
+    (define (parse-modifiers proc)
+      (let ((expr (cadr (source-code form-src))))
+        (if (eq? (source-code expr) 'inline)
+            (proc 'inline (cddr (source-code form-src)))
+          (proc 'onsite (cdr (source-code form-src))))))
+    
+    (parse-modifiers
+      (lambda (expansion form-src)
+        (let ((name (car (source-code form-src))))
+          (parse-specifier (cdr (source-code form-src))
+            (lambda (specifier body)
+              (let ((value (car body)))
+                (sourcify-if
+                  `(definition public ,expansion ,name ,@(if specifier (list specifier) '()) ,value)
+                  form-src)))))))))
 
 
 (define-syntax expand-body

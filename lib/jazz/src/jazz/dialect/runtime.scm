@@ -107,7 +107,12 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Definition-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'definition-reference backend declaration)
+    (let ((value (jazz:get-definition-declaration-value declaration)))
+      (if (and (%%eq? (jazz:get-definition-declaration-expansion declaration) 'inline)
+               (jazz:inline-constants?)
+               (%%is? value jazz:Constant))
+          (jazz:get-code-form (jazz:emit-expression value declaration environment backend))
+        (jazz:emit 'definition-reference backend declaration)))
     (or (jazz:get-lexical-binding-type declaration)
         jazz:Any)
     #f))
@@ -1481,13 +1486,13 @@
     ((inline onsite) . onsite)))
 
 
-(define (jazz:parse-definition walker resume declaration walk? rest)
+(define (jazz:parse-definition walker resume declaration rest)
   (receive (access compatibility expansion rest) (jazz:parse-modifiers walker resume declaration jazz:definition-modifiers rest)
     (if (%%symbol? (jazz:unwrap-syntactic-closure (%%car rest)))
         (let ((name (jazz:unwrap-syntactic-closure (%%car rest))))
           (jazz:parse-specifier (%%cdr rest)
             (lambda (specifier rest)
-              (values name specifier access compatibility expansion (and walk? (%%car rest)) #f))))
+              (values name specifier access compatibility expansion (%%car rest) #f))))
       (let* ((name (jazz:source-code (%%car (jazz:unwrap-syntactic-closure (%%car rest)))))
              (parameters (%%cdr (%%desourcify (%%car rest)))))
         (jazz:parse-specifier (%%cdr rest)
@@ -1501,7 +1506,7 @@
 
 
 (define (jazz:walk-definition-declaration walker resume declaration environment form-src)
-  (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration #f (%%cdr (jazz:source-code form-src)))
+  (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((type (jazz:specifier->type walker resume declaration environment specifier)))
         (let ((signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
@@ -1514,12 +1519,12 @@
                   (let ((new-environment (%%cons effective-declaration environment)))
                     (jazz:set-definition-declaration-signature effective-declaration signature)
                     (jazz:set-definition-declaration-value effective-declaration
-                                                        (jazz:walk walker resume effective-declaration new-environment value))))
+                                                           (jazz:walk walker resume effective-declaration new-environment value))))
                 effective-declaration))))))))
 
 
 (define (jazz:walk-definition walker resume declaration environment form-src)
-  (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration #t (%%cdr (jazz:source-code form-src)))
+  (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((new-declaration (jazz:require-declaration declaration name)))
         (%%when (%%neq? expansion 'inline)

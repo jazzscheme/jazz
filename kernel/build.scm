@@ -1156,7 +1156,7 @@
   (jazz:make-kernel configuration #f #f)
   (= 0 (jazz:invoke-process
          (list
-           path: (string-append (jazz:configuration-directory configuration) "kernel")
+           path: (string-append (jazz:configuration-directory configuration) "jazz")
            arguments: `("-:daqD"
                         "-make"
                         ,(symbol->string product)
@@ -1171,7 +1171,7 @@
 (define (jazz:install-product product configuration)
   (jazz:call-process
      (list
-       path: (string-append (jazz:configuration-directory configuration) "kernel")
+       path: (string-append (jazz:configuration-directory configuration) "jazz")
        arguments: `("-install"
                     ,(symbol->string product)))))
 

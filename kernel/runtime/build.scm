@@ -160,7 +160,8 @@
   (let ((product-name (if (%%not product) "kernel" (%%symbol->string product)))
         (gambit-library (if include-compiler? "gambcgsc" "gambc"))
         (library-image? (%%eq? image 'library)))
-    (let ((gambit-dir (path-normalize "~~/"))
+    (let ((image-name (if (%%not product) "jazz" product-name))
+          (gambit-dir (path-normalize "~~/"))
           (source-dir (jazz:relativise-directory "./" "./" source))
           (build-dir (if product (%%get-repository-directory jazz:Build-Repository) destination-directory))
           (kernel-dir (string-append destination-directory "build/kernel/"))
@@ -602,8 +603,8 @@
       
       (define (image-file)
         (if library-image?
-            (build-file (jazz:add-extension (or executable product-name) "o1"))
-          (build-file (jazz:add-extension (or executable product-name) (jazz:executable-extension platform)))))
+            (build-file (jazz:add-extension (or executable image-name) "o1"))
+          (build-file (jazz:add-extension (or executable image-name) (jazz:executable-extension platform)))))
       
       ;;;
       ;;;; Configuration
@@ -627,7 +628,7 @@
             (jazz:print-variable variable (jazz:pathname-standardize (path-normalize rel-dir)) output))))
       
       (define (generate-kernel-interpret)
-        (let ((file (dest-file "kernel-interpret")))
+        (let ((file (dest-file "jazz-interpret")))
           (if (%%not (file-exists? file))
               (begin
                 (jazz:feedback "; generating {a}..." file)
@@ -644,7 +645,7 @@
                     (print "SCM=$REL/kernel-interpret.scm" output)
                     (newline output)
                     (print "exec \"$GSC\" -:=\"$GAM\" -i \"$SCM\" \"$@\"" output))))))
-        (let ((file (dest-file "kernel-interpret.scm")))
+        (let ((file (dest-file "jazz-interpret.scm")))
           (if (%%not (file-exists? file))
               (begin
                 (jazz:feedback "; generating {a}..." file)

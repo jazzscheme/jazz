@@ -1751,8 +1751,9 @@
    (arguments getter: generate)))
 
 
-(define (jazz:new-literal name arguments)
-  (jazz:allocate-literal name arguments))
+(jazz:define-variable-override jazz:new-literal
+  (lambda (name arguments)
+    (jazz:allocate-literal name arguments)))
 
 
 (define (jazz:walk-literal-constant walker resume declaration environment literal)

@@ -47,7 +47,6 @@
     "kernel/syntax/structure"
     "kernel/syntax/syntax"
     "kernel/syntax/runtime"
-    "kernel/runtime/product"
     "kernel/runtime/settings"
     "kernel/runtime/base"
     "kernel/runtime/record"
@@ -62,12 +61,13 @@
 
 (define jazz:Kernel-Setup
   '("kernel/runtime/unit"
+    "kernel/runtime/readtable"
     "kernel/runtime/setup"))
 
 
 (define jazz:load-kernel
   (let ((loaded? #f))
-    (lambda (setup?)
+    (lambda (setup? #!optional (interpret? #t))
       (define verbose?
         #f)
       
@@ -84,6 +84,8 @@
       
       (if (not loaded?)
           (begin
+            (if (not interpret?)
+                (load-file "kernel/runtime/product"))
             (load-files jazz:Kernel)
             (if setup?
                 (load-files jazz:Kernel-Setup))

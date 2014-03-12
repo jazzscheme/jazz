@@ -42,6 +42,15 @@
 
 
 ;;;
+;;;; Jazz
+;;;
+
+
+(jazz:define-setting jazz:debug-expansion?
+  #f)
+
+
+;;;
 ;;;; Repositories
 ;;;
 

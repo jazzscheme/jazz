@@ -254,7 +254,7 @@
   
   ;; commented out to get proper tail call into the repl
   ;; (let ((exit-code ...)))
-  (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "gvm" "emit" "dry") '("build-repository" "jazz-repository" "repositories" "dependencies" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
+  (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "gvm" "emit" "dry" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
     (lambda (commands options remaining)
       (let ((nosource? (jazz:get-option "nosource" options))
             (debug? (jazz:get-option "debug" options))
@@ -265,6 +265,7 @@
             (gvm? (jazz:get-option "gvm" options))
             (emit? (jazz:get-option "emit" options))
             (dry? (jazz:get-option "dry" options))
+            (gambit? (jazz:get-option "gambit" options))
             (build-repository (jazz:get-option "build-repository" options))
             (jazz-repository (jazz:get-option "jazz-repository" options))
             (repositories (jazz:get-option "repositories" options))
@@ -359,45 +360,45 @@
                            (iter (%%cdr scan))))))))
         
         (cond (ev
-                (setup-runtime)
-                (eval (call-with-input-string ev read)))
+               (setup-runtime)
+               (eval (call-with-input-string ev read)))
               (load
-                (setup-runtime)
-                (jazz:load-unit (%%string->symbol load)))
+               (setup-runtime)
+               (jazz:load-unit (%%string->symbol load)))
               (test
-                (setup-runtime)
-                (jazz:test-product (%%string->symbol test)))
+               (setup-runtime)
+               (jazz:test-product (%%string->symbol test)))
               (run
-                (setup-runtime)
-                (jazz:run-product (%%string->symbol run)))
+               (setup-runtime)
+               (jazz:run-product (%%string->symbol run)))
               (jazz:product
-                (setup-runtime)
-                (jazz:run-product jazz:product))
+               (setup-runtime)
+               (jazz:run-product jazz:product))
               (expand
-                (setup-build)
-                (jazz:load-unit 'foundation)
-                (jazz:load-unit 'dialect.development)
-                ((jazz:global-ref 'jazz:expand) (%%string->symbol expand)))
+               (setup-build)
+               (jazz:load-unit 'foundation)
+               (jazz:load-unit 'dialect.development)
+               ((jazz:global-ref 'jazz:expand) (%%string->symbol expand)))
               (compile
-                (setup-build)
-                (for-each (lambda (name)
-                            (jazz:custom-compile-unit (%%string->symbol name) force?: force?))
-                          (jazz:split-string compile #\;)))
+               (setup-build)
+               (for-each (lambda (name)
+                           (jazz:custom-compile-unit (%%string->symbol name) force?: force?))
+                         (jazz:split-string compile #\;)))
               (update
-                (setup-build)
-                (jazz:update-product (%%string->symbol update)))
+               (setup-build)
+               (jazz:update-product (%%string->symbol update)))
               (make
-                (setup-build)
-                (jazz:make-product (%%string->symbol make)))
+               (setup-build)
+               (jazz:make-product (%%string->symbol make)))
               (subbuild?
-                (setup-build)
-                (jazz:subprocess-build-products port))
+               (setup-build)
+               (jazz:subprocess-build-products port))
               (build
-                (setup-build)
-                (jazz:build-product (%%string->symbol build)))
+               (setup-build)
+               (jazz:build-product (%%string->symbol build)))
               (install
-                (setup-install)
-                (jazz:install-product (%%string->symbol install)))
+               (setup-install)
+               (jazz:install-product (%%string->symbol install)))
               ((or (%%not (%%null? commands))
                    (%%not (%%null? remaining)))
                (setup-runtime)
@@ -406,7 +407,7 @@
                (if debug?
                    (setup-build)
                  (setup-runtime))
-               (jazz:repl-main))))))
+               (jazz:repl-main gambit?))))))
   #; ;; see above commentary about proper tail call
   (exit (if (integer? exit-code) exit-code 0)))
 
@@ -420,13 +421,14 @@
   'terminal)
 
 
-(define (jazz:repl-main)
+(define (jazz:repl-main #!optional (gambit? #f))
   (jazz:setup-readtable)
   (jazz:setup-expansion-hook)
+  (if gambit?
+      (set! jazz:expansion-context #f))
   (current-input-port (repl-input-port))
   (current-output-port (repl-output-port))
   (current-error-port (repl-output-port))
-  (jazz:load-jazz)
   (parameterize ((jazz:walk-for 'terminal)
                  (jazz:requested-unit-name 'terminal)
                  (jazz:generate-symbol-for "&")
@@ -443,11 +445,6 @@
         (force-output output-port)
         #f)
       #t)))
-
-
-(define (jazz:load-jazz)
-  (jazz:load-foundation)
-  (jazz:load-unit 'jazz))
 
 
 (define (jazz:setup-readtable)

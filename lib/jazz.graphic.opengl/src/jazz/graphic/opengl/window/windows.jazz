@@ -167,19 +167,18 @@
 ;;;
 
 
-(definition opengl-debug?
-  #f)
-
-
 (definition package (adjust-opengl-context window)
   (when (wglewIsSupported "WGL_ARB_create_context")
-    (let ((hdc (get-device~ window)))
+    (let ((debug-output? (and (find-setting 'jazz.opengl.debug-output? #f) (glewIsSupported "GL_ARB_debug_output")))
+          (hdc (get-device~ window)))
       (let ((old-context (get-context~ window))
-            (new-context (wglCreateContextAttribsARB* hdc NULL 2 1 (if opengl-debug? WGL_CONTEXT_DEBUG_BIT_ARB 0))))
+            (new-context (wglCreateContextAttribsARB* hdc NULL 2 1 (if debug-output? WGL_CONTEXT_DEBUG_BIT_ARB 0))))
         (release-current-context)
         (delete-context old-context)
         (make-context-current hdc new-context)
-        (set-context~ window new-context)))))
+        (set-context~ window new-context)
+        (when debug-output?
+          (setup-debug-callback))))))
 
 
 (definition package (enable-vsync)

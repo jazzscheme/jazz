@@ -57,9 +57,9 @@
   
   
   (slot text)
-  (slot head-file)
+  (slot local-file)
   (slot base-file)
-  (slot tail-file)
+  (slot remote-file)
   
   
   (form
@@ -76,14 +76,14 @@
         (<Splitter-View>                                              orientation: horz mode: relative division: 33.33
           (<Scroller-View>                                            hscroll?: #t vscroll?: #t style: document
             (<!>                              name: content
-              (<Threeway-Compare-Text-View>   name: head)))
+              (<Threeway-Compare-Text-View>   name: local/base)))
           (<Splitter-View>                                            orientation: horz mode: relative division: 50
             (<Scroller-View>                                          hscroll?: #t vscroll?: #t style: document
               (<!>                            name: content
-                (<Threeway-Compare-Text-View> name: base)))
+                (<Threeway-Compare-Text-View> name: local/remote)))
             (<Scroller-View>                                          hscroll?: #t vscroll?: #t style: document
               (<!>                            name: content
-                (<Threeway-Compare-Text-View> name: tail))))))))
+                (<Threeway-Compare-Text-View> name: remote/base))))))))
 
   
   ;;;
@@ -108,7 +108,7 @@
   
   
   (method override (focus-default)
-    (acquire-focus~ (locate 'base)))
+    (acquire-focus~ (locate 'local/remote)))
 
   
   ;;;
@@ -118,59 +118,59 @@
   
   (method public (merge-conflict text)
     (parse-conflicts text
-      (lambda (head base tail)
-        (compare-setup text head base tail)
+      (lambda (local base remote)
+        (compare-setup text local base remote)
         (compare-conflicts))))
   
   
   (method (parse-conflicts text proc)
-    (define head-start-marker
+    (define local-start-marker
       (make-string 7 #\<))
     (define base-start-marker
       (make-string 7 #\|))
-    (define tail-start-marker
+    (define remote-start-marker
       (make-string 7 #\=))
-    (define tail-end-marker
+    (define remote-end-marker
       (make-string 7 #\>))
     
     (let ((model (get-model~ text))
           (line (get-line~ (get-end~ text))))
-      (let ((head-start (text-search~ model head-start-marker start: (new Cell line (paragraph-length~ text line)) reversed?: #t)))
-        (if (not head-start)
+      (let ((local-start (text-search~ model local-start-marker start: (new Cell line (paragraph-length~ text line)) reversed?: #t)))
+        (if (not local-start)
             (begin
               (message-box "Unable to find git conflict")
               (signal-cancel))
-          (let ((base-start (text-search~ model base-start-marker start: head-start))
-                (tail-start (text-search~ model tail-start-marker start: head-start))
-                (tail-end   (text-search~ model tail-end-marker start: head-start)))
-            (if (not (and tail-start tail-end (nu<? head-start tail-start tail-end)))
+          (let ((base-start (text-search~ model base-start-marker start: local-start))
+                (remote-start (text-search~ model remote-start-marker start: local-start))
+                (remote-end (text-search~ model remote-end-marker start: local-start)))
+            (if (not (and remote-start remote-end (nu<? local-start remote-start remote-end)))
                 (begin
                   (message-box "Invalid git conflict markers")
                   (signal-cancel))
-              (if (not (and base-start (nu<? head-start base-start tail-start)))
+              (if (not (and base-start (nu<? local-start base-start remote-start)))
                   (begin
                     (message-box "Unable to find base in git conflict. You can turn on this option in Git with: git config merge.conflictstyle diff3")
                     (signal-cancel))
-                (let ((head (new Range$Cell$ (nu+ head-start {Cell 1 0}) (or base-start tail-start)))
-                      (base (and base-start (new Range$Cell$ (nu+ base-start {Cell 1 0}) tail-start)))
-                      (tail (new Range$Cell$ (nu+ tail-start {Cell 1 0}) tail-end)))
-                  (proc head base tail)))))))))
+                (let ((local (new Range$Cell$ (nu+ local-start {Cell 1 0}) (or base-start remote-start)))
+                      (base (and base-start (new Range$Cell$ (nu+ base-start {Cell 1 0}) remote-start)))
+                      (remote (new Range$Cell$ (nu+ remote-start {Cell 1 0}) remote-end)))
+                  (proc local base remote)))))))))
   
   
-  (method (compare-setup text head base tail)
+  (method (compare-setup text local base remote)
     (define (save content)
-      (let ((range (valid-range~ text (new Range$Cell$ (nu- (get-start~ head) {Cell 1 0}) (nu+ (get-end~ tail) {Cell 1 0})))))
+      (let ((range (valid-range~ text (new Range$Cell$ (nu- (get-start~ local) {Cell 1 0}) (nu+ (get-end~ remote) {Cell 1 0})))))
         (replace~ text range content)
         (close~ (get-host))))
     
     (let ((model (get-model~ text)))
       (set! text~self text)
-      (set! head-file (get-temporary-file))
+      (set! local-file (get-temporary-file))
       (set! base-file (get-temporary-file))
-      (set! tail-file (get-temporary-file))
-      (save-lines~ head-file (range-strings~ model head))
+      (set! remote-file (get-temporary-file))
+      (save-lines~ local-file (range-strings~ model local))
       (save-lines~ base-file (range-strings~ model base))
-      (save-lines~ tail-file (range-strings~ model tail))
+      (save-lines~ remote-file (range-strings~ model remote))
       (set! save-proc save)))
     
   
@@ -179,9 +179,9 @@
       (define (make-comparer)
         (new Text-Comparer ignore-whitespace?: ignore-whitespace?))
       
-      (compare-monikers~ (locate 'head) (make-comparer) head-file base-file)
-      (compare-monikers~ (locate 'base) (make-comparer) head-file tail-file)
-      (compare-monikers~ (locate 'tail) (make-comparer) tail-file base-file)))
+      (compare-monikers~ (locate 'local/base) (make-comparer) local-file base-file)
+      (compare-monikers~ (locate 'local/remote) (make-comparer) local-file remote-file)
+      (compare-monikers~ (locate 'remote/base) (make-comparer) remote-file base-file)))
   
   
   ;;;
@@ -191,9 +191,9 @@
   
   (method override (get-tab-stops)
     (list
-      (locate 'head)
-      (locate 'base)
-      (locate 'tail)))
+      (locate 'local/base)
+      (locate 'local/remote)
+      (locate 'remote/base)))
   
   
   ;;;

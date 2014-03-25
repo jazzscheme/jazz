@@ -1624,7 +1624,8 @@
       (build name))
     
     (define (make name)
-      (if (jazz:debug-build?)
+      ;; commented until parallel build is fully debugged
+      (if #t ;; (jazz:debug-build?)
           (local-make name)
         (remote-make name)))
     

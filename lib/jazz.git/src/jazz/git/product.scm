@@ -47,7 +47,7 @@
   (windows
     (define jazz:git-units
       (let ((git-include-path  (jazz:quote-jazz-pathname "foreign/libgit2/include"))
-            (git-lib-path      (jazz:quote-jazz-pathname "foreign/libgit2/lib"))
+            (git-lib-path      (jazz:quote-jazz-pathname "foreign/libgit2/lib/windows"))
             (zlib-include-path (jazz:quote-jazz-pathname "foreign/zlib/include")))
         `((jazz.git.foreign cc-options: ,(string-append "-I" git-include-path " -I" zlib-include-path) 
 		                    ld-options: ,(string-append "-L" git-lib-path " -lgit2"))))))
@@ -66,7 +66,7 @@
       (string-append source path))
     
     (define (copy-platform-files)
-      (jazz:copy-file (source-file "foreign/libgit2/lib/libgit2.dll") (build-file "libgit2.dll") feedback: jazz:feedback))
+      (jazz:copy-file (source-file "foreign/libgit2/lib/windows/libgit2.dll") (build-file "libgit2.dll") feedback: jazz:feedback))
     
     (let ((unit-specs jazz:git-units))
       (jazz:custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)

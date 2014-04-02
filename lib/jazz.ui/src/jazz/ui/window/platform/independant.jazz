@@ -133,9 +133,22 @@
 ;; delayed events are part of the current event and
 ;; are thus processed in priority before other events
 (definition public (delay-event thunk)
-  (write-delayed-event thunk)
-  ;; to unblock thread-process
-  (thread-write (event-thread) (lambda ())))
+  (if (ste?)
+      (if (event-thread?)
+          (begin
+            (when *capture-previous-event-continuations?*
+              (capture-event-continuation))
+            (write-delayed-event thunk))
+        (post-event thunk))
+    (write-delayed-event thunk)
+    ;; to unblock thread-process
+    (thread-write (event-thread) (lambda ()))))
+
+
+;; ste?
+(definition public (message-event thunk)
+  (thread-execute (event-thread) 'message-event
+    thunk 1))
 
 
 (definition public (post-event thunk)

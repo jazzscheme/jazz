@@ -188,7 +188,8 @@
 ;;;
 
 
-(definition public (process-events)
+;; ste?
+(define (process-events-single-threaded)
   (define (present-event-loop-restart)
     (let ((loop (current-loop)))
       (when loop
@@ -199,22 +200,53 @@
                     (format " {a}" level)))))))
   
   (declare (proper-tail-calls))
-  (let ((process (get-process))
-        (pump (process-messages)))
-    (when pump
-      (thread-start-loop pump)
-      (thread-start! pump))
-    (unwind-protect
-        (let (restart-loop)
-          (with-restart-catcher 'resume-loop (present-event-loop-restart)
+  (let (restart-loop)
+    (with-restart-catcher 'resume-loop (present-event-loop-restart)
+      (lambda ()
+        (catch Cancel-Signal
+          (process-messages-single-threaded
             (lambda ()
-              (catch Cancel-Signal
-                (with-exception-debugger (get-exception-debugger)
-                  (lambda ()
-                    (thread-process-loop~ process))))))
-          (restart-loop))
+              (let (loop)
+                (when (with-exception-debugger (get-exception-debugger)
+                        (lambda ()
+                          (process-delayed-events)
+                          (and (thread-process timeout: 0)
+                               (not (message-available?)))))
+                  (thread-sleep! .0001)
+                  (loop))))))))
+    (restart-loop)))
+
+
+(definition public (process-events)
+  (define (present-event-loop-restart)
+    (let ((loop (current-loop)))
+      (when loop
+        (let ((level (get-level~ loop)))
+          (format "Resume event loop{a}"
+                  (if (= level 0)
+                      ""
+                    (format " {a}" level)))))))
+  
+  (if (ste?)
+      (process-events-single-threaded)
+    (let ()
+    (declare (proper-tail-calls))
+    (let ((process (get-process))
+          (pump (process-messages)))
       (when pump
-        (thread-stop-loop pump)))))
+        (thread-start-loop pump)
+        (thread-start! pump))
+      (unwind-protect
+          (let (restart-loop)
+            (with-restart-catcher 'resume-loop (present-event-loop-restart)
+              (lambda ()
+                (catch Cancel-Signal
+                  (with-exception-debugger (get-exception-debugger)
+                    (lambda ()
+                      (thread-process-loop~ process))))))
+            (restart-loop))
+        (when pump
+          (thread-stop-loop pump)))))))
 
 
 ;;;

@@ -4448,13 +4448,25 @@
       (car msg))))
 
 
+(definition public (ste?)
+  (and (global-bound? 'use-ste?)
+       (global-ref 'use-ste?)))
+
+
 (definition public (thread-process (timeout: timeout +infinity))
   (let ((msg (thread-read-message timeout: timeout)))
-    (process-delayed-events)
-    (when (not (eof-object? msg))
-      (bind (thunk . chain) msg
-        (parameterize ((current-continuation-chain chain))
-          (thunk))))))
+    (if (ste?)
+        (let ((msg? (not (eof-object? msg))))
+          (when msg?
+            (bind (thunk . chain) msg
+              (parameterize ((current-continuation-chain chain))
+                (thunk))))
+          msg?)
+      (process-delayed-events)
+      (when (not (eof-object? msg))
+        (bind (thunk . chain) msg
+          (parameterize ((current-continuation-chain chain))
+            (thunk)))))))
 
 
 (definition public (thread-post thread name thunk (priority 0))

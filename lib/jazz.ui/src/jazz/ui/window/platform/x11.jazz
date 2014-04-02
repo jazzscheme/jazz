@@ -447,6 +447,36 @@
 ;;;
 
 
+;; ste?
+(definition package (setup-events)
+  )
+
+
+;; ste?
+(definition package (process-messages-single-threaded thunk)
+  (declare (proper-tail-calls))
+  (let* ((msg (XEvent-make))
+         (display-fd (ConnectionNumber x11-default-display))
+         (fdset (setup-fdset display-fd)))
+    (let (loop)
+      (process-inval-rects)
+      (select (+ display-fd 1) fdset #f #f 0 1000)
+      (if (= 0 (XPending x11-default-display))
+          (thread-sleep! 0.01)
+        (XNextEvent x11-default-display msg)
+        (process-message msg))
+      (thunk)
+      (when (thread-loop? (current-thread))
+        (loop)))
+    (XEvent-free msg)
+    (free-fdset fdset)))
+
+
+;; ste?
+(definition package (message-available?)
+  (> (XPending x11-default-display) 0))
+
+
 (definition (process-message msg)
   (execute-event
     (lambda ()

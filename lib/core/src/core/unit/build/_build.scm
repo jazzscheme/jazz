@@ -213,7 +213,10 @@
                      (jazz:generate-symbol-counter 0)
                      (jazz:compiled-source src))
         ;; temporary until a cleaner solution
-        (set! ##gensym-counter -1)
+        ;; this crashes for reasons unknown even to Marc
+        ;; (set! ##gensym-counter -1)
+        ;; wrapping eval is a quick hack around the crash
+        (eval '(set! ##gensym-counter -1))
         (if (not (and (compile-file-to-target src-pathname output: bin-output options: options module-name: unique-module-name)
                       (compile-file bin-output options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
             (jazz:error "compilation failed")))))

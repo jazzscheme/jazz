@@ -450,7 +450,7 @@
     (if first?
         (set! first? #f)
       (display " " output))
-    (display property output)
+    (write property output)
     (display " " output)
     (write value output))
   

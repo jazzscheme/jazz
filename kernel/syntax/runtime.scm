@@ -127,5 +127,5 @@
 
 (define (jazz:feature-satisfied? feature-requirement)
   (if (%%symbol? feature-requirement)
-      (%%memq feature-requirement ##cond-expand-features)
+      (%%memq feature-requirement (##cond-expand-features))
     (error "Features can only be symbols for now"))))

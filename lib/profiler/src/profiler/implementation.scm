@@ -367,7 +367,7 @@
                 (gc-real-time (secs->msecs
                                 (##- (##f64vector-ref at-end 5)
                                      (##f64vector-ref at-start 5))))
-                (bytes-allocated (##flonum.->exact-int
+                (bytes-allocated (##flonum->exact-int
                                    (##- (##- (##f64vector-ref at-end 7)
                                              (##f64vector-ref at-start 7))
                                         (##f64vector-ref at-end 9)))))

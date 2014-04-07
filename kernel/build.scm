@@ -832,7 +832,7 @@
                          (set! link value)))
                       ((j: jobs: -j -jobs)
                        (let ((value (cdr option)))
-                         (if (and (fixnum? value) (>= value 1))
+                         (if (and (fixnum? value) (>= value 0))
                              (set! jobs value)
                            (jazz:error "Invalid jobs option: {s}" value))))
                       (else

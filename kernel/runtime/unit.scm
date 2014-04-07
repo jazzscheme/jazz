@@ -1492,6 +1492,11 @@
       (%%append root path))))
 
 
+;; changed to 0 until parallel build is fully debugged
+(define jazz:jobs-default
+  0)
+
+
 (define (jazz:make-product name)
   (let ((subproduct-table (make-table))
         (subproduct-table-mutex (make-mutex 'subproduct-table-mutex))
@@ -1502,6 +1507,7 @@
         (process-condition (make-condition-variable 'process-condition))
         (listening-port (open-tcp-server 0))
         (output-mutex (make-mutex 'output-mutex))
+        (jobs (or jazz:jobs (jazz:build-jobs) jazz:jobs-default))
         (stop-build? #f))
     (define (key-product? name)
       (%%memq name '(core jazz)))
@@ -1523,8 +1529,7 @@
     
     (define (grab-build-process)
       (mutex-lock! process-mutex)
-      (let ((active-count (%%length active-processes))
-            (jobs (or jazz:jobs (jazz:build-jobs))))
+      (let ((active-count (%%length active-processes)))
         (cond ((%%pair? free-processes)
                (let ((port/echo (%%car free-processes)))
                  (set! free-processes (%%cdr free-processes))
@@ -1624,8 +1629,7 @@
       (build name))
     
     (define (make name)
-      ;; commented until parallel build is fully debugged
-      (if #t ;; (jazz:debug-build?)
+      (if (or (%%not jobs) (%%eqv? jobs 0) (jazz:debug-build?))
           (local-make name)
         (remote-make name)))
     

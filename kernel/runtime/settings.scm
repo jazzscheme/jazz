@@ -143,7 +143,7 @@
   'objects)
 
 (jazz:define-setting jazz:build-jobs
-  1)
+  #f)
 
 (jazz:define-setting jazz:force-outlines?
   #f)

@@ -54,10 +54,7 @@
     ##dynamic-env-bind
     ##call-with-values
     ##thread-start-action!
-    ;; why does this now crash?
-    ;; would it be related to the ##gensym-counter crash?
-    ;; ##primordial-exception-handler-hook
-    ))
+    ##primordial-exception-handler-hook))
 
 (jazz:define-setting default-profiler-ignored-modules
   '())

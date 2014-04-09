@@ -716,5 +716,5 @@
 ;;;
 
 
-(define jazz:Library-Extension "l")
-(define jazz:Library-Manifest-Extension "lmf"))
+(define jazz:Library-Extension "o")
+(define jazz:Library-Manifest-Extension "scm"))

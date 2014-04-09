@@ -945,19 +945,30 @@
           
           (define (build-library)
             (jazz:create-build-package package)
-            (make-library-header header product-name sub-units)
-            (compile-file-to-target header output: header-c)
-            (compile-file header-c options: '(obj) cc-options: "-D___BIND_LATE ")
+            ;(make-library-header header product-name sub-units)
+            ;(compile-file-to-target header output: header-c)
+            ;(compile-file header-c options: '(obj) cc-options: "-D___BIND_LATE ")
             
             (feedback-message "; creating link file...")
-            (link-flat (%%cons header
-                               (map (lambda (subunit-name)
-                                      (jazz:with-unit-resources subunit-name #f
-                                        (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                          (jazz:resource-pathname obj))))
-                                    sub-units))
+            (pp (list (map (lambda (module)
+                             (list module '(preload . #f)))
+                           (map (lambda (subunit-name)
+                                  (jazz:with-unit-resources subunit-name #f
+                                    (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                                      (jazz:resource-pathname obj))))
+                                sub-units))
+                      output: linkfile
+                      warnings?: #f))
+            (link-flat (map (lambda (module)
+                              (list module '(preload . #f)))
+                            (map (lambda (subunit-name)
+                                   (jazz:with-unit-resources subunit-name #f
+                                     (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                                       (jazz:resource-pathname obj))))
+                                 sub-units))
                        output: linkfile
                        warnings?: #f)
+            (pp 'done)
             
             (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))
             (jazz:call-process
@@ -966,7 +977,6 @@
                 arguments: `(,@(case platform
                                  ((windows) '("-Wl,--large-address-aware" "-shared" "-D___DYNAMIC"))
                                  (else '("-bundle" "-D___DYNAMIC")))
-                             ,header-o
                              ,@(map (lambda (subunit-name)
                                       (jazz:with-unit-resources subunit-name #f
                                         (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
@@ -974,14 +984,14 @@
                                     sub-units)
                              ,linkfile
                              "-o" ,library-o1
-                             ,(string-append "-I" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
-                             ,(string-append "-L" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
+                             ,(string-append "-I" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~include"))))
+                             ,(string-append "-L" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~lib"))))
                              ,@(link-options))))
             (case platform
               ((windows)
                (if jazz:single-objects?
                    (jazz:obliterate-PE-timestamp library-o1 'DLL))))
-            (map delete-file (%%list header-c header-o linkfile))
+            (delete-file linkfile)
             #t)
 
           (or (and o1-exists? (library-manifest-uptodate? header sub-units))

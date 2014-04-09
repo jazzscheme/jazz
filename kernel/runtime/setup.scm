@@ -320,7 +320,8 @@
         (define (setup-runtime)
           (setup-kernel)
           (setup-repositories)
-          (jazz:load-libraries))
+          ;; AYYYOOOO (jazz:load-libraries)
+          )
         
         (define (setup-build)
           (setup-kernel)

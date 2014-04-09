@@ -193,9 +193,6 @@
 
 
 (define (jazz:compile-file src bin update-obj? update-bin? build-package #!key (output-language #f) (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz:kernel-platform))
-  (define unit-uniqueness-prefix
-    "unit:")
-  
   (define bin-pathname-base
     (jazz:binary-with-extension src ""))
   
@@ -205,7 +202,7 @@
       (else ".c")))
   
   (define (compile)
-    (let ((unique-module-name (%%string-append unit-uniqueness-prefix (%%symbol->string unit-name)))
+    (let ((unique-module-name (%%string-append jazz:unit-uniqueness-prefix (%%symbol->string unit-name)))
           (src-pathname (jazz:resource-pathname src))
           (bin-output (string-append bin-pathname-base bin-extension)))
       (parameterize ((jazz:generate-symbol-for "^")

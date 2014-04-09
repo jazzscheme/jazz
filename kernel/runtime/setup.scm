@@ -162,12 +162,10 @@
 ;;;
 
 
-(jazz:define-variable jazz:currently-loading-library-procs #f)
-
-
 (define (jazz:load-libraries)
   (define libraries (%%make-table test: eq?))
   (define (add-library product-name library-filename)
+    (pp library-filename)
     (if (%%table-ref libraries product-name #f)
         (jazz:error "Found duplicate library: {s}" product-name)
       (%%table-set! libraries product-name library-filename)))
@@ -185,17 +183,13 @@
                               (add-library product-name filename))))))
                   products))))
   
-  ; register all the libraries found
+  ; load the libraries found
   (jazz:iterate-table libraries
     (lambda (product-name library-filename)
-      (let* ((pathname (path-normalize library-filename))
-             (lib (##load-object-file pathname #t)))
-        (if (and (%%vector? lib)
-                 (%%vector? (%%vector-ref lib 0)))
-            (begin
-              (set! jazz:currently-loading-library-procs (%%vector-ref lib 0))
-              ((%%vector-ref (%%vector-ref (%%vector-ref lib 0) 0) 1)))
-          (jazz:feedback "WARNING: failed to load library {a}" pathname))))))
+      (let ((pathname (path-normalize library-filename)))
+        (jazz:load-binary pathname #t)
+        (let ((header-name (%%string->symbol (string-append jazz:product-uniqueness-prefix (%%symbol->string product-name)))))
+          (##load-required-module header-name))))))
 
 
 ; this function is called from the library header when loading
@@ -208,13 +202,15 @@
   
   (index-for-each
     (lambda (unit i)
+      (pp unit)
       (let ((name (%%car unit))
-            (load-proc (%%vector-ref (%%vector-ref jazz:currently-loading-library-procs i) 1))
             (compile-time-hash (%%cadr unit)))
-        (jazz:set-image-unit
-          name
-          load-proc
-          compile-time-hash)))
+        (let ((module-name (%%string->symbol (%%string-append jazz:unit-uniqueness-prefix (%%symbol->string name)))))
+          (let ((load-proc (lambda () (##load-required-module module-name))))
+            (jazz:set-image-unit
+              name
+              load-proc
+              compile-time-hash)))))
     units
     1)
   
@@ -320,8 +316,7 @@
         (define (setup-runtime)
           (setup-kernel)
           (setup-repositories)
-          ;; AYYYOOOO (jazz:load-libraries)
-          )
+          (jazz:load-libraries))
         
         (define (setup-build)
           (setup-kernel)

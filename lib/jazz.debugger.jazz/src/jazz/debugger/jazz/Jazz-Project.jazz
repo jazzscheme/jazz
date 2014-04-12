@@ -56,6 +56,7 @@
   
   (property directory         initialize #f accessors generate)
   (property configuration     initialize #f accessors generate)
+  (property executable        initialize #f accessors generate)
   (property product           initialize #f accessors generate)
   (property profile           initialize #f accessors generate)
   (property home              initialize #f accessors generate)
@@ -92,7 +93,7 @@
           (load-script (parse~ debug-script)))
       (if product
           (launch
-            executable: (project-kernel)
+            executable: (project-executable)
             debugger?: #f
             profile: profile
             command-action: command-action
@@ -136,7 +137,7 @@
            (load-unit test-unit))
           (product
            (launch
-             executable: (project-kernel)
+             executable: (project-executable)
              action: "-test"
              debugger?: #t
              profile: profile
@@ -183,7 +184,7 @@
     (define (determine-kernel)
       (cond ((eq? executable :choose) (choose-kernel))
             (executable executable)
-            (else (project-kernel))))
+            (else (project-executable))))
     
     (define (choose-kernel)
       (choose-file
@@ -285,21 +286,7 @@
   
   
   (method (project-executable)
-    ;; quick hack
-    (define (filename-heuristic build)
-      (let ((info (car build)))
-        (if (symbol? info)
-            (symbol->string info)
-          (symbol->string (car info)))))
-    
-    (receive (package descriptor) (get-product-descriptor product)
-      (let ((build (product-descriptor-build descriptor)))
-        (if build
-            (let ((kernel (project-kernel))
-                  (filename (filename-heuristic build)))
-              (new-brother~ kernel (add-extension filename (executable-extension kernel-platform))))
-          (message-box "This project doesn't define a build descriptor")
-          (signal-cancel)))))
+    (or executable (project-kernel)))
 
 
   ;;;

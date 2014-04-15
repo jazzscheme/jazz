@@ -355,16 +355,37 @@
   ;;;
   
   
-  (method public (set-timer id elapse)
-    (platform-set-timer handle id elapse))
+  (definition timer-names
+    (make-table test: eq?))
+  
+  (definition timer-ids
+    (make-table test: eq?))
+  
+  (definition timer-id
+    0)
   
   
-  (method public (kill-timer id)
-    (platform-kill-timer handle id))
+  (method public (register-timer name elapse proc)
+    (define (unique-id)
+      (prog1 timer-id
+        (increase! timer-id)))
+    
+    (let ((id (unique-id)))
+      (table-set! timer-names name id)
+      (table-set! timer-ids id proc)
+      (platform-set-timer handle id elapse)))
   
   
-  (method protected virtual (timer-pulse)
-    (thread-yield!))
+  (method public (unregister-timer name)
+    (let ((id (table-ref timer-names name)))
+      (platform-kill-timer handle id)
+      (table-clear timer-names name)
+      (table-clear timer-ids id)))
+  
+  
+  (method protected (timer-pulse id)
+    (let ((proc (table-ref timer-ids id)))
+      (proc)))
 
 
   ;;;

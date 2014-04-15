@@ -204,16 +204,15 @@
     (with-restart-catcher 'resume-loop (present-event-loop-restart)
       (lambda ()
         (catch Cancel-Signal
-          (process-messages-single-threaded
-            (lambda ()
-              (let (loop)
-                (when (with-exception-debugger (get-exception-debugger)
-                        (lambda ()
-                          (process-delayed-events)
-                          (and (thread-process timeout: 0)
-                               (not (message-available?)))))
-                  (thread-sleep! .0001)
-                  (loop))))))))
+          (let ((process (get-process)))
+            (process-messages-single-threaded process
+              (lambda ()
+                (let (loop)
+                  (when (with-exception-debugger (get-exception-debugger)
+                          (lambda ()
+                            (thread-process-ste~ process)))
+                    (thread-sleep! .0001)
+                    (loop)))))))))
     (restart-loop)))
 
 

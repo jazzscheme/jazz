@@ -507,9 +507,16 @@
 (define (jazz:guess-platform)
   (let ((system (cadr (system-type)))
         (os (caddr (system-type))))
-    (cond ((eq? system 'apple) 'mac)
-          ((eq? os 'linux-gnu) 'unix)
-          (else 'windows))))
+    (cond ((eq? system 'apple)
+           'mac)
+          ((or (eq? os 'linux-gnu)
+               (let ((str (symbol->string os)))
+                 (jazz:string-starts-with? str "openbsd")
+                 (jazz:string-starts-with? str "freebsd")
+                 (jazz:string-starts-with? str "netbsd")))
+           'unix)
+          (else
+           'windows))))
 
 
 (define (jazz:require-platform platform template)

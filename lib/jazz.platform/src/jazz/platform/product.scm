@@ -100,7 +100,7 @@
 
 (define (jazz:freetype-units)
   (let ((cc-flags (jazz:pkg-config-cflags "freetype2"))
-        (ld-flags (string-append (jazz:pkg-config-libs "fontconfig") (jazz:pkg-config-libs "freetype2"))))
+        (ld-flags (string-append (jazz:pkg-config-libs "fontconfig") " " (jazz:pkg-config-libs "freetype2"))))
     `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))
 
 

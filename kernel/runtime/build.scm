@@ -532,7 +532,9 @@
           ((windows)
            '("-lws2_32"))
           ((unix)
-           '("-lm" "-ldl" "-lutil"))
+           (case (jazz:unix-family)
+             ((bsd) '("-lm" "-lutil"))
+             (else '("-lm" "-ldl" "-lutil"))))
           (else
            '())))
       

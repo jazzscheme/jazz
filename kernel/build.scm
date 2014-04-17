@@ -509,11 +509,7 @@
         (os (caddr (system-type))))
     (cond ((eq? system 'apple)
            'mac)
-          ((let ((str (symbol->string os)))
-             (or (eq? os 'linux-gnu)
-                 (jazz:string-starts-with? str "openbsd")
-                 (jazz:string-starts-with? str "freebsd")
-                 (jazz:string-starts-with? str "netbsd")))
+          ((jazz:unix-family)
            'unix)
           (else
            'windows))))

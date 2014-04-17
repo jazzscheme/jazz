@@ -368,6 +368,24 @@
 
 
 ;;;
+;;;; Platform
+;;;
+
+
+(define (jazz:unix-family)
+  (let ((os (caddr (system-type))))
+    (let ((str (symbol->string os)))
+      (cond ((eq? os 'linux-gnu)
+             'linux)
+            ((or (jazz:string-starts-with? str "openbsd")
+                 (jazz:string-starts-with? str "freebsd")
+                 (jazz:string-starts-with? str "netbsd"))
+             'bsd)
+            (else
+             #f)))))
+
+
+;;;
 ;;;; Process
 ;;;
 

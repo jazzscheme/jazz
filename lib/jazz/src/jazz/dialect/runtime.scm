@@ -1492,7 +1492,7 @@
         (let ((name (jazz:unwrap-syntactic-closure (%%car rest))))
           (jazz:parse-specifier (%%cdr rest)
             (lambda (specifier rest)
-              (values name specifier access compatibility expansion (%%car rest) #f))))
+              (values name specifier access compatibility expansion (if (%%null? rest) (%%list 'unspecified) (%%car rest)) #f))))
       (let* ((name (jazz:source-code (%%car (jazz:unwrap-syntactic-closure (%%car rest)))))
              (parameters (%%cdr (%%desourcify (%%car rest)))))
         (jazz:parse-specifier (%%cdr rest)

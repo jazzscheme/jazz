@@ -160,6 +160,8 @@ typedef struct {
   void (*resize)();
   } *window;
 
+void resize(window win);
+
 int graph_display = 1;
 
 int graph_black_and_white = 0;

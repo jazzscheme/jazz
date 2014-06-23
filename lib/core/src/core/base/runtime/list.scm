@@ -39,6 +39,7 @@
 
 
 (define (jazz:find-in proc lst)
+  (declare (proper-tail-calls))
   (let iter ((scan lst))
     (if (%%null? scan)
         #f
@@ -47,6 +48,7 @@
 
 
 (define (jazz:find-if predicate lst)
+  (declare (proper-tail-calls))
   (let iter ((scan lst))
     (if (%%null? scan)
         #f
@@ -57,6 +59,7 @@
 
 
 (define (jazz:find-rank element lst)
+  (declare (proper-tail-calls))
   (let iter ((scan lst) (rank 0))
        (cond ((%%null? scan)
               #f)

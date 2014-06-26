@@ -363,10 +363,14 @@
   (define (convert-205001)
     205002)
   
+  (define (convert-205002)
+    205003)
+  
   (case old
     ((#f) (convert-initial))
     ((205000) (convert-205000))
     ((205001) (convert-205001))
+    ((205002) (convert-205002))
     (else #f)))
 
 
@@ -429,7 +433,7 @@
 ;;;
 
 
-(define (jazz:save-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination properties file system-platform)
+(define (jazz:save-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination properties file system-platform)
   (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding system-platform))
     (lambda (output)
       (display "(configuration " output)
@@ -437,12 +441,12 @@
       (newline output)
       (newline output)
       (display "  " output)
-      (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination properties output)
+      (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination properties output)
       (display ")" output)
       (newline output))))
 
 
-(define (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? mutable-bindings? kernel-interpret? destination properties output)
+(define (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination properties output)
   (define first?
     #t)
   
@@ -464,6 +468,7 @@
   (print-property debug-environments?: debug-environments?)
   (print-property debug-location?: debug-location?)
   (print-property debug-source?: debug-source?)
+  (print-property debug-foreign?: debug-foreign?)
   (print-property mutable-bindings?: mutable-bindings?)
   (print-property kernel-interpret?: kernel-interpret?)
   (print-property destination: destination)

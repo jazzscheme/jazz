@@ -55,16 +55,15 @@
     
     (define SEM_NOGPFAULTERRORBOX #x0002)
     
-    (define SetErrorMode
-      (c-lambda (unsigned-int) unsigned-int "SetErrorMode"))
+    (c-external (SetErrorMode unsigned-int) unsigned-int)
     
     (define (jazz:disable-crash-window)
       (SetErrorMode (bitwise-ior SEM_FAILCRITICALERRORS SEM_NOGPFAULTERRORBOX)))
     
-    (c-define (jazz:call_crash_reporter ignore) ((pointer void)) void "jazz_call_crash_reporter" ""
+    (c-definition (jazz:call_crash_reporter ignore) ((pointer void)) void "jazz_call_crash_reporter" ""
       (jazz:crash-reporter ignore))
 
-    (c-declare #<<END-OF-DECLARES
+    (c-declaration #<<END-OF-DECLARES
       static LONG WINAPI unhandled_exception_filter(LPEXCEPTION_POINTERS info)
       {
         jazz_call_crash_reporter(info);
@@ -77,25 +76,24 @@
       }
 END-OF-DECLARES
     )
-    (c-initialize "setup_low_level_windows_crash_handler();")
+    (c-initialization "setup_low_level_windows_crash_handler();")
     
-    (c-declare "const DWORD CRASH_PROCESS = (DWORD) 0xE0000001L;")
+    (c-declaration "const DWORD CRASH_PROCESS = (DWORD) 0xE0000001L;")
     
-    (define jazz:crash-process
-      (c-lambda () void
-        "RaiseException(CRASH_PROCESS, EXCEPTION_NONCONTINUABLE , 0, NULL);")))
+    (c-external (jazz:crash-process) void
+      "RaiseException(CRASH_PROCESS, EXCEPTION_NONCONTINUABLE , 0, NULL);"))
   (else
    
    (define (jazz:disable-crash-window)
      #!void)
    
-   (c-define (jazz:call_crash_reporter ignore) (int) void "jazz_call_crash_reporter" ""
+   (c-definition (jazz:call_crash_reporter ignore) (int) void "jazz_call_crash_reporter" ""
      (jazz:crash-reporter ignore))
 
-   (c-define (crash_call_exit) () void "crash_call_exit" ""
+   (c-definition (jazz:call_crash_exit) () void "jazz_call_crash_exit" ""
      (exit 1))
 
-   (c-declare #<<END-OF-DECLARES
+   (c-declaration #<<END-OF-DECLARES
       #include <stdio.h>
       #include <unistd.h>
       #include <sys/types.h>
@@ -105,7 +103,7 @@ END-OF-DECLARES
       {
         jazz_call_crash_reporter(sig_num);
         fflush(stdout);
-        crash_call_exit();
+        jazz_call_crash_exit();
       }
 
       static void setup_low_level_unix_crash_handler()
@@ -122,8 +120,7 @@ END-OF-DECLARES
 END-OF-DECLARES
    )
 
-   (c-initialize "setup_low_level_unix_crash_handler();")
+   (c-initialization "setup_low_level_unix_crash_handler();")
 
-   (define jazz:crash-process
-     (c-lambda () void
-       "raise(SIGSEGV);")))))
+   (c-external (jazz:crash-process) void
+     "raise(SIGSEGV);"))))

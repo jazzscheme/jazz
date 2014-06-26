@@ -43,34 +43,28 @@
 
 (cond-expand
   (mac
-    (c-declare "#include <mach-o/dyld.h>"))
+    (c-declaration "#include <mach-o/dyld.h>"))
   (unix
-    (c-declare "#include <unistd.h>")
-    (c-declare "#include <stdio.h>"))
+    (c-declaration "#include <unistd.h>")
+    (c-declaration "#include <stdio.h>"))
   (else))
-
-
-(define platform-executable-path)
 
 
 (cond-expand
   (mac
-    (set! platform-executable-path
-          (c-lambda () char-string
+    (c-external (jazz:platform-executable-path) char-string
             "char path[1024];
              uint32_t pathLength = 1023;
              _NSGetExecutablePath(path,&pathLength);
              path[1023] = 0;
-             ___result = path;")))
+             ___result = path;"))
   (windows
-    (set! platform-executable-path
-          (c-lambda () wchar_t-string
+    (c-external (jazz:platform-executable-path) wchar_t-string
             "wchar_t buf[MAX_PATH];
              GetModuleFileNameW(NULL, buf, 300);
-              ___result = buf;")))
+              ___result = buf;"))
   (unix
-    (set! platform-executable-path
-          (c-lambda () char-string
+    (c-external (jazz:platform-executable-path) char-string
             "char link[64];
              char path[1024];
              pid_t pid;
@@ -87,13 +81,13 @@
                }
              }
              else
-               ___result = 0;")))
+               ___result = 0;"))
   (else))
 
 
 (jazz:define-variable-override jazz:executable-directory
   (lambda ()
-    (let ((path (platform-executable-path)))
+    (let ((path (jazz:platform-executable-path)))
       (if path
           (jazz:pathname-dir (jazz:pathname-normalize path))
         #f)))))

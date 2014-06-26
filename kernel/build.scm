@@ -113,6 +113,9 @@
 (jazz:define-option jazz:default-debug-source?
   #f)
 
+(jazz:define-option jazz:default-debug-foreign?
+  #f)
+
 (jazz:define-option jazz:default-mutable-bindings?
   #f)
 
@@ -146,6 +149,7 @@
           (debug-environments? (jazz:unspecified-option))
           (debug-location? (jazz:unspecified-option))
           (debug-source? (jazz:unspecified-option))
+          (debug-foreign? (jazz:unspecified-option))
           (mutable-bindings? (jazz:unspecified-option))
           (kernel-interpret? (jazz:unspecified-option))
           (destination (jazz:unspecified-option))
@@ -160,6 +164,7 @@
     debug-environments?
     debug-location?
     debug-source?
+    debug-foreign?
     mutable-bindings?
     kernel-interpret?
     destination
@@ -178,6 +183,7 @@
           (debug-environments? (jazz:unspecified-option))
           (debug-location? (jazz:unspecified-option))
           (debug-source? (jazz:unspecified-option))
+          (debug-foreign? (jazz:unspecified-option))
           (mutable-bindings? (jazz:unspecified-option))
           (kernel-interpret? (jazz:unspecified-option))
           (destination (jazz:unspecified-option))
@@ -191,6 +197,7 @@
          (debug-environments? (jazz:validate-debug-environments? (jazz:require-debug-environments? debug-environments? template)))
          (debug-location? (jazz:validate-debug-location? (jazz:require-debug-location? debug-location? template)))
          (debug-source? (jazz:validate-debug-source? (jazz:require-debug-source? debug-source? template)))
+         (debug-foreign? (jazz:validate-debug-foreign? (jazz:require-debug-foreign? debug-foreign? template)))
          (mutable-bindings? (jazz:validate-mutable-bindings? (jazz:require-mutable-bindings? mutable-bindings? template)))
          (kernel-interpret? (jazz:validate-kernel-interpret? (jazz:require-kernel-interpret? kernel-interpret? template)))
          (destination (jazz:validate-destination (jazz:require-destination destination template)))
@@ -205,6 +212,7 @@
     debug-environments?
     debug-location?
     debug-source?
+    debug-foreign?
     mutable-bindings?
     kernel-interpret?
     destination
@@ -348,6 +356,7 @@
       (jazz:get-configuration-debug-environments? configuration)
       (jazz:get-configuration-debug-location? configuration)
       (jazz:get-configuration-debug-source? configuration)
+      (jazz:get-configuration-debug-foreign? configuration)
       (jazz:get-configuration-mutable-bindings? configuration)
       (jazz:get-configuration-kernel-interpret? configuration)
       (jazz:get-configuration-destination configuration)
@@ -366,6 +375,7 @@
       (jazz:get-configuration-debug-environments? configuration)
       (jazz:get-configuration-debug-location? configuration)
       (jazz:get-configuration-debug-source? configuration)
+      (jazz:get-configuration-debug-foreign? configuration)
       (jazz:get-configuration-mutable-bindings? configuration)
       (jazz:get-configuration-kernel-interpret? configuration)
       (jazz:get-configuration-destination configuration)
@@ -399,6 +409,7 @@
         (debug-environments? (jazz:get-configuration-debug-environments? configuration))
         (debug-location? (jazz:get-configuration-debug-location? configuration))
         (debug-source? (jazz:get-configuration-debug-source? configuration))
+        (debug-foreign? (jazz:get-configuration-debug-foreign? configuration))
         (mutable-bindings? (jazz:get-configuration-mutable-bindings? configuration))
         (kernel-interpret? (jazz:get-configuration-kernel-interpret? configuration))
         (destination (jazz:get-configuration-destination configuration))
@@ -412,6 +423,7 @@
     (jazz:feedback "  debug-environments?: {s}" debug-environments?)
     (jazz:feedback "  debug-location?: {s}" debug-location?)
     (jazz:feedback "  debug-source?: {s}" debug-source?)
+    (jazz:feedback "  debug-foreign?: {s}" debug-foreign?)
     (jazz:feedback "  mutable-bindings?: {s}" mutable-bindings?)
     (jazz:feedback "  kernel-interpret?: {s}" kernel-interpret?)
     (jazz:feedback "  destination: {s}" destination)
@@ -435,6 +447,7 @@
           (debug-environments? (jazz:unspecified-option))
           (debug-location? (jazz:unspecified-option))
           (debug-source? (jazz:unspecified-option))
+          (debug-foreign? (jazz:unspecified-option))
           (mutable-bindings? (jazz:unspecified-option))
           (kernel-interpret? (jazz:unspecified-option))
           (destination (jazz:unspecified-option))
@@ -451,6 +464,7 @@
             debug-environments?: debug-environments?
             debug-location?: debug-location?
             debug-source?: debug-source?
+            debug-foreign?: debug-foreign?
             mutable-bindings?: mutable-bindings?
             kernel-interpret?: kernel-interpret?
             destination: destination
@@ -652,6 +666,26 @@
   (if (memq debug-source jazz:valid-debug-source)
       debug-source
     (jazz:error "Invalid debug-source?: {s}" debug-source)))
+
+
+;;;
+;;;; Debug-Foreign
+;;;
+
+
+(define jazz:valid-debug-foreign
+  '(#f
+    #t))
+
+
+(define (jazz:require-debug-foreign? debug-foreign template)
+  (jazz:or-option debug-foreign (jazz:get-configuration-debug-foreign? template) (jazz:default-debug-foreign?)))
+
+
+(define (jazz:validate-debug-foreign? debug-foreign)
+  (if (memq debug-foreign jazz:valid-debug-foreign)
+      debug-foreign
+    (jazz:error "Invalid debug-foreign?: {s}" debug-foreign)))
 
 
 ;;;
@@ -1071,6 +1105,7 @@
               (debug-environments? (jazz:get-configuration-debug-environments? configuration))
               (debug-location? (jazz:get-configuration-debug-location? configuration))
               (debug-source? (jazz:get-configuration-debug-source? configuration))
+              (debug-foreign? (jazz:get-configuration-debug-foreign? configuration))
               (mutable-bindings? (jazz:get-configuration-mutable-bindings? configuration))
               (kernel-interpret? (jazz:get-configuration-kernel-interpret? configuration))
               (source jazz:source)
@@ -1086,6 +1121,7 @@
                             debug-environments?:   debug-environments?
                             debug-location?:       debug-location?
                             debug-source?:         debug-source?
+                            debug-foreign?:        debug-foreign?
                             mutable-bindings?:     mutable-bindings?
                             include-compiler?:     #t
                             kernel-interpret?:     kernel-interpret?
@@ -1111,6 +1147,7 @@
           (compare-parameter debug-environments?: jazz:get-configuration-debug-environments?)
           (compare-parameter debug-location?:     jazz:get-configuration-debug-location?)
           (compare-parameter debug-source?:       jazz:get-configuration-debug-source?)
+          (compare-parameter debug-foreign:       jazz:get-configuration-debug-foreign?)
           (compare-parameter mutable-bindings:    jazz:get-configuration-mutable-bindings?)
           (compare-parameter kernel-interpret?:   jazz:get-configuration-kernel-interpret?)
           (compare-parameter destination:         jazz:get-configuration-destination)
@@ -1401,7 +1438,7 @@
   
   (define (help-command arguments output)
     (jazz:print "Commands:" output)
-    (jazz:print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [mutable-bindings?:] [kernel-interpret?:] [destination:] [properties:]" output)
+    (jazz:print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [debug-foreign?:] [mutable-bindings?:] [kernel-interpret?:] [destination:] [properties:]" output)
     (jazz:print "  make [target | clean | cleankernel | cleanobject | cleanlibrary]@[configuration]:[image]" output)
     (jazz:print "  install [target]" output)
     (jazz:print "  list" output)
@@ -1514,7 +1551,7 @@
               ((equal? action "configure")
                (let ()
                  (define (configure template arguments)
-                   (jazz:split-command-line arguments '() '("name" "system" "platform" "windowing" "safety" "optimize" "debug-environments" "debug-location" "debug-source" "mutable-bindings" "kernel-interpret" "destination" "properties") missing-argument-for-option
+                   (jazz:split-command-line arguments '() '("name" "system" "platform" "windowing" "safety" "optimize" "debug-environments" "debug-location" "debug-source" "debug-foreign" "mutable-bindings" "kernel-interpret" "destination" "properties") missing-argument-for-option
                      (lambda (commands options remaining)
                        (if (null? remaining)
                            (let ((name (symbol-option "name" options))
@@ -1526,11 +1563,12 @@
                                  (debug-environments (boolean-option "debug-environments" options))
                                  (debug-location (boolean-option "debug-location" options))
                                  (debug-source (boolean-option "debug-source" options))
+                                 (debug-foreign (boolean-option "debug-foreign" options))
                                  (mutable-bindings (boolean-option "mutable-bindings" options))
                                  (kernel-interpret (boolean-option "kernel-interpret" options))
                                  (destination (string-option "destination" options))
                                  (properties (list-option "properties" options)))
-                             (jazz:configure template name: name system: system platform: platform windowing: windowing safety: safety optimize?: optimize debug-environments?: debug-environments debug-location?: debug-location debug-source?: debug-source mutable-bindings?: mutable-bindings kernel-interpret?: kernel-interpret destination: destination properties: properties)
+                             (jazz:configure template name: name system: system platform: platform windowing: windowing safety: safety optimize?: optimize debug-environments?: debug-environments debug-location?: debug-location debug-source?: debug-source debug-foreign?: debug-foreign mutable-bindings?: mutable-bindings kernel-interpret?: kernel-interpret destination: destination properties: properties)
                              (exit))
                          (unknown-option (car remaining))))))
                  
@@ -1594,6 +1632,9 @@
 (define jazz:kernel-debug-source?
   #f)
 
+(define jazz:kernel-debug-foreign?
+  #f)
+
 (define jazz:kernel-mutable-bindings?
   #f)
 
@@ -1646,6 +1687,7 @@
     debug-environments?: (jazz:unspecified-option)
     debug-location?: (jazz:unspecified-option)
     debug-source?: (jazz:unspecified-option)
+    debug-foreign?: (jazz:unspecified-option)
     mutable-bindings?: (jazz:unspecified-option)
     kernel-interpret?: (jazz:unspecified-option)
     destination: (jazz:unspecified-option)
@@ -1662,6 +1704,7 @@
     debug-environments?: #t
     debug-location?: #t
     debug-source?: #f
+    debug-foreign?: #f
     mutable-bindings?: (jazz:unspecified-option)
     kernel-interpret?: #t
     destination: "build/core"
@@ -1678,6 +1721,7 @@
     debug-environments?: #t
     debug-location?: #t
     debug-source?: #f
+    debug-foreign?: #f
     mutable-bindings?: (jazz:unspecified-option)
     kernel-interpret?: #t
     destination: "build/debug"
@@ -1694,6 +1738,7 @@
     debug-environments?: #t
     debug-location?: #t
     debug-source?: #f
+    debug-foreign?: #f
     mutable-bindings?: (jazz:unspecified-option)
     kernel-interpret?: #t
     destination: "build/release"
@@ -1710,6 +1755,7 @@
     debug-environments?: #f
     debug-location?: #f
     debug-source?: #f
+    debug-foreign?: #f
     mutable-bindings?: (jazz:unspecified-option)
     kernel-interpret?: #f
     destination: "build/sealed"

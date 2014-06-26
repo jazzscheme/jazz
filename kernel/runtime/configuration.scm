@@ -65,6 +65,7 @@
    (debug-environments? getter: generate)
    (debug-location?     getter: generate)
    (debug-source?       getter: generate)
+   (debug-foreign?      getter: generate)
    (mutable-bindings?   getter: generate)
    (kernel-interpret?   getter: generate)
    (destination         getter: generate)

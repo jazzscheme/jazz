@@ -40,14 +40,20 @@
 
 (c-declare #<<END-OF-DECLARE
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 const char* logging_filename = "log.txt";
+
+bool is_logging = true;
 
 FILE *logging_stream = NULL;
 
 int logging_line(const char *line)
 {
+  if (!is_logging)
+    return 0;
+  
   va_list ap;
   int result;
   FILE *stream;
@@ -66,6 +72,9 @@ int logging_line(const char *line)
 
 int logging(const char *format, ...)
 {
+  if (!is_logging)
+    return 0;
+  
   va_list ap;
   int result;
   FILE *stream;

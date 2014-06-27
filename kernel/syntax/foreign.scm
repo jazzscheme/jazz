@@ -75,7 +75,9 @@
 
 
 (jazz:define-macro (c-function name types result-type c-name-or-code)
-  (let ((variables (map jazz:generate-symbol types)))
+  (let ((variables (map (lambda (type)
+                          (jazz:generate-symbol))
+                        types)))
     `(lambda ,variables
        (jazz:logging-scheme->c ',name
          (lambda ()
@@ -87,7 +89,9 @@
   (let ((name (car signature))
         (types (cdr signature)))
     (let ((c-name-or-code (if (null? rest) (symbol->string name) (car rest)))
-          (variables (map jazz:generate-symbol types)))
+          (variables (map (lambda (type)
+                          (jazz:generate-symbol))
+                        types)))
       `(define ,name
          (lambda ,variables
            (jazz:logging-scheme->c ',name

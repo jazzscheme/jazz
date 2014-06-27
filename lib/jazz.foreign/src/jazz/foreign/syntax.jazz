@@ -60,7 +60,7 @@
   
   (method override (emit-expression declaration environment backend)
     (new-code
-      `(c-declare ,(string-append "#include " name))
+      `(c-include ,name)
       Any
       #f)))
 
@@ -92,7 +92,7 @@
   
   (method override (emit-expression declaration environment backend)
     (new-code
-      `(c-initialize ,code)
+      `(c-initialization ,code)
       Any
       #f)))
 
@@ -124,7 +124,7 @@
   
   (method override (emit-expression declaration environment backend)
     (new-code
-      `(c-declare ,code)
+      `(c-declaration ,code)
       Any
       #f)))
 
@@ -160,7 +160,7 @@
   
   
   (method override (expand-referenced-declaration)
-    `(c-declare ,code))
+    `(c-declaration ,code))
   
   
   (method override (outline-extract meta)
@@ -426,10 +426,10 @@
                              ((memq kind '(type struct union)) type*)
                              (else type))))
             (let ((getter `(definition public ,(build-method-symbol struct id '-ref)
-                                       (c-function (,struct*) ,type ,getter-string)))
+                                       (c-function anonymous (,struct*) ,type ,getter-string)))
                   (setter (and setter-string
                                `(definition public ,(build-method-symbol struct id '-set!)
-                                            (c-function (,struct* ,type) (native void) ,setter-string)))))
+                                            (c-function anonymous (,struct* ,type) (native void) ,setter-string)))))
               (values getter setter))))))))
 
 
@@ -452,11 +452,11 @@
          (c-type ,struct (type ,c-struct-string ,@tag-rest))
          (c-type ,struct* (pointer ,struct ,@tag*-rest))
          (definition public ,(build-method-symbol struct 'make)
-           (c-function () ,struct* ,(string-append "___result_voidstar = calloc(1," sizeof ");")))
+           (c-function anonymous () ,struct* ,(string-append "___result_voidstar = calloc(1," sizeof ");")))
          (definition public ,(build-method-symbol struct 'free)
-           (c-function (,struct*) (native void) "free(___arg1);"))
+           (c-function anonymous (,struct*) (native void) "free(___arg1);"))
          (definition public ,(build-method-symbol struct 'sizeof)
-           (c-function () (native unsigned-int) ,(string-append "___result = " sizeof ";")))
+           (c-function anonymous () (native unsigned-int) ,(string-append "___result = " sizeof ";")))
          ,@(apply append (map expand-acc clauses))))))
 
 
@@ -466,9 +466,9 @@
          (c-struct-string (if (not (null? rest)) (car rest) (symbol->string struct))))
     `(begin
        (definition public ,(build-method-symbol struct 'array-make)
-         (c-function (int) ,struct* ,(string-append "___result = calloc(___arg1,sizeof(" c-struct-string "));")))
+         (c-function anonymous (int) ,struct* ,(string-append "___result = calloc(___arg1,sizeof(" c-struct-string "));")))
        (definition public ,(build-method-symbol struct 'array-element)
-         (c-function (,struct* int) ,struct* ,(string-append "___result = ___arg1+___arg2;"))))))
+         (c-function anonymous (,struct* int) ,struct* ,(string-append "___result = ___arg1+___arg2;"))))))
 
 
 (syntax public c-structure
@@ -556,11 +556,11 @@
 
 (define (walk-c-function walker resume declaration environment form-src)
   (let ((form (strip-syntactic-closures form-src)))
-    (assertion (and (list? form) (= 4 (length form))) (walk-error walker resume declaration form-src "Ill-formed c-function")
-      (bind (types result-type c-name-or-code) (cdr form)
+    (assertion (and (list? form) (= 5 (length form))) (walk-error walker resume declaration form-src "Ill-formed c-function")
+      (bind (name types result-type c-name-or-code) (cdr form)
         (let ((resolve-access (lambda (type) (expand-c-type-reference walker resume declaration environment type))))
           (new C-Function
-            `(c-lambda ,(map resolve-access types) ,(resolve-access result-type) ,c-name-or-code)))))))
+            `(c-function ,name ,(map resolve-access types) ,(resolve-access result-type) ,c-name-or-code)))))))
 
 
 (define-walker-special c-function jazz walk-c-function)
@@ -604,7 +604,7 @@
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
           (sourcify-if
-            `(c-define ,(cons locator (emit-signature signature self augmented-environment backend)) ,parameter-types ,result-type ,c-name ,scope
+            `(c-definition ,(cons locator (emit-signature signature self augmented-environment backend)) ,parameter-types ,result-type ,c-name ,scope
                ,@(sourcified-form (emit-expression body self augmented-environment backend)))
             source)))))
   
@@ -699,7 +699,7 @@
         (types (cdr signature)))
     (let ((c-name-or-code (if (null? rest) (symbol->string name) (car rest))))
       `(definition public ,name
-         (c-function ,types ,result-type ,c-name-or-code)))))
+         (c-function ,name ,types ,result-type ,c-name-or-code)))))
 
 
 ;;;
@@ -725,7 +725,8 @@
       (apply debug name resolved-result resolved-params)
       (if (every? (lambda (resolved) (is? resolved C-Type-Declaration)) (cons resolved-result resolved-params))
           `(definition ,lowlevel-name
-             (c-function ,(cons 'IUnknown* (map fix-locator resolved-params))
+             (c-function anonymous
+                         ,(cons 'IUnknown* (map fix-locator resolved-params))
                          ,(get-locator~ resolved-result)
                          ,(string-append
                             "{typedef "
@@ -775,7 +776,8 @@
       type))
   
   ;; we assume lexical-binding-name exactly matches the c type
-  `(c-function ,(cons 'IUnknown* (map fix-locator param-types resolved-params))
+  `(c-function anonymous
+               ,(cons 'IUnknown* (map fix-locator param-types resolved-params))
                ,result-type
                ,(string-append
                   "{typedef "

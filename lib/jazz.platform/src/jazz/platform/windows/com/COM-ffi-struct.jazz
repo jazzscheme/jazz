@@ -1,8 +1,8 @@
-(definition cast-void*
-  (c-function (int) void* "___result = (void*) ___arg1;"))
+(c-external (cast-void* int) void*
+  "___result = (void*) ___arg1;")
 
-(definition cast-int*
-  (c-function (int) int* "___result = (int*) ___arg1;"))
+(c-external (cast-int* int) int*
+  "___result = (int*) ___arg1;")
 
 (cast-int* 0)
 (foo 'int* (cast-void* 0))
@@ -10,7 +10,7 @@
 (definition (foo-foo)
   (let* ((vect (make-u32vect 1)))
     (u32vect-set! vect 0 (enfoo #f))
-    ((c-lambda (U32PTR) void "foo") vect)
+    ((c-function foo (U32PTR) void "foo") vect)
     (defoo (u32vect-ref vect 0))))
 
 {
@@ -34,7 +34,7 @@
 
 ;; Evidemment, si on pouvait tout faire direct en C...
 
-(c-lambda (IUnknown*) (c-values HRESULT IUnknown*)
+(c-function anonymous (IUnknown*) (c-values HRESULT IUnknown*)
 #<<end-c-code
 {
 	typedef HRESULT (*ProcType)(IUnknown*, IUnknown**);
@@ -47,7 +47,7 @@
 end-c-code
 )
 ;; ou ___result1 et ___result2 sont auto-boxes
-;; et places dans un values tel que defini par le c-lambda
+;; et places dans un values tel que defini par le c-function
 
 
 ;;;
@@ -60,7 +60,7 @@ end-c-code
 
 
 (definition IUnknown*-enref
-  (let ((decast (c-function (IUnknown*) ulong "___result = (unsigned long) ___arg1;"))
+  (let ((decast (c-function anonymous (IUnknown*) ulong "___result = (unsigned long) ___arg1;"))
         (decast2 (lambda (coptr) (typed-foreign->ulong 'IUnknown* coptr))))
     (lambda (coptr)
       (let ((coptr* (make-u32vect 1)))
@@ -69,14 +69,14 @@ end-c-code
 
 
 (definition IUnknown*-deref
-  (let ((encast (c-function (ulong) IUnknown* "___result = (IUnknown*) ___arg1;"))
+  (let ((encast (c-function anonymous (ulong) IUnknown* "___result = (IUnknown*) ___arg1;"))
         (encast2 (lambda (u) (ulong->typed-foreign 'IUnknown* u))))
     (lambda (coptr*)
       (encast (u32vect-ref coptr* 0)))))
 
 
 (definition ffi-COM-foo-IUnknown*
-  (let ((proc (c-function (IUnknown* U32PTR) HRESULT ""
+  (let ((proc (c-function anonymous (IUnknown* U32PTR) HRESULT ""
                 ; #<<end-c-code
                 ; {typedef HRESULT (*ProcType)(IUnknown*, IUnknown**);
                 ;  ProcType fn = (*(ProcType**)___arg1)[22];
@@ -101,7 +101,7 @@ end-c-code
 
 
 (definition INT-enref
-  (let ((decast (c-function (int) ulong "___result = *(unsigned long*) &___arg1;"))
+  (let ((decast (c-function anonymous (int) ulong "___result = *(unsigned long*) &___arg1;"))
         (decast2 recast-int->ulong))
     (lambda (int)
       (let ((int* (make-u32vect 1)))
@@ -110,14 +110,14 @@ end-c-code
 
 
 (definition INT-deref
-  (let ((encast (c-function (ulong) int "___result = *(signed int*) &___arg1;"))
+  (let ((encast (c-function anonymous (ulong) int "___result = *(signed int*) &___arg1;"))
         (encast2 recast-ulong->int))
     (lambda (int*)
       (encast (u32vect-ref int* 0)))))
 
 
 (definition ffi-foo-INT
-  (let ((proc (c-function (U32PTR) HRESULT "___result = foo((INT*)___arg1);")))
+  (let ((proc (c-function anonymous (U32PTR) HRESULT "___result = foo((INT*)___arg1);")))
     (lambda ()
       (let ((low$1 (INT-enref 0)))
         (let ((res (proc low$1)))
@@ -149,11 +149,11 @@ end-c-code
 
 
 (definition GUID-Data1-set!
-  (c-function (GUID* DWORD) "___arg1->Data1 = ___arg2;"))
+  (c-function anonymous (GUID* DWORD) "___arg1->Data1 = ___arg2;"))
 
 
 (definition $$GUID-Data1-set!
-  (c-function (FOREIGNPTR DWORD) "((GUID*)___arg1)->Data1 = ___arg2;"))
+  (c-function anonymous (FOREIGNPTR DWORD) "((GUID*)___arg1)->Data1 = ___arg2;"))
 
 
 (definition (GUID-Data1-set! guid value)
@@ -177,11 +177,11 @@ end-c-code
 
 
 (definition GUID-make
-  (c-function () GUID* "___result = (GUID*) malloc(sizeof(GUID));"))
+  (c-function anonymous () GUID* "___result = (GUID*) malloc(sizeof(GUID));"))
 
 
 (definition GUID-free
-  (c-function (GUID*) void "free"))
+  (c-function anonymous (GUID*) void "free"))
 
 
 (definition (GUID-set! guid str)
@@ -225,7 +225,7 @@ end-c-code
   (let ((class-guid (GUID-encode class))
         (interface-guid (GUID-encode interface))
         (coptr* (IUnknown*-enref #f))
-        (proc (c-function (GUID* IUnknown* DWORD GUID* LPVOID*) HRESULT "CoCreateInstance")))
+        (proc (c-function anonymous (GUID* IUnknown* DWORD GUID* LPVOID*) HRESULT "CoCreateInstance")))
     (validate-hresult (proc class-guid #f CLSCTX_SERVER interface-guid coptr*))
     (GUID-free class-guid)
     (GUID-free interface-guid)

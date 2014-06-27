@@ -46,6 +46,14 @@
   "<--- ")
 
 
+(jazz:define-macro (c-include include)
+  (let ((str (string-append "#include " include)))
+    `(begin
+       (jazz:logging-line ,(string-append enter-marker str))
+       (c-declare ,str)
+       (jazz:logging-line ,(string-append exit-marker str)))))
+
+
 (jazz:define-macro (c-declaration name-or-declaration . rest)
   (let ((name (if (symbol? name-or-declaration) name-or-declaration 'anonymous))
         (declaration (if (symbol? name-or-declaration) (car rest) name-or-declaration)))

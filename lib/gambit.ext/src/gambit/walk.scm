@@ -427,14 +427,14 @@ end-of-code
 ;; NEED TO CONVERT USAGES of kind to Gambit's new VM API
 
 (define (##alloc-pair kind)
-  ((c-lambda (scheme-object) scheme-object
+  ((c-function ##alloc-pair (scheme-object) scheme-object
              "___SCMOBJ r = ___EXT(___make_pair) (___ps, ___FIX(0), ___FIX(0));
               ___EXT(___release_scmobj)(r);
               ___result = r;")
    kind))
 
 (define (##alloc-ovector len kind)
-  ((c-lambda (scheme-object scheme-object) scheme-object
+  ((c-function ##alloc-ovector (scheme-object scheme-object) scheme-object
              "___SCMOBJ r = ___EXT(___make_vector) (___ps, ___INT(___arg1), ___FIX(0));
               ___EXT(___release_scmobj)(r);
               ___result = r;")
@@ -442,7 +442,7 @@ end-of-code
    kind))
 
 (define (##alloc-bvector subtype len kind)
-  ((c-lambda (scheme-object scheme-object scheme-object) scheme-object
+  ((c-function ##alloc-bvector (scheme-object scheme-object scheme-object) scheme-object
              "___SCMOBJ r = ___EXT(___alloc_scmobj) (___ps, ___INT(___arg1), ___INT(___arg2));
               ___EXT(___release_scmobj)(r);
               ___result = r;")

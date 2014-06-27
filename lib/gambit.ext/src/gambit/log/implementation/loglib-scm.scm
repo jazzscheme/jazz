@@ -8,7 +8,7 @@
 
 (unit protected gambit.log.implementation.loglib-scm
 
-(c-declare #<<end-of-c-declare
+(c-declaration #<<end-of-c-declare
 
 #include "loglib.c"
 
@@ -28,16 +28,13 @@ end-of-c-declare
 (c-define-type log-context* (pointer log-context (log-context*)))
 (c-define-type log-context*/release-rc (pointer log-context (log-context*) "release_rc_log_context"))
 
-(define (log-context-alloc)
-  ((c-lambda ()
-             log-context*/release-rc
-             "___result_voidstar = ___EXT(___alloc_rc) (sizeof (struct log_context));")))
+(c-external (log-context-alloc) log-context*/release-rc
+  "___result_voidstar = ___EXT(___alloc_rc) (sizeof (struct log_context));")
 
 ;;;---------------------------------------------------------------------------
 
-(define log-RGBCOLOR
-  (c-lambda (int int int) scheme-object
-            "___result = ___FIX(RGBCOLOR(___arg1,___arg2,___arg3));"))
+(c-external (log-RGBCOLOR int int int) scheme-object
+  "___result = ___FIX(RGBCOLOR(___arg1,___arg2,___arg3));")
 
 (define log-BLACK    (log-RGBCOLOR   0   0   0))
 (define log-WHITE    (log-RGBCOLOR 255 255 255))
@@ -74,50 +71,50 @@ end-of-c-declare
             (log-transition log-context last-state))
         (##thread-heartbeat!)))))
 
-(define log-setup
-  (c-lambda (log-context*         ;; log context
-             nonnull-char-string  ;; program name
-             nonnull-char-string  ;; context name
-             int                  ;; processor number
-             int                  ;; number of states
-             int)                 ;; maximum number of state transitions
+(c-external (log-setup
+              log-context*         ;; log context
+              nonnull-char-string  ;; program name
+              nonnull-char-string  ;; context name
+              int                  ;; processor number
+              int                  ;; number of states
+              int)                 ;; maximum number of state transitions
             void
             "___EXT(___addref_string)(___arg2); /* prevent deallocation of string */
              ___EXT(___addref_string)(___arg3); /* prevent deallocation of string */
-             log_setup(___arg1, ___arg2, ___arg3, ___arg4, ___arg5, ___arg6);"))
+             log_setup(___arg1, ___arg2, ___arg3, ___arg4, ___arg5, ___arg6);")
 
-(define log-define-state
-  (c-lambda (log-context*         ;; log context
-             unsigned-int16       ;; state number
-             nonnull-char-string  ;; state name
-             int)                 ;; state color
+(c-external (log-define-state
+              log-context*         ;; log context
+              unsigned-int16       ;; state number
+              nonnull-char-string  ;; state name
+              int)                 ;; state color
             void
             "___EXT(___addref_string)(___arg3); /* prevent deallocation of string */
-             log_define_state(___arg1, ___arg2, ___arg3, ___arg4);"))
+             log_define_state(___arg1, ___arg2, ___arg3, ___arg4);")
 
-(define log-start
-  (c-lambda (log-context*         ;; log context
-             unsigned-int16)      ;; starting state number
+(c-external (log-start
+              log-context*         ;; log context
+              unsigned-int16)      ;; starting state number
             void
-            "log_start"))
+            "log_start")
 
-(define log-state
-  (c-lambda (log-context*)        ;; log context
+(c-external (log-state
+              log-context*)        ;; log context
             unsigned-int16
-            "log_state"))
+            "log_state")
 
-(define log-transition
-  (c-lambda (log-context*         ;; log context
-             unsigned-int16)      ;; state number
+(c-external (log-transition
+              log-context*         ;; log context
+              unsigned-int16)      ;; state number
             void
-            "log_transition"))
+            "log_transition")
 
-(define log-stop
-  (c-lambda (log-context*)        ;; log context
+(c-external (log-stop
+              log-context*)        ;; log context
             void
-            "log_stop"))
+            "log_stop")
 
-(define log-cleanup
-  (c-lambda (log-context*)        ;; log context
+(c-external (log-cleanup
+              log-context*)        ;; log context
             void
-            "log_cleanup")))
+            "log_cleanup"))

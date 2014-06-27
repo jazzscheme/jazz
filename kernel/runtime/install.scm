@@ -43,10 +43,10 @@
 
 (cond-expand
   (mac
-    (c-declaration "#include <mach-o/dyld.h>"))
+    (c-include "<mach-o/dyld.h>"))
   (unix
-    (c-declaration "#include <unistd.h>")
-    (c-declaration "#include <stdio.h>"))
+    (c-include "<unistd.h>")
+    (c-include "<stdio.h>"))
   (else))
 
 

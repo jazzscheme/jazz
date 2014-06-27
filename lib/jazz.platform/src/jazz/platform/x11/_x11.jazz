@@ -456,7 +456,7 @@
 
 
 (definition package (create-xic handle)
-  (let ((xic ((c-function (XIM char-string int char-string Window char-string Window) XIC
+  (let ((xic ((c-function XCreateIC (XIM char-string int char-string Window char-string Window) XIC
                 "___result_voidstar = XCreateIC(___arg1, ___arg2, ___arg3, ___arg4, ___arg5, ___arg6, ___arg7, NULL);")
               default-XIM
               XNInputStyle (bitwise-ior XIMPreeditNothing XIMStatusNothing)
@@ -709,19 +709,16 @@
   (int format))
 
 
-(definition package XClientMessageEvent-b-ref
-  (c-function (XClientMessageEvent*) char*
-    "___result_voidstar = ___arg1->data.b;"))
+(c-external (XClientMessageEvent-b-ref XClientMessageEvent*) char*
+    "___result_voidstar = ___arg1->data.b;")
 
 
-(definition package XClientMessageEvent-s-ref
-  (c-function (XClientMessageEvent*) short*
-    "___result_voidstar = ___arg1->data.s;"))
+(c-external (XClientMessageEvent-s-ref XClientMessageEvent*) short*
+    "___result_voidstar = ___arg1->data.s;")
 
 
-(definition package XClientMessageEvent-l-ref
-  (c-function (XClientMessageEvent*) long*
-    "___result_voidstar = ___arg1->data.l;"))
+(c-external (XClientMessageEvent-l-ref XClientMessageEvent*) long*
+    "___result_voidstar = ___arg1->data.l;")
   
   
 (c-structure XKeyEvent
@@ -944,7 +941,7 @@
 
 
 (definition public (XQueryTree-root display window)
-  ((c-function (Display* Window) Window
+  ((c-function XQueryTree (Display* Window) Window
      "Window root, parent, *children;
 	unsigned int n;
 	XQueryTree(___arg1, ___arg2, &root, &parent, &children, &n);
@@ -953,7 +950,7 @@ display window))
 
 
 (definition public (XQueryTree-parent display window)
-  ((c-function (Display* Window) Window
+  ((c-function XQueryTree (Display* Window) Window
      "Window root, parent, *children;
 	unsigned int n;
 	XQueryTree(___arg1, ___arg2, &root, &parent, &children, &n);
@@ -980,30 +977,28 @@ display window))
     (uint8*-free data)))
 
 
-(definition package rgb-pixel
-  (c-function (Display* short short short) ulong
+(c-external (rgb-pixel Display* short short short) ulong
     "XColor xcol;
      xcol.red = ___arg2 << 8;
      xcol.green = ___arg3 << 8;
      xcol.blue = ___arg4 << 8;
      XAllocColor(___arg1, DefaultColormap(___arg1, XDefaultScreen (___arg1)), &xcol);
-     ___result = xcol.pixel;"))
+     ___result = xcol.pixel;")
 
 
-(definition package select
-  (c-function (int fd_set* fd_set* fd_set* long long) int
+(c-external (select int fd_set* fd_set* fd_set* long long) int
     "struct timeval time;
      time.tv_sec = ___arg5;
      time.tv_usec = ___arg6;
-     ___result = select( ___arg1, ___arg2, ___arg3, ___arg4, &time );"))
+     ___result = select( ___arg1, ___arg2, ___arg3, ___arg4, &time );")
 
 
 (definition package (setup-fdset . fds)
-  (let ((alloc-fdset (c-function () fd_set*
+  (let ((alloc-fdset (c-function anonymous () fd_set*
                        "fd_set *set = malloc(sizeof(fd_set));
                         FD_ZERO(set);
                         ___result_voidstar = set;"))
-        (set-fdset (c-function (int fd_set*) void
+        (set-fdset (c-function anonymous (int fd_set*) void
                      "FD_SET(___arg1, ___arg2);")))
      (let ((set (alloc-fdset)))
        (for-each (lambda (fd)
@@ -1012,28 +1007,26 @@ display window))
        set)))
 
 
-(definition package free-fdset
-  (c-function (fd_set*) void
-    "free(___arg1);"))
+(c-external (free-fdset fd_set*) void
+    "free(___arg1);")
 
 
-(definition package x11-process-client-message
-  (c-function (Display* XClientMessageEvent*) bool
+(c-external (x11-process-client-message Display* XClientMessageEvent*) bool
     "Atom wm_delete_window = XInternAtom(___arg1, \"WM_DELETE_WINDOW\", False);
      if( ___arg2->data.l[0] == wm_delete_window )
        ___result = True;
      else
-       ___result = False;"))
+       ___result = False;")
 
 
 (definition package (XWindowEvent display window mask event)
-  (let ((func (c-function (Display* Window int XEvent*) void
+  (let ((func (c-function XWindowEvent (Display* Window int XEvent*) void
                 "XWindowEvent(___arg1, ___arg2, ___arg3, ___arg4);")))
     (func display window mask event)))
 
 
 (definition package (XTranslateCoordinates disp src_win dst_win x y)
-  (let* ((pt ((c-function (Display* Window Window int int) int*
+  (let* ((pt ((c-function XTranslateCoordinates (Display* Window Window int int) int*
                   "int *point = malloc(2*sizeof(int));
                   Window tmp;
                   XTranslateCoordinates( ___arg1, ___arg2, ___arg3, ___arg4, ___arg5, point, point+1, &tmp);
@@ -1044,8 +1037,7 @@ display window))
     (values x y)))
 
 
-(definition package XNumberOfChildren
-  (c-function (Display* Window) uint
+(c-external (XNumberOfChildren Display* Window) uint
     "Window root;
      Window parent;
      Window *children;
@@ -1053,11 +1045,10 @@ display window))
      Window ret;
      XQueryTree( ___arg1, ___arg2, &root, &parent, &children, &num);
      if( num != 0) { XFree(children); }
-     ___result = num;"))
+     ___result = num;")
 
 
-(definition package XGetChildHandle
-  (c-function (Display* Window int) Window
+(c-external (XGetChildHandle Display* Window int) Window
     "Window root;
      Window parent;
      Window *children;
@@ -1066,29 +1057,27 @@ display window))
      XQueryTree( ___arg1, ___arg2, &root, &parent, &children, &num);
      ret = *(children+num-___arg3-1);
      if( num != 0) { XFree(children); }
-     ___result = ret;"))
+     ___result = ret;")
 
 
-(definition package XButtonDown?
-  (c-function (Display*) bool
+(c-external (XButtonDown? Display*) bool
     "Window root_return;
      Window child_return;
      int root_x_return, root_y_return, win_x_return, win_y_return;
      unsigned int mods;
      XQueryPointer( ___arg1, DefaultRootWindow(___arg1), &root_return, &child_return, &win_x_return, &win_y_return,
                     &win_x_return, &win_y_return, &mods );
-     ___result = mods & Button1Mask;"))
+     ___result = mods & Button1Mask;")
 
 
-(definition package XKeyDown?
-  (c-function (Display* int) bool
+(c-external (XKeyDown? Display* int) bool
     "char keys[32];
      XQueryKeymap(___arg1, keys);
-     ___result = keys[___arg2/8] & (1 << (___arg2%8));"))
+     ___result = keys[___arg2/8] & (1 << (___arg2%8));")
 
 
 (definition package (XMousePosition disp win)
-  (let ((coords ((c-function (Display* Window) int*
+  (let ((coords ((c-function XQueryPointer (Display* Window) int*
                           "int *coords = calloc(2, sizeof(int));
                            Window x,y;
                            int a,b;
@@ -1101,17 +1090,15 @@ display window))
       (values x y))))
 
 
-(definition package XMouseWindow
-  (c-function (Display* Window) Window
+(c-external (XMouseWindow Display* Window) Window
      "Window root_return, child_return;
       int root_x_return, root_y_return, win_x_return, win_y_return;
       unsigned int mask_return;
       XQueryPointer( ___arg1, ___arg2, &root_return, &child_return, &root_x_return, &root_y_return, &win_x_return, &win_y_return, &mask_return );
-      ___result = child_return;"))
+      ___result = child_return;")
 
 
-(definition package XInvalidateRect
-  (c-function (Display* Window int int int int) void
+(c-external (XInvalidateRect Display* Window int int int int) void
     "XEvent exp;
      exp.xexpose.type = Expose;
      exp.xexpose.window = ___arg2;
@@ -1120,11 +1107,11 @@ display window))
      exp.xexpose.width = ___arg5;
     exp.xexpose.height = ___arg6;
     exp.xexpose.count = 0;
-    XSendEvent( ___arg1, ___arg2, True, ExposureMask, &exp );"))
+    XSendEvent( ___arg1, ___arg2, True, ExposureMask, &exp );")
 
 
 (definition package (XGetInputFocus display)
-  (let ((ret ((c-function (Display*) int*
+  (let ((ret ((c-function XGetInputFocus (Display*) int*
                   "Window win;
                    int *ret = calloc(2, sizeof(int));
                    XGetInputFocus(___arg1, &win, ret+1);
@@ -1142,7 +1129,7 @@ display window))
         (nitems_return-pt        (ulong*-alloc 1))
         (bytes_after_return-pt   (ulong*-alloc 1))
         (prop_return-pt          (uint8**-alloc 1))
-        (func                    (c-function (Display* Window Atom long long bool Atom Atom* int* ulong* ulong* uint8**) int "XGetWindowProperty")))
+        (func                    (c-function XGetWindowProperty (Display* Window Atom long long bool Atom Atom* int* ulong* ulong* uint8**) int "XGetWindowProperty")))
   (func display window property long_offset long_length delete req_type actual_type_return-pt actual_format_return-pt nitems_return-pt bytes_after_return-pt prop_return-pt)
   (let ((nitems_return        (ulong*-ref nitems_return-pt 0))
         (prop_return          (uint8**-ref prop_return-pt 0))
@@ -1191,27 +1178,24 @@ display window))
   (XSetSelectionOwner display selection window clipboard-stamp))
 
 
-(definition package XSetWMName
-  (c-function (Display* Window char-string) void
+(c-external (XSetWMName Display* Window char-string) void
     "XTextProperty textProp;
      XStringListToTextProperty(&___arg3, 1, &textProp);
-     XSetWMName(___arg1, ___arg2, &textProp);"))
+     XSetWMName(___arg1, ___arg2, &textProp);")
 
 
-(definition package XGetErrorText
-  (c-function (Display* int) char-string
+(c-external (XGetErrorText Display* int) char-string
     "char buffer[255];
      XGetErrorText(___arg1, ___arg2, buffer, 255);
-     ___result = buffer;"))
+     ___result = buffer;")
 
 
-(definition public XSetWMProtocols
-  (c-function (Display* Window Atom) void
-    "XSetWMProtocols( ___arg1, ___arg2, &___arg3, 1 );"))
+(c-external (XSetWMProtocols Display* Window Atom) void
+    "XSetWMProtocols( ___arg1, ___arg2, &___arg3, 1 );")
 
 
 (definition package (x11-utf8-lookup-string xic event)
-  (let ((func (c-function (XIC XKeyEvent* char* int ulong* int*) int "Xutf8LookupString"))
+  (let ((func (c-function Xutf8LookupString (XIC XKeyEvent* char* int ulong* int*) int "Xutf8LookupString"))
         (str-buffer (char*-alloc 20))
         (sym-buffer (ulong*-alloc 1))
         (status-buffer (int*-alloc 1)))
@@ -1233,8 +1217,7 @@ display window))
       (values sym str))))
       
       
-(definition package set-modal
-  (c-function (Display* Window) void
+(c-external (set-modal Display* Window) void
      "XClientMessageEvent xclient;
       Atom _NET_WM_STATE = XInternAtom( ___arg1, \"_NET_WM_STATE\", False );
       Atom _NET_WM_STATE_MODAL = XInternAtom( ___arg1, \"_NET_WM_STATE_MODAL\", False );
@@ -1249,7 +1232,7 @@ display window))
       xclient.data.l[4] = 0;
       XSendEvent (___arg1, XRootWindow(___arg1, XDefaultScreen(___arg1)), False,
 	      SubstructureRedirectMask | SubstructureNotifyMask,
-	      (XEvent *)&xclient);"))
+	      (XEvent *)&xclient);")
 
 
 ;;;

@@ -24,7 +24,7 @@
 
 (unit sqlite.implementation.resqlite3
 
-(c-declare #<<C-END
+(c-declaration #<<C-END
 #include <sqlite3.h>
 // #include <stdlib.h> // calloc and free
 #include <string.h> // memcpy
@@ -53,7 +53,7 @@ C-END
 	    sqlite3-prepared-statement
 	    "xxx_release_prepared_statement_xxx"))
 
-(c-declare #<<C-END
+(c-declaration #<<C-END
 ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
    int status = sqlite3_finalize(stmt);
    // fputs("RELEASED PREPARED STATEMENT\n", stderr);
@@ -68,33 +68,29 @@ C-END
 ;;; Latest error codes and messages available to Scheme through either
 ;;; a connection or a statement
 
-(define %%-sqlite3-database-error-code
-  (c-lambda (sqlite3-database-connection) int "sqlite3_errcode"))
+(c-external (%%-sqlite3-database-error-code sqlite3-database-connection) int "sqlite3_errcode")
 
-(define %%-sqlite3-database-error-message
-  (c-lambda (sqlite3-database-connection) char-string
+(c-external (%%-sqlite3-database-error-message sqlite3-database-connection) char-string
 #<<C-END
    const char *text = sqlite3_errmsg(___arg1);
    ___result = (char *)text;
 C-END
-))
+)
 
-(define %%-sqlite3-statement-error-code
-  (c-lambda (sqlite3-prepared-statement) int
+(c-external (%%-sqlite3-statement-error-code sqlite3-prepared-statement) int
 #<<C-END
   sqlite3 *db = sqlite3_db_handle(___arg1);
   ___result = sqlite3_errcode(db);
 C-END
-))
+)
 
-(define %%-sqlite3-statement-error-message
-  (c-lambda (sqlite3-prepared-statement) char-string
+(c-external (%%-sqlite3-statement-error-message sqlite3-prepared-statement) char-string
 #<<C-END
   sqlite3 *db = sqlite3_db_handle(___arg1);
   const char *text = sqlite3_errmsg(db);
   ___result = (char *)text;
 C-END
-))
+)
 
 (define (sqlite3-error-code obj)
   (cond
@@ -125,12 +121,11 @@ C-END
 ;;; success) or an error code (on failure). The higher-level
 ;;; sqlite3-open returns the database object or raises an exception.
 
-(c-define (%%-database-connection-%% db)
+(c-definition (%%-database-connection-%% db)
    (sqlite3-database-connection) scheme-object "database_connection" "static"
    db)
 
-(define %%-sqlite3-open
-  (c-lambda (char-string) scheme-object
+(c-external (%%-sqlite3-open char-string) scheme-object
 #<<C-END
   sqlite3* db;
   int res = sqlite3_open(___arg1, &db);
@@ -142,7 +137,7 @@ C-END
      ___result = database_connection(db);
   }
 C-END
-))
+)
 
 (define (sqlite3-open filename)
    (let ((result (%%-sqlite3-open filename)))
@@ -162,8 +157,7 @@ C-END
 ;;; on collection, and a user program can will a connection to keep
 ;;; trying to be closed.)
 
-(define %%-sqlite3-close
-  (c-lambda (sqlite3-database-connection) int "sqlite3_close"))
+(c-external (%%-sqlite3-close sqlite3-database-connection) int "sqlite3_close")
 
 (define (sqlite3-close database)
   (let ((status (%%-sqlite3-close database)))
@@ -178,12 +172,11 @@ C-END
 ;;; sqlite3-prepare returns the prepared statement or raises an
 ;;; exception.
 
-(c-define (%%-prepared-statement-%% stmt)
+(c-definition (%%-prepared-statement-%% stmt)
    (sqlite3-prepared-statement) scheme-object "prepared_statement" "static"
    stmt)
 
-(define %%-sqlite3-prepare
-  (c-lambda (sqlite3-database-connection char-string) scheme-object
+(c-external (%%-sqlite3-prepare sqlite3-database-connection char-string) scheme-object
 #<<C-END
   sqlite3_stmt *stmt;
   const char *rest;
@@ -196,7 +189,7 @@ C-END
      ___result = prepared_statement(stmt);
   }
 C-END
-))
+)
 
 (define (sqlite3-prepare database statement-text)
   (let ((result (%%-sqlite3-prepare database statement-text)))
@@ -204,9 +197,8 @@ C-END
 	(error "prepare failed" result statement-text)
 	result)))
 
-(define sqlite3-db-handle
-  (c-lambda (sqlite3-prepared-statement) sqlite3-database-connection
-     "sqlite3_db_handle"))
+(c-external (sqlite3-db-handle sqlite3-prepared-statement) sqlite3-database-connection
+     "sqlite3_db_handle")
 
 ;;; Executing a prepared statement
 
@@ -214,8 +206,7 @@ C-END
 ;;; higher-level sqlite3-step! returns true for a row and false for
 ;;; done, or raises an exception.
 
-(define %%-sqlite3-step
-  (c-lambda (sqlite3-prepared-statement) int "sqlite3_step"))
+(c-external (%%-sqlite3-step sqlite3-prepared-statement) int "sqlite3_step")
 
 (define (sqlite3-step! statement)
   (let ((status (%%-sqlite3-step statement)))
@@ -227,8 +218,7 @@ C-END
       (else
        (error "step failed" status)))))
 
-(define %%-sqlite3-reset
-  (c-lambda (sqlite3-prepared-statement) int "sqlite3_reset"))
+(c-external (%%-sqlite3-reset sqlite3-prepared-statement) int "sqlite3_reset")
 
 (define (sqlite3-reset! statement)
   (let ((status (%%-sqlite3-reset statement)))
@@ -240,11 +230,9 @@ C-END
 
 ;;; Accessing the current row
 
-(define sqlite3-column-count
-  (c-lambda (sqlite3-prepared-statement) int "sqlite3_column_count"))
+(c-external (sqlite3-column-count sqlite3-prepared-statement) int "sqlite3_column_count")
 
-(define %%-sqlite3-column-type
-  (c-lambda (sqlite3-prepared-statement int) int "sqlite3_column_type"))
+(c-external (%%-sqlite3-column-type sqlite3-prepared-statement int) int "sqlite3_column_type")
 
 (define (sqlite3-column-type statement k)
   (let ((type (%%-sqlite3-column-type statement k)))
@@ -258,29 +246,25 @@ C-END
        (error "column type error code" type)))))
 
 (define (sqlite3-column-name statement k)
-  (c-lambda (sqlite3-prepared-statement int) char-string
+  (c-function sqlite3_column_name (sqlite3-prepared-statement int) char-string
 #<<C-END
   const char *text = sqlite3_column_name(___arg1, ___arg2);
   ___result = (char *)text;
 C-END
 ))
 
-(define sqlite3-column-int
-  (c-lambda (sqlite3-prepared-statement int) int "sqlite3_column_int"))
+(c-external (sqlite3-column-int sqlite3-prepared-statement int) int "sqlite3_column_int")
 
-(define sqlite3-column-int64
-  (c-lambda (sqlite3-prepared-statement int) int64 "sqlite3_column_int64"))
+(c-external (sqlite3-column-int64 sqlite3-prepared-statement int) int64 "sqlite3_column_int64")
 
-(define sqlite3-column-double
-  (c-lambda (sqlite3-prepared-statement int) double "sqlite3_column_double"))
+(c-external (sqlite3-column-double sqlite3-prepared-statement int) double "sqlite3_column_double")
 
-(define sqlite3-column-text
-  (c-lambda (sqlite3-prepared-statement int) char-string
+(c-external (sqlite3-column-text sqlite3-prepared-statement int) char-string
 #<<C-END
    const char *text = sqlite3_column_text(___arg1, ___arg2);
    ___result = (char *)text;
 C-END
-))
+)
 
 ;;; Blobs can be accessed as Gambit-C homogeneous vectors, below. Raw
 ;;; blob intentionally not available - stepping the statement further
@@ -295,19 +279,16 @@ C-END
 
 ;;; Access bind parameters
 
-(define sqlite3-bind-parameter-count
-  (c-lambda (sqlite3-prepared-statement) int "sqlite3_bind_parameter_count"))
+(c-external (sqlite3-bind-parameter-count sqlite3-prepared-statement) int "sqlite3_bind_parameter_count")
 
-(define sqlite3-bind-parameter-name
-  (c-lambda (sqlite3-prepared-statement int) char-string
+(c-external (sqlite3-bind-parameter-name sqlite3-prepared-statement int) char-string
 #<<C-END
    const char *name = sqlite3_bind_parameter_name(___arg1, ___arg2);
    ___result = (char *)name;
 C-END
-))
+)
 
-(define %%-sqlite3-bind-parameter-index
-  (c-lambda (sqlite3-prepared-statement char-string) int "sqlite3_bind_parameter_index"))
+(c-external (%%-sqlite3-bind-parameter-index sqlite3-prepared-statement char-string) int "sqlite3_bind_parameter_index")
 
 (define (sqlite3-bind-parameter-index statement name)
   (let ((k (%%-sqlite3-bind-parameter-index statement name)))
@@ -315,8 +296,7 @@ C-END
 
 ;;; Bind int (presumably 32 bit integer)
 
-(define %%-sqlite3-bind-int
-  (c-lambda (sqlite3-prepared-statement int int) int "sqlite3_bind_int"))
+(c-external (%%-sqlite3-bind-int sqlite3-prepared-statement int int) int "sqlite3_bind_int")
 
 (define (sqlite3-bind-int! statement k m)
   (let ((s (%%-sqlite3-bind-int statement k m)))
@@ -324,8 +304,7 @@ C-END
 
 ;;; Bind int64
 
-(define %%-sqlite3-bind-int64
-  (c-lambda (sqlite3-prepared-statement int int64) int "sqlite3_bind_int64"))
+(c-external (%%-sqlite3-bind-int64 sqlite3-prepared-statement int int64) int "sqlite3_bind_int64")
 
 (define (sqlite3-bind-int64! statement k m)
   (let ((s (%%-sqlite3-bind-int64 statement k m)))
@@ -333,8 +312,7 @@ C-END
 
 ;;; Bind double
 
-(define %%-sqlite3-bind-double
-  (c-lambda (sqlite3-prepared-statement int float64) int "sqlite3_bind_double"))
+(c-external (%%-sqlite3-bind-double sqlite3-prepared-statement int float64) int "sqlite3_bind_double")
 
 (define (sqlite3-bind-double! statement k x)
   (let ((s (%%-sqlite3-bind-double statement k x)))
@@ -344,12 +322,11 @@ C-END
 
 ;;; This appears to work for UTF-8.
 
-(define %%-sqlite3-bind-text
-  (c-lambda (sqlite3-prepared-statement int char-string) int
+(c-external (%%-sqlite3-bind-text sqlite3-prepared-statement int char-string) int
 #<<C-END
   ___result = sqlite3_bind_text(___arg1, ___arg2, ___arg3, -1, SQLITE_TRANSIENT);
 C-END
-))
+)
 
 (define (sqlite3-bind-text! statement k str)
   (let ((s (%%-sqlite3-bind-text statement k str)))
@@ -375,16 +352,15 @@ C-END
 ;;; TODO: in sqlite3-bind-blob-code! check for non-subtyped (or
 ;;; otherwise prevent crashes)
 
-(define sqlite3-bind-blob-code!
-   (c-lambda (sqlite3-prepared-statement int scheme-object) int
+(c-external (sqlite3-bind-blob-code! sqlite3-prepared-statement int scheme-object) int
 #<<C-END
   void *buf = ___BODY_AS(___arg3,___tSUBTYPED);
   int n = ___HD_BYTES(___HEADER(___arg3));
   ___result = sqlite3_bind_blob(___arg1, ___arg2, buf, n, SQLITE_TRANSIENT);
 C-END
-))
+)
 
-(c-declare
+(c-declaration
 #<<c-declare-end
 static ___SCMOBJ
 resqlite3_column_blob(sqlite3_stmt* stmt, int col, int type, int size)
@@ -400,55 +376,45 @@ resqlite3_column_blob(sqlite3_stmt* stmt, int col, int type, int size)
 c-declare-end
 )
 
-(define sqlite3-column-u8vector-or-code
-  (c-lambda
-   (sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sU8VECTOR,1);"))
+(c-external (sqlite3-column-u8vector-or-code
+  (sqlite3-prepared-statement int) scheme-object
+   "___result = resqlite3_column_blob(___arg1,___arg2,___sU8VECTOR,1);")
 
-(define sqlite3-column-s8vector-or-code
-  (c-lambda
-   (sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sS8VECTOR,1);"))
+(c-external (sqlite3-column-s8vector-or-code
+  (sqlite3-prepared-statement int) scheme-object
+   "___result = resqlite3_column_blob(___arg1,___arg2,___sS8VECTOR,1);")
 
-(define sqlite3-column-u16vector-or-code
-  (c-lambda
-   (sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sU16VECTOR,2);"))
+(c-external (sqlite3-column-u16vector-or-code
+  (sqlite3-prepared-statement int) scheme-object
+   "___result = resqlite3_column_blob(___arg1,___arg2,___sU16VECTOR,2);")
 
-(define sqlite3-column-s16vector-or-code
-  (c-lambda
-   (sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sS16VECTOR,2);"))
+(c-external (sqlite3-column-s16vector-or-code
+  (sqlite3-prepared-statement int) scheme-object
+   "___result = resqlite3_column_blob(___arg1,___arg2,___sS16VECTOR,2);")
 
-(define sqlite3-column-u32vector-or-code
-  (c-lambda
-   (sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sU32VECTOR,4);"))
+(c-external (sqlite3-column-u32vector-or-code
+  (sqlite3-prepared-statement int) scheme-object
+   "___result = resqlite3_column_blob(___arg1,___arg2,___sU32VECTOR,4);")
 
-(define sqlite3-column-s32vector-or-code
-  (c-lambda
-   (sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sS32VECTOR,4);"))
+(c-external (sqlite3-column-s32vector-or-code
+  (sqlite3-prepared-statement int) scheme-object
+   "___result = resqlite3_column_blob(___arg1,___arg2,___sS32VECTOR,4);")
 
-(define sqlite3-column-f32vector-or-code
-  (c-lambda
-   (sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sF32VECTOR,4);"))
+(c-external (sqlite3-column-f32vector-or-code
+  (sqlite3-prepared-statement int) scheme-object
+   "___result = resqlite3_column_blob(___arg1,___arg2,___sF32VECTOR,4);")
 
-(define sqlite3-column-u64vector-or-code
-  (c-lambda
-   (sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sU64VECTOR,8);"))
+(c-external (sqlite3-column-u64vector-or-code
+  (sqlite3-prepared-statement int) scheme-object
+   "___result = resqlite3_column_blob(___arg1,___arg2,___sU64VECTOR,8);")
 
-(define sqlite3-column-s64vector-or-code
-  (c-lambda
-   (sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sS64VECTOR,8);"))
+(c-external (sqlite3-column-s64vector-or-code
+  (sqlite3-prepared-statement int) scheme-object
+   "___result = resqlite3_column_blob(___arg1,___arg2,___sS64VECTOR,8);")
 
-(define sqlite3-column-f64vector-or-code
-  (c-lambda
-   (sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sF64VECTOR,8);"))
+(c-external (sqlite3-column-f64vector-or-code
+  (sqlite3-prepared-statement int) scheme-object
+   "___result = resqlite3_column_blob(___arg1,___arg2,___sF64VECTOR,8);")
 
 ;;; --- The mid-level interface ---
 

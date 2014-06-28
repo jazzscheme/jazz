@@ -710,6 +710,9 @@
 (native jazz:load-file)
 (native jazz:load-script)
 (native jazz:current-script-arguments)
+(native jazz:get-foreign-libraries)
+(native jazz:register-foreign-library)
+(native jazz:registered-foreign-libraries)
 (native jazz:get-load-mutex)
 (native jazz:get-load-thread)
 (native jazz:current-load-stack)
@@ -775,6 +778,15 @@
 (native jazz:list-copy)
 (native jazz:last-pair)
 (native jazz:proper-list)
+
+
+;;;
+;;;; Logging
+;;;
+
+
+(native jazz:logging?)
+(native jazz:set-logging?)
 
 
 ;;;

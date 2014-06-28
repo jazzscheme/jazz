@@ -1965,6 +1965,34 @@
 
 
 ;;;
+;;;; Foreign
+;;;
+
+
+(define jazz:foreign-libraries
+  (%%make-table test: eq?))
+
+
+(define (jazz:get-foreign-libraries)
+  jazz:foreign-libraries)
+
+
+(define (jazz:register-foreign-library unit-name library-name)
+  (%%table-set! jazz:foreign-libraries unit-name (%%cons library-name (%%table-ref jazz:foreign-libraries unit-name '()))))
+
+
+(define (jazz:registered-foreign-libraries unit-name)
+  (%%table-ref jazz:foreign-libraries unit-name #f))
+
+
+(define (jazz:logging-foreign-libraries unit-name)
+  (if (jazz:logging?)
+      (let ((libraries (jazz:registered-foreign-libraries unit-name)))
+        (if libraries
+            (jazz:logging-line (jazz:format "**** libraries {l}" libraries))))))
+
+
+;;;
 ;;;; Unit
 ;;;
 
@@ -2056,6 +2084,7 @@
                              (lambda ()
                                (jazz:set-environment-unit unit-name jazz:Loading-State))
                              (lambda ()
+                               (jazz:logging-foreign-libraries unit-name)
                                (jazz:load-unit-src/bin unit-name force-source?: (%%eq? unit-state jazz:Error-State))
                                (let ((unit-state (jazz:get-environment-unit unit-name)))
                                  (if (%%procedure? unit-state)

@@ -114,26 +114,35 @@ END-OF-DECLARE
   (make-parameter 0))
 
 
+(define jazz:logging?
+  (c-lambda () bool
+    "___result = is_logging;"))
+
+(define jazz:set-logging?
+  (c-lambda (bool) void
+    "is_logging = ___arg1;"))
+
+
 (define jazz:logging-line
   (c-lambda (char-string) int
     "logging_line"))
 
 
 (define (jazz:logging-scheme->c name thunk)
-  (let ((str (symbol->string name))
-        (prefix (make-string (* (jazz:logging-depth) 2) #\space)))
-    (jazz:logging-line (string-append prefix enter-marker str c-marker))
-    (let ((result (parameterize ((jazz:logging-depth (+ (jazz:logging-depth) 1)))
+  (let ((str (%%symbol->string name))
+        (prefix (make-string (%%fx* (jazz:logging-depth) 2) #\space)))
+    (jazz:logging-line (%%string-append prefix enter-marker str c-marker))
+    (let ((result (parameterize ((jazz:logging-depth (%%fx+ (jazz:logging-depth) 1)))
                     (thunk))))
-      (jazz:logging-line (string-append prefix exit-marker str scheme-marker))
+      (jazz:logging-line (%%string-append prefix exit-marker str scheme-marker))
       result)))
 
 
 (define (jazz:logging-c->scheme name thunk)
-  (let ((str (symbol->string name))
-        (prefix (make-string (* (jazz:logging-depth) 2) #\space)))
-    (jazz:logging-line (string-append prefix enter-marker str scheme-marker))
-    (let ((result (parameterize ((jazz:logging-depth (+ (jazz:logging-depth) 1)))
+  (let ((str (%%symbol->string name))
+        (prefix (make-string (%%fx* (jazz:logging-depth) 2) #\space)))
+    (jazz:logging-line (%%string-append prefix enter-marker str scheme-marker))
+    (let ((result (parameterize ((jazz:logging-depth (%%fx+ (jazz:logging-depth) 1)))
                     (thunk))))
-      (jazz:logging-line (string-append prefix exit-marker str c-marker))
+      (jazz:logging-line (%%string-append prefix exit-marker str c-marker))
       result))))

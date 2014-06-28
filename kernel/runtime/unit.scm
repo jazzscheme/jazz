@@ -1986,7 +1986,7 @@
 
 
 (define (jazz:logging-foreign-libraries unit-name)
-  (if (jazz:logging?)
+  (if (and jazz:kernel-debug-foreign? (jazz:logging?))
       (let ((libraries (jazz:registered-foreign-libraries unit-name)))
         (if libraries
             (jazz:logging-line (jazz:format "**** libraries {l}" libraries))))))

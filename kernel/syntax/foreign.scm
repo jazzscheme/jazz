@@ -48,64 +48,78 @@
 
 (jazz:define-macro (c-include include)
   (let ((str (string-append "#include " include)))
-    `(begin
-       (jazz:logging-line ,(string-append enter-marker str))
-       (c-declare ,str)
-       (jazz:logging-line ,(string-append exit-marker str)))))
+    (if (%%not jazz:kernel-debug-foreign?)
+        `(c-declare ,str)
+      `(begin
+         (jazz:logging-line ,(string-append enter-marker str))
+         (c-declare ,str)
+         (jazz:logging-line ,(string-append exit-marker str))))))
 
 
 (jazz:define-macro (c-declaration name-or-declaration . rest)
   (let ((name (if (symbol? name-or-declaration) name-or-declaration 'anonymous))
         (declaration (if (symbol? name-or-declaration) (car rest) name-or-declaration)))
-    (let ((str (symbol->string name)))
-      `(begin
-         (jazz:logging-line ,(string-append enter-marker str " declaration"))
-         (c-declare ,declaration)
-         (jazz:logging-line ,(string-append exit-marker str " declaration"))))))
+    (if (%%not jazz:kernel-debug-foreign?)
+        `(c-declare ,declaration)
+      (let ((str (symbol->string name)))
+        `(begin
+           (jazz:logging-line ,(string-append enter-marker str " declaration"))
+           (c-declare ,declaration)
+           (jazz:logging-line ,(string-append exit-marker str " declaration")))))))
 
 
 (jazz:define-macro (c-initialization name-or-code . rest)
   (let ((name (if (symbol? name-or-code) name-or-code 'anonymous))
         (code (if (symbol? name-or-code) (car rest) name-or-code)))
-    (let ((str (symbol->string name)))
-      `(begin
-         (jazz:logging-line ,(string-append enter-marker str " initialization"))
-         (c-initialize ,code)
-         (jazz:logging-line ,(string-append exit-marker str " initialization"))))))
+    (if (%%not jazz:kernel-debug-foreign?)
+        `(c-initialize ,code)
+      (let ((str (symbol->string name)))
+        `(begin
+           (jazz:logging-line ,(string-append enter-marker str " initialization"))
+           (c-initialize ,code)
+           (jazz:logging-line ,(string-append exit-marker str " initialization")))))))
 
 
 (jazz:define-macro (c-definition signature types result-type c-name scope . body)
-  (let ((name (car signature)))
-    `(c-define ,signature ,types ,result-type ,c-name ,scope
-       (jazz:logging-c->scheme ',name
-         (lambda ()
-           ,@body)))))
+  (if (%%not jazz:kernel-debug-foreign?)
+      `(c-define ,signature ,types ,result-type ,c-name ,scope
+         ,@body)
+    (let ((name (car signature)))
+      `(c-define ,signature ,types ,result-type ,c-name ,scope
+         (jazz:logging-c->scheme ',name
+           (lambda ()
+             ,@body))))))
 
 
 (jazz:define-macro (c-function name types result-type c-name-or-code)
-  (let ((variables (map (lambda (type)
-                          (jazz:generate-symbol))
-                        types)))
-    `(lambda ,variables
-       (jazz:logging-scheme->c ',name
-         (lambda ()
-           ((c-lambda ,types ,result-type ,c-name-or-code)
-            ,@variables))))))
+  (if (%%not jazz:kernel-debug-foreign?)
+      `(c-lambda ,types ,result-type ,c-name-or-code)
+    (let ((variables (map (lambda (type)
+                            (jazz:generate-symbol))
+                          types)))
+      `(lambda ,variables
+         (jazz:logging-scheme->c ',name
+           (lambda ()
+             ((c-lambda ,types ,result-type ,c-name-or-code)
+              ,@variables)))))))
 
 
 (jazz:define-macro (c-external signature result-type . rest)
   (let ((name (car signature))
         (types (cdr signature)))
-    (let ((c-name-or-code (if (null? rest) (symbol->string name) (car rest)))
-          (variables (map (lambda (type)
-                          (jazz:generate-symbol))
-                        types)))
-      `(define ,name
-         (lambda ,variables
-           (jazz:logging-scheme->c ',name
-             (lambda ()
-               ((c-lambda ,types ,result-type ,c-name-or-code)
-                ,@variables))))))))
+    (let ((c-name-or-code (if (null? rest) (symbol->string name) (car rest))))
+      (if (%%not jazz:kernel-debug-foreign?)
+          `(define ,name
+             (c-lambda ,types ,result-type ,c-name-or-code))
+        (let ((variables (map (lambda (type)
+                                (jazz:generate-symbol))
+                              types)))
+          `(define ,name
+             (lambda ,variables
+               (jazz:logging-scheme->c ',name
+                 (lambda ()
+                   ((c-lambda ,types ,result-type ,c-name-or-code)
+                    ,@variables))))))))))
 
 
 #; ;; quicky as this cannot refer to c-function???

@@ -711,7 +711,7 @@
 (native jazz:load-script)
 (native jazz:current-script-arguments)
 (native jazz:get-foreign-libraries)
-(native jazz:register-foreign-library)
+(native jazz:register-foreign-libraries)
 (native jazz:registered-foreign-libraries)
 (native jazz:get-load-mutex)
 (native jazz:get-load-thread)

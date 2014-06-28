@@ -1977,8 +1977,8 @@
   jazz:foreign-libraries)
 
 
-(define (jazz:register-foreign-library unit-name library-name)
-  (%%table-set! jazz:foreign-libraries unit-name (%%cons library-name (%%table-ref jazz:foreign-libraries unit-name '()))))
+(define (jazz:register-foreign-libraries unit-name . libraries)
+  (%%table-set! jazz:foreign-libraries unit-name libraries))
 
 
 (define (jazz:registered-foreign-libraries unit-name)

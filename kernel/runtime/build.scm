@@ -895,7 +895,7 @@
   ; is the lib up-to-date according to the lib manifest?
   (define (library-manifest-uptodate? header sub-units)
     (define digest-table (%%make-table test: eq?))
-      
+    
     (define (load-image-units-manifest)
       (if (jazz:file-exists? header)
           (begin
@@ -948,26 +948,40 @@
     (jazz:with-numbered-pathname (string-append library-base "." jazz:Library-Extension) #t 1
       (lambda (library-o1 o1-exists?)
         (let* ((linkfile (string-append library-o1 ".c"))
-               (header (string-append library-base "." jazz:Library-Manifest-Extension))
+               (header (string-append library-base jazz:Library-Manifest-Suffix))
+               (header-name (string-append jazz:product-uniqueness-prefix (%%symbol->string product-name)))
+               (header-s (string-append header ".scm"))
                (header-c (string-append header ".c"))
                (header-o (string-append header ".o"))
                (sub-units (remove-duplicates (%%apply append (map jazz:get-subunit-names update)))))
-          
           (define (build-library)
             (jazz:create-build-package package)
-            (make-library-header header product-name sub-units)
-            (compile-file-to-target header output: header-c)
-            (compile-file header-c options: '(obj) cc-options: "-D___BIND_LATE ")
+            (make-library-header header-s product-name sub-units)
+            (compile-file-to-target header-s output: header-c module-name: header-name)
+            (compile-file header-c options: '(obj) cc-options: "-D___DYNAMIC ")
             
             (feedback-message "; creating link file...")
-            (link-flat (%%cons header
-                               (map (lambda (subunit-name)
-                                      (jazz:with-unit-resources subunit-name #f
-                                        (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                          (jazz:resource-pathname obj))))
-                                    sub-units))
+            (pp (list (map (lambda (module)
+                                  (list module '(preload . #f)))
+                                (%%cons header
+                                        (map (lambda (subunit-name)
+                                               (jazz:with-unit-resources subunit-name #f
+                                                 (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                                                   (jazz:resource-pathname obj))))
+                                             sub-units)))
+                           output: linkfile
+                           warnings?: #f))
+            (link-flat (map (lambda (module)
+                              (list module '(preload . #f)))
+                            (%%cons header-c
+                                    (map (lambda (subunit-name)
+                                           (jazz:with-unit-resources subunit-name #f
+                                             (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                                               (string-append (jazz:resource-pathname obj) ".c"))))
+                                         sub-units)))
                        output: linkfile
                        warnings?: #f)
+            (pp 'done)
             
             (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))
             (jazz:call-process
@@ -984,17 +998,17 @@
                                     sub-units)
                              ,linkfile
                              "-o" ,library-o1
-                             ,(string-append "-I" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
-                             ,(string-append "-L" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
+                             ,(string-append "-I" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~include"))))
+                             ,(string-append "-L" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~lib"))))
                              ,@(link-options))))
             (case platform
               ((windows)
                (if jazz:single-objects?
                    (jazz:obliterate-PE-timestamp library-o1 'DLL))))
-            (map delete-file (%%list header-c header-o linkfile))
+            (for-each delete-file (%%list header-c header-o linkfile))
             #t)
 
-          (or (and o1-exists? (library-manifest-uptodate? header sub-units))
+          (or (and o1-exists? (library-manifest-uptodate? header-s sub-units))
               (build-library)))))))
 
 

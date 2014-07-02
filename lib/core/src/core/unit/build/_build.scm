@@ -193,9 +193,6 @@
 
 
 (define (jazz:compile-file src bin update-obj? update-bin? build-package #!key (output-language #f) (options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz:kernel-platform))
-  (define unit-uniqueness-prefix
-    "unit:")
-  
   (define bin-pathname-base
     (jazz:binary-with-extension src ""))
   
@@ -205,7 +202,7 @@
       (else ".c")))
   
   (define (compile)
-    (let ((unique-module-name (%%string-append unit-uniqueness-prefix (%%symbol->string unit-name)))
+    (let ((unique-module-name (%%string-append jazz:unit-uniqueness-prefix (%%symbol->string unit-name)))
           (src-pathname (jazz:resource-pathname src))
           (bin-output (string-append bin-pathname-base bin-extension)))
       (parameterize ((jazz:generate-symbol-for "^")
@@ -215,7 +212,7 @@
         ;; temporary until a cleaner solution
         (set! ##gensym-counter -1)
         (if (not (and (compile-file-to-target src-pathname output: bin-output options: options module-name: unique-module-name)
-                      (compile-file bin-output options: (%%cons 'obj options) cc-options: (string-append "-D___BIND_LATE " cc-options))))
+                      (compile-file bin-output options: (%%cons 'obj options) cc-options: (string-append "-D___DYNAMIC " cc-options))))
             (jazz:error "compilation failed")))))
   
   (define (update-manifest)

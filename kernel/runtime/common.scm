@@ -58,6 +58,19 @@
       (load pathname))))
 
 
+(cond-expand
+  (gambit
+    (define (jazz:load-binary pathname . rest)
+      (let ((quiet? (if (%%null? rest) #f (%%car rest))))
+        (let ((result (##load-object-file pathname quiet?)))
+          (let ((module-descrs (##vector-ref result 0)))
+            (##register-module-descrs-and-load! module-descrs))))
+      (void)))
+  (else
+    (define (jazz:load-binary pathname . rest)
+      (load pathname))))
+
+
 ;;;
 ;;;; Configuration
 ;;;
@@ -716,5 +729,9 @@
 ;;;
 
 
+(define jazz:unit-uniqueness-prefix "unit:")
+(define jazz:product-uniqueness-prefix "product:")
+
+
 (define jazz:Library-Extension "l")
-(define jazz:Library-Manifest-Extension "lmf"))
+(define jazz:Library-Manifest-Suffix "_lmf"))

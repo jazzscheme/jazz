@@ -960,17 +960,7 @@
             (compile-file-to-target header-s output: header-c module-name: header-name)
             (compile-file header-c options: '(obj) cc-options: "-D___DYNAMIC ")
             
-            (feedback-message "; creating link file...")
-            (pp (list (map (lambda (module)
-                                  (list module '(preload . #f)))
-                                (%%cons header
-                                        (map (lambda (subunit-name)
-                                               (jazz:with-unit-resources subunit-name #f
-                                                 (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                                   (jazz:resource-pathname obj))))
-                                             sub-units)))
-                           output: linkfile
-                           warnings?: #f))
+            ;(feedback-message "; creating link file...")
             (link-flat (map (lambda (module)
                               (list module '(preload . #f)))
                             (%%cons header-c
@@ -981,7 +971,6 @@
                                          sub-units)))
                        output: linkfile
                        warnings?: #f)
-            (pp 'done)
             
             (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))
             (jazz:call-process

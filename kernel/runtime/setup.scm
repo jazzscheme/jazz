@@ -165,7 +165,6 @@
 (define (jazz:load-libraries)
   (define libraries (%%make-table test: eq?))
   (define (add-library product-name library-filename)
-    (pp library-filename)
     (if (%%table-ref libraries product-name #f)
         (jazz:error "Found duplicate library: {s}" product-name)
       (%%table-set! libraries product-name library-filename)))
@@ -201,7 +200,6 @@
   
   (index-for-each
     (lambda (unit i)
-      (pp unit)
       (let ((name (%%car unit))
             (compile-time-hash (%%cadr unit)))
         (let ((module-name (%%string->symbol (%%string-append jazz:unit-uniqueness-prefix (%%symbol->string name)))))

@@ -429,11 +429,13 @@
                              (size type*)
                              ((memq kind '(type struct union)) type*)
                              (else type))))
-            (let ((getter `(definition public ,(build-method-symbol struct id '-ref)
-                                       (c-function anonymous (,struct*) ,type ,getter-string)))
+            (let ((getter (let ((name (build-method-symbol struct id '-ref)))
+                            `(definition public ,name
+                               (c-function ,name (,struct*) ,type ,getter-string))))
                   (setter (and setter-string
-                               `(definition public ,(build-method-symbol struct id '-set!)
-                                            (c-function anonymous (,struct* ,type) (native void) ,setter-string)))))
+                               (let ((name (build-method-symbol struct id '-set!)))
+                                 `(definition public ,name
+                                    (c-function ,name (,struct* ,type) (native void) ,setter-string))))))
               (values getter setter))))))))
 
 
@@ -452,27 +454,32 @@
           (if setter
               (list getter setter)
             (list getter))))
-      `(begin
-         (c-type ,struct (type ,c-struct-string ,@tag-rest))
-         (c-type ,struct* (pointer ,struct ,@tag*-rest))
-         (definition public ,(build-method-symbol struct 'make)
-           (c-function anonymous () ,struct* ,(string-append "___result_voidstar = calloc(1," sizeof ");")))
-         (definition public ,(build-method-symbol struct 'free)
-           (c-function anonymous (,struct*) (native void) "free(___arg1);"))
-         (definition public ,(build-method-symbol struct 'sizeof)
-           (c-function anonymous () (native unsigned-int) ,(string-append "___result = " sizeof ";")))
-         ,@(apply append (map expand-acc clauses))))))
+      (let ((make-name (build-method-symbol struct 'make))
+            (free-name (build-method-symbol struct 'free))
+            (sizeof-name (build-method-symbol struct 'sizeof)))
+        `(begin
+           (c-type ,struct (type ,c-struct-string ,@tag-rest))
+           (c-type ,struct* (pointer ,struct ,@tag*-rest))
+           (definition public ,make-name
+             (c-function ,make-name () ,struct* ,(string-append "___result_voidstar = calloc(1," sizeof ");")))
+           (definition public ,free-name
+             (c-function ,free-name (,struct*) (native void) "free(___arg1);"))
+           (definition public ,sizeof-name
+             (c-function ,sizeof-name () (native unsigned-int) ,(string-append "___result = " sizeof ";")))
+           ,@(apply append (map expand-acc clauses)))))))
 
 
 (define (expand-c-structure-array name . rest)
   (let* ((struct name)
          (struct* (build-pointer-symbol struct))
          (c-struct-string (if (not (null? rest)) (car rest) (symbol->string struct))))
-    `(begin
-       (definition public ,(build-method-symbol struct 'array-make)
-         (c-function anonymous (int) ,struct* ,(string-append "___result = calloc(___arg1,sizeof(" c-struct-string "));")))
-       (definition public ,(build-method-symbol struct 'array-element)
-         (c-function anonymous (,struct* int) ,struct* ,(string-append "___result = ___arg1+___arg2;"))))))
+    (let ((make-name (build-method-symbol struct 'array-make))
+          (element-name (build-method-symbol struct 'array-element)))
+      `(begin
+         (definition public ,make-name
+           (c-function ,make-name (int) ,struct* ,(string-append "___result = calloc(___arg1,sizeof(" c-struct-string "));")))
+         (definition public ,element-name
+           (c-function ,element-name (,struct* int) ,struct* ,(string-append "___result = ___arg1+___arg2;")))))))
 
 
 (syntax public c-structure

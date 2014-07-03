@@ -1,0 +1,534 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; GLFW
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module glfw jazz
+
+
+(import (jazz.foreign)
+        (jazz.platform.types))
+
+(terminal 'aaa)
+;;;
+;;;; Temporary Hacks
+;;;
+
+
+(definition public window-to-use-hack
+  (make-parameter #f))
+
+
+(define translate-shortcut-hook
+  #f)
+
+(definition public (set-translate-shortcut-hook hook)
+  (set! translate-shortcut-hook hook))
+
+
+(definition get-window
+  #f)
+
+(definition public (set-get-window proc)
+  (set! get-window proc))
+
+
+;;;
+;;;; Objective C
+;;;
+
+
+(c-declare glfw #"
+
+#include <objc/objc.h>
+#include <Foundation/NSString.h>
+
+const char *class_getName(Class cls);
+id objc_getClass(const char *name);
+id objc_msgSend(id self, SEL op, ...);
+
+id retain_id(id x)
+{
+  if (x != nil)
+    [x retain];
+  return x;
+}
+
+___SCMOBJ release_id(void *ptr)
+{
+  id x = ___CAST(id,ptr);
+  if (x != nil)
+    [x release];
+  return ___FIX(___NO_ERR);
+}
+
+Class retain_Class(Class x)
+{
+  if (x != nil)
+    [x retain];
+  return x;
+}
+
+___SCMOBJ release_Class(void *ptr)
+{
+  Class x = ___CAST(Class,ptr);
+  if (x != nil)
+    [x release];
+  return ___FIX(___NO_ERR);
+}
+
+"#)
+
+
+;;;
+;;;; Objective C Types
+;;;
+
+
+(c-type id (pointer (struct "objc_object") (id Class) "release_id"))
+(c-type Class_ (pointer (struct "objc_class") (Class id) "release_Class"))
+(c-type SEL (pointer (struct "objc_selector") (SEL)))
+
+(c-external (string->Class nonnull-char-string) Class_
+    "___result = retain_Class(objc_getClass(___arg1));")
+
+(c-external (Class->string Class_) nonnull-char-string
+    "___result = ___CAST(char*,class_getName(___arg1));") ;;;TODO: remove cast
+
+(c-external (string->SEL nonnull-UTF-8-string) SEL
+    "___result = sel_registerName(___arg1);")
+
+(c-external (SEL->string SEL) nonnull-UTF-8-string
+    "___result = ___CAST(char*,sel_getName(___arg1));") ;;;TODO: remove cast
+
+
+;;;
+;;;; Objective C Messages
+;;;
+
+
+(c-external (send0 id SEL) id
+    "___result = retain_id(___CAST(id (*)(id, SEL),objc_msgSend)(___arg1, ___arg2));")
+
+(c-external (send1 id SEL id) id
+    "___result = retain_id(___CAST(id (*)(id, SEL, id),objc_msgSend)(___arg1, ___arg2, ___arg3));")
+
+(c-external (send2 id SEL id id) id
+    "___result = retain_id(___CAST(id (*)(id, SEL, id, id),objc_msgSend)(___arg1, ___arg2, ___arg3, ___arg4));")
+
+
+;;;
+;;;; Objective C Conversions
+;;;
+
+
+(c-external (id->string id) nonnull-UTF-8-string
+    "___result = ___CAST(char*,[___CAST(NSString*,___arg1) UTF8String]);") ;;;TODO: remove cast
+
+(c-external (string->id nonnull-UTF-8-string) id
+    "___result = retain_id([NSString stringWithUTF8String: ___arg1]);")
+
+(c-external (id->bool id) bool
+    "___result = [___CAST(NSNumber*,___arg1) boolValue];")
+
+(c-external (bool->id bool) id
+    "___result = retain_id([NSNumber numberWithBool:___arg1]);")
+
+(c-external (id->int id) int
+    "___result = [___CAST(NSNumber*,___arg1) intValue];")
+
+(c-external (int->id int) id
+    "___result = retain_id([NSNumber numberWithInt:___arg1]);")
+
+(c-external (id->float id) float
+    "___result = [___CAST(NSNumber*,___arg1) floatValue];")
+
+(c-external (float->id float) id
+    "___result = retain_id([NSNumber numberWithFloat:___arg1]);")
+
+(c-external (id->double id) double
+    "___result = [___CAST(NSNumber*,___arg1) doubleValue];")
+
+(c-external (double->id double) id
+    "___result = retain_id([NSNumber numberWithDouble:___arg1]);")
+
+
+;;;
+;;;; Cocoa NSString
+;;;
+
+
+(c-declare glfw #"
+
+___SCMOBJ SCMOBJ_to_NSStringSTAR(___SCMOBJ src, NSString **dst, int arg_num)
+{
+  /*
+   * Convert a Scheme string to NSString* .
+   */
+
+  NSString *result;
+  ___SCMOBJ ___temp;
+
+  if (src == ___FAL)
+    result = nil;
+  else if (!___STRINGP(src))
+    return ___FIX(___STOC_WCHARSTRING_ERR+arg_num);
+  else
+    {
+      int i;
+      int len = ___INT(___STRINGLENGTH(src));
+      unichar *buf = ___alloc_mem(sizeof(unichar)*len);
+
+      if (buf == 0)
+        return ___FIX(___STOC_HEAP_OVERFLOW_ERR+arg_num);
+
+      for (i=0; i<len; i++)
+        {
+          ___UCS_4 c = ___INT(___STRINGREF(src,___FIX(i)));
+          buf[i] = c;
+        }
+
+      result = retain_id([NSString stringWithCharacters:buf length:len]);
+
+      ___free_mem(buf);
+    }
+
+  *dst = result;
+
+  return ___FIX(___NO_ERR);
+}
+
+___SCMOBJ NSStringSTAR_to_SCMOBJ(NSString *src, ___SCMOBJ *dst, int arg_num)
+{
+  ___SCMOBJ result;
+
+  if (src == nil)
+    result = ___FAL;
+  else
+    {
+      int i;
+      int len = [src length];
+
+      result = ___alloc_scmobj(___PSTATE, ___sSTRING, len<<___LCS);
+
+      if (___FIXNUMP(result))
+        return ___FIX(___CTOS_HEAP_OVERFLOW_ERR+arg_num);
+
+      for (i=0; i<len; i++)
+        {
+          ___UCS_4 c = [src characterAtIndex:i];
+          ___STRINGSET(result,___FIX(i),___CHR(c))
+        }
+    }
+
+  *dst = result;
+
+  return ___FIX(___NO_ERR);
+}
+
+#define ___BEGIN_CFUN_SCMOBJ_to_NSStringSTAR(src,dst,i) \\
+if ((___err = SCMOBJ_to_NSStringSTAR(src, &dst, i)) == ___FIX(___NO_ERR)) {
+#define ___END_CFUN_SCMOBJ_to_NSStringSTAR(src,dst,i) }
+
+#define ___BEGIN_CFUN_NSStringSTAR_to_SCMOBJ(src,dst) \\
+if ((___err = NSStringSTAR_to_SCMOBJ(src, &dst, ___RETURN_POS)) == ___FIX(___NO_ERR)) {
+#define ___END_CFUN_NSStringSTAR_to_SCMOBJ(src,dst) \\
+___EXT(___release_scmobj)(dst); }
+
+#define ___BEGIN_SFUN_NSStringSTAR_to_SCMOBJ(src,dst,i) \\
+if ((___err = NSStringSTAR_to_SCMOBJ(src, &dst, i)) == ___FIX(___NO_ERR)) {
+#define ___END_SFUN_NSStringSTAR_to_SCMOBJ(src,dst,i) \\
+___EXT(___release_scmobj)(dst); }
+
+#define ___BEGIN_SFUN_SCMOBJ_to_NSStringSTAR(src,dst) \\
+{ ___err = SCMOBJ_to_NSStringSTAR(src, &dst, ___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_to_NSStringSTAR(src,dst) }
+
+"#)
+
+(c-type NSString* "NSString*"
+  "NSStringSTAR_to_SCMOBJ"
+  "SCMOBJ_to_NSStringSTAR"
+  #t)
+
+
+;;;
+;;;; Cocoa NSDate
+;;;
+
+
+(define NSDate      (string->Class "NSDate"))
+(define alloc       (string->SEL "alloc"))
+(define init        (string->SEL "init"))
+(define description (string->SEL "description"))
+
+(define (date)
+  (id->string
+   (send0 (send0 (send0 NSDate alloc) init) description)))
+
+
+;;;
+;;;; Cocoa NSBundle
+;;;
+
+
+(define NSBundle    (string->Class "NSBundle"))
+(define mainBundle  (string->SEL "mainBundle"))
+(define objectForInfoDictionaryKey (string->SEL "objectForInfoDictionaryKey:"))
+
+(define (mainBundle-info key)
+  (let ((info
+         (send1 (send0 NSBundle mainBundle)
+                objectForInfoDictionaryKey (string->id key))))
+    (and info
+         (id->string info))))
+
+(define CFBundleName (mainBundle-info "CFBundleName"))
+(define CFBundleDisplayName (mainBundle-info "CFBundleDisplayName"))
+
+
+;;;
+;;;; Cocoa UIDevice
+;;;
+
+
+@wait (
+(c-include "<Foundation/UIDevice.h>")
+
+(c-external (currentDevice-batteryLevel ) float
+    "___result = [[UIDevice currentDevice] batteryLevel];")
+
+(c-external (currentDevice-batteryMonitoringEnabled ) bool
+    "___result = [UIDevice currentDevice].batteryMonitoringEnabled;")
+
+(c-external (currentDevice-batteryMonitoringEnabled-set! bool) void
+    "[UIDevice currentDevice].batteryMonitoringEnabled = ___arg1;")
+
+(c-external (currentDevice-multitaskingSupported ) bool
+    "___result = [UIDevice currentDevice].multitaskingSupported;")
+
+(c-external (currentDevice-model ) NSString*
+    "___result = [[UIDevice currentDevice] model];")
+
+(c-external (currentDevice-name ) NSString*
+    "___result = [[UIDevice currentDevice] name];")
+
+(c-external (currentDevice-systemName ) NSString*
+    "___result = [[UIDevice currentDevice] systemName];")
+
+(c-external (currentDevice-systemVersion ) NSString*
+    "___result = [[UIDevice currentDevice] systemVersion];")
+
+(c-external (currentDevice-uniqueIdentifier ) NSString*
+    "___result = [[UIDevice currentDevice] uniqueIdentifier];")
+
+(define (device-status)
+  (currentDevice-batteryMonitoringEnabled-set! #t)
+  (list (currentDevice-batteryLevel)
+        (currentDevice-batteryMonitoringEnabled)
+        (currentDevice-multitaskingSupported)
+        (currentDevice-model)
+        (currentDevice-name)
+        (currentDevice-systemName)
+        (currentDevice-systemVersion)
+        (currentDevice-uniqueIdentifier)))
+
+(define (device-model)
+  (let ((m (currentDevice-model)))
+    (cond ((has-prefix? m "iPhone")
+           'iPhone)
+          ((has-prefix? m "iPod touch")
+           'iPod-touch)
+          ((has-prefix? m "iPad")
+           'iPad)
+          (else
+           #f))))
+
+(define (UDID)
+  (currentDevice-uniqueIdentifier))
+)
+
+(define (has-prefix? str prefix)
+  (and (string? str)
+       (string? prefix)
+       (let ((len-str (string-length str))
+             (len-prefix (string-length prefix)))
+         (and (>= len-str len-prefix)
+              (string=? (substring str 0 len-prefix) prefix)
+              (substring str len-prefix len-str)))))
+
+
+;;;
+;;;; Cocoa AudioToolbox
+;;;
+
+
+(c-declare glfw #"
+
+#import <AudioToolbox/AudioToolbox.h>
+
+"#)
+
+(c-type SystemSoundID unsigned-int32)
+
+(c-external (AudioServicesPlayAlertSound SystemSoundID) void "AudioServicesPlayAlertSound")
+
+(c-external (AudioServicesPlaySystemSound SystemSoundID) void "AudioServicesPlaySystemSound")
+
+(define kSystemSoundID_FlashScreen        #x00000FFE)
+(define kSystemSoundID_Vibrate            #x00000FFF)
+(define kSystemSoundID_UserPreferredAlert #x00001000)
+
+
+;;;
+;;;; GLFW
+;;;
+
+
+(c-constant NULL #f)
+
+
+(c-type glfwmonitor (pointer (struct "_GLFWmonitor")))
+(c-type glfwwindow (pointer (struct "_GLFWwindow")))
+
+
+(definition first?
+  #t)
+
+(c-external (___glfwCreateWindow) glfwwindow
+  "___result_voidstar = glfwCreateWindow(640, 480, \"Title\", NULL, NULL);")
+
+(definition public platformCreateWindow
+  (lambda ()
+    (if first?
+        (set! first? #f)
+      (append 1 2))
+    (___glfwCreateWindow)))
+
+
+(c-enumerant GLFW_VISIBLE)
+
+
+(c-external (glfwInit) bool)
+(c-external (glfwTerminate) void)
+(c-external (glfwWindowHint int int) void)
+;(c-external (glfwCreateWindow int int char-string glfwmonitor glfwwindow) glfwwindow)
+(c-external (glfwMakeContextCurrent glfwwindow) void)
+(c-external (glfwWindowShouldClose glfwwindow) bool)
+;(c-external (glfwReshapeHack glfwwindow) void)
+;(c-external (glfwGetWindowTitle glfwwindow) NSString*)
+(c-external (glfwSetWindowTitle glfwwindow char-string) void)
+(c-external (glfwShowWindow glfwwindow) void)
+(c-external (glfwSwapBuffers glfwwindow) void)
+;(c-external (glfwGetMousePosition glfwwindow) scheme-object)
+;(c-external (glfwSetMousePosition glfwwindow int int) void)
+;(c-external (glfwHideCursor glfwwindow) void)
+;(c-external (glfwShowCursor glfwwindow) void)
+;(c-external (glfwKeyDown glfwwindow int) bool)
+;(c-external (glfwEventAvailable) bool)
+(c-external (glfwGetTime) double)
+(c-external (glfwPollEvents) void)
+;(c-external (glfwContinueLoop glfwwindow) bool)
+(c-external (glfwDestroyWindow glfwwindow) void)
+;(c-external (glfwGetCocoaWindow glfwwindow) id)
+
+
+(c-declare glfw
+#<<end-of-c-code
+#include <GLFW/glfw3.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+static void error_callback(int error, const char* description)
+{
+fputs(description, stderr);
+}
+
+static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+glfwSetWindowShouldClose(window, GL_TRUE);
+}
+
+int test(void)
+{
+GLFWwindow* window;
+glfwSetErrorCallback(error_callback);
+if (!glfwInit())
+exit(EXIT_FAILURE);
+window = glfwCreateWindow(640, 480, "Simple example", NULL, NULL);
+if (!window)
+{
+glfwTerminate();
+exit(EXIT_FAILURE);
+}
+glfwMakeContextCurrent(window);
+glfwSetKeyCallback(window, key_callback);
+while (!glfwWindowShouldClose(window))
+{
+float ratio;
+int width, height;
+glfwGetFramebufferSize(window, &width, &height);
+ratio = width / (float) height;
+glViewport(0, 0, width, height);
+glClear(GL_COLOR_BUFFER_BIT);
+glMatrixMode(GL_PROJECTION);
+glLoadIdentity();
+glOrtho(-ratio, ratio, -1.f, 1.f, 1.f, -1.f);
+glMatrixMode(GL_MODELVIEW);
+glLoadIdentity();
+glRotatef((float) glfwGetTime() * 50.f, 0.f, 0.f, 1.f);
+glBegin(GL_TRIANGLES);
+glColor3f(1.f, 0.f, 0.f);
+glVertex3f(-0.6f, -0.4f, 0.f);
+glColor3f(0.f, 1.f, 0.f);
+glVertex3f(0.6f, -0.4f, 0.f);
+glColor3f(0.f, 0.f, 1.f);
+glVertex3f(0.f, 0.6f, 0.f);
+glEnd();
+glfwSwapBuffers(window);
+glfwPollEvents();
+}
+glfwDestroyWindow(window);
+glfwTerminate();
+exit(EXIT_SUCCESS);
+}
+
+end-of-c-code
+)
+
+(c-external (test-glfw ) void
+    "test();")
+(terminal 'bbb))

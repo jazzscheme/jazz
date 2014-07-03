@@ -86,6 +86,12 @@
             (glew-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/glew/lib/mac")))
         `((jazz.graphic.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))
           (jazz.graphic.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))))))
+  (glfw
+    (define jazz:opengl-units
+      (let ((glew-include-path (jazz:quote-jazz-pathname "foreign/opengl/glew/include"))
+            (glew-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/glew/lib/mac")))
+        `((jazz.graphic.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))
+          (jazz.graphic.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))))))
   (else
     (define jazz:opengl-units
       '())))

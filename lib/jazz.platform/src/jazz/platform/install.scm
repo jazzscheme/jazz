@@ -49,6 +49,11 @@
     (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-base     'cairo-ft)
     (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-quartz   'cairo-ft)
     (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-freetype 'cairo-ft))
+  (glfw
+    (jazz:register-foreign-libraries 'jazz.platform.cairo                'cairo-ft)
+    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-base     'cairo-ft)
+    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-quartz   'cairo-ft)
+    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-freetype 'cairo-ft))
   (windows
     (jazz:register-foreign-libraries 'jazz.platform.cairo                'cairo)
     (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-base     'cairo))
@@ -75,6 +80,8 @@
     (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-windows 'cairo)
     (jazz:register-foreign-libraries 'jazz.platform.windows.com 'lole32 'oleaut32))
   (cocoa
+    (jazz:register-foreign-libraries 'jazz.platform.cocoa               'Cocoa 'OpenGL 'IOKit))
+  (glfw
     (jazz:register-foreign-libraries 'jazz.platform.cocoa               'Cocoa 'OpenGL 'IOKit))
   (x11
     (jazz:register-foreign-libraries 'jazz.platform.x11 'X11)))

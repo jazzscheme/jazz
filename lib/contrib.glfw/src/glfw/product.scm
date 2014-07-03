@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Media
+;;;; GLFW Product
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,12 +35,28 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.media jazz
+(unit glfw.product
 
 
-(export (jazz.media.autoload)
-        (jazz.media.platform.carbon  (cond carbon))
-        (jazz.media.platform.cocoa   (cond cocoa))
-        (jazz.media.platform.windows (cond windows))
-        (jazz.media.platform.x11     (cond x11))
-        (jazz.media.platform.glfw    (cond glfw))))
+(cond-expand
+  (glfw
+    (define (jazz:build-glfw descriptor #!key (unit #f) (force? #f))
+      (let ((include-path (jazz:quote-jazz-pathname "foreign/glfw/cocoa/include"))
+            (lib-path (jazz:quote-jazz-pathname "foreign/glfw/cocoa/lib")))
+        (let ((unit-specs `((glfw
+                              cc-options: ,(string-append "-I" include-path " -w")
+                              ld-options: ,(string-append "-framework Cocoa -framework OpenGL -framework IOKit " "-L" lib-path " -lglfw3")
+                              output-language: objc))))
+          (jazz:custom-compile/build unit-specs unit: unit force?: force?)
+          (if (or (not unit) (not (assq unit unit-specs)))
+              (jazz:build-product-descriptor descriptor))))))
+  (else))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(jazz:register-product 'contrib.glfw
+  build: jazz:build-glfw))

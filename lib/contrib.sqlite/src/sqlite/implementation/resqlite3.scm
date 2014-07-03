@@ -24,7 +24,7 @@
 
 (unit sqlite.implementation.resqlite3
 
-(c-declaration #<<C-END
+(c-declaration sqlite #<<C-END
 #include <sqlite3.h>
 // #include <stdlib.h> // calloc and free
 #include <string.h> // memcpy
@@ -53,7 +53,7 @@ C-END
 	    sqlite3-prepared-statement
 	    "xxx_release_prepared_statement_xxx"))
 
-(c-declaration #<<C-END
+(c-declaration sqlite #<<C-END
 ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
    int status = sqlite3_finalize(stmt);
    // fputs("RELEASED PREPARED STATEMENT\n", stderr);
@@ -360,7 +360,7 @@ C-END
 C-END
 )
 
-(c-declaration
+(c-declaration sqlite
 #<<c-declare-end
 static ___SCMOBJ
 resqlite3_column_blob(sqlite3_stmt* stmt, int col, int type, int size)

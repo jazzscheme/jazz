@@ -8,7 +8,7 @@
 
 (unit protected gambit.log.implementation.loglib-scm
 
-(c-declaration #<<end-of-c-declare
+(c-declaration loglib #<<end-of-c-declare
 
 #include "loglib.c"
 

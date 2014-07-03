@@ -128,15 +128,27 @@ END-OF-DECLARE
     "logging_line"))
 
 
-(define (jazz:logging-scheme->c name thunk)
+(define (jazz:logging-scheme->c name thunk . args)
+  (define (marshall obj)
+    (if (foreign? obj)
+        (object->serial-number obj)
+      (list 'quote obj)))
+  
   (if (%%not (jazz:logging?))
       (thunk)
     (let ((str (%%symbol->string name))
           (prefix (make-string (%%fx* (jazz:logging-depth) 2) #\space)))
-      (jazz:logging-line (%%string-append prefix enter-marker str c-marker))
+      (jazz:logging-line (with-output-to-string ""
+                           (lambda ()
+                             (display "(")
+                             (write (cons name (map marshall args))))))
       (let ((result (parameterize ((jazz:logging-depth (%%fx+ (jazz:logging-depth) 1)))
                       (thunk))))
-        (jazz:logging-line (%%string-append prefix exit-marker str scheme-marker))
+        (jazz:logging-line (with-output-to-string ""
+                             (lambda ()
+                               (display " ")
+                               (write (marshall result))
+                               (display ")"))))
         result))))
 
 

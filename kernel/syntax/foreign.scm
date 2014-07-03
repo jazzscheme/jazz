@@ -101,7 +101,8 @@
          (jazz:logging-scheme->c ',name
            (lambda ()
              ((c-lambda ,types ,result-type ,c-name-or-code)
-              ,@variables)))))))
+              ,@variables))
+           ,@variables)))))
 
 
 (jazz:define-macro (c-external signature result-type . rest)
@@ -119,7 +120,8 @@
                (jazz:logging-scheme->c ',name
                  (lambda ()
                    ((c-lambda ,types ,result-type ,c-name-or-code)
-                    ,@variables))))))))))
+                    ,@variables))
+                 ,@variables))))))))
 
 
 #; ;; quicky as this cannot refer to c-function???

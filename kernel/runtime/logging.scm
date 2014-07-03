@@ -97,10 +97,10 @@ END-OF-DECLARE
 
 
 (define enter-marker
-  "---> ")
+  ";---> ")
 
 (define exit-marker
-  "<--- ")
+  ";<--- ")
 
 
 (define scheme-marker

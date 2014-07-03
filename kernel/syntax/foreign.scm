@@ -40,10 +40,10 @@
 
 ;; quicky duplicated code
 (define enter-marker
-  "---> ")
+  ";---> ")
 
 (define exit-marker
-  "<--- ")
+  ";<--- ")
 
 
 (jazz:define-macro (c-include include)

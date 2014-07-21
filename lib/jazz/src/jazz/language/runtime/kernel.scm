@@ -890,6 +890,7 @@
 (native jazz:directory-create)
 (native jazz:directory-content)
 (native jazz:directory-delete)
+(native path-normalize)
 
 
 ;;;

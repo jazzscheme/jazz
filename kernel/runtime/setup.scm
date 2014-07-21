@@ -166,6 +166,11 @@
   (define libraries (%%make-table test: eq?))
   (define (add-library product-name library-filename)
     (if (%%table-ref libraries product-name #f)
+        #f #;
+        ;; quick patch for multiple binary repositories
+        ;; ideally we should probably load the most recent library but
+        ;; the patch is still correct as libraries validate against the digest of
+        ;; the source file and multiple binary repositories are only used for development
         (jazz:error "Found duplicate library: {s}" product-name)
       (%%table-set! libraries product-name library-filename)))
   

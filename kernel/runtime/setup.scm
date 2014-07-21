@@ -247,9 +247,10 @@
   
   ;; commented out to get proper tail call into the repl
   ;; (let ((exit-code ...)))
-  (jazz:split-command-line (%%cdr (command-line)) '("nosource" "debug" "force" "subbuild" "keep-c" "expansion" "gvm" "emit" "dry" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
+  (jazz:split-command-line (%%cdr (command-line)) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "expansion" "gvm" "emit" "dry" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
     (lambda (commands options remaining)
-      (let ((nosource? (jazz:get-option "nosource" options))
+      (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
+            (nosource? (jazz:get-option "nosource" options))
             (debug? (jazz:get-option "debug" options))
             (force? (jazz:get-option "force" options))
             (subbuild? (jazz:get-option "subbuild" options))
@@ -352,7 +353,21 @@
                                  (jazz:load-script path)))
                            (iter (%%cdr scan))))))))
         
-        (cond (ev
+        (define (show-version)
+          (##write-string "Gambit" ##stdout-port)
+          (##write-string " " ##stdout-port)
+          (##write-string (system-version-string) ##stdout-port)
+          (##write-string " " ##stdout-port)
+          (##write (system-stamp) ##stdout-port)
+          (##write-string " " ##stdout-port)
+          (##write-string (system-type-string) ##stdout-port)
+          (##write-string " " ##stdout-port)
+          (##write (configure-command-string) ##stdout-port)
+          (##newline ##stdout-port))
+        
+        (cond (version?
+               (show-version))
+              (ev
                (setup-runtime)
                (eval (call-with-input-string ev read)))
               (load

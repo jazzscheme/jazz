@@ -409,8 +409,8 @@
       
       (define (link-file)
         (if library-image?
-            (product-file (%%string-append product-name ".o1.c"))
-          (product-file (%%string-append product-name ".c"))))
+            (product-file (%%string-append "jazz" ".o1.c"))
+          (product-file (%%string-append "jazz" ".c"))))
       
       (define (generate-product rebuild?)
         (let ((file (product-file (%%string-append (product-filename) ".scm"))))

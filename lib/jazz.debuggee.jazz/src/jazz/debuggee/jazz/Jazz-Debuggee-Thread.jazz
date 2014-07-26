@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Debuggee Restart
+;;;; Jazz Debuggee Thread
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,19 +35,51 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.debuggee.Debuggee-Restart jazz
+(module protected jazz.debuggee.jazz.Jazz-Debuggee-Thread jazz
 
 
-(class Debuggee-Restart extends Object
+(import (jazz.debuggee)
+        (jazz.debuggee.autoload))
+
+
+(class Jazz-Debuggee-Thread extends Debuggee-Thread
+  
+
+  (slot thread accessors generate)
   
   
-  (method public virtual (get-id)
-    )
+  (method override (initialize thread)
+    (nextmethod)
+    (set! thread~self thread))
   
   
-  (method public virtual (get-name)
-    )
+  (method override (get-id)
+    (object->serial thread))
   
   
-  (method public virtual (get-message)
-    )))
+  (method override (get-name)
+    (thread-name thread))
+  
+  
+  (method override (get-state)
+    (present-thread-state (thread-state thread)))
+  
+  
+  ;; This is a hack to support continuation inspection. This should be reimplemented by either allowing
+  ;; the debugger to directly inspect a continuation with a proper continuation stub without having to
+  ;; create a temporary thread
+  (method override (get-debugged-continuation?)
+    (eq? (thread-thread-group thread) debugged-continuations-thread-group))
+  
+  
+  (method override (get-stops)
+    (get-thread-stops thread))
+  
+  
+  (method override (set-repl-frame frame-proxy)
+    (let ((frame (and frame-proxy (get-object~ frame-proxy))))
+      (thread-post thread 'set-repl-frame
+        (lambda ()
+          (let ((box (current-repl-frame)))
+            (when (box? box)
+              (set-box! box frame)))))))))

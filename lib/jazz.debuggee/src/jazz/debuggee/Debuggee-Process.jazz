@@ -38,32 +38,19 @@
 (module protected jazz.debuggee.Debuggee-Process jazz
 
 
-(import (jazz.debuggee)
-        (jazz.debuggee.stub)
-        (jazz.editor.jazz.inspector)
-        (jazz.io)
-        (jazz.jrm)
-        (jazz.library)
-        (jazz.platform)
-        (jazz.runtime)
-        (jazz.snapshot)
-        (jazz.system)
-        (profiler))
-
-
 (class Debuggee-Process extends Object
   
   
-  (method public (get-title)
-    (current-process-present))
+  (method public virtual (get-title)
+    )
   
   
-  (method public (get-traits)
-    (current-process-traits))
+  (method public virtual (get-traits)
+    )
   
   
-  (method public (get-icon)
-    (current-process-icon))
+  (method public virtual (get-icon)
+    )
   
   
   ;;;
@@ -71,165 +58,20 @@
   ;;;
   
   
-  (method public (detach-process)
-    (detach-from-controller))
+  (method public virtual (detach-process)
+    )
   
   
-  (method public (reload-process)
-    (reload-process~ (get-process)))
+  (method public virtual (reload-process)
+    )
   
   
-  (method public (attach-to-debugger controller-register debugger-cookie)
-    (thread-post (primordial-thread) 'attach-to-debugger
-      (lambda ()
-        (attach-debuggee-to-controller controller-register focus?: #t)
-        (start-repl-thread (current-thread) #f (get-console-port))
-        (select-console)
-        (ready-to-controller debugger-cookie))))
+  (method public virtual (attach-to-debugger controller-register debugger-cookie)
+    )
   
   
-  (method public (exit-process)
-    (let ((process (get-process))
-          (primordial (primordial-thread)))
-      (if (and process (thread-loop? primordial))
-          (thread-post primordial 'exit-process
-            (lambda ()
-              (exit-process~ process)))
-        (detach-from-controller)
-        (exit))))
-  
-  
-  ;;;
-  ;;;; Process
-  ;;;
-  
-  
-  (method public (get-toplevel-hwnd)
-    @convert
-    (get-handle~ (get-toplevel)))
-  
-  
-  ;;;
-  ;;;; State
-  ;;;
-  
-  
-  (method (get-threads)
-    (map (lambda (thread)
-           (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
-         (top-threads)))
-  
-  
-  ;;;
-  ;;;; Thread
-  ;;;
-  
-  
-  (method (break-thread thread-proxy)
-    (let ((thread (get-thread~ (get-object~ thread-proxy))))
-      (thread-interrupt! thread
-        (lambda ()
-          (break)))))
-  
-  
-  (method (terminate-thread thread-proxy preserve-console?)
-    (let ((thread (get-thread~ (get-object~ thread-proxy))))
-      (if (eq? thread (primordial-thread))
-          (exit-process)
-        (with-exception-filter
-          inactive-thread-exception?
-          (lambda (exception) #f)
-          (lambda () (exit-thread thread)))
-        (unless preserve-console?
-          (close-thread-console thread)))))
-  
-  
-  (method (kill-thread thread-proxy)
-    (let ((thread (get-thread~ (get-object~ thread-proxy))))
-      (if (eq? thread (primordial-thread))
-          (exit-process)
-        (with-exception-filter
-          inactive-thread-exception?
-          (lambda (exception) #f)
-          (lambda () (thread-terminate! thread)))
-        (close-thread-console thread))))
-  
-  
-  ;;;
-  ;;;; Restart
-  ;;;
-  
-  
-  (method (restart-stop restart-proxy)
-    (let ((debuggee-restart (get-object~ restart-proxy)))
-      (let ((thread (get-thread~ debuggee-restart))
-            (restart (get-restart~ debuggee-restart)))
-        (thread-post thread 'restart-stop
-          (lambda ()
-            (invoke-restart restart))))))
-  
-  
-  ;;;
-  ;;;; Stop
-  ;;;
-  
-  
-  (method (continue-stop stop-proxy)
-    (let ((stop (get-object~ stop-proxy)))
-      (let ((thread (get-thread~ stop))
-            (continuation (get-continuation~ stop)))
-        (thread-post thread 'continue-stop
-          (lambda ()
-            (continuation-return continuation #f))))))
-  
-  
-  (method (step-stop stop-proxy command)
-    (let ((stop (get-object~ stop-proxy)))
-      (let ((thread (get-thread~ stop))
-            (stepper (get-stepper~ stop)))
-        (thread-post thread 'step-stop
-          (lambda ()
-            (stepper command))))))
-  
-  
-  ;;;
-  ;;;; Runtime
-  ;;;
-  
-  
-  (method public (transmit-runtime-information what)
-    (thread-start!
-      (new-safe-thread
-        (lambda (exception)
-          #t)
-        (lambda ()
-          (let ((queue (new-queue)))
-            (define (add-unit unit)
-              (let ((resource (find-unit-src unit #f #f)))
-                (when resource
-                  (enqueue queue (resource-pathname resource)))))
-            
-            (let ((process (get-process)))
-              (let ((properties (runtime-properties~ process)))
-                (if (eq? what 'properties)
-                    (transmit-information '() '() properties)
-                  ;; immediately transmit properties before doing
-                  ;; the potentially long computation of filenames
-                  (transmit-information #f #f properties)
-                  (when kernel-source-access?
-                    (when (remote-proxy? (get-controller-debugger))
-                      (let ((product (runtime-product~ process)))
-                        (when product
-                          (for-each add-unit (product-units product))))
-                      (let ((products (runtime-products~ process)))
-                        (for-each (lambda (product)
-                                    (for-each add-unit (product-units product)))
-                                  products)))
-                    (for-each add-unit (runtime-units~ process)))
-                  (let ((filenames (queue-list queue))
-                        (processes (evaluation-processes~ process)))
-                    (transmit-information filenames processes properties)))))))
-        'runtime-information)))
+  (method public virtual (exit-process)
+    )
   
   
   ;;;
@@ -237,18 +79,78 @@
   ;;;
   
   
-  (method (console-input thread-proxy str)
-    (let ((thread (get-thread~ (get-object~ thread-proxy))))
-      (let ((port (thread-console-pump-port thread)))
-        (if (not str)
-            (close-port port)
-          (display str port)
-          (force-output port)))))
+  (method public virtual (console-input thread-proxy str)
+    )
   
   
-  (method (console-close thread-proxy)
-    (let ((thread (get-thread~ (get-object~ thread-proxy))))
-      (close-thread-console thread)))
+  (method public virtual (console-close thread-proxy)
+    )
+  
+  
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method public virtual (get-toplevel-hwnd)
+    )
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method public virtual (get-threads)
+    )
+  
+  
+  ;;;
+  ;;;; Restart
+  ;;;
+  
+  
+  (method public virtual (restart-stop restart-proxy)
+    )
+  
+  
+  ;;;
+  ;;;; Thread
+  ;;;
+  
+  
+  (method public virtual (break-thread thread-proxy)
+    )
+  
+  
+  (method public virtual (terminate-thread thread-proxy preserve-console?)
+    )
+  
+  
+  (method public virtual (kill-thread thread-proxy)
+    )
+  
+  
+  ;;;
+  ;;;; Stop
+  ;;;
+  
+  
+  (method public virtual (continue-stop stop-proxy)
+    )
+  
+  
+  (method public virtual (step-stop stop-proxy command)
+    )
+  
+  
+  ;;;
+  ;;;; Runtime
+  ;;;
+  
+  
+  (method public virtual (transmit-runtime-information what)
+    )
   
   
   ;;;
@@ -256,98 +158,8 @@
   ;;;
   
   
-  (definition temporary-evaluation-file
-    #f)
-  
-  (definition (get-temporary-evaluation-file)
-    (or temporary-evaluation-file (let ((file (get-temporary-file)))
-                                    ;; changing the extension to jazz is a quick hack for debugger highlight
-                                    ;; the right solution is to do the same thing as (read-source-all port container line col)
-                                    ;; e.g. make it so compilation locations point to the original source file
-                                    (set! temporary-evaluation-file (new-brother~ file (make-filename (get-base~ file) "jazz")))
-                                    file)))
-  
-  (definition (effective-evaluation-mode evaluation-mode)
-    (if (and (eq? evaluation-mode 'compile) (not (compiler-present?)))
-        'interpret
-      evaluation-mode))
-  
-  
-  (method (evaluate-expressions syntax str container line col evaluation-mode walk-debugger walk-cookie)
-    (let ((evaluation-mode (effective-evaluation-mode (or evaluation-mode (find-setting 'jazz.evaluation-mode 'interpret)))))
-      (define (unit/module-form? expr)
-        (and (pair? (source-code expr))
-             (memq? (source-code (car (source-code expr))) '(unit module))))
-      
-      (define (parse-unit/module expr)
-        (let ((first (source-code (car expr))))
-          (if (memq? first '(protected public))
-              (values (source-code (cadr expr)) first)
-            (values first 'public))))
-      
-      (define (present result)
-        (unless (eq? evaluation-mode 'live)
-          (when (specified? result)
-            (let ((values (call-with-values (lambda () result) list)))
-              (for-each (lambda (value)
-                          (format :console #"\($\)\(color Ochre {s}\){%}"# value))
-                        values))
-            (display-prompt (get-console-port) (current-repl-level))
-            (force-output (get-console-port)))))
-      
-      (thread-call (primordial-thread) 'evaluate-expressions
-        (lambda ()
-          (let ((expressions (parameterize ((walk-for 'eval))
-                               (with-readtable (case syntax
-                                                 ((scheme) scheme-readtable)
-                                                 ((jazz) jazz-readtable))
-                                 (lambda ()
-                                   (call-with-input-string str
-                                     (lambda (port)
-                                       (read-source-all port container line col))))))))
-            (catch (Walk-Problems exc
-                     (report-walk-problems~ walk-debugger (get-local-process) (exception-detail exc) walk-cookie)
-                     (unless (delay-reporting?)
-                       (throw exc)))
-              (let ((first (car expressions))
-                    (evaluate (cons 'begin expressions)))
-                (if (and (eq? syntax 'jazz) (unit/module-form? first))
-                    (receive (unit-name access) (parse-unit/module (cdr (source-code first)))
-                      (load-unit unit-name)
-                      (outline-unit unit-name)
-                      (case evaluation-mode
-                        ((compile)
-                         (let ((file (get-temporary-evaluation-file)))
-                           (call-with-output-file (path-settings file char-encoding: 'UTF-8)
-                             (lambda (output)
-                               (display (make-string line #\newline) output)
-                               (display str output)
-                               (newline output)))
-                           (let ((path (parse~ file)))
-                             (let ((pathname (parameterize ((requested-unit-name unit-name)
-                                                            (jazz:walk-for 'compile)
-                                                            (generate-symbol-for "&")
-                                                            (generate-symbol-context unit-name)
-                                                            (generate-symbol-counter 0)
-                                                            (path->container-override
-                                                              (lambda (target)
-                                                                (and (equal? target path)
-                                                                     unit-name))))
-                                               (with-jazz-readtable
-                                                 (lambda ()
-                                                   (compile-file path options: compile-options))))))
-                               (load-file (list path: pathname char-encoding: 'UTF) #f)))))
-                        ((interpret live)
-                         (parameterize ((requested-unit-name unit-name)
-                                        (walk-for 'eval)
-                                        (generate-symbol-for (format "%{a}&" (eval-count)))
-                                        (generate-symbol-context unit-name)
-                                        (generate-symbol-counter 0))
-                           (present (eval evaluate))))))
-                  (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
-                                 (generate-symbol-counter 0))
-                    (present (eval evaluate)))))
-              (hook-evaluate syntax str container line col)))))))
+  (method public virtual (evaluate-expressions syntax str container line col evaluation-mode walk-debugger walk-cookie)
+    )
   
   
   ;;;
@@ -355,85 +167,32 @@
   ;;;
   
   
-  (method public (profiler-start)
-    (let ((profile (find-selected-profile)))
-      (when profile
-        (active-profile profile)
-        (start-profiler profile))))
+  (method public virtual (profiler-start)
+    )
   
   
-  (method public (profiler-stop)
-    (let ((profile (find-selected-profile)))
-      (when profile
-        (stop-profiler profile)
-        (active-profile #f))))
+  (method public virtual (profiler-stop)
+    )
 
 
-  (method public (profiler-profiles)
-    (get-profile-names))
+  (method public virtual (profiler-profiles)
+    )
   
   
-  (method public (profiler-selected-profile)
-    (get-selected-profile))
+  (method public virtual (profiler-selected-profile)
+    )
   
   
-  (method public (profiler-selected-profile-set! name)
-    (set-selected-profile name))
+  (method public virtual (profiler-selected-profile-set! name)
+    )
   
   
-  (method public (profiler-profile)
-    (define (frame->symbol frame)
-      (or (when frame
-            (bind (creator locat) frame
-              (when creator
-                (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
-                  (list name locat)))))
-          frame))
-    
-    (define (merge-calls call-table calls)
-      (iterate-table calls
-        (lambda (proc count/duration)
-          (let ((key (map frame->symbol proc)))
-            (let ((local-count/duration (table-ref calls key #f)))
-              (if local-count/duration
-                  (table-set! call-table key (list (+ (first count/duration) (first local-count/duration))
-                                                   (+ (second count/duration) (second local-count/duration))))
-                (table-set! call-table key count/duration)))))))
-    
-    (define (profile-add profile remote-profile proc)
-      (if remote-profile
-          (+ (proc profile) (proc remote-profile))
-        (proc profile)))
-    
-    (let ((profile (find-selected-profile)))
-      (when profile
-        (let ((remote-profile (and (get-application) (get-remote-profile~ (get-application) (profile-label profile)))))
-          (let ((frames-count (profile-add profile remote-profile profile-frames-count))
-                (frames-duration (profile-add profile remote-profile profile-frames-duration))
-                (calls-count (profile-add profile remote-profile profile-calls-count))
-                (calls-duration (profile-add profile remote-profile profile-calls-duration))
-                (calls (let ((call-table (make-table test: equal?)))
-                         (merge-calls call-table (profile-calls profile))
-                         (when remote-profile
-                           (merge-calls call-table (profile-calls remote-profile)))
-                         call-table)))
-            (list (profile-label profile)
-                  (profiler-type (profile-profiler profile))
-                  (profile-depth profile)
-                  frames-count
-                  frames-duration
-                  calls-count
-                  calls-duration
-                  (profile-process-info profile)
-                  (table->list calls)))))))
+  (method public virtual (profiler-profile)
+    )
   
   
-  (method public (profile-reset profiler depth all?)
-    (if all?
-        (reset-profiles)
-      (let ((profile (find-selected-profile)))
-        (when profile
-          (reset-profile profile (and profiler (require-service profiler)) depth)))))
+  (method public virtual (profile-reset profiler depth all?)
+    )
   
   
   ;;;
@@ -441,24 +200,16 @@
   ;;;
   
   
-  (method public (inspect-serial serial max-content)
-    (inspect-value (serial->object serial) max-content: max-content))
+  (method public virtual (inspect-serial serial max-content)
+    )
   
   
-  (method public (inspect-continuation serial)
-    (let ((k (serial->object serial)))
-      (assert (continuation? k))
-      (thread-start! (make-thread (lambda ()
-                                    ;; Prevent problems with continuation-checkpoints
-                                    (continuation-graft-no-winding k break))
-                                  (format "Continuation #{a}" serial)
-                                  debugged-continuations-thread-group))))
+  (method public virtual (inspect-continuation serial)
+    )
   
   
-  (method public (present-serial serial)
-    (let ((port (open-output-string)))
-      (display (serial->object serial) port)
-      (get-output-string port)))
+  (method public virtual (present-serial serial)
+    )
   
   
   ;;;
@@ -466,9 +217,5 @@
   ;;;
   
   
-  (method public (try-out class)
-    (let ((class (resolve-runtime-reference (deserialize-runtime-reference class))))
-      (when (subtype? class Component)
-        (jazz.ui.window:delay-event
-          (lambda ()
-            (try-out~ class))))))))
+  (method public virtual (try-out class)
+    )))

@@ -41,6 +41,7 @@
 (export (jazz.debuggee.autoload))
 (import (jazz.debuggee.autoload)
         (jazz.debuggee.stub)
+        (jazz.debuggee.jazz.autoload)
         (jazz.editor.jazz.inspector)
         (jazz.jrm)
         (jazz.network)
@@ -63,7 +64,7 @@
 
 (definition public (setup-local-process)
   (when (not local-process)
-    (set! local-process (new Debuggee-Process-Local-Proxy (new Debuggee-Process)))
+    (set! local-process (new Debuggee-Process-Local-Proxy (new Jazz-Debuggee-Process)))
     (register-object~ (get-local-register) 'debuggee local-process)))
 
 
@@ -330,7 +331,7 @@
       (with-consoles-mutex
         (lambda ()
           (or (table-ref *consoles* thread #f)
-              (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)) debugger select?)))
+              (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Jazz-Debuggee-Thread thread)) debugger select?)))
                 (table-set! *consoles* thread console)
                 console)))))))
 
@@ -1159,7 +1160,7 @@
   
   (define (compute-restarts thread)
     (map (lambda (restart)
-           (new Debuggee-Restart-Local-Proxy (new Debuggee-Restart thread restart)))
+           (new Debuggee-Restart-Local-Proxy (new Jazz-Debuggee-Restart thread restart)))
          (current-restarts)))
   
   (invoke-releases)
@@ -1169,8 +1170,8 @@
     (with-repl-thread thread reason port (+ level 1)
       (lambda ()
         (parameterize ((current-repl-frame (box #f)))
-          (let ((stop (new Debuggee-Stop thread kind reason detail exc continuation (compute-restarts thread) locat stepper)))
-            (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
+          (let ((stop (new Jazz-Debuggee-Stop thread kind reason detail exc continuation (compute-restarts thread) locat stepper)))
+            (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Jazz-Debuggee-Thread thread)))
                   (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
               (dynamic-wind
                 (lambda ()

@@ -956,6 +956,8 @@
     (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
       (let ((loaded? (jazz:unit-loaded? unit-name)))
         (display "unit ") (display unit-name) (newline)
+        ;(display "src package pathname: ") (and src (display (jazz:resource-package-pathname src))) (newline)
+        ;(display "bin package pathname: ") (and bin (display (jazz:resource-package-pathname bin))) (newline)
         (if src
             (begin
               (display "source hash: ")

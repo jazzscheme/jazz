@@ -58,9 +58,9 @@
 
 
 ;; start a scheme repl
-(define (start-scheme-repl)
+(define (start-scheme-repl #!key (select? #t))
   (jazz:load-unit 'jazz)
   (jazz:load-unit 'jazz.debuggee)
   ((jazz:module-ref 'jazz.debuggee 'set-default-context) #f)
   ((jazz:module-ref 'jazz.debuggee 'transmit-information-unavailable))
-  ((jazz:module-ref 'jazz 'start-repl))))
+  ((jazz:module-ref 'jazz 'start-repl) select?: select?)))

@@ -657,7 +657,7 @@
                         (print (string-append "GSC=" relative-prefix gambit-dir "bin/gsc") output)))
                     (print "SCM=$REL/jazz-interpret.scm" output)
                     (newline output)
-                    (print "exec \"$GSC\" -:=\"$GAM\" -i \"$SCM\" \"$@\"" output))))))
+                    (print "exec \"$GSC\" -:dar,=\"$GAM\" -i \"$SCM\" \"$@\"" output))))))
         (let ((file (dest-file "jazz-interpret.scm")))
           (if (%%not (file-exists? file))
               (begin

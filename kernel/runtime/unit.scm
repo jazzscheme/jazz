@@ -1083,6 +1083,10 @@
 ;;;
 
 
+;; it is critical that these units be explicitly loaded up front
+;; else we can get very hard to debug locking on the load mutex
+
+
 (define (jazz:load-debuggee)
   (jazz:load-debuggee-units)
   (jazz:load-unit 'jazz.debuggee.setup)
@@ -1095,9 +1099,16 @@
   (jazz:load-unit 'jazz.debuggee)
   (jazz:load-unit 'jazz.debuggee.Debuggee-Frame)
   (jazz:load-unit 'jazz.debuggee.Debuggee-Process)
+  (jazz:load-unit 'jazz.debuggee.Debuggee-Restart)
   (jazz:load-unit 'jazz.debuggee.Debuggee-Stop)
   (jazz:load-unit 'jazz.debuggee.Debuggee-Thread)
   (jazz:load-unit 'jazz.debuggee.stub)
+  (jazz:load-unit 'jazz.debuggee.jazz)
+  (jazz:load-unit 'jazz.debuggee.jazz.Jazz-Debuggee-Frame)
+  (jazz:load-unit 'jazz.debuggee.jazz.Jazz-Debuggee-Process)
+  (jazz:load-unit 'jazz.debuggee.jazz.Jazz-Debuggee-Restart)
+  (jazz:load-unit 'jazz.debuggee.jazz.Jazz-Debuggee-Stop)
+  (jazz:load-unit 'jazz.debuggee.jazz.Jazz-Debuggee-Thread)
   (jazz:load-unit 'jazz.debugger.jazz.stub)
   (jazz:load-unit 'jazz.debugger.jazz.stub-autoload))
 

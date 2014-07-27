@@ -46,17 +46,23 @@
         (time))
 
 
-(definition *debug?*
-  #f)
+(definition (global-setting name default)
+  (if (global-bound? name)
+      (global-ref name)
+    default))
 
-(definition *debug-uuid?*
-  #f)
+
+(definition *debug?*
+  (global-setting 'debug-jrm? #f))
 
 (definition *debug-arguments?*
-  #f)
+  (global-setting 'debug-jrm-arguments? #f))
+
+(definition *debug-simplify?*
+  (global-setting 'debug-jrm-simplify? #t))
 
 (definition *debug-locally?*
-  #f)
+  (global-setting 'debug-jrm-locally? #f))
 
 
 (definition *jrm-marker*
@@ -76,9 +82,33 @@
   (or *jrm-uuid*
       (let ((uuid (make-uuid)))
         (set! *jrm-uuid* uuid)
-        (when *debug-uuid?*
-          (terminal '***uuid*** uuid))
         uuid)))
+
+
+;;;
+;;;; Debug
+;;;
+
+
+(definition (debug-jrm side action message/delayed)
+  (define (simplify message)
+    (cond ((not *debug-simplify?*)
+           message)
+          ((pair? message)
+           (map (lambda (message)
+                  (cond ((pair? message)
+                         '<pair>)
+                        ((object? message)
+                         '<object>)
+                        (else
+                         message)))
+                message))
+          (else
+           message)))
+  
+  (when *debug?*
+    (let ((message (if (procedure? message/delayed) (message/delayed) message/delayed)))
+      (format :terminal "{r precision: 6} {a} {a} {s} {s}{%}" (current-seconds) (listening-uuid) side action (simplify message)))))
 
 
 ;;;
@@ -196,7 +226,7 @@
       (thread-send (require-remote-switchboard) (values 'flush #f invoke-thread))
       (catch (Remote-Connection-Broke exc
                #f)
-        (wait-for-result 'flush)))))
+        (wait-for-result 'flush invoke-thread)))))
 
 
 (definition *jrm-pumps*
@@ -209,13 +239,11 @@
 
 
 (definition public (connect-uuid host service)
-  (when *debug?*
-    (terminal '***-pump-*** 'start host service))
+  (debug-jrm '-pump- 'start (list host service))
   (let ((port (open-tcp-client (list server-address: host port-number: service))))
     (with-exception-catcher
       (lambda (exc)
-        (when *debug?*
-          (terminal '***-pump-*** 'closed host service))
+        (debug-jrm '-pump- 'closed (list host service))
         (with-exception-catcher
           (lambda (exc)
             #f)
@@ -235,8 +263,7 @@
                              (process-jrm-pump uuid port))
                            'jrm-pump))
           (table-set! *jrm-pumps* uuid port)
-          (when *debug?*
-            (terminal '***-pump-*** 'started host service port))
+          (debug-jrm '-pump- 'started (list host service port))
           uuid)))))
 
 
@@ -271,7 +298,7 @@
   (write-port port info))
 
 
-(definition (wait-for-result method-name)
+(definition (wait-for-result method-name invoke-thread)
   (define (skip-to-message)
     (declare (proper-tail-calls))
     (let (iter)
@@ -283,8 +310,8 @@
                (iter))))))
   
   (let ((message (skip-to-message)))
-    (debug-jrm '***client*** 'read method-name)
-    (debug-jrm '***client*** 'read message)
+    (debug-jrm 'client 'read (list method-name (object->serial invoke-thread)))
+    (debug-jrm 'client 'read message)
     (bind (kind cookie result) message
       (case kind
         ((result)
@@ -304,15 +331,15 @@
     (let ((uuid (get-uuid~ proxy-ior))
           (cookie (object->serial invoke-thread))
           (timeout (and (neq? kind 'post) (make-absolute-timeout (receive-timeout)))))
-      (debug-jrm '***client*** 'send (list kind cookie method-name (get-ior~ remote-proxy) (and *debug-arguments?* arguments)))
+      (debug-jrm 'client 'send (list kind cookie method-name (get-ior~ remote-proxy) (and *debug-arguments?* arguments)))
       (thread-send (require-remote-switchboard) (values 'invoke uuid (values invoke-thread timeout kind method-name proxy-ior arguments)))
       (case kind
         ((post)
          (unspecified))
         ((call live?)
-         (wait-for-result method-name))
+         (wait-for-result method-name invoke-thread))
         ((exec)
-         (wait-for-result method-name)
+         (wait-for-result method-name invoke-thread)
          (unspecified))))))
 
 
@@ -321,26 +348,8 @@
 ;;;
 
 
-(definition (debug-jrm side action message)
-  (define (simplify message)
-    (if (pair? message)
-        (map 
-          (lambda (message)
-            (cond ((pair? message)
-                   'p!)
-                  ((object? message)
-                   'o!)
-                  (else
-                   message)))
-          message)
-      message))
-  
-  (when *debug?*
-    (terminal side action (simplify message))))
-
-
 (definition (invocation-broke thread exception)
-  (debug-jrm '***server*** 'broke (list thread exception))
+  (debug-jrm 'server 'broke (list thread exception))
   (let ((cookie (object->serial thread)))
     (thread-send thread (cons *jrm-marker* (list 'broke cookie exception)))))
 
@@ -354,7 +363,7 @@
                      (catch (Communication-Exception exc
                               (eof-object))
                        (read-port port)))))
-      (debug-jrm '***-pump-*** 'read message)
+      (debug-jrm '-pump- 'read message)
       (thread-send (require-remote-switchboard) (values 'pump uuid message))
       (if (eof-object? message)
           (with-jrm-mutex
@@ -367,7 +376,7 @@
 (definition (process-pump-message invocations uuid message)
   (define (dispatch-remote message)
     (bind (kind cookie method-name proxy-ior arguments) message
-      (debug-jrm '***server*** 'dispatch (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
+      (debug-jrm 'server 'dispatch (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
       (let ((local-proxy (ior->proxy proxy-ior)))
         (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments))))
   
@@ -387,10 +396,15 @@
               (lambda (exc)
                 (continuation-capture
                   (lambda (cont)
-                    (when *debug?*
-                      (terminal '***server*** 'exception method-name)
-                      (display-exception exc)
-                      (display-continuation-backtrace cont))
+                    (debug-jrm 'server 'exception
+                      (lambda ()
+                        (list method-name
+                              (with-output-to-string ""
+                                (lambda ()
+                                  (display-exception exc)))
+                              (with-output-to-string ""
+                                (lambda ()
+                                  (display-continuation-backtrace cont))))))
                     (continuation-return return (list 'error cookie (exception-reason exc))))))
               (lambda ()
                 (dispatch-result message))))))))
@@ -403,7 +417,7 @@
             (invocation-broke thread 'connection-closed))))
       invocations))
   
-  (debug-jrm '***server*** 'pump message)
+  (debug-jrm 'server 'pump message)
   (if (eof-object? message)
       (cleanup-pump-invocations invocations uuid)
     (let ((kind (car message)))
@@ -430,8 +444,8 @@
          (thread-start!
            (new-thread (lambda ()
                          (let ((reply (execute-remote message)))
-                           (debug-jrm '***server*** 'reply message)
-                           (debug-jrm '***server*** 'reply reply)
+                           (debug-jrm 'server 'reply message)
+                           (debug-jrm 'server 'reply reply)
                            (with-jrm-mutex
                              (lambda ()
                                (let ((port (require-jrm-port uuid)))
@@ -478,7 +492,7 @@
                    (table-set! invocations invoke-thread (list timeout uuid message))))
                 ((invoke)
                  (receive (invoke-thread timeout kind method-name proxy-ior arguments) message
-                   (debug-jrm '***server*** 'invoke (list invoke-thread timeout kind method-name proxy-ior arguments))
+                   (debug-jrm 'server 'invoke (list (object->serial invoke-thread) timeout kind method-name proxy-ior arguments))
                    (assert (thread? invoke-thread))
                    (let ((cookie (object->serial invoke-thread)))
                      (with-exception-filter

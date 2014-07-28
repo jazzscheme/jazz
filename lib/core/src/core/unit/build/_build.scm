@@ -202,7 +202,7 @@
       (else ".c")))
   
   (define (compile)
-    (let ((unique-module-name (%%string-append jazz:unit-uniqueness-prefix (%%symbol->string unit-name)))
+    (let ((unique-module-name (%%string-append jazz:bin-uniqueness-prefix (%%symbol->string unit-name)))
           (src-pathname (jazz:resource-pathname src))
           (bin-output (string-append bin-pathname-base bin-extension)))
       (parameterize ((jazz:generate-symbol-for "^")

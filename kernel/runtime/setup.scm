@@ -207,8 +207,8 @@
     (lambda (unit i)
       (let ((name (%%car unit))
             (compile-time-hash (%%cadr unit)))
-        (let ((module-name (%%string->symbol (%%string-append jazz:unit-uniqueness-prefix (%%symbol->string name)))))
-          (let ((load-proc (lambda () (##load-required-module module-name))))
+        (let ((unique-module-name (%%string->symbol (%%string-append jazz:lib-uniqueness-prefix (%%symbol->string name)))))
+          (let ((load-proc (lambda () (##load-required-module unique-module-name))))
             (jazz:set-image-unit
               name
               load-proc

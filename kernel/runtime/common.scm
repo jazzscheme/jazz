@@ -61,9 +61,22 @@
 (cond-expand
   (gambit
     (define (jazz:load-binary pathname . rest)
+      ;; because we statically link the same .o into the .o1 and .l1
+      ;; we need to hack the module-descrs to remove the name conflict
+      ;; it might be possible to only register the most recent one..
+      (define (hack-module-descrs module-descrs)
+        (let loop ((i (%%fx- (%%vector-length module-descrs) 1)))
+          (if (%%fx>= i 0)
+              (let ((module-descr (%%vector-ref module-descrs i)))
+                (let ((name (%%symbol->string (%%vector-ref module-descr 0))))
+                  (if (jazz:string-starts-with? name jazz:bin-uniqueness-prefix)
+                      (%%vector-set! module-descr 0 (%%string->symbol (%%string-append jazz:lib-uniqueness-prefix (%%substring name (%%string-length jazz:bin-uniqueness-prefix) (%%string-length name)))))))
+                (loop (%%fx- i 1))))))
+      
       (let ((quiet? (if (%%null? rest) #f (%%car rest))))
         (let ((result (##load-object-file pathname quiet?)))
           (let ((module-descrs (##vector-ref result 0)))
+            (hack-module-descrs module-descrs)
             (##register-module-descrs-and-load! module-descrs))))
       (void)))
   (else
@@ -729,7 +742,8 @@
 ;;;
 
 
-(define jazz:unit-uniqueness-prefix "unit:")
+(define jazz:bin-uniqueness-prefix "bin:")
+(define jazz:lib-uniqueness-prefix "lib:")
 (define jazz:product-uniqueness-prefix "product:")
 
 

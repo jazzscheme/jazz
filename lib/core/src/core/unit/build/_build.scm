@@ -156,13 +156,23 @@
             #f))))))
 
 
+#; ;; test is pretty much obsolete and also doesn't consult gambc-cc to find the actual CC used
+(cond-expand
+  (windows
+   (define (jazz:gcc-use-single-host?)
+     #f))
+  (else
+   (define (jazz:gcc-use-single-host?)
+     (zero? (shell-command "gcc --version | grep -q 4.2.")))))
+
+(define (jazz:gcc-use-single-host?)
+  #f)
+
+
 (define jazz:wrap-single-host-cc-options
-  (let ((gcc-4-2?
-          (cond-expand
-            (windows #f)
-            (else (zero? (shell-command "gcc --version | grep -q 4.2."))))))
+  (let ((gcc-use-single-host? (jazz:gcc-use-single-host?)))
     (lambda (str)
-      (if (or jazz:debug-user? gcc-4-2?) (string-append "-U___SINGLE_HOST " str) str))))
+      (if (or jazz:debug-user? gcc-use-single-host?) (string-append "-U___SINGLE_HOST " str) str))))
 
 
 (define (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (output-language #f) (options #f) (cc-options #f) (ld-options #f) (force? #f))

@@ -228,6 +228,9 @@
 (definition last-click
   (current-seconds))
 
+(definition last-click-position
+  #f)
+
 
 (definition public inline (get-window handle)
   (table-ref Windows-Table handle #f))
@@ -577,13 +580,17 @@
           (stamp (XButtonEvent-time-ref msg)))
       (x11-set-latest-timestamp stamp)
       (cond ((= button Button1)
-             (let ((click (current-seconds)))
-               (if (< (- click last-click) 0.4)
+             (let ((click (current-seconds))
+                   (position (new Point h v)))
+               (if (and (< (- click last-click) 0.4)
+                        (or (not last-click-position)
+                            (near? position last-click-position 5)))
                    (begin
                      (double-click~ window h v)
                      (set! last-click 0))
                  (mouse-down~ window h v)
-                 (set! last-click click))))
+                 (set! last-click click)
+                 (set! last-click-position position))))
             ((= button Button2)
              (middle-mouse-down~ window h v))
             ((= button Button3)

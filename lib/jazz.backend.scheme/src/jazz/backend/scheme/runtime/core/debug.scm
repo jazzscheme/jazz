@@ -63,4 +63,4 @@
   (jazz:load-unit 'jazz.debuggee)
   ((jazz:module-ref 'jazz.debuggee 'set-default-context) #f)
   ((jazz:module-ref 'jazz.debuggee 'transmit-information-unavailable))
-  ((jazz:module-ref 'jazz 'start-repl) select?: select?)))
+  ((jazz:module-ref 'jazz 'start-repl) readtable: jazz:scheme-readtable select?: select?)))

@@ -322,16 +322,17 @@
         (mutex-unlock! mutex)))))
 
 
-(definition package (thread-console thread (debugger: debugger #f) (select?: select? #f))
+(definition package (thread-console thread (debugger: debugger #f) (readtable: readtable #f) (select?: select? #f))
   (let ((debugger (or debugger controller-debugger)))
     (if (not debugger)
         #f
       (with-consoles-mutex
         (lambda ()
           (or (table-ref *consoles* thread #f)
-              (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Jazz-Debuggee-Thread thread)) debugger select?)))
-                (table-set! *consoles* thread console)
-                console)))))))
+              (let ((readtable (or readtable (and (get-process) (default-console-readtable~ (get-process))))))
+                (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Jazz-Debuggee-Thread thread)) debugger readtable select?)))
+                  (table-set! *consoles* thread console)
+                  console))))))))
 
 
 (definition package (thread-console-pump-port thread)
@@ -348,8 +349,8 @@
   (make-parameter #f))
 
 
-(definition (make-debuggee-console thread-proxy debugger select?)
-  (receive (head tail) (open-string-pipe (list permanent-close: #f readtable: jazz-readtable))
+(definition (make-debuggee-console thread-proxy debugger readtable select?)
+  (receive (head tail) (open-string-pipe (list permanent-close: #f readtable: readtable))
     (let ((console (register-console~ debugger local-process thread-proxy select?)))
       (let ((pump (start-debuggee-console-pump debugger console tail)))
         (new Console console pump tail head)))))
@@ -848,9 +849,11 @@
       (invoke-debugger 'break reason detail exception continuation))))
 
 
-(definition protected (start-repl-internal (reason: reason #f) (select?: select? #t))
+(definition protected (start-repl-internal (reason: reason #f) (readtable: readtable #f) (select?: select? #t))
   (continuation-capture
     (lambda (continuation)
+      (when readtable
+        (thread-console (current-thread) readtable: readtable select?: select?))
       (when select?
         (select-console))
       (invoke-repl reason #f continuation))))

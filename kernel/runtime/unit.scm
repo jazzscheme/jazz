@@ -829,6 +829,8 @@
                  (iter (%%cdr extensions))))))
     
     (if (and (jazz:directory-exists? (jazz:package-root-pathname package path))
+             ;; why was this arbitrary test necessary?
+             #;
              (jazz:lower-case-unit-name? unit-name))
         (try (%%string-append path "/_" (jazz:pathname-name path)))
       (try path)))

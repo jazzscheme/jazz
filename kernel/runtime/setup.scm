@@ -252,7 +252,7 @@
   
   ;; commented out to get proper tail call into the repl
   ;; (let ((exit-code ...)))
-  (jazz:split-command-line (%%cdr (command-line)) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "expansion" "gvm" "emit" "dry" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port") missing-argument-for-option
+  (jazz:split-command-line (%%cdr (command-line)) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "expansion" "gvm" "emit" "dry" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
     (lambda (commands options remaining)
       (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
             (nosource? (jazz:get-option "nosource" options))
@@ -282,7 +282,8 @@
             (debugger (jazz:get-option "debugger" options))
             (link (symbol-argument (jazz:get-option "link" options)))
             (jobs (number-argument (jazz:get-option "jobs" options)))
-            (port (number-argument (jazz:get-option "port" options))))
+            (port (number-argument (jazz:get-option "port" options)))
+            (dialect (symbol-argument (jazz:get-option "dialect" options))))
         (define (setup-kernel)
           (if (and jazz:kernel-install (jazz:global-bound? '##set-gambcdir!))
               (let ((gambcdir (jazz:absolutize-directory jazz:kernel-install jazz:gambit-dir)))
@@ -420,7 +421,7 @@
                (if debug?
                    (setup-build)
                  (setup-runtime))
-               (jazz:repl-main gambit?))))))
+               (jazz:repl-main gambit? dialect))))))
   #; ;; see above commentary about proper tail call
   (exit (if (integer? exit-code) exit-code 0)))
 
@@ -433,12 +434,19 @@
 (define jazz:expansion-context
   'terminal)
 
+(define jazz:expansion-dialect
+  'jazz)
 
-(define (jazz:repl-main #!optional (gambit? #f))
+
+(define (jazz:repl-main #!optional (gambit? #f) (dialect #f))
   (jazz:setup-readtable)
   (jazz:setup-expansion-hook)
   (if gambit?
       (set! jazz:expansion-context #f))
+  (if dialect
+      (if (eq? dialect 'none)
+          (set! jazz:expansion-context #f)
+        (set! jazz:expansion-dialect dialect)))
   (current-input-port (repl-input-port))
   (current-output-port (repl-output-port))
   (current-error-port (repl-output-port))
@@ -490,6 +498,6 @@
                 (else
                  (jazz:load-foundation)
                  (%%sourcify
-                   `(module ,jazz:expansion-context jazz ,src)
+                   `(module ,jazz:expansion-context ,jazz:expansion-dialect ,src)
                    src)))))
     src)))

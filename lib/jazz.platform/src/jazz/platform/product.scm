@@ -176,8 +176,10 @@
 
 
 (define jazz:x11-units
-  '((jazz.platform.x11 cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
-    (jazz.platform.x11.x11-types)))
+  (let ((cc-flags (jazz:pkg-config-cflags "x11"))
+        (ld-flags (jazz:pkg-config-libs "x11")))
+    `((jazz.platform.x11 cc-options: ,cc-flags ld-options: ,ld-flags)
+      (jazz.platform.x11.x11-types))))
 
 
 (define jazz:cocoa-units

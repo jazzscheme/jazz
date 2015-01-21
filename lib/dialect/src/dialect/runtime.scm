@@ -5504,10 +5504,8 @@
 
 (define (jazz:outline-module unit-name #!key (error? #t))
   (let ((declaration (jazz:outline-unit unit-name error?: error?)))
-    (if (%%not error?)
-        declaration
-      (%%assert (%%class-is? declaration jazz:Module-Declaration)
-        declaration))))
+    (%%assert (or (%%not declaration) (%%class-is? declaration jazz:Module-Declaration))
+      declaration)))
 
 
 (define jazz:read-literals?

@@ -175,11 +175,14 @@
   '((jazz.platform.windows.com cc-options: "-DUNICODE -D___SINGLE_HOST" ld-options: "-mwindows -lole32 -loleaut32")))
 
 
-(define jazz:x11-units
-  (let ((cc-flags (jazz:pkg-config-cflags "x11"))
-        (ld-flags (jazz:pkg-config-libs "x11")))
-    `((jazz.platform.x11 cc-options: ,cc-flags ld-options: ,ld-flags)
-      (jazz.platform.x11.x11-types))))
+(cond-expand
+  (x11
+   (define jazz:x11-units
+     (let ((cc-flags (jazz:pkg-config-cflags "x11"))
+           (ld-flags (jazz:pkg-config-libs "x11")))
+       `((jazz.platform.x11 cc-options: ,cc-flags ld-options: ,ld-flags)
+         (jazz.platform.x11.x11-types)))))
+   (else))
 
 
 (define jazz:cocoa-units

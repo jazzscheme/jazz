@@ -70,6 +70,15 @@
               (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))
   (cocoa
     (define jazz:cairo-units
+      (let ((cc-flags (jazz:pkg-config-cflags "cairo"))
+            (ld-flags (jazz:pkg-config-libs "cairo")))
+        `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
+          (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
+          (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags)
+          (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))
+  #; ;; good-one
+  (cocoa
+    (define jazz:cairo-units
       (receive (major minor build) (jazz:parse-dot-version (jazz:pkg-config-version "cairo-ft"))
         (if (%%fx< minor 4)
             (jazz:error "Cairo 1.4 or higher needed")

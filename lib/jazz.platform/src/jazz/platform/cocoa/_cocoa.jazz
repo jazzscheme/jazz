@@ -879,7 +879,7 @@ typedef struct _GLFWcontextNSGL
 typedef struct _GLFWwindowNS
 {
     id           object;
-    id	         delegate;
+    id	        delegate;
     id           view;
     unsigned int modifierFlags;
 } _GLFWwindowNS;
@@ -1181,6 +1181,7 @@ void _glfwInputWindowCloseRequest(_GLFWwindow* window);
 void _glfwInputKey(_GLFWwindow* window, int key, int action);
 void _glfwInputChar(_GLFWwindow* window, int character);
 void _glfwInputScroll(_GLFWwindow* window, double x, double y);
+void _glfwDrawRect( _GLFWwindow* window, NSRect dirtyRect);
 void _glfwInputMouseClick(_GLFWwindow* window, int button, int action);
 void _glfwInputCursorMotion(_GLFWwindow* window, int x, int y);
 void _glfwInputCursorEnter(_GLFWwindow* window, int entered);
@@ -1213,6 +1214,32 @@ GLboolean _glfwIsValidContext(_GLFWwndconfig* wndconfig);
 
 
 ;;;
+;;;; Platform Types
+;;;
+
+
+(c-type CGFloat (native double))
+
+
+(c-structure NSPoint
+  (CGFloat x)
+  (CGFloat y))
+
+
+(c-structure NSSize
+  (CGFloat width)
+  (CGFloat height))
+
+
+(c-structure NSRect
+  (NSPoint origin)
+  (NSSize size))
+
+
+(c-type CGContextRef (pointer (struct "CGContext")))
+
+
+;;;
 ;;;; Platform Callbacks
 ;;;
 
@@ -1222,6 +1249,7 @@ GLboolean _glfwIsValidContext(_GLFWwndconfig* wndconfig);
 void call_error(char* msg);
 void call_reshape(_GLFWwindow* window, int width, int height);
 void call_close(_GLFWwindow* window);
+void paint_callback(_GLFWwindow* window, CGContextRef context, NSRect* dirtyRect);
 void key_press_callback(_GLFWwindow* window, int key, int action);
 void char_callback(_GLFWwindow* window, int c);
 void button_callback(_GLFWwindow* window, int x, int y, int button, int action);
@@ -2158,6 +2186,11 @@ static int convertMacKeyCode(unsigned int macKeyCode)
     return YES;
 }
 
+- (void)drawRect:(NSRect)dirtyRect
+{
+    _glfwDrawRect(window, dirtyRect);
+}
+
 - (void)mouseDown:(NSEvent *)event
 {
     _glfwInputMouseClick(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS);
@@ -2729,8 +2762,11 @@ int _glfwPlatformCreateWindow(_GLFWwindow* window,
     if (!createWindow(window, wndconfig))
         return GL_FALSE;
 
-    if (!createContext(window, wndconfig, fbconfig))
-        return GL_FALSE;
+    if (opengl)
+    {
+        if (!createContext(window, wndconfig, fbconfig))
+            return GL_FALSE;
+    }
 
     [window->NSGL.context setView:[window->NS.object contentView]];
 
@@ -4324,6 +4360,25 @@ static void setKeyRepeat(_GLFWwindow* window, int enabled)
 //////////////////////////////////////////////////////////////////////////
 
 //========================================================================
+// Draw
+//========================================================================
+
+void _glfwDrawRect(_GLFWwindow* window, NSRect dirtyRect)
+{
+    int width, height;
+    CGContextRef context;
+
+    width = window->width;
+    height = window->height;
+
+    context = [[NSGraphicsContext currentContext] graphicsPort];
+    CGContextTranslateCTM (context, 0.0, height);
+    CGContextScaleCTM (context, 1.0, -1.0);
+  
+    paint_callback(window, context, &dirtyRect);
+}
+
+//========================================================================
 // Register keyboard activity
 //========================================================================
 
@@ -5746,6 +5801,36 @@ void platformSetWindowTitle(_GLFWwindow* window, char* title)
 }
 
 
+void platformGetWindowPos(_GLFWwindow* window, NSPoint* pos)
+{
+    int x, y;
+    glfwGetWindowPos(window, x, y);
+    pos->x = [window->NS.object frame].origin.x;
+    pos->y = [window->NS.object frame].origin.y;
+}
+
+
+void platformSetWindowPos(_GLFWwindow* window, NSPoint* pos)
+{
+    glfwSetWindowPos(window, pos->x, pos->y);
+}
+
+
+void platformGetWindowSize(_GLFWwindow* window, NSSize* size)
+{
+    int width, height;
+    glfwGetWindowSize(window, width, height);
+    size->width = [window->NS.object frame].size.width;
+    size->height = [window->NS.object frame].size.height;
+}
+
+
+void platformSetWindowSize(_GLFWwindow* window, NSSize* size)
+{
+    glfwSetWindowSize(window, size->width, size->height);
+}
+
+
 void platformShowWindow(_GLFWwindow* window)
 {
     glfwShowWindow(window);
@@ -5828,6 +5913,10 @@ void platformDestroyWindow(_GLFWwindow* window)
 (c-external (platformReshapeHack glfwwindow) void)
 (c-external (platformGetWindowTitle glfwwindow) NSString*)
 (c-external (platformSetWindowTitle glfwwindow char-string) void)
+(c-external (platformGetWindowPos glfwwindow NSPoint*) void)
+(c-external (platformSetWindowPos glfwwindow NSPoint*) void)
+(c-external (platformGetWindowSize glfwwindow NSSize*) void)
+(c-external (platformSetWindowSize glfwwindow NSSize*) void)
 (c-external (platformShowWindow glfwwindow) void)
 (c-external (platformSwapBuffers glfwwindow) void)
 (c-external (platformGetMousePosition glfwwindow) scheme-object)
@@ -5886,6 +5975,12 @@ void platformDestroyWindow(_GLFWwindow* window)
   (when get-window
     (let ((window (get-window handle)))
       (close-window~ window))))
+
+(c-definition (paint-callback handle context rect) (glfwwindow CGContextRef NSRect*) void "paint_callback" ""
+  ;(terminal 'paint)
+  (when get-window
+    (let ((window (get-window handle)))
+      (paint-cocoa~ window context rect))))
 
 (c-definition (key-press-callback handle key action) (glfwwindow int int) void "key_press_callback" ""
   ;(terminal 'key key action)
@@ -5948,14 +6043,6 @@ void platformDestroyWindow(_GLFWwindow* window)
 (definition public VK_DOWN 0)
 (definition public VK_UP 0)
 (definition public VK_RBUTTON 0)
-
-
-;;;
-;;;; Types
-;;;
-
-
-(c-type CGContextRef (pointer (struct "CGContext")))
 
 
 ;;;

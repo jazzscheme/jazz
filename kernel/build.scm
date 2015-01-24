@@ -548,14 +548,13 @@
   '(carbon
     cocoa
     #f
-    x11
-    glfw))
+    x11))
 
 
 (define (jazz:require-windowing platform windowing template)
   (define (guess-windowing platform)
     (case platform
-      ((mac) 'x11) ;; until cocoa or glfw is ready
+      ((mac) 'x11) ;; until cocoa is ready
       ((windows) #f)
       ((unix) 'x11)))
   

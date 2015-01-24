@@ -1240,6 +1240,97 @@ GLboolean _glfwIsValidContext(_GLFWwndconfig* wndconfig);
 
 
 ;;;
+;;;; Platform Conversions
+;;;
+
+
+(definition public (new-NSPoint x <fx> y <fx>)
+  (let ((point (NSPoint-make)))
+    (NSPoint-x-set! point (fl x))
+    (NSPoint-y-set! point (fl y))
+    point))
+
+
+(definition public (with-NSPoint point proc)
+  (let ((pt (if point (point->NSPoint point) (NSPoint-make))))
+    (prog1 (proc pt)
+      (NSPoint-free pt))))
+
+
+(definition public (NSPoint->point pt) <Point>
+  (if (not pt)
+      #f
+    (new Point
+      (fxround (NSPoint-x-ref pt))
+      (fxround (NSPoint-y-ref pt)))))
+
+
+(definition public (point->NSPoint point)
+  (new-NSPoint (get-h~ point) (get-v~ point)))
+
+
+(definition public (new-NSSize width <fx> height <fx>)
+  (let ((size (NSSize-make)))
+    (NSSize-width-set! size (fl width))
+    (NSSize-height-set! size (fl height))
+    size))
+
+
+(definition public (with-NSSize dim proc)
+  (let ((size (if dim (dimension->NSSize dim) (NSSize-make))))
+    (prog1 (proc size)
+      (NSSize-free size))))
+
+
+(definition public (NSSize->dimension size) <Point>
+  (if (not size)
+      #f
+    (new Dimension
+      (fxround (NSSize-width-ref size))
+      (fxround (NSSize-height-ref size)))))
+
+
+(definition public (dimension->NSSize dim)
+  (new-NSSize (get-width~ dim) (get-height~ dim)))
+
+
+(definition public (new-NSRect left <fx> top <fx> right <fx> bottom <fx>)
+  (let ((rect (NSRect-make)))
+    (let ((orig (NSRect-origin-ref rect))
+          (size (NSRect-size-ref rect)))
+      (NSPoint-x-set!     orig (fl left))
+      (NSPoint-y-set!     orig (fl top))
+      (NSSize-width-set!  size (fl (- right left)))
+      (NSSize-height-set! size (fl (- bottom top)))
+      rect)))
+
+
+(definition public (with-NSRect rect proc)
+  (let ((rect (if rect (rect->NSRect rect) (NSRect-make))))
+    (prog1 (proc rect)
+      (NSRect-free rect))))
+
+
+(definition public (rect->NSRect rect)
+  (new-NSRect (get-left~ rect)
+              (get-top~ rect)
+              (get-right~ rect)
+              (get-bottom~ rect)))
+
+
+(definition public (NSRect->rect rect) <Rect>
+  (if (not rect)
+      #f
+    (let ((orig (NSRect-origin-ref rect))
+          (size (NSRect-size-ref rect)))
+      (new Rect
+        (fxround (NSPoint-x-ref orig))
+        (fxround (NSPoint-y-ref orig))
+        (fxround (+ (NSPoint-x-ref orig) (NSSize-width-ref size)))
+        (fxround (+ (NSPoint-y-ref orig) (NSSize-height-ref size)))))))
+
+
+;;;
 ;;;; Platform Callbacks
 ;;;
 
@@ -1793,7 +1884,7 @@ void _glfwPlatformCopyContext(_GLFWwindow* src, _GLFWwindow* dst, unsigned long 
 // Returns the X11 handle of the specified window
 //========================================================================
 
-GLFWAPI id glfwGetCocoaWindow(GLFWwindow handle)
+GLFWAPI id platformGetWindow(GLFWwindow handle)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
 
@@ -5831,6 +5922,24 @@ void platformSetWindowSize(_GLFWwindow* window, NSSize* size)
 }
 
 
+void platformGetWindowFrame(_GLFWwindow* window, NSRect* rect)
+{
+    *rect = [window->NS.object frame];
+}
+
+
+void platformSetWindowFrame(_GLFWwindow* window, NSRect* rect)
+{
+    [window->NS.object setFrame: *rect display: YES];
+}
+
+
+void platformGetWindowBounds(_GLFWwindow* window, NSRect* rect)
+{
+    *rect = [window->NS.view rect];
+}
+
+
 void platformShowWindow(_GLFWwindow* window)
 {
     glfwShowWindow(window);
@@ -5878,6 +5987,12 @@ bool platformKeyDown(_GLFWwindow* window, int key)
 }
 
 
+void platformInvalidateRect(_GLFWwindow* window, NSRect* rect)
+{
+    [window->NS.view setNeedsDisplayInRect:*rect];
+}
+
+
 bool platformEventAvailable(void)
 {
     return _glfwPlatformEventAvailable();
@@ -5917,6 +6032,9 @@ void platformDestroyWindow(_GLFWwindow* window)
 (c-external (platformSetWindowPos glfwwindow NSPoint*) void)
 (c-external (platformGetWindowSize glfwwindow NSSize*) void)
 (c-external (platformSetWindowSize glfwwindow NSSize*) void)
+(c-external (platformGetWindowFrame glfwwindow NSRect*) void)
+(c-external (platformSetWindowFrame glfwwindow NSRect*) void)
+(c-external (platformGetWindowBounds glfwwindow NSRect*) void)
 (c-external (platformShowWindow glfwwindow) void)
 (c-external (platformSwapBuffers glfwwindow) void)
 (c-external (platformGetMousePosition glfwwindow) scheme-object)
@@ -5924,11 +6042,12 @@ void platformDestroyWindow(_GLFWwindow* window)
 (c-external (platformHideCursor glfwwindow) void)
 (c-external (platformShowCursor glfwwindow) void)
 (c-external (platformKeyDown glfwwindow int) bool)
+(c-external (platformInvalidateRect glfwwindow NSRect*) void)
 (c-external (platformEventAvailable) bool)
 (c-external (platformPollEvents) void)
 (c-external (platformContinueLoop glfwwindow) bool)
 (c-external (platformDestroyWindow glfwwindow) void)
-(c-external (glfwGetCocoaWindow glfwwindow) id)
+(c-external (platformGetWindow glfwwindow) id)
 
 
 (definition public (platform-get-mouse-position window)

@@ -483,53 +483,57 @@
 
 
 (definition package (platform-get-position handle parent-handle)
-  (receive (left top width height) (platform-get-system-rect handle)
-    (new Point (flonum->fixnum left) (flonum->fixnum top))))
+  (with-NSPoint #f
+    (lambda (pos)
+      (platformGetWindowPos handle pos)
+      (NSPoint->point pos))))
 
 
 (definition package (platform-set-position handle pos)
-  )
+  (with-NSPoint pos
+    (lambda (pos)
+      (platformSetWindowPos handle pos))))
 
 
 (definition package (platform-get-size handle)
-  (receive (left top width height) (platform-get-system-rect handle)
-    (new Dimension (flonum->fixnum width) (flonum->fixnum height))))
+  (with-NSSize #f
+    (lambda (size)
+      (platformGetWindowSize handle size)
+      (NSSize->dimension size))))
 
 
 (definition package (platform-get-window-size handle)
-  (let ((size (NSSize-make)))
-    (platformGetWindowSize handle size)
-    (prog1 (new Dimension (flonum->fixnum (NSSize-width-ref size)) (flonum->fixnum (NSSize-height-ref size)))
-      (NSSize-free size))))
-
-
-(definition package (platform-get-system-rect handle)
-  (values 0. 0. 600. 400.))
+  (with-NSSize #f
+    (lambda (size)
+      (platformGetWindowSize handle size)
+      (NSSize->dimension size))))
 
 
 (definition package (platform-set-window-size handle size)
-  )
+  (with-NSSize size
+    (lambda (size)
+      (platformSetWindowSize handle size))))
 
 
 (definition package (platform-get-rect handle parent-handle)
-  (receive (left top width height) (platform-get-system-rect handle)
-    (new Rect (flonum->fixnum left) (flonum->fixnum top) (flonum->fixnum (+ left width)) (flonum->fixnum (+ top height)))))
+  (with-NSRect #f
+    (lambda (rect)
+      (platformGetWindowFrame handle rect)
+      (NSRect->rect rect))))
 
 
+;; needs fixing as macosx using bottom coordinate
 (definition package (platform-set-rect handle rect)
-  (unimplemented 'platform-set-rect)
-  @windows
-  (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
+  (with-NSRect rect
+    (lambda (rect)
+      (platformSetWindowFrame handle rect))))
 
 
 (definition package (platform-get-bounds handle)
-  (unimplemented 'platform-get-bounds)
-  @windows
-  (let ((rect (RECT-make)))
-    (GetWindowRect handle rect)
-    (MapWindowPoints NULL handle rect 2)
-    (prog1 (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))
-      (RECT-free rect))))
+  (with-NSRect #f
+    (lambda (rect)
+      (platformGetWindowBounds handle rect)
+      (NSRect->rect rect))))
 
 
 (definition package (platform-mouse-position)
@@ -592,7 +596,9 @@
 
 
 (definition package (platform-invalidate-rect handle rect)
-  )
+  (with-NSRect rect
+    (lambda (rect)
+      (platformInvalidateRect handle rect))))
 
 
 (definition package (platform-invalidate-region handle region)

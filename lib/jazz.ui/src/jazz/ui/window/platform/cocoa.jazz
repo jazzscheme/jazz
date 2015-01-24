@@ -40,7 +40,8 @@
 
 (export (jazz.ui.window.platform.independant))
 
-(import (jazz.graphic)
+(import (jazz.geometry)
+        (jazz.graphic)
         (jazz.io)
         (jazz.library)
         (jazz.platform)
@@ -53,17 +54,6 @@
 
 (definition public unprocessed '(unprocessed))
 (definition public processed '(processed))
-
-
-(definition desktop #f)
-
-
-(definition (processed-result return)
-  (if (and (pair? return) (eq? (car return) 'processed))
-      (if (null? (cdr return))
-          0
-        (cadr return))
-    0))
 
 
 ;;;
@@ -162,7 +152,10 @@
   (define (process)
     (declare (proper-tail-calls))
     (let (loop)
-      (platformPollEvents)
+      ;; not sure if this may cause performance problems
+      (thread-execute (primordial-thread) 'execute-event
+        (lambda ()
+          (platformPollEvents)))
       ;(thunk)
       (sleep .01)
       (when (thread-loop? (current-thread))
@@ -392,11 +385,8 @@
 
 
 (definition (set-alpha-blending handle n)
-  #f
-  @windows
-  ((set-layered? handle #t)
-   (SetLayeredWindowAttributes handle 0 n LWA_ALPHA)
-   (RedrawWindow handle NULL NULL (bitwise-ior RDW_ERASE RDW_INVALIDATE))))
+  ;; todo
+  #f)
 
 
 ;;;
@@ -475,11 +465,7 @@
 
 (definition public (acquire-rect to-handle from-handle shape)
   ;; TODO
-  shape
-  @windows
-  (let ((acquired (rect->RECT shape)))
-    (MapWindowPoints from-handle to-handle (RECT->POINTS acquired) 2)
-    (RECT->rect acquired)))
+  shape)
 
 
 (definition package (platform-get-position handle parent-handle)
@@ -536,53 +522,45 @@
       (NSRect->rect rect))))
 
 
-(definition package (platform-mouse-position)
-  (platform-get-mouse-position (get-handle~ (window-to-use-hack))))
+(definition package (platform-mouse-position handle)
+  (with-NSPoint #f
+    (lambda (pos)
+      (platformGetMousePosition handle pos)
+      (NSPoint->point pos))))
 
 
-(definition package (platform-set-mouse-position x y)
-  (platformSetMousePosition (get-handle~ (window-to-use-hack)) x y))
+(definition package (platform-set-mouse-position handle x y)
+  (with-NSPoint (new Point x y)
+    (lambda (pos)
+      (platformSetMousePosition handle pos))))
 
 
 (definition package (platform-window-from-point point)
   ;; todo
-  (get-handle~ (window-to-use-hack))
-  @windows
-  (let ((pt (POINT-make)))
-    (POINT-x-set! pt (get-h~ point))
-    (POINT-y-set! pt (get-v~ point))
-    (prog1 (WindowFromPoint pt)
-      (POINT-free pt))))
+  #f)
 
 
 (definition package (platform-child-window-from-point handle point)
-  #f
-  @windows
-  (let ((pt (POINT-make)))
-    (POINT-x-set! pt (get-h~ point))
-    (POINT-y-set! pt (get-v~ point))
-    (prog1 (ChildWindowFromPointEx handle pt (bitwise-ior CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))
-      (POINT-free pt))))
+  ;; todo
+  #f)
 
 
 (definition package (platform-move-window handle x y cx cy)
-  (unimplemented 'platform-move-window)
-  @windows
-  (MoveWindow handle x y cx cy #t))
+  (unimplemented 'platform-move-window))
 
 
 (definition package (platform-window-enabled? handle)
-  (unimplemented 'platform-window-enabled?)
-  @windows
-  (IsWindowEnabled handle))
+  (unimplemented 'platform-window-enabled?))
 
 
 (definition package (platform-enable-window handle)
-  (warn-unimplemented 'platform-enable-window))
+  ;; todo
+  )
 
 
 (definition package (platform-disable-window handle)
-  (warn-unimplemented 'platform-disable-window))
+  ;; todo
+  )
 
 
 (definition package (platform-get-client-rect handle)
@@ -596,6 +574,10 @@
 
 
 (definition package (platform-invalidate-rect handle rect)
+  ;; quick hack
+  ;; bug probably due to coordinate system being flipped even if i use isFlipped = YES
+  ;; maybe because the view is flipped but not the window!?
+  (set! rect (size-rect (platform-get-size handle)))
   (with-NSRect rect
     (lambda (rect)
       (platformInvalidateRect handle rect))))
@@ -608,28 +590,21 @@
 
 
 (definition package (platform-invalidate-window handle)
-  (platform-invalidate-rect handle #f))
+  (let ((rect (size-rect (platform-get-size handle))))
+    (platform-invalidate-rect handle rect)))
 
 
 (definition package (platform-redraw-window handle rect region)
-  )
+  ;; quick
+  (platform-invalidate-window handle))
 
 
 (definition package (platform-get-update-rect handle)
-  (unimplemented 'platform-get-update-rect)
-  @windows
-  (let ((rect (RECT-make)))
-    (GetUpdateRect handle rect #f)
-    (prog1 (RECT->rect rect)
-      (RECT-free rect))))
+  (unimplemented 'platform-get-update-rect))
 
 
 (definition package (platform-get-update-region handle)
-  (unimplemented 'platform-get-update-region)
-  @windows
-  (let ((region (new Region)))
-    (GetUpdateRgn handle (get-handle~ region) #f)
-    region))
+  (unimplemented 'platform-get-update-region))
 
 
 (definition package (platform-redraw-view-only view handle)
@@ -674,25 +649,18 @@
 ;;;
 
 
-(definition package (platform-get-focus)
-  ;; todo
-  (get-handle~ (window-to-use-hack))
-  @wait
-  (receive (win state) (XGetInputFocus x11-default-display)
-    win))
-
-
 (definition current-focus #f)
 
-(definition (get-current-focus)
-  (unless current-focus
-    (set! current-focus (get-toplevel)))
+
+(definition package (platform-get-focus)
+  @COCOA
+  (platformGetFocus)
   current-focus)
 
+
 (definition package (platform-set-focus handle)
-  (set! current-focus (get-window handle))
-  @convert-cocoa
-  (SetUserFocusWindow (HIViewGetWindow handle)))
+  (set! current-focus handle)
+  (platformSetFocus handle))
 
 
 ;;;
@@ -762,11 +730,13 @@
 
 
 (definition public (hide-cursor)
+  @COCOA
   (platformHideCursor (get-handle~ (window-to-use-hack)))
   (set! *cursor-visible?* #f))
 
 
 (definition public (show-cursor)
+  @COCOA
   (platformShowCursor (get-handle~ (window-to-use-hack)))
   (set! *cursor-visible?* #t))
 
@@ -777,9 +747,7 @@
 
 
 (definition package (platform-get-desktop)
-  (unimplemented 'platform-get-desktop)
-  @wait
-  (XRootWindow x11-default-display (XDefaultScreen x11-default-display)))
+  (unimplemented 'platform-get-desktop))
 
 
 ;;;

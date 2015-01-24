@@ -201,6 +201,11 @@
         (draw surface))))
   
   
+  ;; quick hack
+  (method protected virtual (paint-cocoa context rect)
+    )
+  
+  
   (definition *colors*
     '({Color Dark-Red}
       {Color Dark-Orange}
@@ -651,13 +656,25 @@
         (set-position new-position))))
 
 
-  (method public (mouse-position) <Point>
-    (acquire (get-desktop) (platform-mouse-position)))
+  ;; COCOA unify
+  (cond-expand
+    (cocoa
+     (method public (mouse-position) <Point>
+       (platform-mouse-position handle)))
+    (else
+     (method public (mouse-position) <Point>
+       (acquire (get-desktop) (platform-mouse-position)))))
 
 
-  (method public (set-mouse-position pos)
-    (let ((pos (acquire~ (get-desktop) self pos)))
-      (platform-set-mouse-position (get-h~ pos) (get-v~ pos))))
+  ;; COCOA unify
+  (cond-expand
+    (cocoa
+     (method public (set-mouse-position pos)
+       (platform-set-mouse-position handle (get-h~ pos) (get-v~ pos))))
+    (else
+     (method public (set-mouse-position pos)
+       (let ((pos (acquire~ (get-desktop) self pos)))
+         (platform-set-mouse-position (get-h~ pos) (get-v~ pos))))))
 
 
   (method public (mouse-window)

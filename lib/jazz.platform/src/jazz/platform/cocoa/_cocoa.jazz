@@ -2242,6 +2242,11 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 @implementation GLFWContentView
 
+- (BOOL)isFlipped
+{
+    return YES;
+}
+
 - (id)initWithGlfwWindow:(_GLFWwindow *)initWindow
 {
     self = [super init];
@@ -4463,8 +4468,8 @@ void _glfwDrawRect(_GLFWwindow* window, NSRect dirtyRect)
     height = window->height;
 
     context = [[NSGraphicsContext currentContext] graphicsPort];
-    CGContextTranslateCTM (context, 0.0, height);
-    CGContextScaleCTM (context, 1.0, -1.0);
+    //CGContextTranslateCTM (context, 0.0, height);
+    //CGContextScaleCTM (context, 1.0, -1.0);
   
     paint_callback(window, context, &dirtyRect);
 }
@@ -5864,19 +5869,31 @@ void platformReshapeHack(_GLFWwindow* window)
 }
 
 
+_GLFWwindow* platformGetPrimaryScreen()
+{
+    return [[NSScreen screens] objectAtIndex:0];
+}
+
+
 _GLFWwindow* platformCreateWindow(bool opengl)
 {
-        _GLFWwindow* window = glfwCreateWindow(600, 400, GLFW_WINDOWED, "Test", NULL, opengl);
+    _GLFWwindow* window = glfwCreateWindow(600, 400, GLFW_WINDOWED, "Test", NULL, opengl);
   
-        glfwSetWindowSizeCallback(window, reshapeCallback);
+    glfwSetWindowSizeCallback(window, reshapeCallback);
     
-        return window;
+    return window;
 }
 
 
 void platformMakeContextCurrent(_GLFWwindow* window)
 {
 	glfwMakeContextCurrent(window);
+}
+
+
+_GLFWwindow* platformGetWindowParent(_GLFWwindow* window)
+{
+    return [window->NS.object parentWindow];
 }
 
 
@@ -5952,20 +5969,19 @@ void platformSwapBuffers(_GLFWwindow* window)
 }
 
 
-___SCMOBJ platformGetMousePosition(_GLFWwindow* window)
+void platformGetMousePosition(_GLFWwindow* window, NSPoint* pos)
 {
     int x;
     int y;
     glfwGetCursorPos(window, &x, &y);
-    // quicky
-    ___SCMOBJ xy = ___EXT(___make_pair) (___PSTATE, ___FIX(x), ___FIX(y));
-    return xy;
+    pos->x = x;
+    pos->y = y;
 }
 
 
-void platformSetMousePosition(_GLFWwindow* window, int x, int y)
+void platformSetMousePosition(_GLFWwindow* window, NSPoint* pos)
 {
-    glfwSetCursorPos(window, x, y);
+    glfwSetCursorPos(window, pos->x, pos->y);
 }
 
 
@@ -5990,6 +6006,20 @@ bool platformKeyDown(_GLFWwindow* window, int key)
 void platformInvalidateRect(_GLFWwindow* window, NSRect* rect)
 {
     [window->NS.view setNeedsDisplayInRect:*rect];
+}
+
+
+GLFWwindow* platformGetFocus()
+{
+    // COCOA todo
+    return NULL;
+}
+
+
+void platformSetFocus(_GLFWwindow* window)
+{
+    // COCOA todo
+    // [window->NS.object makeKeyAndOrderFront];
 }
 
 
@@ -6023,9 +6053,11 @@ void platformDestroyWindow(_GLFWwindow* window)
 
 
 (c-external (platformglfwInit) bool)
+(c-external (platformGetPrimaryScreen) glfwwindow)
 (c-external (platformCreateWindow bool) glfwwindow)
 (c-external (platformMakeContextCurrent glfwwindow) void)
 (c-external (platformReshapeHack glfwwindow) void)
+(c-external (platformGetWindowParent glfwwindow) glfwwindow)
 (c-external (platformGetWindowTitle glfwwindow) NSString*)
 (c-external (platformSetWindowTitle glfwwindow char-string) void)
 (c-external (platformGetWindowPos glfwwindow NSPoint*) void)
@@ -6037,22 +6069,19 @@ void platformDestroyWindow(_GLFWwindow* window)
 (c-external (platformGetWindowBounds glfwwindow NSRect*) void)
 (c-external (platformShowWindow glfwwindow) void)
 (c-external (platformSwapBuffers glfwwindow) void)
-(c-external (platformGetMousePosition glfwwindow) scheme-object)
-(c-external (platformSetMousePosition glfwwindow int int) void)
+(c-external (platformGetMousePosition glfwwindow NSPoint*) void)
+(c-external (platformSetMousePosition glfwwindow NSPoint*) void)
 (c-external (platformHideCursor glfwwindow) void)
 (c-external (platformShowCursor glfwwindow) void)
 (c-external (platformKeyDown glfwwindow int) bool)
 (c-external (platformInvalidateRect glfwwindow NSRect*) void)
+(c-external (platformGetFocus) glfwwindow)
+(c-external (platformSetFocus glfwwindow) void)
 (c-external (platformEventAvailable) bool)
 (c-external (platformPollEvents) void)
 (c-external (platformContinueLoop glfwwindow) bool)
 (c-external (platformDestroyWindow glfwwindow) void)
 (c-external (platformGetWindow glfwwindow) id)
-
-
-(definition public (platform-get-mouse-position window)
-  (let ((pair (platformGetMousePosition window)))
-    (new Point (car pair) (cdr pair))))
 
 
 ;; quicky
@@ -6112,11 +6141,13 @@ void platformDestroyWindow(_GLFWwindow* window)
         ((259 261) 'Backspace)
         (else (integer->char key))))
     
-    (when (and get-window (eq? action GLFW_PRESS))
+    (when get-window
       (let ((window (get-window handle)))
         (let ((translated (translate key)))
           (or (translate-shortcut-hook translated)
-              (call-key-press~ window translated)))))))
+              (if (eq? action GLFW_PRESS)
+                  (key-down~ window translated)
+                (key-up~ window translated))))))))
 
 (c-definition (char-callback handle c) (glfwwindow int) void "char_callback" ""
   ;(terminal 'char c)
@@ -6145,15 +6176,6 @@ void platformDestroyWindow(_GLFWwindow* window)
   (when get-window
     (let ((window (get-window handle)))
       (mouse-move~ window x y))))
-
-
-(definition public (initialize-cocoa)
-  (platformglfwInit))
-
-
-;; hack
-(definition public window-to-use-hack
-  (make-parameter #f))
 
 
 ;; quicky

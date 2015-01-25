@@ -152,6 +152,7 @@
           (properties jazz:kernel-properties)
           (executable #f)
           (resources #f)
+          (bundle #f)
           (image #f)
           (kernel? #f)
           (console? #f)
@@ -166,7 +167,10 @@
           (source-dir (jazz:relativise-directory "./" "./" source))
           (build-dir (if product (%%get-repository-directory jazz:Build-Repository) destination-directory))
           (kernel-dir (string-append destination-directory "build/kernel/"))
-          (product-dir (string-append destination-directory "build/products/" product-name "/")))
+          (product-dir (string-append destination-directory "build/products/" product-name "/"))
+          (image-dir (if (and bundle (eq? windowing 'cocoa) (not library-image?))
+                         (%%string-append destination-directory bundle "/Contents/MacOS/")
+                       destination-directory)))
       (define (source-file path)
         (%%string-append source-dir path))
       
@@ -335,7 +339,20 @@
       (define (build-product)
         (with-version-file (product-file "version")
           (lambda (rebuild? rebuild-architecture? touch touched?)
+            (prepare-bundle rebuild?)
             (compile-product rebuild? touch touched?))))
+      
+      (define (prepare-bundle rebuild?)
+        (if (and bundle (eq? windowing 'cocoa) (not library-image?))
+            (let ((bundle-src (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "/")))
+                  (bundle-dst (build-file (%%string-append bundle "/"))))
+              (if (or rebuild?
+                      (not (file-exists? bundle-dst)))
+                  (begin
+                    (feedback-message "; preparing bundle...")
+                    (if (file-exists? bundle-dst)
+                        (jazz:delete-directory bundle-dst))
+                    (jazz:copy-directory bundle-src bundle-dst))))))
       
       (define (compile-product rebuild? touch touched?)
         (let ((kernel-time (kernel-time))
@@ -424,17 +441,19 @@
                     (newline output)
                     (jazz:print-variable 'jazz:image (or image 'executable) output)
                     (newline output)
-                    (jazz:print-variable 'jazz:built (jazz:pathname-normalize destination-directory) output)
+                    (jazz:print-variable 'jazz:built (jazz:pathname-normalize image-dir) output)
                     (newline output)
-                    (jazz:print-variable 'jazz:gambit-dir (if library-image? (jazz:pathname-normalize gambit-dir) (jazz:relativise-directory destination-directory "./" gambit-dir)) output)
+                    (jazz:print-variable 'jazz:bundle-depth (and bundle (eq? windowing 'cocoa) (not library-image?) 3) output)
+                    (newline output)
+                    (jazz:print-variable 'jazz:gambit-dir (if library-image? (jazz:pathname-normalize gambit-dir) (jazz:relativise-directory image-dir "./" gambit-dir)) output)
                     (newline output)
                     (jazz:print-variable 'jazz:source-built (jazz:pathname-standardize (path-normalize source)) output)
                     (newline output)
-                    (jazz:print-variable 'jazz:source (if library-image? (jazz:pathname-normalize source) (jazz:relativise-directory destination-directory "./" source)) output)
+                    (jazz:print-variable 'jazz:source (if library-image? (jazz:pathname-normalize source) (jazz:relativise-directory image-dir "./" source)) output)
                     (newline output)
-                    (jazz:print-variable 'jazz:binary-repositories (if library-image? #f (jazz:determine-binary-repositories destination-directory)) output)
+                    (jazz:print-variable 'jazz:binary-repositories (if library-image? #f (jazz:determine-binary-repositories image-dir)) output)
                     (newline output)
-                    (jazz:print-variable 'jazz:source-repositories (if library-image? #f (jazz:determine-source-repositories destination-directory)) output)
+                    (jazz:print-variable 'jazz:source-repositories (if library-image? #f (jazz:determine-source-repositories image-dir)) output)
                     (newline output)
                     (jazz:print-variable 'jazz:source-access? (jazz:build-source-access?) output)
                     (newline output)
@@ -616,9 +635,12 @@
                  (jazz:obliterate-PE-timestamp (image-file) 'EXE))))))
       
       (define (image-file)
-        (if library-image?
-            (build-file (jazz:add-extension (or executable image-name) "o1"))
-          (build-file (jazz:add-extension (or executable image-name) (jazz:executable-extension platform)))))
+        (cond ((and bundle (eq? windowing 'cocoa) (not library-image?))
+               (build-file (%%string-append bundle "/Contents/MacOS/" (or executable image-name))))
+              (library-image?
+               (build-file (jazz:add-extension (or executable image-name) "o1")))
+              (else
+               (build-file (jazz:add-extension (or executable image-name) (jazz:executable-extension platform))))))
       
       ;;;
       ;;;; Configuration
@@ -681,6 +703,8 @@
                     (jazz:print-variable 'jazz:image (or image 'executable) output)
                     (newline output)
                     (jazz:print-expression-variable 'jazz:built 'install-dir output)
+                    (newline output)
+                    (jazz:print-variable 'jazz:bundle-depth (and bundle (eq? windowing 'cocoa) (not library-image?) 3) output)
                     (newline output)
                     (print-absolute/relative-path-variable 'jazz:gambit-dir gambit-dir output)
                     (newline output)

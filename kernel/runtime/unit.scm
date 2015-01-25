@@ -225,6 +225,16 @@
       (jazz:pathname-normalize jazz:built)))
 
 
+(define jazz:kernel-bundle
+  (if jazz:bundle-depth
+      (let iter ((n jazz:bundle-depth)
+                 (dir jazz:kernel-install))
+           (if (= n 0)
+               dir
+             (iter (- n 1) (jazz:parent-directory dir))))
+    #f))
+
+
 (define (jazz:install-path filename)
   (if (%%not filename)
       jazz:kernel-install
@@ -344,7 +354,9 @@
                 (append repositories-list binary-list source-list dynamic-binary-list dynamic-source-list build-list jazz-list))
             (jazz:error "Invalid .dependencies"))))))
   
-  (let ((build (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t create?: #t)))
+  (let ((build (if (and jazz:kernel-bundle (file-exists? (%%string-append jazz:kernel-bundle "lib")))
+                   (jazz:make-repository 'Lib "lib" jazz:kernel-bundle binary?: #t)
+                 (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t create?: #t))))
     (set! jazz:Build-Repository build)
     (set! jazz:Repositories (%%append jazz:Repositories (all-repositories build)))))
 

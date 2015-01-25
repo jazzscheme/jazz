@@ -44,6 +44,9 @@
 (define jazz:built
   #f)
 
+(define jazz:bundle-depth
+  #f)
+
 (define jazz:gambit-dir
   #f)
 

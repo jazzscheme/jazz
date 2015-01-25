@@ -169,7 +169,7 @@
           (kernel-dir (string-append destination-directory "build/kernel/"))
           (product-dir (string-append destination-directory "build/products/" product-name "/"))
           (image-dir (if (and bundle (eq? windowing 'cocoa) (not library-image?))
-                         (%%string-append destination-directory bundle "/Contents/MacOS/")
+                         (%%string-append destination-directory bundle ".app" "/Contents/MacOS/")
                        destination-directory)))
       (define (source-file path)
         (%%string-append source-dir path))
@@ -345,7 +345,7 @@
       (define (prepare-bundle rebuild?)
         (if (and bundle (eq? windowing 'cocoa) (not library-image?))
             (let ((bundle-src (jazz:package-pathname (%%get-product-package (jazz:get-product product)) (%%string-append "bundles/" bundle "/")))
-                  (bundle-dst (build-file (%%string-append bundle "/"))))
+                  (bundle-dst (build-file (%%string-append bundle ".app" "/"))))
               (if (or rebuild?
                       (not (file-exists? bundle-dst)))
                   (begin
@@ -636,7 +636,7 @@
       
       (define (image-file)
         (cond ((and bundle (eq? windowing 'cocoa) (not library-image?))
-               (build-file (%%string-append bundle "/Contents/MacOS/" (or executable image-name))))
+               (build-file (%%string-append bundle ".app" "/Contents/MacOS/" (or executable image-name))))
               (library-image?
                (build-file (jazz:add-extension (or executable image-name) "o1")))
               (else

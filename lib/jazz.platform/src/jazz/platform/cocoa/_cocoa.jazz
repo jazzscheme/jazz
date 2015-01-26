@@ -1178,7 +1178,7 @@ void _glfwInputWindowDamage(_GLFWwindow* window);
 void _glfwInputWindowCloseRequest(_GLFWwindow* window);
 
 // Input event notification (input.c)
-void _glfwInputKey(_GLFWwindow* window, int key, int action);
+bool _glfwInputKey(_GLFWwindow* window, int key, int action);
 void _glfwInputChar(_GLFWwindow* window, int character);
 void _glfwInputScroll(_GLFWwindow* window, double x, double y);
 void _glfwDrawRect( _GLFWwindow* window, NSRect dirtyRect);
@@ -1341,10 +1341,28 @@ void call_error(char* msg);
 void call_reshape(_GLFWwindow* window, int width, int height);
 void call_close(_GLFWwindow* window);
 void paint_callback(_GLFWwindow* window, CGContextRef context, NSRect* dirtyRect);
-void key_press_callback(_GLFWwindow* window, int key, int action);
+int key_press_callback(_GLFWwindow* window, int key, int action);
 void char_callback(_GLFWwindow* window, int c);
 void button_callback(_GLFWwindow* window, int x, int y, int button, int clickCount, int action);
 void move_callback(_GLFWwindow* window, int x, int y);
+void activate_callback(_GLFWwindow* window);
+void deactivate_callback(_GLFWwindow* window);
+void call_debug(char* str);
+
+"#)
+
+
+;;;
+;;;; Platform Debug
+;;;
+
+
+(c-declare cocoa #"
+
+void debug(NSString* str)
+{
+    call_debug([str UTF8String]);
+}
 
 "#)
 
@@ -2388,20 +2406,21 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
     if (key != -1)
     {
-        _glfwInputKey(window, key, GLFW_PRESS);
-
-        if ([event modifierFlags] & NSCommandKeyMask)
+        if (!_glfwInputKey(window, key, GLFW_PRESS))
         {
-            if (window->systemKeys)
-                [super keyDown:event];
-        }
-        else
-        {
-            characters = [event characters];
-            length = [characters length];
-
-            for (i = 0;  i < length;  i++)
-                _glfwInputChar(window, [characters characterAtIndex:i]);
+            if ([event modifierFlags] & NSCommandKeyMask)
+            {
+                if (window->systemKeys)
+                    [super keyDown:event];
+            }
+            else
+            {
+                characters = [event characters];
+                length = [characters length];
+    
+                for (i = 0;  i < length;  i++)
+                    _glfwInputChar(window, [characters characterAtIndex:i]);
+            }
         }
     }
 }
@@ -4479,16 +4498,16 @@ void _glfwDrawRect(_GLFWwindow* window, NSRect dirtyRect)
 // Register keyboard activity
 //========================================================================
 
-void _glfwInputKey(_GLFWwindow* window, int key, int action)
+bool _glfwInputKey(_GLFWwindow* window, int key, int action)
 {
     GLboolean repeated = GL_FALSE;
 
     if (key < 0 || key > GLFW_KEY_LAST)
-        return;
+        return 0;
 
     // Are we trying to release an already released key?
     if (action == GLFW_RELEASE && window->key[key] != GLFW_PRESS)
-        return;
+        return 0;
 
     // Register key action
     if (action == GLFW_RELEASE && window->stickyKeys)
@@ -4501,7 +4520,9 @@ void _glfwInputKey(_GLFWwindow* window, int key, int action)
 
     // Call user callback function
     if (window->keyRepeat || !repeated)
-        key_press_callback(window, key, action);
+        return key_press_callback(window, key, action);
+    else
+        return 0;
 }
 
 
@@ -4978,6 +4999,8 @@ void _glfwInputWindowFocus(_GLFWwindow* window, GLboolean activated)
 
             if (window->windowFocusCallback)
                 window->windowFocusCallback(window, activated);
+            
+            activate_callback(window);
         }
     }
     else
@@ -4997,13 +5020,15 @@ void _glfwInputWindowFocus(_GLFWwindow* window, GLboolean activated)
             for (i = 0;  i <= GLFW_MOUSE_BUTTON_LAST;  i++)
             {
                 if (window->mouseButton[i] == GLFW_PRESS)
-                    _glfwInputMouseClick(window, i, GLFW_RELEASE);
+                    _glfwInputMouseClick(window, i, 1, GLFW_RELEASE);
             }
 
             _glfwLibrary.activeWindow = NULL;
 
             if (window->windowFocusCallback)
                 window->windowFocusCallback(window, activated);
+            
+            deactivate_callback(window);
         }
     }
 }
@@ -6086,12 +6111,18 @@ void platformDestroyWindow(_GLFWwindow* window)
 
 
 ;; quicky
-(define GLFW_RELEASE 0)
-(define GLFW_PRESS 1)
+(constant GLFW_WINDOWED             #x00010001)
+(constant GLFW_FULLSCREEN           #x00010002)
 
-(define GLFW_MOUSE_BUTTON_LEFT 0)
-(define GLFW_MOUSE_BUTTON_RIGHT 1)
-(define GLFW_MOUSE_BUTTON_MIDDLE 2)
+(constant GLFW_WINDOW               #x00010011)
+(constant GLFW_DIALOG               #x00010012)
+
+(constant GLFW_RELEASE 0)
+(constant GLFW_PRESS 1)
+
+(constant GLFW_MOUSE_BUTTON_LEFT 0)
+(constant GLFW_MOUSE_BUTTON_RIGHT 1)
+(constant GLFW_MOUSE_BUTTON_MIDDLE 2)
 
 
 ;; quicky
@@ -6131,7 +6162,7 @@ void platformDestroyWindow(_GLFWwindow* window)
     (let ((window (get-window handle)))
       (paint-cocoa~ window context rect))))
 
-(c-definition (key-press-callback handle key action) (glfwwindow int int) void "key_press_callback" ""
+(c-definition (key-press-callback handle key action) (glfwwindow int int) int "key_press_callback" ""
   ;(terminal 'key key action)
   (let ()
     (define (translate key)
@@ -6142,14 +6173,17 @@ void platformDestroyWindow(_GLFWwindow* window)
         ((259 261) 'Backspace)
         (else (integer->char key))))
     
-    (when get-window
-      (let ((window (get-window handle)))
-        (let ((translated (translate key)))
-          (if (eq? action GLFW_PRESS)
-              (begin
-                (translate-shortcut-hook translated)
-                (key-down~ window translated))
-            (key-up~ window translated)))))))
+    (if (when get-window
+          (let ((window (get-window handle)))
+            (let ((translated (translate key)))
+              (if (eq? action GLFW_PRESS)
+                  (begin
+                    (key-down~ window translated)
+                    (translate-shortcut-hook translated))
+                (key-up~ window translated)
+                #f))))
+        1
+      0)))
 
 (c-definition (char-callback handle c) (glfwwindow int) void "char_callback" ""
   ;(terminal 'char c)
@@ -6177,6 +6211,23 @@ void platformDestroyWindow(_GLFWwindow* window)
   (when get-window
     (let ((window (get-window handle)))
       (mouse-move~ window x y))))
+
+(c-definition (activate-callback handle) (glfwwindow) void "activate_callback" ""
+  ;(terminal 'activate)
+  (when get-window
+    (let ((window (get-window handle)))
+      (when window
+        (activate-application~ window)))))
+
+(c-definition (deactivate-callback handle) (glfwwindow) void "deactivate_callback" ""
+  ;(terminal 'deactivate)
+  (when get-window
+    (let ((window (get-window handle)))
+      (when window
+        (deactivate-application~ window)))))
+
+(c-definition (call-debug str) (char-string) void "call_debug" ""
+  (debug-string str))
 
 
 ;; quicky

@@ -6145,18 +6145,18 @@ void platformDestroyWindow(_GLFWwindow* window)
     (when get-window
       (let ((window (get-window handle)))
         (let ((translated (translate key)))
-          (or (translate-shortcut-hook translated)
-              (if (eq? action GLFW_PRESS)
-                  (key-down~ window translated)
-                (key-up~ window translated))))))))
+          (if (eq? action GLFW_PRESS)
+              (begin
+                (translate-shortcut-hook translated)
+                (key-down~ window translated))
+            (key-up~ window translated)))))))
 
 (c-definition (char-callback handle c) (glfwwindow int) void "char_callback" ""
   ;(terminal 'char c)
   (when get-window
     (let ((window (get-window handle))
           (c (integer->char c)))
-      (or (translate-shortcut-hook c)
-          (call-key-press~ window c)))))
+      (call-key-press~ window c))))
 
 (c-definition (button-callback handle x y button click-count action) (glfwwindow int int int int int) void "button_callback" ""
   ;(terminal 'button x y button action)
@@ -6169,7 +6169,7 @@ void platformDestroyWindow(_GLFWwindow* window)
            ((GLFW_RELEASE) (mouse-up~ window x y))))
         ((GLFW_MOUSE_BUTTON_RIGHT)
          (ecase action
-           ((GLFW_PRESS) (right-mouse-down~ window x y))
+           ((GLFW_PRESS) (right-mouse-down~ window x y) (call-context-menu~ window x y))
            ((GLFW_RELEASE) (right-mouse-up~ window x y))))))))
 
 (c-definition (move-callback handle x y) (glfwwindow int int) void "move_callback" ""

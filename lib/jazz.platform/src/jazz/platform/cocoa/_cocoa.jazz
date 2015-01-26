@@ -1182,7 +1182,7 @@ void _glfwInputKey(_GLFWwindow* window, int key, int action);
 void _glfwInputChar(_GLFWwindow* window, int character);
 void _glfwInputScroll(_GLFWwindow* window, double x, double y);
 void _glfwDrawRect( _GLFWwindow* window, NSRect dirtyRect);
-void _glfwInputMouseClick(_GLFWwindow* window, int button, int action);
+void _glfwInputMouseClick(_GLFWwindow* window, int button, int clickCount, int action);
 void _glfwInputCursorMotion(_GLFWwindow* window, int x, int y);
 void _glfwInputCursorEnter(_GLFWwindow* window, int entered);
 
@@ -1343,7 +1343,7 @@ void call_close(_GLFWwindow* window);
 void paint_callback(_GLFWwindow* window, CGContextRef context, NSRect* dirtyRect);
 void key_press_callback(_GLFWwindow* window, int key, int action);
 void char_callback(_GLFWwindow* window, int c);
-void button_callback(_GLFWwindow* window, int x, int y, int button, int action);
+void button_callback(_GLFWwindow* window, int x, int y, int button, int clickCount, int action);
 void move_callback(_GLFWwindow* window, int x, int y);
 
 "#)
@@ -2047,6 +2047,7 @@ void _glfwPlatformDisableSystemKeys(_GLFWwindow* window)
 
 @implementation GLFWApplicationDelegate
 
+/* causes the application to hang on terminate
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 {
     _GLFWwindow* window;
@@ -2055,7 +2056,7 @@ void _glfwPlatformDisableSystemKeys(_GLFWwindow* window)
         _glfwInputWindowCloseRequest(window);
 
     return NSTerminateCancel;
-}
+}*/
 
 - (void)applicationDidHide:(NSNotification *)notification
 {
@@ -2289,7 +2290,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)mouseDown:(NSEvent *)event
 {
-    _glfwInputMouseClick(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS);
+    _glfwInputMouseClick(window, GLFW_MOUSE_BUTTON_LEFT, [event clickCount], GLFW_PRESS);
 }
 
 - (void)mouseDragged:(NSEvent *)event
@@ -2299,7 +2300,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)mouseUp:(NSEvent *)event
 {
-    _glfwInputMouseClick(window, GLFW_MOUSE_BUTTON_LEFT, GLFW_RELEASE);
+    _glfwInputMouseClick(window, GLFW_MOUSE_BUTTON_LEFT, [event clickCount], GLFW_RELEASE);
 }
 
 - (void)mouseMoved:(NSEvent *)event
@@ -2320,7 +2321,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)rightMouseDown:(NSEvent *)event
 {
-    _glfwInputMouseClick(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS);
+    _glfwInputMouseClick(window, GLFW_MOUSE_BUTTON_RIGHT, [event clickCount], GLFW_PRESS);
 }
 
 - (void)rightMouseDragged:(NSEvent *)event
@@ -2330,12 +2331,12 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)rightMouseUp:(NSEvent *)event
 {
-    _glfwInputMouseClick(window, GLFW_MOUSE_BUTTON_RIGHT, GLFW_RELEASE);
+    _glfwInputMouseClick(window, GLFW_MOUSE_BUTTON_RIGHT, [event clickCount], GLFW_RELEASE);
 }
 
 - (void)otherMouseDown:(NSEvent *)event
 {
-    _glfwInputMouseClick(window, [event buttonNumber], GLFW_PRESS);
+    _glfwInputMouseClick(window, [event buttonNumber], [event clickCount], GLFW_PRESS);
 }
 
 - (void)otherMouseDragged:(NSEvent *)event
@@ -2345,7 +2346,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)otherMouseUp:(NSEvent *)event
 {
-    _glfwInputMouseClick(window, [event buttonNumber], GLFW_RELEASE);
+    _glfwInputMouseClick(window, [event buttonNumber], [event clickCount], GLFW_RELEASE);
 }
 
 - (void)mouseExited:(NSEvent *)event
@@ -4536,7 +4537,7 @@ void _glfwInputScroll(_GLFWwindow* window, double xoffset, double yoffset)
 // Register mouse button clicks
 //========================================================================
 
-void _glfwInputMouseClick(_GLFWwindow* window, int button, int action)
+void _glfwInputMouseClick(_GLFWwindow* window, int button, int clickCount, int action)
 {
     if (button < 0 || button > GLFW_MOUSE_BUTTON_LAST)
         return;
@@ -4551,7 +4552,7 @@ void _glfwInputMouseClick(_GLFWwindow* window, int button, int action)
     int x;
     int y;
     glfwGetCursorPos(window, &x, &y);
-    button_callback(window, x, y, button, action);
+    button_callback(window, x, y, button, clickCount, action);
 }
 
 
@@ -6157,14 +6158,14 @@ void platformDestroyWindow(_GLFWwindow* window)
       (or (translate-shortcut-hook c)
           (call-key-press~ window c)))))
 
-(c-definition (button-callback handle x y button action) (glfwwindow int int int int) void "button_callback" ""
+(c-definition (button-callback handle x y button click-count action) (glfwwindow int int int int int) void "button_callback" ""
   ;(terminal 'button x y button action)
   (when get-window
     (let ((window (get-window handle)))
       (ecase button
         ((GLFW_MOUSE_BUTTON_LEFT)
          (ecase action
-           ((GLFW_PRESS) (mouse-down~ window x y))
+           ((GLFW_PRESS) (if (= click-count 2) (double-click~ window x y) (mouse-down~ window x y)))
            ((GLFW_RELEASE) (mouse-up~ window x y))))
         ((GLFW_MOUSE_BUTTON_RIGHT)
          (ecase action

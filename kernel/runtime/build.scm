@@ -352,7 +352,11 @@
                     (feedback-message "; preparing bundle...")
                     (if (file-exists? bundle-dst)
                         (jazz:delete-directory bundle-dst))
-                    (jazz:copy-directory bundle-src bundle-dst))))))
+                    (jazz:copy-directory bundle-src bundle-dst)
+                    ;; quick hack because git doesnt support empty directories
+                    (let ((macos-dir (%%string-append bundle-dst "/Contents/MacOS/")))
+                      (if (not (file-exists? macos-dir))
+                          (create-directory macos-dir))))))))
       
       (define (compile-product rebuild? touch touched?)
         (let ((kernel-time (kernel-time))

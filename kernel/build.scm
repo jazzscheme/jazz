@@ -554,7 +554,7 @@
 (define (jazz:require-windowing platform windowing template)
   (define (guess-windowing platform)
     (case platform
-      ((mac) 'x11) ;; until cocoa is ready
+      ((mac) 'cocoa)
       ((windows) #f)
       ((unix) 'x11)))
   

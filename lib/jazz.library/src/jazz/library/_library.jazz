@@ -594,13 +594,14 @@
 (definition protected Shift-Bit
   1)
 
-
 (definition protected Control-Bit
   2)
 
-
 (definition protected Alt-Bit
   4)
+
+(definition protected Meta-Bit
+  8)
 
 
 (definition public (shift-key? modifier)
@@ -615,7 +616,11 @@
   (mask-bit-set? modifier Alt-Bit))
 
 
-(definition public (make-modifiers-mask shift? control? alt?)
+(definition public (meta-key? modifier)
+  (mask-bit-set? modifier Meta-Bit))
+
+
+(definition public (make-modifiers-mask shift? control? alt? meta?)
   (define (set-shift-key modifiers bit)
     (mask-bit-set modifiers Shift-Bit bit))
   
@@ -625,13 +630,17 @@
   (define (set-alt-key modifiers bit)
     (mask-bit-set modifiers Alt-Bit bit))
   
-  (set-alt-key (set-control-key (set-shift-key 0 shift?) control?) alt?))
+  (define (set-meta-key modifiers bit)
+    (mask-bit-set modifiers Meta-Bit bit))
+  
+  (set-meta-key (set-alt-key (set-control-key (set-shift-key 0 shift?) control?) alt?) meta?))
 
 
 (definition public (modifiers->mask modifiers)
   (make-modifiers-mask (memq? :shift modifiers)
                        (memq? :control modifiers)
-                       (memq? :alt modifiers)))
+                       (memq? :alt modifiers)
+                       (memq? :meta modifiers)))
 
 
 (definition public (modifiers->keys keys)
@@ -643,6 +652,7 @@
     (try (alt-key? keys) :alt)
     (try (shift-key? keys) :shift)
     (try (control-key? keys) :control)
+    (try (meta-key? keys) :control)
     modifiers))
 
 
@@ -651,7 +661,7 @@
     (if (null? scan)
         (proc (modifiers->mask keys) scan)
       (let ((obj (car scan)))
-        (if (memq? obj '(:shift :control :alt))
+        (if (memq? obj '(:shift :control :alt :meta))
             (iter (cdr scan) (cons obj keys))
           (proc (modifiers->mask keys) scan))))))
 

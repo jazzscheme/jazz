@@ -416,6 +416,7 @@ typedef struct _GLFWwndconfig   _GLFWwndconfig;
 typedef struct _GLFWfbconfig    _GLFWfbconfig;
 typedef struct _GLFWwindow      _GLFWwindow;
 typedef struct _GLFWlibrary     _GLFWlibrary;
+typedef struct _GLFWinputstate  _GLFWinputstate;
 
 
 
@@ -706,7 +707,6 @@ typedef struct _GLFWlibrary     _GLFWlibrary;
 #define GLFW_CURSOR_MODE          0x00030001
 #define GLFW_STICKY_KEYS          0x00030002
 #define GLFW_STICKY_MOUSE_BUTTONS 0x00030003
-#define GLFW_KEY_REPEAT           0x00030005
 
 /* GLFW_CURSOR_MODE values */
 #define GLFW_CURSOR_NORMAL       0x00040001
@@ -809,7 +809,7 @@ GLFWAPI void glfwWaitEvents(void);
 /* Input handling */
 GLFWAPI int  glfwGetInputMode(GLFWwindow window, int mode);
 GLFWAPI void glfwSetInputMode(GLFWwindow window, int mode, int value);
-GLFWAPI int  glfwGetKey(GLFWwindow window, int key);
+GLFWAPI int  glfwGetKey(int key);
 GLFWAPI int  glfwGetMouseButton(GLFWwindow window, int button);
 GLFWAPI void glfwGetCursorPos(GLFWwindow window, int* xpos, int* ypos);
 GLFWAPI void glfwSetCursorPos(GLFWwindow window, int xpos, int ypos);
@@ -885,7 +885,6 @@ typedef struct _GLFWwindowNS
     id           object;
     id	        delegate;
     id           view;
-    unsigned int modifierFlags;
 } _GLFWwindowNS;
 
 
@@ -1018,6 +1017,14 @@ struct _GLFWfbconfig
 };
 
 
+struct _GLFWinputstate
+{
+    GLboolean stickyKeys;
+    char      key[GLFW_KEY_LAST + 1];
+    unsigned int modifierFlags;
+};
+
+
 //------------------------------------------------------------------------
 // Window structure
 //------------------------------------------------------------------------
@@ -1037,14 +1044,11 @@ struct _GLFWwindow
     void*     userPointer;
 
     // Window input state
-    GLboolean stickyKeys;
     GLboolean stickyMouseButtons;
-    GLboolean keyRepeat;
     int       cursorPosX, cursorPosY;
     int       cursorMode;
     double    scrollX, scrollY;
     char      mouseButton[GLFW_MOUSE_BUTTON_LAST + 1];
-    char      key[GLFW_KEY_LAST + 1];
 
     // OpenGL extensions and context attributes
     int       clientAPI;
@@ -1107,6 +1111,7 @@ struct _GLFWlibrary
 //------------------------------------------------------------------------
 extern GLboolean _glfwInitialized;
 extern _GLFWlibrary _glfwLibrary;
+_GLFWinputstate _glfwInputState;
 
 
 //========================================================================
@@ -1179,6 +1184,7 @@ void _glfwInputWindowDamage(_GLFWwindow* window);
 void _glfwInputWindowCloseRequest(_GLFWwindow* window);
 
 // Input event notification (input.c)
+void _glfwInputKeyState(int key, int action);
 bool _glfwInputKey(_GLFWwindow* window, int key, int action);
 void _glfwInputChar(_GLFWwindow* window, int character);
 void _glfwInputScroll(_GLFWwindow* window, double x, double y);
@@ -2407,12 +2413,12 @@ static int convertMacKeyCode(unsigned int macKeyCode)
     unsigned int newModifierFlags =
         [event modifierFlags] | NSDeviceIndependentModifierFlagsMask;
 
-    if (newModifierFlags > window->NS.modifierFlags)
+    if (newModifierFlags > _glfwInputState.modifierFlags)
         mode = GLFW_PRESS;
     else
         mode = GLFW_RELEASE;
 
-    window->NS.modifierFlags = newModifierFlags;
+    _glfwInputState.modifierFlags = newModifierFlags;
 
     key = convertMacKeyCode([event keyCode]);
     if (key != -1)
@@ -4390,12 +4396,12 @@ static void setCursorMode(_GLFWwindow* window, int newMode)
 
 
 //========================================================================
-// Set sticky keys mode for the specified window
+// Set sticky keys mode
 //========================================================================
 
-static void setStickyKeys(_GLFWwindow* window, int enabled)
+static void setStickyKeys(int enabled)
 {
-    if (window->stickyKeys == enabled)
+    if (_glfwInputState.stickyKeys == enabled)
         return;
 
     if (!enabled)
@@ -4405,12 +4411,12 @@ static void setStickyKeys(_GLFWwindow* window, int enabled)
         // Release all sticky keys
         for (i = 0;  i <= GLFW_KEY_LAST;  i++)
         {
-            if (window->key[i] == GLFW_STICK)
-                window->key[i] = GLFW_RELEASE;
+            if (_glfwInputState.key[i] == GLFW_STICK)
+                _glfwInputState.key[i] = GLFW_RELEASE;
         }
     }
 
-    window->stickyKeys = enabled;
+    _glfwInputState.stickyKeys = enabled;
 }
 
 
@@ -4436,16 +4442,6 @@ static void setStickyMouseButtons(_GLFWwindow* window, int enabled)
     }
 
     window->stickyMouseButtons = enabled;
-}
-
-
-//========================================================================
-// Set key repeat for the specified window
-//========================================================================
-
-static void setKeyRepeat(_GLFWwindow* window, int enabled)
-{
-    window->keyRepeat = enabled;
 }
 
 
@@ -4476,31 +4472,26 @@ void _glfwDrawRect(_GLFWwindow* window, NSRect dirtyRect)
 // Register keyboard activity
 //========================================================================
 
-bool _glfwInputKey(_GLFWwindow* window, int key, int action)
+void _glfwInputKeyState(int key, int action)
 {
-    GLboolean repeated = GL_FALSE;
-
     if (key < 0 || key > GLFW_KEY_LAST)
-        return 0;
+        return;
 
     // Are we trying to release an already released key?
-    if (action == GLFW_RELEASE && window->key[key] != GLFW_PRESS)
-        return 0;
+    if (action == GLFW_RELEASE && _glfwInputState.key[key] != GLFW_PRESS)
+        return;
 
     // Register key action
-    if (action == GLFW_RELEASE && window->stickyKeys)
-        window->key[key] = GLFW_STICK;
+    if (action == GLFW_RELEASE && _glfwInputState.stickyKeys)
+        _glfwInputState.key[key] = GLFW_STICK;
     else
-    {
-        repeated = (window->key[key] == GLFW_PRESS) && (action == GLFW_PRESS);
-        window->key[key] = (char) action;
-    }
+        _glfwInputState.key[key] = (char) action;
+}
 
-    // Call user callback function
-    if (window->keyRepeat || !repeated)
-        return key_press_callback(window, key, action);
-    else
-        return 0;
+bool _glfwInputKey(_GLFWwindow* window, int key, int action)
+{
+    _glfwInputKeyState(key, action);
+    key_press_callback(window, key, action);
 }
 
 
@@ -4620,11 +4611,9 @@ GLFWAPI int glfwGetInputMode(GLFWwindow handle, int mode)
         case GLFW_CURSOR_MODE:
             return window->cursorMode;
         case GLFW_STICKY_KEYS:
-            return window->stickyKeys;
+            return _glfwInputState.stickyKeys;
         case GLFW_STICKY_MOUSE_BUTTONS:
             return window->stickyMouseButtons;
-        case GLFW_KEY_REPEAT:
-            return window->keyRepeat;
         default:
             _glfwSetError(GLFW_INVALID_ENUM, NULL);
             return 0;
@@ -4652,13 +4641,10 @@ GLFWAPI void glfwSetInputMode(GLFWwindow handle, int mode, int value)
             setCursorMode(window, value);
             break;
         case GLFW_STICKY_KEYS:
-            setStickyKeys(window, value ? GL_TRUE : GL_FALSE);
+            setStickyKeys(value ? GL_TRUE : GL_FALSE);
             break;
         case GLFW_STICKY_MOUSE_BUTTONS:
             setStickyMouseButtons(window, value ? GL_TRUE : GL_FALSE);
-            break;
-        case GLFW_KEY_REPEAT:
-            setKeyRepeat(window, value ? GL_TRUE : GL_FALSE);
             break;
         default:
             _glfwSetError(GLFW_INVALID_ENUM, NULL);
@@ -4668,13 +4654,11 @@ GLFWAPI void glfwSetInputMode(GLFWwindow handle, int mode, int value)
 
 
 //========================================================================
-// Returns the state of the specified key for the specified window
+// Returns the state of the specified key
 //========================================================================
 
-GLFWAPI int glfwGetKey(GLFWwindow handle, int key)
+GLFWAPI int glfwGetKey(int key)
 {
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
     if (!_glfwInitialized)
     {
         _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
@@ -4688,14 +4672,14 @@ GLFWAPI int glfwGetKey(GLFWwindow handle, int key)
         return GLFW_RELEASE;
     }
 
-    if (window->key[key] == GLFW_STICK)
+    if (_glfwInputState.key[key] == GLFW_STICK)
     {
         // Sticky mode: release key now
-        window->key[key] = GLFW_RELEASE;
+        _glfwInputState.key[key] = GLFW_RELEASE;
         return GLFW_PRESS;
     }
 
-    return (int) window->key[key];
+    return (int) _glfwInputState.key[key];
 }
 
 
@@ -4982,22 +4966,6 @@ void _glfwInputWindowFocus(_GLFWwindow* window, GLboolean activated)
     {
         if (_glfwLibrary.activeWindow == window)
         {
-            int i;
-
-            // Release all pressed keyboard keys
-            for (i = 0;  i <= GLFW_KEY_LAST;  i++)
-            {
-                if (window->key[i] == GLFW_PRESS)
-                    _glfwInputKey(window, i, GLFW_RELEASE);
-            }
-
-            // Release all pressed mouse buttons
-            for (i = 0;  i <= GLFW_MOUSE_BUTTON_LAST;  i++)
-            {
-                if (window->mouseButton[i] == GLFW_PRESS)
-                    _glfwInputMouseClick(window, i, 1, GLFW_RELEASE);
-            }
-
             _glfwLibrary.activeWindow = NULL;
 
             if (window->windowFocusCallback)
@@ -6000,9 +5968,9 @@ void platformShowCursor(_GLFWwindow* window)
 }
 
 
-bool platformKeyDown(_GLFWwindow* window, int key)
+bool platformKeyDown(int key)
 {
-    return glfwGetKey(window, key) == GLFW_PRESS;
+    return glfwGetKey(key) == GLFW_PRESS;
 }
 
 
@@ -6055,7 +6023,7 @@ void platformPollEvents(void)
 
 bool platformContinueLoop(_GLFWwindow* window)
 {
-    return glfwGetWindowParam(window, GLFW_CLOSE_REQUESTED) == GL_FALSE && glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS;
+    return glfwGetWindowParam(window, GLFW_CLOSE_REQUESTED) == GL_FALSE && glfwGetKey(GLFW_KEY_ESCAPE) != GLFW_PRESS;
 }
 
 
@@ -6098,7 +6066,7 @@ void platformLog(char* msg)
 (c-external (platformSetMousePosition glfwwindow NSPoint*) void)
 (c-external (platformHideCursor glfwwindow) void)
 (c-external (platformShowCursor glfwwindow) void)
-(c-external (platformKeyDown glfwwindow int) bool)
+(c-external (platformKeyDown int) bool)
 (c-external (platformGetClipboardString) char-string)
 (c-external (platformSetClipboardString char-string) void)
 (c-external (platformInvalidateRect glfwwindow NSRect*) void)

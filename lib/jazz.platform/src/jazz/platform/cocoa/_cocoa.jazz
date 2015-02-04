@@ -403,10 +403,6 @@ extern void glfwvprint(char* format, va_list arguments);
 extern void glfwprintlog(char* format, ...);
 
 
-// Internal key and button state/action definitions
-#define GLFW_STICK 2
-
-
 //========================================================================
 // Internal type declarations
 //========================================================================
@@ -705,8 +701,6 @@ typedef struct _GLFWinputstate  _GLFWinputstate;
 
 /* glfwGetInputMode/glfwSetInputMode tokens */
 #define GLFW_CURSOR_MODE          0x00030001
-#define GLFW_STICKY_KEYS          0x00030002
-#define GLFW_STICKY_MOUSE_BUTTONS 0x00030003
 
 /* GLFW_CURSOR_MODE values */
 #define GLFW_CURSOR_NORMAL       0x00040001
@@ -1019,7 +1013,6 @@ struct _GLFWfbconfig
 
 struct _GLFWinputstate
 {
-    GLboolean stickyKeys;
     char      key[GLFW_KEY_LAST + 1];
     unsigned int modifierFlags;
 };
@@ -1044,7 +1037,6 @@ struct _GLFWwindow
     void*     userPointer;
 
     // Window input state
-    GLboolean stickyMouseButtons;
     int       cursorPosX, cursorPosY;
     int       cursorMode;
     double    scrollX, scrollY;
@@ -4395,56 +4387,6 @@ static void setCursorMode(_GLFWwindow* window, int newMode)
 }
 
 
-//========================================================================
-// Set sticky keys mode
-//========================================================================
-
-static void setStickyKeys(int enabled)
-{
-    if (_glfwInputState.stickyKeys == enabled)
-        return;
-
-    if (!enabled)
-    {
-        int i;
-
-        // Release all sticky keys
-        for (i = 0;  i <= GLFW_KEY_LAST;  i++)
-        {
-            if (_glfwInputState.key[i] == GLFW_STICK)
-                _glfwInputState.key[i] = GLFW_RELEASE;
-        }
-    }
-
-    _glfwInputState.stickyKeys = enabled;
-}
-
-
-//========================================================================
-// Set sticky mouse buttons mode for the specified window
-//========================================================================
-
-static void setStickyMouseButtons(_GLFWwindow* window, int enabled)
-{
-    if (window->stickyMouseButtons == enabled)
-        return;
-
-    if (!enabled)
-    {
-        int i;
-
-        // Release all sticky mouse buttons
-        for (i = 0;  i <= GLFW_MOUSE_BUTTON_LAST;  i++)
-        {
-            if (window->mouseButton[i] == GLFW_STICK)
-                window->mouseButton[i] = GLFW_RELEASE;
-        }
-    }
-
-    window->stickyMouseButtons = enabled;
-}
-
-
 //////////////////////////////////////////////////////////////////////////
 //////                       GLFW internal API                      //////
 //////////////////////////////////////////////////////////////////////////
@@ -4482,10 +4424,7 @@ void _glfwInputKeyState(int key, int action)
         return;
 
     // Register key action
-    if (action == GLFW_RELEASE && _glfwInputState.stickyKeys)
-        _glfwInputState.key[key] = GLFW_STICK;
-    else
-        _glfwInputState.key[key] = (char) action;
+    _glfwInputState.key[key] = (char) action;
 }
 
 bool _glfwInputKey(_GLFWwindow* window, int key, int action)
@@ -4535,10 +4474,7 @@ void _glfwInputMouseClick(_GLFWwindow* window, int button, int clickCount, int a
         return;
 
     // Register mouse button action
-    if (action == GLFW_RELEASE && window->stickyMouseButtons)
-        window->mouseButton[button] = GLFW_STICK;
-    else
-        window->mouseButton[button] = (char) action;
+    window->mouseButton[button] = (char) action;
 
     // for jazz
     int x;
@@ -4610,10 +4546,6 @@ GLFWAPI int glfwGetInputMode(GLFWwindow handle, int mode)
     {
         case GLFW_CURSOR_MODE:
             return window->cursorMode;
-        case GLFW_STICKY_KEYS:
-            return _glfwInputState.stickyKeys;
-        case GLFW_STICKY_MOUSE_BUTTONS:
-            return window->stickyMouseButtons;
         default:
             _glfwSetError(GLFW_INVALID_ENUM, NULL);
             return 0;
@@ -4639,12 +4571,6 @@ GLFWAPI void glfwSetInputMode(GLFWwindow handle, int mode, int value)
     {
         case GLFW_CURSOR_MODE:
             setCursorMode(window, value);
-            break;
-        case GLFW_STICKY_KEYS:
-            setStickyKeys(value ? GL_TRUE : GL_FALSE);
-            break;
-        case GLFW_STICKY_MOUSE_BUTTONS:
-            setStickyMouseButtons(window, value ? GL_TRUE : GL_FALSE);
             break;
         default:
             _glfwSetError(GLFW_INVALID_ENUM, NULL);
@@ -4672,13 +4598,6 @@ GLFWAPI int glfwGetKey(int key)
         return GLFW_RELEASE;
     }
 
-    if (_glfwInputState.key[key] == GLFW_STICK)
-    {
-        // Sticky mode: release key now
-        _glfwInputState.key[key] = GLFW_RELEASE;
-        return GLFW_PRESS;
-    }
-
     return (int) _glfwInputState.key[key];
 }
 
@@ -4702,13 +4621,6 @@ GLFWAPI int glfwGetMouseButton(GLFWwindow handle, int button)
         _glfwSetError(GLFW_INVALID_ENUM,
                       "glfwGetMouseButton: The specified mouse button is invalid");
         return GLFW_RELEASE;
-    }
-
-    if (window->mouseButton[button] == GLFW_STICK)
-    {
-        // Sticky mode: release mouse button now
-        window->mouseButton[button] = GLFW_RELEASE;
-        return GLFW_PRESS;
     }
 
     return (int) window->mouseButton[button];

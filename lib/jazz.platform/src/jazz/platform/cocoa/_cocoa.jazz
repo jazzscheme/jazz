@@ -706,7 +706,6 @@ typedef struct _GLFWlibrary     _GLFWlibrary;
 #define GLFW_CURSOR_MODE          0x00030001
 #define GLFW_STICKY_KEYS          0x00030002
 #define GLFW_STICKY_MOUSE_BUTTONS 0x00030003
-#define GLFW_SYSTEM_KEYS          0x00030004
 #define GLFW_KEY_REPEAT           0x00030005
 
 /* GLFW_CURSOR_MODE values */
@@ -1041,7 +1040,6 @@ struct _GLFWwindow
     GLboolean stickyKeys;
     GLboolean stickyMouseButtons;
     GLboolean keyRepeat;
-    GLboolean systemKeys;      // system keys enabled flag
     int       cursorPosX, cursorPosY;
     int       cursorMode;
     double    scrollX, scrollY;
@@ -1123,8 +1121,6 @@ int _glfwPlatformInit(void);
 int _glfwPlatformTerminate(void);
 
 // Input mode support
-void _glfwPlatformEnableSystemKeys(_GLFWwindow* window);
-void _glfwPlatformDisableSystemKeys(_GLFWwindow* window);
 void _glfwPlatformSetCursorPos(_GLFWwindow* window, int x, int y);
 void _glfwPlatformSetCursorMode(_GLFWwindow* window, int mode);
 
@@ -1943,37 +1939,6 @@ GLFWAPI id glfwGetNSGLContext(GLFWwindow handle)
 
 
 ;;;
-;;;; Platform Input
-;;;
-
-
-(c-declare cocoa #"
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW platform API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Enable and disable system keys
-//========================================================================
-
-void _glfwPlatformEnableSystemKeys(_GLFWwindow* window)
-{
-    // This is checked in cocoa_window.m; no action needed here
-}
-
-void _glfwPlatformDisableSystemKeys(_GLFWwindow* window)
-{
-    // This is checked in cocoa_window.m; no action needed here
-
-    // Note that it may not be possible to disable things like Exposé
-    // except in full-screen mode.
-}
-
-"#)
-
-
-;;;
 ;;;; Platform Window
 ;;;
 
@@ -2416,8 +2381,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
         {
             if ([event modifierFlags] & NSCommandKeyMask)
             {
-                if (window->systemKeys)
-                    [super keyDown:event];
+                [super keyDown:event];
             }
             else
             {
@@ -4470,24 +4434,6 @@ static void setStickyMouseButtons(_GLFWwindow* window, int enabled)
 
 
 //========================================================================
-// Set system keys for the specified window
-//========================================================================
-
-static void setSystemKeys(_GLFWwindow* window, int enabled)
-{
-    if (window->systemKeys == enabled)
-        return;
-
-    if (enabled)
-        _glfwPlatformEnableSystemKeys(window);
-    else
-        _glfwPlatformDisableSystemKeys(window);
-
-    window->systemKeys = enabled;
-}
-
-
-//========================================================================
 // Set key repeat for the specified window
 //========================================================================
 
@@ -4671,8 +4617,6 @@ GLFWAPI int glfwGetInputMode(GLFWwindow handle, int mode)
             return window->stickyKeys;
         case GLFW_STICKY_MOUSE_BUTTONS:
             return window->stickyMouseButtons;
-        case GLFW_SYSTEM_KEYS:
-            return window->systemKeys;
         case GLFW_KEY_REPEAT:
             return window->keyRepeat;
         default:
@@ -4706,9 +4650,6 @@ GLFWAPI void glfwSetInputMode(GLFWwindow handle, int mode, int value)
             break;
         case GLFW_STICKY_MOUSE_BUTTONS:
             setStickyMouseButtons(window, value ? GL_TRUE : GL_FALSE);
-            break;
-        case GLFW_SYSTEM_KEYS:
-            setSystemKeys(window, value ? GL_TRUE : GL_FALSE);
             break;
         case GLFW_KEY_REPEAT:
             setKeyRepeat(window, value ? GL_TRUE : GL_FALSE);
@@ -5248,7 +5189,6 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
     window->mode       = mode;
     window->resizable  = wndconfig.resizable;
     window->cursorMode = GLFW_CURSOR_NORMAL;
-    window->systemKeys = GL_TRUE;
 
     // Open the actual window and create its context
     if (!_glfwPlatformCreateWindow(window, &wndconfig, &fbconfig, kind, opengl))

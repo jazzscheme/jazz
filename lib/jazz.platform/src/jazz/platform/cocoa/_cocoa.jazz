@@ -1365,6 +1365,7 @@ void char_callback(_GLFWwindow* window, int c);
 void button_callback(_GLFWwindow* window, int x, int y, int button, int clickCount, int action);
 void move_callback(_GLFWwindow* window, int x, int y);
 void wheel_callback(_GLFWwindow* window, double x, double y);
+void drop_callback(_GLFWwindow* window, NSArray* filenames);
 void activate_callback(_GLFWwindow* window);
 void deactivate_callback(_GLFWwindow* window);
 
@@ -1974,7 +1975,7 @@ GLFWAPI id glfwGetNSGLContext(GLFWwindow handle)
 // Delegate for window related notifications
 //========================================================================
 
-@interface GLFWWindowDelegate : NSObject
+@interface GLFWWindowDelegate : NSObject <NSDraggingDestination>
 {
     _GLFWwindow* window;
 }
@@ -2044,6 +2045,19 @@ GLFWAPI id glfwGetNSGLContext(GLFWwindow handle)
 - (void)windowDidResignKey:(NSNotification *)notification
 {
     _glfwInputWindowFocus(window, GL_FALSE);
+}
+
+- (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)sender
+{
+    return NSDragOperationGeneric;
+}
+
+- (BOOL)performDragOperation:(id )sender
+{
+    NSPasteboard* pboard = [sender draggingPasteboard];
+    NSArray* filenames = [pboard propertyListForType:NSFilenamesPboardType];
+    drop_callback(window, retain_id(filenames));
+    return YES;
 }
 
 @end
@@ -5152,6 +5166,9 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
     // captured by default
     if (mode == GLFW_FULLSCREEN)
         glfwSetInputMode(window, GLFW_CURSOR_MODE, GLFW_CURSOR_CAPTURED);
+    
+    // Register drag & drop pasteboard types
+    [window->NS.object registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, nil]];
 
     if (mode == GLFW_WINDOWED && wndconfig.visible)
         glfwShowWindow(window);
@@ -6149,6 +6166,13 @@ void platformLog(char* msg)
   (when get-window
     (let ((window (get-window handle)))
       (mouse-wheel~ window #f #f (new Point (* 10 (fxround x)) (* 10 (fxround y)))))))
+
+(c-definition (drop-callback handle files) (glfwwindow NSArray*) void "drop_callback" ""
+  (when log-callbacks?
+    (system-log (list 'drop files)))
+  (when get-window
+    (let ((window (get-window handle)))
+      (drop-files~ window files))))
 
 (c-definition (activate-callback handle) (glfwwindow) void "activate_callback" ""
   (when log-callbacks?

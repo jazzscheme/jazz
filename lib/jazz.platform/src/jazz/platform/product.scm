@@ -56,38 +56,25 @@
     (jazz.platform.types)))
 
 
+(define (jazz:guess-cairo-name)
+  (if (jazz:pkg-config-exists? "cairo-ft")
+      "cairo-ft"
+    "cairo"))
+
+
 (cond-expand
-  (carbon
-    (define jazz:cairo-units
-      (receive (major minor build) (jazz:parse-dot-version (jazz:pkg-config-version "cairo-ft"))
-        (if (%%fx< minor 4)
-            (jazz:error "Cairo 1.4 or higher needed")
-          (let ((cc-flags (jazz:pkg-config-cflags "cairo-ft"))
-                (ld-flags (jazz:pkg-config-libs "cairo-ft")))
-            `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
-              (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
-              (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags)
-              (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))
   (cocoa
     (define jazz:cairo-units
-      (let ((cc-flags (jazz:pkg-config-cflags "cairo"))
-            (ld-flags (jazz:pkg-config-libs "cairo")))
-        `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
-          (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
-          (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags)
-          (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))
-  #; ;; good-one
-  (cocoa
-    (define jazz:cairo-units
-      (receive (major minor build) (jazz:parse-dot-version (jazz:pkg-config-version "cairo-ft"))
-        (if (%%fx< minor 4)
-            (jazz:error "Cairo 1.4 or higher needed")
-          (let ((cc-flags (jazz:pkg-config-cflags "cairo-ft"))
-                (ld-flags (jazz:pkg-config-libs "cairo-ft")))
-            `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
-              (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
-              (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags)
-              (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))
+      (let ((cairo-name (jazz:guess-cairo-name)))
+        (receive (major minor build) (jazz:parse-dot-version (jazz:pkg-config-version cairo-name))
+          (if (%%fx< minor 4)
+              (jazz:error "Cairo 1.4 or higher needed")
+            (let ((cc-flags (jazz:pkg-config-cflags cairo-name))
+                  (ld-flags (jazz:pkg-config-libs cairo-name)))
+              `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
+                (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
+                (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags)
+                (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))))
   (windows
     (define jazz:cairo-units
       (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/cairo/include"))
@@ -96,15 +83,16 @@
           (jazz.platform.cairo.cairo-base cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))))))
   (x11
     (define jazz:cairo-units
-      (receive (major minor build) (jazz:parse-dot-version (jazz:pkg-config-version "cairo-ft"))
-        (if (%%fx< minor 4)
-            (jazz:error "Cairo 1.4 or higher needed")
-          (let ((cc-flags (jazz:pkg-config-cflags "cairo-ft"))
-                (ld-flags (jazz:pkg-config-libs "cairo-ft")))
-            `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
-              (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
-              (jazz.platform.cairo.cairo-x11      cc-options: ,cc-flags ld-options: ,ld-flags)
-              (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))))
+      (let ((cairo-name (jazz:guess-cairo-name)))
+        (receive (major minor build) (jazz:parse-dot-version (jazz:pkg-config-version cairo-name))
+          (if (%%fx< minor 4)
+              (jazz:error "Cairo 1.4 or higher needed")
+            (let ((cc-flags (jazz:pkg-config-cflags cairo-name))
+                  (ld-flags (jazz:pkg-config-libs cairo-name)))
+              `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
+                (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
+                (jazz.platform.cairo.cairo-x11      cc-options: ,cc-flags ld-options: ,ld-flags)
+                (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))))
 
 
 (define (jazz:freetype-units)
@@ -190,16 +178,6 @@
 
 (cond-expand
   (mac
-   (define jazz:clipboard-units
-     '((jazz.platform.carbon.carbon-types ld-options: "-framework Carbon")
-       (jazz.platform.carbon.clipboard ld-options: "-framework Carbon"))))
-  (else
-   (define jazz:clipboard-units
-     '())))
-
-
-(cond-expand
-  (mac
    (define jazz:crash-units
      '((jazz.platform.crash.mac))))
   (unix
@@ -211,20 +189,6 @@
 
 
 (cond-expand
-  (carbon
-    (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
-      (let ((unit-specs `((jazz.platform)
-                          (jazz.platform.crash)
-                          ,@jazz:crash-units
-                          ,@jazz:types-units
-                          ,@jazz:cairo-units
-                          ,@jazz:font-units
-                          ,@jazz:carbon-units
-                          ,@jazz:clipboard-units
-                          ,@jazz:minilzo-units)))
-        (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-        (if (or (not unit) (not (assq unit unit-specs)))
-            (jazz:build-product-descriptor descriptor)))))
   (cocoa
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
@@ -234,7 +198,6 @@
                           ,@jazz:cairo-units
                           ,@jazz:font-units
                           ,@jazz:cocoa-units
-                          ,@jazz:clipboard-units
                           ,@jazz:minilzo-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
@@ -280,7 +243,6 @@
                           ,@jazz:font-units
                           ,@jazz:x11-units
                           ,@jazz:unix-odbc-units
-                          ,@jazz:clipboard-units
                           ,@jazz:minilzo-units)))
         (jazz:custom-compile/build unit-specs unit: unit force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))

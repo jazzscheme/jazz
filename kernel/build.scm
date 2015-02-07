@@ -545,8 +545,7 @@
 
 
 (define jazz:valid-windowings
-  '(carbon
-    cocoa
+  '(cocoa
     #f
     x11))
 

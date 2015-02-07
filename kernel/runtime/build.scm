@@ -831,23 +831,29 @@
 ;;;
 
 
-(define (jazz:pkg-config what libname)
+(define (jazz:pkg-config what libname #!key (return-status? #f))
   (let ((string-port (open-output-string))
         (process-port (open-process (%%list path: "pkg-config" arguments: (%%list what libname)))))
-    (if (%%fx= (process-status process-port) 0)
-        (begin
-          (jazz:pipe-no-return process-port string-port)
-          (get-output-string string-port))
-      (jazz:error "failed"))))
+    (let ((status (process-status process-port)))
+      (if return-status?
+          status
+        (if (%%fx= status 0)
+            (begin
+              (jazz:pipe-no-return process-port string-port)
+              (get-output-string string-port))
+          (jazz:error "failed"))))))
+
+(define (jazz:pkg-config-exists? libname)
+  (= (jazz:pkg-config "--exists" libname return-status?: #t) 0))
+
+(define (jazz:pkg-config-version libname)
+  (jazz:pkg-config "--modversion" libname))
 
 (define (jazz:pkg-config-cflags libname)
   (jazz:pkg-config "--cflags" libname))
 
 (define (jazz:pkg-config-libs libname)
   (jazz:pkg-config "--libs" libname))
-
-(define (jazz:pkg-config-version libname)
-  (jazz:pkg-config "--modversion" libname))
 
 (define (jazz:pipe-no-return input output)
   (declare (proper-tail-calls))

@@ -39,11 +39,6 @@
 
 
 (cond-expand
-  (carbon
-    (jazz:register-foreign-libraries 'jazz.platform.cairo                'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-base     'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-quartz   'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-freetype 'cairo-ft))
   (cocoa
     (jazz:register-foreign-libraries 'jazz.platform.cairo                'cairo-ft)
     (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-base     'cairo-ft)
@@ -77,11 +72,4 @@
   (cocoa
     (jazz:register-foreign-libraries 'jazz.platform.cocoa               'Cocoa 'OpenGL 'IOKit))
   (x11
-    (jazz:register-foreign-libraries 'jazz.platform.x11 'X11)))
-
-
-(cond-expand
-  (mac
-    (jazz:register-foreign-libraries 'jazz.platform.carbon.carbon-types 'Carbon)
-    (jazz:register-foreign-libraries 'jazz.platform.carbon.clipboard    'Carbon))
-  (else)))
+    (jazz:register-foreign-libraries 'jazz.platform.x11 'X11))))

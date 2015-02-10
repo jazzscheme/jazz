@@ -199,6 +199,10 @@
   #t)
 
 
+(jazz:define-setting jazz:use-snapshot?
+  #t)
+
+
 ;;;
 ;;;; Profile
 ;;;

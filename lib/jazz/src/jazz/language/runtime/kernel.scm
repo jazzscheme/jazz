@@ -614,6 +614,7 @@
 (native jazz:delay-reporting?)
 (native jazz:use-print?)
 (native jazz:use-debugger?)
+(native jazz:use-snapshot?)
 (native jazz:compile-options)
 (native jazz:get-repositories)
 (native jazz:get-build-repository)

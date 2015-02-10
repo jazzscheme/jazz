@@ -65,6 +65,6 @@
 
 
 (define (jazz:get-console-port)
-  (if jazz.language.runtime.debug.get-console-port
-      (jazz.language.runtime.debug.get-console-port)
+  (if jazz.language.runtime.debug:get-console-port
+      (jazz.language.runtime.debug:get-console-port)
     #f)))

@@ -58,10 +58,10 @@
 ;;;
 
 
-(define jazz.language.runtime.debug.get-console-port
+(define jazz.language.runtime.debug:get-console-port
   #f)
 
-(set! jazz.language.runtime.debug.get-console-port #f)
+(set! jazz.language.runtime.debug:get-console-port #f)
 
 
 (define (jazz:get-console-port)

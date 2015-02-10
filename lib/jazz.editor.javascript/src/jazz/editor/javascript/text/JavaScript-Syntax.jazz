@@ -71,12 +71,7 @@
   
   
   (method override (favorite-completions)
-    '(("\\be" . "\\begin")
-      ("\\en" . "\\end")
-      ("\\pa" . "\\paragraph")
-      ("\\se" . "\\section")
-      ("\\sub" . "\\subsection")
-      ("\\subs" . "\\subsubsection")))
+    (get-completions~ (preferences)))
   
   
   (method override (symbol-completions name)
@@ -113,7 +108,7 @@
   
   (constant headers
     (list
-      "%%% "))
+      "/// "))
   
   
   (method override (get-headers)
@@ -130,19 +125,7 @@
   
   
   (constant Definitions
-    '("\\authorinfo"
-      "\\begin"
-      "\\conferenceinfo"
-      "\\end"
-      "\\paragraph"
-      "\\section"
-      "\\section*"
-      "\\subparagraph"
-      "\\subsection"
-      "\\subsection*"
-      "\\subsubsection"
-      "\\subsubsection*"
-      "\\title"))
+    '())
   
   
   (method (get-definitions)
@@ -155,22 +138,27 @@
   
   
   (constant Keywords
-    '("\\bibliography"
-      "\\bibliographystyle"
-      "\\caption"
-      "\\documentclass"
-      "\\hyphenation"
-      "\\includegraphics"
-      "\\item"
-      "\\label"
-      "\\listoffigures"
-      "\\maketitle"
-      "\\newcommand"
-      "\\onecolumn"
-      "\\pngfigure"
-      "\\setcounter"
-      "\\tableofcontents"
-      "\\usepackage"))
+    '("new"
+      "delete"
+      "this"
+      "if"
+      "else"
+      "while"
+      "for"
+      "do"
+      "case"
+      "default"
+      "break"
+      "continue"
+      "return"
+      "try"
+      "catch"
+      "throw"
+      "true"
+      "false"
+      "null"
+      "var"
+      "function"))
   
   
   (method protected virtual (get-keywords)
@@ -202,7 +190,9 @@
   
   
   (method override (compute-syntax-targets)
-    (append (list (list "%" 'line-comment #f))
+    (append (list (list "/*" 'balanced-comment #f))
+            (list (list "*/" 'balanced-comment-backward #f))
+            (list (list "//" 'line-comment #f))
             (map (lambda (str) (list str 'definition)) (get-definitions))
             (map (lambda (str) (list str 'keyword)) (get-keywords))))
         
@@ -213,9 +203,11 @@
   
   (method override (colorize-type found type start end colorizer recolorize?)
     (case type
-      ((line-comment) (colorize-line-comment found start end colorizer 'Line-Comment 'Title #\%))
-      ((definition)   (colorize-definition   found start end colorizer 'Keyword 'Definition))
-      ((keyword)      (colorize-keyword      found start end colorizer 'Keyword))))
+      ((balanced-comment)          (colorize-balanced-comment          found start end colorizer 'Balanced-Comment))
+      ((balanced-comment-backward) (colorize-balanced-comment-backward found start end colorizer 'Balanced-Comment recolorize?))
+      ((line-comment)              (colorize-line-comment              found start end colorizer 'Line-Comment 'Title #\slash))
+      ((definition)                (colorize-definition                found start end colorizer 'Keyword 'Definition))
+      ((keyword)                   (colorize-keyword                   found start end colorizer 'Keyword))))
   
   
   (method (colorize-definition found start end colorizer keyword-style definition-style)

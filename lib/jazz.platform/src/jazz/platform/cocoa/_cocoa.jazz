@@ -39,7 +39,8 @@
 
 
 (import (jazz.foreign)
-        (jazz.platform.types))
+        (jazz.platform.types)
+        (jazz.system.access))
 
 
 ;;;
@@ -1406,6 +1407,7 @@ void char_callback(_GLFWwindow* window, int c);
 void button_callback(_GLFWwindow* window, int x, int y, int button, int clickCount, int action);
 void move_callback(_GLFWwindow* window, int x, int y);
 void wheel_callback(_GLFWwindow* window, double x, double y);
+void file_callback(NSString* filename);
 void drop_callback(_GLFWwindow* window, NSArray* filenames);
 void activate_callback(_GLFWwindow* window);
 void deactivate_callback(_GLFWwindow* window);
@@ -2142,6 +2144,13 @@ GLFWAPI id glfwGetNSGLContext(GLFWwindow handle)
             _glfwInputWindowVisibility(window, GL_TRUE);
     }
 }
+
+- (BOOL)application:(NSApplication *)theApplication openFile:(NSString *)filename
+{
+    file_callback(filename);
+    return YES;
+}
+
 
 @end
 
@@ -6208,12 +6217,19 @@ void platformLog(char* msg)
     (let ((window (get-window handle)))
       (mouse-wheel~ window #f #f (new Point (* 10 (fxround x)) (* 10 (fxround y)))))))
 
-(c-definition (drop-callback handle files) (glfwwindow NSArray*) void "drop_callback" ""
+(c-definition (file-callback filename) (NSString*) void "file_callback" ""
   (when log-callbacks?
-    (system-log (list 'drop files)))
+    (system-log (list 'file filename)))
+  (let ((appl (get-application)))
+    (when appl
+      (drop-file~ appl filename))))
+
+(c-definition (drop-callback handle filenames) (glfwwindow NSArray*) void "drop_callback" ""
+  (when log-callbacks?
+    (system-log (list 'drop filenames)))
   (when get-window
     (let ((window (get-window handle)))
-      (drop-files~ window files))))
+      (drop-files~ window filenames))))
 
 (c-definition (activate-callback handle) (glfwwindow) void "activate_callback" ""
   (when log-callbacks?

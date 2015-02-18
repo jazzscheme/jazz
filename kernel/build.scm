@@ -1106,6 +1106,7 @@
               (debug-source? (jazz:get-configuration-debug-source? configuration))
               (debug-foreign? (jazz:get-configuration-debug-foreign? configuration))
               (mutable-bindings? (jazz:get-configuration-mutable-bindings? configuration))
+              (include-compiler? (not (eq? image 'library)))
               (kernel-interpret? (jazz:get-configuration-kernel-interpret? configuration))
               (source jazz:source)
               (destination (jazz:get-configuration-destination configuration))
@@ -1122,7 +1123,7 @@
                             debug-source?:         debug-source?
                             debug-foreign?:        debug-foreign?
                             mutable-bindings?:     mutable-bindings?
-                            include-compiler?:     #t
+                            include-compiler?:     include-compiler?
                             kernel-interpret?:     kernel-interpret?
                             source:                source
                             destination:           destination

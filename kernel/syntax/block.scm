@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(jazz:verbose-kernel 'kernel.block)
+
+
 (define jazz:testing?
   (make-parameter #f))
 
@@ -65,4 +68,5 @@
       (jazz:generate-symbol-context name)
       (jazz:generate-symbol-counter 0)
       `(begin
+         (jazz:verbose-kernel ',name)
          ,@body))))

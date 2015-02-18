@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(block kernel.advise
+
+
 ;;;
 ;;;; Advise
 ;;;
@@ -105,4 +108,4 @@
   (jazz:advise 'table-merge!     jazz:debug-table-advice)
   (jazz:advise '##table-merge!   jazz:debug-table-advice)
   (jazz:advise 'table->list      jazz:debug-table-advice)
-  (jazz:advise '##table->list    jazz:debug-table-advice))
+  (jazz:advise '##table->list    jazz:debug-table-advice)))

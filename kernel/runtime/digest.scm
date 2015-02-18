@@ -8,6 +8,8 @@
 
 ;;; Contains procedures to compute message digests.
 
+(block kernel.digest
+
 (##include "~~lib/gambit#.scm")
 
 (declare
@@ -613,5 +615,6 @@
               (begin
                 (digest-update-subu8vector digest buf 0 n)
                 (loop))))))))
+)
 
 ;;;============================================================================

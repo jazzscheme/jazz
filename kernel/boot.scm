@@ -37,6 +37,7 @@
 
 (define jazz:Kernel
   (list
+    "kernel/syntax/verbose"
     "kernel/syntax/header"
     "kernel/syntax/macro"
     "kernel/syntax/block"

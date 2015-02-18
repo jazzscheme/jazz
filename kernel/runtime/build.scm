@@ -275,6 +275,7 @@
                 (load (kernel-file "_architecture"))
                 
                 ;; load syntax
+                (load (source-file "kernel/syntax/verbose"))
                 (load (source-file "kernel/syntax/header"))
                 (load (source-file "kernel/syntax/macro"))
                 (load (source-file "kernel/syntax/block"))
@@ -293,6 +294,7 @@
           (if architecture?
               (compile-kernel-file "_architecture"))
           
+          (compile-source-file "syntax/" "verbose")
           (compile-source-file "syntax/" "header")
           (compile-source-file "syntax/" "macro")
           (compile-source-file "syntax/" "block")
@@ -383,7 +385,8 @@
                     (%%not (file-exists? link-file))
                     (or (%%not kernel-time) (< (jazz:file-modification-time link-file) kernel-time))
                     (touched?))
-                (let ((files `(,(kernel-file "_architecture")
+                (let ((files `(,(kernel-file "syntax/verbose")
+                               ,(kernel-file "_architecture")
                                ,(product-file (product-filename))
                                ,(kernel-file "syntax/header")
                                ,(kernel-file "syntax/macro")
@@ -441,6 +444,9 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
                   (lambda (output)
+                    (display "(jazz:verbose-kernel 'kernel.product)" output)
+                    (newline output)
+                    (newline output)
                     (jazz:print-variable 'jazz:product product output)
                     (newline output)
                     (jazz:print-variable 'jazz:image (or image 'executable) output)
@@ -477,8 +483,11 @@
                 (call-with-output-file (list path: file eol-encoding: 'lf)
                   (lambda (output)
                     (cond (library-image?
-                            (display "(jazz:library-main)" output)
-                            (newline output))
+                           (display "(jazz:verbose-kernel 'kernel.main)" output)
+                           (newline output)
+                           (newline output)
+                           (display "(jazz:library-main)" output)
+                           (newline output))
                           (else
                            (display "#!gsi -:darR,t8,f8,-8" output)
                            (if minimum-heap
@@ -489,6 +498,9 @@
                                (begin
                                  (display ",h" output)
                                  (display maximum-heap output)))
+                           (newline output)
+                           (newline output)
+                           (display "(jazz:verbose-kernel 'kernel.main)" output)
                            (newline output)
                            (newline output)
                            (display "(define (jazz:main)" output)
@@ -585,7 +597,8 @@
       (define (link-image)
         (let ((kernel-dir (jazz:pathname-normalize (jazz:pathname-dir (image-file))))
               (kernel-name (jazz:pathname-name (image-file)))
-              (c-files `(,(kernel-file "_architecture.o")
+              (c-files `(,(kernel-file "syntax/verbose.o")
+                         ,(kernel-file "_architecture.o")
                          ,(product-file (string-append (product-filename) ".o"))
                          ,(kernel-file "syntax/header.o")
                          ,(kernel-file "syntax/macro.o")
@@ -1039,6 +1052,11 @@
 
 
 (define (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination properties output)
+  (jazz:print-variable 'jazz:kernel-verbose? #f output)
+  (newline output)
+  (display "(jazz:verbose-kernel 'kernel.architecture)" output)
+  (newline output)
+  (newline output)
   (jazz:print-variable 'jazz:kernel-interpreted? #f output)
   (newline output)
   (jazz:print-variable 'jazz:kernel-system system output)

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Macros
+;;;; Verbose
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,25 +35,15 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(jazz:verbose-kernel 'kernel.macro)
+(define jazz:kernel-verbose?
+  #f)
 
 
-(define jazz:Macros
-  (make-table test: eq?))
-
-
-(define (jazz:register-macro name macro)
-  (table-set! jazz:Macros name macro))
-
-
-(define (jazz:get-macro name)
-  (table-ref jazz:Macros name #f))
-
-
-(define (jazz:need-macro name)
-  (or (jazz:get-macro name)
-      (jazz:error "Unable to find macro: {s}" name)))
-
-
-(define (jazz:expand-macro form)
-  (apply (jazz:need-macro (car form)) (cdr form)))
+(define (jazz:verbose-kernel unit)
+  (if jazz:kernel-verbose?
+      (let ((port (console-port)))
+        (display "; loading " port)
+        (display unit port)
+        (display "..." port)
+        (newline port)
+        (force-output port))))

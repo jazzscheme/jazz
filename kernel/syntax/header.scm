@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(jazz:verbose-kernel 'kernel.header)
+
+
 (include "~~lib/_gambit#.scm")
 
 

@@ -49,6 +49,7 @@
         (jazz.platform.cocoa)
         (jazz.system)
         (jazz.ui)
+        (jazz.ui.screen)
         (time))
 
 
@@ -98,7 +99,8 @@
 (definition package (prepare-handle window rest)
   (let ((kind (typecase window
                 ((Dialog) GLFW_DIALOG)
-                ((Popup) GLFW_POPUP)
+                ((Popup) GLFW_BORDERLESS)
+                ((Desktop) GLFW_BORDERLESS)
                 (else GLFW_WINDOW))))
     (platformCreateWindow GLFW_WINDOWED kind (opengl?~ window))))
 
@@ -411,74 +413,133 @@
 
 
 (definition public (acquire-point to-handle from-handle shape)
-  ;; TODO
-  shape)
+  (let ((delta (nu- (platform-get-content-position from-handle) (platform-get-content-position to-handle))))
+    (nu+ shape delta)))
 
 
 (definition public (acquire-rect to-handle from-handle shape)
-  ;; TODO
-  shape)
+  (let ((left-top (acquire-point to-handle from-handle (new Point (get-left~ shape) (get-top~ shape))))
+        (right-bottom (acquire-point to-handle from-handle (new Point (get-right~ shape) (get-bottom~ shape)))))
+    (corners->rect left-top right-bottom)))
+
+
+(definition public (platform-get-screen-height handle)
+  (platformGetWindowScreenFrameHeight handle))
+
+
+(definition (window-cartesian->pos screen-height rect-height pt)
+  (let ((bottom (NSPoint-y-ref pt)))
+    (let ((top (+ bottom rect-height)))
+      (new Point
+        (fxround (NSPoint-x-ref pt))
+        (fxround (- screen-height top))))))
+
+
+(definition (window-pos->cartesian screen-height rect-height pos)
+  (let ((top (get-v~ pos)))
+    (let ((bottom (+ top rect-height)))
+      (new-NSPoint
+        (fl (get-h~ pos))
+        (- screen-height (fl bottom))))))
+
+
+(definition (window-cartesian->rect handle rect)
+  (let ((height (platform-get-screen-height handle))
+        (origin (NSRect-origin-ref rect))
+        (size (NSRect-size-ref rect)))
+    (let ((x (NSPoint-x-ref origin))
+          (y (NSPoint-y-ref origin)))
+      (let ((bottom (NSPoint-y-ref origin)))
+        (let ((top (+ bottom (NSSize-height-ref size))))
+          (new Rect
+            (fxround x)
+            (fxround (- height top))
+            (fxround (+ x (NSSize-width-ref size)))
+            (fxround (- height bottom))))))))
+
+
+(definition (window-rect->cartesian handle rect)
+  (let ((height (platform-get-screen-height handle))
+        (l (get-left~ rect))
+        (t (get-top~ rect))
+        (r (get-right~ rect))
+        (b (get-bottom~ rect)))
+    (new-NSRect (cast <fl> l)
+                (cast <fl> (- height b))
+                (cast <fl> (- r l))
+                (cast <fl> (- b t)))))
 
 
 (definition package (platform-get-position handle parent-handle)
   (with-NSPoint #f
     (lambda (pos)
-      (platformGetWindowPos handle pos)
-      (NSPoint->point pos))))
+      (platformGetWindowFramePos handle pos)
+      (window-cartesian->pos (platformGetWindowScreenFrameHeight handle) (platformGetWindowFrameHeight handle) pos))))
+
+
+(definition package (platform-get-content-position handle)
+  (with-NSPoint #f
+    (lambda (pos)
+      (platformGetWindowContentPos handle pos)
+      (window-cartesian->pos (platformGetWindowScreenFrameHeight handle) (platformGetWindowContentHeight handle) pos))))
 
 
 (definition package (platform-set-position handle pos)
-  @w
-  (with-NSPoint pos
+  (with-NSPoint (window-pos->cartesian (platformGetWindowScreenFrameHeight handle) (platformGetWindowFrameHeight handle) pos)
     (lambda (pos)
-      (platformSetWindowPos handle pos))))
+      (platformSetWindowFramePos handle pos))))
 
 
 (definition package (platform-get-size handle)
   (with-NSSize #f
     (lambda (size)
-      (platformGetContentSize handle size)
+      (platformGetWindowContentSize handle size)
       (NSSize->dimension size))))
 
 
 (definition package (platform-set-size handle size)
   (with-NSSize size
     (lambda (size)
-      (platformSetWindowSize handle size))))
+      (platformSetWindowFrameSize handle size))))
 
 
 (definition package (platform-get-window-size handle)
   (with-NSSize #f
     (lambda (size)
-      (platformGetWindowSize handle size)
+      (platformGetWindowFrameSize handle size)
       (NSSize->dimension size))))
 
 
 (definition package (platform-set-window-size handle size)
   (with-NSSize size
     (lambda (size)
-      (platformSetWindowSize handle size))))
+      (platformSetWindowFrameSize handle size))))
 
 
 (definition package (platform-get-rect handle parent-handle)
   (with-NSRect #f
     (lambda (rect)
-      (platformGetWindowFrame handle rect)
-      (NSRect->rect rect))))
+      (platformGetWindowFrameRect handle rect)
+      (window-cartesian->rect handle rect))))
 
 
-;; needs fixing as macosx using bottom coordinate
-(definition package (platform-set-rect handle rect)
-  @w
-  (with-NSRect rect
+(definition package (platform-get-content-rect handle)
+  (with-NSRect #f
     (lambda (rect)
-      (platformSetWindowFrame handle rect))))
+      (platformGetWindowContentRect handle rect)
+      (window-cartesian->rect handle rect))))
+
+
+(definition package (platform-set-rect handle rect)
+  (with-NSRect (window-rect->cartesian handle rect)
+    (lambda (rect)
+      (platformSetWindowFrameRect handle rect))))
 
 
 (definition package (platform-get-bounds handle)
   (with-NSRect #f
     (lambda (rect)
-      (platformGetWindowBounds handle rect)
+      (platformGetWindowViewRect handle rect)
       (NSRect->rect rect))))
 
 
@@ -706,6 +767,13 @@
 ;;;
 
 
+(definition public (platform-create-desktop)
+  (let ((screen (primary-screen))
+        (desktop (new Desktop)))
+    (platform-set-rect (get-handle~ desktop) (get-frame-rect~ screen))
+    desktop))
+
+
 (definition package (platform-get-desktop)
   (unimplemented 'platform-get-desktop))
 
@@ -717,12 +785,11 @@
 
 (definition package (platform-drop-files window filenames)
   (define (received-files)
-    (let ((count (NSArray-length filenames)))
-      (map (lambda (n)
-             (let ((filename (id->string (NSArray-ref filenames n))))
-               (let ((pathname (new (case (pathname-type filename) ((directory) Directory) (else File)) (tokenise-filename filename))))
-                 (anchorize~ pathname))))
-           (naturals 0 count))))
+    (map (lambda (id)
+           (let ((filename (id->string id)))
+             (let ((pathname (new (case (pathname-type filename) ((directory) Directory) (else File)) (tokenise-filename filename))))
+               (anchorize~ pathname))))
+         (nsarray->list filenames)))
   
   (let ((pos {Point 0 0}) ;; quicky
         (files (received-files)))

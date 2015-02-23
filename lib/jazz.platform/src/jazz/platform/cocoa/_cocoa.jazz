@@ -281,6 +281,13 @@ end-c-code
 ))
 
 
+(definition public (nsarray->list array)
+  (let ((count (NSArray-length array)))
+    (map (lambda (n)
+           (NSArray-ref array n))
+         (naturals 0 count))))
+
+
 ;;;
 ;;;; Cocoa NSDate
 ;;;
@@ -317,96 +324,16 @@ end-c-code
 
 
 ;;;
-;;;; Cocoa UIDevice
+;;;; Cocoa NSScreen
 ;;;
 
 
-@wait (
-(c-include "<Foundation/UIDevice.h>")
-
-(c-external (currentDevice-batteryLevel ) float
-    "___result = [[UIDevice currentDevice] batteryLevel];")
-
-(c-external (currentDevice-batteryMonitoringEnabled ) bool
-    "___result = [UIDevice currentDevice].batteryMonitoringEnabled;")
-
-(c-external (currentDevice-batteryMonitoringEnabled-set! bool) void
-    "[UIDevice currentDevice].batteryMonitoringEnabled = ___arg1;")
-
-(c-external (currentDevice-multitaskingSupported ) bool
-    "___result = [UIDevice currentDevice].multitaskingSupported;")
-
-(c-external (currentDevice-model ) NSString*
-    "___result = [[UIDevice currentDevice] model];")
-
-(c-external (currentDevice-name ) NSString*
-    "___result = [[UIDevice currentDevice] name];")
-
-(c-external (currentDevice-systemName ) NSString*
-    "___result = [[UIDevice currentDevice] systemName];")
-
-(c-external (currentDevice-systemVersion ) NSString*
-    "___result = [[UIDevice currentDevice] systemVersion];")
-
-(c-external (currentDevice-uniqueIdentifier ) NSString*
-    "___result = [[UIDevice currentDevice] uniqueIdentifier];")
-
-(define (device-status)
-  (currentDevice-batteryMonitoringEnabled-set! #t)
-  (list (currentDevice-batteryLevel)
-        (currentDevice-batteryMonitoringEnabled)
-        (currentDevice-multitaskingSupported)
-        (currentDevice-model)
-        (currentDevice-name)
-        (currentDevice-systemName)
-        (currentDevice-systemVersion)
-        (currentDevice-uniqueIdentifier)))
-
-(define (device-model)
-  (let ((m (currentDevice-model)))
-    (cond ((has-prefix? m "iPhone")
-           'iPhone)
-          ((has-prefix? m "iPod touch")
-           'iPod-touch)
-          ((has-prefix? m "iPad")
-           'iPad)
-          (else
-           #f))))
-
-(define (UDID)
-  (currentDevice-uniqueIdentifier))
-)
-
-(define (has-prefix? str prefix)
-  (and (string? str)
-       (string? prefix)
-       (let ((len-str (string-length str))
-             (len-prefix (string-length prefix)))
-         (and (>= len-str len-prefix)
-              (string=? (substring str 0 len-prefix) prefix)
-              (substring str len-prefix len-str)))))
+(c-type NSScreen "NSScreen")
+(c-type NSScreen* (pointer NSScreen))
 
 
-;;;
-;;;; Cocoa AudioToolbox
-;;;
-
-
-(c-declare cocoa #"
-
-#import <AudioToolbox/AudioToolbox.h>
-
-"#)
-
-(c-type SystemSoundID unsigned-int32)
-
-(c-external (AudioServicesPlayAlertSound SystemSoundID) void "AudioServicesPlayAlertSound")
-
-(c-external (AudioServicesPlaySystemSound SystemSoundID) void "AudioServicesPlaySystemSound")
-
-(define kSystemSoundID_FlashScreen        #x00000FFE)
-(define kSystemSoundID_Vibrate            #x00000FFF)
-(define kSystemSoundID_UserPreferredAlert #x00001000)
+(c-external (id->nsscreen id) NSScreen*
+  "___result = retain_id(___arg1);")
 
 
 ;;;
@@ -456,12 +383,6 @@ end-c-code
 
 
 (c-declare cocoa #"
-
-#include <stdarg.h>
-
-extern void glfwprint(char* string);
-extern void glfwvprint(char* format, va_list arguments);
-extern void glfwprintlog(char* format, ...);
 
 
 //========================================================================
@@ -710,6 +631,7 @@ typedef struct _GLFWinputstate  _GLFWinputstate;
 #define GLFW_WINDOW               0x00010011
 #define GLFW_DIALOG               0x00010012
 #define GLFW_POPUP                0x00010013
+#define GLFW_BORDERLESS           0x00010014
 
 /* glfwGetWindowParam tokens */
 #define GLFW_ACTIVE               0x00020001
@@ -785,25 +707,8 @@ typedef struct _GLFWinputstate  _GLFWinputstate;
  * Typedefs
  *************************************************************************/
 
-/* OpenGL function pointer type */
-typedef void (*GLFWglproc)(void);
-
 /* Window handle type */
 typedef _GLFWwindow* GLFWwindow;
-
-/* Function pointer types */
-typedef void (* GLFWerrorfun)(int,const char*);
-typedef void (* GLFWwindowsizefun)(GLFWwindow,int,int);
-typedef int  (* GLFWwindowclosefun)(GLFWwindow);
-typedef void (* GLFWwindowrefreshfun)(GLFWwindow);
-typedef void (* GLFWwindowfocusfun)(GLFWwindow,int);
-typedef void (* GLFWwindowiconifyfun)(GLFWwindow,int);
-typedef void (* GLFWmousebuttonfun)(GLFWwindow,int,int);
-typedef void (* GLFWcursorposfun)(GLFWwindow,int,int);
-typedef void (* GLFWcursorenterfun)(GLFWwindow,int);
-typedef void (* GLFWscrollfun)(GLFWwindow,double,double);
-typedef void (* GLFWkeyfun)(GLFWwindow,int,int);
-typedef void (* GLFWcharfun)(GLFWwindow,int);
 
 /* The video mode structure used by glfwGetVideoModes */
 typedef struct
@@ -828,34 +733,18 @@ GLFWAPI void glfwGetVersion(int* major, int* minor, int* rev);
 /* Error handling */
 GLFWAPI int glfwGetError(void);
 GLFWAPI const char* glfwErrorString(int error);
-GLFWAPI void glfwSetErrorCallback(GLFWerrorfun cbfun);
-
-/* Video mode functions */
-GLFWAPI GLFWvidmode* glfwGetVideoModes(int* count);
-GLFWAPI void glfwGetDesktopMode(GLFWvidmode* mode);
 
 /* Window handling */
 GLFWAPI void glfwDefaultWindowHints(void);
 GLFWAPI void glfwWindowHint(int target, int hint);
 GLFWAPI GLFWwindow glfwCreateWindow(int width, int height, int mode, int kind, const char* title, GLFWwindow share, bool opengl);
 GLFWAPI void glfwDestroyWindow(GLFWwindow window);
-GLFWAPI void glfwSetWindowTitle(GLFWwindow window, const char* title);
 GLFWAPI void glfwGetWindowSize(GLFWwindow window, int* width, int* height);
-GLFWAPI void glfwSetWindowSize(GLFWwindow window, int width, int height);
-GLFWAPI void glfwGetWindowPos(GLFWwindow window, int* xpos, int* ypos);
-GLFWAPI void glfwSetWindowPos(GLFWwindow window, int xpos, int ypos);
 GLFWAPI void glfwIconifyWindow(GLFWwindow window);
 GLFWAPI void glfwRestoreWindow(GLFWwindow window);
 GLFWAPI void glfwShowWindow(GLFWwindow window);
 GLFWAPI void glfwHideWindow(GLFWwindow window);
 GLFWAPI int  glfwGetWindowParam(GLFWwindow window, int param);
-GLFWAPI void glfwSetWindowUserPointer(GLFWwindow window, void* pointer);
-GLFWAPI void* glfwGetWindowUserPointer(GLFWwindow window);
-GLFWAPI void glfwSetWindowSizeCallback(GLFWwindow window, GLFWwindowsizefun cbfun);
-GLFWAPI void glfwSetWindowCloseCallback(GLFWwindow window, GLFWwindowclosefun cbfun);
-GLFWAPI void glfwSetWindowRefreshCallback(GLFWwindow window, GLFWwindowrefreshfun cbfun);
-GLFWAPI void glfwSetWindowFocusCallback(GLFWwindow window, GLFWwindowfocusfun cbfun);
-GLFWAPI void glfwSetWindowIconifyCallback(GLFWwindow window, GLFWwindowiconifyfun cbfun);
 
 /* Event handling */
 GLFWAPI void glfwPollEvents(void);
@@ -866,19 +755,6 @@ GLFWAPI int  glfwGetInputMode(GLFWwindow window, int mode);
 GLFWAPI void glfwSetInputMode(GLFWwindow window, int mode, int value);
 GLFWAPI int  glfwGetKey(int key);
 GLFWAPI int  glfwGetMouseButton(GLFWwindow window, int button);
-GLFWAPI void glfwGetCursorPos(GLFWwindow window, int* xpos, int* ypos);
-GLFWAPI void glfwSetCursorPos(GLFWwindow window, int xpos, int ypos);
-GLFWAPI void glfwGetScrollOffset(GLFWwindow window, double* xoffset, double* yoffset);
-GLFWAPI void glfwSetKeyCallback(GLFWwindow window, GLFWkeyfun cbfun);
-GLFWAPI void glfwSetCharCallback(GLFWwindow window, GLFWcharfun cbfun);
-GLFWAPI void glfwSetMouseButtonCallback(GLFWwindow window, GLFWmousebuttonfun cbfun);
-GLFWAPI void glfwSetCursorPosCallback(GLFWwindow window, GLFWcursorposfun cbfun);
-GLFWAPI void glfwSetCursorEnterCallback(GLFWwindow window, GLFWcursorenterfun cbfun);
-GLFWAPI void glfwSetScrollCallback(GLFWwindow window, GLFWscrollfun cbfun);
-
-/* Clipboard */
-GLFWAPI void glfwSetClipboardString(GLFWwindow window, const char* string);
-GLFWAPI const char* glfwGetClipboardString(GLFWwindow window);
 
 /* Time */
 GLFWAPI double glfwGetTime(void);
@@ -887,11 +763,7 @@ GLFWAPI void   glfwSetTime(double time);
 /* OpenGL support */
 GLFWAPI void glfwMakeContextCurrent(GLFWwindow window);
 GLFWAPI GLFWwindow glfwGetCurrentContext(void);
-GLFWAPI void  glfwSwapBuffers(GLFWwindow window);
 GLFWAPI void  glfwSwapInterval(int interval);
-GLFWAPI int   glfwExtensionSupported(const char* extension);
-GLFWAPI GLFWglproc glfwGetProcAddress(const char* procname);
-GLFWAPI void  glfwCopyContext(GLFWwindow src, GLFWwindow dst, unsigned long mask);
 
 
 /*************************************************************************
@@ -928,7 +800,7 @@ typedef intptr_t GLFWintptr;
 typedef struct _GLFWcontextNSGL
 {
     id           pixelFormat;
-    id	         context;
+    id	        context;
 } _GLFWcontextNSGL;
 
 
@@ -1095,12 +967,10 @@ struct _GLFWwindow
     GLboolean resizable;       // GL_TRUE if user may resize this window
     GLboolean visible;         // GL_TRUE if this window is visible
     int       refreshRate;     // monitor refresh rate
-    void*     userPointer;
 
     // Window input state
     int       cursorPosX, cursorPosY;
     int       cursorMode;
-    double    scrollX, scrollY;
     char      mouseButton[GLFW_MOUSE_BUTTON_LAST + 1];
 
     // OpenGL extensions and context attributes
@@ -1109,18 +979,6 @@ struct _GLFWwindow
     GLboolean glForward, glDebug;
     int       glProfile;
     int       glRobustness;
-
-    GLFWwindowsizefun    windowSizeCallback;
-    GLFWwindowclosefun   windowCloseCallback;
-    GLFWwindowrefreshfun windowRefreshCallback;
-    GLFWwindowfocusfun   windowFocusCallback;
-    GLFWwindowiconifyfun windowIconifyCallback;
-    GLFWmousebuttonfun   mouseButtonCallback;
-    GLFWcursorposfun     cursorPosCallback;
-    GLFWcursorenterfun   cursorEnterCallback;
-    GLFWscrollfun        scrollCallback;
-    GLFWkeyfun           keyCallback;
-    GLFWcharfun          charCallback;
 
     // These are defined in the current port's platform.h
     _GLFWwindowNS NS;
@@ -1137,18 +995,6 @@ struct _GLFWlibrary
 
     _GLFWwindow*  windowListHead;
     _GLFWwindow*  activeWindow;
-
-    GLFWwindowsizefun    windowSizeCallback;
-    GLFWwindowclosefun   windowCloseCallback;
-    GLFWwindowrefreshfun windowRefreshCallback;
-    GLFWwindowfocusfun   windowFocusCallback;
-    GLFWwindowiconifyfun windowIconifyCallback;
-    GLFWmousebuttonfun   mouseButtonCallback;
-    GLFWcursorposfun     cursorPosCallback;
-    GLFWcursorenterfun   cursorEnterCallback;
-    GLFWscrollfun        scrollCallback;
-    GLFWkeyfun           keyCallback;
-    GLFWcharfun          charCallback;
 
     GLFWvidmode*  modes;
 
@@ -1182,26 +1028,9 @@ int _glfwPlatformTerminate(void);
 void _glfwPlatformSetCursorPos(_GLFWwindow* window, int x, int y);
 void _glfwPlatformSetCursorMode(_GLFWwindow* window, int mode);
 
-// Video mode support
-GLFWvidmode* _glfwPlatformGetVideoModes(int* count);
-void _glfwPlatformGetDesktopMode(GLFWvidmode* mode);
-
-// Clipboard support
-void _glfwPlatformSetClipboardString(_GLFWwindow* window, const char* string);
-const char* _glfwPlatformGetClipboardString(_GLFWwindow* window);
-
-// Time input
-double _glfwPlatformGetTime(void);
-void _glfwPlatformSetTime(double time);
-
 // Window management
 int  _glfwPlatformCreateWindow(_GLFWwindow* window, const _GLFWwndconfig* wndconfig, const _GLFWfbconfig* fbconfig,int kind, bool opengl);
 void _glfwPlatformDestroyWindow(_GLFWwindow* window);
-void _glfwPlatformSetWindowTitle(_GLFWwindow* window, const char* title);
-void _glfwPlatformSetWindowSize(_GLFWwindow* window, int width, int height);
-void _glfwPlatformSetWindowPos(_GLFWwindow* window, int x, int y);
-void _glfwPlatformIconifyWindow(_GLFWwindow* window);
-void _glfwPlatformRestoreWindow(_GLFWwindow* window);
 void _glfwPlatformShowWindow(_GLFWwindow* window);
 void _glfwPlatformHideWindow(_GLFWwindow* window);
 
@@ -1214,10 +1043,6 @@ void _glfwPlatformMakeContextCurrent(_GLFWwindow* window);
 _GLFWwindow* _glfwPlatformGetCurrentContext(void);
 void _glfwPlatformSwapBuffers(_GLFWwindow* window);
 void _glfwPlatformSwapInterval(int interval);
-void _glfwPlatformRefreshWindowParams(_GLFWwindow* window);
-int  _glfwPlatformExtensionSupported(const char* extension);
-GLFWglproc _glfwPlatformGetProcAddress(const char* procname);
-void _glfwPlatformCopyContext(_GLFWwindow* src, _GLFWwindow* dst, unsigned long mask);
 
 
 //========================================================================
@@ -1233,14 +1058,13 @@ void _glfwInputWindowPos(_GLFWwindow* window, int x, int y);
 void _glfwInputWindowSize(_GLFWwindow* window, int width, int height);
 void _glfwInputWindowIconify(_GLFWwindow* window, int iconified);
 void _glfwInputWindowVisibility(_GLFWwindow* window, int visible);
-void _glfwInputWindowDamage(_GLFWwindow* window);
 void _glfwInputWindowCloseRequest(_GLFWwindow* window);
 
 // Input event notification (input.c)
 bool _glfwInputKey(_GLFWwindow* window, int key, int action);
 void _glfwInputChar(_GLFWwindow* window, int character);
 void _glfwInputScroll(_GLFWwindow* window, double x, double y);
-void _glfwDrawRect( _GLFWwindow* window, NSRect dirtyRect);
+void _glfwDrawRect(_GLFWwindow* window, NSRect dirtyRect);
 void _glfwInputMouseClick(_GLFWwindow* window, int button, int clickCount, int action);
 void _glfwInputCursorMotion(_GLFWwindow* window, int x, int y);
 void _glfwInputCursorEnter(_GLFWwindow* window, int entered);
@@ -1253,18 +1077,10 @@ void _glfwInputCursorEnter(_GLFWwindow* window, int entered);
 // called by the platform-specific code
 //========================================================================
 
-// Fullscren management (fullscreen.c)
-int _glfwCompareVideoModes(const GLFWvidmode* first, const GLFWvidmode* second);
-void _glfwSplitBPP(int bpp, int* red, int* green, int* blue);
-
-// Error handling (init.c)
+// Error handling
 void _glfwSetError(int error, const char* format, ...);
 
-// OpenGL context helpers (opengl.c)
-int _glfwStringInExtensionString(const char* string, const GLubyte* extensions);
-const _GLFWfbconfig* _glfwChooseFBConfig(const _GLFWfbconfig* desired,
-                                         const _GLFWfbconfig* alternatives,
-                                         unsigned int count);
+// OpenGL context helpers
 GLboolean _glfwRefreshContextParams(void);
 GLboolean _glfwIsValidContextConfig(_GLFWwndconfig* wndconfig);
 GLboolean _glfwIsValidContext(_GLFWwndconfig* wndconfig);
@@ -1303,90 +1119,96 @@ GLboolean _glfwIsValidContext(_GLFWwndconfig* wndconfig);
 ;;;
 
 
-(definition public (new-NSPoint x <fx> y <fx>)
+(definition public (new-NSPoint x <fl> y <fl>)
   (let ((point (NSPoint-make)))
-    (NSPoint-x-set! point (fl x))
-    (NSPoint-y-set! point (fl y))
+    (NSPoint-x-set! point x)
+    (NSPoint-y-set! point y)
     point))
 
 
 (definition public (with-NSPoint point proc)
-  (let ((pt (if point (point->NSPoint point) (NSPoint-make))))
+  (let ((pt (cond ((not point) (NSPoint-make))
+                  ((is? point Point) (point->NSPoint point))
+                  (else point))))
     (prog1 (proc pt)
       (NSPoint-free pt))))
 
 
 (definition public (NSPoint->point pt) <Point>
-  (if (not pt)
-      #f
-    (new Point
-      (fxround (NSPoint-x-ref pt))
-      (fxround (NSPoint-y-ref pt)))))
+  (new Point
+    (fxround (NSPoint-x-ref pt))
+    (fxround (NSPoint-y-ref pt))))
 
 
 (definition public (point->NSPoint point)
-  (new-NSPoint (get-h~ point) (get-v~ point)))
+  (new-NSPoint (cast <fl> (get-h~ point))
+               (cast <fl> (get-v~ point))))
 
 
-(definition public (new-NSSize width <fx> height <fx>)
+(definition public (new-NSSize width <fl> height <fl>)
   (let ((size (NSSize-make)))
-    (NSSize-width-set! size (fl width))
-    (NSSize-height-set! size (fl height))
+    (NSSize-width-set! size width)
+    (NSSize-height-set! size height)
     size))
 
 
 (definition public (with-NSSize dim proc)
-  (let ((size (if dim (dimension->NSSize dim) (NSSize-make))))
+  (let ((size (cond ((not dim) (NSSize-make))
+                    ((is? dim Dimension) (dimension->NSSize dim))
+                    (else dim))))
     (prog1 (proc size)
       (NSSize-free size))))
 
 
 (definition public (NSSize->dimension size) <Point>
-  (if (not size)
-      #f
-    (new Dimension
-      (fxround (NSSize-width-ref size))
-      (fxround (NSSize-height-ref size)))))
+  (new Dimension
+    (fxround (NSSize-width-ref size))
+    (fxround (NSSize-height-ref size))))
 
 
 (definition public (dimension->NSSize dim)
-  (new-NSSize (get-width~ dim) (get-height~ dim)))
+  (new-NSSize (cast <fl> (get-width~ dim))
+              (cast <fl> (get-height~ dim))))
 
 
-(definition public (new-NSRect left <fx> top <fx> right <fx> bottom <fx>)
+(definition public (new-NSRect x <fl> y <fl> width <fl> height <fl>)
   (let ((rect (NSRect-make)))
     (let ((orig (NSRect-origin-ref rect))
           (size (NSRect-size-ref rect)))
-      (NSPoint-x-set!     orig (fl left))
-      (NSPoint-y-set!     orig (fl top))
-      (NSSize-width-set!  size (fl (- right left)))
-      (NSSize-height-set! size (fl (- bottom top)))
+      (NSPoint-x-set!     orig x)
+      (NSPoint-y-set!     orig y)
+      (NSSize-width-set!  size width)
+      (NSSize-height-set! size height)
       rect)))
 
 
 (definition public (with-NSRect rect proc)
-  (let ((rect (if rect (rect->NSRect rect) (NSRect-make))))
+  (let ((rect (cond ((not rect) (NSRect-make))
+                    ((is? rect Rect) (rect->NSRect rect))
+                    (else rect))))
     (prog1 (proc rect)
       (NSRect-free rect))))
 
 
 (definition public (rect->NSRect rect)
-  (new-NSRect (get-left~ rect)
-              (get-top~ rect)
-              (get-right~ rect)
-              (get-bottom~ rect)))
+  (let ((l (get-left~ rect))
+        (t (get-top~ rect))
+        (r (get-right~ rect))
+        (b (get-bottom~ rect)))
+    (new-NSRect (cast <fl> l)
+                (cast <fl> t)
+                (cast <fl> (- r l))
+                (cast <fl> (- b t)))))
 
 
 (definition public (NSRect->rect rect) <Rect>
-  (if (not rect)
-      #f
-    (let ((orig (NSRect-origin-ref rect))
-          (size (NSRect-size-ref rect)))
-      (new Rect
-        (fxround (NSPoint-x-ref orig))
-        (fxround (NSPoint-y-ref orig))
-        (fxround (+ (NSPoint-x-ref orig) (NSSize-width-ref size)))
-        (fxround (+ (NSPoint-y-ref orig) (NSSize-height-ref size)))))))
+  (let ((orig (NSRect-origin-ref rect))
+        (size (NSRect-size-ref rect)))
+    (new Rect
+      (fxround (NSPoint-x-ref orig))
+      (fxround (NSPoint-y-ref orig))
+      (fxround (+ (NSPoint-x-ref orig) (NSSize-width-ref size)))
+      (fxround (+ (NSPoint-y-ref orig) (NSSize-height-ref size))))))
 
 
 ;;;
@@ -1446,10 +1268,7 @@ void terminal(NSString* str)
 
 _GLFWwindow* currentWindow;
 
-//========================================================================
 // Change to our application bundle's resources directory, if present
-//========================================================================
-
 static void changeToResourcesDirectory(void)
 {
     char resourcesPath[MAXPATHLEN];
@@ -1485,20 +1304,11 @@ static void changeToResourcesDirectory(void)
 }
 
 
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW platform API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Initialize the GLFW library
-//========================================================================
-
 int _glfwPlatformInit(void)
 {
     _glfwLibrary.NS.autoreleasePool = [[NSAutoreleasePool alloc] init];
 
-    _glfwLibrary.NSGL.framework =
-        CFBundleGetBundleWithIdentifier(CFSTR("com.apple.opengl"));
+    _glfwLibrary.NSGL.framework = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.opengl"));
     if (_glfwLibrary.NSGL.framework == NULL)
     {
         _glfwSetError(GLFW_PLATFORM_ERROR,
@@ -1525,10 +1335,6 @@ int _glfwPlatformInit(void)
     return GL_TRUE;
 }
 
-
-//========================================================================
-// Close window, if open, and shut down GLFW
-//========================================================================
 
 int _glfwPlatformTerminate(void)
 {
@@ -1558,67 +1364,6 @@ int _glfwPlatformTerminate(void)
 
 
 ;;;
-;;;; Platform Clipboard
-;;;
-
-
-(c-declare cocoa #"
-
-#include <limits.h>
-#include <string.h>
-
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW platform API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Set the clipboard contents
-//========================================================================
-
-void _glfwPlatformSetClipboardString(_GLFWwindow* window, const char* string)
-{
-    NSArray* types = [NSArray arrayWithObjects:NSStringPboardType, nil];
-
-    NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
-    [pasteboard declareTypes:types owner:nil];
-    [pasteboard setString:[NSString stringWithUTF8String:string]
-                  forType:NSStringPboardType];
-}
-
-
-//========================================================================
-// Return the current clipboard contents
-//========================================================================
-
-const char* _glfwPlatformGetClipboardString(_GLFWwindow* window)
-{
-    NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
-
-    if (![[pasteboard types] containsObject:NSStringPboardType])
-    {
-        _glfwSetError(GLFW_FORMAT_UNAVAILABLE, NULL);
-        return NULL;
-    }
-
-    NSString* object = [pasteboard stringForType:NSStringPboardType];
-    if (!object)
-    {
-        _glfwSetError(GLFW_PLATFORM_ERROR,
-                      "Cocoa: Failed to retrieve object from pasteboard");
-        return NULL;
-    }
-
-    free(_glfwLibrary.NS.clipboardString);
-    _glfwLibrary.NS.clipboardString = strdup([object UTF8String]);
-
-    return _glfwLibrary.NS.clipboardString;
-}
-
-"#)
-
-
-;;;
 ;;;; Platform Fullscreen
 ;;;
 
@@ -1628,10 +1373,6 @@ const char* _glfwPlatformGetClipboardString(_GLFWwindow* window)
 #include <stdlib.h>
 #include <limits.h>
 
-
-//========================================================================
-// Check whether the display mode should be included in enumeration
-//========================================================================
 
 static GLboolean modeIsGood(CGDisplayModeRef mode)
 {
@@ -1660,44 +1401,6 @@ static GLboolean modeIsGood(CGDisplayModeRef mode)
     return GL_TRUE;
 }
 
-
-//========================================================================
-// Convert Core Graphics display mode to GLFW video mode
-//========================================================================
-
-static GLFWvidmode vidmodeFromCGDisplayMode(CGDisplayModeRef mode)
-{
-    GLFWvidmode result;
-    result.width = CGDisplayModeGetWidth(mode);
-    result.height = CGDisplayModeGetHeight(mode);
-
-    CFStringRef format = CGDisplayModeCopyPixelEncoding(mode);
-
-    if (CFStringCompare(format, CFSTR(IO16BitDirectPixels), 0) == 0)
-    {
-        result.redBits = 5;
-        result.greenBits = 5;
-        result.blueBits = 5;
-    }
-    else
-    {
-        result.redBits = 8;
-        result.greenBits = 8;
-        result.blueBits = 8;
-    }
-
-    CFRelease(format);
-    return result;
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW internal API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Change the current video mode
-//========================================================================
 
 GLboolean _glfwSetVideoMode(int* width, int* height, int* bpp, int* refreshRate)
 {
@@ -1771,10 +1474,6 @@ GLboolean _glfwSetVideoMode(int* width, int* height, int* bpp, int* refreshRate)
 }
 
 
-//========================================================================
-// Restore the previously saved (original) video mode
-//========================================================================
-
 void _glfwRestoreVideoMode(void)
 {
     CGDisplaySetDisplayMode(CGMainDisplayID(),
@@ -1782,53 +1481,6 @@ void _glfwRestoreVideoMode(void)
                             NULL);
 
     CGDisplayRelease(CGMainDisplayID());
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW platform API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Get a list of available video modes
-//========================================================================
-
-GLFWvidmode* _glfwPlatformGetVideoModes(int* found)
-{
-    CFArrayRef modes;
-    CFIndex count, i;
-    GLFWvidmode* result;
-
-    modes = CGDisplayCopyAllDisplayModes(CGMainDisplayID(), NULL);
-    count = CFArrayGetCount(modes);
-
-    result = (GLFWvidmode*) malloc(sizeof(GLFWvidmode) * count);
-    *found = 0;
-
-    for (i = 0;  i < count;  i++)
-    {
-        CGDisplayModeRef mode;
-
-        mode = (CGDisplayModeRef) CFArrayGetValueAtIndex(modes, i);
-        if (modeIsGood(mode))
-        {
-            result[*found] = vidmodeFromCGDisplayMode(mode);
-            (*found)++;
-        }
-    }
-
-    CFRelease(modes);
-    return result;
-}
-
-
-//========================================================================
-// Get the desktop video mode
-//========================================================================
-
-void _glfwPlatformGetDesktopMode(GLFWvidmode *mode)
-{
-    *mode = vidmodeFromCGDisplayMode(_glfwLibrary.NS.desktopMode);
 }
 
 "#)
@@ -1841,32 +1493,16 @@ void _glfwPlatformGetDesktopMode(GLFWvidmode *mode)
 
 (c-declare cocoa #"
 
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW platform API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Initialize OpenGL support
-//========================================================================
-
 int _glfwInitOpenGL(void)
 {
     return GL_TRUE;
 }
 
 
-//========================================================================
-// Terminate OpenGL support
-//========================================================================
-
 void _glfwTerminateOpenGL(void)
 {
 }
 
-
-//========================================================================
-// Make the OpenGL context associated with the specified window current
-//========================================================================
 
 void _glfwPlatformMakeContextCurrent(_GLFWwindow* window)
 {
@@ -1879,19 +1515,11 @@ void _glfwPlatformMakeContextCurrent(_GLFWwindow* window)
 }
 
 
-//========================================================================
-// Return the window object whose context is current
-//========================================================================
-
 _GLFWwindow* _glfwPlatformGetCurrentContext(void)
 {
     return currentWindow;
 }
 
-
-//========================================================================
-// Swap buffers
-//========================================================================
 
 void _glfwPlatformSwapBuffers(_GLFWwindow* window)
 {
@@ -1900,105 +1528,12 @@ void _glfwPlatformSwapBuffers(_GLFWwindow* window)
 }
 
 
-//========================================================================
-// Set double buffering swap interval
-//========================================================================
-
 void _glfwPlatformSwapInterval(int interval)
 {
     _GLFWwindow* window = _glfwPlatformGetCurrentContext();
 
     GLint sync = interval;
     [window->NSGL.context setValues:&sync forParameter:NSOpenGLCPSwapInterval];
-}
-
-
-//========================================================================
-// Check if an OpenGL extension is available at runtime
-//========================================================================
-
-int _glfwPlatformExtensionSupported(const char* extension)
-{
-    // There are no NSGL extensions
-    return GL_FALSE;
-}
-
-
-//========================================================================
-// Get the function pointer to an OpenGL function
-//========================================================================
-
-GLFWglproc _glfwPlatformGetProcAddress(const char* procname)
-{
-    CFStringRef symbolName = CFStringCreateWithCString(kCFAllocatorDefault,
-                                                       procname,
-                                                       kCFStringEncodingASCII);
-
-    GLFWglproc symbol = CFBundleGetFunctionPointerForName(_glfwLibrary.NSGL.framework,
-                                                          symbolName);
-
-    CFRelease(symbolName);
-
-    return symbol;
-}
-
-
-//========================================================================
-// Copies the specified OpenGL state categories from src to dst
-//========================================================================
-
-void _glfwPlatformCopyContext(_GLFWwindow* src, _GLFWwindow* dst, unsigned long mask)
-{
-    [dst->NSGL.context copyAttributesFromContext:src->NSGL.context withMask:mask];
-}
-
-"#)
-
-
-;;;
-;;;; Platform Native
-;;;
-
-
-(c-declare cocoa #"
-
-//////////////////////////////////////////////////////////////////////////
-//////                        GLFW native API                       //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Returns the X11 handle of the specified window
-//========================================================================
-
-GLFWAPI id platformGetWindow(GLFWwindow handle)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return 0;
-    }
-
-    return window->NS.object;
-}
-
-
-//========================================================================
-// Return the GLX context of the specified window
-//========================================================================
-
-GLFWAPI id glfwGetNSGLContext(GLFWwindow handle)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return NULL;
-    }
-
-    return window->NSGL.context;
 }
 
 "#)
@@ -2154,10 +1689,6 @@ GLFWAPI id glfwGetNSGLContext(GLFWwindow handle)
 
 @end
 
-
-//========================================================================
-// Converts a Mac OS X keycode to a GLFW keycode
-//========================================================================
 
 static int convertMacKeyCode(unsigned int macKeyCode)
 {
@@ -2541,10 +2072,6 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 @end
 
 
-//========================================================================
-// Try to figure out what the calling application is called
-//========================================================================
-
 static NSString* findAppName(void)
 {
     unsigned int i;
@@ -2585,14 +2112,6 @@ static NSString* findAppName(void)
     return @"GLFW Application";
 }
 
-
-//========================================================================
-// Set up the menu bar (manually)
-// This is nasty, nasty stuff -- calls to undocumented semi-private APIs that
-// could go away at any moment, lots of stuff that really should be
-// localize(d|able), etc.  Loading a nib would save us this horror, but that
-// doesn't seem like a good thing to require of GLFW's clients.
-//========================================================================
 
 static void createMenuBar(void)
 {
@@ -2654,10 +2173,6 @@ static void createMenuBar(void)
 }
 
 
-//========================================================================
-// Initialize the Cocoa Application Kit
-//========================================================================
-
 static GLboolean initializeAppKit(void)
 {
     if (NSApp)
@@ -2676,10 +2191,6 @@ static GLboolean initializeAppKit(void)
     return GL_TRUE;
 }
 
-
-//========================================================================
-// Create the Cocoa window
-//========================================================================
 
 static GLboolean createWindow(_GLFWwindow* window,
                               const _GLFWwndconfig* wndconfig,
@@ -2703,6 +2214,10 @@ static GLboolean createWindow(_GLFWwindow* window,
 
             if (wndconfig->resizable)
                 styleMask |= NSResizableWindowMask;
+        }
+        else if (kind == GLFW_BORDERLESS)
+        {
+            styleMask = NSBorderlessWindowMask;
         }
         else
         {
@@ -2742,10 +2257,6 @@ static GLboolean createWindow(_GLFWwindow* window,
     return GL_TRUE;
 }
 
-
-//========================================================================
-// Create the OpenGL context
-//========================================================================
 
 static GLboolean createContext(_GLFWwindow* window,
                                const _GLFWwndconfig* wndconfig,
@@ -2900,15 +2411,6 @@ static GLboolean createContext(_GLFWwindow* window,
 }
 
 
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW platform API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Here is where the window is created, and the OpenGL rendering context is
-// created
-//========================================================================
-
 int _glfwPlatformCreateWindow(_GLFWwindow* window,
                               const _GLFWwndconfig* wndconfig,
                               const _GLFWfbconfig* fbconfig,
@@ -2987,10 +2489,6 @@ int _glfwPlatformCreateWindow(_GLFWwindow* window,
 }
 
 
-//========================================================================
-// Properly kill the window / video display
-//========================================================================
-
 void _glfwPlatformDestroyWindow(_GLFWwindow* window)
 {
     [window->NS.object orderOut:nil];
@@ -3022,81 +2520,6 @@ void _glfwPlatformDestroyWindow(_GLFWwindow* window)
 }
 
 
-//========================================================================
-// Get the window title
-//========================================================================
-
-NSString* _glfwPlatformGetWindowTitle(_GLFWwindow* window)
-{
-    return [window->NS.object title];
-}
-
-
-//========================================================================
-// Set the window title
-//========================================================================
-
-void _glfwPlatformSetWindowTitle(_GLFWwindow* window, const char *title)
-{
-    [window->NS.object setTitle:[NSString stringWithUTF8String:title]];
-}
-
-
-//========================================================================
-// Set the window size
-//========================================================================
-
-void _glfwPlatformSetWindowSize(_GLFWwindow* window, int width, int height)
-{
-    [window->NS.object setContentSize:NSMakeSize(width, height)];
-}
-
-
-//========================================================================
-// Set the window position
-//========================================================================
-
-void _glfwPlatformSetWindowPos(_GLFWwindow* window, int x, int y)
-{
-    NSRect contentRect =
-        [window->NS.object contentRectForFrameRect:[window->NS.object frame]];
-
-    // We assume here that the client code wants to position the window within the
-    // screen the window currently occupies
-    NSRect screenRect = [[window->NS.object screen] visibleFrame];
-    contentRect.origin = NSMakePoint(screenRect.origin.x + x,
-                                     screenRect.origin.y + screenRect.size.height -
-                                         y - contentRect.size.height);
-
-    [window->NS.object setFrame:[window->NS.object frameRectForContentRect:contentRect]
-                        display:YES];
-}
-
-
-//========================================================================
-// Iconify the window
-//========================================================================
-
-void _glfwPlatformIconifyWindow(_GLFWwindow* window)
-{
-    [window->NS.object miniaturize:nil];
-}
-
-
-//========================================================================
-// Restore (un-iconify) the window
-//========================================================================
-
-void _glfwPlatformRestoreWindow(_GLFWwindow* window)
-{
-    [window->NS.object deminiaturize:nil];
-}
-
-
-//========================================================================
-// Show window
-//========================================================================
-
 void _glfwPlatformShowWindow(_GLFWwindow* window)
 {
     [window->NS.object orderFront:nil];
@@ -3104,28 +2527,12 @@ void _glfwPlatformShowWindow(_GLFWwindow* window)
 }
 
 
-//========================================================================
-// Hide window
-//========================================================================
-
 void _glfwPlatformHideWindow(_GLFWwindow* window)
 {
     [window->NS.object orderOut:nil];
     _glfwInputWindowVisibility(window, GL_FALSE);
 }
 
-//========================================================================
-// Write back window parameters into GLFW window structure
-//========================================================================
-
-void _glfwPlatformRefreshWindowParams(_GLFWwindow* window)
-{
-}
-
-
-//========================================================================
-// Check for new window and input events
-//========================================================================
 
 bool _glfwPlatformEventAvailable(void)
 {
@@ -3139,10 +2546,6 @@ bool _glfwPlatformEventAvailable(void)
      return event != NULL;
 }
 
-
-//========================================================================
-// Poll for new window and input events
-//========================================================================
 
 void _glfwPlatformPollEvents(void)
 {
@@ -3165,10 +2568,6 @@ void _glfwPlatformPollEvents(void)
 }
 
 
-//========================================================================
-// Wait for new window and input events
-//========================================================================
-
 void _glfwPlatformWaitEvents( void )
 {
     // I wanted to pass NO to dequeue:, and rely on PollEvents to
@@ -3183,10 +2582,6 @@ void _glfwPlatformWaitEvents( void )
     _glfwPlatformPollEvents();
 }
 
-
-//========================================================================
-// Set physical cursor position
-//========================================================================
 
 void _glfwPlatformSetCursorPos(_GLFWwindow* window, int x, int y)
 {
@@ -3208,10 +2603,6 @@ void _glfwPlatformSetCursorPos(_GLFWwindow* window, int x, int y)
     }
 }
 
-
-//========================================================================
-// Set physical mouse cursor mode
-//========================================================================
 
 void _glfwPlatformSetCursorMode(_GLFWwindow* window, int mode)
 {
@@ -3244,23 +2635,11 @@ void _glfwPlatformSetCursorMode(_GLFWwindow* window, int mode)
 #include <mach/mach_time.h>
 
 
-//========================================================================
-// Return raw time
-//========================================================================
-
 static uint64_t getRawTime(void)
 {
     return mach_absolute_time();
 }
 
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW internal API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Initialise timer
-//========================================================================
 
 void _glfwInitTimer(void)
 {
@@ -3269,32 +2648,6 @@ void _glfwInitTimer(void)
 
     _glfwLibrary.NS.timer.resolution = (double) info.numer / (info.denom * 1.0e9);
     _glfwLibrary.NS.timer.base = getRawTime();
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW platform API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Return timer value in seconds
-//========================================================================
-
-double _glfwPlatformGetTime(void)
-{
-    return (double) (getRawTime() - _glfwLibrary.NS.timer.base) *
-        _glfwLibrary.NS.timer.resolution;
-}
-
-
-//========================================================================
-// Set timer value in seconds
-//========================================================================
-
-void _glfwPlatformSetTime(double time)
-{
-    _glfwLibrary.NS.timer.base = getRawTime() -
-        (uint64_t) (time / _glfwLibrary.NS.timer.resolution);
 }
 
 "#)
@@ -3336,22 +2689,6 @@ _GLFWlibrary _glfwLibrary;
 static int _glfwError = GLFW_NO_ERROR;
 
 
-//------------------------------------------------------------------------
-// The current error callback
-// This is outside of _glfwLibrary so it can be initialized and usable
-// before glfwInit is called, which lets that function report errors
-//------------------------------------------------------------------------
-static GLFWerrorfun _glfwErrorCallback = NULL;
-
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW internal API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Sets the current error value
-//========================================================================
-
 void _glfwSetError(int error, const char* format, ...)
 {
         char buffer[16384];
@@ -3378,14 +2715,6 @@ void _glfwSetError(int error, const char* format, ...)
 }
 
 
-//////////////////////////////////////////////////////////////////////////
-//////                        GLFW public API                       //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Initialize various GLFW state
-//========================================================================
-
 GLFWAPI int glfwInit(void)
 {
     if (_glfwInitialized)
@@ -3408,10 +2737,6 @@ GLFWAPI int glfwInit(void)
 }
 
 
-//========================================================================
-// Close window and shut down library
-//========================================================================
-
 GLFWAPI void glfwTerminate(void)
 {
     if (!_glfwInitialized)
@@ -3431,11 +2756,6 @@ GLFWAPI void glfwTerminate(void)
 }
 
 
-//========================================================================
-// Get GLFW version
-// This function may be called without GLFW having been initialized
-//========================================================================
-
 GLFWAPI void glfwGetVersion(int* major, int* minor, int* rev)
 {
     if (major != NULL)
@@ -3449,11 +2769,6 @@ GLFWAPI void glfwGetVersion(int* major, int* minor, int* rev)
 }
 
 
-//========================================================================
-// Returns the current error value
-// This function may be called without GLFW having been initialized
-//========================================================================
-
 GLFWAPI int glfwGetError(void)
 {
     int error = _glfwError;
@@ -3461,11 +2776,6 @@ GLFWAPI int glfwGetError(void)
     return error;
 }
 
-
-//========================================================================
-// Returns a string representation of the specified error value
-// This function may be called without GLFW having been initialized
-//========================================================================
 
 GLFWAPI const char* glfwErrorString(int error)
 {
@@ -3498,17 +2808,6 @@ GLFWAPI const char* glfwErrorString(int error)
     return "ERROR: UNKNOWN ERROR TOKEN PASSED TO glfwErrorString";
 }
 
-
-//========================================================================
-// Sets the callback function for GLFW errors
-// This function may be called without GLFW having been initialized
-//========================================================================
-
-GLFWAPI void glfwSetErrorCallback(GLFWerrorfun cbfun)
-{
-    _glfwErrorCallback = cbfun;
-}
-
 "#)
 
 
@@ -3519,38 +2818,18 @@ GLFWAPI void glfwSetErrorCallback(GLFWerrorfun cbfun)
 
 (c-declare cocoa #"
 
-//========================================================================
-// Return timer value in seconds
-//========================================================================
-
 GLFWAPI double glfwGetTime(void)
 {
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return 0.0;
-    }
-
-    return _glfwPlatformGetTime();
+    return (double) (getRawTime() - _glfwLibrary.NS.timer.base) *
+        _glfwLibrary.NS.timer.resolution;
 }
 
-
-//========================================================================
-// Set timer value in seconds
-//========================================================================
 
 GLFWAPI void glfwSetTime(double time)
 {
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    _glfwPlatformSetTime(time);
+    _glfwLibrary.NS.timer.base = getRawTime() -
+        (uint64_t) (time / _glfwLibrary.NS.timer.resolution);
 }
-
-
 
 "#)
 
@@ -3566,10 +2845,6 @@ GLFWAPI void glfwSetTime(double time)
 #include <string.h>
 #include <limits.h>
 
-
-//========================================================================
-// Parses the client API version string and extracts the version number
-//========================================================================
 
 static GLboolean parseGLVersion(int* api, int* major, int* minor, int* rev)
 {
@@ -3616,172 +2891,6 @@ static GLboolean parseGLVersion(int* api, int* major, int* minor, int* rev)
     return GL_TRUE;
 }
 
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW internal API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Return the available framebuffer config closest to the desired values
-// This is based on the manual GLX Visual selection from 2.6
-//========================================================================
-
-const _GLFWfbconfig* _glfwChooseFBConfig(const _GLFWfbconfig* desired,
-                                         const _GLFWfbconfig* alternatives,
-                                         unsigned int count)
-{
-    unsigned int i;
-    unsigned int missing, leastMissing = UINT_MAX;
-    unsigned int colorDiff, leastColorDiff = UINT_MAX;
-    unsigned int extraDiff, leastExtraDiff = UINT_MAX;
-    const _GLFWfbconfig* current;
-    const _GLFWfbconfig* closest = NULL;
-
-    for (i = 0;  i < count;  i++)
-    {
-        current = alternatives + i;
-
-        if (desired->stereo > 0 && current->stereo == 0)
-        {
-            // Stereo is a hard constraint
-            continue;
-        }
-
-        // Count number of missing buffers
-        {
-            missing = 0;
-
-            if (desired->alphaBits > 0 && current->alphaBits == 0)
-                missing++;
-
-            if (desired->depthBits > 0 && current->depthBits == 0)
-                missing++;
-
-            if (desired->stencilBits > 0 && current->stencilBits == 0)
-                missing++;
-
-            if (desired->auxBuffers > 0 && current->auxBuffers < desired->auxBuffers)
-                missing += desired->auxBuffers - current->auxBuffers;
-
-            if (desired->samples > 0 && current->samples == 0)
-            {
-                // Technically, several multisampling buffers could be
-                // involved, but that's a lower level implementation detail and
-                // not important to us here, so we count them as one
-                missing++;
-            }
-        }
-
-        // These polynomials make many small channel size differences matter
-        // less than one large channel size difference
-
-        // Calculate color channel size difference value
-        {
-            colorDiff = 0;
-
-            if (desired->redBits > 0)
-            {
-                colorDiff += (desired->redBits - current->redBits) *
-                             (desired->redBits - current->redBits);
-            }
-
-            if (desired->greenBits > 0)
-            {
-                colorDiff += (desired->greenBits - current->greenBits) *
-                             (desired->greenBits - current->greenBits);
-            }
-
-            if (desired->blueBits > 0)
-            {
-                colorDiff += (desired->blueBits - current->blueBits) *
-                             (desired->blueBits - current->blueBits);
-            }
-        }
-
-        // Calculate non-color channel size difference value
-        {
-            extraDiff = 0;
-
-            if (desired->alphaBits > 0)
-            {
-                extraDiff += (desired->alphaBits - current->alphaBits) *
-                             (desired->alphaBits - current->alphaBits);
-            }
-
-            if (desired->depthBits > 0)
-            {
-                extraDiff += (desired->depthBits - current->depthBits) *
-                             (desired->depthBits - current->depthBits);
-            }
-
-            if (desired->stencilBits > 0)
-            {
-                extraDiff += (desired->stencilBits - current->stencilBits) *
-                             (desired->stencilBits - current->stencilBits);
-            }
-
-            if (desired->accumRedBits > 0)
-            {
-                extraDiff += (desired->accumRedBits - current->accumRedBits) *
-                             (desired->accumRedBits - current->accumRedBits);
-            }
-
-            if (desired->accumGreenBits > 0)
-            {
-                extraDiff += (desired->accumGreenBits - current->accumGreenBits) *
-                             (desired->accumGreenBits - current->accumGreenBits);
-            }
-
-            if (desired->accumBlueBits > 0)
-            {
-                extraDiff += (desired->accumBlueBits - current->accumBlueBits) *
-                             (desired->accumBlueBits - current->accumBlueBits);
-            }
-
-            if (desired->accumAlphaBits > 0)
-            {
-                extraDiff += (desired->accumAlphaBits - current->accumAlphaBits) *
-                             (desired->accumAlphaBits - current->accumAlphaBits);
-            }
-
-            if (desired->samples > 0)
-            {
-                extraDiff += (desired->samples - current->samples) *
-                             (desired->samples - current->samples);
-            }
-        }
-
-        // Figure out if the current one is better than the best one found so far
-        // Least number of missing buffers is the most important heuristic,
-        // then color buffer size match and lastly size match for other buffers
-
-        if (missing < leastMissing)
-            closest = current;
-        else if (missing == leastMissing)
-        {
-            if ((colorDiff < leastColorDiff) ||
-                (colorDiff == leastColorDiff && extraDiff < leastExtraDiff))
-            {
-                closest = current;
-            }
-        }
-
-        if (current == closest)
-        {
-            leastMissing = missing;
-            leastColorDiff = colorDiff;
-            leastExtraDiff = extraDiff;
-        }
-    }
-
-    return closest;
-}
-
-
-//========================================================================
-// Checks whether the OpenGL part of the window config is sane
-// It blames glfwCreateWindow because that's the only caller
-//========================================================================
 
 GLboolean _glfwIsValidContextConfig(_GLFWwndconfig* wndconfig)
 {
@@ -3916,11 +3025,6 @@ GLboolean _glfwIsValidContextConfig(_GLFWwndconfig* wndconfig)
 }
 
 
-//========================================================================
-// Reads back context properties
-// It blames glfwCreateWindow because that's the only caller
-//========================================================================
-
 GLboolean _glfwRefreshContextParams(void)
 {
     _GLFWwindow* window = _glfwPlatformGetCurrentContext();
@@ -3932,23 +3036,6 @@ GLboolean _glfwRefreshContextParams(void)
     {
         return GL_FALSE;
     }
-
-    /* CONVERT
-    if (window->glMajor > 2)
-    {
-        // OpenGL 3.0+ uses a different function for extension string retrieval
-        // We cache it here instead of in glfwExtensionSupported mostly to alert
-        // users as early as possible that their build may be broken
-
-        window->GetStringi = (PFNGLGETSTRINGIPROC) glfwGetProcAddress("glGetStringi");
-        if (!window->GetStringi)
-        {
-            _glfwSetError(GLFW_PLATFORM_ERROR,
-                          "glfwCreateWindow: Entry point retrieval is broken");
-            return GL_FALSE;
-        }
-    }
-    */
 
     // Read back forward-compatibility flag
     {
@@ -3986,11 +3073,6 @@ GLboolean _glfwRefreshContextParams(void)
 }
 
 
-//========================================================================
-// Checks whether the current context fulfils the specified requirements
-// It blames glfwCreateWindow because that's the only caller
-//========================================================================
-
 GLboolean _glfwIsValidContext(_GLFWwndconfig* wndconfig)
 {
     _GLFWwindow* window = _glfwPlatformGetCurrentContext();
@@ -4015,58 +3097,9 @@ GLboolean _glfwIsValidContext(_GLFWwndconfig* wndconfig)
 }
 
 
-//========================================================================
-// Check if a string can be found in an OpenGL extension string
-//========================================================================
-
-int _glfwStringInExtensionString(const char* string,
-                                 const GLubyte* extensions)
-{
-    const GLubyte* start;
-    GLubyte* where;
-    GLubyte* terminator;
-
-    // It takes a bit of care to be fool-proof about parsing the
-    // OpenGL extensions string. Don't be fooled by sub-strings,
-    // etc.
-    start = extensions;
-    for (;;)
-    {
-        where = (GLubyte*) strstr((const char*) start, string);
-        if (!where)
-            return GL_FALSE;
-
-        terminator = where + strlen(string);
-        if (where == start || *(where - 1) == ' ')
-        {
-            if (*terminator == ' ' || *terminator == '\0')
-                break;
-        }
-
-        start = terminator;
-    }
-
-    return GL_TRUE;
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-//////                        GLFW public API                       //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Make the OpenGL context associated with the specified window current
-//========================================================================
-
 GLFWAPI void glfwMakeContextCurrent(GLFWwindow handle)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
 
     if (_glfwPlatformGetCurrentContext() == window)
         return;
@@ -4075,52 +3108,14 @@ GLFWAPI void glfwMakeContextCurrent(GLFWwindow handle)
 }
 
 
-//========================================================================
-// Return the window object whose context is current
-//========================================================================
-
 GLFWAPI GLFWwindow glfwGetCurrentContext(void)
 {
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return NULL;
-    }
-
     return _glfwPlatformGetCurrentContext();
 }
 
 
-//========================================================================
-// Swap buffers (double-buffering)
-//========================================================================
-
-GLFWAPI void glfwSwapBuffers(GLFWwindow handle)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    _glfwPlatformSwapBuffers(window);
-}
-
-
-//========================================================================
-// Set double buffering swap interval (0 = vsync off)
-//========================================================================
-
 GLFWAPI void glfwSwapInterval(int interval)
 {
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
     if (!_glfwPlatformGetCurrentContext())
     {
         _glfwSetError(GLFW_NO_CURRENT_CONTEXT, NULL);
@@ -4128,301 +3123,6 @@ GLFWAPI void glfwSwapInterval(int interval)
     }
 
     _glfwPlatformSwapInterval(interval);
-}
-
-
-//========================================================================
-// Check if an OpenGL extension is available at runtime
-//========================================================================
-
-GLFWAPI int glfwExtensionSupported(const char* extension)
-{
-    const GLubyte* extensions;
-    _GLFWwindow* window;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return GL_FALSE;
-    }
-
-    window = _glfwPlatformGetCurrentContext();
-    if (!window)
-    {
-        _glfwSetError(GLFW_NO_CURRENT_CONTEXT, NULL);
-        return GL_FALSE;
-    }
-
-    if (extension == NULL || *extension == '\0')
-    {
-        _glfwSetError(GLFW_INVALID_VALUE, NULL);
-        return GL_FALSE;
-    }
-
-    if (window->glMajor < 3)
-    {
-        // Check if extension is in the old style OpenGL extensions string
-
-        extensions = glGetString(GL_EXTENSIONS);
-        if (extensions != NULL)
-        {
-            if (_glfwStringInExtensionString(extension, extensions))
-                return GL_TRUE;
-        }
-    }
-    else
-    {
-        int i;
-        GLint count;
-
-        // Check if extension is in the modern OpenGL extensions string list
-
-        glGetIntegerv(GL_NUM_EXTENSIONS, &count);
-
-        /* CONVERT
-        for (i = 0;  i < count;  i++)
-        {
-             if (strcmp((const char*) window->GetStringi(GL_EXTENSIONS, i),
-                         extension) == 0)
-             {
-                 return GL_TRUE;
-             }
-        }
-        */
-    }
-
-    // Check if extension is in the platform-specific string
-    return _glfwPlatformExtensionSupported(extension);
-}
-
-
-//========================================================================
-// Get the function pointer to an OpenGL function.
-// This function can be used to get access to extended OpenGL functions.
-//========================================================================
-
-GLFWAPI GLFWglproc glfwGetProcAddress(const char* procname)
-{
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return NULL;
-    }
-
-    if (!_glfwPlatformGetCurrentContext())
-    {
-        _glfwSetError(GLFW_NO_CURRENT_CONTEXT, NULL);
-        return NULL;
-    }
-
-    return _glfwPlatformGetProcAddress(procname);
-}
-
-
-//========================================================================
-// Copies the specified OpenGL state categories from src to dst
-//========================================================================
-
-GLFWAPI void glfwCopyContext(GLFWwindow hsrc, GLFWwindow hdst, unsigned long mask)
-{
-    _GLFWwindow* src;
-    _GLFWwindow* dst;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    src = (_GLFWwindow*) hsrc;
-    dst = (_GLFWwindow*) hdst;
-
-    if (_glfwPlatformGetCurrentContext() == dst)
-    {
-        _glfwSetError(GLFW_INVALID_VALUE,
-                      "glfwCopyContext: Cannot copy OpenGL state to a current context");
-        return;
-    }
-
-    _glfwPlatformCopyContext(src, dst, mask);
-}
-
-"#)
-
-
-;;;
-;;;; GLFW Clipboard
-;;;
-
-
-(c-declare cocoa #"
-
-//========================================================================
-// Set the clipboard contents
-//========================================================================
-
-GLFWAPI void glfwSetClipboardString(GLFWwindow handle, const char* string)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    _glfwPlatformSetClipboardString(window, string);
-}
-
-
-//========================================================================
-// Return the current clipboard contents
-//========================================================================
-
-GLFWAPI const char* glfwGetClipboardString(GLFWwindow handle)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return NULL;
-    }
-
-    return _glfwPlatformGetClipboardString(window);
-}
-
-"#)
-
-
-;;;
-;;;; GLFW Fullscreen
-;;;
-
-
-(c-declare cocoa #"
-
-//========================================================================
-// Lexical comparison function for GLFW video modes, used by qsort
-//========================================================================
-
-static int compareVideoModes(const void* firstPtr, const void* secondPtr)
-{
-    int firstBPP, secondBPP, firstSize, secondSize;
-    GLFWvidmode* first = (GLFWvidmode*) firstPtr;
-    GLFWvidmode* second = (GLFWvidmode*) secondPtr;
-
-    // First sort on color bits per pixel
-
-    firstBPP = first->redBits +
-               first->greenBits +
-               first->blueBits;
-    secondBPP = second->redBits +
-                second->greenBits +
-                second->blueBits;
-
-    if (firstBPP != secondBPP)
-        return firstBPP - secondBPP;
-
-    // Then sort on screen area, in pixels
-
-    firstSize = first->width * first->height;
-    secondSize = second->width * second->height;
-
-    return firstSize - secondSize;
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW internal API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Lexical comparison of GLFW video modes
-//========================================================================
-
-int _glfwCompareVideoModes(const GLFWvidmode* first, const GLFWvidmode* second)
-{
-    return compareVideoModes(first, second);
-}
-
-
-//========================================================================
-// Convert BPP to RGB bits based on "best guess"
-//========================================================================
-
-void _glfwSplitBPP(int bpp, int* red, int* green, int* blue)
-{
-    int delta;
-
-    // We assume that by 32 the user really meant 24
-    if (bpp == 32)
-        bpp = 24;
-
-    // Convert "bits per pixel" to red, green & blue sizes
-
-    *red = *green = *blue = bpp / 3;
-    delta = bpp - (*red * 3);
-    if (delta >= 1)
-        *green = *green + 1;
-
-    if (delta == 2)
-        *red = *red + 1;
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-//////                        GLFW public API                       //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Get a list of available video modes
-//========================================================================
-
-GLFWAPI GLFWvidmode* glfwGetVideoModes(int* count)
-{
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return NULL;
-    }
-
-    if (count == NULL)
-    {
-        _glfwSetError(GLFW_INVALID_VALUE, NULL);
-        return NULL;
-    }
-
-    free(_glfwLibrary.modes);
-
-    _glfwLibrary.modes = _glfwPlatformGetVideoModes(count);
-    if (_glfwLibrary.modes)
-        qsort(_glfwLibrary.modes, *count, sizeof(GLFWvidmode), compareVideoModes);
-
-    return _glfwLibrary.modes;
-}
-
-
-//========================================================================
-// Get the desktop video mode
-//========================================================================
-
-GLFWAPI void glfwGetDesktopMode(GLFWvidmode* mode)
-{
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    if (mode == NULL)
-    {
-        _glfwSetError(GLFW_INVALID_VALUE,
-                      "glfwGetDesktopMode: Parameter 'mode' cannot be NULL");
-        return;
-    }
-
-    _glfwPlatformGetDesktopMode(mode);
 }
 
 "#)
@@ -4434,10 +3134,6 @@ GLFWAPI void glfwGetDesktopMode(GLFWvidmode* mode)
 
 
 (c-declare cocoa #"
-
-//========================================================================
-// Sets the cursor mode for the specified window
-//========================================================================
 
 static void setCursorMode(_GLFWwindow* window, int newMode)
 {
@@ -4469,14 +3165,6 @@ static void setCursorMode(_GLFWwindow* window, int newMode)
 }
 
 
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW internal API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Draw
-//========================================================================
-
 void _glfwDrawRect(_GLFWwindow* window, NSRect dirtyRect)
 {
     int width, height;
@@ -4492,9 +3180,6 @@ void _glfwDrawRect(_GLFWwindow* window, NSRect dirtyRect)
     paint_callback(window, context, &dirtyRect);
 }
 
-//========================================================================
-// Register keyboard activity
-//========================================================================
 
 bool _glfwInputKey(_GLFWwindow* window, int key, int action)
 {
@@ -4512,10 +3197,6 @@ bool _glfwInputKey(_GLFWwindow* window, int key, int action)
 }
 
 
-//========================================================================
-// Register (keyboard) character activity
-//========================================================================
-
 void _glfwInputChar(_GLFWwindow* window, int character)
 {
     // Valid Unicode (ISO 10646) character?
@@ -4526,25 +3207,11 @@ void _glfwInputChar(_GLFWwindow* window, int character)
 }
 
 
-//========================================================================
-// Register scroll events
-//========================================================================
-
 void _glfwInputScroll(_GLFWwindow* window, double xoffset, double yoffset)
 {
-    window->scrollX += xoffset;
-    window->scrollY += yoffset;
-
-    if (window->scrollCallback)
-        window->scrollCallback(window, xoffset, yoffset);
-    
     wheel_callback(window, xoffset, yoffset);
 }
 
-
-//========================================================================
-// Register mouse button clicks
-//========================================================================
 
 void _glfwInputMouseClick(_GLFWwindow* window, int button, int clickCount, int action)
 {
@@ -4554,17 +3221,9 @@ void _glfwInputMouseClick(_GLFWwindow* window, int button, int clickCount, int a
     // Register mouse button action
     window->mouseButton[button] = (char) action;
 
-    // for jazz
-    int x;
-    int y;
-    glfwGetCursorPos(window, &x, &y);
-    button_callback(window, x, y, button, clickCount, action);
+    button_callback(window, window->cursorPosX, window->cursorPosY, button, clickCount, action);
 }
 
-
-//========================================================================
-// Register cursor moves
-//========================================================================
 
 void _glfwInputCursorMotion(_GLFWwindow* window, int x, int y)
 {
@@ -4591,34 +3250,14 @@ void _glfwInputCursorMotion(_GLFWwindow* window, int x, int y)
 }
 
 
-//========================================================================
-// Register cursor enter/leave events
-//========================================================================
-
 void _glfwInputCursorEnter(_GLFWwindow* window, int entered)
 {
-    if (window->cursorEnterCallback)
-        window->cursorEnterCallback(window, entered);
 }
 
-
-//////////////////////////////////////////////////////////////////////////
-//////                        GLFW public API                       //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Returns the specified input mode of the specified window
-//========================================================================
 
 GLFWAPI int glfwGetInputMode(GLFWwindow handle, int mode)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return 0;
-    }
 
     switch (mode)
     {
@@ -4631,19 +3270,9 @@ GLFWAPI int glfwGetInputMode(GLFWwindow handle, int mode)
 }
 
 
-//========================================================================
-// Sets the specified input mode of the specified window
-//========================================================================
-
 GLFWAPI void glfwSetInputMode(GLFWwindow handle, int mode, int value)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
 
     switch (mode)
     {
@@ -4657,18 +3286,8 @@ GLFWAPI void glfwSetInputMode(GLFWwindow handle, int mode, int value)
 }
 
 
-//========================================================================
-// Returns the state of the specified key
-//========================================================================
-
 GLFWAPI int glfwGetKey(int key)
 {
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return GLFW_RELEASE;
-    }
-
     if (key < 0 || key > GLFW_KEY_LAST)
     {
         _glfwSetError(GLFW_INVALID_ENUM,
@@ -4680,19 +3299,9 @@ GLFWAPI int glfwGetKey(int key)
 }
 
 
-//========================================================================
-// Returns the state of the specified mouse button for the specified window
-//========================================================================
-
 GLFWAPI int glfwGetMouseButton(GLFWwindow handle, int button)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return GLFW_RELEASE;
-    }
 
     if (button < 0 || button > GLFW_MOUSE_BUTTON_LAST)
     {
@@ -4702,196 +3311,6 @@ GLFWAPI int glfwGetMouseButton(GLFWwindow handle, int button)
     }
 
     return (int) window->mouseButton[button];
-}
-
-
-//========================================================================
-// Returns the last reported cursor position for the specified window
-//========================================================================
-
-GLFWAPI void glfwGetCursorPos(GLFWwindow handle, int* xpos, int* ypos)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    if (xpos != NULL)
-        *xpos = window->cursorPosX;
-
-    if (ypos != NULL)
-        *ypos = window->cursorPosY;
-}
-
-
-//========================================================================
-// Sets the cursor position relative to the position of the client area of
-// the specified window
-//========================================================================
-
-GLFWAPI void glfwSetCursorPos(GLFWwindow handle, int xpos, int ypos)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    if (_glfwLibrary.activeWindow != window)
-    {
-        _glfwSetError(GLFW_WINDOW_NOT_ACTIVE, NULL);
-        return;
-    }
-
-    // Don't do anything if the cursor position did not change
-    if (xpos == window->cursorPosX && ypos == window->cursorPosY)
-        return;
-
-    // Set GLFW cursor position
-    window->cursorPosX = xpos;
-    window->cursorPosY = ypos;
-
-    // Do not move physical cursor in locked cursor mode
-    if (window->cursorMode == GLFW_CURSOR_CAPTURED)
-        return;
-
-    // Update physical cursor position
-    _glfwPlatformSetCursorPos(window, xpos, ypos);
-}
-
-
-//========================================================================
-// Returns the scroll offset for the specified window
-//========================================================================
-
-GLFWAPI void glfwGetScrollOffset(GLFWwindow handle, double* xoffset, double* yoffset)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    if (xoffset)
-      *xoffset = window->scrollX;
-
-    if (yoffset)
-      *yoffset = window->scrollY;
-}
-
-
-//========================================================================
-// Set callback function for keyboard input
-//========================================================================
-
-GLFWAPI void glfwSetKeyCallback(GLFWwindow handle, GLFWkeyfun cbfun)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    window->keyCallback = cbfun;
-}
-
-
-//========================================================================
-// Set callback function for character input
-//========================================================================
-
-GLFWAPI void glfwSetCharCallback(GLFWwindow handle, GLFWcharfun cbfun)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    window->charCallback = cbfun;
-}
-
-
-//========================================================================
-// Set callback function for mouse clicks
-//========================================================================
-
-GLFWAPI void glfwSetMouseButtonCallback(GLFWwindow handle, GLFWmousebuttonfun cbfun)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    window->mouseButtonCallback = cbfun;
-}
-
-
-//========================================================================
-// Set callback function for mouse moves
-//========================================================================
-
-GLFWAPI void glfwSetCursorPosCallback(GLFWwindow handle, GLFWcursorposfun cbfun)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    window->cursorPosCallback = cbfun;
-}
-
-
-//========================================================================
-// Set callback function for cursor enter/leave events
-//========================================================================
-
-GLFWAPI void glfwSetCursorEnterCallback(GLFWwindow handle, GLFWcursorenterfun cbfun)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    window->cursorEnterCallback = cbfun;
-}
-
-
-//========================================================================
-// Set callback function for scroll events
-//========================================================================
-
-GLFWAPI void glfwSetScrollCallback(GLFWwindow handle, GLFWscrollfun cbfun)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    window->scrollCallback = cbfun;
 }
 
 "#)
@@ -4904,39 +3323,11 @@ GLFWAPI void glfwSetScrollCallback(GLFWwindow handle, GLFWscrollfun cbfun)
 
 (c-declare cocoa #"
 
-//========================================================================
-// Return the maxiumum of the specified values
-//========================================================================
-
 static int Max(int a, int b)
 {
     return (a > b) ? a : b;
 }
 
-
-//========================================================================
-// Clear scroll offsets for all windows
-//========================================================================
-
-static void clearScrollOffsets(void)
-{
-    _GLFWwindow* window;
-
-    for (window = _glfwLibrary.windowListHead;  window;  window = window->next)
-    {
-        window->scrollX = 0;
-        window->scrollY = 0;
-    }
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-//////                       GLFW internal API                      //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Register window focus events
-//========================================================================
 
 void _glfwInputWindowFocus(_GLFWwindow* window, GLboolean activated)
 {
@@ -4945,9 +3336,6 @@ void _glfwInputWindowFocus(_GLFWwindow* window, GLboolean activated)
         if (_glfwLibrary.activeWindow != window)
         {
             _glfwLibrary.activeWindow = window;
-
-            if (window->windowFocusCallback)
-                window->windowFocusCallback(window, activated);
             
             activate_callback(window);
         }
@@ -4973,19 +3361,12 @@ void _glfwInputWindowFocus(_GLFWwindow* window, GLboolean activated)
             }
 
             _glfwLibrary.activeWindow = NULL;
-
-            if (window->windowFocusCallback)
-                window->windowFocusCallback(window, activated);
             
             deactivate_callback(window);
         }
     }
 }
 
-
-//========================================================================
-// Register window position events
-//========================================================================
 
 void _glfwInputWindowPos(_GLFWwindow* window, int x, int y)
 {
@@ -4994,10 +3375,6 @@ void _glfwInputWindowPos(_GLFWwindow* window, int x, int y)
 }
 
 
-//========================================================================
-// Register window size events
-//========================================================================
-
 void _glfwInputWindowSize(_GLFWwindow* window, int width, int height)
 {
     if (window->width == width && window->height == height)
@@ -5005,17 +3382,10 @@ void _glfwInputWindowSize(_GLFWwindow* window, int width, int height)
 
     window->width = width;
     window->height = height;
-
-    if (window->windowSizeCallback)
-        window->windowSizeCallback(window, width, height);
     
     reshape_callback(window, width, height);
 }
 
-
-//========================================================================
-// Register window size events
-//========================================================================
 
 void _glfwInputWindowIconify(_GLFWwindow* window, int iconified)
 {
@@ -5023,15 +3393,8 @@ void _glfwInputWindowIconify(_GLFWwindow* window, int iconified)
         return;
 
     window->iconified = iconified;
-
-    if (window->windowIconifyCallback)
-        window->windowIconifyCallback(window, iconified);
 }
 
-
-//========================================================================
-// Register window visibility events
-//========================================================================
 
 void _glfwInputWindowVisibility(_GLFWwindow* window, int visible)
 {
@@ -5039,34 +3402,11 @@ void _glfwInputWindowVisibility(_GLFWwindow* window, int visible)
 }
 
 
-//========================================================================
-// Register window damage events
-//========================================================================
-
-void _glfwInputWindowDamage(_GLFWwindow* window)
-{
-    if (window->windowRefreshCallback)
-        window->windowRefreshCallback(window);
-}
-
-
-//========================================================================
-// Register window close request events
-//========================================================================
-
 void _glfwInputWindowCloseRequest(_GLFWwindow* window)
 {
     close_callback(window);
 }
 
-
-//////////////////////////////////////////////////////////////////////////
-//////                        GLFW public API                       //////
-//////////////////////////////////////////////////////////////////////////
-
-//========================================================================
-// Create the GLFW window and its associated context
-//========================================================================
 
 GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
                                     int mode, int kind, const char* title,
@@ -5077,12 +3417,6 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
     _GLFWwndconfig wndconfig;
     _GLFWwindow* window;
     _GLFWwindow* previous;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return NULL;
-    }
 
     // We need to copy these values before doing anything that can fail, as the
     // window hints should be cleared after each call even if it fails
@@ -5179,9 +3513,6 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
         return GL_FALSE;
     }
 
-    // Cache the actual (as opposed to requested) window parameters
-    _glfwPlatformRefreshWindowParams(window);
-
     if (opengl)
         glfwMakeContextCurrent(window);
 
@@ -5227,18 +3558,8 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
 }
 
 
-//========================================================================
-// Reset all window hints to their default values
-//========================================================================
-
 void glfwDefaultWindowHints(void)
 {
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
     memset(&_glfwLibrary.hints, 0, sizeof(_glfwLibrary.hints));
 
     // The default is OpenGL with minimum version 1.0
@@ -5259,18 +3580,8 @@ void glfwDefaultWindowHints(void)
 }
 
 
-//========================================================================
-// Set hints for creating the window
-//========================================================================
-
 GLFWAPI void glfwWindowHint(int target, int hint)
 {
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
     switch (target)
     {
         case GLFW_RED_BITS:
@@ -5349,19 +3660,9 @@ GLFWAPI void glfwWindowHint(int target, int hint)
 }
 
 
-//========================================================================
-// Properly kill the window / video display
-//========================================================================
-
 GLFWAPI void glfwDestroyWindow(GLFWwindow handle)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
 
     // Allow closing of NULL (to match the behavior of free)
     if (window == NULL)
@@ -5392,49 +3693,17 @@ GLFWAPI void glfwDestroyWindow(GLFWwindow handle)
 }
 
 
-//========================================================================
-// Get the window title
-//========================================================================
-
 GLFWAPI NSString* glfwGetWindowTitle(GLFWwindow handle)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
 
-    return _glfwPlatformGetWindowTitle(window);
+    return [window->NS.object title];
 }
 
-
-//========================================================================
-// Set the window title
-//========================================================================
-
-GLFWAPI void glfwSetWindowTitle(GLFWwindow handle, const char* title)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    _glfwPlatformSetWindowTitle(window, title);
-}
-
-
-//========================================================================
-// Get the window size
-//========================================================================
 
 GLFWAPI void glfwGetWindowSize(GLFWwindow handle, int* width, int* height)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
 
     if (width != NULL)
         *width = window->width;
@@ -5444,135 +3713,27 @@ GLFWAPI void glfwGetWindowSize(GLFWwindow handle, int* width, int* height)
 }
 
 
-//========================================================================
-// Set the window size
-//========================================================================
-
-GLFWAPI void glfwSetWindowSize(GLFWwindow handle, int width, int height)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    if (window->iconified)
-    {
-        // TODO: Figure out if this is an error
-        return;
-    }
-
-    // Don't do anything if the window size did not change
-    if (width == window->width && height == window->height)
-        return;
-
-    _glfwPlatformSetWindowSize(window, width, height);
-
-    if (window->mode == GLFW_FULLSCREEN)
-    {
-        // Refresh window parameters (may have changed due to changed video
-        // modes)
-        _glfwPlatformRefreshWindowParams(window);
-    }
-}
-
-
-//========================================================================
-// Get the window position
-//========================================================================
-
-GLFWAPI void glfwGetWindowPos(GLFWwindow handle, int* xpos, int* ypos)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    if (xpos != NULL)
-        *xpos = window->positionX;
-
-    if (ypos != NULL)
-        *ypos = window->positionY;
-}
-
-
-//========================================================================
-// Set the window position
-//========================================================================
-
-GLFWAPI void glfwSetWindowPos(GLFWwindow handle, int xpos, int ypos)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    if (window->mode == GLFW_FULLSCREEN || window->iconified)
-    {
-        // TODO: Figure out if this is an error
-        return;
-    }
-
-    _glfwPlatformSetWindowPos(window, xpos, ypos);
-}
-
-
-//========================================================================
-// Window iconification
-//========================================================================
-
 GLFWAPI void glfwIconifyWindow(GLFWwindow handle)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
 
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
     if (window->iconified)
         return;
 
-    _glfwPlatformIconifyWindow(window);
+    [window->NS.object miniaturize:nil];
 }
 
-
-//========================================================================
-// Window un-iconification
-//========================================================================
 
 GLFWAPI void glfwRestoreWindow(GLFWwindow handle)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
 
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
     if (!window->iconified)
         return;
 
-    _glfwPlatformRestoreWindow(window);
-
-    if (window->mode == GLFW_FULLSCREEN)
-        _glfwPlatformRefreshWindowParams(window);
+    [window->NS.object deminiaturize:nil];
 }
 
-
-//========================================================================
-// Window show
-//========================================================================
 
 GLFWAPI void glfwShowWindow(GLFWwindow handle)
 {
@@ -5585,19 +3746,9 @@ GLFWAPI void glfwShowWindow(GLFWwindow handle)
 }
 
 
-//========================================================================
-// Window hide
-//========================================================================
-
 GLFWAPI void glfwHideWindow(GLFWwindow handle)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
 
     if (window->mode == GLFW_FULLSCREEN)
         return;
@@ -5606,19 +3757,9 @@ GLFWAPI void glfwHideWindow(GLFWwindow handle)
 }
 
 
-//========================================================================
-// Get window parameter
-//========================================================================
-
 GLFWAPI int glfwGetWindowParam(GLFWwindow handle, int param)
 {
     _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return 0;
-    }
 
     switch (param)
     {
@@ -5657,164 +3798,14 @@ GLFWAPI int glfwGetWindowParam(GLFWwindow handle, int param)
 }
 
 
-//========================================================================
-// Set the user pointer for the specified window
-//========================================================================
-
-GLFWAPI void glfwSetWindowUserPointer(GLFWwindow handle, void* pointer)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    window->userPointer = pointer;
-}
-
-
-//========================================================================
-// Get the user pointer for the specified window
-//========================================================================
-
-GLFWAPI void* glfwGetWindowUserPointer(GLFWwindow handle)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return NULL;
-    }
-
-    return window->userPointer;
-}
-
-
-//========================================================================
-// Set callback function for window size changes
-//========================================================================
-
-GLFWAPI void glfwSetWindowSizeCallback(GLFWwindow handle, GLFWwindowsizefun cbfun)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    window->windowSizeCallback = cbfun;
-}
-
-
-//========================================================================
-// Set callback function for window close events
-//========================================================================
-
-GLFWAPI void glfwSetWindowCloseCallback(GLFWwindow handle, GLFWwindowclosefun cbfun)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    window->windowCloseCallback = cbfun;
-}
-
-
-//========================================================================
-// Set callback function for window refresh events
-//========================================================================
-
-GLFWAPI void glfwSetWindowRefreshCallback(GLFWwindow handle, GLFWwindowrefreshfun cbfun)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    window->windowRefreshCallback = cbfun;
-}
-
-
-//========================================================================
-// Set callback function for window focus events
-//========================================================================
-
-GLFWAPI void glfwSetWindowFocusCallback(GLFWwindow handle, GLFWwindowfocusfun cbfun)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    _glfwLibrary.windowFocusCallback = cbfun;
-}
-
-
-//========================================================================
-// Set callback function for window iconification events
-//========================================================================
-
-GLFWAPI void glfwSetWindowIconifyCallback(GLFWwindow handle, GLFWwindowiconifyfun cbfun)
-{
-    _GLFWwindow* window = (_GLFWwindow*) handle;
-
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    window->windowIconifyCallback = cbfun;
-}
-
-
-//========================================================================
-// Poll for new window and input events
-//========================================================================
-
 GLFWAPI void glfwPollEvents(void)
 {
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    clearScrollOffsets();
-
     _glfwPlatformPollEvents();
 }
 
 
-//========================================================================
-// Wait for new window and input events
-//========================================================================
-
 GLFWAPI void glfwWaitEvents(void)
 {
-    if (!_glfwInitialized)
-    {
-        _glfwSetError(GLFW_NOT_INITIALIZED, NULL);
-        return;
-    }
-
-    clearScrollOffsets();
-
     _glfwPlatformWaitEvents();
 }
 
@@ -5822,7 +3813,7 @@ GLFWAPI void glfwWaitEvents(void)
 
 
 ;;;
-;;;; Test
+;;;; Platform
 ;;;
 
 
@@ -5839,9 +3830,47 @@ void platformInit()
 }
 
 
-_GLFWwindow* platformGetPrimaryScreen()
+NSScreen* platformGetMainScreen()
+{
+    return [NSScreen mainScreen];
+}
+
+
+NSScreen* platformGetPrimaryScreen()
 {
     return [[NSScreen screens] objectAtIndex:0];
+}
+
+
+NSArray* platformGetScreens()
+{
+    return [NSScreen screens];
+}
+
+
+double platformGetPrimaryScreenFrameHeight()
+{
+    NSRect frame = [[[NSScreen screens] objectAtIndex:0] frame];
+    return frame.size.height;
+}
+
+
+double platformGetWindowScreenFrameHeight(_GLFWwindow* window)
+{
+    NSRect frame = [[window->NS.object screen] frame];
+    return frame.size.height;
+}
+
+
+void platformGetScreenFrameRect(NSScreen* screen, NSRect* rect)
+{
+    *rect = [screen frame];
+}
+
+
+void platformGetScreenContentRect(NSScreen* screen, NSRect* rect)
+{
+    *rect = [screen visibleFrame];
 }
 
 
@@ -5871,26 +3900,98 @@ NSString* platformGetWindowTitle(_GLFWwindow* window)
 
 void platformSetWindowTitle(_GLFWwindow* window, char* title)
 {
-    glfwSetWindowTitle(window, title);
+    [window->NS.object setTitle:[NSString stringWithUTF8String:title]];
 }
 
 
-void platformGetWindowPos(_GLFWwindow* window, NSPoint* pos)
+void platformGetWindowFramePos(_GLFWwindow* window, NSPoint* pos)
 {
-    int x, y;
-    glfwGetWindowPos(window, x, y);
-    pos->x = [window->NS.object frame].origin.x;
-    pos->y = [window->NS.object frame].origin.y;
+    NSRect frame = [window->NS.object frame];
+    pos->x = frame.origin.x;
+    pos->y = frame.origin.y;
 }
 
 
-void platformSetWindowPos(_GLFWwindow* window, NSPoint* pos)
+void platformSetWindowFramePos(_GLFWwindow* window, NSPoint* pos)
 {
-    glfwSetWindowPos(window, pos->x, pos->y);
+    int x = pos->x;
+    int y = pos->y;
+
+    if (window->mode == GLFW_FULLSCREEN || window->iconified)
+        return;
+
+    NSRect contentRect =
+        [window->NS.object contentRectForFrameRect:[window->NS.object frame]];
+
+    contentRect.origin.x = x;
+    contentRect.origin.y = y;
+
+    [window->NS.object setFrame:[window->NS.object frameRectForContentRect:contentRect]
+                        display:YES];
 }
 
 
-void platformGetContentSize(_GLFWwindow* window, NSSize* size)
+int platformGetWindowFrameHeight(_GLFWwindow* window)
+{
+    NSRect frame = [window->NS.object frame];
+    return frame.size.height;
+}
+
+
+void platformGetWindowFrameSize(_GLFWwindow* window, NSSize* size)
+{
+    NSRect frame = [window->NS.object frame];
+    size->width = frame.size.width;
+    size->height = frame.size.height;
+}
+
+
+void platformSetWindowFrameSize(_GLFWwindow* window, NSSize* size)
+{
+    int width = size->width;
+    int height = size->height;
+
+    if (window->iconified)
+        return;
+
+    // Don't do anything if the window size did not change
+    if (width == window->width && height == window->height)
+        return;
+
+    [window->NS.object setContentSize:NSMakeSize(width, height)];
+}
+
+
+void platformGetWindowFrameRect(_GLFWwindow* window, NSRect* rect)
+{
+    *rect = [window->NS.object frame];
+}
+
+
+void platformSetWindowFrameRect(_GLFWwindow* window, NSRect* rect)
+{
+    [window->NS.object setFrame: *rect display: YES];
+}
+
+
+void platformGetWindowContentPos(_GLFWwindow* window, NSPoint* pos)
+{
+    NSRect frame = [window->NS.object frame];
+    NSRect content = [window->NS.object contentRectForFrameRect:frame];
+    pos->x = content.origin.x;
+    pos->y = content.origin.y;
+}
+
+
+double platformGetWindowContentHeight(_GLFWwindow* window)
+{
+    NSRect frame = [window->NS.object frame];
+    NSRect content = [window->NS.object contentRectForFrameRect:frame];
+    return content.size.height;
+}
+
+
+void platformGetWindowContentSize(_GLFWwindow* window, NSSize* size)
 {
     NSRect frame = [window->NS.object frame];
     NSRect content = [window->NS.object contentRectForFrameRect:frame];
@@ -5899,35 +4000,16 @@ void platformGetContentSize(_GLFWwindow* window, NSSize* size)
 }
 
 
-void platformGetWindowSize(_GLFWwindow* window, NSSize* size)
+void platformGetWindowContentRect(_GLFWwindow* window, NSRect* rect)
 {
     NSRect frame = [window->NS.object frame];
-    size->width = frame.size.width;
-    size->height = frame.size.height;
+    *rect = [window->NS.object contentRectForFrameRect:frame];
 }
 
 
-void platformSetWindowSize(_GLFWwindow* window, NSSize* size)
+void platformGetWindowViewRect(_GLFWwindow* window, NSRect* rect)
 {
-    glfwSetWindowSize(window, size->width, size->height);
-}
-
-
-void platformGetWindowFrame(_GLFWwindow* window, NSRect* rect)
-{
-    *rect = [window->NS.object frame];
-}
-
-
-void platformSetWindowFrame(_GLFWwindow* window, NSRect* rect)
-{
-    [window->NS.object setFrame: *rect display: YES];
-}
-
-
-void platformGetWindowBounds(_GLFWwindow* window, NSRect* rect)
-{
-    *rect = [window->NS.view rect];
+    *rect = [window->NS.view frame];
 }
 
 
@@ -5945,23 +4027,42 @@ void platformHideWindow(_GLFWwindow* window)
 
 void platformSwapBuffers(_GLFWwindow* window)
 {
-    glfwSwapBuffers(window);
+    _glfwPlatformSwapBuffers(window);
 }
 
 
 void platformGetMousePosition(_GLFWwindow* window, NSPoint* pos)
 {
-    int x;
-    int y;
-    glfwGetCursorPos(window, &x, &y);
-    pos->x = x;
-    pos->y = y;
+    pos->x = window->cursorPosX;
+    pos->y = window->cursorPosY;
 }
 
 
 void platformSetMousePosition(_GLFWwindow* window, NSPoint* pos)
 {
-    glfwSetCursorPos(window, pos->x, pos->y);
+    int x = pos->x;
+    int y = pos->y;
+
+    if (_glfwLibrary.activeWindow != window)
+    {
+        _glfwSetError(GLFW_WINDOW_NOT_ACTIVE, NULL);
+        return;
+    }
+
+    // Don't do anything if the cursor position did not change
+    if (x == window->cursorPosX && y == window->cursorPosY)
+        return;
+
+    // Set GLFW cursor position
+    window->cursorPosX = x;
+    window->cursorPosY = y;
+
+    // Do not move physical cursor in locked cursor mode
+    if (window->cursorMode == GLFW_CURSOR_CAPTURED)
+        return;
+
+    // Update physical cursor position
+    _glfwPlatformSetCursorPos(window, x, y);
 }
 
 
@@ -5985,13 +4086,37 @@ bool platformKeyDown(int key)
 
 const char* platformGetClipboardString()
 {
-    return glfwGetClipboardString(NULL);
+    NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
+
+    if (![[pasteboard types] containsObject:NSStringPboardType])
+    {
+        _glfwSetError(GLFW_FORMAT_UNAVAILABLE, NULL);
+        return NULL;
+    }
+
+    NSString* object = [pasteboard stringForType:NSStringPboardType];
+    if (!object)
+    {
+        _glfwSetError(GLFW_PLATFORM_ERROR,
+                      "Cocoa: Failed to retrieve object from pasteboard");
+        return NULL;
+    }
+
+    free(_glfwLibrary.NS.clipboardString);
+    _glfwLibrary.NS.clipboardString = strdup([object UTF8String]);
+
+    return _glfwLibrary.NS.clipboardString;
 }
 
 
 void platformSetClipboardString(const char* string)
 {
-    glfwSetClipboardString(NULL, string);
+    NSArray* types = [NSArray arrayWithObjects:NSStringPboardType, nil];
+
+    NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
+    [pasteboard declareTypes:types owner:nil];
+    [pasteboard setString:[NSString stringWithUTF8String:string]
+                  forType:NSStringPboardType];
 }
 
 
@@ -6054,20 +4179,30 @@ void platformLog(char* msg)
 
 
 (c-external (platformInit) void)
-(c-external (platformGetPrimaryScreen) glfwwindow)
+(c-external (platformGetMainScreen) NSScreen*)
+(c-external (platformGetPrimaryScreen) NSScreen*)
+(c-external (platformGetScreens) NSArray*)
+(c-external (platformGetPrimaryScreenFrameHeight) double)
+(c-external (platformGetWindowScreenFrameHeight glfwwindow) double)
+(c-external (platformGetScreenFrameRect NSScreen* NSRect*) void)
+(c-external (platformGetScreenContentRect NSScreen* NSRect*) void)
 (c-external (platformCreateWindow int int bool) glfwwindow)
 (c-external (platformMakeContextCurrent glfwwindow) void)
 (c-external (platformGetWindowParent glfwwindow) glfwwindow)
 (c-external (platformGetWindowTitle glfwwindow) NSString*)
 (c-external (platformSetWindowTitle glfwwindow char-string) void)
-(c-external (platformGetWindowPos glfwwindow NSPoint*) void)
-(c-external (platformSetWindowPos glfwwindow NSPoint*) void)
-(c-external (platformGetContentSize glfwwindow NSSize*) void)
-(c-external (platformGetWindowSize glfwwindow NSSize*) void)
-(c-external (platformSetWindowSize glfwwindow NSSize*) void)
-(c-external (platformGetWindowFrame glfwwindow NSRect*) void)
-(c-external (platformSetWindowFrame glfwwindow NSRect*) void)
-(c-external (platformGetWindowBounds glfwwindow NSRect*) void)
+(c-external (platformGetWindowFramePos glfwwindow NSPoint*) void)
+(c-external (platformSetWindowFramePos glfwwindow NSPoint*) void)
+(c-external (platformGetWindowFrameHeight glfwwindow) double)
+(c-external (platformGetWindowFrameSize glfwwindow NSSize*) void)
+(c-external (platformSetWindowFrameSize glfwwindow NSSize*) void)
+(c-external (platformGetWindowFrameRect glfwwindow NSRect*) void)
+(c-external (platformSetWindowFrameRect glfwwindow NSRect*) void)
+(c-external (platformGetWindowContentPos glfwwindow NSPoint*) void)
+(c-external (platformGetWindowContentHeight glfwwindow) double)
+(c-external (platformGetWindowContentSize glfwwindow NSSize*) void)
+(c-external (platformGetWindowContentRect glfwwindow NSRect*) void)
+(c-external (platformGetWindowViewRect glfwwindow NSRect*) void)
 (c-external (platformShowWindow glfwwindow) void)
 (c-external (platformHideWindow glfwwindow) void)
 (c-external (platformSwapBuffers glfwwindow) void)
@@ -6085,7 +4220,6 @@ void platformLog(char* msg)
 (c-external (platformPollEvents) void)
 (c-external (platformContinueLoop glfwwindow) bool)
 (c-external (platformDestroyWindow glfwwindow) void)
-(c-external (platformGetWindow glfwwindow) id)
 (c-external (platformLog char-string) void)
 
 
@@ -6096,6 +4230,7 @@ void platformLog(char* msg)
 (constant GLFW_WINDOW               #x00010011)
 (constant GLFW_DIALOG               #x00010012)
 (constant GLFW_POPUP                #x00010013)
+(constant GLFW_BORDERLESS           #x00010014)
 
 (constant GLFW_RELEASE 0)
 (constant GLFW_PRESS 1)

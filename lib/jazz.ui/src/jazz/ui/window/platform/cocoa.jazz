@@ -75,11 +75,11 @@
   (table-set! Windows-Table (foreign-address hwnd) window))
 
 
-(definition public (platform-get-window-handle-title handle)
+(definition public (platform-get-window-title handle)
   (platformGetWindowTitle handle))
 
 
-(definition public (set-window-title handle title)
+(definition public (platform-set-window-title handle title)
   (platformSetWindowTitle handle title))
 
 
@@ -376,42 +376,6 @@
 ;;;
 
 
-(definition package (platform-set-parent handle parent)
-  )
-
-
-(definition package (platform-get-first-child handle)
-  (unimplemented 'platform-get-first-child)
-  @wait
-  (let ((num-of-children (XNumberOfChildren x11-default-display handle)))
-    (if (= 0 num-of-children)
-        #f
-      (XGetChildHandle x11-default-display handle 0))))
-
-
-(definition package (platform-get-first-visible-child handle)
-  (unimplemented 'platform-get-first-visible-child)
-  @wait
-  (let ((num-of-children (XNumberOfChildren x11-default-display handle)))
-    (if (= 0 num-of-children)
-        #f
-      (let (loop (n 0))
-        (if (= n num-of-children)
-            #f
-          (let ((child-handle (XGetChildHandle x11-default-display handle n)))
-            (if (platform-is-window-visible? child-handle)
-                child-handle
-              (loop (+ n 1)))))))))
-
-
-(definition package (platform-is-window-visible? handle)
-  (unimplemented 'platform-is-window-visible?)
-  @wait
-  (let ((infos (XWindowAttributes-make)))
-    (XGetWindowAttributes x11-default-display handle infos)
-    (= (XWindowAttributes-map_state-ref infos) IsViewable)))
-
-
 (definition public (acquire-point to-handle from-handle shape)
   (let ((delta (nu- (platform-get-content-position from-handle) (platform-get-content-position to-handle))))
     (nu+ shape delta)))
@@ -421,10 +385,6 @@
   (let ((left-top (acquire-point to-handle from-handle (new Point (get-left~ shape) (get-top~ shape))))
         (right-bottom (acquire-point to-handle from-handle (new Point (get-right~ shape) (get-bottom~ shape)))))
     (corners->rect left-top right-bottom)))
-
-
-(definition public (platform-get-screen-height handle)
-  (platformGetWindowScreenFrameHeight handle))
 
 
 (definition (window-cartesian->pos screen-height rect-height pt)
@@ -444,7 +404,7 @@
 
 
 (definition (window-cartesian->rect handle rect)
-  (let ((height (platform-get-screen-height handle))
+  (let ((height (platformGetWindowScreenFrameHeight handle))
         (origin (NSRect-origin-ref rect))
         (size (NSRect-size-ref rect)))
     (let ((x (NSPoint-x-ref origin))
@@ -459,7 +419,7 @@
 
 
 (definition (window-rect->cartesian handle rect)
-  (let ((height (platform-get-screen-height handle))
+  (let ((height (platformGetWindowScreenFrameHeight handle))
         (l (get-left~ rect))
         (t (get-top~ rect))
         (r (get-right~ rect))
@@ -599,7 +559,7 @@
 
 (definition package (platform-invalidate-rect handle rect)
   ;; quick hack
-  ;; bug probably due to coordinate system being flipped even if i use isFlipped = YES
+  ;; bug probably due to coordinate system being flipped even if isFlipped = YES
   ;; maybe because the view is flipped but not the window!?
   (set! rect (size-rect (platform-get-size handle)))
   (with-NSRect rect

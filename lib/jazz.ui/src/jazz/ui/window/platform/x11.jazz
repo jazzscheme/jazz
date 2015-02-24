@@ -252,11 +252,11 @@
   (table-clear XIC-Table handle))
 
 
-(definition package (platform-get-window-handle-title handle)
+(definition package (platform-get-window-title handle)
   (table-ref Window-Title-Table handle #f))
 
 
-(definition public (set-window-title handle title)
+(definition public (platform-set-window-title handle title)
   (table-set! Window-Title-Table handle title)
   (XSetWMName x11-default-display handle title))
 
@@ -951,37 +951,6 @@
 ;;;
 
 
-(definition package (platform-set-parent handle parent)
-  (XReparentWindow x11-default-display handle (get-handle~ parent) 0 0))
-
-
-(definition package (platform-get-first-child handle)
-  (let ((num-of-children (XNumberOfChildren x11-default-display handle)))
-    (if (= 0 num-of-children)
-        #f
-      (XGetChildHandle x11-default-display handle 0))))
-
-
-(definition package (platform-get-first-visible-child handle)
-  (let ((num-of-children (XNumberOfChildren x11-default-display handle)))
-    (if (= 0 num-of-children)
-        #f
-      (let loop ((n 0))
-           (if (= n num-of-children)
-               #f
-             (let ((child-handle (XGetChildHandle x11-default-display handle n)))
-               (if (platform-is-window-visible? child-handle)
-                   child-handle
-                 (loop (+ n 1)))))))))
-
-
-(definition package (platform-is-window-visible? handle)
-  (let ((infos (XWindowAttributes-make)))
-    (XGetWindowAttributes x11-default-display handle infos)
-    (prog1 (= (XWindowAttributes-map_state-ref infos) IsViewable)
-      (XWindowAttributes-free infos))))
-
-
 (definition public (acquire-point to-handle from-handle shape)
   (receive (x y) (XTranslateCoordinates x11-default-display from-handle to-handle (get-h~ shape) (get-v~ shape))
     (new Point x y)))
@@ -1288,10 +1257,16 @@
 
 
 (definition package (platform-set-focus handle)
+  (define (is-window-visible? handle)
+    (let ((infos (XWindowAttributes-make)))
+      (XGetWindowAttributes x11-default-display handle infos)
+      (prog1 (= (XWindowAttributes-map_state-ref infos) IsViewable)
+        (XWindowAttributes-free infos))))
+  
   (XFlush x11-default-display)
   ;; this temp patch due to X11 setting visibility asynchronously
   ;; the correct solution is setting the focus in response to a visible event
-  (when (and handle (platform-is-window-visible? handle))
+  (when (and handle (is-window-visible? handle))
     (XSetInputFocus x11-default-display handle RevertToNone CurrentTime)))
 
 

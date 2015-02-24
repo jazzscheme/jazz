@@ -803,8 +803,8 @@
   
   
   (method protected virtual (start-servers?)
-    ;; started on demand
-    (receive (host service) (command-host/service "listen")
+    ;; start now if listen is specified
+    (receive (host service) (listen-parameter)
       (or host service)))
   
   
@@ -813,8 +813,17 @@
   
   
   (method package (start-remote-server)
-    (start-remote-listener default-host: (default-listener-host) default-service: (default-listener-service))
+    (receive (host service) (listen-parameter)
+      (start-remote-listener default-host: (or host (default-listener-host)) default-service: (or service (default-listener-service))))
     (start-remote-switchboard))
+  
+  
+  (method (listen-parameter)
+    (host/service-parameter "listen" 'listen (values #f #f)))
+  
+  
+  (method (host/service-parameter arg setting (default (unspecified)))
+    (get-parameter arg parse-host/service setting parse-host/service default))
   
   
   (method protected virtual (default-listener-host)

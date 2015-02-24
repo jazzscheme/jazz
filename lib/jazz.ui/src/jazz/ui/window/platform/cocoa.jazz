@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Platform-dependant Window Definitions (Cocoa)
+;;;; Cocoa Windows
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -198,16 +198,15 @@
 
 (definition package (get-window-placement handle)
   (list (get-window-state handle)
-        (platform-get-position handle)
-        (platform-get-window-size handle)))
+        (platform-get-frame-position handle)
+        (platform-get-frame-size handle)))
 
 
 (definition package (set-window-placement handle info)
-  @COCOA-commented-until-flipped-coordinates-fixed
   (bind (state position size) info
     (set-window-state handle state)
-    (platform-set-position handle position)
-    (platform-set-window-size handle size)))
+    (platform-set-frame-position handle position)
+    (platform-set-frame-size handle size)))
 
 
 (definition package (minimize-window handle)
@@ -372,7 +371,7 @@
 
 
 ;;;
-;;;; Management
+;;;; Layout
 ;;;
 
 
@@ -430,11 +429,44 @@
                 (cast <fl> (- b t)))))
 
 
-(definition package (platform-get-position handle)
+(definition package (platform-get-frame-position handle)
   (with-NSPoint #f
     (lambda (pos)
       (platformGetWindowFramePos handle pos)
       (window-cartesian->pos (platformGetWindowScreenFrameHeight handle) (platformGetWindowFrameHeight handle) pos))))
+
+
+(definition package (platform-set-frame-position handle pos)
+  (with-NSPoint (window-pos->cartesian (platformGetWindowScreenFrameHeight handle) (platformGetWindowFrameHeight handle) pos)
+    (lambda (pos)
+      (platformSetWindowFramePos handle pos))))
+
+
+(definition package (platform-get-frame-size handle)
+  (with-NSSize #f
+    (lambda (size)
+      (platformGetWindowFrameSize handle size)
+      (NSSize->dimension size))))
+
+
+(definition package (platform-set-frame-size handle size)
+  (let ((rect (platform-get-frame-rect handle)))
+    (set-right~ rect (+ (get-left~ rect) (get-width~ size)))
+    (set-bottom~ rect (+ (get-top~ rect) (get-height~ size)))
+    (platform-set-frame-rect handle rect)))
+
+
+(definition package (platform-get-frame-rect handle)
+  (with-NSRect #f
+    (lambda (rect)
+      (platformGetWindowFrameRect handle rect)
+      (window-cartesian->rect handle rect))))
+
+
+(definition package (platform-set-frame-rect handle rect)
+  (with-NSRect (window-rect->cartesian handle rect)
+    (lambda (rect)
+      (platformSetWindowFrameRect handle rect))))
 
 
 (definition package (platform-get-content-position handle)
@@ -444,45 +476,18 @@
       (window-cartesian->pos (platformGetWindowScreenFrameHeight handle) (platformGetWindowContentHeight handle) pos))))
 
 
-(definition package (platform-set-position handle pos)
-  (with-NSPoint (window-pos->cartesian (platformGetWindowScreenFrameHeight handle) (platformGetWindowFrameHeight handle) pos)
-    (lambda (pos)
-      (platformSetWindowFramePos handle pos))))
-
-
-(definition package (platform-get-size handle)
+(definition package (platform-get-content-size handle)
   (with-NSSize #f
     (lambda (size)
       (platformGetWindowContentSize handle size)
       (NSSize->dimension size))))
 
 
-(definition package (platform-set-size handle size)
+(definition package (platform-set-content-size handle size)
   (let ((rect (platform-get-content-rect handle)))
     (set-right~ rect (+ (get-left~ rect) (get-width~ size)))
     (set-bottom~ rect (+ (get-top~ rect) (get-height~ size)))
     (platform-set-content-rect handle rect)))
-
-
-(definition package (platform-get-window-size handle)
-  (with-NSSize #f
-    (lambda (size)
-      (platformGetWindowFrameSize handle size)
-      (NSSize->dimension size))))
-
-
-(definition package (platform-set-window-size handle size)
-  (let ((rect (platform-get-rect handle)))
-    (set-right~ rect (+ (get-left~ rect) (get-width~ size)))
-    (set-bottom~ rect (+ (get-top~ rect) (get-height~ size)))
-    (platform-set-rect handle rect)))
-
-
-(definition package (platform-get-rect handle)
-  (with-NSRect #f
-    (lambda (rect)
-      (platformGetWindowFrameRect handle rect)
-      (window-cartesian->rect handle rect))))
 
 
 (definition package (platform-get-content-rect handle)
@@ -496,12 +501,6 @@
   (with-NSRect (window-rect->cartesian handle rect)
     (lambda (rect)
       (platformSetWindowContentRect handle rect))))
-
-
-(definition package (platform-set-rect handle rect)
-  (with-NSRect (window-rect->cartesian handle rect)
-    (lambda (rect)
-      (platformSetWindowFrameRect handle rect))))
 
 
 (definition package (platform-get-bounds handle)
@@ -548,7 +547,7 @@
 
 
 (definition package (platform-get-client-rect handle)
-  (let ((size (platform-get-size handle)))
+  (let ((size (platform-get-content-size handle)))
     (new Rect 0 0 (get-width~ size) (get-height~ size))))
 
 
@@ -561,7 +560,7 @@
   ;; quick hack
   ;; bug probably due to coordinate system being flipped even if isFlipped = YES
   ;; maybe because the view is flipped but not the window!?
-  (set! rect (size-rect (platform-get-size handle)))
+  (set! rect (size-rect (platform-get-content-size handle)))
   (with-NSRect rect
     (lambda (rect)
       (platformInvalidateRect handle rect))))
@@ -574,7 +573,7 @@
 
 
 (definition package (platform-invalidate-window handle)
-  (let ((rect (size-rect (platform-get-size handle))))
+  (let ((rect (size-rect (platform-get-content-size handle))))
     (platform-invalidate-rect handle rect)))
 
 
@@ -599,7 +598,7 @@
 (definition package (platform-update-window handle)
   @wait
   (when handle
-    (let* ((size (platform-get-size handle))
+    (let* ((size (platform-get-content-size handle))
            (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
       (platform-invalidate-rect handle rct))))
 
@@ -738,7 +737,7 @@
 (definition package (platform-create-desktop)
   (let ((screen (primary-screen))
         (desktop (new Desktop)))
-    (platform-set-rect (get-handle~ desktop) (get-frame-rect~ screen))
+    (platform-set-frame-rect (get-handle~ desktop) (get-frame-rect~ screen))
     desktop))
 
 

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Platform-dependant Window Definitions (X11)
+;;;; X11 Windows
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -378,8 +378,8 @@
 
 (definition package (show-maximized handle)
   (let ((desktop-area (get-desktop-area)))
-    (platform-set-position handle (rect-position desktop-area))
-    (platform-set-window-size handle (rect-size desktop-area))
+    (platform-set-frame-position handle (rect-position desktop-area))
+    (platform-set-frame-size handle (rect-size desktop-area))
     (show-window handle)))
 
 
@@ -405,15 +405,15 @@
 
 (definition package (get-window-placement handle)
   (list (get-window-state handle)
-        (platform-get-position handle)
-        (platform-get-window-size handle)))
+        (platform-get-frame-position handle)
+        (platform-get-frame-size handle)))
 
 
 (definition package (set-window-placement handle info)
   (bind (state position size) info
     (set-window-state handle state)
-    (platform-set-position handle position)
-    (platform-set-window-size handle size)))
+    (platform-set-frame-position handle position)
+    (platform-set-frame-size handle size)))
 
 
 (definition package (minimize-window handle)
@@ -911,11 +911,7 @@
 
 
 (definition (set-alpha-blending handle n)
-  #f
-  @windows
-  ((set-layered? handle #t)
-   (SetLayeredWindowAttributes handle 0 n LWA_ALPHA)
-   (RedrawWindow handle NULL NULL (bitwise-ior RDW_ERASE RDW_INVALIDATE))))
+  #f)
 
 
 ;;;
@@ -947,7 +943,7 @@
 
 
 ;;;
-;;;; Management
+;;;; Layout
 ;;;
 
 
@@ -962,7 +958,7 @@
     (corners->rect left-top right-bottom)))
 
 
-(definition package (platform-get-position handle)
+(definition package (platform-get-frame-position handle)
   (define (top-parent)
     (let ((root (XQueryTree-root x11-default-display handle)))
       (if (neq? root handle)
@@ -982,15 +978,41 @@
       (new Point x y))))
 
 
-(definition package (platform-set-position handle pos)
+(definition package (platform-set-frame-position handle pos)
   (let ((event (XEvent-make)))
     (XMoveWindow x11-default-display handle (get-h~ pos) (get-v~ pos))
     (XWindowEvent x11-default-display handle StructureNotifyMask event)
     (process-message event)
     (XEvent-free event)))
-  
 
-(definition package (platform-get-size handle)
+
+(definition package (platform-get-frame-size handle)
+  (platform-get-content-size handle))
+
+
+(definition package (platform-set-frame-size handle size)
+  (let ((event (XEvent-make)))
+    (XResizeWindow x11-default-display handle (get-width~ size) (get-height~ size))
+    (XWindowEvent x11-default-display handle StructureNotifyMask event)
+    (process-message event)
+    (XEvent-free event)))
+
+
+(definition package (platform-get-frame-rect handle)
+  (let ((position (platform-get-frame-position handle))
+        (size     (platform-get-content-size handle)))
+    (let* ((l (get-h~ position))
+           (t (get-v~ position))
+           (r (+ l (get-width~ size)))
+           (b (+ t (get-height~ size))))
+      (new Rect l t r b))))
+
+
+(definition package (platform-set-frame-rect handle rect)
+  (unimplemented 'platform-set-frame-rect))
+
+
+(definition package (platform-get-content-size handle)
   (let ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes x11-default-display handle infos)
     (let ((width (XWindowAttributes-width-ref infos))
@@ -999,48 +1021,14 @@
       (new Dimension width height))))
 
 
-(definition package (platform-set-size handle new-size)
-  (let ((delta (nu- new-size (platform-get-size handle))))
+(definition package (platform-set-content-size handle new-size)
+  (let ((delta (nu- new-size (platform-get-content-size handle))))
     (unless (nu=? delta {Dimension 0 0})
-      (platform-set-window-size handle (nu+ (platform-get-window-size handle) delta)))))
-
-
-(definition package (platform-get-window-size handle)
-  (platform-get-size handle))
-
-
-(definition package (platform-set-window-size handle size)
-  (let ((event (XEvent-make)))
-    (XResizeWindow x11-default-display handle (get-width~ size) (get-height~ size))
-    (XWindowEvent x11-default-display handle StructureNotifyMask event)
-    (process-message event)
-    (XEvent-free event)))
-
-
-(definition package (platform-get-rect handle)
-  (let ((position (platform-get-position handle))
-        (size     (platform-get-size handle)))
-    (let* ((l (get-h~ position))
-           (t (get-v~ position))
-           (r (+ l (get-width~ size)))
-           (b (+ t (get-height~ size))))
-      (new Rect l t r b))))
-
-
-(definition package (platform-set-rect handle rect)
-  (unimplemented 'platform-set-rect)
-  @windows
-  (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
+      (platform-set-frame-size handle (nu+ (platform-get-frame-size handle) delta)))))
 
 
 (definition package (platform-get-bounds handle)
-  (unimplemented 'platform-get-bounds)
-  @windows
-  (let ((rect (RECT-make)))
-    (GetWindowRect handle rect)
-    (MapWindowPoints NULL handle rect 2)
-    (prog1 (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))
-      (RECT-free rect))))
+  (unimplemented 'platform-get-bounds))
 
 
 (definition package (platform-mouse-position)
@@ -1057,15 +1045,11 @@
 
 
 (definition package (platform-move-window handle x y cx cy)
-  (unimplemented 'platform-move-window)
-  @windows
-  (MoveWindow handle x y cx cy #t))
+  (unimplemented 'platform-move-window))
 
 
 (definition package (platform-window-enabled? handle)
-  (unimplemented 'platform-window-enabled?)
-  @windows
-  (IsWindowEnabled handle))
+  (unimplemented 'platform-window-enabled?))
 
 
 (definition package (platform-enable-window handle)
@@ -1183,7 +1167,7 @@
 
 
 (definition package (platform-invalidate-window handle)
-  (let ((size (platform-get-size handle)))
+  (let ((size (platform-get-content-size handle)))
     (platform-invalidate-rect handle (new Rect 0 0 (get-width~ size) (get-height~ size)))))
 
 
@@ -1194,20 +1178,11 @@
 
 
 (definition package (platform-get-update-rect handle)
-  (unimplemented 'platform-get-update-rect)
-  @windows
-  (let ((rect (RECT-make)))
-    (GetUpdateRect handle rect #f)
-    (prog1 (RECT->rect rect)
-      (RECT-free rect))))
+  (unimplemented 'platform-get-update-rect))
 
 
 (definition package (platform-get-update-region handle)
-  (unimplemented 'platform-get-update-region)
-  @windows
-  (let ((region (new Region)))
-    (GetUpdateRgn handle (get-handle~ region) #f)
-    region))
+  (unimplemented 'platform-get-update-region))
 
 
 (definition package (platform-redraw-view-only view handle)
@@ -1343,7 +1318,7 @@
 
 
 (definition public (get-desktop-area) <Rect>
-  (let ((size (platform-get-size (platform-get-desktop))))
+  (let ((size (platform-get-content-size (platform-get-desktop))))
     (new Rect 0 0
          (- (get-width~ size) (get-right-margin))
          (- (get-height~ size) (get-bottom-margin)))))

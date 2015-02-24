@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Platform-dependant Window Definitions (Windows)
+;;;; Windows Windows
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -886,7 +886,7 @@
 
 
 ;;;
-;;;; Management
+;;;; Layout
 ;;;
 
 
@@ -906,31 +906,18 @@
       (RECT-free acquired))))
 
 
-(definition package (platform-get-position handle) <Point>
+(definition package (platform-get-frame-position handle) <Point>
   (let ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (prog1 (new Point (RECT-left-ref rect) (RECT-top-ref rect))
       (RECT-free rect))))
 
 
-(definition package (platform-set-position handle pos)
+(definition package (platform-set-frame-position handle pos)
   (SetWindowPos handle NULL (get-h~ pos) (get-v~ pos) 0 0 (bitwise-ior SWP_NOSIZE SWP_NOZORDER SWP_NOACTIVATE)))
 
 
-(definition package (platform-get-size handle) <Dimension>
-  (let ((rect (RECT-make)))
-    (GetClientRect handle rect)
-    (prog1 (new Dimension (RECT-right-ref rect) (RECT-bottom-ref rect))
-      (RECT-free rect))))
-
-
-(definition package (platform-set-size handle new-size)
-  (let ((delta (nu- new-size (platform-get-size handle))))
-    (unless (nu=? delta {Dimension 0 0})
-      (platform-set-window-size handle (nu+ (platform-get-window-size handle) delta)))))
-
-
-(definition package (platform-get-window-size handle) <Dimension>
+(definition package (platform-get-frame-size handle) <Dimension>
   (let ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (prog1 (new Dimension (- (RECT-right-ref rect)  (RECT-left-ref rect))
@@ -938,19 +925,32 @@
       (RECT-free rect))))
 
 
-(definition package (platform-set-window-size handle size)
+(definition package (platform-set-frame-size handle size)
   (SetWindowPos handle NULL 0 0 (get-width~ size) (get-height~ size) (bitwise-ior SWP_NOCOPYBITS SWP_NOMOVE SWP_NOZORDER SWP_NOACTIVATE)))
 
 
-(definition package (platform-get-rect handle) <Rect>
+(definition package (platform-get-frame-rect handle) <Rect>
   (let ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (prog1 (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))
       (RECT-free rect))))
 
 
-(definition package (platform-set-rect handle rect)
+(definition package (platform-set-frame-rect handle rect)
   (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
+
+
+(definition package (platform-get-content-size handle) <Dimension>
+  (let ((rect (RECT-make)))
+    (GetClientRect handle rect)
+    (prog1 (new Dimension (RECT-right-ref rect) (RECT-bottom-ref rect))
+      (RECT-free rect))))
+
+
+(definition package (platform-set-content-size handle new-size)
+  (let ((delta (nu- new-size (platform-get-content-size handle))))
+    (unless (nu=? delta {Dimension 0 0})
+      (platform-set-frame-size handle (nu+ (platform-get-frame-size handle) delta)))))
 
 
 (definition package (platform-get-bounds handle) <Rect>
@@ -1032,7 +1032,7 @@
 (definition package (platform-invalidate-window handle)
   ;; is this test correct or was it a patch made during the port
   (when handle
-    (let ((rect (size-rect (platform-get-size handle))))
+    (let ((rect (size-rect (platform-get-content-size handle))))
       (invalidate-offscreen-rect handle rect))
     (InvalidateRect handle NULL #f)))
 

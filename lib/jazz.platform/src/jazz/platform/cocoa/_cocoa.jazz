@@ -2547,6 +2547,34 @@ bool _glfwPlatformEventAvailable(void)
 }
 
 
+// hack around a strange problem where if we call [NSApp run] then everything works correctly, but if we
+// manage the events ourselves, then upon hide or close, the next window doesnt automatically become key
+void makeFrontKeyHack()
+{
+    if (![NSApp keyWindow])
+    {
+        NSArray* windows = [NSApp orderedWindows];
+        int count = [windows count];
+        bool done = false;
+        if (count > 0)
+        {
+            for (int n = 0; n < count; n++)
+            {
+                if (!done)
+                {
+                    NSWindow* window = [windows objectAtIndex:n];
+                    if ([window canBecomeKeyWindow])
+                    {
+                        [window makeKeyAndOrderFront:window];
+                        done = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 void _glfwPlatformPollEvents(void)
 {
     NSEvent* event;
@@ -2560,6 +2588,8 @@ void _glfwPlatformPollEvents(void)
 
         if (event)
             [NSApp sendEvent:event];
+        
+        makeFrontKeyHack();
     }
     while (event);
 
@@ -2578,6 +2608,8 @@ void _glfwPlatformWaitEvents( void )
                                            inMode:NSDefaultRunLoopMode
                                           dequeue:YES];
     [NSApp sendEvent:event];
+    
+    makeFrontKeyHack();
 
     _glfwPlatformPollEvents();
 }

@@ -1,0 +1,298 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; OpenGL Immediate
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.graphic.opengl.immediate jazz
+
+
+(export (jazz.graphic.opengl.autoload)
+        (jazz.graphic.opengl.foreign.gl)
+        (jazz.graphic.opengl.foreign.glext)
+        (jazz.graphic.opengl.foreign.glu)
+        (jazz.graphic.opengl.foreign.glut))
+
+(import (jazz.graphic.opengl.foreign.gl)
+        (jazz.graphic.opengl.foreign.glu)
+        (jazz.graphic.opengl.foreign.glut))
+
+
+;;;
+;;;; GL
+;;;
+
+
+(definition gl-inside-begin/end?
+  (make-parameter #f))
+
+
+(definition (gl-check-error (tag #f))
+  (let ((err (glGetError)))
+    (when (/= err GL_NO_ERROR)
+      (error "OpenGL error{? at {a}~} ({s})" tag err))))
+
+
+(definition (with-gl-error tag proc)
+  (if (gl-inside-begin/end?)
+      (proc)
+    (prog1 (proc)
+      (gl-check-error tag))))
+
+
+(definition public (gl-shade-model mode)
+  (with-gl-error 'gl-shade-model
+    (lambda ()
+      (glShadeModel mode))))
+
+
+(definition public (gl-clear mask)
+  (with-gl-error 'gl-clear
+    (lambda ()
+      (glClear mask))))
+
+
+(definition public (gl-clear-color red green blue alpha)
+  (with-gl-error 'gl-clear-color
+    (lambda ()
+      (glClearColor red green blue alpha))))
+
+
+(definition public (gl-clear-depth depth)
+  (with-gl-error 'gl-clear-depth
+    (lambda ()
+      (glClearDepth depth))))
+
+
+(definition public (gl-enable cap)
+  (with-gl-error 'gl-enable
+    (lambda ()
+      (glEnable cap))))
+
+
+(definition public (gl-disable cap)
+  (with-gl-error 'gl-disable
+    (lambda ()
+      (glDisable cap))))
+
+
+(definition public (gl-blend-func sfactor dfactor)
+  (with-gl-error 'gl-blend-func
+    (lambda ()
+      (glBlendFunc sfactor dfactor))))
+
+
+(definition public (gl-depth-func func)
+  (with-gl-error 'gl-depth-func
+    (lambda ()
+      (glDepthFunc func))))
+
+
+(definition public (gl-hint target mode)
+  (with-gl-error 'gl-hint
+    (lambda ()
+      (glHint target mode))))
+
+
+(definition public (gl-viewport x y width height)
+  (with-gl-error 'gl-viewport
+    (lambda ()
+      (glViewport x y width height))))
+
+
+(definition public (gl-polygon-mode face mode)
+  (with-gl-error 'gl-polygon-mode
+    (lambda ()
+      (glPolygonMode face mode))))
+
+
+(definition public (gl-matrix-mode mode)
+  (with-gl-error 'gl-matrix-mode
+    (lambda ()
+      (glMatrixMode mode))))
+
+
+(definition public (gl-push-matrix)
+  (with-gl-error 'gl-push-matrix
+    (lambda ()
+      (glPushMatrix))))
+
+
+(definition public (gl-pop-matrix)
+  (with-gl-error 'gl-pop-matrix
+    (lambda ()
+      (glPopMatrix))))
+
+
+(definition public (with-gl-matrix thunk)
+  (gl-push-matrix)
+  (thunk)
+  (gl-pop-matrix))
+
+
+(definition public (gl-load-identity)
+  (with-gl-error 'gl-load-identity
+    (lambda ()
+      (glLoadIdentity))))
+
+
+(definition public (gl-ortho left right bottom top znear zfar)
+  (with-gl-error 'gl-ortho
+    (lambda ()
+      (glOrtho left right bottom top znear zfar))))
+
+
+(definition public (gl-translate x y z)
+  (with-gl-error 'gl-translate
+    (lambda ()
+      (glTranslatef x y z))))
+
+
+(definition public (gl-rotate angle x y z)
+  (with-gl-error 'gl-rotate
+    (lambda ()
+      (glRotatef angle x y z))))
+
+
+(definition public (gl-scale x y z)
+  (with-gl-error 'gl-scale
+    (lambda ()
+      (glScalef x y z))))
+
+
+(definition public (gl-begin mode)
+  (with-gl-error 'gl-begin
+    (lambda ()
+      (glBegin mode))))
+
+
+(definition public (gl-end)
+  (with-gl-error 'gl-end
+    (lambda ()
+      (glEnd))))
+
+
+(definition public (with-gl-begin/end mode thunk)
+  (parameterize ((gl-inside-begin/end? #t))
+    (gl-begin mode)
+    (thunk)
+    (gl-end)))
+
+
+(definition public (gl-color red green blue)
+  (with-gl-error 'gl-color
+    (lambda ()
+      (glColor3f red green blue))))
+
+
+(definition public (gl-colorize color)
+  (glColor4f (get-red~ color)
+             (get-green~ color)
+             (get-blue~ color)
+             (get-alpha~ color)))
+
+
+(definition public (gl-color4f red green blue alpha)
+  (with-gl-error 'gl-color4f
+    (lambda ()
+      (glColor4f red green blue alpha))))
+
+
+(definition public (gl-normal x y z)
+  (with-gl-error 'gl-normal
+    (lambda ()
+      (glNormal3f x y z))))
+
+
+(definition public (gl-vertex x <fl> y <fl> z <fl>)
+  (with-gl-error 'gl-vertex
+    (lambda ()
+      (glVertex3f x y z))))
+
+
+(definition public (gl-vertex2f x <fl> y <fl>)
+  (with-gl-error 'gl-vertex
+    (lambda ()
+      (glVertex2f x y))))
+
+
+(definition public (gl-bind-texture target texture)
+  (with-gl-error 'gl-bind-texture
+    (lambda ()
+      (glBindTexture target texture))))
+
+
+(definition public (gl-texture-parameterize target pname param)
+  (with-gl-error 'gl-texture-parameterize
+    (lambda ()
+      (glTexParameteri target pname param))))
+
+
+(definition public (gl-texture-image target level internalformat width height border format type pixels)
+  (with-gl-error 'gl-texture-image
+    (lambda ()
+      (glTexImage2D target level internalformat width height border format type pixels))))
+
+
+(definition public (gl-texture-coord s t)
+  (with-gl-error 'gl-texture-coord
+    (lambda ()
+      (glTexCoord2f s t))))
+
+
+(definition public (with-gl-enable/disable mode thunk)
+  (gl-enable mode)
+  (thunk)
+  (gl-disable mode))
+
+
+;;;
+;;;; GLU
+;;;
+
+
+(definition (glu-error-string errCode)
+  (gluErrorString errCode))
+
+
+(definition public (glu-perspective fovy aspect znear zfar)
+  (with-gl-error 'glu-perspective
+    (lambda ()
+      (gluPerspective fovy aspect znear zfar))))
+
+
+(definition public (glu-look-at yex eyey eyez centerx centery centerz upx upy upz)
+  (with-gl-error 'glu-look-at
+    (lambda ()
+      (gluLookAt yex eyey eyez centerx centery centerz upx upy upz)))))

@@ -710,16 +710,6 @@ typedef struct _GLFWinputstate  _GLFWinputstate;
 /* Window handle type */
 typedef _GLFWwindow* GLFWwindow;
 
-/* The video mode structure used by glfwGetVideoModes */
-typedef struct
-{
-    int width;
-    int height;
-    int redBits;
-    int blueBits;
-    int greenBits;
-} GLFWvidmode;
-
 
 /*************************************************************************
  * Prototypes
@@ -849,10 +839,6 @@ typedef struct _GLFWlibraryNSGL
 
 // Time
 void _glfwInitTimer(void);
-
-// Fullscreen
-GLboolean _glfwSetVideoMode(int* width, int* height, int* bpp, int* refreshRate);
-void _glfwRestoreVideoMode(void);
 
 // OpenGL support
 int _glfwInitOpenGL(void);
@@ -1356,129 +1342,6 @@ int _glfwPlatformTerminate(void)
     _glfwTerminateOpenGL();
 
     return GL_TRUE;
-}
-
-"#)
-
-
-;;;
-;;;; Platform Fullscreen
-;;;
-
-
-(c-declare cocoa #"
-
-#include <stdlib.h>
-#include <limits.h>
-
-
-static GLboolean modeIsGood(CGDisplayModeRef mode)
-{
-    uint32_t flags = CGDisplayModeGetIOFlags(mode);
-    if (!(flags & kDisplayModeValidFlag) || !(flags & kDisplayModeSafeFlag))
-        return GL_FALSE;
-
-    if (flags & kDisplayModeInterlacedFlag)
-        return GL_FALSE;
-
-    if (flags & kDisplayModeTelevisionFlag)
-        return GL_FALSE;
-
-    if (flags & kDisplayModeStretchedFlag)
-        return GL_FALSE;
-
-    CFStringRef format = CGDisplayModeCopyPixelEncoding(mode);
-    if (CFStringCompare(format, CFSTR(IO16BitDirectPixels), 0) &&
-        CFStringCompare(format, CFSTR(IO32BitDirectPixels), 0))
-    {
-        CFRelease(format);
-        return GL_FALSE;
-    }
-
-    CFRelease(format);
-    return GL_TRUE;
-}
-
-
-GLboolean _glfwSetVideoMode(int* width, int* height, int* bpp, int* refreshRate)
-{
-    CGDisplayModeRef bestMode = NULL;
-    CFArrayRef modes;
-    CFIndex count, i;
-    unsigned int leastSizeDiff = UINT_MAX;
-    double leastRateDiff = DBL_MAX;
-
-    modes = CGDisplayCopyAllDisplayModes(CGMainDisplayID(), NULL);
-    count = CFArrayGetCount(modes);
-
-    for (i = 0;  i < count;  i++)
-    {
-        CGDisplayModeRef mode = (CGDisplayModeRef) CFArrayGetValueAtIndex(modes, i);
-        if (!modeIsGood(mode))
-            continue;
-
-        int modeBPP;
-
-        // Identify display mode pixel encoding
-        {
-            CFStringRef format = CGDisplayModeCopyPixelEncoding(mode);
-
-            if (CFStringCompare(format, CFSTR(IO16BitDirectPixels), 0) == 0)
-                modeBPP = 16;
-            else
-                modeBPP = 32;
-
-            CFRelease(format);
-        }
-
-        int modeWidth = (int) CGDisplayModeGetWidth(mode);
-        int modeHeight = (int) CGDisplayModeGetHeight(mode);
-
-        unsigned int sizeDiff = (abs(modeBPP - *bpp) << 25) |
-                                ((modeWidth - *width) * (modeWidth - *width) +
-                                 (modeHeight - *height) * (modeHeight - *height));
-
-        double rateDiff;
-
-        if (*refreshRate > 0)
-            rateDiff = fabs(CGDisplayModeGetRefreshRate(mode) - *refreshRate);
-        else
-        {
-            // If no refresh rate was specified, then they're all the same
-            rateDiff = 0;
-        }
-
-        if ((sizeDiff < leastSizeDiff) ||
-            (sizeDiff == leastSizeDiff && (rateDiff < leastRateDiff)))
-        {
-            bestMode = mode;
-
-            leastSizeDiff = sizeDiff;
-            leastRateDiff = rateDiff;
-        }
-    }
-
-    if (!bestMode)
-    {
-        CFRelease(modes);
-        return GL_FALSE;
-    }
-
-    CGDisplayCapture(CGMainDisplayID());
-    CGDisplaySetDisplayMode(CGMainDisplayID(), bestMode, NULL);
-
-    CFRelease(modes);
-    return GL_TRUE;
-}
-
-
-void _glfwRestoreVideoMode(void)
-{
-    CGDisplaySetDisplayMode(CGMainDisplayID(),
-                            _glfwLibrary.NS.desktopMode,
-                            NULL);
-
-    CGDisplayRelease(CGMainDisplayID());
 }
 
 "#)
@@ -2464,19 +2327,7 @@ int _glfwPlatformCreateWindow(_GLFWwindow* window,
 
     if (wndconfig->mode == GLFW_FULLSCREEN)
     {
-        int bpp = colorBits + fbconfig->alphaBits;
-
-        if (!_glfwSetVideoMode(&window->width,
-                               &window->height,
-                               &bpp,
-                               &window->refreshRate))
-        {
-            return GL_FALSE;
-        }
-
-        _glfwPlatformShowWindow(window);
-        [[window->NS.object contentView] enterFullScreenMode:[NSScreen mainScreen]
-                                                 withOptions:nil];
+        // todo
     }
 
     NSPoint point = [[NSCursor currentCursor] hotSpot];
@@ -2493,9 +2344,7 @@ void _glfwPlatformDestroyWindow(_GLFWwindow* window)
 
     if (window->mode == GLFW_FULLSCREEN)
     {
-        [[window->NS.object contentView] exitFullScreenModeWithOptions:nil];
-
-        _glfwRestoreVideoMode();
+        // todo
     }
 
     [window->NSGL.pixelFormat release];

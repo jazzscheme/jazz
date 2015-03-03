@@ -99,6 +99,21 @@
       (let ((output (console-output-port)))
         (if (not output)
             (terminal-string string)
+          (format output "{a}" string)
+          @wait-new-console-completion (
+                                        (format output #"\($\)\(color Debug {a}\)\(%\)"# string)
+                                        (format output #"\(prompt\){%}"#)
+                                        )
+          (force-output output)))
+      (unspecified))))
+
+
+(definition public (console-line string (color: color #f))
+  (with-console-mutex
+    (lambda ()
+      (let ((output (console-output-port)))
+        (if (not output)
+            (terminal-line string)
           (format output "{a}{%}" string)
           @wait-new-console-completion (
                                         (format output #"\($\)\(color Debug {a}\)\(%\){%}"# string)
@@ -109,7 +124,11 @@
 
 
 (definition public (console . rest)
-  (console-string (format "{l detail: :describe}" rest)))
+  (console-line (format "{l detail: :describe}" rest)))
+
+
+(definition public (debug-line . rest)
+  (apply console-line rest))
 
 
 (definition public (debug-string . rest)

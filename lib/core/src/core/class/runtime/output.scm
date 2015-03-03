@@ -115,6 +115,12 @@
 (define (jazz:debug-string str)
   (let ((port (console-port)))
     (display str port)
+    (force-output port)))
+
+
+(define (jazz:debug-line str)
+  (let ((port (console-port)))
+    (display str port)
     (newline port)
     (force-output port)))
 
@@ -125,6 +131,10 @@
 
 (define jazz:terminal-string
   jazz:debug-string)
+
+
+(define jazz:terminal-line
+  jazz:debug-line)
 
 
 (define (jazz:terminal-port)

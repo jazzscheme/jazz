@@ -149,6 +149,7 @@
 (native jazz:run-loop?)
 (native jazz:terminal)
 (native jazz:terminal-string)
+(native jazz:terminal-line)
 (native jazz:terminal-port)
 (native jazz:unimplemented)
 (native jazz:dump-stack)

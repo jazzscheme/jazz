@@ -682,10 +682,7 @@ typedef struct _GLFWinputstate  _GLFWinputstate;
 #define GLFW_OPENGL_CORE_PROFILE  0x00000001
 #define GLFW_OPENGL_COMPAT_PROFILE 0x00000002
 
-/* glfwGetInputMode/glfwSetInputMode tokens */
-#define GLFW_CURSOR_MODE          0x00030001
-
-/* GLFW_CURSOR_MODE values */
+/* cursorMode values */
 #define GLFW_CURSOR_NORMAL       0x00040001
 #define GLFW_CURSOR_HIDDEN       0x00040002
 #define GLFW_CURSOR_CAPTURED     0x00040003
@@ -801,6 +798,11 @@ typedef struct _GLFWwindowNS
     id           object;
     id	        delegate;
     id           view;
+
+    // The total sum of the distances the cursor has been warped
+    // since the last cursor motion event was processed
+    // This is kept to counteract Cocoa doing the same internally
+    double       warpDeltaX, warpDeltaY;
 } _GLFWwindowNS;
 
 
@@ -966,8 +968,8 @@ struct _GLFWwindow
     int       glRobustness;
 
     // These are defined in the current port's platform.h
-    _GLFWwindowNS NS;
-    _GLFWcontextNSGL NSGL;
+    _GLFWwindowNS ns;
+    _GLFWcontextNSGL nsgl;
 };
 
 
@@ -977,15 +979,15 @@ struct _GLFWwindow
 struct _GLFWlibrary
 {
     _GLFWhints    hints;
+                  
+    double          cursorPosX, cursorPosY;
 
     _GLFWwindow*  windowListHead;
-    _GLFWwindow*  activeWindow;
-
-    GLFWvidmode*  modes;
+    _GLFWwindow*  focusedWindow;
 
     // This is defined in the current port's platform.h
-    _GLFWlibraryNS NS;
-    _GLFWlibraryNSGL NSGL;
+    _GLFWlibraryNS ns;
+    _GLFWlibraryNSGL nsgl;
 };
 
 
@@ -1010,8 +1012,8 @@ int _glfwPlatformInit(void);
 int _glfwPlatformTerminate(void);
 
 // Input mode support
+void _glfwPlatformGetCursorPos(_GLFWwindow* window, double* xpos, double* ypos);
 void _glfwPlatformSetCursorPos(_GLFWwindow* window, int x, int y);
-void _glfwPlatformSetCursorMode(_GLFWwindow* window, int mode);
 
 // Window management
 int  _glfwPlatformCreateWindow(_GLFWwindow* window, const _GLFWwndconfig* wndconfig, const _GLFWfbconfig* fbconfig,int kind, bool opengl);
@@ -1290,10 +1292,10 @@ static void changeToResourcesDirectory(void)
 
 int _glfwPlatformInit(void)
 {
-    _glfwLibrary.NS.autoreleasePool = [[NSAutoreleasePool alloc] init];
+    _glfwLibrary.ns.autoreleasePool = [[NSAutoreleasePool alloc] init];
 
-    _glfwLibrary.NSGL.framework = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.opengl"));
-    if (_glfwLibrary.NSGL.framework == NULL)
+    _glfwLibrary.nsgl.framework = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.opengl"));
+    if (_glfwLibrary.nsgl.framework == NULL)
     {
         _glfwSetError(GLFW_PLATFORM_ERROR,
                       "glfwInit: Failed to locate OpenGL framework");
@@ -1302,18 +1304,18 @@ int _glfwPlatformInit(void)
 
     changeToResourcesDirectory();
 
-    _glfwLibrary.NS.desktopMode = CGDisplayCopyDisplayMode(CGMainDisplayID());
+    _glfwLibrary.ns.desktopMode = CGDisplayCopyDisplayMode(CGMainDisplayID());
 
     _glfwInitTimer();
 
     if (!_glfwInitOpenGL())
         return GL_FALSE;
 
-    _glfwLibrary.NS.eventSource = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
-    if (!_glfwLibrary.NS.eventSource)
+    _glfwLibrary.ns.eventSource = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+    if (!_glfwLibrary.ns.eventSource)
         return GL_FALSE;
 
-    CGEventSourceSetLocalEventsSuppressionInterval(_glfwLibrary.NS.eventSource,
+    CGEventSourceSetLocalEventsSuppressionInterval(_glfwLibrary.ns.eventSource,
                                                    0.0);
 
     return GL_TRUE;
@@ -1324,20 +1326,20 @@ int _glfwPlatformTerminate(void)
 {
     // TODO: Probably other cleanup
 
-    if (_glfwLibrary.NS.eventSource)
+    if (_glfwLibrary.ns.eventSource)
     {
-        CFRelease(_glfwLibrary.NS.eventSource);
-        _glfwLibrary.NS.eventSource = NULL;
+        CFRelease(_glfwLibrary.ns.eventSource);
+        _glfwLibrary.ns.eventSource = NULL;
     }
 
-    CGDisplayModeRelease(_glfwLibrary.NS.desktopMode);
+    CGDisplayModeRelease(_glfwLibrary.ns.desktopMode);
 
     [NSApp setDelegate:nil];
-    [_glfwLibrary.NS.delegate release];
-    _glfwLibrary.NS.delegate = nil;
+    [_glfwLibrary.ns.delegate release];
+    _glfwLibrary.ns.delegate = nil;
 
-    [_glfwLibrary.NS.autoreleasePool release];
-    _glfwLibrary.NS.autoreleasePool = nil;
+    [_glfwLibrary.ns.autoreleasePool release];
+    _glfwLibrary.ns.autoreleasePool = nil;
 
     _glfwTerminateOpenGL();
 
@@ -1368,7 +1370,7 @@ void _glfwTerminateOpenGL(void)
 void _glfwPlatformMakeContextCurrent(_GLFWwindow* window)
 {
     if (window)
-        [window->NSGL.context makeCurrentContext];
+        [window->nsgl.context makeCurrentContext];
     else
         [NSOpenGLContext clearCurrentContext];
 
@@ -1385,7 +1387,7 @@ _GLFWwindow* _glfwPlatformGetCurrentContext(void)
 void _glfwPlatformSwapBuffers(_GLFWwindow* window)
 {
     // ARP appears to be unnecessary, but this is future-proof
-    [window->NSGL.context flushBuffer];
+    [window->nsgl.context flushBuffer];
 }
 
 
@@ -1394,7 +1396,7 @@ void _glfwPlatformSwapInterval(int interval)
     _GLFWwindow* window = _glfwPlatformGetCurrentContext();
 
     GLint sync = interval;
-    [window->NSGL.context setValues:&sync forParameter:NSOpenGLCPSwapInterval];
+    [window->nsgl.context setValues:&sync forParameter:NSOpenGLCPSwapInterval];
 }
 
 "#)
@@ -1408,6 +1410,29 @@ void _glfwPlatformSwapInterval(int interval)
 (c-declare cocoa #"
 
 #include <crt_externs.h>
+
+static void _glfwPlatformGetWindowSize(_GLFWwindow* window, int* width, int* height)
+{
+    const NSRect contentRect = [window->ns.view frame];
+
+    if (width)
+        *width = contentRect.size.width;
+    if (height)
+        *height = contentRect.size.height;
+}
+
+static void centerCursor(_GLFWwindow *window)
+{
+    int width, height;
+    _glfwPlatformGetWindowSize(window, &width, &height);
+    _glfwPlatformSetCursorPos(window, width / 2.0, height / 2.0);
+}
+
+static float transformY(float y)
+{
+    const float height = CGDisplayBounds(CGMainDisplayID()).size.height;
+    return height - y;
+}
 
 
 //========================================================================
@@ -1442,20 +1467,20 @@ void _glfwPlatformSwapInterval(int interval)
 
 - (void)windowDidResize:(NSNotification *)notification
 {
-    [window->NSGL.context update];
+    [window->nsgl.context update];
 
     NSRect contentRect =
-        [window->NS.object contentRectForFrameRect:[window->NS.object frame]];
+        [window->ns.object contentRectForFrameRect:[window->ns.object frame]];
 
     _glfwInputWindowSize(window, contentRect.size.width, contentRect.size.height);
 }
 
 - (void)windowDidMove:(NSNotification *)notification
 {
-    [window->NSGL.context update];
+    [window->nsgl.context update];
 
     NSRect contentRect =
-        [window->NS.object contentRectForFrameRect:[window->NS.object frame]];
+        [window->ns.object contentRectForFrameRect:[window->ns.object frame]];
 
     CGPoint mainScreenOrigin = CGDisplayBounds(CGMainDisplayID()).origin;
     double mainScreenHeight = CGDisplayBounds(CGMainDisplayID()).size.height;
@@ -1536,7 +1561,7 @@ void _glfwPlatformSwapInterval(int interval)
 
     for (window = _glfwLibrary.windowListHead;  window;  window = window->next)
     {
-        if ([window->NS.object isVisible])
+        if ([window->ns.object isVisible])
             _glfwInputWindowVisibility(window, GL_TRUE);
     }
 }
@@ -1773,17 +1798,21 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 - (void)mouseMoved:(NSEvent *)event
 {
     if (window->cursorMode == GLFW_CURSOR_CAPTURED)
-        _glfwInputCursorMotion(window, [event deltaX], [event deltaY]);
+    {
+        _glfwInputCursorMotion(window,
+                               [event deltaX] - window->ns.warpDeltaX,
+                               [event deltaY] - window->ns.warpDeltaY);
+    }
     else
     {
-        const NSPoint p = [event locationInWindow];
+        const NSRect contentRect = [window->ns.view frame];
+        const NSPoint pos = [event locationInWindow];
 
-        // Cocoa coordinate system has origin at lower left
-        const int x = lround(floor(p.x));
-        const int y = window->height - lround(ceil(p.y));
-
-        _glfwInputCursorMotion(window, x, y);
+        _glfwInputCursorMotion(window, pos.x, contentRect.size.height - pos.y);
     }
+
+    window->ns.warpDeltaX = 0;
+    window->ns.warpDeltaY = 0;
 }
 
 - (void)rightMouseDown:(NSEvent *)event
@@ -2092,28 +2121,28 @@ static GLboolean createWindow(_GLFWwindow* window,
     else
         styleMask = NSBorderlessWindowMask;
 
-    window->NS.object = [[NSWindow alloc]
+    window->ns.object = [[NSWindow alloc]
         initWithContentRect:NSMakeRect(0, 0, window->width, window->height)
                   styleMask:styleMask
                     backing:NSBackingStoreBuffered
                       defer:NO];
 
-    if (window->NS.object == nil)
+    if (window->ns.object == nil)
     {
         _glfwSetError(GLFW_PLATFORM_ERROR, "Cocoa: Failed to create window");
         return GL_FALSE;
     }
 
-    window->NS.view = [[GLFWContentView alloc] initWithGlfwWindow:window];
+    window->ns.view = [[GLFWContentView alloc] initWithGlfwWindow:window];
 
-    [window->NS.object setTitle:[NSString stringWithUTF8String:wndconfig->title]];
-    [window->NS.object setContentView:window->NS.view];
-    [window->NS.object setDelegate:window->NS.delegate];
-    [window->NS.object setAcceptsMouseMovedEvents:YES];
-    [window->NS.object center];
+    [window->ns.object setTitle:[NSString stringWithUTF8String:wndconfig->title]];
+    [window->ns.object setContentView:window->ns.view];
+    [window->ns.object setDelegate:window->ns.delegate];
+    [window->ns.object setAcceptsMouseMovedEvents:YES];
+    [window->ns.object center];
 
-    if ([window->NS.object respondsToSelector:@selector(setRestorable:)])
-        [window->NS.object setRestorable:NO];
+    if ([window->ns.object respondsToSelector:@selector(setRestorable:)])
+        [window->ns.object setRestorable:NO];
 
     return GL_TRUE;
 }
@@ -2244,9 +2273,9 @@ static GLboolean createContext(_GLFWwindow* window,
 #undef ADD_ATTR
 #undef ADD_ATTR2
 
-    window->NSGL.pixelFormat =
+    window->nsgl.pixelFormat =
         [[NSOpenGLPixelFormat alloc] initWithAttributes:attributes];
-    if (window->NSGL.pixelFormat == nil)
+    if (window->nsgl.pixelFormat == nil)
     {
         _glfwSetError(GLFW_PLATFORM_ERROR,
                       "NSOpenGL: Failed to create OpenGL pixel format");
@@ -2256,12 +2285,12 @@ static GLboolean createContext(_GLFWwindow* window,
     NSOpenGLContext* share = NULL;
 
     if (wndconfig->share)
-        share = wndconfig->share->NSGL.context;
+        share = wndconfig->share->nsgl.context;
 
-    window->NSGL.context =
-        [[NSOpenGLContext alloc] initWithFormat:window->NSGL.pixelFormat
+    window->nsgl.context =
+        [[NSOpenGLContext alloc] initWithFormat:window->nsgl.pixelFormat
                                    shareContext:share];
-    if (window->NSGL.context == nil)
+    if (window->nsgl.context == nil)
     {
         _glfwSetError(GLFW_PLATFORM_ERROR,
                       "NSOpenGL: Failed to create OpenGL context");
@@ -2283,21 +2312,21 @@ int _glfwPlatformCreateWindow(_GLFWwindow* window,
 
     // There can only be one application delegate, but we allocate it the
     // first time a window is created to keep all window code in this file
-    if (_glfwLibrary.NS.delegate == nil)
+    if (_glfwLibrary.ns.delegate == nil)
     {
-        _glfwLibrary.NS.delegate = [[GLFWApplicationDelegate alloc] init];
-        if (_glfwLibrary.NS.delegate == nil)
+        _glfwLibrary.ns.delegate = [[GLFWApplicationDelegate alloc] init];
+        if (_glfwLibrary.ns.delegate == nil)
         {
             _glfwSetError(GLFW_PLATFORM_ERROR,
                           "Cocoa: Failed to create application delegate");
             return GL_FALSE;
         }
 
-        [NSApp setDelegate:_glfwLibrary.NS.delegate];
+        [NSApp setDelegate:_glfwLibrary.ns.delegate];
     }
 
-    window->NS.delegate = [[GLFWWindowDelegate alloc] initWithGlfwWindow:window];
-    if (window->NS.delegate == nil)
+    window->ns.delegate = [[GLFWWindowDelegate alloc] initWithGlfwWindow:window];
+    if (window->ns.delegate == nil)
     {
         _glfwSetError(GLFW_PLATFORM_ERROR,
                       "Cocoa: Failed to create window delegate");
@@ -2323,7 +2352,7 @@ int _glfwPlatformCreateWindow(_GLFWwindow* window,
             return GL_FALSE;
     }
 
-    [window->NSGL.context setView:[window->NS.object contentView]];
+    [window->nsgl.context setView:[window->ns.object contentView]];
 
     if (wndconfig->mode == GLFW_FULLSCREEN)
     {
@@ -2340,28 +2369,28 @@ int _glfwPlatformCreateWindow(_GLFWwindow* window,
 
 void _glfwPlatformDestroyWindow(_GLFWwindow* window)
 {
-    [window->NS.object orderOut:nil];
+    [window->ns.object orderOut:nil];
 
     if (window->mode == GLFW_FULLSCREEN)
     {
         // todo
     }
 
-    [window->NSGL.pixelFormat release];
-    window->NSGL.pixelFormat = nil;
+    [window->nsgl.pixelFormat release];
+    window->nsgl.pixelFormat = nil;
 
-    [window->NSGL.context release];
-    window->NSGL.context = nil;
+    [window->nsgl.context release];
+    window->nsgl.context = nil;
 
-    [window->NS.object setDelegate:nil];
-    [window->NS.delegate release];
-    window->NS.delegate = nil;
+    [window->ns.object setDelegate:nil];
+    [window->ns.delegate release];
+    window->ns.delegate = nil;
 
-    [window->NS.view release];
-    window->NS.view = nil;
+    [window->ns.view release];
+    window->ns.view = nil;
 
-    [window->NS.object close];
-    window->NS.object = nil;
+    [window->ns.object close];
+    window->ns.object = nil;
 
     // TODO: Probably more cleanup
 }
@@ -2369,14 +2398,14 @@ void _glfwPlatformDestroyWindow(_GLFWwindow* window)
 
 void _glfwPlatformShowWindow(_GLFWwindow* window)
 {
-    [window->NS.object orderFront:nil];
+    [window->ns.object orderFront:nil];
     _glfwInputWindowVisibility(window, GL_TRUE);
 }
 
 
 void _glfwPlatformHideWindow(_GLFWwindow* window)
 {
-    [window->NS.object orderOut:nil];
+    [window->ns.object orderOut:nil];
     _glfwInputWindowVisibility(window, GL_FALSE);
 }
 
@@ -2440,65 +2469,58 @@ void _glfwPlatformPollEvents(void)
     }
     while (event);
 
-    [_glfwLibrary.NS.autoreleasePool drain];
-    _glfwLibrary.NS.autoreleasePool = [[NSAutoreleasePool alloc] init];
+    [_glfwLibrary.ns.autoreleasePool drain];
+    _glfwLibrary.ns.autoreleasePool = [[NSAutoreleasePool alloc] init];
 }
 
 
-void _glfwPlatformWaitEvents( void )
+void _glfwPlatformGetCursorPos(_GLFWwindow* window, double* xpos, double* ypos)
 {
-    // I wanted to pass NO to dequeue:, and rely on PollEvents to
-    // dequeue and send.  For reasons not at all clear to me, passing
-    // NO to dequeue: causes this method never to return.
-    NSEvent *event = [NSApp nextEventMatchingMask:NSAnyEventMask
-                                        untilDate:[NSDate distantFuture]
-                                           inMode:NSDefaultRunLoopMode
-                                          dequeue:YES];
-    [NSApp sendEvent:event];
-    
-    // makeFrontKeyHack();
+    const NSRect contentRect = [window->ns.view frame];
+    const NSPoint pos = [window->ns.object mouseLocationOutsideOfEventStream];
 
-    _glfwPlatformPollEvents();
+    if (xpos)
+        *xpos = pos.x;
+    if (ypos)
+        *ypos = contentRect.size.height - pos.y - 1;
 }
 
 
 void _glfwPlatformSetCursorPos(_GLFWwindow* window, int x, int y)
 {
-    if (window->mode == GLFW_FULLSCREEN)
-    {
-        CGPoint globalPoint = CGPointMake(x, y);
-        CGDisplayMoveCursorToPoint(CGMainDisplayID(), globalPoint);
-    }
-    else
-    {
-        NSPoint localPoint = NSMakePoint(x, window->height - y - 1);
-        NSPoint globalPoint = [window->NS.object convertBaseToScreen:localPoint];
-        CGPoint mainScreenOrigin = CGDisplayBounds(CGMainDisplayID()).origin;
-        double mainScreenHeight = CGDisplayBounds(CGMainDisplayID()).size.height;
-        CGPoint targetPoint = CGPointMake(globalPoint.x - mainScreenOrigin.x,
-                                          mainScreenHeight - globalPoint.y -
-                                            mainScreenOrigin.y);
-        CGDisplayMoveCursorToPoint(CGMainDisplayID(), targetPoint);
-    }
+    const NSRect contentRect = [window->ns.view frame];
+    const NSPoint pos = [window->ns.object mouseLocationOutsideOfEventStream];
+
+    window->ns.warpDeltaX += x - pos.x;
+    window->ns.warpDeltaY += y - contentRect.size.height + pos.y;
+
+    const NSPoint localPoint = NSMakePoint(x, contentRect.size.height - y - 1);
+    const NSPoint globalPoint = [window->ns.object convertBaseToScreen:localPoint];
+
+    CGWarpMouseCursorPosition(CGPointMake(globalPoint.x,
+                                          transformY(globalPoint.y)));
 }
 
 
-void _glfwPlatformSetCursorMode(_GLFWwindow* window, int mode)
+void _glfwPlatformApplyCursorMode(_GLFWwindow* window)
 {
-    switch (mode)
+    switch (window->cursorMode)
     {
         case GLFW_CURSOR_NORMAL:
             [NSCursor unhide];
-            CGAssociateMouseAndMouseCursorPosition(true);
             break;
         case GLFW_CURSOR_HIDDEN:
             [NSCursor hide];
             break;
         case GLFW_CURSOR_CAPTURED:
             [NSCursor hide];
-            CGAssociateMouseAndMouseCursorPosition(false);
             break;
     }
+    
+    if (window->cursorMode == GLFW_CURSOR_CAPTURED)
+        CGAssociateMouseAndMouseCursorPosition(false);
+    else
+        CGAssociateMouseAndMouseCursorPosition(true);
 }
 
 "#)
@@ -2525,8 +2547,8 @@ void _glfwInitTimer(void)
     mach_timebase_info_data_t info;
     mach_timebase_info(&info);
 
-    _glfwLibrary.NS.timer.resolution = (double) info.numer / (info.denom * 1.0e9);
-    _glfwLibrary.NS.timer.base = getRawTime();
+    _glfwLibrary.ns.timer.resolution = (double) info.numer / (info.denom * 1.0e9);
+    _glfwLibrary.ns.timer.base = getRawTime();
 }
 
 "#)
@@ -2628,9 +2650,6 @@ GLFWAPI void glfwTerminate(void)
     if (!_glfwPlatformTerminate())
         return;
 
-    if (_glfwLibrary.modes)
-        free(_glfwLibrary.modes);
-
     _glfwInitialized = GL_FALSE;
 }
 
@@ -2699,15 +2718,15 @@ GLFWAPI const char* glfwErrorString(int error)
 
 GLFWAPI double glfwGetTime(void)
 {
-    return (double) (getRawTime() - _glfwLibrary.NS.timer.base) *
-        _glfwLibrary.NS.timer.resolution;
+    return (double) (getRawTime() - _glfwLibrary.ns.timer.base) *
+        _glfwLibrary.ns.timer.resolution;
 }
 
 
 GLFWAPI void glfwSetTime(double time)
 {
-    _glfwLibrary.NS.timer.base = getRawTime() -
-        (uint64_t) (time / _glfwLibrary.NS.timer.resolution);
+    _glfwLibrary.ns.timer.base = getRawTime() -
+        (uint64_t) (time / _glfwLibrary.ns.timer.resolution);
 }
 
 "#)
@@ -3014,7 +3033,7 @@ GLFWAPI void glfwSwapInterval(int interval)
 
 static void setCursorMode(_GLFWwindow* window, int newMode)
 {
-    int oldMode, centerPosX, centerPosY;
+    const int oldMode = window->cursorMode;
 
     if (newMode != GLFW_CURSOR_NORMAL &&
         newMode != GLFW_CURSOR_HIDDEN &&
@@ -3024,21 +3043,55 @@ static void setCursorMode(_GLFWwindow* window, int newMode)
         return;
     }
 
-    oldMode = window->cursorMode;
     if (oldMode == newMode)
         return;
 
-    centerPosX = window->width / 2;
-    centerPosY = window->height / 2;
-
-    if (oldMode == GLFW_CURSOR_CAPTURED || newMode == GLFW_CURSOR_CAPTURED)
-        _glfwPlatformSetCursorPos(window, centerPosX, centerPosY);
-
-    _glfwPlatformSetCursorMode(window, newMode);
     window->cursorMode = newMode;
 
-    if (oldMode == GLFW_CURSOR_CAPTURED)
-        _glfwInputCursorMotion(window, window->cursorPosX, window->cursorPosY);
+    if (_glfwLibrary.focusedWindow == window)
+    {
+        if (oldMode == GLFW_CURSOR_CAPTURED)
+        {
+            _glfwPlatformSetCursorPos(window,
+                                      _glfwLibrary.cursorPosX,
+                                      _glfwLibrary.cursorPosY);
+        }
+        else if (newMode == GLFW_CURSOR_CAPTURED)
+        {
+            int width, height;
+
+            _glfwPlatformGetCursorPos(window,
+                                      &_glfwLibrary.cursorPosX,
+                                      &_glfwLibrary.cursorPosY);
+
+            window->cursorPosX = _glfwLibrary.cursorPosX;
+            window->cursorPosY = _glfwLibrary.cursorPosY;
+
+            _glfwPlatformGetWindowSize(window, &width, &height);
+            _glfwPlatformSetCursorPos(window, width / 2, height / 2);
+        }
+
+        _glfwPlatformApplyCursorMode(window);
+    }
+}
+
+
+void glfwGetCursorPos(_GLFWwindow* window, double* xpos, double* ypos)
+{
+    if (xpos)
+        *xpos = 0;
+    if (ypos)
+        *ypos = 0;
+
+    if (window->cursorMode == GLFW_CURSOR_CAPTURED)
+    {
+        if (xpos)
+            *xpos = window->cursorPosX;
+        if (ypos)
+            *ypos = window->cursorPosY;
+    }
+    else
+        _glfwPlatformGetCursorPos(window, xpos, ypos);
 }
 
 
@@ -3098,7 +3151,11 @@ void _glfwInputMouseClick(_GLFWwindow* window, int button, int clickCount, int a
     // Register mouse button action
     window->mouseButton[button] = (char) action;
 
-    button_callback(window, window->cursorPosX, window->cursorPosY, button, clickCount, action);
+    // Get cursor position
+    double xpos, ypos;
+    glfwGetCursorPos(window, &xpos, &ypos);
+    
+    button_callback(window, xpos, ypos, button, clickCount, action);
 }
 
 
@@ -3106,56 +3163,22 @@ void _glfwInputCursorMotion(_GLFWwindow* window, int x, int y)
 {
     if (window->cursorMode == GLFW_CURSOR_CAPTURED)
     {
-        if (!x && !y)
+        if (x == 0.0 && y == 0.0)
             return;
 
         window->cursorPosX += x;
         window->cursorPosY += y;
-    }
-    else
-    {
-        if (window->cursorPosX == x && window->cursorPosY == y)
-            return;
 
-        window->cursorPosX = x;
-        window->cursorPosY = y;
+        x = window->cursorPosX;
+        y = window->cursorPosY;
     }
 
-    move_callback(window,
-                                  window->cursorPosX,
-                                  window->cursorPosY);
+    move_callback(window, x, y);
 }
 
 
 void _glfwInputCursorEnter(_GLFWwindow* window, int entered)
 {
-}
-
-
-GLFWAPI int glfwGetInputMode(GLFWwindow window, int mode)
-{
-    switch (mode)
-    {
-        case GLFW_CURSOR_MODE:
-            return window->cursorMode;
-        default:
-            _glfwSetError(GLFW_INVALID_ENUM, NULL);
-            return 0;
-    }
-}
-
-
-GLFWAPI void glfwSetInputMode(GLFWwindow window, int mode, int value)
-{
-    switch (mode)
-    {
-        case GLFW_CURSOR_MODE:
-            setCursorMode(window, value);
-            break;
-        default:
-            _glfwSetError(GLFW_INVALID_ENUM, NULL);
-            break;
-    }
 }
 
 
@@ -3204,16 +3227,16 @@ void _glfwInputWindowFocus(_GLFWwindow* window, GLboolean activated)
 {
     if (activated)
     {
-        if (_glfwLibrary.activeWindow != window)
+        if (_glfwLibrary.focusedWindow != window)
         {
-            _glfwLibrary.activeWindow = window;
+            _glfwLibrary.focusedWindow = window;
             
             activate_callback(window);
         }
     }
     else
     {
-        if (_glfwLibrary.activeWindow == window)
+        if (_glfwLibrary.focusedWindow == window)
         {
             int i;
 
@@ -3231,7 +3254,7 @@ void _glfwInputWindowFocus(_GLFWwindow* window, GLboolean activated)
                     _glfwInputMouseClick(window, i, 1, GLFW_RELEASE);
             }
 
-            _glfwLibrary.activeWindow = NULL;
+            _glfwLibrary.focusedWindow = NULL;
             
             deactivate_callback(window);
         }
@@ -3329,7 +3352,7 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
     // Save the currently current context so it can be restored later
     if (opengl)
         previous = glfwGetCurrentContext();
-
+    
     if (mode != GLFW_WINDOWED && mode != GLFW_FULLSCREEN)
     {
         _glfwSetError(GLFW_INVALID_ENUM,
@@ -3413,14 +3436,9 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
     // Restore the previously current context (or NULL)
     glfwMakeContextCurrent(previous);
     }
-
-    // The GLFW specification states that fullscreen windows have the cursor
-    // captured by default
-    if (mode == GLFW_FULLSCREEN)
-        glfwSetInputMode(window, GLFW_CURSOR_MODE, GLFW_CURSOR_CAPTURED);
     
     // Register drag & drop pasteboard types
-    [window->NS.object registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, nil]];
+    [window->ns.object registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, nil]];
 
     if (mode == GLFW_WINDOWED && wndconfig.visible)
         glfwShowWindow(window);
@@ -3543,8 +3561,8 @@ GLFWAPI void glfwDestroyWindow(GLFWwindow window)
         _glfwPlatformMakeContextCurrent(NULL);
 
     // Clear the active window pointer if this is the active window
-    if (window == _glfwLibrary.activeWindow)
-        _glfwLibrary.activeWindow = NULL;
+    if (window == _glfwLibrary.focusedWindow)
+        _glfwLibrary.focusedWindow = NULL;
 
     _glfwPlatformDestroyWindow(window);
 
@@ -3564,7 +3582,7 @@ GLFWAPI void glfwDestroyWindow(GLFWwindow window)
 
 GLFWAPI NSString* glfwGetWindowTitle(GLFWwindow window)
 {
-    return [window->NS.object title];
+    return [window->ns.object title];
 }
 
 
@@ -3583,7 +3601,7 @@ GLFWAPI void glfwIconifyWindow(GLFWwindow window)
     if (window->iconified)
         return;
 
-    [window->NS.object miniaturize:nil];
+    [window->ns.object miniaturize:nil];
 }
 
 
@@ -3592,7 +3610,7 @@ GLFWAPI void glfwRestoreWindow(GLFWwindow window)
     if (!window->iconified)
         return;
 
-    [window->NS.object deminiaturize:nil];
+    [window->ns.object deminiaturize:nil];
 }
 
 
@@ -3619,7 +3637,7 @@ GLFWAPI int glfwGetWindowParam(GLFWwindow window, int param)
     switch (param)
     {
         case GLFW_ACTIVE:
-            return window == _glfwLibrary.activeWindow;
+            return window == _glfwLibrary.focusedWindow;
         case GLFW_ICONIFIED:
             return window->iconified;
         case GLFW_CLOSE_REQUESTED:
@@ -3706,7 +3724,7 @@ double platformGetPrimaryScreenFrameHeight()
 
 double platformGetWindowScreenFrameHeight(_GLFWwindow* window)
 {
-    NSRect frame = [[window->NS.object screen] frame];
+    NSRect frame = [[window->ns.object screen] frame];
     return frame.size.height;
 }
 
@@ -3735,6 +3753,17 @@ void platformMakeContextCurrent(_GLFWwindow* window)
 }
 
 
+void platformEnterFullscreen(_GLFWwindow* window)
+{
+    NSWindow* win = window->ns.object;
+    NSRect mainDisplayRect = [[NSScreen mainScreen] frame];
+    [win setStyleMask:NSBorderlessWindowMask];
+    [win setLevel:NSMainMenuWindowLevel+1];
+    [win setFrame:mainDisplayRect display:YES animate:YES];
+    [win makeKeyAndOrderFront:win];
+}
+
+
 NSString* platformGetWindowTitle(_GLFWwindow* window)
 {
     return glfwGetWindowTitle(window);
@@ -3743,13 +3772,13 @@ NSString* platformGetWindowTitle(_GLFWwindow* window)
 
 void platformSetWindowTitle(_GLFWwindow* window, char* title)
 {
-    [window->NS.object setTitle:[NSString stringWithUTF8String:title]];
+    [window->ns.object setTitle:[NSString stringWithUTF8String:title]];
 }
 
 
 void platformGetWindowFramePos(_GLFWwindow* window, NSPoint* pos)
 {
-    NSRect frame = [window->NS.object frame];
+    NSRect frame = [window->ns.object frame];
     pos->x = frame.origin.x;
     pos->y = frame.origin.y;
 }
@@ -3764,26 +3793,26 @@ void platformSetWindowFramePos(_GLFWwindow* window, NSPoint* pos)
         return;
 
     NSRect contentRect =
-        [window->NS.object contentRectForFrameRect:[window->NS.object frame]];
+        [window->ns.object contentRectForFrameRect:[window->ns.object frame]];
 
     contentRect.origin.x = x;
     contentRect.origin.y = y;
 
-    [window->NS.object setFrame:[window->NS.object frameRectForContentRect:contentRect]
+    [window->ns.object setFrame:[window->ns.object frameRectForContentRect:contentRect]
                         display:YES];
 }
 
 
 int platformGetWindowFrameHeight(_GLFWwindow* window)
 {
-    NSRect frame = [window->NS.object frame];
+    NSRect frame = [window->ns.object frame];
     return frame.size.height;
 }
 
 
 void platformGetWindowFrameSize(_GLFWwindow* window, NSSize* size)
 {
-    NSRect frame = [window->NS.object frame];
+    NSRect frame = [window->ns.object frame];
     size->width = frame.size.width;
     size->height = frame.size.height;
 }
@@ -3801,26 +3830,26 @@ void platformSetWindowFrameSize(_GLFWwindow* window, NSSize* size)
     if (width == window->width && height == window->height)
         return;
 
-    [window->NS.object setContentSize:NSMakeSize(width, height)];
+    [window->ns.object setContentSize:NSMakeSize(width, height)];
 }
 
 
 void platformGetWindowFrameRect(_GLFWwindow* window, NSRect* rect)
 {
-    *rect = [window->NS.object frame];
+    *rect = [window->ns.object frame];
 }
 
 
 void platformSetWindowFrameRect(_GLFWwindow* window, NSRect* rect)
 {
-    [window->NS.object setFrame: *rect display: YES];
+    [window->ns.object setFrame: *rect display: YES];
 }
 
 
 void platformGetWindowContentPos(_GLFWwindow* window, NSPoint* pos)
 {
-    NSRect frame = [window->NS.object frame];
-    NSRect content = [window->NS.object contentRectForFrameRect:frame];
+    NSRect frame = [window->ns.object frame];
+    NSRect content = [window->ns.object contentRectForFrameRect:frame];
     pos->x = content.origin.x;
     pos->y = content.origin.y;
 }
@@ -3828,16 +3857,16 @@ void platformGetWindowContentPos(_GLFWwindow* window, NSPoint* pos)
 
 double platformGetWindowContentHeight(_GLFWwindow* window)
 {
-    NSRect frame = [window->NS.object frame];
-    NSRect content = [window->NS.object contentRectForFrameRect:frame];
+    NSRect frame = [window->ns.object frame];
+    NSRect content = [window->ns.object contentRectForFrameRect:frame];
     return content.size.height;
 }
 
 
 void platformGetWindowContentSize(_GLFWwindow* window, NSSize* size)
 {
-    NSRect frame = [window->NS.object frame];
-    NSRect content = [window->NS.object contentRectForFrameRect:frame];
+    NSRect frame = [window->ns.object frame];
+    NSRect content = [window->ns.object contentRectForFrameRect:frame];
     size->width = content.size.width;
     size->height = content.size.height;
 }
@@ -3845,21 +3874,21 @@ void platformGetWindowContentSize(_GLFWwindow* window, NSSize* size)
 
 void platformGetWindowContentRect(_GLFWwindow* window, NSRect* rect)
 {
-    NSRect frame = [window->NS.object frame];
-    *rect = [window->NS.object contentRectForFrameRect:frame];
+    NSRect frame = [window->ns.object frame];
+    *rect = [window->ns.object contentRectForFrameRect:frame];
 }
 
 
 void platformSetWindowContentRect(_GLFWwindow* window, NSRect* rect)
 {
-    NSRect frame = [window->NS.object frameRectForContentRect:*rect];
-    [window->NS.object setFrame: frame display: YES];
+    NSRect frame = [window->ns.object frameRectForContentRect:*rect];
+    [window->ns.object setFrame: frame display: YES];
 }
 
 
 void platformGetWindowViewRect(_GLFWwindow* window, NSRect* rect)
 {
-    *rect = [window->NS.view frame];
+    *rect = [window->ns.view frame];
 }
 
 
@@ -3883,36 +3912,32 @@ void platformSwapBuffers(_GLFWwindow* window)
 
 void platformGetMousePosition(_GLFWwindow* window, NSPoint* pos)
 {
-    pos->x = window->cursorPosX;
-    pos->y = window->cursorPosY;
+    glfwGetCursorPos(window, &pos->x, &pos->y);
 }
 
 
 void platformSetMousePosition(_GLFWwindow* window, NSPoint* pos)
 {
-    int x = pos->x;
-    int y = pos->y;
-
-    if (_glfwLibrary.activeWindow != window)
-    {
-        _glfwSetError(GLFW_WINDOW_NOT_ACTIVE, NULL);
-        return;
-    }
-
-    // Don't do anything if the cursor position did not change
-    if (x == window->cursorPosX && y == window->cursorPosY)
+    if (_glfwLibrary.focusedWindow != window)
         return;
 
-    // Set GLFW cursor position
-    window->cursorPosX = x;
-    window->cursorPosY = y;
-
-    // Do not move physical cursor in locked cursor mode
     if (window->cursorMode == GLFW_CURSOR_CAPTURED)
-        return;
+    {
+        // Only update the accumulated position if the cursor is disabled
+        window->cursorPosX = pos->x;
+        window->cursorPosY = pos->y;
+    }
+    else
+    {
+        // Update system cursor position
+        _glfwPlatformSetCursorPos(window, &pos->x, &pos->y);
+    }
+}
 
-    // Update physical cursor position
-    _glfwPlatformSetCursorPos(window, x, y);
+
+void platformShowCursor(_GLFWwindow* window)
+{
+    setCursorMode(window, GLFW_CURSOR_NORMAL);
 }
 
 
@@ -3922,9 +3947,9 @@ void platformHideCursor(_GLFWwindow* window)
 }
 
 
-void platformShowCursor(_GLFWwindow* window)
+void platformCaptureCursor(_GLFWwindow* window)
 {
-    setCursorMode(window, GLFW_CURSOR_NORMAL);
+    setCursorMode(window, GLFW_CURSOR_CAPTURED);
 }
 
 
@@ -3952,10 +3977,10 @@ const char* platformGetClipboardString()
         return NULL;
     }
 
-    free(_glfwLibrary.NS.clipboardString);
-    _glfwLibrary.NS.clipboardString = strdup([object UTF8String]);
+    free(_glfwLibrary.ns.clipboardString);
+    _glfwLibrary.ns.clipboardString = strdup([object UTF8String]);
 
-    return _glfwLibrary.NS.clipboardString;
+    return _glfwLibrary.ns.clipboardString;
 }
 
 
@@ -3972,7 +3997,7 @@ void platformSetClipboardString(const char* string)
 
 void platformInvalidateRect(_GLFWwindow* window, NSRect* rect)
 {
-    [window->NS.view setNeedsDisplayInRect:*rect];
+    [window->ns.view setNeedsDisplayInRect:*rect];
 }
 
 
@@ -3989,7 +4014,7 @@ _GLFWwindow* platformGetFocus()
 void platformSetFocus(_GLFWwindow* window)
 {
     currentFocus = window;
-    [window->NS.object makeKeyAndOrderFront:nil];
+    [window->ns.object makeKeyAndOrderFront:nil];
 }
 
 
@@ -4053,13 +4078,15 @@ void platformLog(char* msg)
 (c-external (platformGetWindowContentRect glfwwindow NSRect*) void)
 (c-external (platformSetWindowContentRect glfwwindow NSRect*) void)
 (c-external (platformGetWindowViewRect glfwwindow NSRect*) void)
+(c-external (platformEnterFullscreen glfwwindow) void)
 (c-external (platformShowWindow glfwwindow) void)
 (c-external (platformHideWindow glfwwindow) void)
 (c-external (platformSwapBuffers glfwwindow) void)
 (c-external (platformGetMousePosition glfwwindow NSPoint*) void)
 (c-external (platformSetMousePosition glfwwindow NSPoint*) void)
-(c-external (platformHideCursor glfwwindow) void)
 (c-external (platformShowCursor glfwwindow) void)
+(c-external (platformHideCursor glfwwindow) void)
+(c-external (platformCaptureCursor glfwwindow) void)
 (c-external (platformKeyDown int) bool)
 (c-external (platformGetClipboardString) char-string)
 (c-external (platformSetClipboardString char-string) void)

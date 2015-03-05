@@ -1797,11 +1797,21 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)mouseMoved:(NSEvent *)event
 {
+    // We need to reset before calling cursor motion
+    // in case mouse move does a capture cursor...
+    double wX, wY;
+  
+    wX = window->ns.warpDeltaX;
+    wY = window->ns.warpDeltaY;
+    
+    window->ns.warpDeltaX = 0;
+    window->ns.warpDeltaY = 0;
+    
     if (window->cursorMode == GLFW_CURSOR_CAPTURED)
     {
         _glfwInputCursorMotion(window,
-                               [event deltaX] - window->ns.warpDeltaX,
-                               [event deltaY] - window->ns.warpDeltaY);
+                               [event deltaX] - wX,
+                               [event deltaY] - wY);
     }
     else
     {
@@ -1810,9 +1820,6 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
         _glfwInputCursorMotion(window, pos.x, contentRect.size.height - pos.y);
     }
-
-    window->ns.warpDeltaX = 0;
-    window->ns.warpDeltaY = 0;
 }
 
 - (void)rightMouseDown:(NSEvent *)event
@@ -2358,10 +2365,6 @@ int _glfwPlatformCreateWindow(_GLFWwindow* window,
     {
         // todo
     }
-
-    NSPoint point = [[NSCursor currentCursor] hotSpot];
-    window->cursorPosX = point.x;
-    window->cursorPosY = point.y;
 
     return GL_TRUE;
 }
@@ -3092,6 +3095,25 @@ void glfwGetCursorPos(_GLFWwindow* window, double* xpos, double* ypos)
     }
     else
         _glfwPlatformGetCursorPos(window, xpos, ypos);
+}
+
+
+void glfwSetCursorPos(_GLFWwindow* window, double xpos, double ypos)
+{
+    if (_glfwLibrary.focusedWindow != window)
+        return;
+
+    if (window->cursorMode == GLFW_CURSOR_CAPTURED)
+    {
+        // Only update the accumulated position if the cursor is disabled
+        window->cursorPosX = xpos;
+        window->cursorPosY = ypos;
+    }
+    else
+    {
+        // Update system cursor position
+        _glfwPlatformSetCursorPos(window, xpos, ypos);
+    }
 }
 
 
@@ -3918,20 +3940,7 @@ void platformGetMousePosition(_GLFWwindow* window, NSPoint* pos)
 
 void platformSetMousePosition(_GLFWwindow* window, NSPoint* pos)
 {
-    if (_glfwLibrary.focusedWindow != window)
-        return;
-
-    if (window->cursorMode == GLFW_CURSOR_CAPTURED)
-    {
-        // Only update the accumulated position if the cursor is disabled
-        window->cursorPosX = pos->x;
-        window->cursorPosY = pos->y;
-    }
-    else
-    {
-        // Update system cursor position
-        _glfwPlatformSetCursorPos(window, &pos->x, &pos->y);
-    }
+    glfwSetCursorPos(window, pos->x, pos->y);
 }
 
 
@@ -3950,6 +3959,12 @@ void platformHideCursor(_GLFWwindow* window)
 void platformCaptureCursor(_GLFWwindow* window)
 {
     setCursorMode(window, GLFW_CURSOR_CAPTURED);
+}
+
+
+void platformReleaseCursor(_GLFWwindow* window)
+{
+    setCursorMode(window, GLFW_CURSOR_NORMAL);
 }
 
 
@@ -4087,6 +4102,7 @@ void platformLog(char* msg)
 (c-external (platformShowCursor glfwwindow) void)
 (c-external (platformHideCursor glfwwindow) void)
 (c-external (platformCaptureCursor glfwwindow) void)
+(c-external (platformReleaseCursor glfwwindow) void)
 (c-external (platformKeyDown int) bool)
 (c-external (platformGetClipboardString) char-string)
 (c-external (platformSetClipboardString char-string) void)

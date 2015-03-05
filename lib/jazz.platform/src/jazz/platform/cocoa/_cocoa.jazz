@@ -1435,6 +1435,22 @@ static float transformY(float y)
 }
 
 
+@interface GLFWWindow : NSWindow
+{
+}
+
+@end
+
+@implementation GLFWWindow
+
+- (BOOL)canBecomeKeyWindow
+{
+    return YES;
+}
+
+@end
+
+
 //========================================================================
 // Delegate for window related notifications
 //========================================================================
@@ -2128,7 +2144,7 @@ static GLboolean createWindow(_GLFWwindow* window,
     else
         styleMask = NSBorderlessWindowMask;
 
-    window->ns.object = [[NSWindow alloc]
+    window->ns.object = [[GLFWWindow alloc]
         initWithContentRect:NSMakeRect(0, 0, window->width, window->height)
                   styleMask:styleMask
                     backing:NSBackingStoreBuffered
@@ -3462,7 +3478,7 @@ GLFWAPI GLFWwindow glfwCreateWindow(int width, int height,
     // Register drag & drop pasteboard types
     [window->ns.object registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, nil]];
 
-    if (mode == GLFW_WINDOWED && wndconfig.visible)
+    if (wndconfig.visible)
         glfwShowWindow(window);
 
     return window;
@@ -3782,6 +3798,17 @@ void platformEnterFullscreen(_GLFWwindow* window)
     [win setStyleMask:NSBorderlessWindowMask];
     [win setLevel:NSMainMenuWindowLevel+1];
     [win setFrame:mainDisplayRect display:YES animate:YES];
+    // [win makeKeyAndOrderFront:win];
+}
+
+
+void platformExitFullscreen(_GLFWwindow* window)
+{
+    NSWindow* win = window->ns.object;
+    NSRect mainDisplayRect = [[NSScreen mainScreen] frame];
+    [win setStyleMask:NSBorderlessWindowMask];
+    [win setLevel:NSMainMenuWindowLevel+1];
+    [win setFrame:mainDisplayRect display:YES animate:YES];
     [win makeKeyAndOrderFront:win];
 }
 
@@ -4094,6 +4121,7 @@ void platformLog(char* msg)
 (c-external (platformSetWindowContentRect glfwwindow NSRect*) void)
 (c-external (platformGetWindowViewRect glfwwindow NSRect*) void)
 (c-external (platformEnterFullscreen glfwwindow) void)
+(c-external (platformExitFullscreen glfwwindow) void)
 (c-external (platformShowWindow glfwwindow) void)
 (c-external (platformHideWindow glfwwindow) void)
 (c-external (platformSwapBuffers glfwwindow) void)

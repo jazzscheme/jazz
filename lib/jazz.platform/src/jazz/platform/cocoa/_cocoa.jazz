@@ -1023,6 +1023,7 @@ void _glfwPlatformHideWindow(_GLFWwindow* window);
 
 // Event processing
 void _glfwPlatformPollEvents(void);
+void _glfwPlatformPostEmptyEvent(void);
 
 // OpenGL context management
 void _glfwPlatformMakeContextCurrent(_GLFWwindow* window);
@@ -1435,16 +1436,21 @@ static float transformY(float y)
 }
 
 
+//========================================================================
+// GLFWWindow
+//========================================================================
+
+
 @interface GLFWWindow : NSWindow
 {
 }
-
 @end
 
 @implementation GLFWWindow
 
 - (BOOL)canBecomeKeyWindow
 {
+    // Required for NSBorderlessWindowMask windows
     return YES;
 }
 
@@ -1562,6 +1568,13 @@ static float transformY(float y)
 
     return NSTerminateCancel;
 }*/
+
+- (void)applicationDidFinishLaunching:(NSNotification *)notification
+{
+    [NSApp stop:nil];
+
+    _glfwPlatformPostEmptyEvent();
+}
 
 - (void)applicationDidHide:(NSNotification *)notification
 {
@@ -2075,6 +2088,17 @@ static void createMenuBar(void)
     [windowMenu addItemWithTitle:@"Zoom"
                           action:@selector(performZoom:)
                    keyEquivalent:@""];
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1070
+    if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
+    {
+        [windowMenu addItem:[NSMenuItem separatorItem]];
+        [windowMenu addItemWithTitle:@"Enter Full Screen"
+                              action:@selector(toggleFullScreen:)
+                       keyEquivalent:@"f"];
+    }
+#endif /*MAC_OS_X_VERSION_MAX_ALLOWED*/
+
     [windowMenu addItem:[NSMenuItem separatorItem]];
     [windowMenu addItemWithTitle:@"Bring All to Front"
                           action:@selector(arrangeInFront:)
@@ -2093,13 +2117,27 @@ static GLboolean initializeAppKit(void)
 
     // Implicitly create shared NSApplication instance
     [GLFWApplication sharedApplication];
+    
+    // In case we are unbundled, make us a proper UI application
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
     // Menu bar setup must go between sharedApplication above and
     // finishLaunching below, in order to properly emulate the behavior
     // of NSApplicationMain
     createMenuBar();
+    
+    // There can only be one application delegate, but we allocate it the
+    // first time a window is created to keep all window code in this file
+    _glfwLibrary.ns.delegate = [[GLFWApplicationDelegate alloc] init];
+    if (_glfwLibrary.ns.delegate == nil)
+    {
+        _glfwSetError(GLFW_PLATFORM_ERROR,
+                        "Cocoa: Failed to create application delegate");
+        return GL_FALSE;
+    }
 
-    [NSApp finishLaunching];
+    [NSApp setDelegate:_glfwLibrary.ns.delegate];
+    [NSApp run];
 
     return GL_TRUE;
 }
@@ -2155,6 +2193,14 @@ static GLboolean createWindow(_GLFWwindow* window,
         _glfwSetError(GLFW_PLATFORM_ERROR, "Cocoa: Failed to create window");
         return GL_FALSE;
     }
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1070
+    if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
+    {
+        if (wndconfig->resizable)
+            [window->ns.object setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
+    }
+#endif /*MAC_OS_X_VERSION_MAX_ALLOWED*/
 
     window->ns.view = [[GLFWContentView alloc] initWithGlfwWindow:window];
 
@@ -2333,21 +2379,6 @@ int _glfwPlatformCreateWindow(_GLFWwindow* window,
     if (!initializeAppKit())
         return GL_FALSE;
 
-    // There can only be one application delegate, but we allocate it the
-    // first time a window is created to keep all window code in this file
-    if (_glfwLibrary.ns.delegate == nil)
-    {
-        _glfwLibrary.ns.delegate = [[GLFWApplicationDelegate alloc] init];
-        if (_glfwLibrary.ns.delegate == nil)
-        {
-            _glfwSetError(GLFW_PLATFORM_ERROR,
-                          "Cocoa: Failed to create application delegate");
-            return GL_FALSE;
-        }
-
-        [NSApp setDelegate:_glfwLibrary.ns.delegate];
-    }
-
     window->ns.delegate = [[GLFWWindowDelegate alloc] initWithGlfwWindow:window];
     if (window->ns.delegate == nil)
     {
@@ -2493,6 +2524,23 @@ void _glfwPlatformPollEvents(void)
 }
 
 
+void _glfwPlatformPostEmptyEvent(void)
+{
+    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+    NSEvent* event = [NSEvent otherEventWithType:NSApplicationDefined
+                                        location:NSMakePoint(0, 0)
+                                   modifierFlags:0
+                                       timestamp:0
+                                    windowNumber:0
+                                         context:nil
+                                         subtype:0
+                                           data1:0
+                                           data2:0];
+    [NSApp postEvent:event atStart:YES];
+    [pool drain];
+}
+
+
 void _glfwPlatformGetCursorPos(_GLFWwindow* window, double* xpos, double* ypos)
 {
     const NSRect contentRect = [window->ns.view frame];
@@ -2611,27 +2659,27 @@ static int _glfwError = GLFW_NO_ERROR;
 
 void _glfwSetError(int error, const char* format, ...)
 {
-        char buffer[16384];
-        const char* description;
+    char buffer[16384];
+    const char* description;
 
-        if (format)
-        {
-            int count;
-            va_list vl;
+    if (format)
+    {
+        int count;
+        va_list vl;
 
-            va_start(vl, format);
-            count = vsnprintf(buffer, sizeof(buffer), format, vl);
-            va_end(vl);
+        va_start(vl, format);
+        count = vsnprintf(buffer, sizeof(buffer), format, vl);
+        va_end(vl);
 
-            if (count < 0)
-                buffer[sizeof(buffer) - 1] = '\0';
+        if (count < 0)
+            buffer[sizeof(buffer) - 1] = '\0';
 
-            description = buffer;
-        }
-        else
-            description = glfwErrorString(error);
+        description = buffer;
+    }
+    else
+        description = glfwErrorString(error);
 
-        call_error((char *) description);
+    call_error((char *) description);
 }
 
 
@@ -3793,23 +3841,13 @@ void platformMakeContextCurrent(_GLFWwindow* window)
 
 void platformEnterFullscreen(_GLFWwindow* window)
 {
-    NSWindow* win = window->ns.object;
-    NSRect mainDisplayRect = [[NSScreen mainScreen] frame];
-    [win setStyleMask:NSBorderlessWindowMask];
-    [win setLevel:NSMainMenuWindowLevel+1];
-    [win setFrame:mainDisplayRect display:YES animate:YES];
-    // [win makeKeyAndOrderFront:win];
+    [window->ns.object toggleFullScreen:nil];
 }
 
 
 void platformExitFullscreen(_GLFWwindow* window)
 {
-    NSWindow* win = window->ns.object;
-    NSRect mainDisplayRect = [[NSScreen mainScreen] frame];
-    [win setStyleMask:NSBorderlessWindowMask];
-    [win setLevel:NSMainMenuWindowLevel+1];
-    [win setFrame:mainDisplayRect display:YES animate:YES];
-    [win makeKeyAndOrderFront:win];
+    [window->ns.object toggleFullScreen:nil];
 }
 
 

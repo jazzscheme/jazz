@@ -795,6 +795,7 @@ typedef struct _GLFWcontextNSGL
 //------------------------------------------------------------------------
 typedef struct _GLFWwindowNS
 {
+    int          kind;
     id           object;
     id	        delegate;
     id           view;
@@ -1443,15 +1444,25 @@ static float transformY(float y)
 
 @interface GLFWWindow : NSWindow
 {
+    _GLFWwindow* window;
+    
 }
+
+- (void)setWindow:(_GLFWwindow*)win;
+
 @end
 
 @implementation GLFWWindow
 
+- (void)setWindow:(_GLFWwindow*)win
+{
+    window = win;
+}
+
 - (BOOL)canBecomeKeyWindow
 {
-    // Required for NSBorderlessWindowMask windows
-    return YES;
+    return window->ns.kind == GLFW_WINDOW ||
+           window->ns.kind == GLFW_DIALOG;
 }
 
 @end
@@ -2182,6 +2193,7 @@ static GLboolean createWindow(_GLFWwindow* window,
     else
         styleMask = NSBorderlessWindowMask;
 
+    window->ns.kind = kind;
     window->ns.object = [[GLFWWindow alloc]
         initWithContentRect:NSMakeRect(0, 0, window->width, window->height)
                   styleMask:styleMask
@@ -2202,6 +2214,7 @@ static GLboolean createWindow(_GLFWwindow* window,
 //     }
 // #endif /*MAC_OS_X_VERSION_MAX_ALLOWED*/
 
+    [window->ns.object setWindow:window];
     window->ns.view = [[GLFWContentView alloc] initWithGlfwWindow:window];
 
     [window->ns.object setTitle:[NSString stringWithUTF8String:wndconfig->title]];

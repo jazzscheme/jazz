@@ -385,6 +385,9 @@ end-c-code
 (c-declare cocoa #"
 
 
+#define GLFW_USE_FULLSCREEN 0
+
+
 //========================================================================
 // Internal type declarations
 //========================================================================
@@ -1468,6 +1471,148 @@ static float transformY(float y)
 @end
 
 
+@interface FullScreenWindow : GLFWWindow
+{
+    GLFWWindow* mainWindow;
+}
+
+- (GLFWWindow*)getMainWindow;
+- (void)setMainWindow:(GLFWWindow*)window;
+
+@end
+
+@implementation FullScreenWindow
+
+- (GLFWWindow*)getMainWindow
+{
+    return mainWindow;
+}
+
+- (void)setMainWindow:(GLFWWindow*)window
+{
+    mainWindow = window;
+}
+
+@end
+
+
+@interface FullScreenView : NSView
+{
+}
+
+- (void)drawRect:(NSRect)dirtyRect;
+
+@end
+
+@implementation FullScreenView
+
+- (BOOL)isOpaque
+{
+    return YES;
+}
+
+- (void)drawRect:(NSRect)dirtyRect
+{
+    [[NSColor blackColor] set];
+    NSRectFill(dirtyRect);
+}
+
+@end
+
+
+GLFWWindow* fullscreenWindow;
+
+
+bool inhibitActivation = false;
+
+
+void toggleFullScreenWindowed(_GLFWwindow *window)
+{
+     inhibitActivation = true;
+  
+	if (!fullscreenWindow)
+	{
+         NSWindow* mainWindow = window->ns.object;
+   
+		NSView *firstResponder = (NSView *)[mainWindow firstResponder];
+
+		if ([[mainWindow screen] isEqual:[[NSScreen screens] objectAtIndex:0]])
+		{
+			[NSMenu setMenuBarVisible:NO];
+		}
+
+         NSRect newFrame = [mainWindow contentRectForFrameRect:[mainWindow frame]];
+		fullscreenWindow = [[FullScreenWindow alloc]
+			initWithContentRect:newFrame
+			styleMask:NSBorderlessWindowMask
+			backing:NSBackingStoreBuffered
+			defer:YES
+			screen:[mainWindow screen]];
+         [fullscreenWindow setMainWindow:mainWindow];
+
+         window->ns.object = fullscreenWindow;
+         [window->ns.object setDelegate:window->ns.delegate];
+		
+		NSView *contentView = [[[mainWindow contentView] retain] autorelease];
+		[mainWindow setContentView:[[[FullScreenView alloc] init] autorelease]];
+  
+         [window->nsgl.context update];
+		
+		[fullscreenWindow setHidesOnDeactivate:YES];
+         [fullscreenWindow setAcceptsMouseMovedEvents:YES];
+		[fullscreenWindow setLevel:NSFloatingWindowLevel];
+		[fullscreenWindow setContentView:contentView];
+		[fullscreenWindow setTitle:[mainWindow title]];
+		[fullscreenWindow makeFirstResponder:firstResponder];
+		[fullscreenWindow makeKeyAndOrderFront:nil];
+		
+		[mainWindow orderOut:nil];
+		
+         NSRect fullFrame = [fullscreenWindow frameRectForContentRect:
+             [[fullscreenWindow screen] frame]];
+		[fullscreenWindow
+			setFrame:fullFrame
+			display:YES
+			animate:YES];
+	}
+	else
+	{
+         NSWindow* mainWindow = [fullscreenWindow getMainWindow];
+         
+		NSView *firstResponder = (NSView *)[fullscreenWindow firstResponder];
+
+		NSRect newFrame = [fullscreenWindow frameRectForContentRect:
+		    [mainWindow contentRectForFrameRect:[mainWindow frame]]];
+		[fullscreenWindow
+			setFrame:newFrame
+			display:YES
+			animate:YES];
+
+		NSView *contentView = [[[fullscreenWindow contentView] retain] autorelease];
+		[fullscreenWindow setContentView:[[[FullScreenView alloc] init] autorelease]];
+  
+         window->ns.object = mainWindow;
+         [window->ns.object setDelegate:window->ns.delegate];
+
+		[mainWindow setContentView:contentView];
+		[mainWindow makeFirstResponder:firstResponder];
+		[mainWindow makeKeyAndOrderFront:nil];
+
+		[fullscreenWindow close];
+		fullscreenWindow = nil;
+
+		if ([[mainWindow screen] isEqual:[[NSScreen screens] objectAtIndex:0]])
+		{
+			[NSMenu setMenuBarVisible:YES];
+		}
+  
+         fullscreenWindow = NULL;
+	}
+ 
+    inhibitActivation = false;
+}
+
+
 //========================================================================
 // Delegate for window related notifications
 //========================================================================
@@ -1817,6 +1962,9 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)drawRect:(NSRect)dirtyRect
 {
+    [[NSColor blackColor] set];
+    NSRectFill(dirtyRect);
+   
     _glfwDrawRect(window, dirtyRect);
 }
 
@@ -1920,7 +2068,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
                                                userInfo:nil];
 
     [self addTrackingArea:trackingArea];
-	 [super updateTrackingAreas];
+    [super updateTrackingAreas];
 }
 
 - (void)keyDown:(NSEvent *)event
@@ -2100,15 +2248,15 @@ static void createMenuBar(void)
                           action:@selector(performZoom:)
                    keyEquivalent:@""];
 
-// #if MAC_OS_X_VERSION_MAX_ALLOWED >= 1070
-//     if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
-//     {
-//         [windowMenu addItem:[NSMenuItem separatorItem]];
-//         [windowMenu addItemWithTitle:@"Enter Full Screen"
-//                               action:@selector(toggleFullScreen:)
-//                        keyEquivalent:@"f"];
-//     }
-// #endif /*MAC_OS_X_VERSION_MAX_ALLOWED*/
+#if GLFW_USE_FULLSCREEN == 1 && MAC_OS_X_VERSION_MAX_ALLOWED >= 1070
+     if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
+     {
+         [windowMenu addItem:[NSMenuItem separatorItem]];
+         [windowMenu addItemWithTitle:@"Enter Full Screen"
+                               action:@selector(toggleFullScreen:)
+                        keyEquivalent:@"f"];
+     }
+#endif /*MAC_OS_X_VERSION_MAX_ALLOWED*/
 
     [windowMenu addItem:[NSMenuItem separatorItem]];
     [windowMenu addItemWithTitle:@"Bring All to Front"
@@ -2206,13 +2354,13 @@ static GLboolean createWindow(_GLFWwindow* window,
         return GL_FALSE;
     }
 
-// #if MAC_OS_X_VERSION_MAX_ALLOWED >= 1070
-//     if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
-//     {
-//         if (wndconfig->resizable)
-//             [window->ns.object setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
-//     }
-// #endif /*MAC_OS_X_VERSION_MAX_ALLOWED*/
+#if GLFW_USE_FULLSCREEN == 1 && MAC_OS_X_VERSION_MAX_ALLOWED >= 1070
+     if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
+     {
+         if (wndconfig->resizable)
+             [window->ns.object setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
+     }
+#endif /*MAC_OS_X_VERSION_MAX_ALLOWED*/
 
     [window->ns.object setWindow:window];
     window->ns.view = [[GLFWContentView alloc] initWithGlfwWindow:window];
@@ -3324,6 +3472,9 @@ static int Max(int a, int b)
 
 void _glfwInputWindowFocus(_GLFWwindow* window, GLboolean activated)
 {
+    if (inhibitActivation)
+        return;
+    
     if (activated)
     {
         if (_glfwLibrary.focusedWindow != window)
@@ -3852,15 +4003,19 @@ void platformMakeContextCurrent(_GLFWwindow* window)
 }
 
 
+// Need to understand why using Lion's new native
+// fullscreen makes event handling really choppy...
 void platformEnterFullscreen(_GLFWwindow* window)
 {
-    [window->ns.object toggleFullScreen:nil];
+    // [window->ns.object toggleFullScreen:nil];
+    toggleFullScreenWindowed(window);
 }
 
 
 void platformExitFullscreen(_GLFWwindow* window)
 {
-    [window->ns.object toggleFullScreen:nil];
+    // [window->ns.object toggleFullScreen:nil];
+    toggleFullScreenWindowed(window);
 }
 
 

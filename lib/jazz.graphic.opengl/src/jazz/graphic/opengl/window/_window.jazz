@@ -150,14 +150,20 @@
   ;;;
   
   
-  (method public (toggle-windowed-mode)
-    (case window-mode
-      ((fullscreen)
-       (restore-from-fullscreen))
-      ((windowed)
-       (set-fullscreen-windowed-mode))
-      (else
-       (restore-windowed-mode))))
+  ;; quicky
+  (cond-expand
+    (cocoa
+     (method public (toggle-windowed-mode)
+       (platform-set-fullscreen-windowed-mode handle)))
+    (else
+     (method public (toggle-windowed-mode)
+       (case window-mode
+         ((fullscreen)
+          (restore-from-fullscreen))
+         ((windowed)
+          (set-fullscreen-windowed-mode))
+         (else
+          (restore-windowed-mode))))))
 
 
   (method public (set-fullscreen-windowed-mode)
@@ -190,7 +196,8 @@
   (method override (paint update-region . platform-data)
     (with-platform-painting self platform-data
       (lambda (surface)
-        )))
+        (when (get-visible?)
+          (render-scene)))))
 
 
   (method override (scroll-window delta rect clip-rect)
@@ -208,7 +215,8 @@
   
   
   (method public (render-sync)
-    (swap-buffers handle device))
+    (when (get-visible?)
+      (swap-buffers handle device)))
   
   
   (method override (close-window)

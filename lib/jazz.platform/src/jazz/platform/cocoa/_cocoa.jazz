@@ -1224,6 +1224,7 @@ void file_callback(NSString* filename);
 void drop_callback(_GLFWwindow* window, NSArray* filenames);
 void activate_callback(_GLFWwindow* window);
 void deactivate_callback(_GLFWwindow* window);
+void terminate_callback();
 
 "#)
 
@@ -1715,16 +1716,10 @@ void toggleFullScreenWindowed(_GLFWwindow *window)
 
 @implementation GLFWApplicationDelegate
 
-/* causes the application to hang on terminate
-- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
+- (void)applicationWillTerminate:(NSNotification *)notification
 {
-    _GLFWwindow* window;
-
-    for (window = _glfwLibrary.windowListHead;  window;  window = window->next)
-        _glfwInputWindowCloseRequest(window);
-
-    return NSTerminateCancel;
-}*/
+    terminate_callback();
+}
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
@@ -4511,6 +4506,13 @@ void platformLog(char* msg)
       (when window
         (deactivate-application~ window)
         (focus-lose~ window)))))
+
+(c-definition (terminate-callback) () void "terminate_callback" ""
+  (when log-callbacks?
+    (system-log (list 'terminate)))
+  (let ((process (get-process)))
+    (when process
+      (unload-process~ process))))
 
 
 ;; quicky

@@ -706,11 +706,66 @@
 
 
 (macro public (c-external signature result-type . rest)
+  (define homogeneous-types
+    '(u8vector
+      s8vector
+      u16vector
+      s16vector
+      u32vector
+      s32vector
+      s64vector
+      u64vector
+      f32vector
+      f64vector))
+  
+  (define (convert-types has-homogeneous? types)
+    (if (not has-homogeneous?)
+        types
+      (map (lambda (type)
+             (if (memq? type homogeneous-types)
+                 'scheme-object
+               type))
+           types)))
+  
+  (define (convert-code has-homogeneous? types name)
+    (define (convert-type type arg)
+      (case type
+        ((u8vector) (string-append "(unsigned char*)___BODY(" arg ")"))
+        ((s8vector) (string-append "(signed char*)___BODY(" arg ")"))
+        ((u16vector) (string-append "(unsigned short*)___BODY(" arg ")"))
+        ((s16vector) (string-append "(short*)___BODY(" arg ")"))
+        ((u32vector) (string-append "(unsigned int*)___BODY(" arg ")"))
+        ((s32vector) (string-append "(int*)___BODY(" arg ")"))
+        ((u64vector) (string-append "(unsigned long long*)___BODY(" arg ")"))
+        ((s64vector) (string-append "(long long*)___BODY(" arg ")"))
+        ((f32vector) (string-append "(float*)___BODY(" arg ")"))
+        ((f64vector) (string-append "(double*)___BODY(" arg ")"))
+        (else arg)))
+    
+    (if (not has-homogeneous?)
+        name
+      (let ((output (open-output-string))
+            (first? #t))
+        (format output "{a}(" name)
+        (for-each (lambda (type n)
+                    (let ((rank (+ n 1)))
+                      (if first?
+                          (set! first? #f)
+                        (format output ", "))
+                      (let ((arg (format "___arg{a}" rank)))
+                        (format output "{a}" (convert-type type arg)))))
+                  types
+                  (naturals 0 (length types)))
+        (format output ");")
+        (get-output-string output))))
+  
   (let ((name (car signature))
         (types (cdr signature)))
-    (let ((c-name-or-code (if (null? rest) (symbol->string name) (car rest))))
-      `(definition public ,name
-         (c-function ,name ,types ,result-type ,c-name-or-code)))))
+    (let ((has-homogeneous? (some? (lambda (type) (memq? type homogeneous-types)) types)))
+      (let ((converted-types (convert-types has-homogeneous? types))
+            (c-name-or-code (if (null? rest) (convert-code has-homogeneous? types (symbol->string name)) (car rest))))
+        `(definition public ,name
+           (c-function ,name ,converted-types ,result-type ,c-name-or-code))))))
 
 
 ;;;

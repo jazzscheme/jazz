@@ -38,7 +38,8 @@
 (module protected jazz.media.platform.cocoa jazz
 
 
-(import (jazz.platform))
+(import (jazz.io)
+        (jazz.platform))
 
 
 ;;;
@@ -46,12 +47,27 @@
 ;;;
 
 
+(definition Symbolic-Sounds
+  (list
+    (cons :asterisk "Purr")
+    (cons :exclamation "Hero")
+    (cons :hand "Basso")))
+
+
+(definition (symbolic-sound sound)
+  (let ((pair (assv sound Symbolic-Sounds)))
+    (if (not pair)
+        (error "Unknown symbolic sound: {s}")
+      (cdr pair))))
+
+
 (definition public (play-sound sound (asynchronous?: asynchronous? #t))
-  (platformPlaySound (platform-parse~ sound)))
-
-
-(definition public (system-sound name)
-  (platformSystemSound name))
+  (cond ((file? sound)
+         (platformPlaySound (platform-parse~ sound)))
+        ((symbol? sound)
+         (platformSystemSound (symbolic-sound sound)))
+        (else
+         (platformSystemSound sound))))
 
 
 (definition public (error-sound)

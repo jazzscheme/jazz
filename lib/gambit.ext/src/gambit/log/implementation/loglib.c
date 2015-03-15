@@ -9,7 +9,7 @@
 #include "arith64.h"
 #include "loglib.h"
 
-#define USE_RDTSC
+//#define USE_RDTSC
 //#define USE_Performance
 
 

@@ -1212,6 +1212,7 @@ GLboolean _glfwIsValidContext(_GLFWwndconfig* wndconfig);
 void call_error(char* msg);
 void call_debug(char* msg);
 void call_terminal(char* msg);
+void call_test(char* msg);
 void reshape_callback(_GLFWwindow* window, int width, int height);
 void close_callback(_GLFWwindow* window);
 void paint_callback(_GLFWwindow* window, CGContextRef context, NSRect* dirtyRect);
@@ -2179,14 +2180,6 @@ static NSString* findAppName(void)
         }
     }
 
-    // If we get here, the application is unbundled
-    ProcessSerialNumber psn = { 0, kCurrentProcess };
-    TransformProcessType(&psn, kProcessTransformToForegroundApplication);
-
-    // Having the app in front of the terminal window is also generally
-    // handy.  There is an NSApplication API to do this, but...
-    SetFrontProcess(&psn);
-
     char** progname = _NSGetProgname();
     if (progname && *progname)
         return [NSString stringWithUTF8String:*progname];
@@ -2260,10 +2253,6 @@ static void createMenuBar(void)
     [windowMenu addItemWithTitle:@"Bring All to Front"
                           action:@selector(arrangeInFront:)
                    keyEquivalent:@""];
-
-    // Prior to Snow Leopard, we need to use this oddly-named semi-private API
-    // to get the application menu working properly.
-    [NSApp performSelector:@selector(setAppleMenu:) withObject:appMenu];
 }
 
 
@@ -4259,6 +4248,10 @@ _GLFWwindow* platformGetFocus()
 
 void platformSetFocus(_GLFWwindow* window)
 {
+    ProcessSerialNumber psn = { 0, kCurrentProcess };
+    TransformProcessType(&psn, kProcessTransformToForegroundApplication);
+    SetFrontProcess(&psn);
+        
     currentFocus = window;
     [window->ns.object makeKeyAndOrderFront:nil];
 }
@@ -4352,6 +4345,11 @@ void platformResumeMusic(char* alias)
     [[NSSound soundNamed:[NSString stringWithUTF8String:alias]] resume];
 }
 
+
+void platformTest()
+{
+}
+
 "#)
 
 
@@ -4414,6 +4412,7 @@ void platformResumeMusic(char* alias)
 (c-external (platformStopMusic char-string) void)
 (c-external (platformPauseMusic char-string) void)
 (c-external (platformResumeMusic char-string) void)
+(c-external (platformTest) void)
 
 
 ;; quicky
@@ -4456,6 +4455,9 @@ void platformResumeMusic(char* alias)
 
 (c-definition (call-terminal msg) (char-string) void "call_terminal" ""
   (terminal-line msg))
+
+(c-definition (call-test msg) (char-string) void "call_test" ""
+  #f)
 
 
 (definition log-callbacks?

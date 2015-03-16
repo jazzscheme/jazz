@@ -736,9 +736,6 @@ GLFWAPI void glfwShowWindow(GLFWwindow window);
 GLFWAPI void glfwHideWindow(GLFWwindow window);
 GLFWAPI int  glfwGetWindowParam(GLFWwindow window, int param);
 
-/* Event handling */
-GLFWAPI void glfwPollEvents(void);
-
 /* Input handling */
 GLFWAPI int  glfwGetInputMode(GLFWwindow window, int mode);
 GLFWAPI void glfwSetInputMode(GLFWwindow window, int mode, int value);
@@ -1024,10 +1021,6 @@ int  _glfwPlatformCreateWindow(_GLFWwindow* window, const _GLFWwndconfig* wndcon
 void _glfwPlatformDestroyWindow(_GLFWwindow* window);
 void _glfwPlatformShowWindow(_GLFWwindow* window);
 void _glfwPlatformHideWindow(_GLFWwindow* window);
-
-// Event processing
-void _glfwPlatformPollEvents(void);
-void _glfwPlatformPostEmptyEvent(void);
 
 // OpenGL context management
 void _glfwPlatformMakeContextCurrent(_GLFWwindow* window);
@@ -1613,6 +1606,23 @@ void toggleFullScreenWindowed(_GLFWwindow *window)
     }
  
     inhibitActivation = false;
+}
+
+
+void _glfwPlatformPostEmptyEvent(void)
+{
+    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+    NSEvent* event = [NSEvent otherEventWithType:NSApplicationDefined
+                                        location:NSMakePoint(0, 0)
+                                   modifierFlags:0
+                                       timestamp:0
+                                    windowNumber:0
+                                         context:nil
+                                         subtype:0
+                                           data1:0
+                                           data2:0];
+    [NSApp postEvent:event atStart:YES];
+    [pool drain];
 }
 
 
@@ -2608,21 +2618,8 @@ void _glfwPlatformHideWindow(_GLFWwindow* window)
 }
 
 
-bool _glfwPlatformEventAvailable(void)
-{
-    NSEvent* event;
-
-    event = [NSApp nextEventMatchingMask:NSAnyEventMask
-                               untilDate:[NSDate distantPast]
-                                  inMode:NSDefaultRunLoopMode
-                                 dequeue:NO];
-
-    return event != NULL;
-}
-
-
-// hack around a strange problem where if we call [NSApp run] then everything works correctly, but if we
-// manage the events ourselves, then upon hide or close, the next window doesnt automatically become key
+// hack around a strange problem where if we call [NSApp run] then everything works correctly, but if
+// we manage events ourselves, then upon hide or close, the next window doesn't automatically become key
 void makeFrontKeyHack()
 {
     if (![NSApp keyWindow])
@@ -2646,46 +2643,6 @@ void makeFrontKeyHack()
             }
         }
     }
-}
-
-
-void _glfwPlatformPollEvents(void)
-{
-    NSEvent* event;
-
-    do
-    {
-        event = [NSApp nextEventMatchingMask:NSAnyEventMask
-                                   untilDate:[NSDate distantPast]
-                                      inMode:NSDefaultRunLoopMode
-                                     dequeue:YES];
-
-        if (event)
-            [NSApp sendEvent:event];
-        
-        // makeFrontKeyHack();
-    }
-    while (event);
-
-    [_glfwLibrary.ns.autoreleasePool drain];
-    _glfwLibrary.ns.autoreleasePool = [[NSAutoreleasePool alloc] init];
-}
-
-
-void _glfwPlatformPostEmptyEvent(void)
-{
-    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-    NSEvent* event = [NSEvent otherEventWithType:NSApplicationDefined
-                                        location:NSMakePoint(0, 0)
-                                   modifierFlags:0
-                                       timestamp:0
-                                    windowNumber:0
-                                         context:nil
-                                         subtype:0
-                                           data1:0
-                                           data2:0];
-    [NSApp postEvent:event atStart:YES];
-    [pool drain];
 }
 
 
@@ -3907,12 +3864,6 @@ GLFWAPI int glfwGetWindowParam(GLFWwindow window, int param)
     return 0;
 }
 
-
-GLFWAPI void glfwPollEvents(void)
-{
-    _glfwPlatformPollEvents();
-}
-
 "#)
 
 
@@ -4257,15 +4208,47 @@ void platformSetFocus(_GLFWwindow* window)
 }
 
 
+NSEvent* nextEvent;
+
+
 bool platformEventAvailable(void)
 {
-    return _glfwPlatformEventAvailable();
+    if (nextEvent)
+        return true;
+    
+    nextEvent = [NSApp nextEventMatchingMask:NSAnyEventMask
+                                   untilDate:nil
+                                      inMode:NSDefaultRunLoopMode
+                                     dequeue:YES];
+
+    return nextEvent != NULL;
 }
 
 
 void platformPollEvents(void)
 {
-    glfwPollEvents();
+    NSEvent* event;
+  
+    do
+    {
+        if (nextEvent)
+        {
+            event = nextEvent;
+            nextEvent = NULL;
+        }
+        else
+            event = [NSApp nextEventMatchingMask:NSAnyEventMask
+                                       untilDate:nil
+                                          inMode:NSDefaultRunLoopMode
+                                         dequeue:YES];
+
+        if (event)
+            [NSApp sendEvent:event];
+    }
+    while (event);
+
+    [_glfwLibrary.ns.autoreleasePool drain];
+    _glfwLibrary.ns.autoreleasePool = [[NSAutoreleasePool alloc] init];
 }
 
 

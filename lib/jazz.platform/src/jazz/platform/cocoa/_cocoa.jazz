@@ -1718,6 +1718,10 @@ void _glfwPlatformPostEmptyEvent(void)
 @end
 
 
+// quick hack around nextEventMatchingMask calling drawRect
+bool inEventAvailable = false;
+
+
 //========================================================================
 // Delegate for application related notifications
 //========================================================================
@@ -1971,6 +1975,9 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)drawRect:(NSRect)dirtyRect
 {
+    if (inEventAvailable)
+        return;
+  
     [[NSColor blackColor] set];
     NSRectFill(dirtyRect);
    
@@ -4216,10 +4223,12 @@ bool platformEventAvailable(void)
     if (nextEvent)
         return true;
     
+    inEventAvailable = true;
     nextEvent = [NSApp nextEventMatchingMask:NSAnyEventMask
                                    untilDate:nil
                                       inMode:NSDefaultRunLoopMode
                                      dequeue:YES];
+    inEventAvailable = false;
 
     return nextEvent != NULL;
 }

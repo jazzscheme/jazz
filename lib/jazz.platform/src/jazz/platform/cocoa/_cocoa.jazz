@@ -1219,6 +1219,7 @@ void drop_callback(_GLFWwindow* window, NSArray* filenames);
 void activate_callback(_GLFWwindow* window);
 void deactivate_callback(_GLFWwindow* window);
 void terminate_callback();
+void finished_playing_callback(NSString* alias);
 
 "#)
 
@@ -2168,6 +2169,16 @@ static int convertMacKeyCode(unsigned int macKeyCode)
         [[self keyWindow] sendEvent:event];
     else
         [super sendEvent:event];
+}
+
+- (void)sound:(NSSound *)sound didFinishPlaying:(BOOL)finishedPlaying
+{
+    if (finishedPlaying)
+    {
+        NSString* name = [sound name];
+        if (name)
+            finished_playing_callback(name);
+    }
 }
 
 @end
@@ -4305,6 +4316,7 @@ void platformOpenMusic(char* filename, char* alias)
     NSSound *sound = [[NSSound alloc] initWithContentsOfFile:[NSString stringWithUTF8String:filename] byReference:YES];
 
     [sound setName: [NSString stringWithUTF8String:alias]];
+    [sound setDelegate: NSApp];
 }
 
 
@@ -4581,6 +4593,19 @@ void platformTest()
     (when process
       ;; probably not 100% correct to exit applicationShouldTerminate but seems to work
       (exit-process~ process))))
+
+
+(definition *music-played-callback*
+  #f)
+
+(definition public (platformMusicPlayedCallback callback)
+  (set! *music-played-callback* callback))
+
+(c-definition (finished-playing-callback alias) (NSString*) void "finished_playing_callback" ""
+  (when log-callbacks?
+    (system-log (list 'music-played alias)))
+  (when *music-played-callback*
+    (*music-played-callback* alias)))
 
 
 ;; quicky

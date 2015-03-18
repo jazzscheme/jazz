@@ -39,7 +39,7 @@
 
 
 ;;;
-;;;; Thread
+;;;; Interrupts
 ;;;
 
 
@@ -47,6 +47,18 @@
   (gambit
     (define jazz:disable-interrupts! ##disable-interrupts!)
     (define jazz:enable-interrupts! ##enable-interrupts!))
+  
+  (else))
+
+
+;;;
+;;;; Heartbeat
+;;;
+
+
+(cond-expand
+  (gambit
+    (define jazz:thread-heartbeat-interval-set! ##thread-heartbeat-interval-set!))
   
   (else))
 

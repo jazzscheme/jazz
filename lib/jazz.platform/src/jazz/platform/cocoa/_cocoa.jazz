@@ -4226,6 +4226,21 @@ void platformSetFocus(_GLFWwindow* window)
 }
 
 
+bool ignoreKeyRepeat = false;
+
+
+bool platformGetIgnoreKeyRepeat()
+{
+    return ignoreKeyRepeat;
+}
+
+
+void platformSetIgnoreKeyRepeat(bool ignore)
+{
+    ignoreKeyRepeat = true;
+}
+
+
 NSEvent* nextEvent;
 
 
@@ -4234,12 +4249,19 @@ bool platformEventAvailable(void)
     if (nextEvent)
         return true;
     
-    inEventAvailable = true;
-    nextEvent = [NSApp nextEventMatchingMask:NSAnyEventMask
+    NSEvent* event;
+    do
+    {
+        inEventAvailable = true;
+        event = [NSApp nextEventMatchingMask:NSAnyEventMask
                                    untilDate:nil
                                       inMode:NSDefaultRunLoopMode
                                      dequeue:YES];
-    inEventAvailable = false;
+        inEventAvailable = false;
+    }
+    while (event && ignoreKeyRepeat && [event type] == NSKeyDown && [event isARepeat]);
+    
+    nextEvent = event;
 
     return nextEvent != NULL;
 }
@@ -4262,7 +4284,7 @@ void platformPollEvents(void)
                                           inMode:NSDefaultRunLoopMode
                                          dequeue:YES];
 
-        if (event)
+        if (event && (! ignoreKeyRepeat || [event type] != NSKeyDown || ! [event isARepeat]))
             [NSApp sendEvent:event];
     }
     while (event);
@@ -4405,6 +4427,8 @@ void platformTest()
 (c-external (platformInvalidateRect glfwwindow NSRect*) void)
 (c-external (platformGetFocus) glfwwindow)
 (c-external (platformSetFocus glfwwindow) void)
+(c-external (platformGetIgnoreKeyRepeat) bool)
+(c-external (platformSetIgnoreKeyRepeat bool) void)
 (c-external (platformEventAvailable) bool)
 (c-external (platformPollEvents) void)
 (c-external (platformContinueLoop glfwwindow) bool)

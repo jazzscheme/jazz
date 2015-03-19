@@ -51,9 +51,25 @@
       (values major minor build))))
 
 
-(define jazz:types-units
-  '((jazz.platform.types-syntax)
-    (jazz.platform.types)))
+(cond-expand
+  (cocoa
+    (define jazz:custom-cc
+      "gcc")
+    
+    (define jazz:custom-cc-options
+      "-O1 -Wno-unused -Wno-write-strings -fno-math-errno -fno-strict-aliasing -fwrapv -fomit-frame-pointer -fPIC -fno-common"))
+  (else))
+
+
+(cond-expand
+  (cocoa
+    (define jazz:types-units
+      `((jazz.platform.types-syntax)
+        (jazz.platform.types custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options))))
+  (else
+   (define jazz:types-units
+     '((jazz.platform.types-syntax)
+       (jazz.platform.types)))))
 
 
 (define (jazz:guess-cairo-name)
@@ -73,7 +89,7 @@
                   (ld-flags (jazz:pkg-config-libs cairo-name)))
               `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
                 (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
-                (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags)
+                (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options)
                 (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))))
   (windows
     (define jazz:cairo-units
@@ -173,7 +189,7 @@
 
 (define jazz:cocoa-units
   (let ((opengl-include-path (jazz:quote-jazz-pathname "foreign/opengl/include")))
-    `((jazz.platform.cocoa cc-options: ,(string-append "-I" opengl-include-path) ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" output-language: objc))))
+    `((jazz.platform.cocoa cc-options: ,(string-append "-I" opengl-include-path) ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc))))
 
 
 (cond-expand

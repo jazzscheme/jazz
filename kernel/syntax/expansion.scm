@@ -46,7 +46,7 @@
           (else
            (let ((name (##string-append prefix (or for "^") (##number->string counter))))
              (jazz:generate-symbol-counter (+ counter 1))
-             (##make-uninterned-symbol name))))))
+             (##string->uninterned-symbol name))))))
 
 
 (define (jazz:generate-global-symbol #!optional (prefix "sym"))

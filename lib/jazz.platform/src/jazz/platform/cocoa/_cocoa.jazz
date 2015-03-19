@@ -4504,6 +4504,7 @@ void platformTest()
         (let ((window (get-window handle)))
           (call-size-change~ window 'restored width height))))))
 
+
 (c-definition (close-callback handle) (glfwwindow) void "close_callback" ""
   (thread-execute (primordial-thread) 'execute-event
     (lambda ()
@@ -4512,6 +4513,7 @@ void platformTest()
       (when get-window
         (let ((window (get-window handle)))
           (close-window~ window))))))
+
 
 (c-definition (paint-callback handle context rect) (glfwwindow CGContextRef NSRect*) void "paint_callback" ""
   (thread-execute (primordial-thread) 'execute-event
@@ -4522,31 +4524,38 @@ void platformTest()
         (let ((window (get-window handle)))
           (paint-cocoa~ window context rect))))))
 
+
 (c-definition (key-press-callback handle key action) (glfwwindow int int) int "key_press_callback" ""
-  (thread-call (primordial-thread) 'execute-event
-    (lambda ()
-      (when log-callbacks?
-        (system-log (list 'key key action)))
-      (let ()
-        (define (translate key)
-          (case key
-            ((256) 'Escape)
-            ((257) 'Return)
-            ((258) 'Tab)
-            ((259 261) 'Backspace)
-            (else (integer->char key))))
-        
-        (if (when get-window
-              (let ((window (get-window handle)))
-                (let ((translated (translate key)))
-                  (if (eq? action GLFW_PRESS)
-                      (begin
-                        (key-down~ window translated)
-                        (translate-shortcut-hook translated))
-                    (key-up~ window translated)
-                    #f))))
-            1
-          0)))))
+  (let ((result
+          (thread-call (primordial-thread) 'execute-event
+            (lambda ()
+              (when log-callbacks?
+                (system-log (list 'key key action)))
+              (let ()
+                (define (translate key)
+                  (case key
+                    ((256) 'Escape)
+                    ((257) 'Return)
+                    ((258) 'Tab)
+                    ((259 261) 'Backspace)
+                    (else (integer->char key))))
+                
+                (if (when get-window
+                      (let ((window (get-window handle)))
+                        (let ((translated (translate key)))
+                          (if (eq? action GLFW_PRESS)
+                              (begin
+                                (key-down~ window translated)
+                                (translate-shortcut-hook translated))
+                            (key-up~ window translated)
+                            #f))))
+                    1
+                  0))))))
+    ;; not sure why this is necessary
+    (if (thread-call-result? result)
+        result
+      1)))
+
 
 (c-definition (char-callback handle c) (glfwwindow int) void "char_callback" ""
   (thread-execute (primordial-thread) 'execute-event
@@ -4557,6 +4566,7 @@ void platformTest()
         (let ((window (get-window handle))
               (c (integer->char c)))
           (call-key-press~ window c))))))
+
 
 (c-definition (button-callback handle x y button click-count action) (glfwwindow int int int int int) void "button_callback" ""
   (thread-execute (primordial-thread) 'execute-event
@@ -4575,6 +4585,7 @@ void platformTest()
                ((GLFW_PRESS) (right-mouse-down~ window x y) (context-menu~ window x y))
                ((GLFW_RELEASE) (right-mouse-up~ window x y))))))))))
 
+
 (c-definition (move-callback handle x y) (glfwwindow int int) void "move_callback" ""
   (thread-execute (primordial-thread) 'execute-event
     (lambda ()
@@ -4585,6 +4596,7 @@ void platformTest()
         (let ((window (get-window handle)))
           (mouse-move~ window x y))))))
 
+
 (c-definition (wheel-callback handle x y) (glfwwindow double double) void "wheel_callback" ""
   (thread-execute (primordial-thread) 'execute-event
     (lambda ()
@@ -4593,6 +4605,7 @@ void platformTest()
       (when get-window
         (let ((window (get-window handle)))
           (mouse-wheel~ window #f #f (new Point (* 10 (fxround x)) (* 10 (fxround y)))))))))
+
 
 (c-definition (file-callback filename) (NSString*) void "file_callback" ""
   (thread-execute (primordial-thread) 'execute-event
@@ -4603,6 +4616,7 @@ void platformTest()
         (when appl
           (drop-file~ appl filename))))))
 
+
 (c-definition (drop-callback handle filenames) (glfwwindow NSArray*) void "drop_callback" ""
   (thread-execute (primordial-thread) 'execute-event
     (lambda ()
@@ -4611,6 +4625,7 @@ void platformTest()
       (when get-window
         (let ((window (get-window handle)))
           (drop-files~ window filenames))))))
+
 
 (c-definition (activate-callback handle) (glfwwindow) void "activate_callback" ""
   (thread-execute (primordial-thread) 'execute-event
@@ -4623,6 +4638,7 @@ void platformTest()
             (focus-gain~ window)
             (activate-application~ window)))))))
 
+
 (c-definition (deactivate-callback handle) (glfwwindow) void "deactivate_callback" ""
   (thread-execute (primordial-thread) 'execute-event
     (lambda ()
@@ -4633,6 +4649,7 @@ void platformTest()
           (when window
             (deactivate-application~ window)
             (focus-lose~ window)))))))
+
 
 (c-definition (terminate-callback) () void "terminate_callback" ""
   (thread-execute (primordial-thread) 'execute-event

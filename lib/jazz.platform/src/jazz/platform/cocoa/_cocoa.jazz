@@ -957,7 +957,7 @@ struct _GLFWwindow
     int       refreshRate;     // monitor refresh rate
 
     // Window input state
-    int       cursorPosX, cursorPosY;
+    double    cursorPosX, cursorPosY;
     int       cursorMode;
     char      mouseButton[GLFW_MOUSE_BUTTON_LAST + 1];
 
@@ -1014,7 +1014,7 @@ int _glfwPlatformTerminate(void);
 
 // Input mode support
 void _glfwPlatformGetCursorPos(_GLFWwindow* window, double* xpos, double* ypos);
-void _glfwPlatformSetCursorPos(_GLFWwindow* window, int x, int y);
+void _glfwPlatformSetCursorPos(_GLFWwindow* window, double x, double y);
 
 // Window management
 int  _glfwPlatformCreateWindow(_GLFWwindow* window, const _GLFWwndconfig* wndconfig, const _GLFWfbconfig* fbconfig,int kind, bool opengl);
@@ -1050,7 +1050,7 @@ void _glfwInputChar(_GLFWwindow* window, int character);
 void _glfwInputScroll(_GLFWwindow* window, double x, double y);
 void _glfwDrawRect(_GLFWwindow* window, NSRect dirtyRect);
 void _glfwInputMouseClick(_GLFWwindow* window, int button, int clickCount, int action);
-void _glfwInputCursorMotion(_GLFWwindow* window, int x, int y);
+void _glfwInputCursorMotion(_GLFWwindow* window, double x, double y);
 void _glfwInputCursorEnter(_GLFWwindow* window, int entered);
 
 
@@ -1212,7 +1212,7 @@ void paint_callback(_GLFWwindow* window, CGContextRef context, NSRect* dirtyRect
 int key_press_callback(_GLFWwindow* window, int key, int action);
 void char_callback(_GLFWwindow* window, int c);
 void button_callback(_GLFWwindow* window, int x, int y, int button, int clickCount, int action);
-void move_callback(_GLFWwindow* window, int x, int y);
+void moved_callback(_GLFWwindow* window, double x, double y);
 void wheel_callback(_GLFWwindow* window, double x, double y);
 void file_callback(NSString* filename);
 void drop_callback(_GLFWwindow* window, NSArray* filenames);
@@ -2676,7 +2676,7 @@ void _glfwPlatformGetCursorPos(_GLFWwindow* window, double* xpos, double* ypos)
 }
 
 
-void _glfwPlatformSetCursorPos(_GLFWwindow* window, int x, int y)
+void _glfwPlatformSetCursorPos(_GLFWwindow* window, double x, double y)
 {
     const NSRect contentRect = [window->ns.view frame];
     const NSPoint pos = [window->ns.object mouseLocationOutsideOfEventStream];
@@ -3368,7 +3368,7 @@ void _glfwInputMouseClick(_GLFWwindow* window, int button, int clickCount, int a
 }
 
 
-void _glfwInputCursorMotion(_GLFWwindow* window, int x, int y)
+void _glfwInputCursorMotion(_GLFWwindow* window, double x, double y)
 {
     if (window->cursorMode == GLFW_CURSOR_CAPTURED)
     {
@@ -3382,7 +3382,7 @@ void _glfwInputCursorMotion(_GLFWwindow* window, int x, int y)
         y = window->cursorPosY;
     }
 
-    move_callback(window, x, y);
+    moved_callback(window, x, y);
 }
 
 
@@ -4586,7 +4586,7 @@ void platformTest()
                ((GLFW_RELEASE) (right-mouse-up~ window x y))))))))))
 
 
-(c-definition (move-callback handle x y) (glfwwindow int int) void "move_callback" ""
+(c-definition (moved-callback handle x y) (glfwwindow double double) void "moved_callback" ""
   (thread-execute (primordial-thread) 'execute-event
     (lambda ()
       @too-much
@@ -4594,7 +4594,7 @@ void platformTest()
         (system-log (list 'move x y)))
       (when get-window
         (let ((window (get-window handle)))
-          (mouse-move~ window x y))))))
+          (mouse-moved~ window x y))))))
 
 
 (c-definition (wheel-callback handle x y) (glfwwindow double double) void "wheel_callback" ""

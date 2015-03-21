@@ -52,7 +52,7 @@
 
 
 (cond-expand
-  (cocoa
+  (mac
     (define jazz:custom-cc
       "gcc")
     
@@ -62,7 +62,7 @@
 
 
 (cond-expand
-  (cocoa
+  (mac
     (define jazz:types-units
       `((jazz.platform.types-syntax)
         (jazz.platform.types custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options))))

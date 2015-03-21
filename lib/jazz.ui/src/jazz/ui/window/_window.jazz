@@ -181,34 +181,6 @@
 ;;;
 
 
-;; ste?
-(define (process-events-single-threaded)
-  (define (present-event-loop-restart)
-    (let ((loop (current-loop)))
-      (when loop
-        (let ((level (get-level~ loop)))
-          (format "Resume event loop{a}"
-                  (if (= level 0)
-                      ""
-                    (format " {a}" level)))))))
-  
-  (declare (proper-tail-calls))
-  (let (restart-loop)
-    (with-restart-catcher 'resume-loop (present-event-loop-restart)
-      (lambda ()
-        (catch Cancel-Signal
-          (let ((process (get-process)))
-            (process-messages-single-threaded process
-              (lambda ()
-                (let (loop)
-                  (when (with-exception-debugger (get-exception-debugger)
-                          (lambda ()
-                            (thread-process-ste~ process)))
-                    (thread-sleep! .0001)
-                    (loop)))))))))
-    (restart-loop)))
-
-
 (definition public (process-events)
   (define (present-event-loop-restart)
     (let ((loop (current-loop)))
@@ -219,9 +191,7 @@
                       ""
                     (format " {a}" level)))))))
   
-  (if (ste?)
-      (process-events-single-threaded)
-    (let ()
+  (let ()
     (declare (proper-tail-calls))
     (let ((process (get-process))
           (pump (process-messages)))
@@ -239,7 +209,7 @@
                       (thread-process-loop~ process))))))
             (restart-loop))
         (when pump
-          (thread-stop-loop pump)))))))
+          (thread-stop-loop pump))))))
 
 
 ;;;

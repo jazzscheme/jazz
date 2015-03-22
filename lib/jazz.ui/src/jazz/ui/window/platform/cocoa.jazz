@@ -128,9 +128,6 @@
   )
 
 
-(set-get-window get-window)
-
-
 ;;;
 ;;;; Messages
 ;;;
@@ -150,12 +147,16 @@
   (set! message-rate rate))
 
 
-(definition package (process-messages)
+(definition package (process-messages modal?)
   (define (process)
     (declare (proper-tail-calls))
     (let (loop)
       (site (message on?: #t)
-        (platformPollEvents))
+        (if modal?
+            (thread-execute (primordial-thread) 'execute
+              (lambda ()
+                (platformPollEvents)))
+          (platformPollEvents)))
       (thread-receive message-rate #f)
       (when (thread-loop? (current-thread))
         (loop))))
@@ -278,9 +279,6 @@
           (dispatch-shortcut~ appl shortcut))))))
 
 
-(set-translate-shortcut-hook translate-shortcut)
-
-
 (definition public (symbolic-key->code key)
   (table-find Symbolic-Keys key))
 
@@ -289,11 +287,13 @@
 (definition current-mouse-y 0)
 
 
-(definition (process-window-message handler event userdata)
-  )
+;;;
+;;;; Forward
+;;;
 
-@convert-cocoa
-(set-process-window-message process-window-message)
+
+(set-get-window get-window)
+(set-translate-shortcut translate-shortcut)
 
 
 ;;;

@@ -759,7 +759,6 @@ void platformInputWindowVisibility(PlatformWindow* window, int visible);
 bool platformInputKey(PlatformWindow* window, int key, int action);
 void platformInputChar(PlatformWindow* window, int character);
 void platformInputScroll(PlatformWindow* window, double x, double y);
-void platformDrawRect(PlatformWindow* window, NSRect dirtyRect);
 void platformInputMouseClick(PlatformWindow* window, int button, int clickCount, int action);
 void platformInputCursorMotion(PlatformWindow* window, double x, double y);
 
@@ -911,7 +910,7 @@ void call_error(char* msg);
 void call_debug(char* msg);
 void call_terminal(char* msg);
 void call_test(char* msg);
-void paint_callback(PlatformWindow* window, CGContextRef context, NSRect* dirtyRect);
+void paint_callback(PlatformWindow* window, NSRect* dirtyRect);
 void reshape_callback(PlatformWindow* window, int width, int height);
 void close_callback(PlatformWindow* window);
 int key_press_callback(PlatformWindow* window, int key, int action);
@@ -1664,7 +1663,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
     [[NSColor blackColor] set];
     NSRectFill(dirtyRect);
    
-    platformDrawRect(window, dirtyRect);
+    paint_callback(window, &dirtyRect);
 }
 
 - (void)mouseDown:(NSEvent *)event
@@ -2621,22 +2620,6 @@ void platformSetCursorPos(PlatformWindow* window, double xpos, double ypos)
 }
 
 
-void platformDrawRect(PlatformWindow* window, NSRect dirtyRect)
-{
-    int width, height;
-    CGContextRef context;
-
-    width = window->width;
-    height = window->height;
-
-    context = [[NSGraphicsContext currentContext] graphicsPort];
-    //CGContextTranslateCTM (context, 0.0, height);
-    //CGContextScaleCTM (context, 1.0, -1.0);
-  
-    paint_callback(window, context, &dirtyRect);
-}
-
-
 bool platformInputKey(PlatformWindow* window, int key, int action)
 {
     if (key < 0 || key > PLATFORM_KEY_LAST)
@@ -3456,6 +3439,12 @@ void platformPollEvents()
 }
 
 
+CGContextRef platformCurrentGraphics()
+{
+    return [[NSGraphicsContext currentContext] graphicsPort];
+}
+
+
 void platformLog(char* msg)
 {
     NSLog(@"%@", [NSString stringWithUTF8String:msg]);
@@ -3592,6 +3581,7 @@ void platformResumeMusic(char* alias)
 (c-external (platformSetIgnoreKeyRepeat bool) void)
 (c-external (platformEventAvailable) bool)
 (c-external (platformPollEvents) void)
+(c-external (platformCurrentGraphics) CGContextRef)
 (c-external (platformDestroyWindow platformwindow) void)
 (c-external (platformLog char-string) void)
 (c-external (platformBell) void)
@@ -3626,11 +3616,9 @@ void platformResumeMusic(char* alias)
 (c-enumerant PLATFORM_MOUSE_BUTTON_MIDDLE)
 
 
-(define translate-shortcut-hook
-  #f)
-
-(definition public (set-translate-shortcut-hook hook)
-  (set! translate-shortcut-hook hook))
+;;;
+;;;; Forward
+;;;
 
 
 (definition get-window
@@ -3638,6 +3626,13 @@ void platformResumeMusic(char* alias)
 
 (definition public (set-get-window proc)
   (set! get-window proc))
+
+
+(define translate-shortcut
+  #f)
+
+(definition public (set-translate-shortcut proc)
+  (set! translate-shortcut proc))
 
 
 ;;;
@@ -3667,13 +3662,14 @@ void platformResumeMusic(char* alias)
   #f)
 
 
-(c-definition (paint-callback handle context rect) (platformwindow CGContextRef NSRect*) void "paint_callback" ""
+(c-definition (paint-callback handle rect) (platformwindow NSRect*) void "paint_callback" ""
   (thread-execute (primordial-thread) 'execute-event
     (lambda ()
       (when log-callbacks?
         (system-log (list 'paint)))
       (when get-window
-        (let ((window (get-window handle)))
+        (let ((window (get-window handle))
+              (context (platformCurrentGraphics)))
           (paint-cocoa~ window context rect))))))
 
 
@@ -3709,7 +3705,7 @@ void platformResumeMusic(char* alias)
                         (if (eq? action PLATFORM_PRESS)
                             (begin
                               (key-down~ window char)
-                              (translate-shortcut-hook char))
+                              (translate-shortcut char))
                           (key-up~ window char)
                           #f))))
                   1

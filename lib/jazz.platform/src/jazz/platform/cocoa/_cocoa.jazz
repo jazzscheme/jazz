@@ -337,6 +337,129 @@ end-c-code
 
 
 ;;;
+;;;; Cocoa Types
+;;;
+
+
+(c-type CGFloat (native double))
+
+
+(c-structure NSPoint
+  (CGFloat x)
+  (CGFloat y))
+
+
+(c-structure NSSize
+  (CGFloat width)
+  (CGFloat height))
+
+
+(c-structure NSRect
+  (NSPoint origin)
+  (NSSize size))
+
+
+(c-type CGContextRef (pointer (struct "CGContext")))
+
+
+;;;
+;;;; Cocoa Conversions
+;;;
+
+
+(definition public (new-NSPoint x <fl> y <fl>)
+  (let ((point (NSPoint-make)))
+    (NSPoint-x-set! point x)
+    (NSPoint-y-set! point y)
+    point))
+
+
+(definition public (with-NSPoint point proc)
+  (let ((pt (cond ((not point) (NSPoint-make))
+                  ((is? point Point) (point->NSPoint point))
+                  (else point))))
+    (prog1 (proc pt)
+      (NSPoint-free pt))))
+
+
+(definition public (NSPoint->point pt) <Point>
+  (new Point
+    (fxround (NSPoint-x-ref pt))
+    (fxround (NSPoint-y-ref pt))))
+
+
+(definition public (point->NSPoint point)
+  (new-NSPoint (cast <fl> (get-h~ point))
+               (cast <fl> (get-v~ point))))
+
+
+(definition public (new-NSSize width <fl> height <fl>)
+  (let ((size (NSSize-make)))
+    (NSSize-width-set! size width)
+    (NSSize-height-set! size height)
+    size))
+
+
+(definition public (with-NSSize dim proc)
+  (let ((size (cond ((not dim) (NSSize-make))
+                    ((is? dim Dimension) (dimension->NSSize dim))
+                    (else dim))))
+    (prog1 (proc size)
+      (NSSize-free size))))
+
+
+(definition public (NSSize->dimension size) <Point>
+  (new Dimension
+    (fxround (NSSize-width-ref size))
+    (fxround (NSSize-height-ref size))))
+
+
+(definition public (dimension->NSSize dim)
+  (new-NSSize (cast <fl> (get-width~ dim))
+              (cast <fl> (get-height~ dim))))
+
+
+(definition public (new-NSRect x <fl> y <fl> width <fl> height <fl>)
+  (let ((rect (NSRect-make)))
+    (let ((orig (NSRect-origin-ref rect))
+          (size (NSRect-size-ref rect)))
+      (NSPoint-x-set!     orig x)
+      (NSPoint-y-set!     orig y)
+      (NSSize-width-set!  size width)
+      (NSSize-height-set! size height)
+      rect)))
+
+
+(definition public (with-NSRect rect proc)
+  (let ((rect (cond ((not rect) (NSRect-make))
+                    ((is? rect Rect) (rect->NSRect rect))
+                    (else rect))))
+    (prog1 (proc rect)
+      (NSRect-free rect))))
+
+
+(definition public (rect->NSRect rect)
+  (let ((l (get-left~ rect))
+        (t (get-top~ rect))
+        (r (get-right~ rect))
+        (b (get-bottom~ rect)))
+    (new-NSRect (cast <fl> l)
+                (cast <fl> t)
+                (cast <fl> (- r l))
+                (cast <fl> (- b t)))))
+
+
+(definition public (NSRect->rect rect) <Rect>
+  (let ((orig (NSRect-origin-ref rect))
+        (size (NSRect-size-ref rect)))
+    (new Rect
+      (fxround (NSPoint-x-ref orig))
+      (fxround (NSPoint-y-ref orig))
+      (fxround (+ (NSPoint-x-ref orig) (NSSize-width-ref size)))
+      (fxround (+ (NSPoint-y-ref orig) (NSSize-height-ref size))))))
+
+
+;;;
 ;;;; Cocoa Region
 ;;;
 
@@ -378,12 +501,11 @@ end-c-code
 
 
 ;;;
-;;;; Platform Internal
+;;;; Platform Header
 ;;;
 
 
 (c-declare cocoa #"
-
 
 #define PLATFORM_USE_FULLSCREEN 0
 
@@ -572,51 +694,52 @@ typedef struct PlatformInputState        PlatformInputState;
  *************************************************************************/
 
 /* platformCreateWindow modes */
-#define PLATFORM_WINDOWED             0x00010001
-#define PLATFORM_FULLSCREEN           0x00010002
+#define PLATFORM_WINDOWED              0x00010001
+#define PLATFORM_FULLSCREEN            0x00010002
 
 /* platformCreateWindow kinds */
-#define PLATFORM_WINDOW               0x00010011
-#define PLATFORM_DIALOG               0x00010012
-#define PLATFORM_POPUP                0x00010013
-#define PLATFORM_BORDERLESS           0x00010014
+#define PLATFORM_WINDOW                0x00010011
+#define PLATFORM_DIALOG                0x00010012
+#define PLATFORM_POPUP                 0x00010013
+#define PLATFORM_BORDERLESS            0x00010014
 
 /* PLATFORM_CLIENT_API tokens */
-#define PLATFORM_OPENGL_API           0x00000001
-#define PLATFORM_OPENGL_ES_API        0x00000002
+#define PLATFORM_OPENGL_API            0x00000001
+#define PLATFORM_OPENGL_ES_API         0x00000002
 
 /* PLATFORM_OPENGL_PROFILE bit tokens */
-#define PLATFORM_OPENGL_CORE_PROFILE  0x00000001
+#define PLATFORM_OPENGL_CORE_PROFILE   0x00000001
 #define PLATFORM_OPENGL_COMPAT_PROFILE 0x00000002
 
 /* cursorMode values */
-#define PLATFORM_CURSOR_NORMAL       0x00040001
-#define PLATFORM_CURSOR_HIDDEN       0x00040002
-#define PLATFORM_CURSOR_CAPTURED     0x00040003
+#define PLATFORM_CURSOR_NORMAL         0x00040001
+#define PLATFORM_CURSOR_HIDDEN         0x00040002
+#define PLATFORM_CURSOR_CAPTURED       0x00040003
 
 /* platformGetError tokens */
-#define PLATFORM_NO_ERROR             0
-#define PLATFORM_NOT_INITIALIZED      0x00070001
-#define PLATFORM_NO_CURRENT_CONTEXT   0x00070002
-#define PLATFORM_INVALID_ENUM         0x00070003
-#define PLATFORM_INVALID_VALUE        0x00070004
-#define PLATFORM_OUT_OF_MEMORY        0x00070005
-#define PLATFORM_OPENGL_UNAVAILABLE   0x00070006
-#define PLATFORM_VERSION_UNAVAILABLE  0x00070007
-#define PLATFORM_PLATFORM_ERROR       0x00070008
-#define PLATFORM_WINDOW_NOT_ACTIVE    0x00070009
-#define PLATFORM_FORMAT_UNAVAILABLE   0x0007000A
+#define PLATFORM_NO_ERROR              0
+#define PLATFORM_NOT_INITIALIZED       0x00070001
+#define PLATFORM_NO_CURRENT_CONTEXT    0x00070002
+#define PLATFORM_INVALID_ENUM          0x00070003
+#define PLATFORM_INVALID_VALUE         0x00070004
+#define PLATFORM_OUT_OF_MEMORY         0x00070005
+#define PLATFORM_OPENGL_UNAVAILABLE    0x00070006
+#define PLATFORM_VERSION_UNAVAILABLE   0x00070007
+#define PLATFORM_PLATFORM_ERROR        0x00070008
+#define PLATFORM_WINDOW_NOT_ACTIVE     0x00070009
+#define PLATFORM_FORMAT_UNAVAILABLE    0x0007000A
 
 
 /*************************************************************************
  * Prototypes
  *************************************************************************/
 
-/* Error handling */
+// Error handling
+void platformSetError(int error, const char* format, ...);
 int platformGetError();
 const char* platformErrorString(int error);
 
-/* Window handling */
+// Window handling
 PlatformWindow* platformCreateWindow(int width, int height, int mode, int kind, const char* title, bool opengl);
 void platformDestroyWindow(PlatformWindow* window);
 void platformGetWindowSize(PlatformWindow* window, int* width, int* height);
@@ -624,40 +747,12 @@ void platformIconifyWindow(PlatformWindow* window);
 void platformRestoreWindow(PlatformWindow* window);
 void platformShowWindow(PlatformWindow* window);
 void platformHideWindow(PlatformWindow* window);
-
-/* Input handling */
-int  platformGetInputMode(PlatformWindow* window, int mode);
-void platformSetInputMode(PlatformWindow* window, int mode, int value);
-int  platformGetKey(int key);
-int  platformGetMouseButton(PlatformWindow* window, int button);
-
-/* Time */
-double platformGetTime();
-void   platformSetTime(double time);
-
-/* OpenGL support */
-void platformMakeContextCurrent(PlatformWindow* window);
-PlatformWindow* platformGetCurrentContext();
-
-// Time
-void platformInitTimer();
-
-
-// Input mode support
-void platformInternalGetCursorPos(PlatformWindow* window, double* xpos, double* ypos);
-void platformInternalSetCursorPos(PlatformWindow* window, double x, double y);
-
-// Window management
 int  platformInternalCreateWindow(PlatformWindow* window, const PlatformWindowConfig* wndconfig, const PlatformFramebufferConfig* fbconfig,int kind, bool opengl);
 void platformInternalDestroyWindow(PlatformWindow* window);
 void platformInternalShowWindow(PlatformWindow* window);
 void platformInternalHideWindow(PlatformWindow* window);
 
-// OpenGL context management
-void platformInternalMakeContextCurrent(PlatformWindow* window);
-PlatformWindow* platformInternalGetCurrentContext();
-
-// Window event notification (window.c)
+// Window event notification
 void platformInputWindowFocus(PlatformWindow* window, GLboolean activated);
 void platformInputWindowPos(PlatformWindow* window, int x, int y);
 void platformInputWindowSize(PlatformWindow* window, int width, int height);
@@ -665,7 +760,7 @@ void platformInputWindowIconify(PlatformWindow* window, int iconified);
 void platformInputWindowVisibility(PlatformWindow* window, int visible);
 void platformInputWindowCloseRequest(PlatformWindow* window);
 
-// Input event notification (input.c)
+// Input event notification
 bool platformInputKey(PlatformWindow* window, int key, int action);
 void platformInputChar(PlatformWindow* window, int character);
 void platformInputScroll(PlatformWindow* window, double x, double y);
@@ -674,8 +769,24 @@ void platformInputMouseClick(PlatformWindow* window, int button, int clickCount,
 void platformInputCursorMotion(PlatformWindow* window, double x, double y);
 void platformInputCursorEnter(PlatformWindow* window, int entered);
 
-// Error handling
-void platformSetError(int error, const char* format, ...);
+// Input handling
+int  platformGetInputMode(PlatformWindow* window, int mode);
+void platformSetInputMode(PlatformWindow* window, int mode, int value);
+int  platformGetKey(int key);
+int  platformGetMouseButton(PlatformWindow* window, int button);
+void platformInternalGetCursorPos(PlatformWindow* window, double* xpos, double* ypos);
+void platformInternalSetCursorPos(PlatformWindow* window, double x, double y);
+
+// Time
+void   platformInitTimer();
+double platformGetTime();
+void   platformSetTime(double time);
+
+// OpenGL support
+void platformMakeContextCurrent(PlatformWindow* window);
+PlatformWindow* platformGetCurrentContext();
+void platformInternalMakeContextCurrent(PlatformWindow* window);
+PlatformWindow* platformInternalGetCurrentContext();
 
 // OpenGL context helpers
 GLboolean platformRefreshContextParams();
@@ -728,17 +839,17 @@ struct PlatformWindow
 {
     struct PlatformWindow* next;
 
-    // Window settings and state
-    GLboolean iconified;       // GL_TRUE if this window is iconified
-    GLboolean closeRequested;  // GL_TRUE if this window should be closed
+    // Settings and state
+    GLboolean iconified;
+    GLboolean closeRequested;
     int       width, height;
     int       positionX, positionY;
-    int       mode;            // PLATFORM_WINDOW or PLATFORM_FULLSCREEN
-    GLboolean resizable;       // GL_TRUE if user may resize this window
-    GLboolean visible;         // GL_TRUE if this window is visible
-    int       refreshRate;     // monitor refresh rate
+    int       mode;
+    GLboolean resizable;
+    GLboolean visible;
+    int       refreshRate;
 
-    // Window input state
+    // Input state
     double    cursorPosX, cursorPosY;
     int       cursorMode;
     char      mouseButton[PLATFORM_MOUSE_BUTTON_LAST + 1];
@@ -750,7 +861,7 @@ struct PlatformWindow
     int       glProfile;
     int       glRobustness;
 
-    // Window cocoa stuff
+    // Cocoa stuff
     int       kind;
     id        object;
     id        delegate;
@@ -793,129 +904,6 @@ PlatformState platform;
 PlatformInputState platformInput;
 
 "#)
-
-
-;;;
-;;;; Platform Types
-;;;
-
-
-(c-type CGFloat (native double))
-
-
-(c-structure NSPoint
-  (CGFloat x)
-  (CGFloat y))
-
-
-(c-structure NSSize
-  (CGFloat width)
-  (CGFloat height))
-
-
-(c-structure NSRect
-  (NSPoint origin)
-  (NSSize size))
-
-
-(c-type CGContextRef (pointer (struct "CGContext")))
-
-
-;;;
-;;;; Platform Conversions
-;;;
-
-
-(definition public (new-NSPoint x <fl> y <fl>)
-  (let ((point (NSPoint-make)))
-    (NSPoint-x-set! point x)
-    (NSPoint-y-set! point y)
-    point))
-
-
-(definition public (with-NSPoint point proc)
-  (let ((pt (cond ((not point) (NSPoint-make))
-                  ((is? point Point) (point->NSPoint point))
-                  (else point))))
-    (prog1 (proc pt)
-      (NSPoint-free pt))))
-
-
-(definition public (NSPoint->point pt) <Point>
-  (new Point
-    (fxround (NSPoint-x-ref pt))
-    (fxround (NSPoint-y-ref pt))))
-
-
-(definition public (point->NSPoint point)
-  (new-NSPoint (cast <fl> (get-h~ point))
-               (cast <fl> (get-v~ point))))
-
-
-(definition public (new-NSSize width <fl> height <fl>)
-  (let ((size (NSSize-make)))
-    (NSSize-width-set! size width)
-    (NSSize-height-set! size height)
-    size))
-
-
-(definition public (with-NSSize dim proc)
-  (let ((size (cond ((not dim) (NSSize-make))
-                    ((is? dim Dimension) (dimension->NSSize dim))
-                    (else dim))))
-    (prog1 (proc size)
-      (NSSize-free size))))
-
-
-(definition public (NSSize->dimension size) <Point>
-  (new Dimension
-    (fxround (NSSize-width-ref size))
-    (fxround (NSSize-height-ref size))))
-
-
-(definition public (dimension->NSSize dim)
-  (new-NSSize (cast <fl> (get-width~ dim))
-              (cast <fl> (get-height~ dim))))
-
-
-(definition public (new-NSRect x <fl> y <fl> width <fl> height <fl>)
-  (let ((rect (NSRect-make)))
-    (let ((orig (NSRect-origin-ref rect))
-          (size (NSRect-size-ref rect)))
-      (NSPoint-x-set!     orig x)
-      (NSPoint-y-set!     orig y)
-      (NSSize-width-set!  size width)
-      (NSSize-height-set! size height)
-      rect)))
-
-
-(definition public (with-NSRect rect proc)
-  (let ((rect (cond ((not rect) (NSRect-make))
-                    ((is? rect Rect) (rect->NSRect rect))
-                    (else rect))))
-    (prog1 (proc rect)
-      (NSRect-free rect))))
-
-
-(definition public (rect->NSRect rect)
-  (let ((l (get-left~ rect))
-        (t (get-top~ rect))
-        (r (get-right~ rect))
-        (b (get-bottom~ rect)))
-    (new-NSRect (cast <fl> l)
-                (cast <fl> t)
-                (cast <fl> (- r l))
-                (cast <fl> (- b t)))))
-
-
-(definition public (NSRect->rect rect) <Rect>
-  (let ((orig (NSRect-origin-ref rect))
-        (size (NSRect-size-ref rect)))
-    (new Rect
-      (fxround (NSPoint-x-ref orig))
-      (fxround (NSPoint-y-ref orig))
-      (fxround (+ (NSPoint-x-ref orig) (NSSize-width-ref size)))
-      (fxround (+ (NSPoint-y-ref orig) (NSSize-height-ref size))))))
 
 
 ;;;
@@ -1035,7 +1023,6 @@ void platformInit()
     platformInitTimer();
 
     platform.eventSource = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
-
     CGEventSourceSetLocalEventsSuppressionInterval(platform.eventSource,
                                                    0.0);
 
@@ -1074,55 +1061,7 @@ void platformTerminate()
 
 
 ;;;
-;;;; Platform OpenGL
-;;;
-
-
-(c-declare cocoa #"
-
-
-void platformInternalMakeContextCurrent(PlatformWindow* window)
-{
-    if (window)
-        [window->context makeCurrentContext];
-    else
-        [NSOpenGLContext clearCurrentContext];
-
-    currentWindow = window;
-}
-
-
-PlatformWindow* platformInternalGetCurrentContext()
-{
-    return currentWindow;
-}
-
-
-void platformSwapBuffers(PlatformWindow* window)
-{
-    [window->context flushBuffer];
-}
-
-
-void platformSwapInterval(int interval)
-{
-    if (!platformInternalGetCurrentContext())
-    {
-        platformSetError(PLATFORM_NO_CURRENT_CONTEXT, NULL);
-        return;
-    }
-
-    PlatformWindow* window = platformInternalGetCurrentContext();
-
-    GLint sync = interval;
-    [window->context setValues:&sync forParameter:NSOpenGLCPSwapInterval];
-}
-
-"#)
-
-
-;;;
-;;;; Platform Window
+;;;; Platform Window Utilities
 ;;;
 
 
@@ -1140,24 +1079,21 @@ static void platformInternalGetWindowSize(PlatformWindow* window, int* width, in
         *height = contentRect.size.height;
 }
 
-static void centerCursor(PlatformWindow *window)
-{
-    int width, height;
-    platformInternalGetWindowSize(window, &width, &height);
-    platformInternalSetCursorPos(window, width / 2.0, height / 2.0);
-}
-
 static float transformY(float y)
 {
     const float height = CGDisplayBounds(CGMainDisplayID()).size.height;
     return height - y;
 }
 
+"#)
 
-//========================================================================
-// JazzWindow
-//========================================================================
 
+;;;
+;;;; Platform Jazz Window
+;;;
+
+
+(c-declare cocoa #"
 
 @interface JazzWindow : NSWindow
 {
@@ -1184,8 +1120,17 @@ static float transformY(float y)
 
 @end
 
+"#)
 
-@interface FullScreenWindow : JazzWindow
+
+;;;
+;;;; Platform Jazz FullScreen Window
+;;;
+
+
+(c-declare cocoa #"
+
+@interface JazzFullScreenWindow : JazzWindow
 {
     JazzWindow* mainWindow;
 }
@@ -1195,7 +1140,7 @@ static float transformY(float y)
 
 @end
 
-@implementation FullScreenWindow
+@implementation JazzFullScreenWindow
 
 - (JazzWindow*)getMainWindow
 {
@@ -1256,7 +1201,7 @@ void toggleFullScreenWindowed(PlatformWindow *window)
         }
 
         NSRect newFrame = [mainWindow contentRectForFrameRect:[mainWindow frame]];
-        fullscreenWindow = [[FullScreenWindow alloc]
+        fullscreenWindow = [[JazzFullScreenWindow alloc]
             initWithContentRect:newFrame
             styleMask:NSBorderlessWindowMask
             backing:NSBackingStoreBuffered
@@ -1344,10 +1289,15 @@ void platformInternalPostEmptyEvent()
     [pool drain];
 }
 
+"#)
 
-//========================================================================
-// Delegate for window related notifications
-//========================================================================
+
+;;;
+;;;; Platform Jazz Window Delegate
+;;;
+
+
+(c-declare cocoa #"
 
 @interface JazzWindowDelegate : NSObject <NSDraggingDestination>
 {
@@ -1440,10 +1390,15 @@ void platformInternalPostEmptyEvent()
 // quick hack around nextEventMatchingMask calling drawRect
 bool inEventAvailable = false;
 
+"#)
 
-//========================================================================
-// Delegate for application related notifications
-//========================================================================
+
+;;;
+;;;; Platform Jazz Application Delegate
+;;;
+
+
+(c-declare cocoa #"
 
 @interface JazzApplicationDelegate : NSObject
 @end
@@ -1492,6 +1447,15 @@ bool inEventAvailable = false;
 
 @end
 
+"#)
+
+
+;;;
+;;;; Platform Keys
+;;;
+
+
+(c-declare cocoa #"
 
 static int convertMacKeyCode(unsigned int macKeyCode)
 {
@@ -1634,10 +1598,15 @@ static int convertMacKeyCode(unsigned int macKeyCode)
     return table[macKeyCode];
 }
 
+"#)
 
-//========================================================================
-// Content view class for the Jazz window
-//========================================================================
+
+;;;
+;;;; Platform Jazz Content View
+;;;
+
+
+(c-declare cocoa #"
 
 @interface JazzContentView : NSView
 {
@@ -1867,10 +1836,15 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 @end
 
+"#)
 
-//========================================================================
-// Jazz application class
-//========================================================================
+
+;;;
+;;;; Platform Jazz Application
+;;;
+
+
+(c-declare cocoa #"
 
 @interface JazzApplication : NSApplication
 @end
@@ -2006,7 +1980,6 @@ static GLboolean initializeAppKit()
     if (NSApp)
         return GL_TRUE;
 
-    // Implicitly create shared NSApplication instance
     [JazzApplication sharedApplication];
     
     // In case we are unbundled, make us a proper UI application
@@ -2026,6 +1999,16 @@ static GLboolean initializeAppKit()
 
     return GL_TRUE;
 }
+
+"#)
+
+
+;;;
+;;;; Platform Window Creation
+;;;
+
+
+(c-declare cocoa #"
 
 
 static GLboolean createWindow(PlatformWindow* window,
@@ -2191,16 +2174,6 @@ int platformInternalCreateWindow(PlatformWindow* window,
 
     window->delegate = [[JazzWindowDelegate alloc] initWithPlatformWindow:window];
 
-    // Mac OS X needs non-zero color size, so set resonable values
-    int colorBits = fbconfig->redBits + fbconfig->greenBits + fbconfig->blueBits;
-    if (colorBits == 0)
-        colorBits = 24;
-    else if (colorBits < 15)
-        colorBits = 15;
-
-    // Don't use accumulation buffer support; it's not accelerated
-    // Aux buffers probably aren't accelerated either
-
     if (!createWindow(window, wndconfig, kind))
         return GL_FALSE;
 
@@ -2357,6 +2330,20 @@ void platformInitTimer()
     platform.timer.base = getRawTime();
 }
 
+
+double platformGetTime()
+{
+    return (double) (getRawTime() - platform.timer.base) *
+        platform.timer.resolution;
+}
+
+
+void platformSetTime(double time)
+{
+    platform.timer.base = getRawTime() -
+        (uint64_t) (time / platform.timer.resolution);
+}
+
 "#)
 
 
@@ -2366,7 +2353,6 @@ void platformInitTimer()
 
 
 (c-declare cocoa #"
-
 
 static int platformError = PLATFORM_NO_ERROR;
 
@@ -2440,35 +2426,11 @@ const char* platformErrorString(int error)
 
 
 ;;;
-;;;; Platform Time
-;;;
-
-
-(c-declare cocoa #"
-
-double platformGetTime()
-{
-    return (double) (getRawTime() - platform.timer.base) *
-        platform.timer.resolution;
-}
-
-
-void platformSetTime(double time)
-{
-    platform.timer.base = getRawTime() -
-        (uint64_t) (time / platform.timer.resolution);
-}
-
-"#)
-
-
-;;;
 ;;;; Platform OpenGL
 ;;;
 
 
 (c-declare cocoa #"
-
 
 static GLboolean parseGLVersion(int* api, int* major, int* minor, int* rev)
 {
@@ -2595,6 +2557,43 @@ void platformMakeContextCurrent(PlatformWindow* window)
 PlatformWindow* platformGetCurrentContext()
 {
     return platformInternalGetCurrentContext();
+}
+
+void platformInternalMakeContextCurrent(PlatformWindow* window)
+{
+    if (window)
+        [window->context makeCurrentContext];
+    else
+        [NSOpenGLContext clearCurrentContext];
+
+    currentWindow = window;
+}
+
+
+PlatformWindow* platformInternalGetCurrentContext()
+{
+    return currentWindow;
+}
+
+
+void platformSwapBuffers(PlatformWindow* window)
+{
+    [window->context flushBuffer];
+}
+
+
+void platformSwapInterval(int interval)
+{
+    if (!platformInternalGetCurrentContext())
+    {
+        platformSetError(PLATFORM_NO_CURRENT_CONTEXT, NULL);
+        return;
+    }
+
+    PlatformWindow* window = platformInternalGetCurrentContext();
+
+    GLint sync = interval;
+    [window->context setValues:&sync forParameter:NSOpenGLCPSwapInterval];
 }
 
 "#)
@@ -2806,7 +2805,7 @@ int platformGetMouseButton(PlatformWindow* window, int button)
 
 
 ;;;
-;;;; Platform Window
+;;;; Platform Window Input
 ;;;
 
 
@@ -3122,7 +3121,7 @@ void platformHideWindow(PlatformWindow* window)
 
 
 ;;;
-;;;; Platform
+;;;; Platform Screen
 ;;;
 
 
@@ -3186,6 +3185,16 @@ void platformExitFullscreen(PlatformWindow* window)
     // [window->object toggleFullScreen:nil];
     toggleFullScreenWindowed(window);
 }
+
+"#)
+
+
+;;;
+;;;; Platform Window
+;;;
+
+
+(c-declare cocoa #"
 
 
 void platformSetWindowTitle(PlatformWindow* window, char* title)
@@ -3309,6 +3318,16 @@ void platformGetWindowViewRect(PlatformWindow* window, NSRect* rect)
     *rect = [window->view frame];
 }
 
+"#)
+
+
+;;;
+;;;; Platform Cursor
+;;;
+
+
+(c-declare cocoa #"
+
 
 void platformGetMousePosition(PlatformWindow* window, NSPoint* pos)
 {
@@ -3351,6 +3370,16 @@ bool platformKeyDown(int key)
     return platformGetKey(key) == PLATFORM_PRESS;
 }
 
+"#)
+
+
+;;;
+;;;; Platform Clipboard
+;;;
+
+
+(c-declare cocoa #"
+
 
 const char* platformGetClipboardString()
 {
@@ -3381,6 +3410,16 @@ void platformInvalidateRect(PlatformWindow* window, NSRect* rect)
     [window->view setNeedsDisplayInRect:*rect];
 }
 
+"#)
+
+
+;;;
+;;;; Platform Focus
+;;;
+
+
+(c-declare cocoa #"
+
 
 // Quick hack
 static PlatformWindow* currentFocus = NULL;
@@ -3401,6 +3440,16 @@ void platformSetFocus(PlatformWindow* window)
     currentFocus = window;
     [window->object makeKeyAndOrderFront:nil];
 }
+
+"#)
+
+
+;;;
+;;;; Platform Events
+;;;
+
+
+(c-declare cocoa #"
 
 
 bool ignoreKeyRepeat = false;
@@ -3476,6 +3525,16 @@ void platformLog(char* msg)
     NSLog(@"%@", [NSString stringWithUTF8String:msg]);
 }
 
+"#)
+
+
+;;;
+;;;; Platform Sound
+;;;
+
+
+(c-declare cocoa #"
+
 
 void platformBell()
 {
@@ -3542,6 +3601,11 @@ void platformResumeMusic(char* alias)
 "#)
 
 
+;;;
+;;;; Platform
+;;;
+
+
 (c-type platformwindow (pointer (struct "PlatformWindow")))
 
 
@@ -3605,6 +3669,11 @@ void platformResumeMusic(char* alias)
 (c-external (platformResumeMusic char-string) void)
 
 
+;;;
+;;;; Window
+;;;
+
+
 (c-enumerant PLATFORM_WINDOWED)
 (c-enumerant PLATFORM_FULLSCREEN)
 
@@ -3621,7 +3690,6 @@ void platformResumeMusic(char* alias)
 (c-enumerant PLATFORM_MOUSE_BUTTON_MIDDLE)
 
 
-;; quicky
 (define translate-shortcut-hook
   #f)
 
@@ -3636,6 +3704,11 @@ void platformResumeMusic(char* alias)
   (set! get-window proc))
 
 
+;;;
+;;;; Debug
+;;;
+
+
 (c-definition (call-error msg) (char-string) void "call_error" ""
   (error msg))
 
@@ -3647,6 +3720,11 @@ void platformResumeMusic(char* alias)
 
 (c-definition (call-test msg) (char-string) void "call_test" ""
   #f)
+
+
+;;;
+;;;; Callbacks
+;;;
 
 
 (definition log-callbacks?
@@ -3896,8 +3974,4 @@ void platformResumeMusic(char* alias)
 
 
 (definition public (get-temporary-file . rest)
-  (unimplemented))
-
-
-@what-does-this-do?
-(TransformProcessType))
+  (unimplemented)))

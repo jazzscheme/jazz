@@ -511,7 +511,7 @@ end-c-code
 
 
 //========================================================================
-// Internal type declarations
+// Type declarations
 //========================================================================
 
 typedef struct PlatformWindowConfig      PlatformWindowConfig;
@@ -747,10 +747,6 @@ void platformIconifyWindow(PlatformWindow* window);
 void platformRestoreWindow(PlatformWindow* window);
 void platformShowWindow(PlatformWindow* window);
 void platformHideWindow(PlatformWindow* window);
-int  platformInternalCreateWindow(PlatformWindow* window, const PlatformWindowConfig* wndconfig, const PlatformFramebufferConfig* fbconfig,int kind, bool opengl);
-void platformInternalDestroyWindow(PlatformWindow* window);
-void platformInternalShowWindow(PlatformWindow* window);
-void platformInternalHideWindow(PlatformWindow* window);
 
 // Window event notification
 void platformInputWindowFocus(PlatformWindow* window, GLboolean activated);
@@ -758,7 +754,6 @@ void platformInputWindowPos(PlatformWindow* window, int x, int y);
 void platformInputWindowSize(PlatformWindow* window, int width, int height);
 void platformInputWindowIconify(PlatformWindow* window, int iconified);
 void platformInputWindowVisibility(PlatformWindow* window, int visible);
-void platformInputWindowCloseRequest(PlatformWindow* window);
 
 // Input event notification
 bool platformInputKey(PlatformWindow* window, int key, int action);
@@ -1322,7 +1317,7 @@ void platformInternalPostEmptyEvent()
 
 - (BOOL)windowShouldClose:(id)sender
 {
-    platformInputWindowCloseRequest(window);
+    close_callback(window);
     return NO;
 }
 
@@ -1976,10 +1971,10 @@ static void createMenuBar()
 }
 
 
-static GLboolean initializeAppKit()
+static void initializeAppKit()
 {
     if (NSApp)
-        return GL_TRUE;
+        return;
 
     [JazzApplication sharedApplication];
     
@@ -1997,8 +1992,6 @@ static GLboolean initializeAppKit()
 
     [NSApp setDelegate:platform.delegate];
     [NSApp run];
-
-    return GL_TRUE;
 }
 
 "#)
@@ -2161,68 +2154,6 @@ static GLboolean createContext(PlatformWindow* window,
         [[NSOpenGLContext alloc] initWithFormat:window->pixelFormat shareContext:nil];
 
     return GL_TRUE;
-}
-
-
-int platformInternalCreateWindow(PlatformWindow* window,
-                                 const PlatformWindowConfig* wndconfig,
-                                 const PlatformFramebufferConfig* fbconfig,
-                                 int kind,
-                                 bool opengl)
-{
-    if (!initializeAppKit())
-        return GL_FALSE;
-
-    window->delegate = [[JazzWindowDelegate alloc] initWithPlatformWindow:window];
-
-    if (!createWindow(window, wndconfig, kind))
-        return GL_FALSE;
-
-    if (opengl)
-    {
-        if (!createContext(window, wndconfig, fbconfig))
-            return GL_FALSE;
-    }
-
-    [window->context setView:[window->object contentView]];
-
-    return GL_TRUE;
-}
-
-
-void platformInternalDestroyWindow(PlatformWindow* window)
-{
-    [window->object orderOut:nil];
-
-    [window->pixelFormat release];
-    window->pixelFormat = nil;
-
-    [window->context release];
-    window->context = nil;
-
-    [window->object setDelegate:nil];
-    [window->delegate release];
-    window->delegate = nil;
-
-    [window->view release];
-    window->view = nil;
-
-    [window->object close];
-    window->object = nil;
-}
-
-
-void platformInternalShowWindow(PlatformWindow* window)
-{
-    [window->object orderFront:nil];
-    platformInputWindowVisibility(window, GL_TRUE);
-}
-
-
-void platformInternalHideWindow(PlatformWindow* window)
-{
-    [window->object orderOut:nil];
-    platformInputWindowVisibility(window, GL_FALSE);
 }
 
 
@@ -2889,12 +2820,6 @@ void platformInputWindowVisibility(PlatformWindow* window, int visible)
 }
 
 
-void platformInputWindowCloseRequest(PlatformWindow* window)
-{
-    close_callback(window);
-}
-
-
 PlatformWindow* platformCreateWindow(int width, int height,
                                      int mode, int kind, const char* title,
                                      bool opengl)
@@ -2946,23 +2871,23 @@ PlatformWindow* platformCreateWindow(int width, int height,
 
     if (opengl)
     {
-    // Check width & height
-    if (width > 0 && height <= 0)
-    {
-        // Set the window aspect ratio to 4:3
-        height = (width * 3) / 4;
-    }
-    else if (width <= 0 && height > 0)
-    {
-        // Set the window aspect ratio to 4:3
-        width = (height * 4) / 3;
-    }
-    else if (width <= 0 && height <= 0)
-    {
-        // Default window size
-        width  = 640;
-        height = 480;
-    }
+        // Check width & height
+        if (width > 0 && height <= 0)
+        {
+            // Set the window aspect ratio to 4:3
+            height = (width * 3) / 4;
+        }
+        else if (width <= 0 && height > 0)
+        {
+            // Set the window aspect ratio to 4:3
+            width = (height * 4) / 3;
+        }
+        else if (width <= 0 && height <= 0)
+        {
+            // Default window size
+            width  = 640;
+            height = 480;
+        }
     }
 
     window = (PlatformWindow*) calloc(1, sizeof(PlatformWindow));
@@ -2981,15 +2906,17 @@ PlatformWindow* platformCreateWindow(int width, int height,
     window->mode       = mode;
     window->resizable  = wndconfig.resizable;
     window->cursorMode = PLATFORM_CURSOR_NORMAL;
+    
+    initializeAppKit();
 
-    // Open the actual window and create its context
-    if (!platformInternalCreateWindow(window, &wndconfig, &fbconfig, kind, opengl))
-    {
-        platformDestroyWindow(window);
-        if (opengl)
-            platformMakeContextCurrent(previous);
-        return GL_FALSE;
-    }
+    window->delegate = [[JazzWindowDelegate alloc] initWithPlatformWindow:window];
+
+    createWindow(window, &wndconfig, kind);
+
+    if (opengl)
+        createContext(window, &wndconfig, &fbconfig);
+
+    [window->context setView:[window->object contentView]];
 
     if (opengl)
         platformMakeContextCurrent(window);
@@ -3046,7 +2973,23 @@ void platformDestroyWindow(PlatformWindow* window)
     if (window == platform.focusedWindow)
         platform.focusedWindow = NULL;
 
-    platformInternalDestroyWindow(window);
+    [window->object orderOut:nil];
+
+    [window->pixelFormat release];
+    window->pixelFormat = nil;
+
+    [window->context release];
+    window->context = nil;
+
+    [window->object setDelegate:nil];
+    [window->delegate release];
+    window->delegate = nil;
+
+    [window->view release];
+    window->view = nil;
+
+    [window->object close];
+    window->object = nil;
 
     // Unlink window from global linked list
     {
@@ -3101,7 +3044,8 @@ void platformShowWindow(PlatformWindow* window)
     if (window->mode == PLATFORM_FULLSCREEN)
         return;
 
-    platformInternalShowWindow(window);
+    [window->object orderFront:nil];
+    platformInputWindowVisibility(window, GL_TRUE);
 }
 
 
@@ -3110,7 +3054,8 @@ void platformHideWindow(PlatformWindow* window)
     if (window->mode == PLATFORM_FULLSCREEN)
         return;
 
-    platformInternalHideWindow(window);
+    [window->object orderOut:nil];
+    platformInputWindowVisibility(window, GL_FALSE);
 }
 
 "#)

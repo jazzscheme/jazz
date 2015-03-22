@@ -767,7 +767,6 @@ void platformInputScroll(PlatformWindow* window, double x, double y);
 void platformDrawRect(PlatformWindow* window, NSRect dirtyRect);
 void platformInputMouseClick(PlatformWindow* window, int button, int clickCount, int action);
 void platformInputCursorMotion(PlatformWindow* window, double x, double y);
-void platformInputCursorEnter(PlatformWindow* window, int entered);
 
 // Input handling
 int  platformGetInputMode(PlatformWindow* window, int mode);
@@ -917,9 +916,9 @@ void call_error(char* msg);
 void call_debug(char* msg);
 void call_terminal(char* msg);
 void call_test(char* msg);
+void paint_callback(PlatformWindow* window, CGContextRef context, NSRect* dirtyRect);
 void reshape_callback(PlatformWindow* window, int width, int height);
 void close_callback(PlatformWindow* window);
-void paint_callback(PlatformWindow* window, CGContextRef context, NSRect* dirtyRect);
 int key_press_callback(PlatformWindow* window, int key, int action);
 void char_callback(PlatformWindow* window, int c);
 void button_callback(PlatformWindow* window, int x, int y, int button, int clickCount, int action);
@@ -927,6 +926,8 @@ void moved_callback(PlatformWindow* window, double x, double y);
 void wheel_callback(PlatformWindow* window, double x, double y);
 void file_callback(NSString* filename);
 void drop_callback(PlatformWindow* window, NSArray* filenames);
+void entered_callback(PlatformWindow* window);
+void exited_callback(PlatformWindow* window);
 void activate_callback(PlatformWindow* window);
 void deactivate_callback(PlatformWindow* window);
 void terminate_callback();
@@ -1743,14 +1744,14 @@ static int convertMacKeyCode(unsigned int macKeyCode)
     platformInputMouseClick(window, [event buttonNumber], [event clickCount], PLATFORM_RELEASE);
 }
 
-- (void)mouseExited:(NSEvent *)event
-{
-    platformInputCursorEnter(window, GL_FALSE);
-}
-
 - (void)mouseEntered:(NSEvent *)event
 {
-    platformInputCursorEnter(window, GL_TRUE);
+    entered_callback(window);
+}
+
+- (void)mouseExited:(NSEvent *)event
+{
+    exited_callback(window);
 }
 
 - (void)updateTrackingAreas
@@ -2771,11 +2772,6 @@ void platformInputCursorMotion(PlatformWindow* window, double x, double y)
 }
 
 
-void platformInputCursorEnter(PlatformWindow* window, int entered)
-{
-}
-
-
 int platformGetKey(int key)
 {
     if (key < 0 || key > PLATFORM_KEY_LAST)
@@ -3731,6 +3727,16 @@ void platformResumeMusic(char* alias)
   #f)
 
 
+(c-definition (paint-callback handle context rect) (platformwindow CGContextRef NSRect*) void "paint_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'paint)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (paint-cocoa~ window context rect))))))
+
+
 (c-definition (reshape-callback handle width height) (platformwindow int int) void "reshape_callback" ""
   (thread-execute (primordial-thread) 'execute-event
     (lambda ()
@@ -3749,16 +3755,6 @@ void platformResumeMusic(char* alias)
       (when get-window
         (let ((window (get-window handle)))
           (close-window~ window))))))
-
-
-(c-definition (paint-callback handle context rect) (platformwindow CGContextRef NSRect*) void "paint_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when log-callbacks?
-        (system-log (list 'paint)))
-      (when get-window
-        (let ((window (get-window handle)))
-          (paint-cocoa~ window context rect))))))
 
 
 (c-definition (key-press-callback handle key action) (platformwindow int int) int "key_press_callback" ""
@@ -3852,6 +3848,26 @@ void platformResumeMusic(char* alias)
       (when get-window
         (let ((window (get-window handle)))
           (drop-files~ window filenames))))))
+
+
+(c-definition (entered-callback handle) (platformwindow) void "entered_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'entered)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (mouse-enter~ window))))))
+
+
+(c-definition (exited-callback handle) (platformwindow) void "exited_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'exited)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (mouse-leave~ window))))))
 
 
 (c-definition (activate-callback handle) (platformwindow) void "activate_callback" ""

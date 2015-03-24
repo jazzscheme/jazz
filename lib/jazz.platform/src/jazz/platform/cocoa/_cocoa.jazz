@@ -957,12 +957,12 @@ void finished_playing_callback(NSString* alias);
 
 void debug(NSString* str)
 {
-    call_debug([str UTF8String]);
+    call_debug((char*) [str UTF8String]);
 }
 
 void terminal(NSString* str)
 {
-    call_terminal([str UTF8String]);
+    call_terminal((char*) [str UTF8String]);
 }
 
 "#)
@@ -1114,13 +1114,13 @@ static float transformY(float y)
     
 }
 
-- (void)setWindow:(PlatformWindow*)win;
+- (void)setPlatformWindow:(PlatformWindow*)win;
 
 @end
 
 @implementation JazzWindow
 
-- (void)setWindow:(PlatformWindow*)win
+- (void)setPlatformWindow:(PlatformWindow*)win
 {
     window = win;
 }
@@ -1149,7 +1149,7 @@ static float transformY(float y)
 }
 
 - (JazzWindow*)getMainWindow;
-- (void)setMainWindow:(JazzWindow*)window;
+- (void)setMainWindow:(JazzWindow*)win;
 
 @end
 
@@ -1160,9 +1160,9 @@ static float transformY(float y)
     return mainWindow;
 }
 
-- (void)setMainWindow:(JazzWindow*)window
+- (void)setMainWindow:(JazzWindow*)win
 {
-    mainWindow = window;
+    mainWindow = win;
 }
 
 @end
@@ -1192,7 +1192,7 @@ static float transformY(float y)
 @end
 
 
-JazzWindow* fullscreenWindow;
+JazzFullScreenWindow* fullscreenWindow;
 
 
 bool inhibitActivation = false;
@@ -1204,7 +1204,7 @@ void toggleFullScreenWindowed(PlatformWindow *window)
   
     if (!fullscreenWindow)
     {
-        NSWindow* mainWindow = window->object;
+        JazzWindow* mainWindow = window->object;
    
         NSView *firstResponder = (NSView *)[mainWindow firstResponder];
 
@@ -1230,7 +1230,7 @@ void toggleFullScreenWindowed(PlatformWindow *window)
   
         [window->context update];
         
-        [fullscreenWindow setWindow:window];
+        [fullscreenWindow setPlatformWindow:window];
         [fullscreenWindow setHidesOnDeactivate:YES];
         [fullscreenWindow setAcceptsMouseMovedEvents:YES];
         [fullscreenWindow setLevel:NSFloatingWindowLevel];
@@ -2090,7 +2090,7 @@ static GLboolean createWindow(PlatformWindow* window,
      }
 #endif
 
-    [window->object setWindow:window];
+    [window->object setPlatformWindow:window];
     window->view = [[JazzContentView alloc] initWithPlatformWindow:window];
 
     [window->object setTitle:[NSString stringWithUTF8String:wndconfig->title]];
@@ -3391,7 +3391,7 @@ bool platformKeyDown(int key)
 (c-declare cocoa #"
 
 
-const char* platformGetClipboardString()
+char* platformGetClipboardString()
 {
     NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
 

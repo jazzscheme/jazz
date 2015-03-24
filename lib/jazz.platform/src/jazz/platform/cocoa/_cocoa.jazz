@@ -1272,14 +1272,12 @@ void toggleFullScreenWindowed(PlatformWindow *window)
         [mainWindow makeKeyAndOrderFront:nil];
 
         [fullscreenWindow close];
-        fullscreenWindow = nil;
+        fullscreenWindow = NULL;
 
         if ([[mainWindow screen] isEqual:[[NSScreen screens] objectAtIndex:0]])
         {
             [NSMenu setMenuBarVisible:YES];
         }
-  
-        fullscreenWindow = NULL;
     }
  
     inhibitActivation = false;
@@ -2190,34 +2188,6 @@ static GLboolean createContext(PlatformWindow* window,
 }
 
 
-// hack around a strange problem where if we call [NSApp run] then everything works correctly, but if
-// we manage events ourselves, then upon hide or close, the next window doesn't automatically become key
-void platformMakeFrontKeyHack()
-{
-    if (![NSApp keyWindow])
-    {
-        NSArray* windows = [NSApp orderedWindows];
-        int count = [windows count];
-        bool done = false;
-        if (count > 0)
-        {
-            for (int n = 0; n < count; n++)
-            {
-                if (!done)
-                {
-                    NSWindow* window = [windows objectAtIndex:n];
-                    if ([window canBecomeKeyWindow])
-                    {
-                        [window makeKeyAndOrderFront:window];
-                        done = true;
-                    }
-                }
-            }
-        }
-    }
-}
-
-
 void platformInternalGetCursorPos(PlatformWindow* window, double* xpos, double* ypos)
 {
     const NSRect contentRect = [window->view frame];
@@ -2986,6 +2956,48 @@ PlatformWindow* platformCreateWindow(int width, int height,
 }
 
 
+// hack around a strange problem where if we call [NSApp run] then everything works correctly, but if
+// we manage events ourselves, then upon hide or close, the next window doesn't automatically become key
+void platformMakeFrontKeyHack(NSWindow* goingAwayWindow)
+{
+    if (![NSApp keyWindow])
+    {
+        NSWindow* fullscreenMainWindow = NULL;
+        if (fullscreenWindow)
+            fullscreenMainWindow = [fullscreenWindow getMainWindow];
+       
+        NSArray* windows = [NSApp orderedWindows];
+        int count = [windows count];
+        bool done = false;
+        if (count > 0)
+        {
+            for (int n = 0; n < count; n++)
+            {
+                if (!done)
+                {
+                    NSWindow* window = [windows objectAtIndex:n];
+                    if (window != goingAwayWindow && window != fullscreenMainWindow && [window canBecomeKeyWindow])
+                    {
+                  terminal([NSString stringWithFormat:@"%@", window]);
+                        [window makeKeyAndOrderFront:window];
+                        done = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+void platformCloseWindow(PlatformWindow* window)
+{
+    NSWindow* goingAwayWindow = window->object;
+  
+    platformDestroyWindow(window);
+    platformMakeFrontKeyHack(goingAwayWindow);
+}
+
+
 void platformDestroyWindow(PlatformWindow* window)
 {
     // The window's context must not be current on another thread when the window is destroyed
@@ -3657,8 +3669,7 @@ void platformResumeMusic(char* alias)
 (c-external (platformEventAvailable) bool)
 (c-external (platformPollEvents) void)
 (c-external (platformCurrentGraphics) CGContextRef)
-(c-external (platformDestroyWindow platformwindow) void)
-(c-external (platformMakeFrontKeyHack) void)
+(c-external (platformCloseWindow platformwindow) void)
 (c-external (platformLog char-string) void)
 (c-external (platformBell) void)
 (c-external (platformSystemSound char-string) void)

@@ -1192,95 +1192,124 @@ static float transformY(float y)
 @end
 
 
-JazzFullScreenWindow* fullscreenWindow;
-
-
 bool inhibitActivation = false;
 
 
-void toggleFullScreenWindowed(PlatformWindow *window)
+JazzFullScreenWindow* fullscreenWindow;
+
+
+void enterWindowed(PlatformWindow* window, NSRect bounds)
 {
+    if (fullscreenWindow)
+        return;
+  
     inhibitActivation = true;
   
-    if (!fullscreenWindow)
-    {
-        JazzWindow* mainWindow = window->object;
+    JazzWindow* mainWindow = window->object;
    
-        NSView *firstResponder = (NSView *)[mainWindow firstResponder];
+    NSView *firstResponder = (NSView *)[mainWindow firstResponder];
 
-        if ([[mainWindow screen] isEqual:[[NSScreen screens] objectAtIndex:0]])
-        {
-            [NSMenu setMenuBarVisible:NO];
-        }
-
-        NSRect newFrame = [mainWindow contentRectForFrameRect:[mainWindow frame]];
-        fullscreenWindow = [[JazzFullScreenWindow alloc]
-            initWithContentRect:newFrame
-            styleMask:NSBorderlessWindowMask
-            backing:NSBackingStoreBuffered
-            defer:YES
-            screen:[mainWindow screen]];
-        [fullscreenWindow setMainWindow:mainWindow];
-
-        window->object = fullscreenWindow;
-        [window->object setDelegate:window->delegate];
-        
-        NSView *contentView = [[[mainWindow contentView] retain] autorelease];
-        [mainWindow setContentView:[[[FullScreenView alloc] init] autorelease]];
-  
-        [window->context update];
-        
-        [fullscreenWindow setPlatformWindow:window];
-        [fullscreenWindow setHidesOnDeactivate:YES];
-        [fullscreenWindow setAcceptsMouseMovedEvents:YES];
-        [fullscreenWindow setLevel:NSFloatingWindowLevel];
-        [fullscreenWindow setContentView:contentView];
-        [fullscreenWindow setTitle:[mainWindow title]];
-        [fullscreenWindow makeFirstResponder:firstResponder];
-        [fullscreenWindow makeKeyAndOrderFront:nil];
-        
-        [mainWindow orderOut:nil];
-        
-        NSRect fullFrame = [fullscreenWindow frameRectForContentRect:
-            [[fullscreenWindow screen] frame]];
-        [fullscreenWindow
-            setFrame:fullFrame
-            display:YES
-            animate:YES];
-    }
-    else
+    if ([[mainWindow screen] isEqual:[[NSScreen screens] objectAtIndex:0]])
     {
-        NSWindow* mainWindow = [fullscreenWindow getMainWindow];
-         
-        NSView *firstResponder = (NSView *)[fullscreenWindow firstResponder];
+        [NSMenu setMenuBarVisible:NO];
+    }
 
-        NSRect newFrame = [fullscreenWindow frameRectForContentRect:
-            [mainWindow contentRectForFrameRect:[mainWindow frame]]];
-        [fullscreenWindow
-            setFrame:newFrame
-            display:YES
-            animate:YES];
+    NSRect newFrame = [mainWindow contentRectForFrameRect:[mainWindow frame]];
+    fullscreenWindow = [[JazzFullScreenWindow alloc]
+        initWithContentRect:newFrame
+        styleMask:NSBorderlessWindowMask
+        backing:NSBackingStoreBuffered
+        defer:YES
+        screen:[mainWindow screen]];
+    [fullscreenWindow setMainWindow:mainWindow];
 
-        NSView *contentView = [[[fullscreenWindow contentView] retain] autorelease];
-        [fullscreenWindow setContentView:[[[FullScreenView alloc] init] autorelease]];
+    window->object = fullscreenWindow;
+    [window->object setDelegate:window->delegate];
+        
+    NSView *contentView = [[[mainWindow contentView] retain] autorelease];
+    [mainWindow setContentView:[[[FullScreenView alloc] init] autorelease]];
   
-        window->object = mainWindow;
-        [window->object setDelegate:window->delegate];
+    [window->context update];
+        
+    [fullscreenWindow setPlatformWindow:window];
+    [fullscreenWindow setHidesOnDeactivate:YES];
+    [fullscreenWindow setAcceptsMouseMovedEvents:YES];
+    [fullscreenWindow setLevel:NSFloatingWindowLevel];
+    [fullscreenWindow setContentView:contentView];
+    [fullscreenWindow setTitle:[mainWindow title]];
+    [fullscreenWindow makeFirstResponder:firstResponder];
+    [fullscreenWindow makeKeyAndOrderFront:nil];
+        
+    [mainWindow orderOut:nil];
+        
+    NSRect fullFrame = [fullscreenWindow frameRectForContentRect: bounds];
+    [fullscreenWindow
+        setFrame:fullFrame
+        display:YES
+        animate:YES];
+ 
+    inhibitActivation = false;
+}
 
-        [mainWindow setContentView:contentView];
-        [mainWindow makeFirstResponder:firstResponder];
-        [mainWindow makeKeyAndOrderFront:nil];
 
-        [fullscreenWindow close];
-        fullscreenWindow = NULL;
+void exitWindowed(PlatformWindow* window)
+{
+    if (!fullscreenWindow)
+        return;
+  
+    inhibitActivation = true;
+  
+    NSWindow* mainWindow = [fullscreenWindow getMainWindow];
+         
+    NSView *firstResponder = (NSView *)[fullscreenWindow firstResponder];
 
-        if ([[mainWindow screen] isEqual:[[NSScreen screens] objectAtIndex:0]])
-        {
-            [NSMenu setMenuBarVisible:YES];
-        }
+    NSRect newFrame = [fullscreenWindow frameRectForContentRect:
+        [mainWindow contentRectForFrameRect:[mainWindow frame]]];
+    [fullscreenWindow
+        setFrame:newFrame
+        display:YES
+        animate:YES];
+
+    NSView *contentView = [[[fullscreenWindow contentView] retain] autorelease];
+    [fullscreenWindow setContentView:[[[FullScreenView alloc] init] autorelease]];
+  
+    window->object = mainWindow;
+    [window->object setDelegate:window->delegate];
+
+    [mainWindow setContentView:contentView];
+    [mainWindow makeFirstResponder:firstResponder];
+    [mainWindow makeKeyAndOrderFront:nil];
+
+    [fullscreenWindow close];
+    fullscreenWindow = NULL;
+
+    if ([[mainWindow screen] isEqual:[[NSScreen screens] objectAtIndex:0]])
+    {
+        [NSMenu setMenuBarVisible:YES];
     }
  
     inhibitActivation = false;
+}
+
+
+void enterFullScreenWindowed(PlatformWindow* window)
+{
+    enterWindowed(window, [[window->object screen] frame]);
+}
+
+
+void exitFullScreenWindowed(PlatformWindow* window)
+{
+    exitWindowed(window);
+}
+
+
+void toggleFullScreenWindowed(PlatformWindow* window)
+{
+    if (!fullscreenWindow)
+        enterFullScreenWindowed(window);
+    else
+        exitFullScreenWindowed(window);
 }
 
 
@@ -1315,13 +1344,13 @@ void platformInternalPostEmptyEvent()
     PlatformWindow* window;
 }
 
-- (id)initWithPlatformWindow:(PlatformWindow *)initWndow;
+- (id)initWithPlatformWindow:(PlatformWindow*)initWndow;
 
 @end
 
 @implementation JazzWindowDelegate
 
-- (id)initWithPlatformWindow:(PlatformWindow *)initWindow
+- (id)initWithPlatformWindow:(PlatformWindow*)initWindow
 {
     self = [super init];
     if (self != nil)
@@ -1625,7 +1654,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
     NSTrackingArea* trackingArea;
 }
 
-- (id)initWithPlatformWindow:(PlatformWindow *)initWindow;
+- (id)initWithPlatformWindow:(PlatformWindow*)initWindow;
 
 @end
 
@@ -1636,7 +1665,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
     return YES;
 }
 
-- (id)initWithPlatformWindow:(PlatformWindow *)initWindow
+- (id)initWithPlatformWindow:(PlatformWindow*)initWindow
 {
     self = [super init];
     if (self != nil)
@@ -3149,19 +3178,41 @@ void platformGetScreenContentRect(NSScreen* screen, NSRect* rect)
 }
 
 
-// Need to understand why using Lion's new native
+void platformEnterWindowed(PlatformWindow* window, NSRect* bounds)
+{
+    enterWindowed(window, *bounds);
+}
+
+
+void platformExitWindowed(PlatformWindow* window)
+{
+    exitWindowed(window);
+}
+
+
+void platformEnterFullscreenWindowed(PlatformWindow* window)
+{
+    enterFullScreenWindowed(window);
+}
+
+
+void platformExitFullscreenWindowed(PlatformWindow* window)
+{
+    exitFullScreenWindowed(window);
+}
+
+
+// Need to understand why using new Lion's native
 // fullscreen makes event handling really choppy...
 void platformEnterFullscreen(PlatformWindow* window)
 {
-    // [window->object toggleFullScreen:nil];
-    toggleFullScreenWindowed(window);
+    [window->object toggleFullScreen:nil];
 }
 
 
 void platformExitFullscreen(PlatformWindow* window)
 {
-    // [window->object toggleFullScreen:nil];
-    toggleFullScreenWindowed(window);
+    [window->object toggleFullScreen:nil];
 }
 
 "#)
@@ -3645,6 +3696,10 @@ void platformResumeMusic(char* alias)
 (c-external (platformGetWindowContentRect platformwindow NSRect*) void)
 (c-external (platformSetWindowContentRect platformwindow NSRect*) void)
 (c-external (platformGetWindowViewRect platformwindow NSRect*) void)
+(c-external (platformEnterWindowed platformwindow NSRect*) void)
+(c-external (platformExitWindowed platformwindow) void)
+(c-external (platformEnterFullscreenWindowed platformwindow) void)
+(c-external (platformExitFullscreenWindowed platformwindow) void)
 (c-external (platformEnterFullscreen platformwindow) void)
 (c-external (platformExitFullscreen platformwindow) void)
 (c-external (platformShowWindow platformwindow) void)

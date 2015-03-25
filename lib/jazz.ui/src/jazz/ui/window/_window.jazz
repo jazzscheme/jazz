@@ -181,7 +181,7 @@
 ;;;
 
 
-(definition public (process-events (modal? #f))
+(definition public (process-events)
   (define (present-event-loop-restart)
     (let ((loop (current-loop)))
       (when loop
@@ -193,21 +193,21 @@
   
   (let ()
     (declare (proper-tail-calls))
-    (let ((process (get-process))
-          (pump (process-messages modal?)))
-      (thread-start-loop pump)
-      (thread-start! pump)
-      (set-message-thread pump)
-      (unwind-protect
-          (let (restart-loop)
-            (with-restart-catcher 'resume-loop (present-event-loop-restart)
-              (lambda ()
-                (catch Cancel-Signal
-                  (with-exception-debugger (get-exception-debugger)
-                    (lambda ()
-                      (thread-process-loop~ process))))))
-            (restart-loop))
-        (thread-stop-loop pump)))))
+    (let ((process (get-process)))
+      (let ((pump (process-messages (synchronize-messages?~ process))))
+        (thread-start-loop pump)
+        (thread-start! pump)
+        (set-message-thread pump)
+        (unwind-protect
+            (let (restart-loop)
+              (with-restart-catcher 'resume-loop (present-event-loop-restart)
+                (lambda ()
+                  (catch Cancel-Signal
+                    (with-exception-debugger (get-exception-debugger)
+                      (lambda ()
+                        (thread-process-loop~ process))))))
+              (restart-loop))
+          (thread-stop-loop pump))))))
 
 
 ;;;

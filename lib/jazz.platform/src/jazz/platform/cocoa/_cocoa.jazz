@@ -1146,9 +1146,11 @@ static float transformY(float y)
 @interface JazzFullScreenWindow : JazzWindow
 {
     JazzWindow* mainWindow;
+    NSRect mainWindowFrame;
 }
 
 - (JazzWindow*)getMainWindow;
+- (NSRect)getmainWindowFrame;
 - (void)setMainWindow:(JazzWindow*)win;
 
 @end
@@ -1160,9 +1162,15 @@ static float transformY(float y)
     return mainWindow;
 }
 
+- (NSRect)getmainWindowFrame
+{
+    return mainWindowFrame;
+}
+
 - (void)setMainWindow:(JazzWindow*)win
 {
     mainWindow = win;
+    mainWindowFrame = [win frame];
 }
 
 @end
@@ -1242,6 +1250,10 @@ void enterWindowed(PlatformWindow* window, NSRect bounds, bool hidesOnDeactivate
     [mainWindow orderOut:nil];
         
     NSRect fullFrame = [fullscreenWindow frameRectForContentRect: bounds];
+    // hack around annoying orderOut bug
+    [mainWindow setFrame:fullFrame
+                display:NO
+                animate:NO];
     [fullscreenWindow
         setFrame:fullFrame
         display:YES
@@ -1259,6 +1271,12 @@ void exitWindowed(PlatformWindow* window)
     inhibitActivation = true;
   
     NSWindow* mainWindow = [fullscreenWindow getMainWindow];
+    NSRect mainWindowFrame = [fullscreenWindow getmainWindowFrame];
+    // hack around annoying orderOut bug
+    [mainWindow orderOut:nil];
+    [mainWindow setFrame:mainWindowFrame
+                display:NO
+                animate:NO];
          
     NSView *firstResponder = (NSView *)[fullscreenWindow firstResponder];
 

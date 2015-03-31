@@ -330,7 +330,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
                   (lambda (output)
-                    (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination properties output)))
+                    (jazz:print-architecture #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination properties output)))
                 #t)
             #f)))
       
@@ -711,7 +711,7 @@
                     (print "  (path-directory (path-normalize (car (command-line)))))" output)
                     (newline output)
                     (newline output)
-                    (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination properties output)
+                    (jazz:print-architecture #t system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination properties output)
                     (newline output)
                     (jazz:print-variable 'jazz:kernel-interpreted? #t output)
                     (newline output)
@@ -1051,12 +1051,14 @@
               (build-library)))))))
 
 
-(define (jazz:print-architecture system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination properties output)
+(define (jazz:print-architecture for-kernel-interpret? system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination properties output)
   (jazz:print-variable 'jazz:kernel-verbose? #f output)
   (newline output)
-  (display "(jazz:verbose-kernel 'kernel.architecture)" output)
-  (newline output)
-  (newline output)
+  (if (not for-kernel-interpret?)
+      (begin
+        (display "(jazz:verbose-kernel 'kernel.architecture)" output)
+        (newline output)
+        (newline output)))
   (jazz:print-variable 'jazz:kernel-interpreted? #f output)
   (newline output)
   (jazz:print-variable 'jazz:kernel-system system output)

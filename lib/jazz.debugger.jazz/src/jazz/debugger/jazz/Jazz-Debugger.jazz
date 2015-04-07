@@ -506,16 +506,26 @@
   
   
   (method override (add-filename-processes queue filename)
-    ;; quick hack for windows mac debugging
-    (define (effective-filename filename)
-      (if (starts-with? filename "/Volumes/C")
-          (string-append "c:" (substring filename (string-length "/Volumes/C") (string-length filename)))
-        filename))
+    ;; quick hack for mac/windows parallels debugging
+    (define (mac/windows-filename=? mac windows)
+      (let ((effective-mac (cond ((starts-with? mac "/Volumes/C")
+                                  (string-append "c:" (substring mac (string-length "/Volumes/C") (string-length mac))))
+                                 ((starts-with? windows "z:")
+                                  (let ((pos (search mac "/Users/")))
+                                    (if pos
+                                        (let ((pos (search mac "/" start: (string-length "/Users/"))))
+                                          (if pos
+                                              (string-append "z:" (substring mac pos (string-length mac)))
+                                            filename))
+                                      filename)))
+                                 (else
+                                  filename))))
+        (filename=? effective-mac windows)))
     
     (define (add-process process)
       (let ((filenames (table-ref process-filenames process #f)))
         (when (and filenames
-                   (member? (effective-filename filename) filenames test: filename=?))
+                   (member? filename filenames test: mac/windows-filename=?))
           (enqueue queue (new Debugged-Process self process process)))))
     
     (for-each add-process processes))

@@ -227,7 +227,7 @@
                             (jazz:call-process
                               (list
                                 path: custom-cc
-                                arguments: `(,@(jazz:split-string custom-cc-options #\space) ,(%%string-append "-I" gambit-include-dir) "-D___DYNAMIC" ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output))))
+                                arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) "-D___DYNAMIC" ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output))))
                         (compile-file bin-output options: (%%cons 'obj options) cc-options: (string-append "-D___DYNAMIC " cc-options)))))
             (jazz:error "compilation failed")))))
   

@@ -54,10 +54,10 @@
 (cond-expand
   (mac
     (define jazz:custom-cc
-      "gcc")
+      "/usr/bin/gcc")
     
     (define jazz:custom-cc-options
-      "-O1 -Wno-unused -Wno-write-strings -fno-math-errno -fno-strict-aliasing -fwrapv -fomit-frame-pointer -fPIC -fno-common"))
+      '("-O1" "-Wno-unused" "-Wno-write-strings" "-fno-math-errno" "-fno-strict-aliasing" "-fwrapv" "-fomit-frame-pointer" "-fPIC" "-fno-common")))
   (else))
 
 

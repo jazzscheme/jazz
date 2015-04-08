@@ -69,8 +69,14 @@
               (iter (%%cdr scan) (%%fx+ rank 1))))))
 
 
-(define jazz:reverse!
-  reverse)
+;; from srfi-1
+(define (jazz:reverse! lst)
+  (let loop ((lst lst) (ans '()))
+    (if (%%null? lst)
+        ans
+      (let ((tail (%%cdr lst)))
+        (%%set-cdr! lst ans)
+        (loop tail lst)))))
 
 
 (define (jazz:list-copy lst)

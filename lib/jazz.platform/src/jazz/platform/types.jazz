@@ -384,15 +384,32 @@ c-declare-end
 (define-pointer-to-type    float  "float")
 
 
-(define-cast-lambda uint8* char-string) ; warning: pointer targets in assignment differ in signedness
-(define-cast-lambda char*  char-string)
-(define-cast-lambda char*  UTF-8-string)
-(define-cast-lambda uint16* UTF-16-string)
-(define-cast-lambda wchar_t*  wchar_t-string)
-(define-cast-lambda-ptr uint32*     uint8*)
-(define-cast-lambda-ptr uint8*      ulong*)
-(define-cast-lambda-ptr long*       uint8*)
-(define-cast-lambda-ptr int         void*)
+;(define-cast-lambda     uint8*   char-string)
+(definition public uint8*->char-string
+  (c-function define-cast-lambda (uint8*) char-string
+    #<<end-of-c-code
+    ___result = (char*) ___arg1;
+end-of-c-code
+))
+
+(define-cast-lambda     char*    char-string)
+(define-cast-lambda     char*    UTF-8-string)
+(define-cast-lambda     uint16*  UTF-16-string)
+(define-cast-lambda     wchar_t* wchar_t-string)
+(define-cast-lambda-ptr uint32*  uint8*)
+(define-cast-lambda-ptr uint8*   ulong*)
+(define-cast-lambda-ptr long*    uint8*)
+
+;(define-cast-lambda-ptr int      void*)
+(definition public int->void*
+  (c-function define-cast-lambda-ptr (int) void*
+    #<<end-of-c-code
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Wint-conversion"
+    ___result_voidstar = ___arg1;
+#pragma GCC diagnostic pop
+end-of-c-code
+))
 
 
 (c-external (char-string->uint8* char-string) uint8*
@@ -407,7 +424,7 @@ end-of-c-code
 
 (c-external (UTF-16-string->uint16* UTF-16-string) uint16*
   #<<end-of-c-code
-    size_t bytes = ( wcslen(___arg1) + 1 ) * sizeof(___U16);
+    size_t bytes = ( wcslen((const wchar_t *) ___arg1) + 1 ) * sizeof(___U16);
     ___U16 *ptr = (___U16*) malloc(bytes);
     memcpy(ptr,___arg1,bytes);
     ___result_voidstar = ptr;

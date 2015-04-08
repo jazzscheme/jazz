@@ -252,7 +252,7 @@
   
   ;; commented out to get proper tail call into the repl
   ;; (let ((exit-code ...)))
-  (jazz:split-command-line (%%cdr (command-line)) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "expansion" "gvm" "emit" "dry" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
+  (jazz:split-command-line (%%cdr (command-line)) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
     (lambda (commands options remaining)
       (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
             (nosource? (jazz:get-option "nosource" options))
@@ -260,6 +260,7 @@
             (force? (jazz:get-option "force" options))
             (subbuild? (jazz:get-option "subbuild" options))
             (keep-c? (jazz:get-option "keep-c" options))
+            (track-scheme? (jazz:get-option "track-scheme" options))
             (expansion? (jazz:get-option "expansion" options))
             (gvm? (jazz:get-option "gvm" options))
             (emit? (jazz:get-option "emit" options))
@@ -335,6 +336,8 @@
               (jazz:debug-build? #t))
           (if keep-c?
               (set! jazz:compile-options (%%cons 'keep-c (%%cons 'track-scheme jazz:compile-options))))
+          (if track-scheme?
+              (set! jazz:compile-options (%%cons 'track-scheme jazz:compile-options)))
           (if expansion?
               (set! jazz:compile-options (%%cons 'expansion jazz:compile-options)))
           (if gvm?

@@ -96,6 +96,8 @@ ___SCMOBJ release_Class(void *ptr)
 
 
 (c-type id (pointer (struct "objc_object") (id Class) "release_id"))
+
+@warnings (
 (c-type Class_ (pointer (struct "objc_class") (Class id) "release_Class"))
 (c-type SEL (pointer (struct "objc_selector") (SEL)))
 
@@ -103,13 +105,13 @@ ___SCMOBJ release_Class(void *ptr)
     "___result = retain_Class(objc_getClass(___arg1));")
 
 (c-external (Class->string Class_) nonnull-char-string
-    "___result = ___CAST(char*,class_getName(___arg1));") ;;;TODO: remove cast
+    "___result = ___CAST(char*,class_getName(___arg1));")
 
 (c-external (string->SEL nonnull-UTF-8-string) SEL
-    "___result = sel_registerName(___arg1);")
+    "___result_voidstar = sel_registerName(___arg1);")
 
 (c-external (SEL->string SEL) nonnull-UTF-8-string
-    "___result = ___CAST(char*,sel_getName(___arg1));") ;;;TODO: remove cast
+    "___result = ___CAST(char*,sel_getName(___arg1));"))
 
 
 ;;;
@@ -117,6 +119,7 @@ ___SCMOBJ release_Class(void *ptr)
 ;;;
 
 
+@warnings (
 (c-external (send0 id SEL) id
     "___result = retain_id(___CAST(id (*)(id, SEL),objc_msgSend)(___arg1, ___arg2));")
 
@@ -124,7 +127,7 @@ ___SCMOBJ release_Class(void *ptr)
     "___result = retain_id(___CAST(id (*)(id, SEL, id),objc_msgSend)(___arg1, ___arg2, ___arg3));")
 
 (c-external (send2 id SEL id id) id
-    "___result = retain_id(___CAST(id (*)(id, SEL, id, id),objc_msgSend)(___arg1, ___arg2, ___arg3, ___arg4));")
+    "___result = retain_id(___CAST(id (*)(id, SEL, id, id),objc_msgSend)(___arg1, ___arg2, ___arg3, ___arg4));"))
 
 
 ;;;
@@ -132,8 +135,9 @@ ___SCMOBJ release_Class(void *ptr)
 ;;;
 
 
+@warnings (
 (c-external (id->string id) nonnull-UTF-8-string
-    "___result = ___CAST(char*,[___CAST(NSString*,___arg1) UTF8String]);") ;;;TODO: remove cast
+    "___result = ___CAST(char*,[___CAST(NSString*,___arg1) UTF8String]);")
 
 (c-external (string->id nonnull-UTF-8-string) id
     "___result = retain_id([NSString stringWithUTF8String: ___arg1]);")
@@ -160,7 +164,7 @@ ___SCMOBJ release_Class(void *ptr)
     "___result = [___CAST(NSNumber*,___arg1) doubleValue];")
 
 (c-external (double->id double) id
-    "___result = retain_id([NSNumber numberWithDouble:___arg1]);")
+    "___result = retain_id([NSNumber numberWithDouble:___arg1]);"))
 
 
 ;;;
@@ -293,6 +297,7 @@ end-c-code
 ;;;
 
 
+@warnings (
 (define NSDate      (string->Class "NSDate"))
 (define alloc       (string->SEL "alloc"))
 (define init        (string->SEL "init"))
@@ -300,7 +305,7 @@ end-c-code
 
 (define (date)
   (id->string
-   (send0 (send0 (send0 NSDate alloc) init) description)))
+   (send0 (send0 (send0 NSDate alloc) init) description))))
 
 
 ;;;
@@ -308,6 +313,7 @@ end-c-code
 ;;;
 
 
+@warnings (
 (define NSBundle    (string->Class "NSBundle"))
 (define mainBundle  (string->SEL "mainBundle"))
 (define objectForInfoDictionaryKey (string->SEL "objectForInfoDictionaryKey:"))
@@ -320,7 +326,7 @@ end-c-code
          (id->string info))))
 
 (define CFBundleName (mainBundle-info "CFBundleName"))
-(define CFBundleDisplayName (mainBundle-info "CFBundleDisplayName"))
+(define CFBundleDisplayName (mainBundle-info "CFBundleDisplayName")))
 
 
 ;;;
@@ -333,7 +339,7 @@ end-c-code
 
 
 (c-external (id->nsscreen id) NSScreen*
-  "___result = retain_id(___arg1);")
+  "___result = retain_id((id) ___arg1);")
 
 
 ;;;
@@ -3535,7 +3541,10 @@ void platformSetFocus(PlatformWindow* window)
 {
     ProcessSerialNumber psn = { 0, kCurrentProcess };
     TransformProcessType(&psn, kProcessTransformToForegroundApplication);
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     SetFrontProcess(&psn);
+#pragma GCC diagnostic pop
     
     [window->object makeKeyAndOrderFront:nil];
 }

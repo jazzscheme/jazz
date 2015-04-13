@@ -54,6 +54,25 @@
 
 
 ;;;
+;;;; Terminal
+;;;
+
+
+(cond-expand
+  (windows
+   (define (jazz:controlling-terminal?)
+      #t))
+  (else
+   (define (jazz:controlling-terminal?)
+     (jazz:with-exception-filter
+       os-exception?
+       (lambda (exception)
+         #f)
+       (lambda ()
+         (open-file "/dev/tty"))))))
+
+
+;;;
 ;;;; Console
 ;;;
 

@@ -914,6 +914,7 @@
 (native jazz:close-port)
 (native jazz:input-port-timeout-set!)
 (native jazz:output-port-timeout-set!)
+(native jazz:controlling-terminal?)
 (native open-event-queue)
 (native jazz:eof-object)
 ;(native open-input-string)

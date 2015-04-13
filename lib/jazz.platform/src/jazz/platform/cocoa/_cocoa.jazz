@@ -3640,6 +3640,18 @@ void platformLog(char* msg)
     NSLog(@"%@", [NSString stringWithUTF8String:msg]);
 }
 
+
+void platformAlert(char* msg, char* title, int style)
+{
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    [alert setAlertStyle:style];
+    [alert setMessageText:[NSString stringWithUTF8String:title]];
+    [alert setInformativeText:[NSString stringWithUTF8String:msg]];
+    [alert runModal];
+    
+    platformMakeFrontKeyHack(NULL);
+}
+
 "#)
 
 
@@ -3783,6 +3795,7 @@ void platformResumeMusic(char* alias)
 (c-external (platformCurrentGraphics) CGContextRef)
 (c-external (platformCloseWindow platformwindow) void)
 (c-external (platformLog char-string) void)
+(c-external (platformAlert char-string char-string int) void)
 (c-external (platformBell) void)
 (c-external (platformSystemSound char-string) void)
 (c-external (platformPlaySound char-string) void)
@@ -3831,6 +3844,10 @@ void platformResumeMusic(char* alias)
 (c-enumerant PLATFORM_POINTINGHANDCURSOR)
 (c-enumerant PLATFORM_RESIZELEFTRIGHTCURSOR)
 (c-enumerant PLATFORM_RESIZEUPDOWNCURSOR)
+
+(c-enumerant NSWarningAlertStyle)
+(c-enumerant NSInformationalAlertStyle)
+(c-enumerant NSCriticalAlertStyle)
 
 
 ;;;
@@ -4129,8 +4146,23 @@ void platformResumeMusic(char* alias)
 
 
 (definition public (system-message text . rest)
-  (display text)
-  (newline))
+  (bind-keywords ((type 'message) (title #f) . others) rest
+    (let ((title
+            (or title (case type
+                        ((message) "Message")
+                        ((question) "Question")
+                        ((confirmation) "Confirmation")
+                        ((problem) "Problem")
+                        ((error) "Error"))))
+          (style
+            (case type
+              ((message) NSInformationalAlertStyle)
+              ((question) NSWarningAlertStyle)
+              ((confirmation) NSWarningAlertStyle)
+              ((problem) NSCriticalAlertStyle)
+              ((error) NSCriticalAlertStyle))))
+      (platformAlert text title style)
+      'yes)))
 
 
 ;;;

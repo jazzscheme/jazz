@@ -45,33 +45,47 @@
 
 (cond-expand
   (windows
-    (define jazz:git-units
-      (let ((git-include-path  (jazz:quote-jazz-pathname "foreign/libgit2/include"))
-            (git-lib-path      (jazz:quote-jazz-pathname "foreign/libgit2/lib/windows"))
-            (zlib-include-path (jazz:quote-jazz-pathname "foreign/zlib/include")))
-        `((jazz.git.foreign cc-options: ,(string-append "-I" git-include-path " -I" zlib-include-path) 
-		                    ld-options: ,(string-append "-L" git-lib-path " -lgit2"))))))
+   (define jazz:git-units
+     (let ((git-include-path  (jazz:quote-jazz-pathname "foreign/libgit2/include"))
+           (git-lib-path      (jazz:quote-jazz-pathname "foreign/libgit2/lib/windows"))
+           (zlib-include-path (jazz:quote-jazz-pathname "foreign/zlib/include")))
+       `((jazz.git.foreign cc-options: ,(string-append "-I" git-include-path " -I" zlib-include-path) 
+           ld-options: ,(string-append "-L" git-lib-path " -lgit2"))))))
   (else
    (define jazz:git-units
      '())))
 
 
-(define (jazz:build-git descriptor #!key (unit #f) (force? #f))
-  (let ((build (%%get-repository-directory jazz:Build-Repository))
-        (source jazz:kernel-source))
-    (define (build-file path)
-      (string-append build path))
-    
+(cond-expand
+  (windows
+   (define jazz:platform-files
+     (list (cons "foreign/libgit2/lib/windows/libgit2.dll" "libgit2.dll"))))
+  (else
+   (define jazz:platform-files
+     '())))
+
+
+(define (jazz:copy-platform-files)
+  (let ((source jazz:kernel-source)
+        (build (%%get-repository-directory jazz:Build-Repository)))
     (define (source-file path)
       (string-append source path))
     
-    (define (copy-platform-files)
-      (jazz:copy-file (source-file "foreign/libgit2/lib/windows/libgit2.dll") (build-file "libgit2.dll") feedback: jazz:feedback))
+    (define (build-file path)
+      (string-append build path))
     
-    (let ((unit-specs jazz:git-units))
-      (jazz:custom-compile/build unit-specs unit: unit pre-build: copy-platform-files force?: force?)
-      (if (or (not unit) (not (assq unit unit-specs)))
-          (jazz:build-product-descriptor descriptor unit: unit force?: force?)))))
+    (for-each (lambda (info)
+                (let ((source (car info))
+                      (build (cdr info)))
+                  (jazz:copy-file (source-file source) (build-file build) feedback: jazz:feedback)))
+              jazz:platform-files)))
+
+
+(define (jazz:build-git descriptor #!key (unit #f) (force? #f))
+  (let ((unit-specs jazz:git-units))
+    (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
+    (if (or (not unit) (not (assq unit unit-specs)))
+        (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
 
 
 ;;;

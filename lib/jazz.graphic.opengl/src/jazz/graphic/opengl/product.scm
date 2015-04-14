@@ -45,26 +45,37 @@
 
 (cond-expand
   (windows
-    (define (jazz:copy-opengl-files)
-      (let ((build (%%get-repository-directory jazz:Build-Repository))
-            (source jazz:kernel-source))
-        (define (build-file path)
-          (string-append build path))
-        
-        (define (source-file path)
-          (string-append source path))
-        
-        (jazz:copy-file (source-file "foreign/opengl/glew/bin/glew32.dll") (build-file "glew32.dll") feedback: jazz:feedback))))
+    (define jazz:opengl-files
+      (list (cons "foreign/windows/opengl/glew/bin/glew32.dll" "glew32.dll"))))
+  (cocoa
+    (define jazz:opengl-files
+      (list (cons "foreign/mac/opengl/glew/lib/libGLEW.dylib" "libGLEW.dylib"))))
   (else
-    (define (jazz:copy-opengl-files)
-      #f)))
+    (define jazz:opengl-files
+      '())))
+
+
+(define (jazz:copy-opengl-files)
+  (let ((source jazz:kernel-source)
+        (build (%%get-repository-directory jazz:Build-Repository)))
+    (define (source-file path)
+      (string-append source path))
+    
+    (define (build-file path)
+      (string-append build path))
+    
+    (for-each (lambda (info)
+                (let ((source (car info))
+                      (build (cdr info)))
+                  (jazz:copy-file (source-file source) (build-file build) feedback: jazz:feedback)))
+              jazz:opengl-files)))
 
 
 (cond-expand
   (windows
     (define jazz:opengl-units
-      (let ((glew-include-path (jazz:quote-jazz-pathname "foreign/opengl/glew/include"))
-            (glew-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/glew/lib/windows")))
+      (let ((glew-include-path (jazz:quote-jazz-pathname "foreign/windows/opengl/glew/include"))
+            (glew-lib-path     (jazz:quote-jazz-pathname "foreign/windows/opengl/glew/lib")))
         `((jazz.graphic.opengl.foreign.gl-header)
           (jazz.graphic.opengl.foreign.gl ld-options: "-lopengl32")
           (jazz.graphic.opengl.foreign.glext-header)
@@ -77,8 +88,8 @@
           (jazz.graphic.opengl.platform.windows cc-options: "-DUNICODE -D_WIN32_WINNT=0x0502" ld-options: "-mwindows -lopengl32")))))
   (cocoa
     (define jazz:opengl-units
-      (let ((glew-include-path (jazz:quote-jazz-pathname "foreign/opengl/glew/include"))
-            (glew-lib-path     (jazz:quote-jazz-pathname "foreign/opengl/glew/lib/mac")))
+      (let ((glew-include-path (jazz:quote-jazz-pathname "foreign/mac/opengl/glew/include"))
+            (glew-lib-path     (jazz:quote-jazz-pathname "foreign/mac/opengl/glew/lib")))
         `((jazz.graphic.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))
           (jazz.graphic.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))))))
   (else

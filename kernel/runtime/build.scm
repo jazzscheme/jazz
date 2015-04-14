@@ -647,6 +647,16 @@
                                " ")
             #f)
           (case platform
+            ((cocoa)
+             (jazz:call-process
+               (list
+                 path: "install_name_tool"
+                 arguments: `("-add_rpath" "@executable_path" ,(image-file))))
+             (if (and bundle (not library-image?))
+                 (jazz:call-process
+                   (list
+                     path: "install_name_tool"
+                     arguments: `("-add_rpath" "@executable_path/../../.." ,(image-file))))))
             ((windows)
              (if (jazz:build-single-objects?)
                  (jazz:obliterate-PE-timestamp (image-file) 'EXE))))))

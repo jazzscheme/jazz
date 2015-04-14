@@ -216,7 +216,7 @@
            (cons "foreign/cairo/lib/windows/freetype6.dll" "freetype6.dll")
            (cons "foreign/cairo/lib/windows/libexpat-1.dll" "libexpat-1.dll")
            (cons "foreign/png/lib/windows/libpng14-14.dll" "libpng14-14.dll")
-           (cons "foreign/zlib/lib/windows/zlib1.dll" "zlib1.dll"))))
+           (cons "foreign/windows/zlib/lib/zlib1.dll" "zlib1.dll"))))
   (else
    (define jazz:platform-files
      '())))

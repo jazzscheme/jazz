@@ -81,9 +81,10 @@
 (cond-expand
   (cocoa
     (define jazz:cairo-units
-      (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/mac/cairo/include/cairo"))
-            (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/mac/cairo/lib")))
-        (let ((cc-flags (string-append "-I" cairo-include-path " " (jazz:pkg-config-cflags "freetype2")))
+      (let ((cairo-include-path    (jazz:quote-jazz-pathname "foreign/mac/cairo/include/cairo"))
+            (cairo-lib-path        (jazz:quote-jazz-pathname "foreign/mac/cairo/lib"))
+            (freetype-include-path (jazz:quote-jazz-pathname "foreign/mac/freetype/include")))
+        (let ((cc-flags (string-append "-I" cairo-include-path " " "-I" freetype-include-path))
               (ld-flags (string-append "-L" cairo-lib-path " -lcairo.2")))
           `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
             (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
@@ -110,9 +111,13 @@
 
 
 (define (jazz:freetype-units)
-  (let ((cc-flags (string-append (jazz:pkg-config-cflags "fontconfig") " " (jazz:pkg-config-cflags "freetype2")))
-        (ld-flags (string-append (jazz:pkg-config-libs "fontconfig") " " (jazz:pkg-config-libs "freetype2"))))
-    `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))
+  (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/mac/fontconfig/include"))
+        (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/mac/fontconfig/lib"))
+        (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
+        (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib")))
+    (let ((cc-flags (string-append "-I" fontconfig-include-path " " "-I" freetype-include-path))
+          (ld-flags (string-append "-L" fontconfig-lib-path " " "-L" freetype-lib-path " -lfontconfig -lfreetype")))
+      `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))
 
 
 (cond-expand
@@ -207,7 +212,9 @@
 (cond-expand
   (cocoa
    (define jazz:platform-files
-     (list (cons "foreign/mac/cairo/lib/libcairo.2.dylib" "libcairo.2.dylib"))))
+     (list (cons "foreign/mac/cairo/lib/libcairo.2.dylib" "libcairo.2.dylib")
+           (cons "foreign/mac/fontconfig/lib/libfontconfig.dylib" "libfontconfig.dylib")
+           (cons "foreign/mac/freetype/lib/libfreetype.dylib" "libfreetype.dylib"))))
   (windows
    (define jazz:platform-files
      (list (cons "foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")

@@ -42,7 +42,6 @@
   (windows
     (jazz:register-foreign-libraries 'jazz.graphic.opengl.foreign.gl       'opengl32)
     (jazz:register-foreign-libraries 'jazz.graphic.opengl.foreign.glu      'opengl32 'glu32)
-    (jazz:register-foreign-libraries 'jazz.graphic.opengl.foreign.glut     'opengl32 'glu32 'freeglut)
     (jazz:register-foreign-libraries 'jazz.graphic.opengl.glew.foreign     'opengl32 'glu32 'glew32)
     (jazz:register-foreign-libraries 'jazz.graphic.opengl.glew.header      'opengl32 'glew32)
     (jazz:register-foreign-libraries 'jazz.graphic.opengl.glew.windows     'opengl32 'glew32)

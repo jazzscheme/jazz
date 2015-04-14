@@ -84,15 +84,15 @@
       (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/mac/cairo/include/cairo"))
             (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/mac/cairo/lib")))
         (let ((cc-flags (string-append "-I" cairo-include-path " " (jazz:pkg-config-cflags "freetype2")))
-              (ld-flags (string-append "-L" cairo-lib-path " -lcairo.2" " -Wl,-rpath -Wl,@executable-path")))
+              (ld-flags (string-append "-L" cairo-lib-path " -lcairo.2")))
           `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
             (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
             (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options)
             (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (windows
     (define jazz:cairo-units
-      (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/cairo/include"))
-            (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/cairo/lib/windows")))
+      (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/windows/cairo/include"))
+            (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/windows/cairo/lib")))
         `((jazz.platform.cairo            cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))
           (jazz.platform.cairo.cairo-base cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))))))
   (x11
@@ -115,14 +115,13 @@
     `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))
 
 
-(define (jazz:logfont-units)
-  (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/cairo/include"))
-        (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/cairo/lib/windows")))
-    `((jazz.platform.cairo.cairo-logfont cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo")))))
-
-
 (cond-expand
   (windows
+    (define (jazz:logfont-units)
+      (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/windows/cairo/include"))
+            (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/windows/cairo/lib")))
+        `((jazz.platform.cairo.cairo-logfont cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo")))))
+    
     (define jazz:font-units
       (jazz:logfont-units)))
   (else
@@ -131,8 +130,8 @@
 
 
 (define jazz:windows-units
-  (let ((cairo-include-path   (jazz:quote-jazz-pathname "foreign/cairo/include"))
-        (cairo-lib-path       (jazz:quote-jazz-pathname "foreign/cairo/lib/windows"))
+  (let ((cairo-include-path   (jazz:quote-jazz-pathname "foreign/windows/cairo/include"))
+        (cairo-lib-path       (jazz:quote-jazz-pathname "foreign/windows/cairo/lib"))
         (windows-include-path (jazz:quote-jazz-pathname "foreign/windows/include"))
         (windows-lib-path     (jazz:quote-jazz-pathname "foreign/windows/lib"))
         (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
@@ -211,10 +210,10 @@
      (list (cons "foreign/mac/cairo/lib/libcairo.2.dylib" "libcairo.2.dylib"))))
   (windows
    (define jazz:platform-files
-     (list (cons "foreign/cairo/lib/windows/libcairo-2.dll" "libcairo-2.dll")
-           (cons "foreign/cairo/lib/windows/libfontconfig-1.dll" "libfontconfig-1.dll")
-           (cons "foreign/cairo/lib/windows/freetype6.dll" "freetype6.dll")
-           (cons "foreign/cairo/lib/windows/libexpat-1.dll" "libexpat-1.dll")
+     (list (cons "foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")
+           (cons "foreign/windows/cairo/lib/libfontconfig-1.dll" "libfontconfig-1.dll")
+           (cons "foreign/windows/cairo/lib/freetype6.dll" "freetype6.dll")
+           (cons "foreign/windows/cairo/lib/libexpat-1.dll" "libexpat-1.dll")
            (cons "foreign/png/lib/windows/libpng14-14.dll" "libpng14-14.dll")
            (cons "foreign/windows/zlib/lib/zlib1.dll" "zlib1.dll"))))
   (else

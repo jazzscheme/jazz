@@ -647,7 +647,7 @@
                                " ")
             #f)
           (case platform
-            ((cocoa)
+            ((mac)
              (jazz:call-process
                (list
                  path: "install_name_tool"

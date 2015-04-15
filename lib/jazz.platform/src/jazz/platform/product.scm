@@ -217,6 +217,7 @@
   (cocoa
    (define jazz:platform-files
      (list (cons "foreign/mac/cairo/lib/libcairo.2.dylib" "libcairo.2.dylib")
+           (cons "foreign/mac/pixman/lib/libpixman-1.0.dylib" "libpixman-1.0.dylib")
            (cons "foreign/mac/fontconfig/lib/libfontconfig.dylib" "libfontconfig.dylib")
            (cons "foreign/mac/freetype/lib/libfreetype.dylib" "libfreetype.dylib"))))
   (windows

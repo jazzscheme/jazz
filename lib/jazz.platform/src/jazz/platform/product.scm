@@ -114,14 +114,21 @@
                 (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))))
 
 
-(define (jazz:freetype-units)
-  (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/mac/fontconfig/include"))
-        (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/mac/fontconfig/lib"))
-        (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
-        (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib")))
-    (let ((cc-flags (string-append "-I" freetype-include-path " " "-I" fontconfig-include-path))
-          (ld-flags (string-append "-L" freetype-lib-path " " "-L" fontconfig-lib-path " -lfreetype")))
-      `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))
+(cond-expand
+  (cocoa
+    (define (jazz:freetype-units)
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/mac/fontconfig/include"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/mac/fontconfig/lib"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib")))
+        (let ((cc-flags (string-append "-I" freetype-include-path " " "-I" fontconfig-include-path))
+              (ld-flags (string-append "-L" freetype-lib-path " " "-L" fontconfig-lib-path " -lfreetype")))
+          `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
+  (else
+    (define (jazz:freetype-units)
+      (let ((cc-flags (string-append (jazz:pkg-config-cflags "fontconfig") " " (jazz:pkg-config-cflags "freetype2")))
+            (ld-flags (string-append (jazz:pkg-config-libs "fontconfig") " " (jazz:pkg-config-libs "freetype2"))))
+        `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
 
 
 (cond-expand

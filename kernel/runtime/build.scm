@@ -646,8 +646,8 @@
                                  ,@(link-options))
                                " ")
             #f)
-          (case platform
-            ((mac)
+          (case windowing
+            ((cocoa)
              (jazz:call-process
                (list
                  path: "install_name_tool"
@@ -656,7 +656,8 @@
                  (jazz:call-process
                    (list
                      path: "install_name_tool"
-                     arguments: `("-add_rpath" "@executable_path/../../.." ,(image-file))))))
+                     arguments: `("-add_rpath" "@executable_path/../../.." ,(image-file)))))))
+          (case platform
             ((windows)
              (if (jazz:build-single-objects?)
                  (jazz:obliterate-PE-timestamp (image-file) 'EXE))))))

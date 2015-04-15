@@ -83,13 +83,14 @@
     (define jazz:cairo-units
       (let ((cairo-include-path      (jazz:quote-jazz-pathname "foreign/mac/cairo/include/cairo"))
             (cairo-lib-path          (jazz:quote-jazz-pathname "foreign/mac/cairo/lib"))
+            (png-lib-path            (jazz:quote-jazz-pathname "foreign/mac/png/lib"))
             (pixman-lib-path         (jazz:quote-jazz-pathname "foreign/mac/pixman/lib"))
             (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/mac/fontconfig/lib"))
             (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
             (fontconfig-include-path (jazz:quote-jazz-pathname "foreign/mac/fontconfig/include"))
             (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include")))
         (let ((cc-flags (string-append "-I" cairo-include-path " " "-I" freetype-include-path " " "-I" fontconfig-include-path))
-              (ld-flags (string-append "-L" cairo-lib-path " " "-L" pixman-lib-path " " "-L" fontconfig-lib-path " " "-L" freetype-lib-path " -lcairo.2")))
+              (ld-flags (string-append "-L" cairo-lib-path " " "-L" png-lib-path " " "-L" pixman-lib-path " " "-L" fontconfig-lib-path " " "-L" freetype-lib-path " -lcairo.2")))
           `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
             (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
             (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options)
@@ -227,7 +228,7 @@
            (cons "foreign/mac/pixman/lib/libpixman-1.0.dylib" "libpixman-1.0.dylib")
            (cons "foreign/mac/fontconfig/lib/libfontconfig.dylib" "libfontconfig.dylib")
            (cons "foreign/mac/freetype/lib/libfreetype.dylib" "libfreetype.dylib")
-           (cons "foreign/mac/png/lib/libpng16.dylib" "libpng16.dylib"))))
+           (cons "foreign/mac/png/lib/libpng15.15.dylib" "libpng15.15.dylib"))))
   (windows
    (define jazz:platform-files
      (list (cons "foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")

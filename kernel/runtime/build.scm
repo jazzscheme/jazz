@@ -1063,8 +1063,6 @@
 
 
 (define (jazz:print-architecture for-kernel-interpret? system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination properties output)
-  (jazz:print-variable 'jazz:kernel-verbose? #f output)
-  (newline output)
   (if (not for-kernel-interpret?)
       (begin
         (display "(jazz:verbose-kernel 'kernel.architecture)" output)

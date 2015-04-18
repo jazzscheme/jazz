@@ -758,12 +758,7 @@
                     (display "(jazz:executable-main)" output)
                     (newline output)))))))
       
-      (define (interpret-properties properties)
-        (jazz:build-source-access? (jazz:getf properties source-access?: #t))
-        (jazz:build-single-objects? (jazz:getf properties single-objects?: #f)))
-      
       (jazz:invoke-build-setup platform safety optimize? source destination properties)
-      (interpret-properties properties)
       
       (jazz:create-directories product-dir feedback: feedback)
       (jazz:create-directories (kernel-file "syntax/") feedback: feedback)
@@ -787,7 +782,10 @@
 (define (jazz:invoke-build-setup platform safety optimize? source destination properties)
   (let ((proc (jazz:build-setup)))
     (if proc
-        (proc platform safety optimize? source destination properties))))
+        (proc platform safety optimize? source destination properties)
+      (begin
+        (jazz:build-source-access? (jazz:getf properties source-access?: #t))
+        (jazz:build-single-objects? (jazz:getf properties single-objects?: #f))))))
 
 
 (define (jazz:determine-binary-repositories destination-directory)

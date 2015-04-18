@@ -1028,6 +1028,18 @@
       (file-copy (parse) (parse~ dst))))
   
   
+  (method public (install-file dst (feedback: feedback #f))
+    (if (exists?~ dst)
+        (when (different-file-times/digests? self dst)
+          (when feedback
+            (feedback 'replace self))
+          (copy-file dst))
+      (when feedback
+        (feedback 'copy self))
+      (create-directories~ dst)
+      (copy-file dst)))
+  
+  
   (method public (delete-file (overwrite-read-only?: overwrite-read-only? #f) (error?: error? #t))
     (if (not (exists?))
         (when error?
@@ -1220,9 +1232,11 @@
     pathname)
 
 
-  (method public (copy-directory dst (copier: copier #f) (feedback: feedback #f) (touch-files?: touch-files? #f) (copy?: copy? #t) (use-modification-time?: use-modification-time? #f))
+  (method public (copy-directory dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (copier: copier #f) (feedback: feedback #f) (touch-files?: touch-files? #f) (copy?: copy? #t) (use-modification-time?: use-modification-time? #f))
     (when feedback
       (feedback self))
+    (when (and overwrite? (exists?~ dst))
+      (delete-directory~ dst overwrite-read-only?: overwrite-read-only?))
     (create-directories~ dst)
     (let ((destination
             (lambda (path)
@@ -1239,6 +1253,74 @@
         files?: #t
         directories?: #t
         recursive?: #f)))
+  
+  
+  (method public (install-directory dst (filter: filter #f) (feedback: feedback #f))
+    (define (merge-into src-dir dst-dir feedback)
+      (merge-ordered (lambda (what key left right)
+                       (case what
+                         ((:left)
+                          (when (or (not filter) (filter 'copy left))
+                            (typecase left
+                              ((File)
+                               (when feedback
+                                 (feedback 'copying left))
+                               (copy-file~ left (new-file~ dst-dir (get-name~ left))))
+                              ((Directory)
+                               (when feedback
+                                 (feedback 'copying left))
+                               (let ((right (new-directory~ dst-dir (get-name~ left))))
+                                 (create~ right)
+                                 (merge-into left right #f))))))
+                         ((:right)
+                          (when (or (not filter) (filter 'delete right))
+                            (typecase right
+                              ((File)
+                               (when feedback
+                                 (feedback 'deleting right))
+                               (delete-file~ right))
+                              ((Directory)
+                               (when feedback
+                                 (feedback 'deleting right))
+                               (delete-directory~ right)))))
+                         ((:same)
+                          (when (or (not filter) (filter 'replace left))
+                            (typecase left
+                              ((File)
+                               (typecase right
+                                 ((File)
+                                  (when (different-file-times/digests? left right)
+                                    (when feedback
+                                      (feedback 'replacing left))
+                                    (copy-file~ left right)))
+                                 ((Directory)
+                                  (when feedback
+                                    (feedback 'replacing left))
+                                  (delete-directory~ right)
+                                  (copy-file~ left (new-file~ dst-dir (get-name~ left))))))
+                              ((Directory)
+                               (typecase right
+                                 ((File)
+                                  (when feedback
+                                    (feedback 'replacing left))
+                                  (delete-file~ right)
+                                  (let ((right (new-directory~ dst-dir (get-name~ left))))
+                                    (create~ right)
+                                    (merge-into left right #f)))
+                                 ((Directory)
+                                  (merge-into left right feedback)))))))))
+                     (sort filename-test (get-content~ src-dir) key: get-name~)
+                     (sort filename-test (get-content~ dst-dir) key: get-name~)
+                     left-key: get-name~
+                     right-key: get-name~
+                     compare: filename-compare))
+    
+    (if (exists?~ dst)
+        (merge-into self dst feedback)
+      (when feedback
+        (feedback 'copying self))
+      (create-directories~ dst)
+      (merge-into self dst #f)))
   
   
   (method public virtual (delete-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))

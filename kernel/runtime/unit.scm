@@ -245,17 +245,17 @@
   jazz:source-built)
 
 
+(define jazz:kernel-source-access?
+  (or jazz:source-access? (not jazz:product)))
+
+
 (define jazz:kernel-source
-  (if jazz:source
+  (if (and jazz:kernel-source-access? jazz:source)
       (jazz:absolutize-directory jazz:kernel-install jazz:source)
     #f))
 
 
 (set! jazz:jazz-source jazz:kernel-source)
-
-
-(define jazz:kernel-source-access?
-  (or jazz:source-access? (not jazz:product)))
 
 
 (define jazz:kernel-binary-repositories

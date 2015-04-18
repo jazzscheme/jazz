@@ -1210,6 +1210,15 @@
         (%%cdr pair)
       #f)))
 
+(define (jazz:product-descriptor-build-bundle descriptor)
+  (let ((alist (jazz:product-descriptor-build descriptor)))
+    (if alist
+        (let ((pair (%%assq (jazz:product-descriptor-name descriptor) alist)))
+          (if pair
+              (jazz:getf (%%cdr pair) bundle:)
+            #f))
+      #f)))
+
 (define (jazz:product-descriptor-library descriptor)
   (let ((pair (%%assq 'library (%%cdr descriptor))))
     (if pair
@@ -1514,13 +1523,6 @@
             (install descriptor))))))
 
 
-(define (jazz:install-directory path)
-  (let ((root (jazz:install-root)))
-    (if (%%not root)
-        (jazz:error "Undefined mandatory setting: (jazz:install-root)")
-      (%%append root path))))
-
-
 ;; changed to 0 until parallel build is fully debugged
 (define jazz:jobs-default
   0)
@@ -1679,6 +1681,7 @@
 
 
 (define (jazz:subprocess-build-products port)
+  (declare (proper-tail-calls))
   (let ((established-port (open-tcp-client port)))
     (let iter ()
          (let ((product (read established-port)))

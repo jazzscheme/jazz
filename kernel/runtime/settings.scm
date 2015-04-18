@@ -156,15 +156,6 @@
 
 
 ;;;
-;;;; Install
-;;;
-
-
-(jazz:define-setting jazz:install-root
-  #f)
-
-
-;;;
 ;;;; Debug
 ;;;
 

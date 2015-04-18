@@ -42,14 +42,12 @@
         (jazz.debuggee.autoload)
         (jazz.debuggee.stub)
         (jazz.debuggee.jazz.autoload)
+        (jazz.debuggee.jazz.autoload-external)
         (jazz.editor.jazz.inspector)
         (jazz.io)
         (jazz.jrm)
         (jazz.library)
-        (jazz.platform)
         (jazz.runtime)
-        (jazz.snapshot)
-        (jazz.system)
         (profiler))
 
 
@@ -254,6 +252,28 @@
                   (let ((filenames (queue-list queue))
                         (processes (evaluation-processes~ process)))
                     (transmit-information filenames processes properties)))))))
+        'runtime-information)))
+  
+  
+  (method override (transmit-product-runtime-information what product)
+    (thread-start!
+      (new-thread
+        (lambda ()
+          (let ((queue (new-queue)))
+            (define (add-unit unit)
+              (let ((resource (find-unit-src unit #f #f)))
+                (when resource
+                  (enqueue queue (resource-pathname resource)))))
+            
+            ;; immediately transmit properties before doing
+            ;; the potentially long computation of filenames
+            (transmit-information #f #f '())
+            (when kernel-source-access?
+              (when (remote-proxy? (get-controller-debugger))
+                (for-each add-unit (product-units product))))
+            (let ((filenames (queue-list queue))
+                  (processes (list (get-local-process))))
+              (transmit-information filenames processes '()))))
         'runtime-information)))
   
   

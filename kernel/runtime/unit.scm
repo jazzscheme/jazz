@@ -1118,6 +1118,8 @@
   (jazz:load-unit 'jazz.debuggee.Debuggee-Thread)
   (jazz:load-unit 'jazz.debuggee.stub)
   (jazz:load-unit 'jazz.debuggee.jazz)
+  (jazz:load-unit 'jazz.debuggee.jazz.autoload)
+  (jazz:load-unit 'jazz.debuggee.jazz.autoload-external)
   (jazz:load-unit 'jazz.debuggee.jazz.Jazz-Debuggee-Frame)
   (jazz:load-unit 'jazz.debuggee.jazz.Jazz-Debuggee-Process)
   (jazz:load-unit 'jazz.debuggee.jazz.Jazz-Debuggee-Restart)

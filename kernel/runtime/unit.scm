@@ -246,7 +246,7 @@
 
 
 (define jazz:kernel-source-access?
-  (or jazz:source-access? (not jazz:product)))
+  (or jazz:source-access? (and (eq? jazz:image 'executable) (not jazz:product))))
 
 
 (define jazz:kernel-source

@@ -250,9 +250,17 @@
         (%%string->symbol arg)
       arg))
   
+  ;; c -> compile
+  ;; e -> eval
+  ;; g -> gambit
+  ;; l -> load
+  ;; r -> run
+  ;; t -> test
+  ;; v -> version
+  ;; x -> expand
   ;; commented out to get proper tail call into the repl
   ;; (let ((exit-code ...)))
-  (jazz:split-command-line (%%cdr (command-line)) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "eval" "load" "test" "run" "update" "make" "build" "install" "expand" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
+  (jazz:split-command-line (%%cdr (command-line)) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "x" "expand" "c" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
     (lambda (commands options remaining)
       (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
             (nosource? (jazz:get-option "nosource" options))
@@ -265,21 +273,21 @@
             (gvm? (jazz:get-option "gvm" options))
             (emit? (jazz:get-option "emit" options))
             (dry? (jazz:get-option "dry" options))
-            (gambit? (jazz:get-option "gambit" options))
+            (gambit? (or (jazz:get-option "g" options) (jazz:get-option "gambit" options)))
             (build-repository (jazz:get-option "build-repository" options))
             (jazz-repository (jazz:get-option "jazz-repository" options))
             (repositories (jazz:get-option "repositories" options))
             (dependencies (jazz:get-option "dependencies" options))
-            (ev (jazz:get-option "eval" options))
-            (load (jazz:get-option "load" options))
-            (test (jazz:get-option "test" options))
-            (run (jazz:get-option "run" options))
+            (ev (or (jazz:get-option "e" options) (jazz:get-option "eval" options)))
+            (load (or (jazz:get-option "l" options) (jazz:get-option "load" options)))
+            (test (or (jazz:get-option "t" options) (jazz:get-option "test" options)))
+            (run (or (jazz:get-option "r" options) (jazz:get-option "run" options)))
             (update (jazz:get-option "update" options))
             (make (jazz:get-option "make" options))
             (build (jazz:get-option "build" options))
             (install (jazz:get-option "install" options))
-            (expand (jazz:get-option "expand" options))
-            (compile (jazz:get-option "compile" options))
+            (expand (or (jazz:get-option "x" options)(jazz:get-option "expand" options)))
+            (compile (or (jazz:get-option "c" options)(jazz:get-option "compile" options)))
             (debugger (jazz:get-option "debugger" options))
             (link (symbol-argument (jazz:get-option "link" options)))
             (jobs (number-argument (jazz:get-option "jobs" options)))

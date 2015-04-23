@@ -148,7 +148,7 @@
     (let ((c0 (char-backward 0))
           (c1 (char-backward 1)))
       (if (and (eqv? c0 #\sharp) (eqv? c1 #\vertical-bar))
-          (backward-delimited-string)
+          (backward-multiline-comment)
         (if (and (eqv? c1 #\backslash) (eqv? (char-backward 2) #\sharp))
             (backward-scheme-char)
           (let ((found (backward-simple-expr)))
@@ -309,6 +309,25 @@
             (iterate))))))
   
   
+  ;; first draft that doesn't support nesting
+  (method protected (backward-multiline-comment)
+    (backward)
+    (backward)
+    (let (iterate)
+      (let ((c0 (char-backward 0))
+            (c1 (char-backward 1)))
+        (cond ((or (not c0) (not c1))
+               #f)
+              ((and (eqv? c0 #\vertical-bar) (eqv? c1 #\sharp))
+               (backward)
+               (backward)
+               (set! kind 'multiline-comment)
+               kind)
+              (else
+               (backward)
+               (iterate))))))
+  
+  
   (method protected (forward-sharp)
     (forward)
     (let ((c0 (char-forward 0))
@@ -426,24 +445,6 @@
                kind)
               (else
                (forward)
-               (iterate))))))
-  
-  
-  (method protected (backward-delimited-string)
-    (backward)
-    (backward)
-    (let (iterate)
-      (let ((c0 (char-backward 0))
-            (c1 (char-backward 1)))
-        (cond ((or (not c0) (not c1))
-               #f)
-              ((and (eqv? c0 #\vertical-bar) (eqv? c1 #\sharp))
-               (backward)
-               (backward)
-               (set! kind 'delimited-string)
-               kind)
-              (else
-               (backward)
                (iterate))))))
   
   

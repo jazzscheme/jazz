@@ -591,6 +591,7 @@
 (native jazz:kernel-destination)
 (native jazz:kernel-built)
 (native jazz:kernel-install)
+(native jazz:kernel-bundle)
 (native jazz:kernel-source)
 (native jazz:kernel-source-access?)
 (native jazz:kernel-version)

@@ -51,7 +51,8 @@
   (jazz:readtable-named-char-table-set! readtable (%%append (jazz:readtable-named-char-table readtable) jazz:named-chars))
   (%%readtable-char-class-set! readtable #\{ #t jazz:read-literal)
   (%%readtable-char-class-set! readtable #\@ #t jazz:read-comment)
-  (%%readtable-char-sharp-handler-set! readtable #\" jazz:read-delimited-string))
+  (%%readtable-char-sharp-handler-set! readtable #\" jazz:read-delimited-string)
+  (%%readtable-char-sharp-handler-set! readtable #\/ jazz:read-syntax-string))
 
 
 (define jazz:named-chars
@@ -179,6 +180,45 @@
                    (else
                     (write-char c output)
                     (iter))))))))
+
+
+(define (jazz:read-syntax-string re next start-pos)
+  (let ((port (jazz:readenv-port re)))
+    (read-char port)
+    (let iter ()
+         (let ((c (read-char port)))
+           (cond ((%%eof-object? c)
+                  #f)
+                 ((%%eqv? c #\/)
+                  (let ((output (open-output-string)))
+                    (let iter ()
+                         (let ((c (read-char port)))
+                           (cond ((%%eof-object? c)
+                                  #f)
+                                 ((%%eqv? c #\\)
+                                  (write-char (read-char port) output)
+                                  (iter))
+                                 ((%%eqv? c #\/)
+                                  (let sub ()
+                                       (let ((next (read-char port)))
+                                         (cond ((%%eqv? next #\/)
+                                                (cond ((%%eqv? (peek-char port) #\#)
+                                                       (read-char port)
+                                                       (jazz:readenv-wrap re (get-output-string output)))
+                                                      (else
+                                                       (write-char c output)
+                                                       (sub))))
+                                               (else
+                                                (write-char c output)
+                                                (write-char next output)
+                                                (iter))))))
+                                 (else
+                                  (write-char c output)
+                                  (iter)))))))
+                 ((or (%%eqv? c #\newline) (%%eqv? c #\return))
+                  (jazz:error "Invalid syntax string"))
+                 (else
+                  (iter)))))))
 
 
 (define jazz:jazz-readtable

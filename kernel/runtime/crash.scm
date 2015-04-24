@@ -63,7 +63,7 @@
     (c-definition (jazz:call_crash_reporter ignore) ((pointer void)) void "jazz_call_crash_reporter" ""
       (jazz:crash-reporter ignore))
 
-    (c-declaration crash #<<END-OF-DECLARES
+    (c-declaration crash #<<end-of-c-code
       static LONG WINAPI unhandled_exception_filter(LPEXCEPTION_POINTERS info)
       {
         jazz_call_crash_reporter(info);
@@ -74,7 +74,7 @@
       {
         SetUnhandledExceptionFilter(unhandled_exception_filter);
       }
-END-OF-DECLARES
+end-of-c-code
     )
     (c-initialization crash "setup_low_level_windows_crash_handler();")
     
@@ -93,7 +93,7 @@ END-OF-DECLARES
    (c-definition (jazz:call_crash_exit) () void "jazz_call_crash_exit" ""
      (exit 1))
 
-   (c-declaration crash #<<END-OF-DECLARES
+   (c-declaration crash #<<end-of-c-code
       #include <stdio.h>
       #include <unistd.h>
       #include <sys/types.h>
@@ -117,7 +117,7 @@ END-OF-DECLARES
         signal(SIGSEGV, error_signal_handler);
         signal(SIGSYS,  error_signal_handler);
       }
-END-OF-DECLARES
+end-of-c-code
    )
 
    (c-initialization crash "setup_low_level_unix_crash_handler();")

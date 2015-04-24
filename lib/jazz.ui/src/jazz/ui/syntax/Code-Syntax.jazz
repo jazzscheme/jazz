@@ -79,7 +79,7 @@
   
   (method public (recolorize-syntax)
     (uncolorize-all)
-    (colorize-syntax recoloring?: #t))
+    (colorize-syntax colorizer?: #f))
 
 
   (method (uncolorize-all)
@@ -104,24 +104,25 @@
         (build-search-automata targets #t #f c-constituent?))))
   
   
-  (method override (colorize-syntax (recoloring?: recoloring? #f) (entries?: entries? #t))
-    (define (colorize-syntax-from pos)
-      (let ((automata (syntax-automata)))
-        (when automata
-          (let ((found (automata-search automata (new TextTape (get-paragraphs~ model) (get-limit~ model) 0 0)))
-                (colorizer (and (not recoloring?) (new-colorizer~ model))))
-            (while (not-null? found)
+  (method override (colorize-syntax (colorizer?: colorizer? #t) (entries?: entries? #t))
+    (colorize-range (text-beginning~ model) (text-ending~ model) colorizer?: colorizer?)
+    (when entries?
+      (colorize-entries)))
+
+  
+  (method override (colorize-range start end (colorizer?: colorizer? #t))
+    (let ((automata (syntax-automata)))
+      (when automata
+        (let ((colorizer (and colorizer? (new-colorizer~ model))))
+          (let (iter (found (automata-search automata (new TextTape (get-paragraphs~ model) (text-beginning~ model) (text-ending~ model)))))
+            (when (not-null? found)
               (let ((info (car found)))
                 (bind ((target type) line col) info
                   (let ((start (new Cell line col))
                         (end (new Cell line (+ col (string-length target)))))
-                    (set! found (colorize-type found type start end colorizer #f))))))
-            (when colorizer
-              (finish-current~ colorizer))))))
-    
-    (colorize-syntax-from (text-beginning~ model))
-    (when entries?
-      (colorize-entries)))
+                    (iter (colorize-type found type start end colorizer #f)))))))
+          (when colorizer
+            (finish-current~ colorizer))))))
   
   
   (method protected (apply-coloring colorizer start end style-name)
@@ -191,28 +192,11 @@
 
   
   (method override (recolorize-text start end-line)
-    (let ((pos (new Cell (get-line~ start) 0))
-          (targets (syntax-targets)))
-      @commented-for-slow-machines-until-optimized
-      (when targets
-        (let ((opening (text-regular-search (list (make-search-context "/*" user-data: 'open) (make-search-context "*/" user-data: 'close)) position: start reversed?: #t)))
-          (when opening
-            (bind (start . (target type)) opening
-              (when (eq? type 'open)
-                (set! pos start))))))
-      (let ((range (naturals (get-line~ pos) (+ end-line 1))))
+    (let ((start (new Cell (get-line~ start) 0))
+          (end (new Cell end-line (paragraph-length~ model end-line))))
+      (let ((range (naturals (get-line~ start) (+ end-line 1))))
         (for-each uncolorize-row range))
-      (let ((automata (syntax-automata)))
-        (when automata
-          (let ((found (automata-search automata (new TextTape (get-paragraphs~ model) end-line (get-line~ pos) (get-col~ pos))))
-                (colorizer (new-colorizer~ model)))
-            (while (not-null? found)
-              (let ((info (car found)))
-                (bind ((target type) line col) info
-                  (let ((start (new Cell line col))
-                        (end (new Cell line (+ col (string-length target)))))
-                    (set! found (colorize-type found type start end colorizer #f))))))
-            (finish-current~ colorizer))))))
+      (colorize-range start end)))
   
   
   (method public virtual (colorize-entries)

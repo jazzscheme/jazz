@@ -170,7 +170,8 @@
   (slot scan       <string> getter generate)
   (slot start-line <fx>     accessors generate)
   (slot start-col  <fx>     accessors generate)
-  (slot end        <fx>     getter generate)
+  (slot end-line   <fx>     getter generate)
+  (slot end-col    <fx>     getter generate)
   
   
   (method override (initialize p s e)
@@ -181,20 +182,23 @@
     (set! scan~self (get-string~ (element paragraphs line)))
     (set! start-line~self 0)
     (set! start-col~self 0)
-    (set! end~self (get-line~ e)))
+    (set! end-line~self (get-line~ e))
+    (set! end-col~self (get-col~ e)))
   
   
   (method override (get-next) <fx+>
-    (if (= col (cardinality scan))
-        (if (< line end)
-            (begin
-              (set! line (+ line 1))
-              (set! col 0)
-              (set! scan (get-string~ (element paragraphs line)))
-              (char->integer #\newline))
-          #f)
-      (prog1 (char->integer (element scan col))
-        (set! col (+ col 1)))))
+    (cond ((or (> line end-line)
+               (and (= line end-line)
+                    (>= col end-col)))
+           #f)
+          ((= col (cardinality scan))
+           (set! line (+ line 1))
+           (set! col 0)
+           (set! scan (get-string~ (element paragraphs line)))
+           (char->integer #\newline))
+          (else
+           (prog1 (char->integer (element scan col))
+             (set! col (+ col 1))))))
   
   
   (method override (save-start)

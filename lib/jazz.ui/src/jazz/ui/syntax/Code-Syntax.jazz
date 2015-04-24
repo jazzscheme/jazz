@@ -114,7 +114,7 @@
     (let ((automata (syntax-automata)))
       (when automata
         (let ((colorizer (and colorizer? (new-colorizer~ model))))
-          (let (iter (found (automata-search automata (new TextTape (get-paragraphs~ model) (text-beginning~ model) (text-ending~ model)))))
+          (let (iter (found (automata-search automata (new TextTape (get-paragraphs~ model) start end))))
             (when (not-null? found)
               (let ((info (car found)))
                 (bind ((target type) line col) info
@@ -189,14 +189,17 @@
             (let ((col (find-balanced #\< #\> str start: (+ col 1) return: 'position)))
               (when col
                 (new Cell line (+ col 1)))))))))
+  
+  
+  (method override (recolorize-range start end)
+    (stylize-range~ model (new Range start end) (get-default-style~ model))
+    (colorize-range start end))
 
   
   (method override (recolorize-text start end-line)
     (let ((start (new Cell (get-line~ start) 0))
           (end (new Cell end-line (paragraph-length~ model end-line))))
-      (let ((range (naturals (get-line~ start) (+ end-line 1))))
-        (for-each uncolorize-row range))
-      (colorize-range start end)))
+      (recolorize-range start end)))
   
   
   (method public virtual (colorize-entries)

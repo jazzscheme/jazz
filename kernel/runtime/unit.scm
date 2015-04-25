@@ -609,7 +609,7 @@
                       package)
         package))
     
-    (if (and (jazz:file-exists? dst) (>= (jazz:file-modification-time dst) (jazz:file-modification-time src)))
+    (if (and (jazz:file-exists? dst) (>= (jazz:file-modification-seconds dst) (jazz:file-modification-seconds src)))
         (or (jazz:repository-find-package jazz:Build-Repository name)
             (load-package))
       (begin

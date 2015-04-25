@@ -444,7 +444,15 @@
       (%%substring pathname 0 (%%fx+ pos 1)))))
 
 
+(define (jazz:file-access-time pathname)
+  (file-last-access-time pathname))
+
+
 (define (jazz:file-modification-time pathname)
+  (file-last-modification-time pathname))
+
+
+(define (jazz:file-modification-seconds pathname)
   (time->seconds (file-last-modification-time pathname)))
 
 
@@ -481,8 +489,8 @@
 
 (define (jazz:file-needs-update? src dst)
   (or (%%not (file-exists? dst))
-      (> (jazz:file-modification-time src)
-         (jazz:file-modification-time dst))))
+      (> (jazz:file-modification-seconds src)
+         (jazz:file-modification-seconds dst))))
 
 
 (define (jazz:maybe-relativise-directory basedir rootdir targdir)
@@ -558,11 +566,11 @@
 
 
 (define (jazz:updated-digest-source? digest src-filepath)
-  (let ((time (jazz:file-modification-time src-filepath)))
-    (if (= time (%%get-digest-time digest))
+  (let ((seconds (jazz:file-modification-seconds src-filepath)))
+    (if (= seconds (%%get-digest-seconds digest))
         #f
       (begin
-        (%%set-digest-time digest time)
+        (%%set-digest-seconds digest seconds)
         (%%set-digest-hash digest (digest-file src-filepath 'SHA-1))
         #t))))
 
@@ -673,7 +681,7 @@
                     (display " " output)
                     (write (%%get-digest-hash digest) output)
                     (display " " output)
-                    (write (%%get-digest-time digest) output)
+                    (write (%%get-digest-seconds digest) output)
                     (display ")" output))
                   digests)
         (display ")" output)

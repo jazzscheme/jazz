@@ -141,7 +141,7 @@
 (jazz:define-structure Digest () (constructor: %%make-digest accessors-type: macro)
   ((pathname getter: generate setter: generate)
    (hash     getter: generate setter: generate)
-   (time     getter: generate setter: generate)))
+   (seconds  getter: generate setter: generate)))
 
 
 ;;;

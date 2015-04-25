@@ -241,10 +241,10 @@
                   (newline output))))
           was-touched?))
       
-      (define (kernel-time)
+      (define (kernel-seconds)
         (let ((version-file (kernel-file "version")))
           (if (file-exists? version-file)
-              (jazz:file-modification-time version-file)
+              (jazz:file-modification-seconds version-file)
             #f)))
       
       ;;;
@@ -361,7 +361,7 @@
                           (create-directory macos-dir))))))))
       
       (define (compile-product rebuild? touch touched?)
-        (let ((kernel-time (kernel-time))
+        (let ((kernel-seconds (kernel-seconds))
               (product? (generate-product rebuild?))
               (main? (generate-main rebuild?)))
           (define (compile-product-file name)
@@ -383,7 +383,7 @@
           (let ((link-file (link-file)))
             (if (or rebuild?
                     (%%not (file-exists? link-file))
-                    (or (%%not kernel-time) (< (jazz:file-modification-time link-file) kernel-time))
+                    (or (%%not kernel-seconds) (< (jazz:file-modification-seconds link-file) kernel-seconds))
                     (touched?))
                 (let ((files `(,(kernel-file "syntax/verbose")
                                ,(kernel-file "_architecture")
@@ -428,7 +428,7 @@
           
           (if (or rebuild?
                   (%%not (file-exists? (image-file)))
-                  (or (%%not kernel-time) (< (jazz:file-modification-time (image-file)) kernel-time))
+                  (or (%%not kernel-seconds) (< (jazz:file-modification-seconds (image-file)) kernel-seconds))
                   (touched?))
               (link-image))))
       

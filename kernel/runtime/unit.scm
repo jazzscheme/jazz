@@ -191,6 +191,9 @@
     (define jazz:file-copy
       copy-file)
     
+    (define jazz:file-times-set!
+      file-last-access-and-modification-times-set!)
+    
     (define jazz:directory-exists?
       file-exists?)
     

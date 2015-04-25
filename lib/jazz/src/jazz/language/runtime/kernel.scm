@@ -889,6 +889,7 @@
 (native jazz:file-access-time)
 (native jazz:file-modification-time)
 (native jazz:file-modification-seconds)
+(native jazz:file-times-set!)
 (native jazz:file-rename)
 (native jazz:add-extension)
 (native jazz:current-directory)

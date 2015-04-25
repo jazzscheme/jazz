@@ -855,30 +855,31 @@
   
   
   (method protected (replace-text range <Range$Cell$> strings)
-    (let ((start (get-start~ range))
-          (end   (get-end~ range))
-          (count (length strings))
-          (old   (range-strings range))
-          (caret (replace-range range strings)))
-      (let ((start-line (get-line~ start)))
-        (update-displayed-from start-line)
-        (recolorize~ syntax start (- (+ start-line count) 1)))
-      (set-modified? #t)
-      (register-undo~ undoer
-        (let ((new-range (new Range$Cell$ start caret))
-              (old-range (copy range)))
-          (lambda ()
-            (replace new-range old)
-            (for-each-client
-              (lambda (client)
-                (set-selection~ client old-range))))))
-      (for-each-client
-        (lambda (client)
-          (call-content-change~ client #f)))
-      (let ((appl (get-application)))
-        (when appl
-          (update-focus-actions~ appl)))
-      caret))
+    (receive (syntax syntax-style) (replace-syntax~ syntax range)
+      (let ((start (get-start~ range))
+            (end   (get-end~ range))
+            (count (length strings))
+            (old   (range-strings range))
+            (caret (replace-range range strings)))
+        (let ((start-line (get-line~ start)))
+          (update-displayed-from start-line)
+          (recolorize~ syntax syntax-style start (- (+ start-line count) 1)))
+        (set-modified? #t)
+        (register-undo~ undoer
+          (let ((new-range (new Range$Cell$ start caret))
+                (old-range (copy range)))
+            (lambda ()
+              (replace new-range old)
+              (for-each-client
+                (lambda (client)
+                  (set-selection~ client old-range))))))
+        (for-each-client
+          (lambda (client)
+            (call-content-change~ client #f)))
+        (let ((appl (get-application)))
+          (when appl
+            (update-focus-actions~ appl)))
+        caret)))
   
   
   (method (replace-range range <Range$Cell$> strings)
@@ -1396,32 +1397,33 @@
                     (set-col~ start 0))
                   paragraphs)))
     
-    (let* ((start (get-start~ range))
-           (end   (get-end~ range))
-           (count (length strings))
-           (old   (range-formatted-text range))
-           (caret (replace-range range strings))
-           (appl  (get-application)))
-      (apply-formats/styles (new Range$Cell$ start caret))
-      (let ((start-line (get-line~ start)))
-        (update-displayed-from start-line)
-        (recolorize~ syntax start (- (+ start-line count) 1)))
-      (set-modified? #t)
-      (register-undo~ undoer
-        (let ((new-range (new Range$Cell$ start caret))
-              (old-range (copy range)))
-          (lambda ()
-            (replace-formatted new-range old)
-            (for-each-client
-              (lambda (client)
-                (set-selection~ client old-range))))))
-      (for-each-client
-        (lambda (client)
-          (call-content-change~ client #f)))
-      (let ((appl (get-application)))
-        (when appl
-          (update-focus-actions~ appl)))
-      caret))
+    (receive (syntax syntax-style) (replace-syntax~ syntax range)
+      (let* ((start (get-start~ range))
+             (end   (get-end~ range))
+             (count (length strings))
+             (old   (range-formatted-text range))
+             (caret (replace-range range strings))
+             (appl  (get-application)))
+        (apply-formats/styles (new Range$Cell$ start caret))
+        (let ((start-line (get-line~ start)))
+          (update-displayed-from start-line)
+          (recolorize~ syntax syntax-style start (- (+ start-line count) 1)))
+        (set-modified? #t)
+        (register-undo~ undoer
+          (let ((new-range (new Range$Cell$ start caret))
+                (old-range (copy range)))
+            (lambda ()
+              (replace-formatted new-range old)
+              (for-each-client
+                (lambda (client)
+                  (set-selection~ client old-range))))))
+        (for-each-client
+          (lambda (client)
+            (call-content-change~ client #f)))
+        (let ((appl (get-application)))
+          (when appl
+            (update-focus-actions~ appl)))
+        caret)))
   
   
   ;;;

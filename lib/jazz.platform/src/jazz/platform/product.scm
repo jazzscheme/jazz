@@ -148,10 +148,10 @@
 
 
 (define jazz:windows-units
-  (let ((cairo-include-path   (jazz:quote-jazz-pathname "foreign/windows/cairo/include"))
-        (cairo-lib-path       (jazz:quote-jazz-pathname "foreign/windows/cairo/lib"))
-        (windows-include-path (jazz:quote-jazz-pathname "foreign/windows/include"))
-        (windows-lib-path     (jazz:quote-jazz-pathname "foreign/windows/lib"))
+  (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/windows/cairo/include"))
+        (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/windows/cairo/lib"))
+        (pdh-include-path   (jazz:quote-jazz-pathname "foreign/windows/pdh/include"))
+        (pdh-lib-path       (jazz:quote-jazz-pathname "foreign/windows/pdh/lib"))
         (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
     `((jazz.platform.windows)
       (jazz.platform.odbc.odbc-lowlevel  ld-options: "-lodbc32")
@@ -167,8 +167,8 @@
       (jazz.platform.windows.WinShell    cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinCtrl     cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinDlg      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
-      (jazz.platform.windows.WinPerf     cc-options: ,(string-append "-I" windows-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" windows-lib-path " -mwindows -lpdh"))
-      (jazz.platform.windows.WinPSAPI    cc-options: ,(string-append "-I" windows-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" windows-lib-path " -mwindows -lpsapi"))
+      (jazz.platform.windows.WinPerf     cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpdh"))
+      (jazz.platform.windows.WinPSAPI    cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpsapi"))
       (jazz.platform.cairo.cairo-windows cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))
       (jazz.platform.crash.windows       cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))
 

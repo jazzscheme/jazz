@@ -452,7 +452,16 @@
 ;;;
 
 
-(definition public (different-times? time1 time2 (tolerance: tolerance 2))
+(cond-expand
+  (windows
+    (definition default-tolerance
+      2))
+  (else
+    (definition default-tolerance
+      1)))
+
+
+(definition public (different-times? time1 time2 (tolerance: tolerance default-tolerance))
   (> (abs (- (time->seconds time1) (time->seconds time2)))
      tolerance))
 
@@ -1036,6 +1045,12 @@
       (call-with-output-file (path-settings self)
         (lambda (output)
           ))))
+  
+  
+  (method public (copy-times dst)
+    (let ((src (parse))
+          (dst (parse~ dst)))
+      (file-times-set! dst (file-access-time src) (file-modification-time src))))
 
 
   (method public (copy-file dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (preserve-times?: preserve-times? #f) (feedback: feedback #f))
@@ -1044,23 +1059,26 @@
     (overwrite-read-only~ dst overwrite-read-only?)
     (when (and overwrite? (exists?~ dst))
       (delete-file~ dst))
-    (let ((src (parse))
-          (dst (parse~ dst)))
-      (file-copy src dst)
-      (when preserve-times?
-        (file-times-set! dst (file-access-time src) (file-modification-time src)))))
+    (file-copy (parse) (parse~ dst))
+    (when preserve-times?
+      (copy-times dst)))
   
   
   (method public (install-file dst (feedback: feedback #f))
     (if (exists?~ dst)
-        (when (different-file-times/digests? self dst)
-          (when feedback
-            (feedback 'replace self))
-          (copy-file dst))
+        (when (different-file-times? self dst)
+          (cond ((different-file-digests? self dst)
+                 (when feedback
+                   (feedback 'replacing self))
+                 (copy-file dst preserve-times?: #t))
+                (else
+                 (when feedback
+                   (feedback 'touching self))
+                 (copy-times dst))))
       (when feedback
         (feedback 'copy self))
       (create-directories~ dst)
-      (copy-file dst)))
+      (copy-file dst preserve-times?: #t)))
   
   
   (method public (delete-file (overwrite-read-only?: overwrite-read-only? #f) (error?: error? #t))
@@ -1255,7 +1273,7 @@
     pathname)
 
 
-  (method public (copy-directory dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (copier: copier #f) (feedback: feedback #f) (copy?: copy? #t))
+  (method public (copy-directory dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f) (copier: copier #f) (copy?: copy? #t) (preserve-times?: preserve-times? #f) (feedback: feedback #f))
     (when feedback
       (feedback self))
     (when (and overwrite? (exists?~ dst))
@@ -1271,7 +1289,7 @@
                 (let ((dest (new File (destination path))))
                   (if copier
                       (copier path dest)
-                    (copy-file~ path dest feedback: feedback)))
+                    (copy-file~ path dest preserve-times?: preserve-times? feedback: feedback)))
               (copy-directory~ path (new Directory (destination path)) feedback: feedback copy?: copy?))))
         files?: #t
         directories?: #t
@@ -1288,7 +1306,7 @@
                               ((File)
                                (when feedback
                                  (feedback 'copying left))
-                               (copy-file~ left (new-file~ dst-dir (get-name~ left))))
+                               (copy-file~ left (new-file~ dst-dir (get-name~ left)) preserve-times?: #t))
                               ((Directory)
                                (when feedback
                                  (feedback 'copying left))
@@ -1312,15 +1330,20 @@
                               ((File)
                                (typecase right
                                  ((File)
-                                  (when (different-file-times/digests? left right)
-                                    (when feedback
-                                      (feedback 'replacing left))
-                                    (copy-file~ left right)))
+                                  (when (different-file-times? left right)
+                                    (cond ((different-file-digests? left right)
+                                           (when feedback
+                                             (feedback 'replacing left))
+                                           (copy-file~ left right preserve-times?: #t))
+                                          (else
+                                           (when feedback
+                                             (feedback 'touching left))
+                                           (copy-times~ left right)))))
                                  ((Directory)
                                   (when feedback
                                     (feedback 'replacing left))
                                   (delete-directory~ right)
-                                  (copy-file~ left (new-file~ dst-dir (get-name~ left))))))
+                                  (copy-file~ left (new-file~ dst-dir (get-name~ left)) preserve-times?: #t))))
                               ((Directory)
                                (typecase right
                                  ((File)

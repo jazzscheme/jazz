@@ -55,8 +55,23 @@
         (jazz.ui.window))
 
 
-(definition public (new-opengl-window (class: class #f) (position: position #f) (size: size #f) (fullscreen?: fullscreen? #f) (render?: render? #t) (visible?: visible? #t))
-  (let ((window (create-opengl-window class: class position: position size: size fullscreen?: fullscreen? render?: render?)))
+(definition public (new-opengl-window (class: class #f) (position: position #f) (size: size #f) (need-version: need-version #f) (fullscreen?: fullscreen? #f) (render?: render? #t) (visible?: visible? #t))
+  (define (validate-version)
+    (when need-version
+      (let ((major (glGetInteger GL_MAJOR_VERSION))
+            (minor (glGetInteger GL_MINOR_VERSION)))
+        (when (or (< major (get-major~ need-version))
+                  (and (= major (get-major~ need-version))
+                       (< minor (get-minor~ need-version))))
+          (system-message (format "OpenGL {a}.{a} doesn't meet the OpenGL {a}.{a} requirements"
+                                  major
+                                  minor
+                                  (get-major~ need-version)
+                                  (get-minor~ need-version))
+                          type: 'error)
+          (exit)))))
+  
+  (let ((window (create-opengl-window class: class position: position size: size validate-version: validate-version fullscreen?: fullscreen? render?: render?)))
     (initialize-glew)
     (adjust-opengl-context window)
     (setup-opengl~ window)

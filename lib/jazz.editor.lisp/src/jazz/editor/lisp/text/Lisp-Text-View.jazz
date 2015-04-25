@@ -154,11 +154,9 @@
     (if (or (has-completion?)
             (not accepts-returns?))
         (nextmethod evt)
-      (if (get-shift?~ evt)
-          (insert-char #\tab)
-        (with-atomic-undo~ (get-undoer~ model)
-          (lambda ()
-            (tabulate))))))
+      (with-atomic-undo~ (get-undoer~ model)
+        (lambda ()
+          (tabulate)))))
   
   
   @wait
@@ -224,7 +222,13 @@
 
 
   (method override (tabulate)
-    (tabulate-range (get-selection)))
+    (let ((range (get-selection)))
+      (let ((range-syntax (syntax-at-range~ syntax range)))
+        (if (eq? range-syntax syntax)
+            (if (shift-down?)
+                (insert-char #\tab)
+              (tabulate-range range))
+          (tabulate~ range-syntax self)))))
   
   
   (method protected (tabulate-range range)
@@ -243,7 +247,7 @@
             action: 'ignore)))))
   
   
-  (method override (tabulate-lines start end)
+  (method protected (tabulate-lines start end)
     (let ((modified? #f)
           (last-delta #f))
       (loop (for line from start to end)
@@ -254,7 +258,7 @@
       (values modified? last-delta)))
   
   
-  (method override (tabulate-line line)
+  (method (tabulate-line line)
     (define (tabulate-column line delta)
       (when (/= delta 0)
         (let ((actual (get-column line)))

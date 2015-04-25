@@ -73,6 +73,44 @@
 
   
   ;;;
+  ;;;; Tabulation
+  ;;;
+
+
+  (method override (tabulate text)
+    (if (has-selection?~ text)
+        (let ((proc (if (shift-down?) untabulate-line tabulate-line)))
+          (for-each (lambda (line)
+                      (proc text line))
+                    (selected-lines~ text)))
+      (let* ((pos (get-start~ text))
+             (line (get-line~ pos))
+             (col (get-col~ pos)))
+        (when (and (> line 0) (= col 0))
+          (let* ((str (paragraph-string~ model (- line 1)))
+                 (rank (find-if (lambda (c) (not (whitespace? c))) str return: 'position)))
+            (if (not rank)
+                (insert-string~ text str)
+              (insert-string~ text (subseq str 0 rank))))))))
+  
+  
+  (method override (tabulate-line text line)
+    (replace-text~ text
+      (new Range$Cell$ (new Cell line 0) (new Cell line 0))
+      (list (string #\tab))))
+  
+  
+  (method override (untabulate-line text line)
+    (define (space/tab? c)
+      (memq? c '(#\space #\tab)))
+    
+    (when (space/tab? (get-char~ model (new Cell line 0)))
+      (replace-text~ text
+        (new Range$Cell$ (new Cell line 0) (new Cell line 1))
+        (list ""))))
+
+  
+  ;;;
   ;;;; Coloring
   ;;;
   

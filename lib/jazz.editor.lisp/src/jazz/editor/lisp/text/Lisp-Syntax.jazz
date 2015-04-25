@@ -126,6 +126,36 @@
   
   
   ;;;
+  ;;;; Syntax
+  ;;;
+  
+  
+  (definition Syntax-Classes
+    (list
+      (cons (cons "clojure" 'Clojure-Syntax) (lambda () jazz.editor.clojure:Clojure-Syntax))
+      (cons (cons "commonlisp" 'CommonLisp-Syntax) (lambda () jazz.editor.commonlisp:CommonLisp-Syntax))
+      (cons (cons "c" 'C-Syntax) (lambda () jazz.editor.c:C-Syntax))
+      (cons (cons "c++" 'C-Syntax) (lambda () jazz.editor.c:C-Syntax))
+      (cons (cons "objective-c" 'C-Syntax) (lambda () jazz.editor.c:C-Syntax))
+@wait (cons (cons "css" 'CSS-Syntax) (lambda () jazz.editor.css:CSS-Syntax))
+      (cons (cons "jazz" 'Jazz-Syntax) (lambda () jazz.editor.jazz:Jazz-Syntax))
+@wait (cons (cons "java" 'Java-Syntax) (lambda () jazz.editor.java:Java-Syntax))
+      (cons (cons "javascript" 'JavaScript-Syntax) (lambda () jazz.editor.javascript:JavaScript-Syntax))
+@wait (cons (cons "lua" 'Lua-Syntax) (lambda () jazz.editor.lua:Lua-Syntax))
+@wait (cons (cons "properties" 'Properties-Syntax) (lambda () jazz.editor.properties:Properties-Syntax))
+@wait (cons (cons "python" 'Python-Syntax) (lambda () jazz.editor.python:Python-Syntax))
+      (cons (cons "scheme" 'Scheme-Syntax) (lambda () jazz.editor.scheme:Scheme-Syntax))))
+  
+  
+  (definition (get-syntax-info dialect)
+    (associate dialect Syntax-Classes key: car test: ci=?))
+  
+  
+  (definition (get-syntax-style-info style-name)
+    (associate style-name Syntax-Classes key: cdr))
+  
+  
+  ;;;
   ;;;; Coloring
   ;;;
   
@@ -257,31 +287,6 @@
     )
   
   
-  (definition Syntax-Classes
-    (list
-      (cons (cons "clojure" 'Clojure-Syntax) (lambda () jazz.editor.clojure:Clojure-Syntax))
-      (cons (cons "commonlisp" 'CommonLisp-Syntax) (lambda () jazz.editor.commonlisp:CommonLisp-Syntax))
-      (cons (cons "c" 'C-Syntax) (lambda () jazz.editor.c:C-Syntax))
-      (cons (cons "c++" 'C-Syntax) (lambda () jazz.editor.c:C-Syntax))
-      (cons (cons "objective-c" 'C-Syntax) (lambda () jazz.editor.c:C-Syntax))
-@wait (cons (cons "css" 'CSS-Syntax) (lambda () jazz.editor.css:CSS-Syntax))
-      (cons (cons "jazz" 'Jazz-Syntax) (lambda () jazz.editor.jazz:Jazz-Syntax))
-@wait (cons (cons "java" 'Java-Syntax) (lambda () jazz.editor.java:Java-Syntax))
-      (cons (cons "javascript" 'JavaScript-Syntax) (lambda () jazz.editor.javascript:JavaScript-Syntax))
-@wait (cons (cons "lua" 'Lua-Syntax) (lambda () jazz.editor.lua:Lua-Syntax))
-@wait (cons (cons "properties" 'Properties-Syntax) (lambda () jazz.editor.properties:Properties-Syntax))
-@wait (cons (cons "python" 'Python-Syntax) (lambda () jazz.editor.python:Python-Syntax))
-      (cons (cons "scheme" 'Scheme-Syntax) (lambda () jazz.editor.scheme:Scheme-Syntax))))
-  
-  
-  (definition (get-syntax-info dialect)
-    (associate dialect Syntax-Classes key: car test: ci=?))
-  
-  
-  (definition (get-syntax-style-info style-name)
-    (associate style-name Syntax-Classes key: cdr))
-  
-  
   (method (colorize-syntax-string colorizer start end)
     (define (find-open)
       (let ((line (paragraph-string~ model (get-line~ start)))
@@ -352,6 +357,12 @@
             (let ((class (proc)))
               (new class model)))
         self)))
+  
+  
+  (method override (syntax-at-range range <Range$Cell$>) <Text-Syntax>
+    ;; quicky. should validate that the style is uniform throughout range
+    (receive (syntax syntax-style) (replace-syntax range)
+      syntax))
   
   
   (method override (replace-syntax range <Range$Cell$>) <Text-Syntax>

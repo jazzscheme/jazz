@@ -334,15 +334,27 @@
       end-line: end))
   
   
+  (method (info-at pos <Cell>) <Text-Syntax>
+    (let ((style (get-style-at*~ model pos)))
+      (and (inherits?~ style 'Syntax-String)
+           (let ((base (get-base~ style)))
+             (and (not-null? base)
+                  (let ((style-name (car base)))
+                    (get-syntax-style-info style-name)))))))
+  
+  
+  (method override (syntax-at pos <Cell>) <Text-Syntax>
+    (let ((info (or (info-at pos)
+                    (let ((next (next-cell~ model pos)))
+                      (and next (info-at next))))))
+      (if info
+          (let ((proc (cdr info)))
+            (let ((class (proc)))
+              (new class model)))
+        self)))
+  
+  
   (method override (replace-syntax range <Range$Cell$>) <Text-Syntax>
-    (define (info-at pos <Cell>) <Text-Syntax>
-      (let ((style (get-style-at~ model pos)))
-        (and (inherits?~ style 'Syntax-String)
-             (let ((base (get-base~ style)))
-               (and (not-null? base)
-                    (let ((style-name (car base)))
-                      (get-syntax-style-info style-name)))))))
-    
     (define (determine-info)
       (let ((start (get-start~ range))
             (end (get-end~ range)))

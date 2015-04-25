@@ -1213,13 +1213,18 @@
         (%%cdr pair)
       #f)))
 
-(define (jazz:product-descriptor-build-bundle descriptor)
-  (let ((alist (jazz:product-descriptor-build descriptor)))
-    (if alist
-        (let ((pair (%%assq (jazz:product-descriptor-name descriptor) alist)))
-          (if pair
-              (jazz:getf (%%cdr pair) bundle:)
-            #f))
+(cond-expand
+  (cocoa
+    (define (jazz:product-descriptor-build-bundle descriptor)
+      (let ((alist (jazz:product-descriptor-build descriptor)))
+        (if alist
+            (let ((pair (%%assq (jazz:product-descriptor-name descriptor) alist)))
+              (if pair
+                  (jazz:getf (%%cdr pair) bundle:)
+                #f))
+          #f))))
+  (else
+    (define (jazz:product-descriptor-build-bundle descriptor)
       #f)))
 
 (define (jazz:product-descriptor-library descriptor)

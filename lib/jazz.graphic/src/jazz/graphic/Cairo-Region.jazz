@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Regions
+;;;; Cairo Regions
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,75 +35,80 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.graphic.platform.cocoa.Region jazz
+(module protected jazz.graphic.Cairo-Region jazz
 
 
 (import (jazz.graphic)
-        (jazz.geometry)
-        (jazz.library)
-        (jazz.platform))
+        (jazz.platform.cairo))
 
 
-(class Region extends Cairo-Region
+(class Cairo-Region extends Rectangles-Region
   
   
-  @wait (
   (slot handle getter generate)
   
   
-  (method override (initialize (keep-rectangles?: keep-rectangles? (needs-rectangles?)) (handle: handle #f) (rect: rect #f))
+  (method override (initialize (keep-rectangles?: keep-rectangles? (needs-rectangles?)) (rect: rect #f))
     (nextmethod keep-rectangles?: keep-rectangles? rect: rect)
-    (cond (handle
-           (set! handle~self handle))
-          (rect
-           (set! handle (CreateRectRgn (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-bottom~ rect))))
-          (else
-           (set! handle (CreateRectRgn 0 0 0 0))))
+    (set! handle (if rect
+                     (with-cairo-rectangle rect
+                       (lambda (rectangle)
+                         (cairo_region_create_rectangle rectangle)))
+                   (cairo_region_create)))
+    ;; not sure this is necessary
+    (cairo_region_reference handle)
     (destroy-mandatory))
+
+  
+  (method override (destroy)
+    (cairo_region_destroy handle)
+    (nextmethod))
   
   
   (method override (needs-rectangles?)
     #f)
-
-  
-  (method override (destroy)
-    (DisposeRgn handle)
-    (nextmethod))
   
   
-  (method override (offset! h v)
-    (OffsetRgn handle h v)
-    (nextmethod h v))
-  
-  
-  (method override (combine-and! region)
-    (error "Unimplemented: combine-and!")
-    (nextmethod region))
-
-
-  (method override (combine-or! region)
-    (UnionRgn handle (get-handle~ region) handle)
-    (nextmethod region))
-  
-  
-  (method override (combine-xor! region)
-    (UnionRgn handle (get-handle~ region) handle)
-    (nextmethod region))
-  
-  
-  (method override (combine-diff! region)
-    (error "Unimplemented: combine-diff!")
-    (nextmethod region))
-  
-  
-  (method override (empty?) <bool>
-    (= (get-box) {Rect 0 0 0 0}))
-  
-  
-  (method override (intersects-rect? rect) <bool>
-    (rect-intersect? (get-box) rect))
+  (method override (get-rectangles)
+    (let ((queue (new-queue)))
+      (with-cairo-rectangle #f
+        (lambda (rectangle)
+          (loop (for n from 0 below (cairo_region_num_rectangles handle))
+                (cairo_region_get_rectangle handle n rectangle)
+                (enqueue queue (cairo-rectangle->rect rectangle)))))
+      (queue-list queue)))
 
 
   (method override (get-box) <Rect>
-    (receive (l t b r) (GetRegionBounds handle)
-      (new Rect l t r b))))))
+    (with-cairo-rectangle #f
+      (lambda (rectangle)
+        (cairo_region_get_extents handle rectangle)
+        (cairo-rectangle->rect rectangle))))
+  
+  
+  (method override (offset! h v)
+    (cairo_region_translate handle h v))
+  
+  
+  (method override (combine-and! region)
+    (cairo_region_intersect handle (get-handle~ region)))
+
+
+  (method override (combine-or! region)
+    (cairo_region_union handle (get-handle~ region)))
+  
+  
+  (method override (combine-xor! region)
+    (cairo_region_xor handle (get-handle~ region)))
+  
+  
+  (method override (combine-diff! region)
+    (cairo_region_subtract handle (get-handle~ region)))
+  
+  
+  (method override (empty?) <bool>
+    (/= (cairo_region_is_empty handle) 0))
+  
+  
+  (method override (intersects-rect? rect) <bool>
+    (/= (cairo_region_contains_rectangle handle rect) CAIRO_REGION_OVERLAP_OUT))))

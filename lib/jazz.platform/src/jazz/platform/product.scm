@@ -82,25 +82,42 @@
   (cocoa
     (define jazz:cairo-units
       (let ((cairo-include-path      (jazz:quote-jazz-pathname "foreign/mac/cairo/include/cairo"))
+            (fontconfig-include-path (jazz:quote-jazz-pathname "foreign/mac/fontconfig/include"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
             (cairo-lib-path          (jazz:quote-jazz-pathname "foreign/mac/cairo/lib"))
-            (png-lib-path            (jazz:quote-jazz-pathname "foreign/mac/png/lib"))
             (pixman-lib-path         (jazz:quote-jazz-pathname "foreign/mac/pixman/lib"))
             (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/mac/fontconfig/lib"))
             (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
-            (fontconfig-include-path (jazz:quote-jazz-pathname "foreign/mac/fontconfig/include"))
-            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include")))
-        (let ((cc-flags (string-append "-I" cairo-include-path " " "-I" freetype-include-path " " "-I" fontconfig-include-path))
-              (ld-flags (string-append "-L" cairo-lib-path " " "-L" png-lib-path " " "-L" pixman-lib-path " " "-L" fontconfig-lib-path " " "-L" freetype-lib-path " -lcairo.2")))
+            (png-lib-path            (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
+        (let ((cc-flags (string-append "-I" cairo-include-path " -I" fontconfig-include-path " -I" freetype-include-path))
+              (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lcairo.2")))
           `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
             (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
             (jazz.platform.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options)
             (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (windows
     (define jazz:cairo-units
-      (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/windows/cairo/include"))
-            (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/windows/cairo/lib")))
-        `((jazz.platform.cairo            cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))
-          (jazz.platform.cairo.cairo-base cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))))))
+      (let ((cairo-include-path      (jazz:quote-jazz-pathname "foreign/windows/cairo/include"))
+            (pixman-include-path     (jazz:quote-jazz-pathname "foreign/windows/pixman/include"))
+            (fontconfig-include-path (jazz:quote-jazz-pathname "foreign/windows/fontconfig/include"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/windows/freetype/include"))
+            (expat-include-path      (jazz:quote-jazz-pathname "foreign/windows/expat/include"))
+            (png-include-path        (jazz:quote-jazz-pathname "foreign/windows/png/include"))
+            (zlib-include-path       (jazz:quote-jazz-pathname "foreign/windows/zlib/include"))
+            (cairo-lib-path          (jazz:quote-jazz-pathname "foreign/windows/cairo/lib"))
+            (pixman-lib-path         (jazz:quote-jazz-pathname "foreign/windows/pixman/lib"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/windows/fontconfig/lib"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/windows/freetype/lib"))
+            (expat-lib-path          (jazz:quote-jazz-pathname "foreign/windows/expat/lib"))
+            (png-lib-path            (jazz:quote-jazz-pathname "foreign/windows/png/lib"))
+            (zlib-lib-path           (jazz:quote-jazz-pathname "foreign/windows/zlib/lib")))
+        (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" expat-include-path " -I" png-include-path " -I" zlib-include-path))
+              (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -mwindows -lcairo -lpixman-1 -lfontconfig -lfreetype -lexpat -lpng -lz")))
+          `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
+            (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
+            (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)
+            (jazz.platform.cairo.cairo-logfont  cc-options: ,cc-flags ld-options: ,ld-flags)
+            (jazz.platform.cairo.cairo-windows  cc-options: ,cc-flags ld-options: ,(string-append ld-flags " -lMsimg32")))))))
   (x11
     (define jazz:cairo-units
       (let ((cairo-name (jazz:guess-cairo-name)))
@@ -117,40 +134,36 @@
 
 (cond-expand
   (cocoa
-    (define (jazz:freetype-units)
+    (define jazz:freetype-units
       (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/mac/fontconfig/include"))
             (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/mac/fontconfig/lib"))
             (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
             (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
             (png-lib-path            (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
-        (let ((cc-flags (string-append "-I" freetype-include-path " " "-I" fontconfig-include-path))
-              (ld-flags (string-append "-L" freetype-lib-path " " "-L" fontconfig-lib-path " " "-L" png-lib-path " -lfreetype")))
+        (let ((cc-flags (string-append "-I" freetype-include-path " -I" fontconfig-include-path))
+              (ld-flags (string-append "-L" freetype-lib-path " -L" fontconfig-lib-path " -L" png-lib-path " -lfreetype")))
+          `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
+  (windows
+    (define jazz:freetype-units
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/windows/fontconfig/include"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/windows/fontconfig/lib"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/windows/freetype/include"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/windows/freetype/lib"))
+            (expat-lib-path          (jazz:quote-jazz-pathname "foreign/windows/expat/lib"))
+            (png-lib-path            (jazz:quote-jazz-pathname "foreign/windows/png/lib"))
+            (zlib-lib-path           (jazz:quote-jazz-pathname "foreign/windows/zlib/lib")))
+        (let ((cc-flags (string-append "-I" freetype-include-path " -I" fontconfig-include-path))
+              (ld-flags (string-append "-L" freetype-lib-path " -L" fontconfig-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig -lfreetype -lexpat -lpng -lz")))
           `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (else
-    (define (jazz:freetype-units)
+    (define jazz:freetype-units
       (let ((cc-flags (string-append (jazz:pkg-config-cflags "fontconfig") " " (jazz:pkg-config-cflags "freetype2")))
             (ld-flags (string-append (jazz:pkg-config-libs "fontconfig") " " (jazz:pkg-config-libs "freetype2"))))
         `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
 
 
-(cond-expand
-  (windows
-    (define (jazz:logfont-units)
-      (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/windows/cairo/include"))
-            (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/windows/cairo/lib")))
-        `((jazz.platform.cairo.cairo-logfont cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo")))))
-    
-    (define jazz:font-units
-      (jazz:logfont-units)))
-  (else
-    (define jazz:font-units
-     (jazz:freetype-units))))
-
-
 (define jazz:windows-units
-  (let ((cairo-include-path (jazz:quote-jazz-pathname "foreign/windows/cairo/include"))
-        (cairo-lib-path     (jazz:quote-jazz-pathname "foreign/windows/cairo/lib"))
-        (pdh-include-path   (jazz:quote-jazz-pathname "foreign/windows/pdh/include"))
+  (let ((pdh-include-path   (jazz:quote-jazz-pathname "foreign/windows/pdh/include"))
         (pdh-lib-path       (jazz:quote-jazz-pathname "foreign/windows/pdh/lib"))
         (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
     `((jazz.platform.windows)
@@ -169,7 +182,6 @@
       (jazz.platform.windows.WinDlg      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinPerf     cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpdh"))
       (jazz.platform.windows.WinPSAPI    cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpsapi"))
-      (jazz.platform.cairo.cairo-windows cc-options: ,(string-append "-I" cairo-include-path) ld-options: ,(string-append "-L" cairo-lib-path " -lcairo"))
       (jazz.platform.crash.windows       cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))
 
 
@@ -233,10 +245,10 @@
   (windows
    (define jazz:platform-files
      (list (cons "foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")
-           (cons "foreign/windows/cairo/lib/libfontconfig-1.dll" "libfontconfig-1.dll")
-           (cons "foreign/windows/cairo/lib/freetype6.dll" "freetype6.dll")
-           (cons "foreign/windows/cairo/lib/libexpat-1.dll" "libexpat-1.dll")
-           (cons "foreign/windows/png/lib/libpng14-14.dll" "libpng14-14.dll")
+           (cons "foreign/windows/pixman/lib/libpixman-1-0.dll" "libpixman-1-0.dll")
+           (cons "foreign/windows/fontconfig/lib/libfontconfig-1.dll" "libfontconfig-1.dll")
+           (cons "foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll")
+           (cons "foreign/windows/png/lib/libpng16-16.dll" "libpng16-16.dll")
            (cons "foreign/windows/zlib/lib/zlib1.dll" "zlib1.dll"))))
   (else
    (define jazz:platform-files
@@ -267,7 +279,7 @@
                           ,@jazz:crash-units
                           ,@jazz:types-units
                           ,@jazz:cairo-units
-                          ,@jazz:font-units
+                          ,@jazz:freetype-units
                           ,@jazz:cocoa-units
                           ,@jazz:minilzo-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
@@ -280,7 +292,7 @@
                           ,@jazz:crash-units
                           ,@jazz:types-units
                           ,@jazz:cairo-units
-                          ,@jazz:font-units
+                          ,@jazz:freetype-units
                           ,@jazz:windows-units
                           ,@jazz:windows-odbc-units
                           ,@jazz:minilzo-units
@@ -295,7 +307,7 @@
                           ,@jazz:crash-units
                           ,@jazz:types-units
                           ,@jazz:cairo-units
-                          ,@jazz:font-units
+                          ,@jazz:freetype-units
                           ,@jazz:x11-units
                           ,@jazz:unix-odbc-units
                           ,@jazz:minilzo-units)))

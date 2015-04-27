@@ -248,6 +248,7 @@
            (cons "foreign/windows/pixman/lib/libpixman-1-0.dll" "libpixman-1-0.dll")
            (cons "foreign/windows/fontconfig/lib/libfontconfig-1.dll" "libfontconfig-1.dll")
            (cons "foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll")
+           (cons "foreign/windows/expat/lib/libexpat-1.dll" "libexpat-1.dll")
            (cons "foreign/windows/png/lib/libpng16-16.dll" "libpng16-16.dll")
            (cons "foreign/windows/zlib/lib/zlib1.dll" "zlib1.dll"))))
   (else

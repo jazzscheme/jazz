@@ -883,10 +883,11 @@
               (change-selection pos generate-event?: #f)
               (with ((region (multi-part-region parts (lambda (rect) (logical->device~ surface rect)))))
                 (when region
-                  (if final?
-                      (invalidate-region~ player region)
-                    (redraw-window~ player region: region)
-                    (set! previous-position pos))))))))))
+                  (with ((platform-region (->platform-region~ region)))
+                    (if final?
+                        (invalidate-region~ player platform-region)
+                      (redraw-window~ player region: platform-region)
+                      (set! previous-position pos)))))))))))
   
   
   (method override (double-click evt)
@@ -1390,13 +1391,13 @@
   
   (method (range-region range <Range$Cell$> transformer (top: top #f) (bottom: bottom #f))
     (let ((root (get-root))
-          (region (new Region keep-rectangles?: #t))
+          (region (new Cairo-Region))
           (width (get-width)))
       (for-each-logical-range range
         (lambda (line paragraph start end)
           (with ((sub (range-region~ paragraph left-padding start end width transformer)))
             (combine-or!~ region sub))))
-      (with ((clipper (new Region rect: (transformer (get-view-clipper)))))
+      (with ((clipper (new Cairo-Region rect: (transformer (get-view-clipper)))))
         (combine-and!~ region clipper))
       region))
   
@@ -1415,7 +1416,8 @@
       (with-transformation-surface
         (lambda (surface)
           (with ((region (range-region range (lambda (rect) (logical->device~ surface rect)))))
-            (invalidate-region~ player region))))))
+            (with ((platform-region (->platform-region~ region)))
+              (invalidate-region~ player platform-region)))))))
   
   
   ;; this should be unified with selection-region
@@ -1710,11 +1712,14 @@
                 (if (and old new)
                     (begin
                       (combine-xor!~ new old)
-                      (invalidate-region~ player new))
+                      (with ((platform-region (->platform-region~ new)))
+                        (invalidate-region~ player platform-region)))
                   (when old
-                    (invalidate-region~ player old))
+                    (with ((platform-region (->platform-region~ old)))
+                      (invalidate-region~ player platform-region)))
                   (when new
-                    (invalidate-region~ player new))))))))))
+                    (with ((platform-region (->platform-region~ new)))
+                      (invalidate-region~ player platform-region)))))))))))
   
   
   (method public (reset-caret pos <Cell> . rest)

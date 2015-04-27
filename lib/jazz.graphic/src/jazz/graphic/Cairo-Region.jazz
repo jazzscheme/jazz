@@ -42,20 +42,19 @@
         (jazz.platform.cairo))
 
 
-(class Cairo-Region extends Rectangles-Region
+(class Cairo-Region extends Base-Region
   
   
   (slot handle getter generate)
   
   
-  (method override (initialize (keep-rectangles?: keep-rectangles? (needs-rectangles?)) (rect: rect #f))
-    (nextmethod keep-rectangles?: keep-rectangles? rect: rect)
+  (method override (initialize (rect: rect #f))
     (set! handle (if rect
                      (with-cairo-rectangle rect
                        (lambda (rectangle)
                          (cairo_region_create_rectangle rectangle)))
                    (cairo_region_create)))
-    ;; not sure this is necessary
+    ;; not sure if this is necessary
     (cairo_region_reference handle)
     (destroy-mandatory))
 
@@ -65,8 +64,15 @@
     (nextmethod))
   
   
-  (method override (needs-rectangles?)
-    #f)
+  (method public (->platform-region)
+    (new Region rect: (get-box)))
+
+
+  (method override (get-box) <Rect>
+    (with-cairo-rectangle #f
+      (lambda (rectangle)
+        (cairo_region_get_extents handle rectangle)
+        (cairo-rectangle->rect rectangle))))
   
   
   (method override (get-rectangles)
@@ -77,13 +83,6 @@
                 (cairo_region_get_rectangle handle n rectangle)
                 (enqueue queue (cairo-rectangle->rect rectangle)))))
       (queue-list queue)))
-
-
-  (method override (get-box) <Rect>
-    (with-cairo-rectangle #f
-      (lambda (rectangle)
-        (cairo_region_get_extents handle rectangle)
-        (cairo-rectangle->rect rectangle))))
   
   
   (method override (offset! h v)

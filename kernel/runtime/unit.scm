@@ -225,7 +225,11 @@
 
 (define jazz:kernel-install
   (or (and (%%eq? jazz:image 'executable) jazz:executable-directory (jazz:executable-directory))
-      (jazz:pathname-normalize jazz:built)))
+      (and (jazz:global-bound? '*kernel-install*)
+           (jazz:pathname-normalize (jazz:global-ref '*kernel-install*)))
+      (if (file-exists? jazz:built)
+          (jazz:pathname-normalize jazz:built)
+        (error "Unable to determine kernel install"))))
 
 
 (define jazz:kernel-bundle

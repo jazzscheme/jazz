@@ -74,6 +74,8 @@
                                 (eq? jazz:kernel-safety 'release)
                                 (not jazz:kernel-mutable-bindings?)))
                        '((block))
+                     ;; using block can give an noticable performance gain
+                     ;; in certain cases but breaks dynamic code reevaluation
                      '())
                  
                  ,@(if jazz:kernel-mutable-bindings?

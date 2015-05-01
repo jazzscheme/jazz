@@ -48,6 +48,19 @@ GIT_EXTERN(int) git_signature_new(git_signature **out, const char *name, const c
  */
 GIT_EXTERN(int) git_signature_now(git_signature **out, const char *name, const char *email);
 
+/**
+ * Create a new action signature with default user and now timestamp.
+ *
+ * This looks up the user.name and user.email from the configuration and
+ * uses the current time as the timestamp, and creates a new signature
+ * based on that information.  It will return GIT_ENOTFOUND if either the
+ * user.name or user.email are not set.
+ *
+ * @param out new signature
+ * @param repo repository pointer
+ * @return 0 on success, GIT_ENOTFOUND if config is missing, or error code
+ */
+GIT_EXTERN(int) git_signature_default(git_signature **out, git_repository *repo);
 
 /**
  * Create a copy of an existing signature.  All internal strings are also
@@ -55,10 +68,11 @@ GIT_EXTERN(int) git_signature_now(git_signature **out, const char *name, const c
  *
  * Call `git_signature_free()` to free the data.
  *
- * @param sig signature to duplicated
- * @return a copy of sig, NULL on out of memory
+ * @param dest pointer where to store the copy
+ * @param sig signature to duplicate
+ * @return 0 or an error code
  */
-GIT_EXTERN(git_signature *) git_signature_dup(const git_signature *sig);
+GIT_EXTERN(int) git_signature_dup(git_signature **dest, const git_signature *sig);
 
 /**
  * Free an existing signature.

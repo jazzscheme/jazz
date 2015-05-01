@@ -21,26 +21,68 @@
 GIT_BEGIN_DECL
 
 /**
+ * Every iterator must have this struct as its first element, so the
+ * API can talk to it. You'd define your iterator as
+ *
+ *     struct my_iterator {
+ *             git_config_iterator parent;
+ *             ...
+ *     }
+ *
+ * and assign `iter->parent.backend` to your `git_config_backend`.
+ */
+struct git_config_iterator {
+	git_config_backend *backend;
+	unsigned int flags;
+
+	/**
+	 * Return the current entry and advance the iterator. The
+	 * memory belongs to the library.
+	 */
+	int (*next)(git_config_entry **entry, git_config_iterator *iter);
+
+	/**
+	 * Free the iterator
+	 */
+	void (*free)(git_config_iterator *iter);
+};
+
+/**
  * Generic backend that implements the interface to
  * access a configuration file
  */
 struct git_config_backend {
 	unsigned int version;
+	/** True if this backend is for a snapshot */
+	int readonly;
 	struct git_config *cfg;
 
 	/* Open means open the file/database and parse if necessary */
 	int (*open)(struct git_config_backend *, git_config_level_t level);
-	int (*get)(const struct git_config_backend *, const char *key, const git_config_entry **entry);
-	int (*get_multivar)(struct git_config_backend *, const char *key, const char *regexp, git_config_foreach_cb callback, void *payload);
+	int (*get)(struct git_config_backend *, const char *key, git_config_entry **entry);
 	int (*set)(struct git_config_backend *, const char *key, const char *value);
 	int (*set_multivar)(git_config_backend *cfg, const char *name, const char *regexp, const char *value);
 	int (*del)(struct git_config_backend *, const char *key);
-	int (*foreach)(struct git_config_backend *, const char *, git_config_foreach_cb callback, void *payload);
-	int (*refresh)(struct git_config_backend *);
+	int (*del_multivar)(struct git_config_backend *, const char *key, const char *regexp);
+	int (*iterator)(git_config_iterator **, struct git_config_backend *);
+	/** Produce a read-only version of this backend */
+	int (*snapshot)(struct git_config_backend **, struct git_config_backend *);
 	void (*free)(struct git_config_backend *);
 };
 #define GIT_CONFIG_BACKEND_VERSION 1
 #define GIT_CONFIG_BACKEND_INIT {GIT_CONFIG_BACKEND_VERSION}
+
+/**
+ * Initializes a `git_config_backend` with default values. Equivalent to
+ * creating an instance with GIT_CONFIG_BACKEND_INIT.
+ *
+ * @param opts the `git_config_backend` struct to initialize.
+ * @param version Version of struct; pass `GIT_CONFIG_BACKEND_VERSION`
+ * @return Zero on success; -1 on failure.
+ */
+GIT_EXTERN(int) git_config_init_backend(
+	git_config_backend *backend,
+	unsigned int version);
 
 /**
  * Add a generic config file instance to an existing config

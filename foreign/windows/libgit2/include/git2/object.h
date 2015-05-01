@@ -10,6 +10,7 @@
 #include "common.h"
 #include "types.h"
 #include "oid.h"
+#include "buffer.h"
 
 /**
  * @file git2/object.h
@@ -36,7 +37,7 @@ GIT_BEGIN_DECL
  * @param repo the repository to look up the object
  * @param id the unique identifier for the object
  * @param type the type of the object
- * @return a reference to the object
+ * @return 0 or an error code
  */
 GIT_EXTERN(int) git_object_lookup(
 		git_object **object,
@@ -78,6 +79,23 @@ GIT_EXTERN(int) git_object_lookup_prefix(
 		size_t len,
 		git_otype type);
 
+
+/**
+ * Lookup an object that represents a tree entry.
+ *
+ * @param out buffer that receives a pointer to the object (which must be freed
+ *            by the caller)
+ * @param treeish root object that can be peeled to a tree
+ * @param path relative path from the root object to the desired object
+ * @param type type of object desired
+ * @return 0 on success, or an error code
+ */
+GIT_EXTERN(int) git_object_lookup_bypath(
+		git_object **out,
+		const git_object *treeish,
+		const char *path,
+		git_otype type);
+
 /**
  * Get the id (SHA1) of a repository object
  *
@@ -85,6 +103,20 @@ GIT_EXTERN(int) git_object_lookup_prefix(
  * @return the SHA1 id
  */
 GIT_EXTERN(const git_oid *) git_object_id(const git_object *obj);
+
+/**
+ * Get a short abbreviated OID string for the object
+ *
+ * This starts at the "core.abbrev" length (default 7 characters) and
+ * iteratively extends to a longer string if that length is ambiguous.
+ * The result will be unambiguous (at least until new objects are added to
+ * the repository).
+ *
+ * @param out Buffer to write string into
+ * @param obj The object to get an ID for
+ * @return 0 on success, <0 for error
+ */
+GIT_EXTERN(int) git_object_short_id(git_buf *out, const git_object *obj);
 
 /**
  * Get the object type of an object
@@ -126,7 +158,7 @@ GIT_EXTERN(git_repository *) git_object_owner(const git_object *obj);
 GIT_EXTERN(void) git_object_free(git_object *object);
 
 /**
- * Convert an object type to it's string representation.
+ * Convert an object type to its string representation.
  *
  * The result is a pointer to a string in static memory and
  * should not be free()'ed.
@@ -170,18 +202,25 @@ GIT_EXTERN(size_t) git_object__size(git_otype type);
 /**
  * Recursively peel an object until an object of the specified type is met.
  *
- * The retrieved `peeled` object is owned by the repository and should be
- * closed with the `git_object_free` method.
+ * If the query cannot be satisfied due to the object model,
+ * GIT_EINVALIDSPEC will be returned (e.g. trying to peel a blob to a
+ * tree).
  *
- * If you pass `GIT_OBJ_ANY` as the target type, then the object will be
- * peeled until the type changes (e.g. a tag will be chased until the
- * referenced object is no longer a tag).
+ * If you pass `GIT_OBJ_ANY` as the target type, then the object will
+ * be peeled until the type changes. A tag will be peeled until the
+ * referenced object is no longer a tag, and a commit will be peeled
+ * to a tree. Any other object type will return GIT_EINVALIDSPEC.
+ *
+ * If peeling a tag we discover an object which cannot be peeled to
+ * the target type due to the object model, GIT_EPEEL will be
+ * returned.
+ *
+ * You must free the returned object.
  *
  * @param peeled Pointer to the peeled git_object
  * @param object The object to be processed
- * @param target_type The type of the requested object (GIT_OBJ_COMMIT,
- * GIT_OBJ_TAG, GIT_OBJ_TREE, GIT_OBJ_BLOB or GIT_OBJ_ANY).
- * @return 0 on success, GIT_EAMBIGUOUS, GIT_ENOTFOUND or an error code
+ * @param target_type The type of the requested object (a GIT_OBJ_ value)
+ * @return 0 on success, GIT_EINVALIDSPEC, GIT_EPEEL, or an error code
  */
 GIT_EXTERN(int) git_object_peel(
 	git_object **peeled,

@@ -12,11 +12,20 @@
 #include "git2/oid.h"
 
 /**
+ * @file git2/sys/refs.h
+ * @brief Low-level Git ref creation
+ * @defgroup git_backend Git custom backend APIs
+ * @ingroup Git
+ * @{
+ */
+GIT_BEGIN_DECL
+
+/**
  * Create a new direct reference from an OID.
  *
  * @param name the reference name
  * @param oid the object id for a direct reference
- * @param symbolic the target for a symbolic reference
+ * @param peel the first non-tag object's OID, or NULL
  * @return the created git_reference or NULL on error
  */
 GIT_EXTERN(git_reference *) git_reference__alloc(
@@ -28,11 +37,13 @@ GIT_EXTERN(git_reference *) git_reference__alloc(
  * Create a new symbolic reference.
  *
  * @param name the reference name
- * @param symbolic the target for a symbolic reference
+ * @param target the target for a symbolic reference
  * @return the created git_reference or NULL on error
  */
 GIT_EXTERN(git_reference *) git_reference__alloc_symbolic(
 	const char *name,
 	const char *target);
 
+/** @} */
+GIT_END_DECL
 #endif

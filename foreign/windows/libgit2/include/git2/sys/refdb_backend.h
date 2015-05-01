@@ -93,17 +93,20 @@ struct git_refdb_backend {
 	 * must provide this function.
 	 */
 	int (*write)(git_refdb_backend *backend,
-		const git_reference *ref, int force);
+		     const git_reference *ref, int force,
+		     const git_signature *who, const char *message,
+		     const git_oid *old, const char *old_target);
 
 	int (*rename)(
 		git_reference **out, git_refdb_backend *backend,
-		const char *old_name, const char *new_name, int force);
+		const char *old_name, const char *new_name, int force,
+		const git_signature *who, const char *message);
 
 	/**
 	 * Deletes the given reference from the refdb.  A refdb implementation
 	 * must provide this function.
 	 */
-	int (*delete)(git_refdb_backend *backend, const char *ref_name);
+	int (*del)(git_refdb_backend *backend, const char *ref_name, const git_oid *old_id, const char *old_target);
 
 	/**
 	 * Suggests that the given refdb compress or optimize its references.
@@ -115,14 +118,70 @@ struct git_refdb_backend {
 	int (*compress)(git_refdb_backend *backend);
 
 	/**
+	 * Query whether a particular reference has a log (may be empty)
+	 */
+	int (*has_log)(git_refdb_backend *backend, const char *refname);
+
+	/**
+	 * Make sure a particular reference will have a reflog which
+	 * will be appended to on writes.
+	 */
+	int (*ensure_log)(git_refdb_backend *backend, const char *refname);
+
+	/**
 	 * Frees any resources held by the refdb.  A refdb implementation may
 	 * provide this function; if it is not provided, nothing will be done.
 	 */
 	void (*free)(git_refdb_backend *backend);
+
+	/**
+	 * Read the reflog for the given reference name.
+	 */
+	int (*reflog_read)(git_reflog **out, git_refdb_backend *backend, const char *name);
+
+	/**
+	 * Write a reflog to disk.
+	 */
+	int (*reflog_write)(git_refdb_backend *backend, git_reflog *reflog);
+
+	/**
+	 * Rename a reflog
+	 */
+	int (*reflog_rename)(git_refdb_backend *_backend, const char *old_name, const char *new_name);
+
+	/**
+	 * Remove a reflog.
+	 */
+	int (*reflog_delete)(git_refdb_backend *backend, const char *name);
+
+	/**
+	 * Lock a reference. The opaque parameter will be passed to the unlock function
+	 */
+	int (*lock)(void **payload_out, git_refdb_backend *backend, const char *refname);
+
+	/**
+	 * Unlock a reference. Only one of target or symbolic_target
+	 * will be set. success indicates whether to update the
+	 * reference or discard the lock (if it's false)
+	 */
+	int (*unlock)(git_refdb_backend *backend, void *payload, int success, int update_reflog,
+		      const git_reference *ref, const git_signature *sig, const char *message);
 };
 
-#define GIT_ODB_BACKEND_VERSION 1
-#define GIT_ODB_BACKEND_INIT {GIT_ODB_BACKEND_VERSION}
+#define GIT_REFDB_BACKEND_VERSION 1
+#define GIT_REFDB_BACKEND_INIT {GIT_REFDB_BACKEND_VERSION}
+
+/**
+ * Initializes a `git_refdb_backend` with default values. Equivalent to
+ * creating an instance with GIT_REFDB_BACKEND_INIT.
+ *
+ * @param opts the `git_refdb_backend` struct to initialize
+ * @param version Version of struct; pass `GIT_REFDB_BACKEND_VERSION`
+ * @return Zero on success; -1 on failure.
+ */
+GIT_EXTERN(int) git_refdb_init_backend(
+	git_refdb_backend *backend,
+	unsigned int version);
 
 /**
  * Constructors for default filesystem-based refdb backend

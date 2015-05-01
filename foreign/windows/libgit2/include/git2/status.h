@@ -43,6 +43,7 @@ typedef enum {
 	GIT_STATUS_WT_DELETED       = (1u << 9),
 	GIT_STATUS_WT_TYPECHANGE    = (1u << 10),
 	GIT_STATUS_WT_RENAMED       = (1u << 11),
+	GIT_STATUS_WT_UNREADABLE    = (1u << 12),
 
 	GIT_STATUS_IGNORED          = (1u << 14),
 } git_status_t;
@@ -60,25 +61,24 @@ typedef int (*git_status_cb)(
 	const char *path, unsigned int status_flags, void *payload);
 
 /**
- * For extended status, select the files on which to report status.
+ * Select the files on which to report status.
+ *
+ * With `git_status_foreach_ext`, this will control which changes get
+ * callbacks.  With `git_status_list_new`, these will control which
+ * changes are included in the list.
  *
  * - GIT_STATUS_SHOW_INDEX_AND_WORKDIR is the default.  This roughly
- *   matches `git status --porcelain` where each file gets a callback
- *   indicating its status in the index and in the working directory.
+ *   matches `git status --porcelain` regarding which files are
+ *   included and in what order.
  * - GIT_STATUS_SHOW_INDEX_ONLY only gives status based on HEAD to index
  *   comparison, not looking at working directory changes.
  * - GIT_STATUS_SHOW_WORKDIR_ONLY only gives status based on index to
  *   working directory comparison, not comparing the index to the HEAD.
- * - GIT_STATUS_SHOW_INDEX_THEN_WORKDIR runs index-only then workdir-only,
- *   issuing (up to) two callbacks per file (first index, then workdir).
- *   This is slightly more efficient than separate calls and can make it
- *   easier to emulate plain `git status` text output.
  */
 typedef enum {
 	GIT_STATUS_SHOW_INDEX_AND_WORKDIR = 0,
 	GIT_STATUS_SHOW_INDEX_ONLY = 1,
 	GIT_STATUS_SHOW_WORKDIR_ONLY = 2,
-	GIT_STATUS_SHOW_INDEX_THEN_WORKDIR = 3,
 } git_status_show_t;
 
 /**
@@ -108,7 +108,7 @@ typedef enum {
  * - GIT_STATUS_OPT_RENAMES_HEAD_TO_INDEX indicates that rename detection
  *   should be processed between the head and the index and enables
  *   the GIT_STATUS_INDEX_RENAMED as a possible status flag.
- * - GIT_STATUS_OPT_RENAMES_INDEX_TO_WORKDIR indicates tha rename
+ * - GIT_STATUS_OPT_RENAMES_INDEX_TO_WORKDIR indicates that rename
  *   detection should be run between the index and the working directory
  *   and enabled GIT_STATUS_WT_RENAMED as a possible status flag.
  * - GIT_STATUS_OPT_SORT_CASE_SENSITIVELY overrides the native case
@@ -117,6 +117,16 @@ typedef enum {
  * - GIT_STATUS_OPT_SORT_CASE_INSENSITIVELY overrides the native case
  *   sensitivity for the file system and forces the output to be in
  *   case-insensitive order
+ * - GIT_STATUS_OPT_RENAMES_FROM_REWRITES indicates that rename detection
+ *   should include rewritten files
+ * - GIT_STATUS_OPT_NO_REFRESH bypasses the default status behavior of
+ *   doing a "soft" index reload (i.e. reloading the index data if the
+ *   file on disk has been modified outside libgit2).
+ * - GIT_STATUS_OPT_UPDATE_INDEX tells libgit2 to refresh the stat cache
+ *   in the index for files that are unchanged but have out of date stat
+ *   information in the index.  It will result in less work being done on
+ *   subsequent calls to get status.  This is mutually exclusive with the
+ *   NO_REFRESH option.
  *
  * Calling `git_status_foreach()` is like calling the extended version
  * with: GIT_STATUS_OPT_INCLUDE_IGNORED, GIT_STATUS_OPT_INCLUDE_UNTRACKED,
@@ -124,17 +134,22 @@ typedef enum {
  * together as `GIT_STATUS_OPT_DEFAULTS` if you want them as a baseline.
  */
 typedef enum {
-	GIT_STATUS_OPT_INCLUDE_UNTRACKED        = (1u << 0),
-	GIT_STATUS_OPT_INCLUDE_IGNORED          = (1u << 1),
-	GIT_STATUS_OPT_INCLUDE_UNMODIFIED       = (1u << 2),
-	GIT_STATUS_OPT_EXCLUDE_SUBMODULES       = (1u << 3),
-	GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS   = (1u << 4),
-	GIT_STATUS_OPT_DISABLE_PATHSPEC_MATCH   = (1u << 5),
-	GIT_STATUS_OPT_RECURSE_IGNORED_DIRS     = (1u << 6),
-	GIT_STATUS_OPT_RENAMES_HEAD_TO_INDEX    = (1u << 7),
-	GIT_STATUS_OPT_RENAMES_INDEX_TO_WORKDIR = (1u << 8),
-	GIT_STATUS_OPT_SORT_CASE_SENSITIVELY    = (1u << 9),
-	GIT_STATUS_OPT_SORT_CASE_INSENSITIVELY  = (1u << 10),
+	GIT_STATUS_OPT_INCLUDE_UNTRACKED                = (1u << 0),
+	GIT_STATUS_OPT_INCLUDE_IGNORED                  = (1u << 1),
+	GIT_STATUS_OPT_INCLUDE_UNMODIFIED               = (1u << 2),
+	GIT_STATUS_OPT_EXCLUDE_SUBMODULES               = (1u << 3),
+	GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS           = (1u << 4),
+	GIT_STATUS_OPT_DISABLE_PATHSPEC_MATCH           = (1u << 5),
+	GIT_STATUS_OPT_RECURSE_IGNORED_DIRS             = (1u << 6),
+	GIT_STATUS_OPT_RENAMES_HEAD_TO_INDEX            = (1u << 7),
+	GIT_STATUS_OPT_RENAMES_INDEX_TO_WORKDIR         = (1u << 8),
+	GIT_STATUS_OPT_SORT_CASE_SENSITIVELY            = (1u << 9),
+	GIT_STATUS_OPT_SORT_CASE_INSENSITIVELY          = (1u << 10),
+	GIT_STATUS_OPT_RENAMES_FROM_REWRITES            = (1u << 11),
+	GIT_STATUS_OPT_NO_REFRESH                       = (1u << 12),
+	GIT_STATUS_OPT_UPDATE_INDEX                     = (1u << 13),
+	GIT_STATUS_OPT_INCLUDE_UNREADABLE               = (1u << 14),
+	GIT_STATUS_OPT_INCLUDE_UNREADABLE_AS_UNTRACKED  = (1u << 15),
 } git_status_opt_t;
 
 #define GIT_STATUS_OPT_DEFAULTS \
@@ -169,6 +184,18 @@ typedef struct {
 #define GIT_STATUS_OPTIONS_INIT {GIT_STATUS_OPTIONS_VERSION}
 
 /**
+ * Initializes a `git_status_options` with default values. Equivalent to
+ * creating an instance with GIT_STATUS_OPTIONS_INIT.
+ *
+ * @param opts The `git_status_options` instance to initialize.
+ * @param version Version of struct; pass `GIT_STATUS_OPTIONS_VERSION`
+ * @return Zero on success; -1 on failure.
+ */
+GIT_EXTERN(int) git_status_init_options(
+	git_status_options *opts,
+	unsigned int version);
+
+/**
  * A status entry, providing the differences between the file as it exists
  * in HEAD and the index, and providing the differences between the index
  * and the working directory.
@@ -197,12 +224,12 @@ typedef struct {
  * into this function.
  *
  * If the callback returns a non-zero value, this function will stop looping
- * and return GIT_EUSER.
+ * and return that value to caller.
  *
  * @param repo A repository object
  * @param callback The function to call on each file
  * @param payload Pointer to pass through to callback function
- * @return 0 on success, GIT_EUSER on non-zero callback, or error code
+ * @return 0 on success, non-zero callback return value, or error code
  */
 GIT_EXTERN(int) git_status_foreach(
 	git_repository *repo,
@@ -217,11 +244,16 @@ GIT_EXTERN(int) git_status_foreach(
  * in what order.  See the `git_status_options` structure for details
  * about the additional controls that this makes available.
  *
+ * Note that if a `pathspec` is given in the `git_status_options` to filter
+ * the status, then the results from rename detection (if you enable it) may
+ * not be accurate.  To do rename detection properly, this must be called
+ * with no `pathspec` so that all files can be considered.
+ *
  * @param repo Repository object
  * @param opts Status options structure
  * @param callback The function to call on each file
  * @param payload Pointer to pass through to callback function
- * @return 0 on success, GIT_EUSER on non-zero callback, or error code
+ * @return 0 on success, non-zero callback return value, or error code
  */
 GIT_EXTERN(int) git_status_foreach_ext(
 	git_repository *repo,
@@ -232,15 +264,28 @@ GIT_EXTERN(int) git_status_foreach_ext(
 /**
  * Get file status for a single file.
  *
- * This is not quite the same as calling `git_status_foreach_ext()` with
- * the pathspec set to the specified path.
+ * This tries to get status for the filename that you give.  If no files
+ * match that name (in either the HEAD, index, or working directory), this
+ * returns GIT_ENOTFOUND.
  *
- * @param status_flags The status value for the file
+ * If the name matches multiple files (for example, if the `path` names a
+ * directory or if running on a case- insensitive filesystem and yet the
+ * HEAD has two entries that both match the path), then this returns
+ * GIT_EAMBIGUOUS because it cannot give correct results.
+ *
+ * This does not do any sort of rename detection.  Renames require a set of
+ * targets and because of the path filtering, there is not enough
+ * information to check renames correctly.  To check file status with rename
+ * detection, there is no choice but to do a full `git_status_list_new` and
+ * scan through looking for the path that you are interested in.
+ *
+ * @param status_flags Output combination of git_status_t values for file
  * @param repo A repository object
- * @param path The file to retrieve status for, rooted at the repo's workdir
+ * @param path The exact path to retrieve status for relative to the
+ * repository working directory
  * @return 0 on success, GIT_ENOTFOUND if the file is not found in the HEAD,
- *      index, and work tree, GIT_EINVALIDPATH if `path` points at a folder,
- *      GIT_EAMBIGUOUS if "path" matches multiple files, -1 on other error.
+ *      index, and work tree, GIT_EAMBIGUOUS if `path` matches multiple files
+ *      or if it refers to a folder, and -1 on other errors.
  */
 GIT_EXTERN(int) git_status_file(
 	unsigned int *status_flags,
@@ -249,6 +294,11 @@ GIT_EXTERN(int) git_status_file(
 
 /**
  * Gather file status information and populate the `git_status_list`.
+ *
+ * Note that if a `pathspec` is given in the `git_status_options` to filter
+ * the status, then the results from rename detection (if you enable it) may
+ * not be accurate.  To do rename detection properly, this must be called
+ * with no `pathspec` so that all files can be considered.
  *
  * @param out Pointer to store the status results in
  * @param repo Repository object
@@ -262,6 +312,9 @@ GIT_EXTERN(int) git_status_list_new(
 
 /**
  * Gets the count of status entries in this list.
+ *
+ * If there are no changes in status (at least according the options given
+ * when the status list was created), this can return 0.
  *
  * @param statuslist Existing status list object
  * @return the number of status entries

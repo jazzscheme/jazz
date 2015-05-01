@@ -8,6 +8,7 @@
 #define INCLUDE_git_push_h__
 
 #include "common.h"
+#include "pack.h"
 
 /**
  * @file git2/push.h
@@ -39,92 +40,24 @@ typedef struct {
 #define GIT_PUSH_OPTIONS_INIT { GIT_PUSH_OPTIONS_VERSION }
 
 /**
- * Create a new push object
+ * Initializes a `git_push_options` with default values. Equivalent to
+ * creating an instance with GIT_PUSH_OPTIONS_INIT.
  *
- * @param out New push object
- * @param remote Remote instance
- *
- * @return 0 or an error code
+ * @param opts the `git_push_options` instance to initialize.
+ * @param version the version of the struct; you should pass
+ *        `GIT_PUSH_OPTIONS_VERSION` here.
+ * @return Zero on success; -1 on failure.
  */
-GIT_EXTERN(int) git_push_new(git_push **out, git_remote *remote);
+GIT_EXTERN(int) git_push_init_options(
+	git_push_options *opts,
+	unsigned int version);
 
-/**
- * Set options on a push object
- *
- * @param push The push object
- * @param opts The options to set on the push object
- *
- * @return 0 or an error code
- */
-GIT_EXTERN(int) git_push_set_options(
-	git_push *push,
-	const git_push_options *opts);
-
-/**
- * Add a refspec to be pushed
- *
- * @param push The push object
- * @param refspec Refspec string
- *
- * @return 0 or an error code
- */
-GIT_EXTERN(int) git_push_add_refspec(git_push *push, const char *refspec);
-
-/**
- * Update remote tips after a push
- *
- * @param push The push object
- *
- * @return 0 or an error code
- */
-GIT_EXTERN(int) git_push_update_tips(git_push *push);
-
-/**
- * Actually push all given refspecs
- *
- * Note: To check if the push was successful (i.e. all remote references
- * have been updated as requested), you need to call both
- * `git_push_unpack_ok` and `git_push_status_foreach`. The remote
- * repository might have refused to update some or all of the references.
- *
- * @param push The push object
- *
- * @return 0 or an error code
- */
-GIT_EXTERN(int) git_push_finish(git_push *push);
-
-/**
- * Check if remote side successfully unpacked
- *
- * @param push The push object
- *
- * @return true if equal, false otherwise
- */
-GIT_EXTERN(int) git_push_unpack_ok(git_push *push);
-
-/**
- * Call callback `cb' on each status
- *
- * For each of the updated references, we receive a status report in the
- * form of `ok refs/heads/master` or `ng refs/heads/master <msg>`.
- * `msg != NULL` means the reference has not been updated for the given
- * reason.
- *
- * @param push The push object
- * @param cb The callback to call on each object
- *
- * @return 0 on success, GIT_EUSER on non-zero callback, or error code
- */
-GIT_EXTERN(int) git_push_status_foreach(git_push *push,
-			int (*cb)(const char *ref, const char *msg, void *data),
-			void *data);
-
-/**
- * Free the given push object
- *
- * @param push The push object
- */
-GIT_EXTERN(void) git_push_free(git_push *push);
+/** Push network progress notification function */
+typedef int (*git_push_transfer_progress)(
+	unsigned int current,
+	unsigned int total,
+	size_t bytes,
+	void* payload);
 
 /** @} */
 GIT_END_DECL

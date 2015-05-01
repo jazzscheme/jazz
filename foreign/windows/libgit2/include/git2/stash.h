@@ -18,21 +18,30 @@
  */
 GIT_BEGIN_DECL
 
+/**
+ * Stash flags
+ */
 typedef enum {
+	/**
+	 * No option, default
+	 */
 	GIT_STASH_DEFAULT = 0,
 
-	/* All changes already added to the index
-	 * are left intact in the working directory
+	/**
+	 * All changes already added to the index are left intact in
+	 * the working directory
 	 */
 	GIT_STASH_KEEP_INDEX = (1 << 0),
 
-	/* All untracked files are also stashed and then
-	 * cleaned up from the working directory
+	/**
+	 * All untracked files are also stashed and then cleaned up
+	 * from the working directory
 	 */
 	GIT_STASH_INCLUDE_UNTRACKED = (1 << 1),
 
-	/* All ignored files are also stashed and then
-	 * cleaned up from the working directory
+	/**
+	 * All ignored files are also stashed and then cleaned up from
+	 * the working directory
 	 */
 	GIT_STASH_INCLUDE_IGNORED = (1 << 2),
 } git_stash_flags;
@@ -57,24 +66,20 @@ typedef enum {
 GIT_EXTERN(int) git_stash_save(
 	git_oid *out,
 	git_repository *repo,
-	git_signature *stasher,
+	const git_signature *stasher,
 	const char *message,
 	unsigned int flags);
 
 /**
- * When iterating over all the stashed states, callback that will be
- * issued per entry.
+ * This is a callback function you can provide to iterate over all the
+ * stashed states that will be invoked per entry.
  *
  * @param index The position within the stash list. 0 points to the
- * most recent stashed state.
- *
+ *              most recent stashed state.
  * @param message The stash message.
- *
  * @param stash_id The commit oid of the stashed state.
- *
  * @param payload Extra parameter to callback function.
- *
- * @return 0 on success, GIT_EUSER on non-zero callback, or error code
+ * @return 0 to continue iterating or non-zero to stop
  */
 typedef int (*git_stash_cb)(
 	size_t index,
@@ -89,12 +94,12 @@ typedef int (*git_stash_cb)(
  *
  * @param repo Repository where to find the stash.
  *
- * @param callback Callback to invoke per found stashed state. The most recent
- * stash state will be enumerated first.
+ * @param callback Callback to invoke per found stashed state. The most
+ *                 recent stash state will be enumerated first.
  *
  * @param payload Extra parameter to callback function.
  *
- * @return 0 on success, GIT_EUSER on non-zero callback, or error code
+ * @return 0 on success, non-zero callback return value, or error code
  */
 GIT_EXTERN(int) git_stash_foreach(
 	git_repository *repo,

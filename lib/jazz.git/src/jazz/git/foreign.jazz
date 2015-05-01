@@ -9,9 +9,6 @@
 (module jazz.git.foreign jazz
 
 
-;; until we port to non-windows platforms
-(cond-expand
-  (windows
 (import (jazz.foreign)
         (jazz.git.syntax (phase syntax))
         (jazz.platform.types)
@@ -73,7 +70,6 @@
 (c-enumerant GIT_EBUFS)
 (c-enumerant GIT_EUSER)
 (c-enumerant GIT_EBAREREPO)
-(c-enumerant GIT_EORPHANEDHEAD)
 (c-enumerant GIT_EUNMERGED)
 (c-enumerant GIT_ENONFASTFORWARD)
 (c-enumerant GIT_EINVALIDSPEC)
@@ -204,9 +200,9 @@
 (c-type git_blob (native "git_blob"))
 (c-type git_blob* (pointer git_blob))
 (c-type git_blob** (pointer git_blob*))
-(c-type git_checkout_opts (native "git_checkout_opts"))
-(c-type git_checkout_opts* (pointer git_checkout_opts))
-(c-type git_checkout_opts** (pointer git_checkout_opts*))
+(c-type git_checkout_options (native "git_checkout_options"))
+(c-type git_checkout_options* (pointer git_checkout_options))
+(c-type git_checkout_options** (pointer git_checkout_options*))
 (c-type git_clone_options (native "git_clone_options"))
 (c-type git_clone_options* (pointer git_clone_options))
 (c-type git_clone_options** (pointer git_clone_options*))
@@ -272,6 +268,9 @@
 (c-type git_cvar_map (native "git_cvar_map"))
 (c-type git_cvar_map* (pointer git_cvar_map))
 (c-type git_cvar_map** (pointer git_cvar_map*))
+(c-type git_diff (native "git_diff"))
+(c-type git_diff* (pointer git_diff))
+(c-type git_diff** (pointer git_diff*))
 (c-type git_diff_delta (native "git_diff_delta"))
 (c-type git_diff_delta* (pointer git_diff_delta))
 (c-type git_diff_delta** (pointer git_diff_delta*))
@@ -287,18 +286,15 @@
 (c-type git_diff_hunk_cb (native "git_diff_hunk_cb"))
 (c-type git_diff_hunk_cb* (pointer git_diff_hunk_cb))
 (c-type git_diff_hunk_cb** (pointer git_diff_hunk_cb*))
-(c-type git_diff_data_cb (native "git_diff_data_cb"))
-(c-type git_diff_data_cb* (pointer git_diff_data_cb))
-(c-type git_diff_data_cb** (pointer git_diff_data_cb*))
-(c-type git_diff_list (native "git_diff_list"))
-(c-type git_diff_list* (pointer git_diff_list))
-(c-type git_diff_list** (pointer git_diff_list*))
-(c-type git_diff_patch (native "git_diff_patch"))
-(c-type git_diff_patch* (pointer git_diff_patch))
-(c-type git_diff_patch** (pointer git_diff_patch*))
-(c-type git_diff_range (native "git_diff_range"))
-(c-type git_diff_range* (pointer git_diff_range))
-(c-type git_diff_range** (pointer git_diff_range*))
+(c-type git_diff_line_cb (native "git_diff_line_cb"))
+(c-type git_diff_line_cb* (pointer git_diff_line_cb))
+(c-type git_diff_line_cb** (pointer git_diff_line_cb*))
+(c-type git_diff_hunk (native "git_diff_hunk"))
+(c-type git_diff_hunk* (pointer git_diff_hunk))
+(c-type git_diff_hunk** (pointer git_diff_hunk*))
+(c-type git_patch (native "git_patch"))
+(c-type git_patch* (pointer git_patch))
+(c-type git_patch** (pointer git_patch*))
 (c-type git_error (native "git_error"))
 (c-type git_error* (pointer git_error))
 (c-type git_error** (pointer git_error*))
@@ -311,12 +307,9 @@
 (c-type git_indexer_stats (native "git_indexer_stats"))
 (c-type git_indexer_stats* (pointer git_indexer_stats))
 (c-type git_indexer_stats** (pointer git_indexer_stats*))
-(c-type git_indexer_stream (native "git_indexer_stream"))
-(c-type git_indexer_stream* (pointer git_indexer_stream))
-(c-type git_indexer_stream** (pointer git_indexer_stream*))
-(c-type git_merge_tree_opts (native "git_merge_tree_opts"))
-(c-type git_merge_tree_opts* (pointer git_merge_tree_opts))
-(c-type git_merge_tree_opts** (pointer git_merge_tree_opts*))
+(c-type git_merge_options (native "git_merge_options"))
+(c-type git_merge_options* (pointer git_merge_options))
+(c-type git_merge_options** (pointer git_merge_options*))
 (c-type git_note (native "git_note"))
 (c-type git_note* (pointer git_note))
 (c-type git_note** (pointer git_note*))
@@ -395,7 +388,7 @@
   (uint uid)
   (uint gid)
   (git_off_t file_size)
-  (git_oid oid)
+  (git_oid id)
   (ushort flags)
   (ushort flags_extended)
   (char-string path))
@@ -411,12 +404,35 @@
   (uint total_objects)
   (uint indexed_objects)
   (uint received_objects)
+  (uint local_objects)
+  (uint total_deltas)
+  (uint indexed_deltas)
   (size_t received_bytes))
 
 
 (c-structure git_strarray
   (char** strings)
   (uint count))
+
+
+(c-declare git.foreign #/C/
+void ___disable_os_interrupts();
+void ___enable_os_interrupts();
+//#)
+
+
+(c-external (disable-os-interrupts) void
+  "___disable_os_interrupts();")
+
+(c-external (enable-os-interrupts) void
+  "___enable_os_interrupts();")
+
+;; this is a workaround a unix problem where timer interrupts can interrupt os calls
+;; even in shared libraries and libgit2 doesn't shield itself against that possibility
+(definition public (without-os-interrupts thunk)
+  (dynamic-wind disable-os-interrupts
+                thunk
+                enable-os-interrupts))
 
 
 ;;;
@@ -468,14 +484,14 @@
 
 (git-external (git-branch-create (out git_reference*) git_repository* char-string git_object* int) :error "git_branch_create")
 (git-external (git-branch-delete git_reference*) :error "git_branch_delete")
-(git-external (git-branch-foreach git_repository* uint void* void*) :error "git_branch_foreach")
+@convert (git-external (git-branch-foreach git_repository* uint void* void*) :error "git_branch_foreach")
 (git-external (git-branch-is-head git_reference*) int "git_branch_is_head")
 (git-external (git-branch-lookup (out git_reference*) git_repository* char-string git_branch_t) :lookup "git_branch_lookup")
 (git-external (git-branch-move (out git_reference*) git_reference* char-string int) :error "git_branch_move")
 (git-external (git-branch-name char** git_reference*) :error "git_branch_name")
-(git-external (git-branch-remote-name char-string size_t git_repository* char-string) :error "git_branch_remote_name")
+@removed (git-external (git-branch-remote-name char-string size_t git_repository* char-string) :error "git_branch_remote_name")
 (git-external (git-branch-upstream (out git_reference*) git_reference*) :error "git_branch_upstream")
-(git-external (git-branch-upstream-name char-string size_t git_repository* char-string) :error "git_branch_upstream_name")
+@removed (git-external (git-branch-upstream-name char-string size_t git_repository* char-string) :error "git_branch_upstream_name")
 
 
 (definition public (git-branch-head? ref)
@@ -494,6 +510,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 }
 //#)
 
+@convert
 (c-external (git-branch-for-each-stoppable git_repository* uint scheme-object) int
   #/C/
     void* p = ___EXT(___alloc_rc)(0);
@@ -503,6 +520,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
     ___result = result;
 //#)
 
+@convert
 (definition public (git-branch-for-each repo flags proc)
   (git-branch-for-each-stoppable repo flags
     (lambda (branch_name branch_type)
@@ -515,9 +533,9 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 ;;;
 
 
-(git-external (git-checkout-head git_repository* git_checkout_opts*) :error "git_checkout_head")
-(git-external (git-checkout-index git_repository* git_index* git_checkout_opts*) :error "git_checkout_index")
-(git-external (git-checkout-tree git_repository* git_object* git_checkout_opts*) :error "git_checkout_tree")
+(git-external (git-checkout-head git_repository* git_checkout_options*) :error "git_checkout_head")
+(git-external (git-checkout-index git_repository* git_index* git_checkout_options*) :error "git_checkout_index")
+(git-external (git-checkout-tree git_repository* git_object* git_checkout_options*) :error "git_checkout_tree")
 
 
 ;;;
@@ -560,8 +578,8 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 
 (git-external (git-config-add-file-ondisk git_config* char-string uint int) :error "git_config_add_file_ondisk")
 (git-external (git-config-delete-entry git_config* char-string) :error "git_config_delete_entry")
-(git-external (git-config-find-global char-string size_t) :error "git_config_find_global")
-(git-external (git-config-find-system char-string size_t) :error "git_config_find_system")
+@convert (git-external (git-config-find-global char-string size_t) :error "git_config_find_global")
+@convert (git-external (git-config-find-system char-string size_t) :error "git_config_find_system")
 (git-external (git-config-foreach git_config* void* void*) :error "git_config_foreach")
 (git-external (git-config-foreach-match git_config* char-string void* void*) :error "git_config_foreach_match")
 (git-external (git-config-free git_config*) void "git_config_free")
@@ -569,7 +587,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 (git-external (git-config-get-int32 int32_t* git_config* char-string) :error "git_config_get_int32")
 (git-external (git-config-get-int64 int64_t* git_config* char-string) :error "git_config_get_int64")
 (git-external (git-config-get-mapped int* git_config* char-string git_cvar_map* size_t) :error "git_config_get_mapped")
-(git-external (git-config-get-multivar git_config* char-string char-string void* void*) :error "git_config_get_multivar")
+@convert (git-external (git-config-get-multivar git_config* char-string char-string void* void*) :error "git_config_get_multivar")
 (git-external (git-config-get-string char** git_config* char-string) :error "git_config_get_string")
 (git-external (git-config-new (out git_config*)) :error "git_config_new")
 (git-external (git-config-set-bool git_config* char-string int) :error "git_config_set_bool")
@@ -584,9 +602,9 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 ;;;
 
 
-@ssh(git-external (git-cred-ssh-keyfile-passphrase-new (out git_cred*) char-string char-string char-string) :error "git_cred_ssh_keyfile_passphrase_new")
-@ssh(git-external (git-cred-ssh-publickey-new (out git_cred*) char-string size_t void*) :error "git_cred_ssh_publickey_new")
-(git-external (git-cred-userpass git_cred** char-string char-string uint void*) :error "git_cred_userpass")
+@ssh (git-external (git-cred-ssh-keyfile-passphrase-new (out git_cred*) char-string char-string char-string) :error "git_cred_ssh_keyfile_passphrase_new")
+@ssh (git-external (git-cred-ssh-publickey-new (out git_cred*) char-string size_t void*) :error "git_cred_ssh_publickey_new")
+@convert (git-external (git-cred-userpass git_cred** char-string char-string uint void*) :error "git_cred_userpass")
 (git-external (git-cred-userpass-plaintext-new (out git_cred*) char-string char-string) :error "git_cred_userpass_plaintext_new")
 
 
@@ -595,27 +613,20 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 ;;;
 
 
-@changed (git-external (git-diff-blobs git_blob* git_blob* git_diff_options* void* git_diff_file_cb git_diff_hunk_cb git_diff_data_cb) :error "git_diff_blobs")
-(git-external (git-diff-find-similar git_diff_list* git_diff_find_options*) :error "git_diff_find_similar")
-(git-external (git-diff-foreach git_diff_list* void* git_diff_file_cb git_diff_hunk_cb git_diff_data_cb) :error "git_diff_foreach")
-(git-external (git-diff-get-patch (out git_diff_patch*) git_diff_delta** git_diff_list* size_t) :error "git_diff_get_patch")
-(git-external (git-diff-index-to-workdir (out git_diff_list*) git_repository* git_index* git_diff_options*) :error "git_diff_index_to_workdir")
-(git-external (git-diff-list-free git_diff_list*) void "git_diff_list_free")
-(git-external (git-diff-merge git_diff_list* git_diff_list*) :error "git_diff_merge")
-(git-external (git-diff-num-deltas git_diff_list*) size_t "git_diff_num_deltas")
-(git-external (git-diff-num-deltas-of-type git_diff_list* git_delta_t) size_t "git_diff_num_deltas_of_type")
-(git-external (git-diff-patch-delta git_diff_patch*) git_diff_delta* "git_diff_patch_delta")
-(git-external (git-diff-patch-free git_diff_patch*) void "git_diff_patch_free")
-(git-external (git-diff-patch-get-hunk (out git_diff_range*) char** size_t* size_t* git_diff_patch* size_t) :error "git_diff_patch_get_hunk")
-(git-external (git-diff-patch-get-line-in-hunk char* char** size_t* int* int* git_diff_patch* size_t size_t) :error "git_diff_patch_get_line_in_hunk")
-(git-external (git-diff-patch-line_stats size_t* size_t* size_t* git_diff_patch*) int "git_diff_patch_line_stats")
-(git-external (git-diff-patch-num-hunks git_diff_patch*) size_t "git_diff_patch_num_hunks")
-(git-external (git-diff-patch-num-lines-in-hunk git_diff_patch* size_t) int "git_diff_patch_num_lines_in_hunk")
-(git-external (git-diff-print-compact git_diff_list* void* git_diff_data_cb) :error "git_diff_print_compact")
-(git-external (git-diff-print-patch git_diff_list* void* git_diff_data_cb) :error "git_diff_print_patch")
-(git-external (git-diff-tree-to-index (out git_diff_list*) git_repository* git_tree* git_index* git_diff_options*) :error "git_diff_tree_to_index")
-(git-external (git-diff-tree-to-tree (out git_diff_list*) git_repository* git_tree* git_tree* git_diff_options*) :error "git_diff_tree_to_tree")
-(git-external (git-diff-tree-to-workdir (out git_diff_list*) git_repository* git_tree* git_diff_options*) :error "git_diff_tree_to_workdir")
+@changed (git-external (git-diff-blobs git_blob* git_blob* git_diff_options* void* git_diff_file_cb git_diff_hunk_cb git_diff_line_cb) :error "git_diff_blobs")
+(git-external (git-diff-find-similar git_diff* git_diff_find_options*) :error "git_diff_find_similar")
+(git-external (git-diff-foreach git_diff* void* git_diff_file_cb git_diff_hunk_cb git_diff_line_cb) :error "git_diff_foreach")
+@convert (git-external (git-diff-get-patch (out git_patch*) git_diff_delta** git_diff* size_t) :error "git_diff_get_patch")
+(git-external (git-diff-index-to-workdir (out git_diff*) git_repository* git_index* git_diff_options*) :error "git_diff_index_to_workdir")
+(git-external (git-diff-free git_diff*) void "git_diff_free")
+(git-external (git-diff-merge git_diff* git_diff*) :error "git_diff_merge")
+(git-external (git-diff-num-deltas git_diff*) size_t "git_diff_num_deltas")
+(git-external (git-diff-num-deltas-of-type git_diff* git_delta_t) size_t "git_diff_num_deltas_of_type")
+@convert (git-external (git-diff-print-compact git_diff* void* git_diff_line_cb) :error "git_diff_print_compact")
+@convert (git-external (git-diff-print-patch git_diff* void* git_diff_line_cb) :error "git_diff_print_patch")
+(git-external (git-diff-tree-to-index (out git_diff*) git_repository* git_tree* git_index* git_diff_options*) :error "git_diff_tree_to_index")
+(git-external (git-diff-tree-to-tree (out git_diff*) git_repository* git_tree* git_tree* git_diff_options*) :error "git_diff_tree_to_tree")
+(git-external (git-diff-tree-to-workdir (out git_diff*) git_repository* git_tree* git_diff_options*) :error "git_diff_tree_to_workdir")
 
 
 ;;;
@@ -683,13 +694,13 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 (git-external (git-index-get-byindex git_index* int) git_index_entry* "git_index_get_byindex")
 (git-external (git-index-get-bypath git_index* char-string int) git_index_entry* "git_index_get_bypath")
 (git-external (git-index-has-conflicts git_index*) int "git_index_has_conflicts")
-(git-external (git_index_name_add git_index* char-string char-string char-string) :error "git_index_name_add")
-(git-external (git_index_name_clear git_index*) void "git_index_name_clear")
-(git-external (git_index_name_entrycount git_index*) uint "git_index_name_entrycount")
-(git-external (git_index_name_get_byindex git_index* size_t) git_index_entry* "git_index_name_get_byindex")
+@convert (git-external (git_index_name_add git_index* char-string char-string char-string) :error "git_index_name_add")
+@convert (git-external (git_index_name_clear git_index*) void "git_index_name_clear")
+@convert (git-external (git_index_name_entrycount git_index*) uint "git_index_name_entrycount")
+@convert (git-external (git_index_name_get_byindex git_index* size_t) git_index_entry* "git_index_name_get_byindex")
 (git-external (git-index-new (out git_index*)) :error "git_index_new")
 (git-external (git-index-open (out git_index*) char-string) :error "git_index_open")
-(git-external (git-index-read git_index*) :error "git_index_read")
+@convert (git-external (git-index-read git_index*) :error "git_index_read")
 (git-external (git-index-read-tree git_index* git_tree*) :error "git_index_read_tree")
 (git-external (git-index-remove git_index* char-string int) :error "git_index_remove")
 (git-external (git_index_remove_bypath git_index* char-string) :error "git_index_remove_bypath")
@@ -724,11 +735,11 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 ;;;
 
 
-(git-external (git-indexer-stream-add git_indexer_stream* void* size_t git_transfer_progress*) :error "git_indexer_stream_add")
-(git-external (git-indexer-stream-finalize git_indexer_stream* git_transfer_progress*) :error "git_indexer_stream_finalize")
-(git-external (git-indexer-stream-free git_indexer_stream*) void "git_indexer_stream_free")
-(git-external (git-indexer-stream-hash git_indexer_stream*) git_oid* "git_indexer_stream_hash")
-(git-external (git-indexer-stream-new (out git_indexer_stream*) char-string void* void*) :error "git_indexer_stream_new")
+@convert (git-external (git-indexer-add git_indexer* void* size_t git_transfer_progress*) :error "git_indexer_add")
+@convert (git-external (git-indexer-finalize git_indexer* git_transfer_progress*) :error "git_indexer_finalize")
+(git-external (git-indexer-free git_indexer*) void "git_indexer_free")
+(git-external (git-indexer-hash git_indexer*) git_oid* "git_indexer_hash")
+@convert (git-external (git-indexer-new (out git_indexer*) char-string void* void*) :error "git_indexer_new")
 
 
 ;;;
@@ -736,7 +747,9 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 ;;;
 
 
-(git-external (git-libgit2-capabilities) int "git_libgit2_capabilities")
+(git-external (git-libgit2-init) int "git_libgit2_init")
+(git-external (git-libgit2-shutdown) int "git_libgit2_shutdown")
+(git-external (git-libgit2-features) int "git_libgit2_features")
 (git-external (git_libgit2_opts int) int "git_libgit2_opts")
 (git-external (git-libgit2-version int* int* int*) void "git_libgit2_version")
 
@@ -756,7 +769,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 
 
 (git-external (git-merge-base git_oid* git_repository* git_oid* git_oid*) :error "git_merge_base")
-(git-external (git_merge_trees (out git_index*) git_repository* git_tree* git_tree* git_tree* git_merge_tree_opts*) :error "git_merge_trees")
+(git-external (git_merge_trees (out git_index*) git_repository* git_tree* git_tree* git_tree* git_merge_options*) :error "git_merge_trees")
 
 
 ;;;
@@ -777,7 +790,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 (git-external (git-note-foreach git_repository* char-string void* void*) :error "git_note_foreach")
 (git-external (git-note-free git_note*) void "git_note_free")
 (git-external (git-note-message git_note*) char-string "git_note_message")
-(git-external (git-note-oid git_note*) git_oid* "git_note_oid")
+(git-external (git-note-id git_note*) git_oid* "git_note_id")
 (git-external (git-note-read (out git_note*) git_repository* char-string git_oid*) :error "git_note_read")
 (git-external (git-note-remove git_repository* char-string git_signature* git_signature* git_oid*) :error "git_note_remove")
 
@@ -860,7 +873,7 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
 ;;;
 
 
-(git-external (git-oid-allocfmt git_oid*) char* "git_oid_allocfmt")
+@convert (git-external (git-oid-allocfmt git_oid*) char* "git_oid_allocfmt")
 (git-external (git-oid-cmp git_oid* git_oid*) int "git_oid_cmp")
 (git-external (git-oid-cpy git_oid* git_oid*) void "git_oid_cpy")
 (git-external (git-oid-fmt char-string git_oid*) void "git_oid_fmt")
@@ -908,16 +921,30 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
 
 
 ;;;
+;;;; Patch
+;;;
+
+
+(git-external (git-patch-get-delta git_patch*) git_diff_delta* "git_patch_get_delta")
+(git-external (git-patch-free git_patch*) void "git_patch_free")
+@convert (git-external (git-patch-get-hunk (out git_diff_hunk*) char** size_t* size_t* git_patch* size_t) :error "git_patch_get_hunk")
+@convert (git-external (git-patch-get-line-in-hunk char* char** size_t* int* int* git_patch* size_t size_t) :error "git_patch_get_line_in_hunk")
+(git-external (git-patch-line_stats size_t* size_t* size_t* git_patch*) int "git_patch_line_stats")
+(git-external (git-patch-num-hunks git_patch*) size_t "git_patch_num_hunks")
+(git-external (git-patch-num-lines-in-hunk git_patch* size_t) int "git_patch_num_lines_in_hunk")
+
+
+;;;
 ;;;; Push
 ;;;
 
 
-(git-external (git_push_finish git_push*) :error "git_push_finish")
-(git-external (git-push-free git_push*) void "git_push_free")
-(git-external (git-push-new (out git_push*) git_remote*) :error "git_push_new")
-(git-external (git_push_status_foreach git_push* void* void*) :error "git_push_status_foreach")
-(git-external (git_push_unpack_ok git_push*) int "git_push_unpack_ok")
-(git-external (git_push_update_tips git_push*) :error "git_push_update_tips")
+@convert (git-external (git_push_finish git_push*) :error "git_push_finish")
+@convert (git-external (git-push-free git_push*) void "git_push_free")
+@convert (git-external (git-push-new (out git_push*) git_remote*) :error "git_push_new")
+@convert (git-external (git_push_status_foreach git_push* void* void*) :error "git_push_status_foreach")
+@convert (git-external (git_push_unpack_ok git_push*) int "git_push_unpack_ok")
+@convert (git-external (git_push_update_tips git_push*) :error "git_push_update_tips")
 
 
 ;;;
@@ -926,12 +953,12 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
 
 
 (git-external (git-reference-cmp git_reference* git_reference*) int "git_reference_cmp")
-(git-external (git-reference-create (out git_reference*) git_repository* char-string git_oid* int) :error "git_reference_create")
+@convert (git-external (git-reference-create (out git_reference*) git_repository* char-string git_oid* int) :error "git_reference_create")
 (git-external (git-reference-delete git_reference*) :error "git_reference_delete")
 (git-external (git-reference-foreach git_repository* void* void*) :error "git_reference_foreach")
 (git-external (git-reference-foreach-glob git_repository* char-string void* void*) :error "git_reference_foreach_glob")
 (git-external (git-reference-free git_reference*) void "git_reference_free")
-(git-external (git_reference_has_log git_reference*) int "git_reference_has_log")
+@convert (git-external (git_reference_has_log git_reference*) int "git_reference_has_log")
 (git-external (git_reference_is_branch git_reference*) int "git_reference_is_branch")
 (git-external (git_reference_is_remote git_reference*) int "git_reference_is_remote")
 (git-external (git_reference_is_valid_name char-string) int "git_reference_is_valid_name")
@@ -939,9 +966,9 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
 (git-external (git-reference-name git_reference*) char-string "git_reference_name")
 (git-external (git-reference-name-to-id git_oid* git_repository* char-string) :error "git_reference_name_to_id")
 (git-external (git-reference-owner git_reference*) git_repository* "git_reference_owner")
-(git-external (git-reference-rename (out git_reference*) git_reference* char-string int) :error "git_reference_rename")
+@convert (git-external (git-reference-rename (out git_reference*) git_reference* char-string int) :error "git_reference_rename")
 (git-external (git-reference-resolve (out git_reference*) git_reference*) :error "git_reference_resolve")
-(git-external (git-reference-set-target (out git_reference*) git_reference* git_oid*) :error "git_reference_set_target")
+@convert (git-external (git-reference-set-target (out git_reference*) git_reference* git_oid*) :error "git_reference_set_target")
 (git-external (git-reference-target git_reference*) git_oid* "git_reference_target")
 (git-external (git-reference-type git_reference*) git_ref_t "git_reference_type")
 
@@ -992,7 +1019,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 ;;;
 
 
-(git-external (git-reflog-delete git_reference*) :error "git_reflog_delete")
+@convert (git-external (git-reflog-delete git_reference*) :error "git_reflog_delete")
 (git-external (git-reflog-entry-byindex git_reflog* size_t) git_reflog_entry* "git_reflog_entry_byindex")
 (git-external (git-reflog-entry-committer git_reflog_entry*) git_signature* "git_reflog_entry_committer")
 (git-external (git-reflog-entry-message git_reflog_entry*) char* "git_reflog_entry_message")
@@ -1000,8 +1027,8 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 (git-external (git-reflog-entry-id-old git_reflog_entry*) git_oid* "git_reflog_entry_id_old")
 (git-external (git-reflog-entrycount git_reflog*) uint "git_reflog_entrycount")
 (git-external (git-reflog-free git_reflog*) void "git_reflog_free")
-(git-external (git-reflog-read (out git_reflog*) git_reference*) :error "git_reflog_read")
-(git-external (git-reflog-rename git_reference* char-string) :error "git_reflog_rename")
+@convert (git-external (git-reflog-read (out git_reflog*) git_reference*) :error "git_reflog_read")
+@convert (git-external (git-reflog-rename git_reference* char-string) :error "git_reflog_rename")
 (git-external (git-reflog-write git_reflog*) :error "git_reflog_write")
 
 
@@ -1013,7 +1040,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 (git-external (git-refspec-dst git_refspec*) char-string "git_refspec_dst")
 (git-external (git-refspec-src git_refspec*) char-string "git_refspec_src")
 (git-external (git-refspec-src-matches git_refspec* char-string) int "git_refspec_src_matches")
-(git-external (git-refspec-transform char* size_t git_refspec* char-string) :error "git_refspec_transform")
+@convert (git-external (git-refspec-transform char* size_t git_refspec* char-string) :error "git_refspec_transform")
 
 
 ;;;
@@ -1023,65 +1050,90 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 
 (git-external (git-remote-add-fetch git_remote* char-string) :error "git_remote_add_fetch")
 (git-external (git-remote-add-push git_remote* char-string) :error "git_remote_add_push")
-(git-external (git-remote-check-cert git_remote* int) void "git_remote_check_cert")
 (git-external (git-remote-connect git_remote* int) :error "git_remote_connect")
 (git-external (git-remote-connected git_remote*) int "git_remote_connected")
 (git-external (git-remote-create (out git_remote*) git_repository* char-string char-string) :error "git_remote_create")
+(git-external (git-remote-create-anonymous (out git_remote*) git_repository* char-string NULL) :error "git_remote_create_anonymous")
 (git-external (git-remote-disconnect git_remote*) void "git_remote_disconnect")
 (git-external (git-remote-free git_remote*) void "git_remote_free")
 (git-external (git-remote-list git_strarray* git_repository*) :error "git_remote_list")
-(git-external (git-remote-load (out git_remote*) git_repository* char-string) :error "git_remote_load")
+@convert (git-external (git-remote-load (out git_remote*) git_repository* char-string) :error "git_remote_load")
 (git-external (git-remote-ls git_remote* git_headlist_cb void*) :error "git_remote_ls")
 (git-external (git-remote-name git_remote*) char-string "git_remote_name")
 (git-external (git-remote-rename git_remote* char-string void* void*) :error "git_remote_rename")
 (git-external (git-remote-save git_remote*) :error "git_remote_save")
 (git-external (git-remote-set-callbacks git_remote* git_remote_callbacks*) void "git_remote_set_callbacks")
-(git-external (git-remote-supported-url char-string) int "git_remote_supported_url")
-(git-external (git-remote-update-tips git_remote*) :error "git_remote_update_tips")
+@convert (git-external (git-remote-supported-url char-string) int "git_remote_supported_url")
+(git-external (git-remote-update-tips git_remote* NULL) :error "git_remote_update_tips")
 (git-external (git-remote-url git_remote*) char-string "git_remote_url")
-(git-external (git-remote-valid-url char-string) int "git_remote_valid_url")
+@convert (git-external (git-remote-valid-url char-string) int "git_remote_valid_url")
 
 
-(c-definition (remote-download-procedure proc total_objects indexed_objects received_objects received_bytes) (scheme-object unsigned-int unsigned-int unsigned-int unsigned-int) void "remote_download_procedure" ""
-  (when proc
-    (proc total_objects indexed_objects received_objects received_bytes)))
+(class Git-Remote-Callbacks extends Object
+  
+  
+  (slot credentials-callback getter generate)
+  (slot download-callback    getter generate)
+  
+  
+  (method override (initialize (credentials-callback: credentials-callback #f) (download-callback: download-callback #f))
+    (set! credentials-callback~self credentials-callback)
+    (set! download-callback~self download-callback)))
+
+
+(c-definition (credentials-acquire-procedure callbacks) (scheme-object) git_cred* "credentials_acquire_procedure" ""
+  (when callbacks
+    (let ((credentials-callback (get-credentials-callback~ callbacks)))
+      (when credentials-callback
+        (credentials-callback)))))
 
 (c-declare git.foreign #/C/
-    int remote_download_cb(const git_transfer_progress *stats, void *payload)
+    int credentials_cb(git_cred **out, const char * url, const char * username_from_url, unsigned int allowed_types, void * payload)
+    {
+        git_cred* cred;
+        cred = credentials_acquire_procedure(___EXT(___data_rc)(payload));
+        if (cred)
+        {
+            *out = cred;
+            return 0;
+        }
+        else
+            return GIT_PASSTHROUGH;
+    }
+//#)
+
+(c-definition (remote-download-procedure callbacks total_objects indexed_objects received_objects received_bytes) (scheme-object unsigned-int unsigned-int unsigned-int unsigned-int) void "remote_download_procedure" ""
+  (when callbacks
+    (let ((download-callback (get-download-callback~ callbacks)))
+      (when download-callback
+        (download-callback total_objects indexed_objects received_objects received_bytes)))))
+
+(c-declare git.foreign #/C/
+    int transfer_progress_cb(const git_transfer_progress *stats, void *payload)
     {
         remote_download_procedure(___EXT(___data_rc)(payload), stats->total_objects, stats->indexed_objects, stats->received_objects, stats->received_bytes);
         return 0;
     }
 //#)
 
-(c-external (git-remote-download git_remote* scheme-object) void
+(c-external (git-remote-setup-callbacks git_remote* scheme-object) void
   #/C/
-    void* p = ___EXT(___alloc_rc)(0);
-    ___EXT(___set_data_rc)(p, ___arg2);
-    int result = git_remote_download(___arg1, &remote_download_cb, p);
+  void* p = ___EXT(___alloc_rc)(0);
+  ___EXT(___set_data_rc)(p, ___arg2);
+  git_remote_callbacks callbacks = GIT_REMOTE_CALLBACKS_INIT;
+  callbacks.credentials = credentials_cb;
+  callbacks.transfer_progress = transfer_progress_cb;
+  callbacks.payload = p;
+  int result = git_remote_set_callbacks(___arg1, &callbacks);
+  if (result != 0) git_call_error_handler(result);
+  // to free the memory
+  // ___EXT(___release_rc)(p);
+//#)
+
+(c-external (git-remote-download git_remote*) void
+  #/C/
+    int result = git_remote_download(___arg1, NULL);
     if (result != 0) git_call_error_handler(result);
-    ___EXT(___release_rc)(p);
-//#)
-
-
-(c-definition (cred-acquire-procedure proc) (scheme-object) git_cred* "cred_acquire_procedure" ""
-  (proc))
-
-(c-declare git.foreign #/C/
-    int cred_acquire_cb(git_cred **out, const char * url, const char * username_from_url, void * payload)
-    {
-        return git_cred_userpass_plaintext_new(out, "user", "password");
-        //*out = cred_acquire_procedure(___EXT(___data_rc)(payload));
-        //return 0;
-    }
-//#)
-
-(c-external (git-remote-set-cred-acquire-cb git_remote* scheme-object) void
-  #/C/
-    git_remote_set_cred_acquire_cb(___arg1, &cred_acquire_cb, NULL);
-    //void* p = ___EXT(___alloc_rc)(0);
-    //___EXT(___set_data_rc)(p, ___arg2);
-    //git_remote_set_cred_acquire_cb(___arg1, &cred_acquire_cb, p);
 //#)
 
 
@@ -1091,11 +1143,11 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 
 
 (git-external (git-repository-config (out git_config*) git_repository*) :error "git_repository_config")
-(git-external (git-repository-discover char* size_t char-string int char-string) :error "git_repository_discover")
+@convert (git-external (git-repository-discover char* size_t char-string int char-string) :error "git_repository_discover")
 (git-external (git-repository-free git_repository*) void "git_repository_free")
 (git-external (git-repository-head (out git_reference*) git_repository*) :error "git_repository_head")
 (git-external (git-repository-head-detached git_repository*) int "git_repository_head_detached")
-(git-external (git-repository-head-orphan git_repository*) int "git_repository_head_orphan")
+@convert (git-external (git-repository-head-orphan git_repository*) int "git_repository_head_orphan")
 (git-external (git-repository-index (out git_index*) git_repository*) :error "git_repository_index")
 (git-external (git-repository-init_ (out git_repository*) char-string uint) :error "git_repository_init")
 (git-external (git-repository-is-bare git_repository*) int "git_repository_is_bare")
@@ -1104,9 +1156,9 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 (git-external (git-repository-open (out git_repository*) char-string) :error "git_repository_open")
 (git-external (git-repository-open-ext (out git_repository*) char-string uint32_t char-string) :error "git_repository_open_ext")
 (git-external (git-repository-path git_repository*) char-string "git_repository_path")
-(git-external (git-repository-set-config git_repository* git_config*) void "git_repository_set_config")
-(git-external (git-repository-set-index git_repository* git_index*) void "git_repository_set_index")
-(git-external (git-repository-set-odb git_repository* git_odb*) void "git_repository_set_odb")
+@convert (git-external (git-repository-set-config git_repository* git_config*) void "git_repository_set_config")
+@convert (git-external (git-repository-set-index git_repository* git_index*) void "git_repository_set_index")
+@convert (git-external (git-repository-set-odb git_repository* git_odb*) void "git_repository_set_odb")
 (git-external (git-repository-set-workdir git_repository* char-string int) :error "git_repository_set_workdir")
 (git-external (git-repository-workdir git_repository*) char-string "git_repository_workdir")
 
@@ -1125,6 +1177,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
   (= 1 (git-repository-is-empty repo)))
 
 
+@convert
 (definition public (git-repository-fetch repo name)
   (let ((remote (git-remote-load repo name)))
     (git-remote-connect remote GIT_DIRECTION_FETCH)
@@ -1149,7 +1202,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 ;;;
 
 
-(git-external (git-reset git_repository* git_object* git_reset_t) :error "git_reset")
+(git-external (git-reset git_repository* git_object* git_reset_t NULL) :error "git_reset")
 
 
 ;;;
@@ -1184,7 +1237,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 ;;;
 
 
-(git-external (git-signature-dup git_signature*) git_signature* "git_signature_dup")
+@convert (git-external (git-signature-dup git_signature*) git_signature* "git_signature_dup")
 (git-external (git-signature-free git_signature*) void "git_signature_free")
 (git-external (git-signature-new (out git_signature*) char-string char-string git_time_t int) :error "git_signature_new")
 (git-external (git-signature-now (out git_signature*) char-string char-string) :error "git_signature_now")
@@ -1280,8 +1333,8 @@ static int status_foreach_cb(const char *path, unsigned int status_flags, void *
 ; If compiled with GIT_THREADS, they will setup / shutdown the thread system.
 ; If not, they are a no-op. Therefore better be safe then sorry.
 
-(git-external (git-threads-init) void "git_threads_init")
-(git-external (git-threads-shutdown) void "git_threads_shutdown")
+@convert (git-external (git-threads-init) void "git_threads_init")
+@convert (git-external (git-threads-shutdown) void "git_threads_shutdown")
 
 
 ;;;
@@ -1289,7 +1342,7 @@ static int status_foreach_cb(const char *path, unsigned int status_flags, void *
 ;;;
 
 
-(git-external (git-trace-set int void*) :error "git_trace_set")
+@convert (git-external (git-trace-set int void*) :error "git_trace_set")
 
 
 ;;;
@@ -1317,14 +1370,10 @@ static int status_foreach_cb(const char *path, unsigned int status_flags, void *
 
 
 (git-external (git-treebuilder-clear git_treebuilder*) void "git_treebuilder_clear")
-(git-external (git-treebuilder-create (out git_treebuilder*) git_tree*) :error "git_treebuilder_create")
+@convert (git-external (git-treebuilder-create (out git_treebuilder*) git_tree*) :error "git_treebuilder_create")
 (git-external (git-treebuilder-filter git_treebuilder* void* void*) void "git_treebuilder_filter")
 (git-external (git-treebuilder-free git_treebuilder*) void "git_treebuilder_free")
 (git-external (git-treebuilder-get git_treebuilder* char-string) git_tree_entry* "git_treebuilder_get")
 (git-external (git-treebuilder-insert (out git_tree_entry*) git_treebuilder* char-string git_oid* uint) :error "git_treebuilder_insert")
 (git-external (git-treebuilder-remove git_treebuilder* char-string) :error "git_treebuilder_remove")
-(git-external (git-treebuilder-write git_oid* git_repository* git_treebuilder*) :error "git_treebuilder_write")
-
-)
-  (else))
-)
+@convert (git-external (git-treebuilder-write git_oid* git_repository* git_treebuilder*) :error "git_treebuilder_write"))

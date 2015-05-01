@@ -14,34 +14,46 @@
     (and (pair? obj)
          (eq? (car obj) 'out)))
   
-  (define (expand-args count initial-comma?)
-    (let ((out ""))
-      (loop (for n from 1 to count)
-            (set! out (string-append out (if (or initial-comma? (/= n 1)) ", " "") (format "___arg{a}" n))))
-      out))
+  (define (expand-args parameters initial-comma?)
+    (let ((last (length parameters))
+          (params (new-queue))
+          (args ""))
+      (let (iter (n 1) (parameters parameters))
+        (when (not-null? parameters)
+          (let ((parameter (car parameters)))
+            (cond ((eq? parameter 'NULL)
+                   (set! args (string-append args (if (or initial-comma? (/= n 1)) ", " "")  "NULL"))
+                   (iter n (cdr parameters)))
+                  (else
+                   (enqueue params parameter)
+                   (set! args (string-append args (if (or initial-comma? (/= n 1)) ", " "")  (format "___arg{a}" n)))
+                   (iter (+ n 1) (cdr parameters)))))))
+      (values (queue-list params) args)))
   
   (let* ((s-name (car signature))
          (params (cdr signature))
          (c-name-or-code (if (null? rest) (symbol->string s-name) (car rest))))
     (if (or (null? params)
             (not (out-parameter? (car params))))
-        (if (eq? type :error)
-            (let ((c-code
-                    (string-append (format "int result = {a}({a});{%}" c-name-or-code (expand-args (length params) #f))
-                                   (format "if (result != 0) git_call_error_handler(result);{%}"))))
-              `(definition public ,s-name
-                 (c-function anonymous ,params void ,c-code)))
-          `(definition public ,s-name
-             (c-function anonymous ,params ,type ,c-name-or-code)))
+        (receive (params args) (expand-args params #f)
+          (if (eq? type :error)
+              (let ((c-code
+                      (string-append (format "int result = {a}({a});{%}" c-name-or-code args)
+                                     (format "if (result != 0) git_call_error_handler(result);{%}"))))
+                `(definition public ,s-name
+                   (c-function anonymous ,params void ,c-code)))
+            `(definition public ,s-name
+               (c-function anonymous ,params ,type ,c-name-or-code))))
       (let ((out-type (cadr (car params)))
             (parameters (cdr params)))
-        (let ((c-code
-                (string-append (format "{a} out;{%}" out-type)
-                               (format "int result = {a}(&out{a});{%}" c-name-or-code (expand-args (length parameters) #t))
-                               (format "if (result == 0) ___result_voidstar = out;{%}")
-                               (if (eq? type :lookup)
-                                   (format "else if (result == GIT_ENOTFOUND) ___result_voidstar = NULL;{%}")
-                                 "")
-                               (format "else git_call_error_handler(result);"))))
-          `(definition public ,s-name
-             (c-function anonymous ,parameters ,out-type ,c-code))))))))
+        (receive (parameters args) (expand-args parameters #t)
+          (let ((c-code
+                  (string-append (format "{a} out;{%}" out-type)
+                                 (format "int result = {a}(&out{a});{%}" c-name-or-code args)
+                                 (format "if (result == 0) ___result_voidstar = out;{%}")
+                                 (if (eq? type :lookup)
+                                     (format "else if (result == GIT_ENOTFOUND) ___result_voidstar = NULL;{%}")
+                                   "")
+                                 (format "else git_call_error_handler(result);"))))
+            `(definition public ,s-name
+               (c-function anonymous ,parameters ,out-type ,c-code)))))))))

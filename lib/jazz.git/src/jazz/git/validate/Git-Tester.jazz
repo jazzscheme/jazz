@@ -9,9 +9,6 @@
 (module protected jazz.git.validate.Git-Tester jazz
 
 
-;; until we port to non-windows platforms
-(cond-expand
-  (windows
 (import (jazz.io)
         (jazz.jml)
         (jazz.git.interface)
@@ -27,22 +24,26 @@
 
   (method override (test)
     (initialize-aliases)
-    (let ((url "https://github.com/gcartier/space-media.git")
+    (git-libgit2-init)
+    (let ((url "https://github.com/gcartier/jiri.git")
           (dir {Directory Home "aaa" "test"}))
+      (when (exists?~ dir)
+        (delete-directory~ dir))
       (create-directories~ dir)
       (let ((repo (git-repository-init dir)))
         (debug repo)
         (let ((remote (git-remote-create repo "origin" url)))
           (debug remote)
-          (git-remote-check-cert remote 0)
-          (git-remote-set-cred-acquire-cb remote
-            (lambda ()
-              (let ((cred (git-cred-userpass-plaintext-new "user" "password")))
-                (debug cred)
-                cred)))
-          (debug 111)
-          (debug (git-pull repo remote download-callback: #f))
-          (git-repository-free repo))))
+          (let ((callbacks (new Git-Remote-Callbacks
+                             credentials-callback: (lambda ()
+                                                     (debug 'credentials)
+                                                     (git-cred-userpass-plaintext-new "user" "password"))
+                             download-callback: (lambda (total-objects indexed-objects received-objects received-bytes)
+                                                  (debug 'download total-objects indexed-objects received-objects received-bytes)))))
+            (git-remote-setup-callbacks remote callbacks)
+            (git-pull repo remote)
+            (git-remote-free remote)
+            (git-repository-free repo)))))
     @w
     (test-pull)
     @w
@@ -69,6 +70,7 @@
   ;;;
   
   
+  @convert (
   ;; Todo
   ;; - Progress feedback
   ;; - Authentication
@@ -87,7 +89,8 @@
                 (if (not (git-workdir-clean? repo))
                     (debug 'workdir-not-clean)
                   (let ((commit (git-object-lookup repo (git-reference->id repo upstream) GIT_OBJ_COMMIT)))
-                    (git-reset repo commit GIT_RESET_HARD))))))))))
+                    (git-reset repo commit GIT_RESET_HARD)))))
+            (git-remote-free remote))))))
   
   
   ;;;
@@ -369,6 +372,4 @@
 
 
   (method (test-odb)
-    )))
-  (else))
-)
+    ))))

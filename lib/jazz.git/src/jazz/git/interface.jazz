@@ -9,9 +9,6 @@
 (module jazz.git.interface jazz
 
 
-;; until we port to non-windows platforms
-(cond-expand
-  (windows
 (export (jazz.git.foreign))
 (import (jazz.git.foreign))
 
@@ -21,16 +18,17 @@
 ;;;
 
 
-(definition public (git-fetch repo remote (download-callback: download-callback #f))
-  (git-remote-connect remote GIT_DIRECTION_FETCH)
-  (git-remote-download remote download-callback)
-  (git-remote-disconnect remote)
-  (git-remote-update-tips remote)
-  (git-remote-free remote))
+(definition public (git-fetch repo remote)
+  (without-os-interrupts
+    (lambda ()
+      (git-remote-connect remote GIT_DIRECTION_FETCH)
+      (git-remote-download remote)
+      (git-remote-disconnect remote)
+      (git-remote-update-tips remote))))
 
 
-(definition public (git-pull repo remote (download-callback: download-callback #f))
-  (git-fetch repo remote download-callback: download-callback)
+(definition public (git-pull repo remote)
+  (git-fetch repo remote)
   (let ((upstream (git-reference-lookup repo "refs/remotes/origin/master"))
         (local (git-branch-lookup repo "master" GIT_BRANCH_LOCAL)))
     (if (and local (not (git-graph-fast-forward? repo (git-reference->id repo local) (git-reference->id repo upstream))))
@@ -51,5 +49,3 @@
   (= 0 (git-status-for-each-stoppable repo
          (lambda (path flags)
            #t)))))
-  (else))
-)

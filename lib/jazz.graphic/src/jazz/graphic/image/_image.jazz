@@ -38,7 +38,8 @@
 (module jazz.graphic.image jazz
 
 
-(import (jazz.library)
+(import (jazz.io)
+        (jazz.library)
         (jazz.platform.cairo)
         (jazz.system))
 
@@ -48,7 +49,7 @@
 ;;;
 
 
-(definition public (load-image type image)
+(definition public (load-image image (type #f))
   (define (find-icon-file resource)
     (get-resource~ (get-application) 'icon (get-name~ resource)))
   
@@ -63,17 +64,20 @@
             (signal (new Image-Load-Error))
           handle))))
   
-  (case type
-    ((icon)
-     (create-cairo-surface-from-png
-       (if (resource? image)
-           (find-icon-file image)
-         image)))
-    ((image)
-     (create-cairo-surface-from-png
-       (if (resource? image)
-           (find-image-file image)
-         image)))))
+  (if (not type)
+      (assert (file? image)
+        (create-cairo-surface-from-png image))
+    (case type
+      ((icon)
+       (create-cairo-surface-from-png
+         (if (resource? image)
+             (find-icon-file image)
+           image)))
+      ((image)
+       (create-cairo-surface-from-png
+         (if (resource? image)
+             (find-image-file image)
+           image))))))
 
 
 (definition public (load-image-from-u8vector u8vector)

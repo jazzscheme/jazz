@@ -42,12 +42,20 @@
         (jazz.platform.cairo))
 
 
+;;;
+;;;; Font
+;;;
+
+
 (definition public (create-font-handle local?
                                        (font-name: font-name #f)
                                        (point-size: point-size #f)
                                        (bold?: bold? #f)
                                        (italic?: italic? #f)
                                        (underline?: underline? #f))
+  (define (calculate-height point-size <fx>) <fl>
+    (/ (cast <fl> (* point-size 96)) 72))
+  
   (if local?
       (error "Local fonts are not supported on Windows")
     (CreateFont
@@ -68,8 +76,13 @@
       font-name)))
 
 
-(definition public (calculate-height point-size <fx>) <fl>
-  (/ (cast <fl> (* point-size 96)) 72))
+(definition public (destroy-font-handle local? handle)
+  (DeleteObject handle))
+
+
+;;;
+;;;; Cairo
+;;;
 
 
 (definition public (create-cairo-font-face local? handle)
@@ -78,15 +91,16 @@
       (LOGFONTW-free logfont))))
 
 
+(definition public (destroy-cairo-font-face handle)
+  (cairo_font_face_destroy handle))
+
+
+;;;
+;;;; Windows
+;;;
+
+
 (definition public (get-logfont handle)
   (let ((info (LOGFONTW-make)))
     (GetObject handle (LOGFONTW-sizeof) (LOGFONTW*->PVOID info))
-    info))
-
-
-(definition public (destroy-font-handle local? handle)
-  (DeleteObject handle))
-
-
-(definition public (destroy-cairo-font-face handle)
-  (cairo_font_face_destroy handle)))
+    info)))

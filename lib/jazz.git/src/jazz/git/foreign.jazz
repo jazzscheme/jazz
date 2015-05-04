@@ -450,29 +450,25 @@
   (uint count))
 
 
+;;;
+;;;; Interrupts
+;;;
+
+
 (cond-expand
   (windows
-   (definition public (without-os-interrupts thunk)
-     (thunk)))
+(c-declare git.foreign #/C/
+#define gambit_disable_os_interrupts()
+#define gambit_enable_os_interrupts()
+//#))
   (else
 (c-declare git.foreign #/C/
 void ___disable_os_interrupts();
 void ___enable_os_interrupts();
-//#)
 
-
-(c-external (disable-os-interrupts) void
-  "___disable_os_interrupts();")
-
-(c-external (enable-os-interrupts) void
-  "___enable_os_interrupts();")
-
-;; this is a workaround a unix problem where timer interrupts can interrupt os calls
-;; even in shared libraries and libgit2 doesn't shield itself against that possibility
-(definition public (without-os-interrupts thunk)
-  (dynamic-wind disable-os-interrupts
-                thunk
-                enable-os-interrupts))))
+#define gambit_disable_os_interrupts() ___disable_os_interrupts()
+#define gambit_enable_os_interrupts() ___enable_os_interrupts()
+//#)))
 
 
 ;;;
@@ -510,7 +506,7 @@ void ___enable_os_interrupts();
   (= 1 (git-blob-is-binary blob)))
 
 
-(c-external (git-blob-text git_blob*) char-string
+(git-external (git-blob-text git_blob*) char-string
   #/C/
     void* text = git_blob_rawcontent(___arg1);
     ___result = text;
@@ -551,7 +547,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 //#)
 
 @convert
-(c-external (git-branch-for-each-stoppable git_repository* uint scheme-object) int
+(git-external (git-branch-for-each-stoppable git_repository* uint scheme-object) int
   #/C/
     void* p = ___EXT(___alloc_rc)(0);
     ___EXT(___set_data_rc)(p, ___arg3);
@@ -706,7 +702,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 (git-external (giterr-last) git_error* "giterr_last")
 
 
-(c-external (git-error-message git_error*) char-string
+(git-external (git-error-message git_error*) char-string
   #/C/
     ___result = ___arg1->message;
 //#)
@@ -717,7 +713,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 ;;;
 
 
-(c-external (git-graph-ahead-behind git_repository* git_oid* git_oid*) scheme-object
+(git-external (git-graph-ahead-behind git_repository* git_oid* git_oid*) scheme-object
   #/C/
     int ahead, behind;
     int result = git_graph_ahead_behind(&ahead, &behind, ___arg1, ___arg2, ___arg3);
@@ -822,7 +818,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 (git-external (git-libgit2-version int* int* int*) void "git_libgit2_version")
 
 
-(c-external (git-version) scheme-object
+(git-external (git-version) scheme-object
   #/C/
     int major, minor, rev;
     git_libgit2_version(&major, &minor, &rev);
@@ -920,7 +916,7 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
 }
 //#)
 
-(c-external (git-odb-for-each-stoppable git_odb* scheme-object) int
+(git-external (git-odb-for-each-stoppable git_odb* scheme-object) int
   #/C/
     void* p = ___EXT(___alloc_rc)(0);
     ___EXT(___set_data_rc)(p, ___arg2);
@@ -958,7 +954,7 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
 (git-external (git-oid-tostr char-string size_t git_oid*) char-string "git_oid_tostr")
 
 
-(c-external (git-string->id char-string) git_oid*
+(git-external (git-string->id char-string) git_oid*
   #/C/
     git_oid* oid = calloc(1, sizeof(git_oid));
     git_oid_fromstr(oid, ___arg1);
@@ -966,7 +962,7 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
 //#)
 
 
-(c-external (git-id->string git_oid*) char-string
+(git-external (git-id->string git_oid*) char-string
   #/C/
     char oidstr[GIT_OID_HEXSZ + 1];
     git_oid_tostr(oidstr, sizeof(oidstr), ___arg1);
@@ -974,7 +970,7 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
 //#)
 
 
-(c-external (git-free-id git_oid*) void
+(git-external (git-free-id git_oid*) void
   #/C/
     free(___arg1);
 //#)
@@ -1041,7 +1037,7 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
 (git-external (git-reference-type git_reference*) git_ref_t "git_reference_type")
 
 
-(c-external (git-reference-name->id git_repository* char-string) git_oid*
+(git-external (git-reference-name->id git_repository* char-string) git_oid*
   #/C/
     git_oid* oid = calloc(1, sizeof(git_oid));
     int result = git_reference_name_to_id(oid, ___arg1, ___arg2);
@@ -1066,7 +1062,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 }
 //#)
 
-(c-external (git-reference-for-each-stoppable git_repository* scheme-object) int
+(git-external (git-reference-for-each-stoppable git_repository* scheme-object) int
   #/C/
     void* p = ___EXT(___alloc_rc)(0);
     ___EXT(___set_data_rc)(p, ___arg2);
@@ -1119,12 +1115,10 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 (git-external (git-remote-add-fetch git_remote* char-string) :error "git_remote_add_fetch")
 (git-external (git-remote-add-push git_remote* char-string) :error "git_remote_add_push")
 (git-external (git-remote-clear-refspecs git_remote*) void "git_remote_clear_refspecs")
-(git-external (git-remote-connect git_remote* int) :error "git_remote_connect")
 (git-external (git-remote-connected git_remote*) int "git_remote_connected")
 (git-external (git-remote-create (out git_remote*) git_repository* char-string char-string) :error "git_remote_create")
 (git-external (git-remote-create-anonymous (out git_remote*) git_repository* char-string NULL) :error "git_remote_create_anonymous")
 (git-external (git-remote-disconnect git_remote*) void "git_remote_disconnect")
-(git-external (git-remote-fetch git_remote* NULL NULL) :error "git_remote_fetch")
 (git-external (git-remote-free git_remote*) void "git_remote_free")
 (git-external (git-remote-list git_strarray* git_repository*) :error "git_remote_list")
 (git-external (git-remote-lookup (out git_remote*) git_repository* char-string) :error "git_remote_lookup")
@@ -1137,6 +1131,24 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 (git-external (git-remote-update-tips git_remote* NULL) :error "git_remote_update_tips")
 (git-external (git-remote-url git_remote*) char-string "git_remote_url")
 @convert (git-external (git-remote-valid-url char-string) int "git_remote_valid_url")
+
+
+(git-external (git-remote-connect git_remote* int) void
+  #/C/
+    gambit_disable_os_interrupts();
+    int result = git_remote_connect(___arg1, ___arg2);
+    gambit_enable_os_interrupts();
+    if (result != 0) git_call_error_handler(result);
+//#)
+
+
+(git-external (git-remote-fetch git_remote*) void
+  #/C/
+    gambit_disable_os_interrupts();
+    int result = git_remote_fetch(___arg1, NULL, NULL);
+    gambit_enable_os_interrupts();
+    if (result != 0) git_call_error_handler(result);
+//#)
 
 
 (c-definition (credentials-acquire-procedure callbacks) (scheme-object) git_cred* "credentials_acquire_procedure" ""
@@ -1174,7 +1186,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
     }
 //#)
 
-(c-external (git-remote-setup-callbacks git_remote* scheme-object) void
+(git-external (git-remote-setup-callbacks git_remote* scheme-object) void
   #/C/
     void* p = ___EXT(___alloc_rc)(0);
     ___EXT(___set_data_rc)(p, ___arg2);
@@ -1188,7 +1200,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
     // ___EXT(___release_rc)(p);
 //#)
 
-(c-external (git-remote-download git_remote*) void
+(git-external (git-remote-download git_remote*) void
   #/C/
     int result = git_remote_download(___arg1, NULL);
     if (result != 0) git_call_error_handler(result);
@@ -1234,16 +1246,6 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 
 (definition public (git-repository-empty? repo)
   (= 1 (git-repository-is-empty repo)))
-
-
-@convert
-(definition public (git-repository-fetch repo name)
-  (let ((remote (git-remote-load repo name)))
-    (git-remote-connect remote GIT_DIRECTION_FETCH)
-    (git-remote-download remote)
-    (git-remote-disconnect remote)
-    (git-remote-update-tips remote)
-    (git-remote-free remote)))
 
 
 (definition public (with-repository path proc)
@@ -1354,7 +1356,7 @@ static int status_foreach_cb(const char *path, unsigned int status_flags, void *
 }
 //#)
 
-(c-external (git-status-for-each-stoppable git_repository* scheme-object) int
+(git-external (git-status-for-each-stoppable git_repository* scheme-object) int
   #/C/
     void* p = ___EXT(___alloc_rc)(0);
     ___EXT(___set_data_rc)(p, ___arg2);

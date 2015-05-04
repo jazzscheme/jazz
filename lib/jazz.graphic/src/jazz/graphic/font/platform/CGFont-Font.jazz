@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Logfont Definitions
+;;;; CGFont Fonts
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,72 +35,32 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.graphic.font.platform.logfont jazz
+(module protected jazz.graphic.font.platform.CGFont-Font jazz
 
 
-(import (jazz.platform)
+(import (jazz.graphic)
+        (jazz.graphic.font)
         (jazz.platform.cairo))
 
 
-;;;
-;;;; Font
-;;;
-
-
-(definition public (create-logfont-font local?
-                                        (font-name: font-name #f)
-                                        (point-size: point-size #f)
-                                        (bold?: bold? #f)
-                                        (italic?: italic? #f)
-                                        (underline?: underline? #f))
-  (define (calculate-height point-size <fx>) <fl>
-    (/ (cast <fl> (* point-size 96)) 72))
+(class CGFont-Font extends Concrete-Font
   
-  (if local?
-      (error "Local fonts are not supported on Windows")
-    (CreateFont
-      ;; doc says the first 4 parameters are ignored
-      (fxround (calculate-height point-size))
-      0
-      0
-      0
-      (if bold? FW_BOLD FW_NORMAL)
-      (if italic? 1 0)
-      (if underline? 1 0)
-      0
-      ANSI_CHARSET
-      OUT_DEFAULT_PRECIS
-      CLIP_DEFAULT_PRECIS
-      DEFAULT_QUALITY
-      DEFAULT_PITCH
-      font-name)))
-
-
-(definition public (destroy-logfont-font local? handle)
-  (DeleteObject handle))
-
-
-;;;
-;;;; Cairo
-;;;
-
-
-(definition public (create-cairo-logfont-font-face local? handle)
-  (let ((logfont (get-logfont handle)))
-    (prog1 (cairo_win32_font_face_create_for_logfontw logfont)
-      (LOGFONTW-free logfont))))
-
-
-(definition public (destroy-cairo-logfont-font-face handle)
-  (cairo_font_face_destroy handle))
-
-
-;;;
-;;;; Windows
-;;;
-
-
-(definition public (get-logfont handle)
-  (let ((info (LOGFONTW-make)))
-    (GetObject handle (LOGFONTW-sizeof) (LOGFONTW*->PVOID info))
-    info)))
+  
+  (method override (create-font . rest)
+    (apply create-cgfont-font rest))
+  
+  
+  (method override (destroy-font . rest)
+    (apply destroy-cgfont-font rest))
+  
+  
+  (method override (create-cairo-font-face . rest)
+    (apply create-cairo-cgfont-font-face rest))
+  
+  
+  (method override (destroy-cairo-font-face . rest)
+    (apply destroy-cairo-cgfont-font-face rest))
+  
+  
+  (method override (cairo-glyph-index font char)
+    (cairo_cgfont_glyph_index font char))))

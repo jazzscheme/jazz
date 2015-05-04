@@ -11,6 +11,7 @@
 
 (import (jazz.foreign)
         (jazz.git.syntax (phase syntax))
+        (jazz.library)
         (jazz.platform.types)
         (jazz.platform.types-syntax (phase syntax)))
 
@@ -19,23 +20,57 @@
 
 
 ;;;
-;;;; Error Handling
+;;;; Error
 ;;;
+
+
+(class Git-Exception extends Exception
+  
+  
+  (slot code)
+  (slot message)
+  
+  
+  (method override (initialize code message)
+    (set! code~self code)
+    (set! message~self message))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}{? {a}~}" code message))))
+  
+  
+  (method (get-code)
+    code)
+  
+  
+  (method override (get-message)
+    (or message (format "Git exception (#x{x})" code))))
 
 
 (definition private git-error-handler
   (lambda (error-code)
-    (error "Libgit2 Error: {a}"
-           (let ((err (giterr-last)))
+    (throw (let ((err (giterr-last)))
              (if err
-                 (git-error-message err)
-               error-code)))))
+                 (new Git-Exception error-code (git-error-message err))
+               (new Git-Exception error-code #f))))))
 
 (definition public (set-git-error-handler! error-handler)
   (set! git-error-handler error-handler))
 
 (c-definition (git-call-error-handler error) (int) int "git_call_error_handler" ""
   (git-error-handler error))
+
+
+;;;
+;;;; Trace
+;;;
+
+
+(define-setting trace-git?
+  #f)
 
 
 ;;;
@@ -534,6 +569,25 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 
 
 ;;;
+;;;; Callbacks
+;;;
+
+
+(class Git-Callbacks extends Object
+  
+  
+  (slot credentials-callback getter generate)
+  (slot download-callback    getter generate)
+  (slot checkout-callback    getter generate)
+  
+  
+  (method override (initialize (credentials-callback: credentials-callback #f) (download-callback: download-callback #f) (checkout-callback: checkout-callback #f))
+    (set! credentials-callback~self credentials-callback)
+    (set! download-callback~self download-callback)
+    (set! checkout-callback~self checkout-callback)))
+
+
+;;;
 ;;;; Checkout
 ;;;
 
@@ -541,6 +595,15 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 (git-external (git-checkout-head git_repository* git_checkout_options*) :error "git_checkout_head")
 (git-external (git-checkout-index git_repository* git_index* git_checkout_options*) :error "git_checkout_index")
 (git-external (git-checkout-tree git_repository* git_object* git_checkout_options*) :error "git_checkout_tree")
+
+
+(git-external (git-checkout-head-force git_repository*) void
+  #/C/
+    git_checkout_options options = GIT_CHECKOUT_OPTIONS_INIT;
+    options.checkout_strategy = GIT_CHECKOUT_FORCE;
+    int result = git_checkout_head(___arg1, &options);
+    if (result != 0) git_call_error_handler(result);
+//#)
 
 
 ;;;
@@ -1055,14 +1118,16 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 
 (git-external (git-remote-add-fetch git_remote* char-string) :error "git_remote_add_fetch")
 (git-external (git-remote-add-push git_remote* char-string) :error "git_remote_add_push")
+(git-external (git-remote-clear-refspecs git_remote*) void "git_remote_clear_refspecs")
 (git-external (git-remote-connect git_remote* int) :error "git_remote_connect")
 (git-external (git-remote-connected git_remote*) int "git_remote_connected")
 (git-external (git-remote-create (out git_remote*) git_repository* char-string char-string) :error "git_remote_create")
 (git-external (git-remote-create-anonymous (out git_remote*) git_repository* char-string NULL) :error "git_remote_create_anonymous")
 (git-external (git-remote-disconnect git_remote*) void "git_remote_disconnect")
+(git-external (git-remote-fetch git_remote* NULL NULL) :error "git_remote_fetch")
 (git-external (git-remote-free git_remote*) void "git_remote_free")
 (git-external (git-remote-list git_strarray* git_repository*) :error "git_remote_list")
-@convert (git-external (git-remote-load (out git_remote*) git_repository* char-string) :error "git_remote_load")
+(git-external (git-remote-lookup (out git_remote*) git_repository* char-string) :error "git_remote_lookup")
 (git-external (git-remote-ls git_remote* git_headlist_cb void*) :error "git_remote_ls")
 (git-external (git-remote-name git_remote*) char-string "git_remote_name")
 (git-external (git-remote-rename git_remote* char-string void* void*) :error "git_remote_rename")
@@ -1072,18 +1137,6 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 (git-external (git-remote-update-tips git_remote* NULL) :error "git_remote_update_tips")
 (git-external (git-remote-url git_remote*) char-string "git_remote_url")
 @convert (git-external (git-remote-valid-url char-string) int "git_remote_valid_url")
-
-
-(class Git-Remote-Callbacks extends Object
-  
-  
-  (slot credentials-callback getter generate)
-  (slot download-callback    getter generate)
-  
-  
-  (method override (initialize (credentials-callback: credentials-callback #f) (download-callback: download-callback #f))
-    (set! credentials-callback~self credentials-callback)
-    (set! download-callback~self download-callback)))
 
 
 (c-definition (credentials-acquire-procedure callbacks) (scheme-object) git_cred* "credentials_acquire_procedure" ""
@@ -1123,16 +1176,16 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 
 (c-external (git-remote-setup-callbacks git_remote* scheme-object) void
   #/C/
-  void* p = ___EXT(___alloc_rc)(0);
-  ___EXT(___set_data_rc)(p, ___arg2);
-  git_remote_callbacks callbacks = GIT_REMOTE_CALLBACKS_INIT;
-  callbacks.credentials = credentials_cb;
-  callbacks.transfer_progress = transfer_progress_cb;
-  callbacks.payload = p;
-  int result = git_remote_set_callbacks(___arg1, &callbacks);
-  if (result != 0) git_call_error_handler(result);
-  // to free the memory
-  // ___EXT(___release_rc)(p);
+    void* p = ___EXT(___alloc_rc)(0);
+    ___EXT(___set_data_rc)(p, ___arg2);
+    git_remote_callbacks callbacks = GIT_REMOTE_CALLBACKS_INIT;
+    callbacks.credentials = credentials_cb;
+    callbacks.transfer_progress = transfer_progress_cb;
+    callbacks.payload = p;
+    int result = git_remote_set_callbacks(___arg1, &callbacks);
+    if (result != 0) git_call_error_handler(result);
+    // to free the memory
+    // ___EXT(___release_rc)(p);
 //#)
 
 (c-external (git-remote-download git_remote*) void
@@ -1161,6 +1214,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 (git-external (git-repository-open (out git_repository*) char-string) :error "git_repository_open")
 (git-external (git-repository-open-ext (out git_repository*) char-string uint32_t char-string) :error "git_repository_open_ext")
 (git-external (git-repository-path git_repository*) char-string "git_repository_path")
+(git-external (git-repository-set-head git_repository* char-string) void "git_repository_set_head")
 @convert (git-external (git-repository-set-config git_repository* git_config*) void "git_repository_set_config")
 @convert (git-external (git-repository-set-index git_repository* git_index*) void "git_repository_set_index")
 @convert (git-external (git-repository-set-odb git_repository* git_odb*) void "git_repository_set_odb")
@@ -1170,7 +1224,7 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 
 (definition public (git-repository-init dir)
   (git-repository-init_
-    (parse~ dir)
+    dir
     0))
 
 
@@ -1208,6 +1262,34 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 
 
 (git-external (git-reset git_repository* git_object* git_reset_t NULL) :error "git_reset")
+
+
+(c-definition (checkout-progress-procedure callbacks path completed_steps total_steps) (scheme-object char-string unsigned-int unsigned-int) void "checkout_progress_procedure" ""
+  (when callbacks
+    (let ((checkout-callback (get-checkout-callback~ callbacks)))
+      (when checkout-callback
+        (checkout-callback path completed_steps total_steps)))))
+
+(c-declare git.foreign #/C/
+    int checkout_progress_cb(const char *path, size_t completed_steps, size_t total_steps, void *payload)
+    {
+        checkout_progress_procedure(___EXT(___data_rc)(payload), path, completed_steps, total_steps);
+        return 0;
+    }
+//#)
+
+(git-external (git-reset-hard git_repository* git_object* scheme-object) void
+  #/C/
+    void* p = ___EXT(___alloc_rc)(0);
+    ___EXT(___set_data_rc)(p, ___arg3);
+    git_checkout_options options = GIT_CHECKOUT_OPTIONS_INIT;
+    options.checkout_strategy = GIT_CHECKOUT_FORCE;
+    options.progress_cb = checkout_progress_cb;
+    options.progress_payload = p;
+    git_reset(___arg1, ___arg2, GIT_RESET_HARD, &options);
+    // to free the memory
+    // ___EXT(___release_rc)(p);
+//#)
 
 
 ;;;
@@ -1381,4 +1463,12 @@ static int status_foreach_cb(const char *path, unsigned int status_flags, void *
 (git-external (git-treebuilder-get git_treebuilder* char-string) git_tree_entry* "git_treebuilder_get")
 (git-external (git-treebuilder-insert (out git_tree_entry*) git_treebuilder* char-string git_oid* uint) :error "git_treebuilder_insert")
 (git-external (git-treebuilder-remove git_treebuilder* char-string) :error "git_treebuilder_remove")
-@convert (git-external (git-treebuilder-write git_oid* git_repository* git_treebuilder*) :error "git_treebuilder_write"))
+@convert (git-external (git-treebuilder-write git_oid* git_repository* git_treebuilder*) :error "git_treebuilder_write")
+
+
+;;;
+;;;; Init
+;;;
+
+
+(git-libgit2-init))

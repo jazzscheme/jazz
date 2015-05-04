@@ -9,6 +9,10 @@
 (module jazz.git.syntax jazz
 
 
+(definition tracable?
+  #t)
+
+
 (macro public (git-external signature type . rest)
   (define (out-parameter? obj)
     (and (pair? obj)
@@ -30,6 +34,17 @@
                    (iter (+ n 1) (cdr parameters)))))))
       (values (queue-list params) args)))
   
+  (define (wrap-trace name expr)
+    (if (not tracable?)
+        expr
+      (let ((fn (generate-symbol "fn"))
+            (rest (generate-symbol "rest")))
+        `(let ((,fn ,expr))
+           (lambda ,rest
+             (when (trace-git?)
+               (debug (cons ',name ,rest)))
+             (apply ,fn ,rest))))))
+  
   (let* ((s-name (car signature))
          (params (cdr signature))
          (c-name-or-code (if (null? rest) (symbol->string s-name) (car rest))))
@@ -41,9 +56,11 @@
                       (string-append (format "int result = {a}({a});{%}" c-name-or-code args)
                                      (format "if (result != 0) git_call_error_handler(result);{%}"))))
                 `(definition public ,s-name
-                   (c-function anonymous ,params void ,c-code)))
+                   ,(wrap-trace s-name
+                     `(c-function anonymous ,params void ,c-code))))
             `(definition public ,s-name
-               (c-function anonymous ,params ,type ,c-name-or-code))))
+               ,(wrap-trace s-name
+                 `(c-function anonymous ,params ,type ,c-name-or-code)))))
       (let ((out-type (cadr (car params)))
             (parameters (cdr params)))
         (receive (parameters args) (expand-args parameters #t)
@@ -56,4 +73,5 @@
                                    "")
                                  (format "else git_call_error_handler(result);"))))
             `(definition public ,s-name
-               (c-function anonymous ,parameters ,out-type ,c-code)))))))))
+               ,(wrap-trace s-name
+                 `(c-function anonymous ,parameters ,out-type ,c-code))))))))))

@@ -134,17 +134,17 @@
 
 (cond-expand
   (cocoa
-    (define jazz:freetype-units
+    (define jazz:fontconfig-units
       (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/mac/fontconfig/include"))
             (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/mac/fontconfig/lib"))
             (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
             (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
             (png-lib-path            (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
-        (let ((cc-flags (string-append "-I" freetype-include-path " -I" fontconfig-include-path))
-              (ld-flags (string-append "-L" freetype-lib-path " -L" fontconfig-lib-path " -L" png-lib-path " -lfontconfig -lfreetype")))
-          `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
+        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path))
+              (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig -lfreetype")))
+          `((jazz.platform.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (windows
-    (define jazz:freetype-units
+    (define jazz:fontconfig-units
       (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/windows/fontconfig/include"))
             (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/windows/fontconfig/lib"))
             (freetype-include-path   (jazz:quote-jazz-pathname "foreign/windows/freetype/include"))
@@ -152,13 +152,35 @@
             (expat-lib-path          (jazz:quote-jazz-pathname "foreign/windows/expat/lib"))
             (png-lib-path            (jazz:quote-jazz-pathname "foreign/windows/png/lib"))
             (zlib-lib-path           (jazz:quote-jazz-pathname "foreign/windows/zlib/lib")))
-        (let ((cc-flags (string-append "-I" freetype-include-path " -I" fontconfig-include-path))
-              (ld-flags (string-append "-L" freetype-lib-path " -L" fontconfig-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig -lfreetype -lexpat -lpng -lz")))
+        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path))
+              (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig -lfreetype -lexpat -lpng -lz")))
+          `((jazz.platform.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
+  (else
+    (define jazz:fontconfig-units
+      (let ((cc-flags (jazz:pkg-config-cflags "fontconfig"))
+            (ld-flags (jazz:pkg-config-libs "fontconfig")))
+        `((jazz.platform.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
+
+
+(cond-expand
+  (cocoa
+    (define jazz:freetype-units
+      (let ((freetype-include-path (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
+            (freetype-lib-path     (jazz:quote-jazz-pathname "foreign/mac/freetype/lib")))
+        (let ((cc-flags (string-append "-I" freetype-include-path))
+              (ld-flags (string-append "-L" freetype-lib-path " -lfreetype")))
+          `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
+  (windows
+    (define jazz:freetype-units
+      (let ((freetype-include-path (jazz:quote-jazz-pathname "foreign/windows/freetype/include"))
+            (freetype-lib-path     (jazz:quote-jazz-pathname "foreign/windows/freetype/lib")))
+        (let ((cc-flags (string-append "-I" freetype-include-path))
+              (ld-flags (string-append "-L" freetype-lib-path " -lfreetype")))
           `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (else
     (define jazz:freetype-units
-      (let ((cc-flags (string-append (jazz:pkg-config-cflags "fontconfig") " " (jazz:pkg-config-cflags "freetype2")))
-            (ld-flags (string-append (jazz:pkg-config-libs "fontconfig") " " (jazz:pkg-config-libs "freetype2"))))
+      (let ((cc-flags (jazz:pkg-config-cflags "freetype2"))
+            (ld-flags (jazz:pkg-config-libs "freetype2")))
         `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
 
 
@@ -280,6 +302,7 @@
                           ,@jazz:crash-units
                           ,@jazz:types-units
                           ,@jazz:cairo-units
+                          ,@jazz:fontconfig-units
                           ,@jazz:freetype-units
                           ,@jazz:cocoa-units
                           ,@jazz:minilzo-units)))
@@ -293,6 +316,7 @@
                           ,@jazz:crash-units
                           ,@jazz:types-units
                           ,@jazz:cairo-units
+                          ,@jazz:fontconfig-units
                           ,@jazz:freetype-units
                           ,@jazz:windows-units
                           ,@jazz:windows-odbc-units
@@ -308,6 +332,7 @@
                           ,@jazz:crash-units
                           ,@jazz:types-units
                           ,@jazz:cairo-units
+                          ,@jazz:fontconfig-units
                           ,@jazz:freetype-units
                           ,@jazz:x11-units
                           ,@jazz:unix-odbc-units

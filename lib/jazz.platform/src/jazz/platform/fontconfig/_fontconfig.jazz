@@ -1,0 +1,140 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Fontconfig
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2012
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.platform.fontconfig jazz
+
+
+(import (jazz.foreign)
+        (jazz.platform.types))
+
+
+(c-include "<fontconfig/fontconfig.h>")
+(c-include "<ft2build.h>")
+(c-include "FT_FREETYPE_H")
+
+
+(c-type FcPattern      (native "FcPattern"))
+(c-type FcPattern*     (pointer FcPattern))
+(c-type FcFontSet      (native "FcFontSet"))
+(c-type FcFontSet*     (pointer FcFontSet))
+
+
+(c-external (Fc-make-pattern char-string int bool bool bool) FcPattern*
+  #/C/
+    FcPattern* pattern;
+    FcPattern* matched_pattern;
+    pattern = FcPatternCreate();
+    FcPatternAddString(pattern, FC_FAMILY, ___arg1);
+    if (___arg3)
+         FcPatternAddInteger(pattern, FC_WEIGHT, FC_WEIGHT_BOLD);
+    FcConfigSubstitute(0, pattern, FcMatchPattern);
+    FcDefaultSubstitute(pattern);
+    ___result_voidstar = pattern;
+//#)
+
+
+(c-external (Fc-font-match FcPattern*) FcPattern*
+  #/C/
+    FcResult result;
+    FcPattern* matched_pattern;
+    matched_pattern = FcFontMatch(0, ___arg1, &result);
+    FcPatternDestroy(___arg1);
+    ___result_voidstar = matched_pattern;
+//#)
+
+
+(c-external (___Fc-font-list) FcFontSet*
+  #/C/
+    FcPattern* pattern;
+    FcObjectSet* os;
+    pattern = FcPatternCreate();
+    os = FcObjectSetCreate();
+    FcObjectSetAdd(os, FC_FILE);
+    FcObjectSetAdd(os, FC_FULLNAME);
+    FcFontSet* fs;
+    fs = FcFontList(0, pattern, os);
+    FcPatternDestroy(pattern);
+    ___result_voidstar = fs;
+//#)
+
+(c-external (___nfont FcFontSet*) int
+  #/C/
+    ___result = ___arg1->nfont;
+//#)
+
+(c-external (___fonts FcFontSet* int) FcPattern*
+  #/C/
+    ___result_voidstar = ___arg1->fonts[___arg2];
+//#)
+
+(c-external (___FcFontSetDestroy FcFontSet*) void
+  #/C/
+    FcFontSetDestroy(___arg1);
+//#)
+
+(definition package Fc-font-list
+  (lambda ()
+    (let ((os (___Fc-font-list)))
+      (prog1 (let ((count (___nfont os)))
+               (loop (for n from 0 below count)
+                     (collect (let ((pattern (___fonts os n)))
+                                (list file: (Fc-pattern-get-file pattern) fullname: (Fc-pattern-get-fullname pattern))))))
+        (___FcFontSetDestroy os)))))
+
+
+(c-external (Fc-pattern-get-file FcPattern*) char-string
+  #/C/
+    FcChar8* file;
+    FcPatternGetString(___arg1, FC_FILE, 0, &file);
+    ___result = (char*) file;
+//#)
+
+
+(c-external (Fc-pattern-get-fullname FcPattern*) char-string
+  #/C/
+    FcChar8* fullname;
+    FcPatternGetString(___arg1, FC_FULLNAME, 0, &fullname);
+    ___result = (char*) fullname;
+//#)
+
+
+(c-external (FcPatternDestroy FcPattern*) void)
+
+
+(c-external (FcInit) void)
+
+(FcInit))

@@ -200,4 +200,13 @@
 
 
 (jazz:define-setting jazz:profile-walker?
+  #f)
+
+
+;;;
+;;;; Interface
+;;;
+
+
+(jazz:define-setting jazz:font-engine
   #f))

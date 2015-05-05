@@ -44,24 +44,6 @@
         (jazz.system))
 
 
-(definition default-antialias
-  'subpixel)
-
-(definition default-subpixel
-  'default)
-
-(cond-expand
-  (windows
-   (definition default-hint-style
-     'default))
-  (else
-   (definition default-hint-style
-     'slight)))
-
-(definition default-hint-metrics
-  'default)
-
-
 (class Concrete-Font extends Object
   
   
@@ -110,10 +92,10 @@
             (matrix (cairo_matrix_t-make))
             (ctm (cairo_matrix_t-make))
             (options (cairo_font_options_create)))
-        (cairo_font_options_set_antialias options (cairo-antialias (or antialias (find-setting 'cairo.antialias default-antialias))))
-        (cairo_font_options_set_subpixel_order options (cairo-subpixel (or subpixel (find-setting 'cairo.subpixel default-subpixel))))
-        (cairo_font_options_set_hint_style options (cairo-hint-style (or hint-style (find-setting 'cairo.hint-style default-hint-style))))
-        (cairo_font_options_set_hint_metrics options (cairo-hint-metrics (or hint-metrics (find-setting 'cairo.hint-metrics default-hint-metrics))))
+        (cairo_font_options_set_antialias options (cairo-antialias (or antialias (find-setting 'cairo.antialias (default-antialias)))))
+        (cairo_font_options_set_subpixel_order options (cairo-subpixel (or subpixel (find-setting 'cairo.subpixel (default-subpixel)))))
+        (cairo_font_options_set_hint_style options (cairo-hint-style (or hint-style (find-setting 'cairo.hint-style (default-hint-style)))))
+        (cairo_font_options_set_hint_metrics options (cairo-hint-metrics (or hint-metrics (find-setting 'cairo.hint-metrics (default-hint-metrics)))))
         (if height
             (cairo_matrix_init_scale matrix height height)
           (cairo_matrix_init_identity matrix))
@@ -140,15 +122,6 @@
       (set! font-face~self (create-cairo-font-face local? handle~self))
       (set! scaled-font~self (create-cairo-scaled-font font-face point-size bold? antialias subpixel hint-style hint-metrics))
       (set! glyph-cache~self (make-table test: eqv?))))
-  
-  
-  (cond-expand
-    (windows
-      (definition (calculate-height point-size) <fl>
-        (/ (cast <fl> (* (cast <fl> point-size) 96.)) 72.)))
-    (else
-      (definition (calculate-height point-size) <fl>
-        (cast <fl> point-size))))
 
 
   (method override (destroy)
@@ -156,6 +129,26 @@
     (destroy-cairo-font-face font-face)
     (destroy-font local? handle)
     (nextmethod))
+  
+  
+  (method protected virtual (calculate-height point-size) <fl>
+    (cast <fl> point-size))
+  
+  (method protected virtual (adjust-height-hack height)
+    (+ 1 (fxceiling height)))
+  
+  
+  (method protected virtual (default-antialias)
+    'subpixel)
+  
+  (method protected virtual (default-subpixel)
+    'default)
+
+  (method protected virtual (default-hint-style)
+    'slight)
+
+  (method protected virtual (default-hint-metrics)
+    'default)
   
   
   (method protected virtual (create-font . rest)
@@ -228,7 +221,7 @@
       (set! metrics
             (begin
               (set-font~ (font-surface) font)
-              (new Font-Metrics (get-text-metrics~ (font-surface))))))
+              (new Font-Metrics (get-text-metrics~ (font-surface)) (lambda (height) (adjust-height-hack height))))))
     metrics)
 
   

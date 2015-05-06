@@ -97,16 +97,34 @@
     (else #f)))
 
 
+(generic (window-kind (<Window> window) rest)
+  PLATFORM_WINDOW)
+
+
+(specific (window-kind (<Dialog> dialog) rest)
+  PLATFORM_DIALOG)
+
+
+(specific (window-kind (<Popup> dialog) rest)
+  PLATFORM_BORDERLESS)
+
+
+(specific (window-kind (<Desktop> dialog) rest)
+  PLATFORM_BORDERLESS)
+
+
+(generic (window-resizable? (<Window> window) rest)
+  #t)
+
+
 (definition package (prepare-handle window rest)
   (let ((mode (if (request-fullscreen?)
                   PLATFORM_WINDOWED
                 PLATFORM_WINDOWED))
-        (kind (typecase window
-                ((Dialog) PLATFORM_DIALOG)
-                ((Popup) PLATFORM_BORDERLESS)
-                ((Desktop) PLATFORM_BORDERLESS)
-                (else PLATFORM_WINDOW))))
-    (platformCreateWindow 600 400 mode kind "Jazz" (opengl?~ window))))
+        (kind (window-kind window rest))
+        (resizable? (window-resizable? window rest))
+        (opengl? (opengl?~ window)))
+    (platformCreateWindow 600 400 mode kind "Jazz" resizable? opengl?)))
 
 
 (definition (create-window-handle window rest)

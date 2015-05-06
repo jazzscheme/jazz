@@ -953,6 +953,7 @@ void activate_callback(PlatformWindow* window);
 void deactivate_callback(PlatformWindow* window);
 void terminate_callback();
 void finished_playing_callback(NSString* alias);
+void user_callback(int data1, int data2);
 
 //#)
 
@@ -1943,6 +1944,9 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 // down the command key don't get sent to the key window.
 - (void)sendEvent:(NSEvent *)event
 {
+    if ([event type] == NSApplicationDefined)
+        user_callback([event data1], [event data2]);
+    
     if ([event type] == NSKeyUp && ([event modifierFlags] & NSCommandKeyMask))
         [[self keyWindow] sendEvent:event];
     else
@@ -4096,6 +4100,12 @@ void platformResumeMusic(char* alias)
         (system-log (list 'music-played alias)))
       (when *music-played-callback*
         (*music-played-callback* alias)))))
+
+
+(c-definition (user-callback data1 data2) (int int) void "user_callback" ""
+  (let ((window (get-toplevel)))
+    (when window
+      (user-notification~ window data1 data2))))
 
 
 ;; quicky

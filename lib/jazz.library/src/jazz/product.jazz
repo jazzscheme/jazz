@@ -53,7 +53,7 @@
 
 (cond-expand
   (cocoa
-    (definition public (install-application descriptor destination (name: name #f) (application?: application? #t) (executable?: executable? #t) (scriptable?: scriptable? #f) (platform?: platform? #f) (git?: git? #f) (files: files #f))
+    (definition public (install-application descriptor destination (name: name #f) (application?: application? #t) (executable?: executable? #t) (scriptable?: scriptable? #f) (platform?: platform? #f) (opengl?: opengl? #f) (git?: git? #f) (files: files #f))
       (let ((bundle (product-descriptor-build-bundle descriptor)))
         (when bundle
           (let ((src-root {Directory Build})
@@ -65,9 +65,13 @@
                                         "libfontconfig.dylib"
                                         "libfreetype.dylib"
                                         "libpixman-1.0.dylib"
-                                        "libpng15.15.dylib")))
+                                        "libpng15.15.dylib"))
+                  (opengl-libraries '("libGLEW.dylib"))
+                  (git-libraries '("libgit2.22.dylib")))
               (let ((macos-dir (new-directory~ dst-app '("Contents" "MacOS")))
-                    (libraries (if platform? platform-libraries '())))
+                    (libraries (append (if platform? platform-libraries '())
+                                       (if opengl? opengl-libraries '())
+                                       (if git? git-libraries '()))))
                 ;; bundle
                 (install-directory~ src-app dst-app
                   filter: (lambda (action pathname)
@@ -101,7 +105,7 @@
                   feedback: (lambda (action pathname)
                               (build-feedback "; {a} {a}..." action (get-name~ pathname)))))))))))
   (windows
-    (definition public (install-application descriptor destination (name: name #f) (application?: application? #t) (executable?: executable? #t) (scriptable?: scriptable? #f) (platform?: platform? #f) (git?: git? #f) (files: files '()))
+    (definition public (install-application descriptor destination (name: name #f) (application?: application? #t) (executable?: executable? #t) (scriptable?: scriptable? #f) (platform?: platform? #f) (opengl?: opengl? #f) (git?: git? #f) (files: files '()))
       (let ((descriptor-name (product-descriptor-name descriptor)))
         (let ((src-root {Directory Build})
               (dst-root (if application? (new-directory~ destination (or name (->string descriptor-name))) destination))
@@ -112,6 +116,7 @@
                                     "libexpat-1.dll"
                                     "libpng16-16.dll"
                                     "zlib1.dll"))
+              (opengl-libraries '("glew32.dll"))
               (git-libraries '("libgit2.dll")))
           ;; appl
           (for-each (lambda (library)
@@ -127,6 +132,7 @@
                         feedback: (lambda (action pathname)
                                     (build-feedback "; {a} {a}..." action (get-name~ pathname)))))
                     (append (if platform? platform-libraries '())
+                            (if opengl? opengl-libraries '())
                             (if git? git-libraries '())))
           ;; lib
           (install-directory~ (new-directory~ src-root "lib") (new-directory~ dst-root "lib")

@@ -267,7 +267,8 @@
            (cons "foreign/mac/png/lib/libpng15.15.dylib" "libpng15.15.dylib"))))
   (windows
    (define jazz:platform-files
-     (list (cons "foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")
+     (list (cons "foreign/windows/gcc/lib/libgcc_s_dw2-1.dll" "libgcc_s_dw2-1.dll")
+           (cons "foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")
            (cons "foreign/windows/pixman/lib/libpixman-1-0.dll" "libpixman-1-0.dll")
            (cons "foreign/windows/fontconfig/lib/libfontconfig-1.dll" "libfontconfig-1.dll")
            (cons "foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll")

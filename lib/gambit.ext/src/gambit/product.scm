@@ -43,16 +43,10 @@
 ;;;
 
 
-(define (jazz:add-static-libgcc cc-options)
-  cc-options
-  #; ;; only necessary in gcc it seems and clang doesnt understand the option
-  (string-append "-static-libgcc " cc-options))
-
-
 (define jazz:gambit-ext-units
   (let ((gambit-include-path (jazz:quote-jazz-pathname "lib/gambit.ext/src/gambit/log/implementation")))
-    `((gambit.log.implementation.loglib-scm cc-options: ,(jazz:add-static-libgcc (string-append "-I" gambit-include-path)))
-      (gambit.log.implementation.logview-jazz cc-options: ,(jazz:add-static-libgcc (string-append "-I" gambit-include-path))))))
+    `((gambit.log.implementation.loglib-scm cc-options: ,(string-append "-I" gambit-include-path))
+      (gambit.log.implementation.logview-jazz cc-options: ,(string-append "-I" gambit-include-path)))))
 
 
 (define (jazz:build-gambit-ext descriptor #!key (unit #f) (force? #f))

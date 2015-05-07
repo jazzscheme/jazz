@@ -532,6 +532,14 @@
   (path-directory (path-strip-trailing-directory-separator dir)))
 
 
+(define (jazz:nth-parent-directory dir n)
+  (let iter ((n n)
+             (dir dir))
+       (if (%%fx= n 0)
+           dir
+         (iter (%%fx- n 1) (jazz:parent-directory dir)))))
+
+
 (define (jazz:quote-pathname pathname #!optional (platform jazz:kernel-platform))
   (case platform
     ((windows)

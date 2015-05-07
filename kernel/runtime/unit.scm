@@ -232,13 +232,15 @@
         (error "Unable to determine kernel install"))))
 
 
-(define jazz:kernel-bundle
+(define jazz:kernel-bundle-install
   (if jazz:bundle-depth
-      (let iter ((n jazz:bundle-depth)
-                 (dir jazz:kernel-install))
-           (if (= n 0)
-               dir
-             (iter (- n 1) (jazz:parent-directory dir))))
+      (jazz:nth-parent-directory jazz:kernel-install jazz:bundle-depth)
+    #f))
+
+
+(define jazz:kernel-bundle-root
+  (if jazz:bundle-depth
+      (jazz:nth-parent-directory jazz:kernel-install (%%fx- jazz:bundle-depth 1))
     #f))
 
 
@@ -361,8 +363,8 @@
                 (append repositories-list binary-list source-list dynamic-binary-list dynamic-source-list build-list jazz-list))
             (jazz:error "Invalid .dependencies"))))))
   
-  (let ((build (if (and jazz:kernel-bundle (file-exists? (%%string-append jazz:kernel-bundle "lib")))
-                   (jazz:make-repository 'Lib "lib" jazz:kernel-bundle binary?: #t)
+  (let ((build (if (and jazz:kernel-bundle-install (file-exists? (%%string-append jazz:kernel-bundle-install "lib")))
+                   (jazz:make-repository 'Lib "lib" jazz:kernel-bundle-install binary?: #t)
                  (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t create?: #t))))
     (set! jazz:Build-Repository build)
     (set! jazz:Repositories (%%append jazz:Repositories (all-repositories build)))))

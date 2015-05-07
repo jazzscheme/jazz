@@ -182,14 +182,19 @@
   
   (method override (launch (executable: executable #f) (directory: directory #f) (kernel-arguments: kernel-arguments #f) (action: action #f) (debugger?: debugger? #f) (debugger-cookie: debugger-cookie #f) (debugger-interactive?: debugger-interactive? #f) (validate?: validate? #f) (profile: profile #f) (command-action: command-action #f) (command-arguments: command-arguments #f) (show-console?: show-console? #f) (wait?: wait? #f) (invite: invite #f))
     (define (determine-kernel)
-      (cond ((eq? executable :choose) (choose-kernel))
-            (executable executable)
-            (else (project-executable))))
+      (let ((kernel (or executable (project-executable))))
+        (if (and kernel (exists?~ kernel))
+            kernel
+          (choose-kernel))))
     
     (define (choose-kernel)
-      (choose-file
-        title: "Choose Kernel"
-        extensions: (list (executable-extension kernel-platform))))
+      (let ((file (choose-file
+                    title: "Choose Kernel"
+                    extensions: (list (executable-extension kernel-platform)))))
+        (let ((manager (get-workbench-manager~ (get-application))))
+          (let ((designer (get-designer~ manager)))
+            (set-property~ designer self 'executable file)))
+        file))
     
     (define (filter-application-trait traits)
       (when traits
@@ -342,6 +347,8 @@
           (<Value-Domain>      name: domain           nullable?: #t))
         (<Property-Descriptor> name: configuration
           (<Value-Domain>      name: domain           nullable?: #t))
+        (<Property-Descriptor> name: executable
+          (<File-Domain>       name: domain           nullable?: #t))
         (<Property-Descriptor> name: product
           (<Value-Domain>      name: domain           nullable?: #t))
         (<Property-Descriptor> name: profile

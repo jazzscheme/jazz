@@ -175,6 +175,7 @@
                               (size: size #f)
                               (icon: icon #f)
                               (content: content #f)
+                              (content-spacing: content-spacing #f)
                               (sound: sound 'default)
                               (selection: selection #f)
                               (yes: yes #f)
@@ -221,11 +222,17 @@
           (set-visible?~ (locate 'icon) #f)
           (set-position~ (locate 'border) {Point 29 12}))
         (let* ((default-button (or default-button (second (first actions))))
-               (dialog-size (layout-box (and text (localize text)) selection (and title (localize title)) size icon content actions execute default-button)))
+               (dialog-size (layout-box (and text (localize text)) selection (and title (localize title)) size icon content content-spacing actions execute default-button)))
           (when process-modal?
             (layout-dialog dialog (and title (localize title)) dialog-size)
-            (play-sound sound)
+            (focus-box)
+            (when sound
+              (play-sound sound))
             (process-modal~ host))))))
+  
+  
+  (method protected virtual (focus-box)
+    )
   
   
   ;;;
@@ -246,7 +253,7 @@
     6)
   
   
-  (method protected virtual (layout-box text selection title size icon content actions execute default)
+  (method protected virtual (layout-box text selection title size icon content content-spacing actions execute default)
     (define (setup-buttons actions default)
       (let ((buttons-width 0)
             (size (new Dimension 80 24))
@@ -297,11 +304,12 @@
           (size-border width height)
           (let ((bottom (get-bottom~ border-view)))
             (when content
-              (set-parent~ content self)
-              (set-position~ content (new Point (get-left~ border-view) (+ bottom Content-Spacing)))
-              (set! width (max width (get-width~ content)))
-              (increase! height (+ Content-Spacing (get-height~ content)))
-              (set! bottom (+ (get-bottom~ content) 2)))
+              (let ((spacing (or content-spacing Content-Spacing)))
+                (set-parent~ content self)
+                (set-position~ content (new Point (get-left~ border-view) (+ bottom spacing)))
+                (set! width (max width (get-width~ content)))
+                (increase! height (+ spacing (get-height~ content)))
+                (set! bottom (+ (get-bottom~ content) 2))))
             (let ((dialog-width (+ width 68))
                   (dialog-height (+ height 58)))
               @wait (set-icon~ icon-view icon)

@@ -399,6 +399,14 @@
 
 
 ;;;
+;;;; Heartbeat
+;;;
+
+
+(native jazz:jazz-heartbeat)
+
+
+;;;
 ;;;; Homogeneous
 ;;;
 

@@ -2389,6 +2389,20 @@
 
 
 ;;;
+;;;; Heartbeat
+;;;
+
+
+(define (jazz:jazz-heartbeat)
+  (##thread-heartbeat!)
+  (let ((thread-process 'jazz.language.runtime.functional:thread-process))
+    (if (##global-var? thread-process)
+        (let ((func (##global-var-ref thread-process)))
+          (if (not (##unbound? func))
+              (func timeout: 0))))))
+
+
+;;;
 ;;;; Dialect
 ;;;
 

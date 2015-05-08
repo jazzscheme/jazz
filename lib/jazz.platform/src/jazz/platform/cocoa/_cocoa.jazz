@@ -756,7 +756,7 @@ int platformGetError();
 const char* platformErrorString(int error);
 
 // Window handling
-PlatformWindow* platformCreateWindow(int width, int height, int mode, int kind, const char* title, bool resizable, bool opengl);
+PlatformWindow* platformCreateWindow(int width, int height, int mode, int kind, const char* title, bool closable, bool miniaturizable, bool resizable, bool opengl);
 void platformDestroyWindow(PlatformWindow* window);
 void platformGetWindowSize(PlatformWindow* window, int* width, int* height);
 void platformIconifyWindow(PlatformWindow* window);
@@ -818,6 +818,8 @@ struct PlatformWindowConfig
     int             mode;
     const char*     title;
     int             refreshRate;
+    GLboolean       closable;
+    GLboolean       miniaturizable;
     GLboolean       resizable;
     GLboolean       visible;
     int             clientAPI;
@@ -865,7 +867,6 @@ struct PlatformWindow
     int       width, height;
     int       positionX, positionY;
     int       mode;
-    GLboolean resizable;
     GLboolean visible;
     int       refreshRate;
 
@@ -2110,8 +2111,13 @@ static GLboolean createWindow(PlatformWindow* window,
     {
         if (kind == PLATFORM_DIALOG)
         {
-            styleMask = NSTitledWindowMask | NSClosableWindowMask |
-                        NSMiniaturizableWindowMask;
+            styleMask = NSTitledWindowMask;
+            
+            if (wndconfig->closable)
+                styleMask |= NSClosableWindowMask;
+            
+            if (wndconfig->miniaturizable)
+                styleMask |= NSMiniaturizableWindowMask;
 
             if (wndconfig->resizable)
                 styleMask |= NSResizableWindowMask;
@@ -2129,8 +2135,13 @@ static GLboolean createWindow(PlatformWindow* window,
         }
         else
         {
-            styleMask = NSTitledWindowMask | NSClosableWindowMask |
-                        NSMiniaturizableWindowMask;
+            styleMask = NSTitledWindowMask;
+
+            if (wndconfig->closable)
+                styleMask |= NSClosableWindowMask;
+            
+            if (wndconfig->miniaturizable)
+                styleMask |= NSMiniaturizableWindowMask;
 
             if (wndconfig->resizable)
                 styleMask |= NSResizableWindowMask;
@@ -2886,7 +2897,7 @@ void platformInputWindowVisibility(PlatformWindow* window, int visible)
 
 PlatformWindow* platformCreateWindow(int width, int height,
                                      int mode, int kind, const char* title,
-                                     bool resizable, bool opengl)
+                                     bool closable, bool miniaturizable, bool resizable, bool opengl)
 {
     PlatformFramebufferConfig fbconfig;
     PlatformWindowConfig wndconfig;
@@ -2968,7 +2979,6 @@ PlatformWindow* platformCreateWindow(int width, int height,
     window->width      = width;
     window->height     = height;
     window->mode       = mode;
-    window->resizable  = wndconfig.resizable;
     window->cursorMode = PLATFORM_CURSOR_NORMAL;
     
     initializeAppKit();
@@ -3754,7 +3764,7 @@ void platformResumeMusic(char* alias)
 (c-external (platformGetWindowScreenFrameHeight platformwindow) double)
 (c-external (platformGetScreenFrameRect NSScreen* NSRect*) void)
 (c-external (platformGetScreenContentRect NSScreen* NSRect*) void)
-(c-external (platformCreateWindow int int int int char-string bool bool) platformwindow)
+(c-external (platformCreateWindow int int int int char-string bool bool bool bool) platformwindow)
 (c-external (platformMakeContextCurrent platformwindow) void)
 (c-external (platformGetWindowTitle platformwindow) NSString*)
 (c-external (platformSetWindowTitle platformwindow char-string) void)

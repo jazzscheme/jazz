@@ -1477,17 +1477,21 @@
     (set-text-style (new Range$Cell$ start end) (locate-style name/style)))
   
   
-  (method public (stylize-range range <Range$Cell$> style <Style>)
+  ;; the layout-scrollee? is a quick hack
+  (method public (stylize-range range <Range$Cell$> style <Style> (layout-scrollee? #t))
     (let ((style (intern-style style)))
       (for-each-range range
         (lambda (line paragraph start end)
           (set-style~ paragraph start end style)
-          (wrap-paragraph '() paragraph)))
+          (wrap-paragraph '() paragraph)
+          (when (not layout-scrollee?)
+            (invalidate-paragraph paragraph))))
       (set-modified? #t)
-      (let ((single-client (single-client)))
-        (when single-client
-          (layout-scrollee~ single-client)
-          (invalidate-view~ single-client)))))
+      (when layout-scrollee?
+        (let ((single-client (single-client)))
+          (when single-client
+            (layout-scrollee~ single-client)
+            (invalidate-view~ single-client))))))
   
   
   (method public (modify-style range <Range$Cell$> proc)

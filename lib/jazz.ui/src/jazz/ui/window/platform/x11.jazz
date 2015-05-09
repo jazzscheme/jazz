@@ -477,7 +477,7 @@
            (display-fd (ConnectionNumber x11-default-display))
            (fdset (setup-fdset display-fd)))
       (let (loop)
-        (process-inval-rects)
+        (process-invalid-regions)
         (select (+ display-fd 1) fdset #f #f 0 1000)
         (if (= 0 (XPending x11-default-display))
             (thread-sleep! message-rate)
@@ -526,7 +526,7 @@
     (define (accumulate-rect rect)
       (let ((region (new Region rect: rect))
             (old-region (table-ref store window #f)))
-        (unless (nu=? (get-box~ region) {Rect 0 0 0 0})
+        (unless (empty?~ region)
           (if old-region
               (table-set! store window (region-union old-region region))
             (table-set! store window region)))))
@@ -1100,7 +1100,7 @@
     (platform-update-window handle)))
 
 
-(definition protected inval-rects
+(definition protected invalid-regions
   (make-table))
 
 
@@ -1123,35 +1123,38 @@
             (new Rect l t r b)))))))
 
 
-(definition (process-inval-rects)
-  (iterate-table-safe inval-rects
-    (lambda (handle rect)
-      (table-clear inval-rects handle)
+(definition (process-invalid-regions)
+  (iterate-table-safe invalid-regions
+    (lambda (handle region)
+      (table-clear invalid-regions handle)
       (let ((window (get-window handle)))
         (when window
-          (let ((l (get-left~ rect))
-                (t (get-top~ rect))
-                (r (get-right~ rect))
-                (b (get-bottom~ rect)))
-            (let ((w (- r l))
-                  (h (- b t)))
-              (XInvalidateRect x11-default-display handle l t w h))))))))
+          (iterate-rectangles~ region
+            (lambda (rect)
+              (let ((l (get-left~ rect))
+                    (t (get-top~ rect))
+                    (r (get-right~ rect))
+                    (b (get-bottom~ rect)))
+                (let ((w (- r l))
+                      (h (- b t)))
+                  (XInvalidateRect x11-default-display handle l t w h))))))))))
 
 
 (definition package (platform-invalidate-rect handle rect)
   ;; is this test correct or was it a patch made during the port
   (when (and handle rect)
     (invalidate-offscreen-rect handle rect)
-    (let ((old-rect (table-ref inval-rects handle #f))
-          (new-rect (validate-inval-rect rect (get-window handle))))
-      (when (or old-rect new-rect)
-        (let ((rect (cond ((and old-rect new-rect)
-                           (rect-union old-rect new-rect))
-                          (old-rect
-                           old-rect)
-                          (new-rect
-                           new-rect))))
-          (table-set! inval-rects handle rect))))))
+    (let ((validated-rect (validate-inval-rect rect (get-window handle))))
+      (let ((old-region (table-ref invalid-regions handle #f))
+            (new-region (and validated-rect (new Region rect: rect))))
+        (when (or old-region new-region)
+          (let ((region (cond ((and old-region new-region)
+                               (region-union old-region new-region))
+                              (old-region
+                                old-region)
+                              (new-region
+                                new-region))))
+            (table-set! invalid-regions handle region)))))))
 
 
 (definition package (platform-invalidate-region handle region)
@@ -1187,10 +1190,10 @@
 
 
 (definition package (platform-update-window handle)
-  (let ((rect (table-ref inval-rects handle #f)))
-    (when rect
-      (table-clear inval-rects handle)
-      (paint~ (get-window handle) (new Region rect: rect)))))
+  (let ((region (table-ref invalid-regions handle #f)))
+    (when region
+      (table-clear invalid-regions handle)
+      (paint~ (get-window handle) region))))
   
   
 (definition package (platform-show-noactivate handle)

@@ -466,9 +466,25 @@
 void ___disable_os_interrupts();
 void ___enable_os_interrupts();
 
-#define gambit_disable_os_interrupts() ___disable_os_interrupts()
-#define gambit_enable_os_interrupts() ___enable_os_interrupts()
-//#)))
+void gambit_disable_os_interrupts()
+{
+    ___disable_os_interrupts();
+}
+
+void gambit_enable_os_interrupts()
+{
+    ___enable_os_interrupts();
+}
+//#)
+
+(c-external (gambit-disable-os-interrupts) void "gambit_disable_os_interrupts")
+(c-external (gambit-enable-os-interrupts) void "gambit_enable_os_interrupts")))
+
+
+(definition public (with-gambit-os-interrupts thunk)
+  (dynamic-wind gambit-enable-os-interrupts
+                thunk
+                gambit-disable-os-interrupts))
 
 
 ;;;
@@ -669,7 +685,15 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 @ssh (git-external (git-cred-ssh-keyfile-passphrase-new (out git_cred*) char-string char-string char-string) :error "git_cred_ssh_keyfile_passphrase_new")
 @ssh (git-external (git-cred-ssh-publickey-new (out git_cred*) char-string size_t void*) :error "git_cred_ssh_publickey_new")
 @convert (git-external (git-cred-userpass git_cred** char-string char-string uint void*) :error "git_cred_userpass")
-(git-external (git-cred-userpass-plaintext-new (out git_cred*) char-string char-string) :error "git_cred_userpass_plaintext_new")
+(git-external (git-cred-userpass-plaintext-new char-string char-string) git_cred*
+  #/C/
+    gambit_disable_os_interrupts();
+    git_cred* cred;
+    int result = git_cred_userpass_plaintext_new(&cred, ___arg1, ___arg2);
+    gambit_enable_os_interrupts();
+    if (result != 0) git_call_error_handler(result);
+    ___result_voidstar = cred;
+//#)
 
 
 ;;;

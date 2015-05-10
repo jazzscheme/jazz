@@ -29,14 +29,16 @@
       (when (exists?~ dir)
         (delete-directory~ dir))
       (create-directories~ dir)
-      (let ((repo (git-repository-init dir)))
+      (let ((repo (git-repository-init (parse~ dir))))
         (debug repo)
         (let ((remote (git-remote-create repo "origin" url)))
           (debug remote)
           (let ((callbacks (new Git-Callbacks
                              credentials-callback: (lambda ()
                                                      (debug 'credentials)
-                                                     (git-cred-userpass-plaintext-new "user" "password"))
+                                                     (with-gambit-os-interrupts
+                                                       (lambda ()
+                                                         (git-cred-userpass-plaintext-new "user" "password"))))
                              download-callback: (lambda (total-objects indexed-objects received-objects received-bytes)
                                                   (debug 'download total-objects indexed-objects received-objects received-bytes)))))
             (git-remote-setup-callbacks remote callbacks)

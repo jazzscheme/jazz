@@ -141,7 +141,7 @@
             (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
             (png-lib-path            (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path))
-              (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig -lfreetype")))
+              (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig")))
           `((jazz.platform.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (windows
     (define jazz:fontconfig-units
@@ -169,7 +169,7 @@
             (freetype-lib-path     (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
             (png-lib-path          (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" freetype-include-path))
-              (ld-flags (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype -lpng")))
+              (ld-flags (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype")))
           `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (windows
     (define jazz:freetype-units

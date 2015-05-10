@@ -112,7 +112,7 @@
             (png-lib-path            (jazz:quote-jazz-pathname "foreign/windows/png/lib"))
             (zlib-lib-path           (jazz:quote-jazz-pathname "foreign/windows/zlib/lib")))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" expat-include-path " -I" png-include-path " -I" zlib-include-path))
-              (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -mwindows -lcairo")))
+              (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -mwindows -lcairo -lfreetype")))
           `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
             (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
             (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)

@@ -3715,11 +3715,12 @@ void platformLog(char* msg)
 }
 
 
-void platformAlert(char* msg, char* title, int style)
+void platformAlert(char* msg, char* title, char* header, int style)
 {
     NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    [[alert window] setTitle:[NSString stringWithUTF8String:title]];
     [alert setAlertStyle:style];
-    [alert setMessageText:[NSString stringWithUTF8String:title]];
+    [alert setMessageText:[NSString stringWithUTF8String:header]];
     [alert setInformativeText:[NSString stringWithUTF8String:msg]];
     [alert runModal];
     
@@ -3874,7 +3875,7 @@ void platformResumeMusic(char* alias)
 (c-external (platformCurrentGraphics) CGContextRef)
 (c-external (platformCloseWindow platformwindow) void)
 (c-external (platformLog char-string) void)
-(c-external (platformAlert char-string char-string int) void)
+(c-external (platformAlert char-string char-string char-string int) void)
 (c-external (platformBell) void)
 (c-external (platformSystemSound char-string) void)
 (c-external (platformPlaySound char-string) void)
@@ -4233,14 +4234,16 @@ void platformResumeMusic(char* alias)
 
 
 (definition public (system-message text . rest)
-  (bind-keywords ((type 'message) (title #f) . others) rest
+  (bind-keywords ((type 'message) (title #f) (header #f) . others) rest
     (let ((title
-            (or title (case type
-                        ((message) "Message")
-                        ((question) "Question")
-                        ((confirmation) "Confirmation")
-                        ((problem) "Problem")
-                        ((error) "Error"))))
+            (or title ""))
+          (header
+            (or header (case type
+                         ((message) "Message")
+                         ((question) "Question")
+                         ((confirmation) "Confirmation")
+                         ((problem) "Problem")
+                         ((error) "Error"))))
           (style
             (case type
               ((message) NSInformationalAlertStyle)
@@ -4248,7 +4251,7 @@ void platformResumeMusic(char* alias)
               ((confirmation) NSWarningAlertStyle)
               ((problem) NSCriticalAlertStyle)
               ((error) NSCriticalAlertStyle))))
-      (platformAlert text title style)
+      (platformAlert text title header style)
       'yes)))
 
 

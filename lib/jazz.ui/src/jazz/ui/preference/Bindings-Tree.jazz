@@ -64,10 +64,11 @@
   (method protected (view-bindings designer bindings what kind)
     (define (view-actions-list)
       (for-each (lambda (action)
-                  (let ((shortcut (get-shortcut~ action))
-                        (alternate-shortcut (first-alternate-shortcut~ action))
-                        (owner (new Tree-Image image: (shortcut-owner-image designer action))))
-                    (add-row children: (list (new Tree-Node title: (format "{a}:{a}" (get-name~ (get-parent~ action)) (get-name~ action)) image: action-icon) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate-shortcut)) owner) user-data: action)))
+                  (when (get-visible?~ action)
+                    (let ((shortcut (get-shortcut~ action))
+                          (alternate-shortcut (first-alternate-shortcut~ action))
+                          (owner (new Tree-Image image: (shortcut-owner-image designer action))))
+                      (add-row children: (list (new Tree-Node title: (format "{a}:{a}" (get-name~ (get-parent~ action)) (get-name~ action)) image: action-icon) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate-shortcut)) owner) user-data: action))))
                 bindings))
     
     (define (view-actions-flat)
@@ -84,13 +85,14 @@
     
     (define (view-actions-categorized)
       (for-each (lambda (actions)
-                  (when (is? actions Actions)
+                  (when (and (is? actions Actions) (get-visible?~ actions))
                     (let ((row (add-row children: (list (new Tree-Node title: (->string (get-name~ actions)) image: category-icon) (new Tree-Label title: "") (new Tree-Label title: "") (new Tree-Image)) user-data: actions)))
                       (for-each (lambda (action)
-                                  (let ((shortcut (get-shortcut~ action))
-                                        (alternate-shortcut (first-alternate-shortcut~ action))
-                                        (owner (new Tree-Image image: (shortcut-owner-image designer action))))
-                                    (add-row father: row children: (list (new Tree-Node title: (->string (get-name~ action)) image: action-icon) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate-shortcut)) owner) user-data: action)))
+                                  (when (get-visible?~ action)
+                                    (let ((shortcut (get-shortcut~ action))
+                                          (alternate-shortcut (first-alternate-shortcut~ action))
+                                          (owner (new Tree-Image image: (shortcut-owner-image designer action))))
+                                      (add-row father: row children: (list (new Tree-Node title: (->string (get-name~ action)) image: action-icon) (new Tree-Label title: (present-shortcut shortcut)) (new Tree-Label title: (present-shortcut alternate-shortcut)) owner) user-data: action))))
                                 (get-children~ actions)))))
                 (get-children~ bindings)))
     
@@ -144,14 +146,15 @@
                     bindings))
         
         (for-each (lambda (actions)
-                    (when (is? actions Actions)
+                    (when (and (is? actions Actions) (get-visible?~ actions))
                       (for-each (lambda (action)
-                                  (let ((shortcut (get-shortcut~ action))
-                                        (alternate-shortcut (first-alternate-shortcut~ action)))
-                                    (when shortcut
-                                      (add-binding shortcut action))
-                                    (when alternate-shortcut
-                                      (add-binding alternate-shortcut action))))
+                                  (when (get-visible?~ action)
+                                    (let ((shortcut (get-shortcut~ action))
+                                          (alternate-shortcut (first-alternate-shortcut~ action)))
+                                      (when shortcut
+                                        (add-binding shortcut action))
+                                      (when alternate-shortcut
+                                        (add-binding alternate-shortcut action)))))
                                 (get-children~ actions))))
                   (get-children~ bindings))
         

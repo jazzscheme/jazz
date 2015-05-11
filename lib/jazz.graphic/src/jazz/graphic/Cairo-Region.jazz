@@ -50,9 +50,16 @@
   
   (method override (initialize (rect: rect #f))
     (set! handle (if rect
-                     (with-cairo-rectangle rect
-                       (lambda (rectangle)
-                         (cairo_region_create_rectangle rectangle)))
+                     (begin
+                       @pixman-will-output-an-error-message-if-passed-a-bad-rectangle
+                       (let ((l (get-left~ rect))
+                             (t (get-top~ rect))
+                             (r (get-right~ rect))
+                             (b (get-bottom~ rect)))
+                         (assert (and (>= r l) (>= b t))))
+                       (with-cairo-rectangle rect
+                         (lambda (rectangle)
+                           (cairo_region_create_rectangle rectangle))))
                    (cairo_region_create)))
     ;; not sure if this is necessary
     (cairo_region_reference handle)

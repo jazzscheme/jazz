@@ -336,6 +336,30 @@
       #f)))
 
 
+(define jazz:*command-arguments*
+  #f)
+
+
+(cond-expand
+  (mac
+    (define (jazz:effective-command-argument? arg)
+      (%%not (jazz:string-starts-with? arg "-psn"))))
+  (else
+    (define (jazz:effective-command-argument? arg)
+      #t)))
+
+
+(define (jazz:command-executable)
+  (%%car (command-line)))
+
+
+(define (jazz:command-arguments)
+  (or jazz:*command-arguments*
+      (let ((arguments (jazz:collect-if jazz:effective-command-argument? (%%cdr (command-line)))))
+        (set! jazz:*command-arguments* arguments)
+        arguments)))
+
+
 (define (jazz:split-command-line arguments options-with-no-args options-with-args missing-argument-for-option cont)
   (define (split-commands arguments)
     (let iter ((commands '()) (arguments arguments))

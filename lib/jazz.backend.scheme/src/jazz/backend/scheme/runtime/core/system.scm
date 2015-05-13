@@ -79,7 +79,7 @@
         (iter (%%cdr arguments)))))
   
   (if (eq? jazz:image 'executable)
-      (let ((all (%%cdr (command-line))))
+      (let ((all (jazz:command-arguments)))
         (let iter ((arguments (skip-scripts all)))
           (if (%%null? arguments)
               #f
@@ -100,7 +100,7 @@
 
 (define (jazz:command-argument? name)
   (if (eq? jazz:image 'executable)
-      (let ((all (%%cdr (command-line))))
+      (let ((all (jazz:command-arguments)))
         (let iter ((arguments all))
           (if (%%null? arguments)
               #f

@@ -1532,7 +1532,7 @@
   (define (unknown-option opt)
     (fatal (jazz:format "Unknown option: {a}" opt)))
   
-  (let ((command-arguments (cdr (command-line))))
+  (let ((command-arguments (jazz:command-arguments)))
     (if (null? command-arguments)
         (jazz:build-system-repl)
       (let ((action (car command-arguments))

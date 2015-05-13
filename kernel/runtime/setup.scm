@@ -260,7 +260,7 @@
   ;; x -> expand
   ;; commented out to get proper tail call into the repl
   ;; (let ((exit-code ...)))
-  (jazz:split-command-line (%%cdr (command-line)) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "x" "expand" "c" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
+  (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "x" "expand" "c" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
     (lambda (commands options remaining)
       (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
             (nosource? (jazz:get-option "nosource" options))

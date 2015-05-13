@@ -534,6 +534,8 @@
 
 
 (native command-line)
+(native jazz:command-executable)
+(native jazz:command-arguments)
 (native user-name)
 (native host-name)
 

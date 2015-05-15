@@ -52,13 +52,16 @@
 ;;;
 
 
-(definition public (get-clipboard)
-  (let ((formats (available-clipboard-formats)))
-    (when (not-null? formats)
-      (let ((format (car formats)))
-        (let ((text (get-clipboard-text format: format)))
-          (when text
-            (new Clipboard text format)))))))
+(definition public (get-clipboard (formats #f))
+  (let ((formats (if formats (listify formats) '(unicode-text))))
+    (continuation-capture
+      (lambda (return)
+        (for-each (lambda (format)
+                    (let ((text (get-clipboard-text format: format)))
+                      (when text
+                        (continuation-return return (new Clipboard text format)))))
+                  formats)
+        #f))))
 
 
 (definition public (set-clipboard clipboard)

@@ -3566,27 +3566,44 @@ bool platformMetaDown()
 (c-declare cocoa #/Objective-C/
 
 
-char* platformGetClipboardString()
+char* platformGetClipboardString(const char* type)
 {
+    NSString* stringType;
+    if (! type)
+        stringType = NSStringPboardType;
+    else
+        stringType = [NSString stringWithUTF8String:type];
+    
     NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
 
-    NSString* object = [pasteboard stringForType:NSStringPboardType];
+    NSString* object = [pasteboard stringForType:stringType];
 
-    free(platform.clipboardString);
-    platform.clipboardString = strdup([object UTF8String]);
+    if (! object)
+        return NULL;
+    else
+    {
+        free(platform.clipboardString);
+        platform.clipboardString = strdup([object UTF8String]);
 
-    return platform.clipboardString;
+        return platform.clipboardString;
+	}
 }
 
 
-void platformSetClipboardString(const char* string)
+void platformSetClipboardString(const char* string, const char* type)
 {
-    NSArray* types = [NSArray arrayWithObjects:NSStringPboardType, nil];
+    NSString* stringType;
+    if (! type)
+        stringType = NSStringPboardType;
+    else
+        stringType = [NSString stringWithUTF8String:type];
+    
+    NSArray* types = [NSArray arrayWithObjects:stringType, nil];
 
     NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
     [pasteboard declareTypes:types owner:nil];
     [pasteboard setString:[NSString stringWithUTF8String:string]
-                  forType:NSStringPboardType];
+                  forType:stringType];
 }
 
 
@@ -3863,8 +3880,8 @@ void platformResumeMusic(char* alias)
 (c-external (platformControlDown) bool)
 (c-external (platformAltDown) bool)
 (c-external (platformMetaDown) bool)
-(c-external (platformGetClipboardString) char-string)
-(c-external (platformSetClipboardString char-string) void)
+(c-external (platformGetClipboardString char-string) char-string)
+(c-external (platformSetClipboardString char-string char-string) void)
 (c-external (platformInvalidateRect platformwindow NSRect*) void)
 (c-external (platformGetFocus) platformwindow)
 (c-external (platformSetFocus platformwindow) void)

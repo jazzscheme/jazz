@@ -141,7 +141,7 @@
             (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
             (png-lib-path            (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path))
-              (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig")))
+              (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
           `((jazz.platform.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (windows
     (define jazz:fontconfig-units
@@ -169,7 +169,7 @@
             (freetype-lib-path     (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
             (png-lib-path          (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" freetype-include-path))
-              (ld-flags (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype")))
+              (ld-flags (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype.6")))
           `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (windows
     (define jazz:freetype-units
@@ -262,9 +262,9 @@
    (define jazz:platform-files
      (list (cons "foreign/mac/cairo/lib/libcairo.2.dylib" "libcairo.2.dylib")
            (cons "foreign/mac/pixman/lib/libpixman-1.0.dylib" "libpixman-1.0.dylib")
-           (cons "foreign/mac/fontconfig/lib/libfontconfig.dylib" "libfontconfig.dylib")
-           (cons "foreign/mac/freetype/lib/libfreetype.dylib" "libfreetype.dylib")
-           (cons "foreign/mac/png/lib/libpng15.15.dylib" "libpng15.15.dylib"))))
+           (cons "foreign/mac/fontconfig/lib/libfontconfig.1.dylib" "libfontconfig.1.dylib")
+           (cons "foreign/mac/freetype/lib/libfreetype.6.dylib" "libfreetype.6.dylib")
+           (cons "foreign/mac/png/lib/libpng16.16.dylib" "libpng16.16.dylib"))))
   (windows
    (define jazz:platform-files
      (list (cons "foreign/windows/gcc/lib/libgcc_s_dw2-1.dll" "libgcc_s_dw2-1.dll")

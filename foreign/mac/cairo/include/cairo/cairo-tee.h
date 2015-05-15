@@ -1,6 +1,6 @@
 /* cairo - a vector graphics library with display and print output
  *
- * Copyright © 2002 University of Southern California
+ * Copyright © 2009 Chris Wilson
  *
  * This library is free software; you can redistribute it and/or
  * modify it either under the terms of the GNU Lesser General Public
@@ -27,40 +27,40 @@
  *
  * The Original Code is the cairo graphics library.
  *
- * The Initial Developer of the Original Code is University of Southern
- * California.
+ * The Initial Developer of the Original Code is Chris Wilson
  *
  * Contributor(s):
- *	Carl D. Worth <cworth@cworth.org>
+ *	Chris Wilson <chris@chris-wilson.co.uk>
  */
 
-#ifndef CAIRO_XLIB_XRENDER_H
-#define CAIRO_XLIB_XRENDER_H
+#ifndef CAIRO_TEE_H
+#define CAIRO_TEE_H
 
 #include "cairo.h"
 
-#if CAIRO_HAS_XLIB_XRENDER_SURFACE
-
-#include <X11/Xlib.h>
-#include <X11/extensions/Xrender.h>
+#if CAIRO_HAS_TEE_SURFACE
 
 CAIRO_BEGIN_DECLS
 
 cairo_public cairo_surface_t *
-cairo_xlib_surface_create_with_xrender_format (Display		 *dpy,
-                                               Drawable		  drawable,
-					       Screen		 *screen,
-                                               XRenderPictFormat *format,
-                                               int		  width,
-                                               int		  height);
+cairo_tee_surface_create (cairo_surface_t *master);
 
-cairo_public XRenderPictFormat *
-cairo_xlib_surface_get_xrender_format (cairo_surface_t *surface);
+cairo_public void
+cairo_tee_surface_add (cairo_surface_t *surface,
+		       cairo_surface_t *target);
+
+cairo_public void
+cairo_tee_surface_remove (cairo_surface_t *surface,
+			  cairo_surface_t *target);
+
+cairo_public cairo_surface_t *
+cairo_tee_surface_index (cairo_surface_t *surface,
+			 unsigned int index);
 
 CAIRO_END_DECLS
 
-#else  /* CAIRO_HAS_XLIB_XRENDER_SURFACE */
-# error Cairo was not compiled with support for the xlib XRender backend
-#endif /* CAIRO_HAS_XLIB_XRENDER_SURFACE */
+#else  /*CAIRO_HAS_TEE_SURFACE*/
+# error Cairo was not compiled with support for the TEE backend
+#endif /*CAIRO_HAS_TEE_SURFACE*/
 
-#endif /* CAIRO_XLIB_XRENDER_H */
+#endif /*CAIRO_TEE_H*/

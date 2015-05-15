@@ -1,4 +1,4 @@
 #! /bin/sh
 
-install_name_tool -id @rpath/libfreetype.dylib lib/libfreetype.dylib
-install_name_tool -change /usr/local/lib/libpng16.16.dylib @rpath/libpng15.15.dylib lib/libfreetype.dylib
+install_name_tool -id @rpath/libfreetype.6.dylib lib/libfreetype.6.dylib
+install_name_tool -change /usr/local/lib/libpng16.16.dylib @rpath/libpng16.16.dylib lib/libfreetype.6.dylib

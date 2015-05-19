@@ -82,14 +82,16 @@
   (cocoa
     (define jazz:cairo-units
       (let ((cairo-include-path      (jazz:quote-jazz-pathname "foreign/mac/cairo/include/cairo"))
+            (pixman-include-path     (jazz:quote-jazz-pathname "foreign/mac/pixman/include"))
             (fontconfig-include-path (jazz:quote-jazz-pathname "foreign/mac/fontconfig/include"))
             (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
+            (png-include-path        (jazz:quote-jazz-pathname "foreign/mac/png/include"))
             (cairo-lib-path          (jazz:quote-jazz-pathname "foreign/mac/cairo/lib"))
             (pixman-lib-path         (jazz:quote-jazz-pathname "foreign/mac/pixman/lib"))
             (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/mac/fontconfig/lib"))
             (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
             (png-lib-path            (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
-        (let ((cc-flags (string-append "-I" cairo-include-path " -I" fontconfig-include-path " -I" freetype-include-path))
+        (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lcairo.2")))
           `((jazz.platform.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
             (jazz.platform.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
@@ -139,8 +141,9 @@
             (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/mac/fontconfig/lib"))
             (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
             (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
+            (png-include-path        (jazz:quote-jazz-pathname "foreign/mac/png/include"))
             (png-lib-path            (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
-        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path))
+        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
           `((jazz.platform.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (windows

@@ -24,12 +24,13 @@
 
 (unit sqlite.implementation.resqlite3
 
-(c-declaration sqlite #/C/
+(c-declaration sqlite #<<C-END
 #include <sqlite3.h>
 // #include <stdlib.h> // calloc and free
 #include <string.h> // memcpy
 // #include <stdio.h>  // release_prepared_statement
-//#)
+C-END
+)
 
 (c-define-type sqlite3-database-connection
    (pointer (struct "sqlite3")
@@ -52,7 +53,7 @@
 	    sqlite3-prepared-statement
 	    "xxx_release_prepared_statement_xxx"))
 
-(c-declaration sqlite #/C/
+(c-declaration sqlite #<<C-END
 ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
    int status = sqlite3_finalize(stmt);
    // fputs("RELEASED PREPARED STATEMENT\n", stderr);
@@ -61,7 +62,8 @@ ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
    else
       return ___FIX(___NO_ERR);
 }
-//#)
+C-END
+)
 
 ;;; Latest error codes and messages available to Scheme through either
 ;;; a connection or a statement
@@ -69,23 +71,26 @@ ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
 (c-external (%%-sqlite3-database-error-code sqlite3-database-connection) int "sqlite3_errcode")
 
 (c-external (%%-sqlite3-database-error-message sqlite3-database-connection) char-string
-  #/C/
+  #<<C-END
     const char *text = sqlite3_errmsg(___arg1);
     ___result = (char *)text;
-//#)
+C-END
+)
 
 (c-external (%%-sqlite3-statement-error-code sqlite3-prepared-statement) int
-  #/C/
+  #<<C-END
     sqlite3 *db = sqlite3_db_handle(___arg1);
     ___result = sqlite3_errcode(db);
-//#)
+C-END
+)
 
 (c-external (%%-sqlite3-statement-error-message sqlite3-prepared-statement) char-string
-  #/C/
+  #<<C-END
     sqlite3 *db = sqlite3_db_handle(___arg1);
     const char *text = sqlite3_errmsg(db);
     ___result = (char *)text;
-//#)
+C-END
+)
 
 (define (sqlite3-error-code obj)
   (cond
@@ -121,7 +126,7 @@ ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
    db)
 
 (c-external (%%-sqlite3-open char-string) scheme-object
-  #/C/
+  #<<C-END
     sqlite3* db;
     int res = sqlite3_open(___arg1, &db);
     if (res) {
@@ -131,7 +136,8 @@ ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
     else {
        ___result = database_connection(db);
     }
-//#)
+C-END
+)
 
 (define (sqlite3-open filename)
    (let ((result (%%-sqlite3-open filename)))
@@ -171,7 +177,7 @@ ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
    stmt)
 
 (c-external (%%-sqlite3-prepare sqlite3-database-connection char-string) scheme-object
-  #/C/
+  #<<C-END
     sqlite3_stmt *stmt;
     const char *rest;
     int res = sqlite3_prepare_v2(___arg1, ___arg2, -1, &stmt, &rest);
@@ -182,7 +188,8 @@ ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
     else {
        ___result = prepared_statement(stmt);
     }
-//#)
+C-END
+)
 
 (define (sqlite3-prepare database statement-text)
   (let ((result (%%-sqlite3-prepare database statement-text)))
@@ -240,10 +247,11 @@ ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
 
 (define (sqlite3-column-name statement k)
   (c-function sqlite3_column_name (sqlite3-prepared-statement int) char-string
-    #/C/
+    #<<C-END
       const char *text = sqlite3_column_name(___arg1, ___arg2);
       ___result = (char *)text;
-//#))
+C-END
+))
 
 (c-external (sqlite3-column-int sqlite3-prepared-statement int) int "sqlite3_column_int")
 
@@ -252,10 +260,11 @@ ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
 (c-external (sqlite3-column-double sqlite3-prepared-statement int) double "sqlite3_column_double")
 
 (c-external (sqlite3-column-text sqlite3-prepared-statement int) char-string
-  #/C/
+  #<<C-END
     const char *text = sqlite3_column_text(___arg1, ___arg2);
     ___result = (char *)text;
-//#)
+C-END
+)
 
 ;;; Blobs can be accessed as Gambit-C homogeneous vectors, below. Raw
 ;;; blob intentionally not available - stepping the statement further
@@ -273,10 +282,11 @@ ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
 (c-external (sqlite3-bind-parameter-count sqlite3-prepared-statement) int "sqlite3_bind_parameter_count")
 
 (c-external (sqlite3-bind-parameter-name sqlite3-prepared-statement int) char-string
-  #/C/
+  #<<C-END
     const char *name = sqlite3_bind_parameter_name(___arg1, ___arg2);
     ___result = (char *)name;
-//#)
+C-END
+)
 
 (c-external (%%-sqlite3-bind-parameter-index sqlite3-prepared-statement char-string) int "sqlite3_bind_parameter_index")
 
@@ -313,9 +323,10 @@ ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
 ;;; This appears to work for UTF-8.
 
 (c-external (%%-sqlite3-bind-text sqlite3-prepared-statement int char-string) int
-  #/C/
+  #<<C-END
     ___result = sqlite3_bind_text(___arg1, ___arg2, ___arg3, -1, SQLITE_TRANSIENT);
-//#)
+C-END
+)
 
 (define (sqlite3-bind-text! statement k str)
   (let ((s (%%-sqlite3-bind-text statement k str)))
@@ -342,13 +353,14 @@ ___SCMOBJ xxx_release_prepared_statement_xxx(void *stmt) {
 ;;; otherwise prevent crashes)
 
 (c-external (sqlite3-bind-blob-code! sqlite3-prepared-statement int scheme-object) int
-  #/C/
+  #<<C-END
     void *buf = ___BODY_AS(___arg3,___tSUBTYPED);
     int n = ___HD_BYTES(___HEADER(___arg3));
     ___result = sqlite3_bind_blob(___arg1, ___arg2, buf, n, SQLITE_TRANSIENT);
-//#)
+C-END
+)
 
-(c-declaration sqlite #/C/
+(c-declaration sqlite #<<C-END
 static ___SCMOBJ
 resqlite3_column_blob(sqlite3_stmt* stmt, int col, int type, int size)
 {
@@ -360,46 +372,37 @@ resqlite3_column_blob(sqlite3_stmt* stmt, int col, int type, int size)
    memcpy(___BODY(result), buf, n);
    return result;
 }
-//#)
+C-END
+)
 
-(c-external (sqlite3-column-u8vector-or-code
-  (sqlite3-prepared-statement int) scheme-object
+(c-external (sqlite3-column-u8vector-or-code sqlite3-prepared-statement int) scheme-object
    "___result = resqlite3_column_blob(___arg1,___arg2,___sU8VECTOR,1);")
 
-(c-external (sqlite3-column-s8vector-or-code
-  (sqlite3-prepared-statement int) scheme-object
+(c-external (sqlite3-column-s8vector-or-code sqlite3-prepared-statement int) scheme-object
    "___result = resqlite3_column_blob(___arg1,___arg2,___sS8VECTOR,1);")
 
-(c-external (sqlite3-column-u16vector-or-code
-  (sqlite3-prepared-statement int) scheme-object
+(c-external (sqlite3-column-u16vector-or-code sqlite3-prepared-statement int) scheme-object
    "___result = resqlite3_column_blob(___arg1,___arg2,___sU16VECTOR,2);")
 
-(c-external (sqlite3-column-s16vector-or-code
-  (sqlite3-prepared-statement int) scheme-object
+(c-external (sqlite3-column-s16vector-or-code sqlite3-prepared-statement int) scheme-object
    "___result = resqlite3_column_blob(___arg1,___arg2,___sS16VECTOR,2);")
 
-(c-external (sqlite3-column-u32vector-or-code
-  (sqlite3-prepared-statement int) scheme-object
+(c-external (sqlite3-column-u32vector-or-code sqlite3-prepared-statement int) scheme-object
    "___result = resqlite3_column_blob(___arg1,___arg2,___sU32VECTOR,4);")
 
-(c-external (sqlite3-column-s32vector-or-code
-  (sqlite3-prepared-statement int) scheme-object
+(c-external (sqlite3-column-s32vector-or-code sqlite3-prepared-statement int) scheme-object
    "___result = resqlite3_column_blob(___arg1,___arg2,___sS32VECTOR,4);")
 
-(c-external (sqlite3-column-f32vector-or-code
-  (sqlite3-prepared-statement int) scheme-object
+(c-external (sqlite3-column-f32vector-or-code sqlite3-prepared-statement int) scheme-object
    "___result = resqlite3_column_blob(___arg1,___arg2,___sF32VECTOR,4);")
 
-(c-external (sqlite3-column-u64vector-or-code
-  (sqlite3-prepared-statement int) scheme-object
+(c-external (sqlite3-column-u64vector-or-code sqlite3-prepared-statement int) scheme-object
    "___result = resqlite3_column_blob(___arg1,___arg2,___sU64VECTOR,8);")
 
-(c-external (sqlite3-column-s64vector-or-code
-  (sqlite3-prepared-statement int) scheme-object
+(c-external (sqlite3-column-s64vector-or-code sqlite3-prepared-statement int) scheme-object
    "___result = resqlite3_column_blob(___arg1,___arg2,___sS64VECTOR,8);")
 
-(c-external (sqlite3-column-f64vector-or-code
-  (sqlite3-prepared-statement int) scheme-object
+(c-external (sqlite3-column-f64vector-or-code sqlite3-prepared-statement int) scheme-object
    "___result = resqlite3_column_blob(___arg1,___arg2,___sF64VECTOR,8);")
 
 ;;; --- The mid-level interface ---

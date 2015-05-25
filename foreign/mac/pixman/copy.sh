@@ -8,8 +8,9 @@ if [ -d lib ]; then
   rm -r lib
 fi
 
-cp -r /usr/local/Cellar/pixman/0.32.6/include include
+mkdir include
+cp -r /Users/cartier/Devel/local/include/pixman-1 include/pixman-1
 
 mkdir lib
-cp /usr/local/Cellar/pixman/0.32.6/lib/libpixman-1.0.dylib lib
+cp /Users/cartier/Devel/local/lib/libpixman-1.0.dylib lib
 chmod 755 lib/libpixman-1.0.dylib

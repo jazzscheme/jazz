@@ -61,15 +61,22 @@
 (cond-expand
   (windows
    (define (jazz:controlling-terminal?)
-      #t))
+     #t))
   (else
+   (define jazz:cached-controlling-terminal?
+     (jazz:unspecified))
+   
    (define (jazz:controlling-terminal?)
-     (jazz:with-exception-filter
-       os-exception?
-       (lambda (exception)
-         #f)
-       (lambda ()
-         (open-file "/dev/tty"))))))
+     (if (jazz:unspecified? jazz:cached-controlling-terminal?)
+         (set! jazz:cached-controlling-terminal?
+               (jazz:with-exception-filter
+                 os-exception?
+                 (lambda (exception)
+                   #f)
+                 (lambda ()
+                   (close-port (open-file "/dev/tty"))
+                   #t))))
+     jazz:cached-controlling-terminal?)))
 
 
 ;;;

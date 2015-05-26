@@ -65,6 +65,12 @@
     (*console-port-getter*)))
 
 
+(definition public (attached-console-port)
+  (if (not *console-port-getter*)
+      (and (controlling-terminal?) (terminal-port))
+    (*console-port-getter*)))
+
+
 (definition public (console-input-port)
   (get-console-port))
 
@@ -77,6 +83,18 @@
 
 
 (register-printer :console get-console-port)
+
+
+;;;
+;;;; Log
+;;;
+
+
+(definition platform-log
+  #f)
+
+(definition package (set-platform-log log)
+  (set! platform-log log))
 
 
 ;;;
@@ -104,9 +122,10 @@
 (definition public (console-string string (color: color #f))
   (with-console-mutex
     (lambda ()
-      (let ((output (console-output-port)))
+      (let ((output (attached-console-port)))
         (if (not output)
-            (terminal-string string)
+            (when platform-log
+              (platform-log string))
           (format output "{a}" string)
           @wait-new-console-completion (
                                         (format output #"\($\)\(color Debug {a}\)\(%\)"# string)
@@ -119,9 +138,10 @@
 (definition public (console-line string (color: color #f))
   (with-console-mutex
     (lambda ()
-      (let ((output (console-output-port)))
+      (let ((output (attached-console-port)))
         (if (not output)
-            (terminal-line string)
+            (when platform-log
+              (platform-log string))
           (format output "{a}{%}" string)
           @wait-new-console-completion (
                                         (format output #"\($\)\(color Debug {a}\)\(%\){%}"# string)

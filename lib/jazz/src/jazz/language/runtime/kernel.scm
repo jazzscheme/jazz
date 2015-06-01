@@ -946,6 +946,7 @@
 (native read-substring)
 (native open-vector)
 (native call-with-input-u8vector)
+(native call-with-output-u8vector)
 (native open-u8vector)
 (native open-output-u8vector)
 (native get-output-u8vector <any:u8vector>)

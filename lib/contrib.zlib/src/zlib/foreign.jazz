@@ -1,0 +1,159 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Zlib Foreign
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module zlib.foreign jazz
+
+
+(import (jazz.foreign)
+        (jazz.platform.types))
+
+
+(c-include "<stdlib.h>")
+(c-include "<zlib.h>")
+
+
+(c-enumerant Z_OK)
+(c-enumerant Z_NULL)
+(c-enumerant Z_STREAM_END)
+(c-enumerant Z_NO_FLUSH)
+(c-enumerant Z_STREAM_ERROR)
+(c-enumerant Z_NEED_DICT)
+(c-enumerant Z_DATA_ERROR)
+(c-enumerant Z_MEM_ERROR)
+(c-enumerant Z_FINISH)
+(c-enumerant Z_NO_COMPRESSION)
+(c-enumerant Z_BEST_SPEED)
+(c-enumerant Z_BEST_COMPRESSION)
+(c-enumerant Z_DEFAULT_COMPRESSION)
+
+
+(c-structure z_stream
+  (char* next_in)
+  (uint avail_in)
+  (ulong total_in)
+  (char* next_out)
+  (uint avail_out)
+  (ulong total_out)
+  (char-string msg)
+  (void* state)
+  (void* zalloc)
+  (void* zfree)
+  (void* opaque)
+  (int data_type)
+  (ulong adler)
+  (ulong reserved))
+
+
+(c-external (z_stream-next_in-setup! z_stream* scheme-object) void
+  #/C/
+    z_stream* stream = (z_stream*) ___arg1;
+    stream->next_in = ___CAST(___U8*,___BODY(___arg2));
+//#)
+
+
+(c-external (z_stream-next_out-setup! z_stream* scheme-object) void
+  #/C/
+    z_stream* stream = (z_stream*) ___arg1;
+    stream->next_out = ___CAST(___U8*,___BODY(___arg2));
+//#)
+
+
+(c-external (_inflate-init z_stream*) int "inflateInit")
+(c-external (_inflate z_stream* int) int "inflate")
+(c-external (_inflate-end z_stream*) void "inflateEnd")
+
+(c-external (_deflate-init z_stream* int) int "deflateInit")
+(c-external (_deflate z_stream* int) int "deflate")
+(c-external (_deflate-end z_stream*) void "deflateEnd")
+
+
+(definition default-chunk
+  32768)
+
+
+(definition public (deflate in (chunk: chunk #f))
+  (let ((stream (z_stream-make)))
+    (z_stream-zalloc-set! stream #f)
+    (z_stream-zfree-set! stream #f)
+    (z_stream-opaque-set! stream #f)
+    (let ((ret (_deflate-init stream Z_DEFAULT_COMPRESSION)))
+      (assert (= ret Z_OK))
+      (call-with-output-u8vector '()
+        (lambda (port)
+          (let ((chunk (or chunk default-chunk)))
+            (let ((out (make-u8vector chunk)))
+              (z_stream-avail_in-set! stream (u8vector-length in))
+              (z_stream-next_in-setup! stream in)
+              (let (inner)
+                (z_stream-avail_out-set! stream chunk)
+                (z_stream-next_out-setup! stream out)
+                (let ((ret (_deflate stream Z_FINISH)))
+                  (assert (/= ret Z_STREAM_ERROR))
+                  (let ((avail (z_stream-avail_out-ref stream)))
+                    (let ((have (- chunk avail)))
+                      (write-subu8vector out 0 have port))
+                    (when (= avail 0)
+                      (inner)))))
+              (_deflate-end stream))))))))
+
+
+(definition public (inflate in (chunk: chunk #f))
+  (let ((stream (z_stream-make)))
+    (z_stream-zalloc-set! stream #f)
+    (z_stream-zfree-set! stream #f)
+    (z_stream-opaque-set! stream #f)
+    (z_stream-avail_in-set! stream 0)
+    (z_stream-next_in-set! stream #f)
+    (let ((ret (_inflate-init stream)))
+      (assert (= ret Z_OK))
+      (call-with-output-u8vector '()
+        (lambda (port)
+          (let ((chunk (or chunk default-chunk)))
+            (let ((out (make-u8vector chunk)))
+              (z_stream-avail_in-set! stream (u8vector-length in))
+              (z_stream-next_in-setup! stream in)
+              (let (inner)
+                (z_stream-avail_out-set! stream chunk)
+                (z_stream-next_out-setup! stream out)
+                (let ((ret (_inflate stream Z_NO_FLUSH)))
+                  (assert (/= ret Z_STREAM_ERROR))
+                  (let ((avail (z_stream-avail_out-ref stream)))
+                    (let ((have (- chunk avail)))
+                      (write-subu8vector out 0 have port))
+                    (when (= avail 0)
+                      (inner)))))
+              (_inflate-end stream)))))))))

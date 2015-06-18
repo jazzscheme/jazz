@@ -46,6 +46,9 @@
 (class undocumented Directory-Request extends Pathname-Request
   
   
+  (property initial-directory initialize #f accessors generate)
+  
+  
   (form
     (<install>
       (<!>       name: buttonbar
@@ -54,6 +57,19 @@
   
   (method meta override (host-title)
     "Choose Directory")
+  
+  
+  (method override (prepare-directory)
+    (if initial-directory
+        (set! directory (get-parent~ initial-directory))
+      (nextmethod)))
+  
+  
+  (method override (focus-default)
+    (nextmethod)
+    (when initial-directory
+      (let ((tree (get-tree)))
+        (select-user-data-row~ tree initial-directory test: pathname=?))))
   
 
   ;;;
@@ -87,4 +103,10 @@
   (method override (default-action)
     (let ((pathname (selected-pathname)))
       (cond ((directory? pathname)
-             (down pathname)))))))
+             (down pathname)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method override (on-return-press evt)
+    (let ((dialog (get-host)))
+      (end-modal~ dialog (get-modal-result~ dialog))))))

@@ -459,7 +459,7 @@
                     (newline output)
                     (jazz:print-variable 'jazz:source-built (jazz:pathname-standardize (path-normalize source)) output)
                     (newline output)
-                    (jazz:print-variable 'jazz:source (if library-image? (jazz:pathname-normalize source) (jazz:relativise-directory image-dir "./" source)) output)
+                    (jazz:print-variable 'jazz:source (if library-image? (jazz:pathname-normalize source) (jazz:determine-source-repository image-dir source)) output)
                     (newline output)
                     (jazz:print-variable 'jazz:binary-repositories (if library-image? #f (jazz:determine-binary-repositories image-dir)) output)
                     (newline output)
@@ -801,9 +801,15 @@
 (define (jazz:determine-repositories destination-directory repositories)
   (if repositories
       (jazz:collect (lambda (path)
-                      (jazz:relativise-directory destination-directory "./" path))
+                      (jazz:determine-source-repository destination-directory path))
                     (jazz:split-string repositories #\;))
     '()))
+
+
+(define (jazz:determine-source-repository destination-directory path)
+  (if (jazz:absolutize-sources?)
+      (jazz:absolutize-directory "./" path)
+    (jazz:relativise-directory destination-directory "./" path)))
 
 
 ;;;

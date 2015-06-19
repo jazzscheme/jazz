@@ -67,6 +67,9 @@
 (jazz:define-setting jazz:dependencies
   #f)
 
+(jazz:define-setting jazz:absolutize-sources?
+  #f)
+
 
 ;;;
 ;;;; Verbose

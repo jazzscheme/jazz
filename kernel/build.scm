@@ -850,6 +850,7 @@
     (case target
       ((clean) (jazz:make-clean configuration))
       ((cleankernel) (jazz:make-cleankernel configuration))
+      ((cleanproducts) (jazz:make-cleanproducts configuration))
       ((cleanobject) (jazz:make-cleanobject configuration))
       ((cleanlibrary) (jazz:make-cleanlibrary configuration))
       ((kernel) (jazz:make-kernel configuration image local?))
@@ -976,6 +977,22 @@
                                                            delete-feedback)
                                    #f))
                                delete-feedback))))
+
+
+(define (jazz:make-cleanproducts configuration)
+  (define delete-feedback
+    (jazz:delete-feedback 0))
+  
+  (jazz:feedback "make cleanproducts")
+  (let ((dir (jazz:configuration-directory configuration)))
+    (if (file-exists? dir)
+        (let ((products-dir (string-append dir "build/products/")))
+          (if (file-exists? products-dir)
+              (jazz:delete-directory products-dir
+                                     0
+                                     #f
+                                     #f
+                                     delete-feedback))))))
 
 
 (define (jazz:make-cleanobject configuration)
@@ -1439,7 +1456,7 @@
   (define (help-command arguments output)
     (jazz:print "Commands:" output)
     (jazz:print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [debug-foreign?:] [mutable-bindings?:] [kernel-interpret?:] [destination:] [properties:]" output)
-    (jazz:print "  make [target | clean | cleankernel | cleanobject | cleanlibrary]@[configuration]:[image]" output)
+    (jazz:print "  make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" output)
     (jazz:print "  install [target]" output)
     (jazz:print "  list" output)
     (jazz:print "  delete [configuration]" output)
@@ -1590,7 +1607,7 @@
                (let ((console (console-port)))
                  (jazz:print "Usage:" console)
                  (jazz:print "  jam configure [-name] [-system] [-platform] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-kernel-interpret] [-destination] [-properties]" console)
-                 (jazz:print "  jam make [target | clean | cleankernel | cleanobject | cleanlibrary]@[configuration]:[image]" console)
+                 (jazz:print "  jam make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" console)
                  (jazz:print "  jam list" console)
                  (jazz:print "  jam delete [configuration]" console)
                  (jazz:print "  jam help or ?" console)

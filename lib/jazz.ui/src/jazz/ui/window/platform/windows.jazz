@@ -466,21 +466,20 @@
 
 (definition package (process-messages (synchronize? #t))
   (define (process-message msg)
-    (unless (translate-shortcut msg)
-      (TranslateMessage msg)
-      (DispatchMessage msg)))
+    (execute-event
+      (lambda ()
+        (unless (translate-shortcut msg)
+          (TranslateMessage msg)
+          (DispatchMessage msg)))))
   
   (define (process)
     (declare (proper-tail-calls))
     (let ((port (open-event-queue QS_ALLINPUT))
           (thread (current-thread)))
       (let (loop)
-        ;; synchronize here as the read can also call the window procedure
-        (execute-event
-          (lambda ()
-            (let ((msg (read port)))
-              (process-message msg)
-              (foreign-release! msg))))
+        (let ((msg (read port)))
+          (process-message msg)
+          (foreign-release! msg))
         (when (thread-loop? thread)
           (loop)))))
   
@@ -500,12 +499,15 @@
 ;;;
 
 
+@debug-interleaved-problem
 (definition callback-level
   0)
 
+@debug-interleaved-problem
 (definition callback-thread-mutex
   (make-mutex 'callback-thread-mutex))
 
+@debug-interleaved-problem
 (definition callback-thread-condition
   (make-condition 'callback-thread-condition))
 
@@ -523,6 +525,9 @@
         (dispatch-message window msg wparam lparam))))
   
   (declare (proper-tail-calls))
+  (call-event process)
+  
+  @debug-interleaved-problem
   (with-c-stack-unwinding-exit
     (lambda ()
       (let ((level (begin

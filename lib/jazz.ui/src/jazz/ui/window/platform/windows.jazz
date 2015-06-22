@@ -466,20 +466,21 @@
 
 (definition package (process-messages (synchronize? #t))
   (define (process-message msg)
-    (execute-event
-      (lambda ()
-        (unless (translate-shortcut msg)
-          (TranslateMessage msg)
-          (DispatchMessage msg)))))
+    (unless (translate-shortcut msg)
+      (TranslateMessage msg)
+      (DispatchMessage msg)))
   
   (define (process)
     (declare (proper-tail-calls))
     (let ((port (open-event-queue QS_ALLINPUT))
           (thread (current-thread)))
       (let (loop)
-        (let ((msg (read port)))
-          (process-message msg)
-          (foreign-release! msg))
+        ;; synchronize here as the read can also call the window procedure
+        (execute-event
+          (lambda ()
+            (let ((msg (read port)))
+              (process-message msg)
+              (foreign-release! msg))))
         (when (thread-loop? thread)
           (loop)))))
   

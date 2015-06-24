@@ -34,6 +34,21 @@
                    (iter (+ n 1) (cdr parameters)))))))
       (values (queue-list params) args)))
   
+  ;; hack around C calling Scheme potentially crashing due to interleaved C frames
+  ;; this can happen for example when git-remote-connect requests credentials and
+  ;; at the same time call-process-hwnd-message gets called from the message thread
+  ;; but the resulting call-event can't happen immediately as the primordial thread
+  ;; is currently blocked in the git call...
+  (define (wrap-hack expr)
+    (let ((fn (generate-symbol "fn"))
+          (rest (generate-symbol "rest")))
+      `(let ((,fn ,expr))
+         (lambda ,rest
+           (without-gambit-interrupts
+             (lambda ()
+               (apply ,fn ,rest)))))))
+         
+  
   (define (wrap-trace name expr)
     (if (not tracable?)
         expr
@@ -56,11 +71,13 @@
                       (string-append (format "int result = {a}({a});{%}" c-name-or-code args)
                                      (format "if (result != 0) git_call_error_handler(result);{%}"))))
                 `(definition public ,s-name
-                   ,(wrap-trace s-name
-                     `(c-function anonymous ,params void ,c-code))))
+                   ,(wrap-hack
+                      (wrap-trace s-name
+                        `(c-function anonymous ,params void ,c-code)))))
             `(definition public ,s-name
-               ,(wrap-trace s-name
-                 `(c-function anonymous ,params ,type ,c-name-or-code)))))
+               ,(wrap-hack
+                  (wrap-trace s-name
+                   `(c-function anonymous ,params ,type ,c-name-or-code))))))
       (let ((out-type (cadr (car params)))
             (parameters (cdr params)))
         (receive (parameters args) (expand-args parameters #t)

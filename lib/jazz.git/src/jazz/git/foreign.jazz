@@ -24,6 +24,38 @@
 ;;;
 
 
+;; this horrible hack is around a Gambit bug that throwing
+;; an exception from inside a c-definition crashes miserably
+(definition git-current-error
+  #f)
+
+
+(definition protected (clear-git-current-error)
+  (set! git-current-error #f))
+
+
+(definition protected (check-git-current-error)
+  (when git-current-error
+    (let ((error git-current-error))
+      (set! git-current-error #f)
+      (throw-git-error error))))
+
+
+(definition protected (throw-git-error error)
+  (define (error-message)
+    (let ((err (giterr-last)))
+      (if err
+          (git-error-message err)
+        #f)))
+  
+  (throw (new Git-Exception error (error-message))))
+
+
+(definition protected (git-check-error error)
+  (when (/= error 0)
+    (throw-git-error error)))
+
+
 (class Git-Exception extends Exception
   
   
@@ -50,17 +82,21 @@
     (or message (format "Git exception (#x{x})" code))))
 
 
-(definition private git-error-handler
+@wait-hack
+(definition protected git-error-handler
   (lambda (error-code)
     (throw (let ((err (giterr-last)))
              (if err
                  (new Git-Exception error-code (git-error-message err))
                (new Git-Exception error-code #f))))))
 
+@wait-hack
 (definition public (set-git-error-handler! error-handler)
   (set! git-error-handler error-handler))
 
-(c-definition (git-call-error-handler error) (int) int "git_call_error_handler" ""
+(c-definition (git-call-error-handler error) (int) void "git_call_error_handler" ""
+  (set! git-current-error error)
+  @wait-hack
   (git-error-handler error))
 
 
@@ -635,7 +671,8 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
     git_checkout_options options = GIT_CHECKOUT_OPTIONS_INIT;
     options.checkout_strategy = GIT_CHECKOUT_FORCE;
     int result = git_checkout_head(___arg1, &options);
-    if (result != 0) git_call_error_handler(result);
+    if (result != 0)
+        git_call_error_handler(result);
 //#)
 
 
@@ -712,8 +749,13 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
     git_cred* cred;
     int result = git_cred_userpass_plaintext_new(&cred, ___arg1, ___arg2);
     gambit_enable_os_interrupts();
-    if (result != 0) git_call_error_handler(result);
-    ___result_voidstar = cred;
+    if (result != 0)
+    {
+        git_call_error_handler(result);
+        ___result_voidstar = NULL;
+    }
+    else
+        ___result_voidstar = cred;
 //#)
 
 
@@ -762,9 +804,16 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
   #/C/
     int ahead, behind;
     int result = git_graph_ahead_behind(&ahead, &behind, ___arg1, ___arg2, ___arg3);
-    if (result != 0) git_call_error_handler(result);
-    ___SCMOBJ pair = ___EXT(___make_pair) (___ps, ___FIX(ahead), ___FIX(behind));
-    ___result = pair;
+    if (result != 0)
+    {
+        git_call_error_handler(result);
+        ___result = ___FAL;
+    }
+    else
+    {
+        ___SCMOBJ pair = ___EXT(___make_pair) (___ps, ___FIX(ahead), ___FIX(behind));
+        ___result = pair;
+    }
 //#)
 
 
@@ -1086,8 +1135,13 @@ static int odb_foreach_cb(git_oid* oid, void *payload)
   #/C/
     git_oid* oid = calloc(1, sizeof(git_oid));
     int result = git_reference_name_to_id(oid, ___arg1, ___arg2);
-    if (result != 0) git_call_error_handler(result);
-    ___result_voidstar = oid;
+    if (result != 0)
+    {
+        git_call_error_handler(result);
+        ___result_voidstar = NULL;
+    }
+    else
+        ___result_voidstar = oid;
 //#)
 
 
@@ -1183,7 +1237,8 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
     gambit_disable_os_interrupts();
     int result = git_remote_connect(___arg1, ___arg2);
     gambit_enable_os_interrupts();
-    if (result != 0) git_call_error_handler(result);
+    if (result != 0)
+        git_call_error_handler(result);
 //#)
 
 
@@ -1192,7 +1247,8 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
     gambit_disable_os_interrupts();
     int result = git_remote_fetch(___arg1, NULL, NULL);
     gambit_enable_os_interrupts();
-    if (result != 0) git_call_error_handler(result);
+    if (result != 0)
+        git_call_error_handler(result);
 //#)
 
 
@@ -1240,7 +1296,8 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
     callbacks.transfer_progress = transfer_progress_cb;
     callbacks.payload = p;
     int result = git_remote_set_callbacks(___arg1, &callbacks);
-    if (result != 0) git_call_error_handler(result);
+    if (result != 0)
+        git_call_error_handler(result);
     // to free the memory
     // ___EXT(___release_rc)(p);
 //#)
@@ -1248,7 +1305,8 @@ static int reference_foreach_cb(const char *reference_name, void *payload)
 (git-external (git-remote-download git_remote*) void
   #/C/
     int result = git_remote_download(___arg1, NULL);
-    if (result != 0) git_call_error_handler(result);
+    if (result != 0)
+        git_call_error_handler(result);
 //#)
 
 

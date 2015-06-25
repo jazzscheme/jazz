@@ -1269,6 +1269,7 @@
 ;;;
 
 
+(native jazz:interrupts-enabled?)
 (native jazz:disable-interrupts!)
 (native jazz:enable-interrupts!)
 (native jazz:thread-heartbeat-interval-set!)

@@ -45,8 +45,19 @@
 
 (cond-expand
   (gambit
-    (define jazz:disable-interrupts! ##disable-interrupts!)
-    (define jazz:enable-interrupts! ##enable-interrupts!))
+    (define jazz:*interrupts-enabled?*
+      #t)
+    
+    (define (jazz:interrupts-enabled?)
+      jazz:*interrupts-enabled?*)
+    
+    (define (jazz:disable-interrupts!)
+      (##disable-interrupts!)
+      (set! jazz:*interrupts-enabled?* #f))
+    
+    (define (jazz:enable-interrupts!)
+      (##enable-interrupts!)
+      (set! jazz:*interrupts-enabled?* #t)))
   
   (else))
 

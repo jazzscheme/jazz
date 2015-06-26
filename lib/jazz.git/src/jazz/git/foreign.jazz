@@ -24,10 +24,14 @@
 ;;;
 
 
-;; this horrible hack is around a Gambit bug that throwing
-;; an exception from inside a c-definition crashes miserably
+;; hack around a bug where throwing an exception from
+;; inside a c-definition will crash Gambit miserably
 (definition git-current-error
   #f)
+
+
+(definition protected (set-git-current-error error)
+  (set! git-current-error error))
 
 
 (definition protected (clear-git-current-error)
@@ -82,22 +86,20 @@
     (or message (format "Git exception (#x{x})" code))))
 
 
-@wait-hack
-(definition protected git-error-handler
-  (lambda (error-code)
-    (throw (let ((err (giterr-last)))
-             (if err
-                 (new Git-Exception error-code (git-error-message err))
-               (new Git-Exception error-code #f))))))
-
-@wait-hack
-(definition public (set-git-error-handler! error-handler)
-  (set! git-error-handler error-handler))
-
 (c-definition (git-call-error-handler error) (int) void "git_call_error_handler" ""
-  (set! git-current-error error)
-  @wait-hack
-  (git-error-handler error))
+  (handle-git-error error))
+
+
+(definition protected (handle-git-error error)
+  (set-git-current-error error))
+
+
+@wait-hack
+(definition protected (handle-git-error error)
+  (throw (let ((err (giterr-last)))
+           (if err
+               (new Git-Exception error (git-error-message err))
+             (new Git-Exception error #f)))))
 
 
 ;;;
@@ -800,7 +802,7 @@ static int branch_foreach_cb(const char *branch_name, git_branch_t branch_type, 
 (git-external (giterr-clear) void "giterr_clear")
 (git-external (giterr-last) git_error* @warnings "giterr_last"
   #/C/
-    ___result = (git_error*) giterr_last();
+    ___result_voidstar = (git_error*) giterr_last();
 //#)
 
 

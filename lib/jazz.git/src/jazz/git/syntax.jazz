@@ -38,17 +38,16 @@
   ;; this can happen for example when git-remote-connect requests credentials and
   ;; at the same time call-process-hwnd-message gets called from the message thread
   ;; but the resulting call-event can't happen immediately as the primordial thread
-  ;; is currently blocked in the git call...
-  (define (wrap-hack expr)
-    (let ((fn (generate-symbol "fn"))
-          (rest (generate-symbol "rest")))
-      `(let ((,fn ,expr))
-         (lambda ,rest
-           (without-gambit-interrupts
-             (lambda ()
-               (clear-git-current-error)
-               (prog1 (apply ,fn ,rest)
-                 (check-git-current-error))))))))
+  ;; is currently blocked in the git call... the git-current-error functions are a
+  ;; hack around Gambit crashing when throwing an exception from inside a c-definition
+  (define (wrap-hack c-name)
+    (let ((rest (generate-symbol "rest")))
+      `(lambda ,rest
+         (without-gambit-interrupts
+           (lambda ()
+             (clear-git-current-error)
+             (prog1 (apply ,c-name ,rest)
+               (check-git-current-error)))))))
   
   (define (wrap-trace name expr)
     (if (not tracable?)
@@ -63,22 +62,25 @@
   
   (let* ((s-name (car signature))
          (params (cdr signature))
-         (c-name-or-code (if (null? rest) (symbol->string s-name) (car rest))))
+         (c-name-or-code (if (null? rest) (symbol->string s-name) (car rest)))
+         (c-name (string->symbol (string-append (symbol->string (car signature)) "$c"))))
     (if (or (null? params)
             (not (out-parameter? (car params))))
         (receive (params args) (expand-args params #f)
-          (if (eq? type :error)
-              (let ((c-code
-                      (string-append (format "int result = {a}({a});{%}" c-name-or-code args)
-                                     (format "if (result != 0) git_call_error_handler(result);{%}"))))
-                `(definition public ,s-name
-                   ,(wrap-hack
-                      (wrap-trace s-name
-                        `(c-function anonymous ,params void ,c-code)))))
-            `(definition public ,s-name
-               ,(wrap-hack
-                  (wrap-trace s-name
-                   `(c-function anonymous ,params ,type ,c-name-or-code))))))
+          (define (parse-type proc)
+            (if (eq? type :error)
+                (proc 'void (string-append (format "int result = {a}({a});{%}" c-name-or-code args)
+                                           (format "if (result != 0) git_call_error_handler(result);{%}")))
+              (proc type c-name-or-code)))
+          
+          (parse-type
+            (lambda (type c-name-or-code)
+              `(begin
+                 (definition ,c-name
+                   ,(wrap-trace s-name
+                     `(c-function anonymous ,params ,type ,c-name-or-code)))
+                 (definition public ,s-name
+                   ,(wrap-hack c-name))))))
       (let ((out-type (cadr (car params)))
             (parameters (cdr params)))
         (receive (parameters args) (expand-args parameters #t)
@@ -89,7 +91,11 @@
                                  (if (eq? type :lookup)
                                      (format "else if (result == GIT_ENOTFOUND) ___result_voidstar = NULL;{%}")
                                    "")
-                                 (format "else git_call_error_handler(result);"))))
-            `(definition public ,s-name
-               ,(wrap-trace s-name
-                 `(c-function anonymous ,parameters ,out-type ,c-code))))))))))
+                                 (format "else ~{ git_call_error_handler(result); ___result_voidstar = NULL; ~}"))))
+             `(begin
+                (definition ,c-name
+                  ,(wrap-trace s-name
+                   `(c-function anonymous ,parameters ,out-type ,c-code)))
+                
+                (definition public ,s-name
+                 ,(wrap-hack c-name))))))))))

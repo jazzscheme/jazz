@@ -63,7 +63,8 @@
   (let* ((s-name (car signature))
          (params (cdr signature))
          (c-name-or-code (if (null? rest) (symbol->string s-name) (car rest)))
-         (c-name (string->symbol (string-append (symbol->string (car signature)) "$c"))))
+         (c-name (string->symbol (string-append (symbol->string (car signature)) "$c")))
+         (t-name (string->symbol (string-append (symbol->string (car signature)) "$t"))))
     (if (or (null? params)
             (not (out-parameter? (car params))))
         (receive (params args) (expand-args params #f)
@@ -77,8 +78,11 @@
             (lambda (type c-name-or-code)
               `(begin
                  (definition ,c-name
-                   ,(wrap-trace s-name
-                     `(c-function anonymous ,params ,type ,c-name-or-code)))
+                   (c-function anonymous ,params ,type ,c-name-or-code))
+                 
+                 (definition ,t-name
+                   ,(wrap-trace s-name c-name))
+                 
                  (definition public ,s-name
                    ,(wrap-hack c-name))))))
       (let ((out-type (cadr (car params)))
@@ -94,8 +98,10 @@
                                  (format "else ~{ git_call_error_handler(result); ___result_voidstar = NULL; ~}"))))
              `(begin
                 (definition ,c-name
-                  ,(wrap-trace s-name
-                   `(c-function anonymous ,parameters ,out-type ,c-code)))
+                  (c-function anonymous ,parameters ,out-type ,c-code))
+                
+                (definition ,t-name
+                  ,(wrap-trace s-name c-name))
                 
                 (definition public ,s-name
-                 ,(wrap-hack c-name))))))))))
+                  ,(wrap-hack c-name))))))))))

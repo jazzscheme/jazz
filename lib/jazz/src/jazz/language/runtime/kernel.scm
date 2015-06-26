@@ -604,6 +604,7 @@
 (native jazz:kernel-bundle-install)
 (native jazz:kernel-bundle-root)
 (native jazz:kernel-source)
+(native jazz:kernel-source-accessible?)
 (native jazz:kernel-source-access?)
 (native jazz:kernel-version)
 (native jazz:bundle-depth)

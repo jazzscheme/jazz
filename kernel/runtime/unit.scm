@@ -254,6 +254,10 @@
   jazz:source-built)
 
 
+(define jazz:kernel-source-accessible?
+  jazz:source-access?)
+
+
 (define jazz:kernel-source-access?
   (or jazz:source-access? (and (eq? jazz:image 'executable) (not jazz:product))))
 

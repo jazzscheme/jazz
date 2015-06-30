@@ -80,6 +80,30 @@
 //#)
 
 
+(definition public (collect-processes-info)
+  (let ((info-table (make-table))
+        (snapshot (CreateToolhelp32Snapshot TH32CS_SNAPPROCESS 0))
+        (process (PROCESSENTRY32-make)))
+    (PROCESSENTRY32-dwSize-set! process (PROCESSENTRY32-sizeof))
+    (when (Process32First snapshot process)
+      (let (iter)
+        (let ((name (PROCESSENTRY32-szExeFile-ref process))
+              (id (PROCESSENTRY32-th32ProcessID-ref process)))
+          (let ((module-snapshot (CreateToolhelp32Snapshot TH32CS_SNAPMODULE id))
+                (module (MODULEENTRY32-make)))
+            (MODULEENTRY32-dwSize-set! module (MODULEENTRY32-sizeof))
+            (Module32First module-snapshot module)
+            (let ((exe (MODULEENTRY32-szExePath-ref module)))
+              (MODULEENTRY32-free module)
+              (CloseHandle module-snapshot)
+              (table-set! info-table id exe @w (list name id exe))))
+          (when (Process32Next snapshot process)
+            (iter)))))
+    (PROCESSENTRY32-free process)
+    (CloseHandle snapshot)
+    info-table))
+
+
 ;;;
 ;;;; Bell
 ;;;

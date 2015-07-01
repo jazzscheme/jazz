@@ -331,6 +331,9 @@
 (define jazz:named-configurations-file
   #f)
 
+(define jazz:local-configurations-file
+  "./.configurations")
+
 
 (define (jazz:setup-settings)
   (let ((settings-root "~/.jazz/"))

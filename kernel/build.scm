@@ -153,7 +153,8 @@
           (mutable-bindings? (jazz:unspecified-option))
           (kernel-interpret? (jazz:unspecified-option))
           (destination (jazz:unspecified-option))
-          (properties (jazz:unspecified-option)))
+          (properties (jazz:unspecified-option))
+          (local? #f))
   (jazz:make-configuration
     name
     system
@@ -168,7 +169,8 @@
     mutable-bindings?
     kernel-interpret?
     destination
-    properties))
+    properties
+    local?))
 
 
 (define (jazz:validate-configuration
@@ -187,7 +189,8 @@
           (mutable-bindings? (jazz:unspecified-option))
           (kernel-interpret? (jazz:unspecified-option))
           (destination (jazz:unspecified-option))
-          (properties (jazz:unspecified-option)))
+          (properties (jazz:unspecified-option))
+          (local? #f))
   (let* ((name (jazz:validate-name (jazz:require-name name template)))
          (system (jazz:validate-system (jazz:require-system system template)))
          (platform (jazz:validate-platform (jazz:require-platform platform template)))
@@ -216,7 +219,8 @@
     mutable-bindings?
     kernel-interpret?
     destination
-    properties)))
+    properties
+    local?)))
 
 
 ;;;
@@ -316,6 +320,16 @@
                 (apply jazz:validate-configuration jazz:unspecified-configuration list))))
           
           (set! jazz:configurations (read-all input read-configuration)))))
+  (if (file-exists? jazz:local-configurations-file)
+      (call-with-input-file (list path: jazz:local-configurations-file eol-encoding: 'cr-lf)
+        (lambda (input)
+          (define (read-configuration input)
+            (let ((list (read input)))
+              (if (eof-object? list)
+                  list
+                (apply jazz:validate-configuration jazz:unspecified-configuration local?: #t list))))
+          
+          (for-each jazz:register-configuration (read-all input read-configuration)))))
   (if (file-exists? jazz:anonymous-configuration-file)
       (jazz:register-configuration (jazz:load-configuration jazz:anonymous-configuration-file))))
 
@@ -337,13 +351,16 @@
 
 (define (jazz:save-configurations)
   (define (split-configurations configurations)
-    (let split ((configurations configurations) (anonymous #f) (named '()))
+    (let split ((configurations configurations) (anonymous #f) (local '()) (named '()))
          (if (null? configurations)
-             (values anonymous named)
+             (values anonymous local named)
            (let ((configuration (car configurations)))
-             (if (not (jazz:get-configuration-name configuration))
-                 (split (cdr configurations) configuration named)
-               (split (cdr configurations) anonymous (cons configuration named)))))))
+             (cond ((not (jazz:get-configuration-name configuration))
+                    (split (cdr configurations) configuration local named))
+                   ((jazz:get-configuration-local? configuration)
+                    (split (cdr configurations) anonymous (cons configuration local) named))
+                   (else
+                    (split (cdr configurations) anonymous local (cons configuration named))))))))
   
   (define (save-configuration configuration file system-platform)
     (jazz:save-configuration
@@ -382,7 +399,7 @@
       (jazz:get-configuration-properties configuration)
       output))
   
-  (receive (anonymous named) (split-configurations jazz:configurations)
+  (receive (anonymous local named) (split-configurations jazz:configurations)
     (if anonymous
         (save-configuration anonymous jazz:anonymous-configuration-file (jazz:guess-platform))
       (if (file-exists? jazz:anonymous-configuration-file)

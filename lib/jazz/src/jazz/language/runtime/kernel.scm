@@ -599,6 +599,7 @@
 (native jazz:kernel-debug-foreign?)
 (native jazz:kernel-mutable-bindings?)
 (native jazz:kernel-destination)
+(native jazz:kernel-properties)
 (native jazz:kernel-built)
 (native jazz:kernel-install)
 (native jazz:kernel-bundle-install)

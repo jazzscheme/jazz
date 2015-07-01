@@ -369,32 +369,20 @@
   
   (let ((build (if (and jazz:kernel-bundle-install (file-exists? (%%string-append jazz:kernel-bundle-install "lib")))
                    (jazz:make-repository 'Lib "lib" jazz:kernel-bundle-install binary?: #t)
-                 (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t create?: #t))))
+                 (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t dynamic?: #t))))
     (set! jazz:Build-Repository build)
     (set! jazz:Repositories (%%append jazz:Repositories (all-repositories build)))))
 
 
-(define (jazz:make-repository name library directory #!key (binary? #f) (create? #f))
-  (define (create-repository repository-file)
-    (call-with-output-file (list path: repository-file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
-      (lambda (output)
-        (display "(repository " output)
-        (display name output)
-        (if (or binary? library)
-            (begin
-              (newline output)
-              (newline output)))
-        (if binary?
-            (begin
-              (display "  (binary? #t)" output)
-              (newline output)))
-        (if library
-            (begin
-              (display "  (library " output)
-              (write library output)
-              (display ")" output)))
-        (display ")" output)
-        (newline output))))
+(define (jazz:make-repository name library directory #!key (binary? #f) (dynamic? #f))
+  (define (repository-form)
+    `(repository ,name
+       ,@(if binary?
+             `((binary? ,binary?))
+           '())
+       ,@(if library
+             `((library ,library))
+           '())))
   
   (define (repository-inexistant)
     (jazz:error "{a} repository is inexistant: {a}" name directory))
@@ -405,12 +393,8 @@
       (let ((repository-file (%%string-append directory jazz:Repository-Filename)))
         (cond ((jazz:file-exists? repository-file)
                (jazz:load-repository directory))
-              (create?
-               (jazz:create-directories directory)
-               (create-repository repository-file)
-               (if (jazz:file-exists? repository-file)
-                   (jazz:load-repository directory)
-                 (repository-inexistant)))
+              (dynamic?
+               (jazz:load-repository-form directory (repository-form)))
               (else
                (repository-inexistant)))))))
 
@@ -423,17 +407,7 @@
               (call-with-input-file (%%list path: repository-file eol-encoding: 'cr-lf)
                 (lambda (input)
                   (let ((form (read input)))
-                    (let ((name (or name (%%cadr form)))
-                          (alist (%%cddr form)))
-                      (let ((directory (jazz:pathname-normalize directory))
-                            (binary-pair (%%assq 'binary? alist))
-                            (library-pair (%%assq 'library alist))
-                            (dependencies-pair (%%assq 'dependencies alist)))
-                        (let ((binary? (if binary-pair (%%cadr binary-pair) #f))
-                              (library-root (if library-pair (%%cadr library-pair) #f))
-                              (dependencies (if dependencies-pair (%%cdr dependencies-pair) '())))
-                          (let ((library-directory (if (%%not library-root) directory (%%string-append directory library-root "/"))))
-                            (%%make-repository name directory library-root library-directory binary? #f dependencies))))))))
+                    (jazz:load-repository-form directory form name: name))))
             #f))
       #f))
   
@@ -445,6 +419,20 @@
         (if error?
             (repository-inexistant)
           #f))))
+
+
+(define (jazz:load-repository-form directory form #!key (name #f))
+  (let ((name (or name (%%cadr form)))
+        (alist (%%cddr form)))
+    (let ((directory (jazz:pathname-normalize directory))
+          (binary-pair (%%assq 'binary? alist))
+          (library-pair (%%assq 'library alist))
+          (dependencies-pair (%%assq 'dependencies alist)))
+      (let ((binary? (if binary-pair (%%cadr binary-pair) #f))
+            (library-root (if library-pair (%%cadr library-pair) #f))
+            (dependencies (if dependencies-pair (%%cdr dependencies-pair) '())))
+        (let ((library-directory (if (%%not library-root) directory (%%string-append directory library-root "/"))))
+          (%%make-repository name directory library-root library-directory binary? #f dependencies))))))
 
 
 (define (jazz:install-repository directory/repository #!key (name #f))
@@ -1393,7 +1381,7 @@
         (let ((product-build-directory (jazz:build-dynamic-path kernel-root-directory product-source-directory))
               (current-build-directory (%%get-repository-directory jazz:Build-Repository)))
           (if (not (equal? product-build-directory current-build-directory))
-              (let ((new-build-repository (jazz:make-repository 'Build "lib" product-build-directory binary?: #t create?: #t)))
+              (let ((new-build-repository (jazz:make-repository 'Build "lib" product-build-directory binary?: #t dynamic?: #t)))
                 (jazz:setup-repository new-build-repository)
                 (set! jazz:Repositories (cons new-build-repository (jazz:remove jazz:Build-Repository jazz:Repositories)))
                 (set! jazz:Build-Repository new-build-repository)))))))

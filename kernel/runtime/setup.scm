@@ -414,7 +414,7 @@
                (jazz:update-product (%%string->symbol update)))
               (make
                (setup-build)
-               (jazz:make-product (%%string->symbol make)))
+               (exit (jazz:make-product (%%string->symbol make))))
               (subbuild?
                (setup-build)
                (jazz:subprocess-build-products port))

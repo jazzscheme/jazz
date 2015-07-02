@@ -21,6 +21,7 @@
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
+;;;    Guillaume Cartier
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -38,52 +39,25 @@
 (module jazz.network.smtp jazz
 
 
-(import time)
+(import (time))
 
 
-(definition public (string->quoted-printable-string string)
-  (let ((u8-port (open-u8vector '(char-encoding: UTF-8)))
-        (string-port (open-output-string)))
-    (display string u8-port)
-    (force-output u8-port)
-    (close-output-port u8-port)
-    (let (loop (col 0) (byte (read-u8 u8-port)))
-      (if (= col 75)
-          (begin
-            (display "=\n" string-port)
-            (loop 0 byte))
-        (let ((next (read-u8 u8-port)))
-          (cond ((eof-object? byte) (get-output-string string-port))
-                ((or (= byte 10)
-                     (= byte 13)
-                     (and (<= 33 byte) (<= byte 60))
-                     (and (<= 62 byte) (<= byte 126))
-                     (and (or (= byte 32) (= byte 9))
-                          (not (or (eof-object? next) (= next 10) (= next 13)))))
-                 (display (integer->char byte) string-port)
-                 (loop (+ col 1) next))
-                ((>= col 73)
-                 (display "=\n" string-port)
-                 (display #\= string-port)
-                 (display (number->string byte 16) string-port)
-                 (loop 3 next))
-                (else
-                 (display #\= string-port)
-                 (display (number->string byte 16) string-port)
-                 (loop (+ col 3) next))))))))
+;;;
+;;;; Message
+;;;
 
 
 (class MIME-Message extends Object
   
   
-  (slot from getter generate)
-  (slot to getter generate)
-  (slot subject getter generate)
-  (slot message getter generate)
-  (slot cc getter generate)
-  (slot bcc getter generate)
-  (slot content-type getter generate)
-  (slot attachments getter generate)
+  (slot from              getter generate)
+  (slot to                getter generate)
+  (slot subject           getter generate)
+  (slot message           getter generate)
+  (slot cc                getter generate)
+  (slot bcc               getter generate)
+  (slot content-type      getter generate)
+  (slot attachments       getter generate)
   (slot quoted-printable? getter generate)
   
   
@@ -99,25 +73,26 @@
     (set! quoted-printable?~self quoted-printable?))
   
   
-  (definition boundary "CF69BC42-C9CB-11E0-82A0-A5C34824019B")
+  (definition boundary
+    "CF69BC42-C9CB-11E0-82A0-A5C34824019B")
   
+  (definition line-size
+    72)
   
-  (definition line-size 72)
+  (definition encoded-subject-size
+    60)
   
+  (definition attachment-buffer-size
+    (* 3 (/ line-size 4)))
   
-  (definition encoded-subject-size 60)
+  (definition subject-buffer-size
+    (* 3 (/ encoded-subject-size 4)))
   
+  (definition separator
+    (format "--{a}\n" boundary))
   
-  (definition attachment-buffer-size (* 3 (/ line-size 4)))
-  
-  
-  (definition subject-buffer-size (* 3 (/ encoded-subject-size 4)))
-  
-  
-  (definition separator (format "--{a}\n" boundary))
-  
-  
-  (definition ending (format "--{a}--\n" boundary))
+  (definition ending
+    (format "--{a}--\n" boundary))
   
   
   (method (remove-unicode-characters string)
@@ -143,15 +118,15 @@
   
   
   (method (send-message port)
-    (let* ((length (string-length message))
-           (last-index (* line-size (quotient length line-size))))
-      (let (loop (i 0))
-        (if (< i last-index)
-            (let ((next-i (+ i line-size)))
-              (write-substring message i next-i port)
-              (newline port)
-              (loop next-i))
-          (write-substring message i length port)))))
+    (let ((length (string-length message)))
+      (let ((last-index (* line-size (quotient length line-size))))
+        (let (loop (i 0))
+          (if (< i last-index)
+              (let ((next-i (+ i line-size)))
+                (write-substring message i next-i port)
+                (newline port)
+                (loop next-i))
+            (write-substring message i length port))))))
   
   
   (method (encode-subject)
@@ -164,13 +139,13 @@
       (let (loop)
         (let ((size (read-subu8vector buffer 0 subject-buffer-size u8-port)))
           (if (> size 0)
-              (let* ((last? (< size subject-buffer-size))
-                     (buffer (if last? (subu8vector buffer 0 size) buffer)))
-                (display "=?utf-8?B?" string-port)
-                (display (u8vector->base64-string buffer) string-port)
-                (display "?=" string-port)
-                (unless last? (display "\n " string-port))
-                (loop))
+              (let ((last? (< size subject-buffer-size)))
+                (let ((buffer (if last? (subu8vector buffer 0 size) buffer)))
+                  (display "=?utf-8?B?" string-port)
+                  (display (u8vector->base64-string buffer) string-port)
+                  (display "?=" string-port)
+                  (unless last? (display "\n " string-port))
+                  (loop)))
             (get-output-string string-port))))))
   
   
@@ -209,6 +184,11 @@
     (display (if (null? attachments) "\n\n" ending) port)))
 
 
+;;;
+;;;; Client
+;;;
+
+
 (class SMTP-Client extends Object
   
   
@@ -224,14 +204,14 @@
                                   keep-alive: #t)))
     (get-reply "220" #f)
     (display (format "EHLO {a}\n" server-address) port)
-    (let* ((commands (cdr (get-reply "250" #f)))
-           (login-methods (get-login-methods commands)))
-      (cond ((member? "LOGIN" login-methods)
-             (auth-login username password))
-            ((member? "PLAIN" login-methods)
-             (auth-plain username password))
-            (else
-             (error "No supported login methods")))))
+    (let ((commands (cdr (get-reply "250" #f))))
+      (let ((login-methods (get-login-methods commands)))
+        (cond ((member? "LOGIN" login-methods)
+               (auth-login username password))
+              ((member? "PLAIN" login-methods)
+               (auth-plain username password))
+              (else
+               (error "No supported login methods"))))))
   
   
   (method override (destroy)
@@ -280,7 +260,7 @@
                        (throw "Invalid credentials."))))
   
   
-  (method (send-mail mail <MIME-Message>)
+  (method (send-email-message mail <MIME-Message>)
     (display "RSET\n" port)
     (get-reply "250")
     
@@ -301,9 +281,9 @@
     (get-reply "250" (lambda () (error "Error sending the message.")))))
 
 
-(definition public (send-message message server (port-number: port-number 25) (username: username "") (password: password ""))
+(definition public (send-email message server (port-number: port-number 25) (username: username "") (password: password ""))
   (let ((client (new SMTP-Client server port-number: port-number username: username password: password)))
-    (send-mail~ client message)
+    (send-email-message~ client message)
     (close~ client)))
 
 
@@ -319,4 +299,36 @@
   (u8vector->base64-string 
     (list->u8vector
       (map char->integer
-           (string->list str))))))
+           (string->list str)))))
+
+
+(definition public (string->quoted-printable-string string)
+  (let ((u8-port (open-u8vector '(char-encoding: UTF-8)))
+        (string-port (open-output-string)))
+    (display string u8-port)
+    (force-output u8-port)
+    (close-output-port u8-port)
+    (let (loop (col 0) (byte (read-u8 u8-port)))
+      (if (= col 75)
+          (begin
+            (display "=\n" string-port)
+            (loop 0 byte))
+        (let ((next (read-u8 u8-port)))
+          (cond ((eof-object? byte) (get-output-string string-port))
+                ((or (= byte 10)
+                     (= byte 13)
+                     (and (<= 33 byte) (<= byte 60))
+                     (and (<= 62 byte) (<= byte 126))
+                     (and (or (= byte 32) (= byte 9))
+                          (not (or (eof-object? next) (= next 10) (= next 13)))))
+                 (display (integer->char byte) string-port)
+                 (loop (+ col 1) next))
+                ((>= col 73)
+                 (display "=\n" string-port)
+                 (display #\= string-port)
+                 (display (number->string byte 16) string-port)
+                 (loop 3 next))
+                (else
+                 (display #\= string-port)
+                 (display (number->string byte 16) string-port)
+                 (loop (+ col 3) next)))))))))

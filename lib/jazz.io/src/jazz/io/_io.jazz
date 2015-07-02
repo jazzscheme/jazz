@@ -1301,7 +1301,7 @@
         recursive?: #f)))
   
   
-  (method public (install-directory dst (filter: filter #f) (feedback: feedback #f) (progress-feedback: progress-feedback #f))
+  (method public (install-directory dst (filter: filter #f) (feedback: feedback #f) (force-feedback?: force-feedback? #f) (progress-feedback: progress-feedback #f))
     (define (merge-into src-dir dst-dir feedback)
       (merge-ordered (lambda (what key left right)
                        (case what
@@ -1317,7 +1317,7 @@
                                  (feedback 'copying left))
                                (let ((right (new-directory~ dst-dir (get-name~ left))))
                                  (create~ right)
-                                 (merge-into left right #f))))))
+                                 (merge-into left right (if force-feedback? feedback #f)))))))
                          ((:right)
                           (when (or (not filter) (filter 'delete right))
                             (typecase right
@@ -1335,7 +1335,9 @@
                               ((File)
                                (typecase right
                                  ((File)
-                                  (when (different-file-times? left right)
+                                  (if (not (different-file-times? left right))
+                                      (when (and force-feedback? feedback)
+                                        (feedback 'skippin left))
                                     (cond ((different-file-digests? left right)
                                            (when feedback
                                              (feedback 'replacing left))
@@ -1357,8 +1359,10 @@
                                   (delete-file~ right)
                                   (let ((right (new-directory~ dst-dir (get-name~ left))))
                                     (create~ right)
-                                    (merge-into left right #f)))
+                                    (merge-into left right (if force-feedback? feedback #f))))
                                  ((Directory)
+                                  (when (and force-feedback? feedback)
+                                    (feedback 'entering left))
                                   (when progress-feedback
                                     (progress-feedback 'entering left))
                                   (merge-into left right feedback)))))))))
@@ -1373,7 +1377,7 @@
       (when feedback
         (feedback 'copying self))
       (create-directories~ dst)
-      (merge-into self dst #f)))
+      (merge-into self dst (if force-feedback? feedback #f))))
   
   
   (method public virtual (delete-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback #f))

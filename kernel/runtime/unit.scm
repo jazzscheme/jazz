@@ -375,6 +375,27 @@
 
 
 (define (jazz:make-repository name library directory #!key (binary? #f) (dynamic? #f))
+  (define (create-repository repository-file)
+    (call-with-output-file (list path: repository-file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
+      (lambda (output)
+        (display "(repository " output)
+        (display name output)
+        (if (or binary? library)
+            (begin
+              (newline output)
+              (newline output)))
+        (if binary?
+            (begin
+              (display "  (binary? #t)" output)
+              (newline output)))
+        (if library
+            (begin
+              (display "  (library " output)
+              (write library output)
+              (display ")" output)))
+        (display ")" output)
+        (newline output))))
+  
   (define (repository-form)
     `(repository ,name
        ,@(if binary?
@@ -394,7 +415,14 @@
         (cond ((jazz:file-exists? repository-file)
                (jazz:load-repository directory))
               (dynamic?
-               (jazz:load-repository-form directory (repository-form)))
+               (if (%%not jazz:product)
+                   (begin
+                     (jazz:create-directories directory)
+                     (create-repository repository-file)
+                     (if (jazz:file-exists? repository-file)
+                         (jazz:load-repository directory)
+                       (repository-inexistant)))
+                 (jazz:load-repository-form directory (repository-form))))
               (else
                (repository-inexistant)))))))
 

@@ -83,6 +83,19 @@
       (define (load-files files)
         (for-each load-file files))
       
+      ;; hack around loading header being very
+      ;; time consuming because of gambit's header
+      (let ((path (string-append jazz:source "kernel/syntax/header"))
+            (src (string-append jazz:source "kernel/syntax/header.scm"))
+            (o1 (string-append jazz:source "kernel/syntax/header.o1")))
+        (if (not (file-exists? o1))
+            (compile-file path)
+          (if (> (time->seconds (file-last-modification-time src))
+                 (time->seconds (file-last-modification-time o1)))
+              (begin
+                (delete-file o1)
+                (compile-file path)))))
+      
       (if (not loaded?)
           (begin
             (if (not interpret?)

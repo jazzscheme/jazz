@@ -274,9 +274,11 @@
                 ;; load architecture
                 (load (kernel-file "_architecture"))
                 
-                ;; load syntax
+                ;; reload syntax to account for architecture
                 (load (source-file "kernel/syntax/verbose"))
-                (load (source-file "kernel/syntax/header"))
+                ;; no architecture-dependent syntax in header so do not load
+                ;; it as it is very time consuming because of gambit's header
+                ;; (load (source-file "kernel/syntax/header"))
                 (load (source-file "kernel/syntax/macro"))
                 (load (source-file "kernel/syntax/block"))
                 (load (source-file "kernel/syntax/foreign"))

@@ -43,4 +43,36 @@
         (jazz.ui))
 
 
-(class undocumented Scrollee-View extends Content-View))
+(class undocumented Scrollee-View extends Content-View
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (slot last-pos  initialize #f)
+  (slot dragging? initialize #f)
+  
+  
+  (method override (mouse-down evt)
+    (set! last-pos (get-position~ evt))
+    (set! dragging? #f))
+  
+  
+  (method override (drag-move evt)
+    (let ((pos (get-position~ evt)))
+      (when (and (not dragging?) (allow-start-drag? pos))
+        (set! dragging? #t)
+        (acquire-capture))
+      (when dragging?
+        (let ((dx (- (get-h~ pos) (get-h~ last-pos)))
+              (dy (- (get-v~ pos) (get-v~ last-pos))))
+          (scroll~ (get-client~ (get-container)) (new Point dx dy))
+          (set! last-pos pos)))))
+  
+  
+  (method override (drag-up evt . rest)
+    (when dragging?
+      (release-capture)
+      (set! dragging? #f)))))

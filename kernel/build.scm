@@ -935,6 +935,17 @@
 
 
 ;;;
+;;;; Run
+;;;
+
+
+(define (jazz:run-symbol symbol arguments)
+  (jazz:parse-symbol symbol #f #f #f
+    (lambda (target configuration image link jobs local?)
+      (jazz:run-product target configuration arguments))))
+
+
+;;;
 ;;;; Clean
 ;;;
 
@@ -1250,6 +1261,15 @@
                     ,(symbol->string product)))))
 
 
+(define (jazz:run-product product configuration arguments)
+  (jazz:call-process
+     (list
+       path: (string-append (jazz:configuration-directory configuration) "jazz")
+       arguments: `("-run"
+                    ,(symbol->string product)
+                    ,@arguments))))
+
+
 ;;;
 ;;;; Output
 ;;;
@@ -1442,6 +1462,7 @@
                     ((configure) (configure-command arguments output))
                     ((make) (make-command arguments output))
                     ((install) (install-command arguments output))
+                    ((run) (run-command arguments output))
                     ((help ?) (help-command arguments output))
                     ((quit) (quit-command arguments output))
                     (else (jazz:error "Unknown command: {s}" command))))
@@ -1470,11 +1491,16 @@
     (jazz:setup-kernel-install)
     (jazz:install-symbols arguments #f))
   
+  (define (run-command arguments output)
+    (jazz:setup-kernel-install)
+    (jazz:run-symbol (car arguments) (map stringify (cdr arguments))))
+  
   (define (help-command arguments output)
     (jazz:print "Commands:" output)
     (jazz:print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [debug-foreign?:] [mutable-bindings?:] [kernel-interpret?:] [destination:] [properties:]" output)
     (jazz:print "  make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" output)
     (jazz:print "  install [target]" output)
+    (jazz:print "  run [target]" output)
     (jazz:print "  list" output)
     (jazz:print "  delete [configuration]" output)
     (jazz:print "  help or ?" output)
@@ -1482,6 +1508,14 @@
   
   (define (quit-command arguments output)
     (exit))
+  
+  (define (stringify expr)
+    (if (string? expr)
+        expr
+      (let ((output (open-output-string)))
+        (display expr output)
+        (get-output-string output))))
+
   
   (define (debug-exception exc console)
     (if jazz:display-exception?
@@ -1619,6 +1653,10 @@
               ((equal? action "install")
                (jazz:setup-kernel-install)
                (jazz:install-symbols (map read-argument arguments) #t)
+               (exit))
+              ((equal? action "run")
+               (jazz:setup-kernel-install)
+               (jazz:run-symbol (read-argument (car arguments)) (cdr arguments))
                (exit))
               ((or (equal? action "help") (equal? action "?"))
                (let ((console (console-port)))

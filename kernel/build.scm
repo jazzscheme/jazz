@@ -946,6 +946,17 @@
 
 
 ;;;
+;;;; Test
+;;;
+
+
+(define (jazz:test-symbol symbol arguments)
+  (jazz:parse-symbol symbol #f #f #f
+    (lambda (target configuration image link jobs local?)
+      (jazz:test-product target configuration arguments))))
+
+
+;;;
 ;;;; Clean
 ;;;
 
@@ -1270,6 +1281,15 @@
                     ,@arguments))))
 
 
+(define (jazz:test-product product configuration arguments)
+  (jazz:call-process
+     (list
+       path: (string-append (jazz:configuration-directory configuration) "jazz")
+       arguments: `("-test"
+                    ,(symbol->string product)
+                    ,@arguments))))
+
+
 ;;;
 ;;;; Output
 ;;;
@@ -1463,6 +1483,7 @@
                     ((make) (make-command arguments output))
                     ((install) (install-command arguments output))
                     ((run) (run-command arguments output))
+                    ((test) (test-command arguments output))
                     ((help ?) (help-command arguments output))
                     ((quit) (quit-command arguments output))
                     (else (jazz:error "Unknown command: {s}" command))))
@@ -1495,12 +1516,17 @@
     (jazz:setup-kernel-install)
     (jazz:run-symbol (car arguments) (map stringify (cdr arguments))))
   
+  (define (test-command arguments output)
+    (jazz:setup-kernel-install)
+    (jazz:test-symbol (car arguments) (map stringify (cdr arguments))))
+  
   (define (help-command arguments output)
     (jazz:print "Commands:" output)
     (jazz:print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [debug-foreign?:] [mutable-bindings?:] [kernel-interpret?:] [destination:] [properties:]" output)
     (jazz:print "  make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" output)
     (jazz:print "  install [target]" output)
     (jazz:print "  run [target]" output)
+    (jazz:print "  test [target]" output)
     (jazz:print "  list" output)
     (jazz:print "  delete [configuration]" output)
     (jazz:print "  help or ?" output)
@@ -1657,6 +1683,10 @@
               ((equal? action "run")
                (jazz:setup-kernel-install)
                (jazz:run-symbol (read-argument (car arguments)) (cdr arguments))
+               (exit))
+              ((equal? action "test")
+               (jazz:setup-kernel-install)
+               (jazz:test-symbol (read-argument (car arguments)) (cdr arguments))
                (exit))
               ((or (equal? action "help") (equal? action "?"))
                (let ((console (console-port)))

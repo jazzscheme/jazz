@@ -103,6 +103,7 @@
    (build         getter: generate)
    (build-library getter: generate)
    (install       getter: generate)
+   (deploy        getter: generate)
    (package       getter: generate)
    (descriptor    getter: generate)))
 

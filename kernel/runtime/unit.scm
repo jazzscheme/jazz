@@ -1345,9 +1345,9 @@
           #f))))
 
 
-(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (build-library #f) (install #f))
+(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (build-library #f) (install #f) (deploy #f))
   (receive (package descriptor) (jazz:find-product-descriptor name)
-    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build build-library install package descriptor))))
+    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build build-library install deploy package descriptor))))
 
 
 (define (jazz:get-product-descriptor name)
@@ -1377,6 +1377,7 @@
             jazz:update-product-descriptor
             jazz:build-product-descriptor
             jazz:build-library-descriptor
+            #f
             #f
             package
             descriptor))))))
@@ -1555,6 +1556,15 @@
             (jazz:feedback "install {a}" name)
             (jazz:load-install)
             (install descriptor))))))
+
+
+(define (jazz:deploy-product name)
+  (let ((product (jazz:setup-product name)))
+    (let ((deploy (%%get-product-deploy product)))
+      (if deploy
+          (let ((descriptor (%%get-product-descriptor product)))
+            (jazz:load-deploy)
+            (deploy descriptor))))))
 
 
 ;; changed to 0 until parallel build is fully debugged
@@ -1958,6 +1968,10 @@
 
 
 (define (jazz:load-install)
+  (jazz:load-build))
+
+
+(define (jazz:load-deploy)
   (jazz:load-build))
 
 

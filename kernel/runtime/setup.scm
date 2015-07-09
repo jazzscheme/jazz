@@ -260,7 +260,7 @@
   ;; x -> expand
   ;; commented out to get proper tail call into the repl
   ;; (let ((exit-code ...)))
-  (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "x" "expand" "c" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
+  (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
     (lambda (commands options remaining)
       (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
             (nosource? (jazz:get-option "nosource" options))
@@ -286,6 +286,7 @@
             (make (jazz:get-option "make" options))
             (build (jazz:get-option "build" options))
             (install (jazz:get-option "install" options))
+            (deploy (jazz:get-option "deploy" options))
             (expand (or (jazz:get-option "x" options)(jazz:get-option "expand" options)))
             (compile (or (jazz:get-option "c" options)(jazz:get-option "compile" options)))
             (debugger (jazz:get-option "debugger" options))
@@ -358,6 +359,9 @@
         (define (setup-install)
           (setup-build))
         
+        (define (setup-deploy)
+          (setup-build))
+        
         (define (run-scripts lst)
           (jazz:load-foundation)
           (let iter ((scan lst))
@@ -424,6 +428,9 @@
               (install
                (setup-install)
                (jazz:install-product (%%string->symbol install)))
+              (deploy
+               (setup-deploy)
+               (jazz:deploy-product (%%string->symbol deploy)))
               ((or (%%not (%%null? commands))
                    (%%not (%%null? remaining)))
                (setup-runtime)

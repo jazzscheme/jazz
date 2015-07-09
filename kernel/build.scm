@@ -935,6 +935,17 @@
 
 
 ;;;
+;;;; Deploy
+;;;
+
+
+(define (jazz:deploy-symbol symbol arguments)
+  (jazz:parse-symbol symbol #f #f #f
+    (lambda (target configuration image link jobs local?)
+      (jazz:deploy-product target configuration arguments))))
+
+
+;;;
 ;;;; Run
 ;;;
 
@@ -1272,6 +1283,15 @@
                     ,(symbol->string product)))))
 
 
+(define (jazz:deploy-product product configuration arguments)
+  (jazz:call-process
+     (list
+       path: (string-append (jazz:configuration-directory configuration) "jazz")
+       arguments: `("-deploy"
+                    ,(symbol->string product)
+                    ,@arguments))))
+
+
 (define (jazz:run-product product configuration arguments)
   (jazz:call-process
      (list
@@ -1482,6 +1502,7 @@
                     ((configure) (configure-command arguments output))
                     ((make) (make-command arguments output))
                     ((install) (install-command arguments output))
+                    ((deploy) (deploy-command arguments output))
                     ((run) (run-command arguments output))
                     ((test) (test-command arguments output))
                     ((help ?) (help-command arguments output))
@@ -1512,6 +1533,10 @@
     (jazz:setup-kernel-install)
     (jazz:install-symbols arguments #f))
   
+  (define (deploy-command arguments output)
+    (jazz:setup-kernel-install)
+    (jazz:deploy-symbol (car arguments) (map stringify (cdr arguments))))
+  
   (define (run-command arguments output)
     (jazz:setup-kernel-install)
     (jazz:run-symbol (car arguments) (map stringify (cdr arguments))))
@@ -1525,6 +1550,7 @@
     (jazz:print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [debug-foreign?:] [mutable-bindings?:] [kernel-interpret?:] [destination:] [properties:]" output)
     (jazz:print "  make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" output)
     (jazz:print "  install [target]" output)
+    (jazz:print "  deploy [target]" output)
     (jazz:print "  run [target]" output)
     (jazz:print "  test [target]" output)
     (jazz:print "  list" output)
@@ -1680,6 +1706,9 @@
                (jazz:setup-kernel-install)
                (jazz:install-symbols (map read-argument arguments) #t)
                (exit))
+              ((equal? action "deploy")
+               (jazz:setup-kernel-install)
+               (jazz:deploy-symbol (read-argument (car arguments)) (cdr arguments)))
               ((equal? action "run")
                (jazz:setup-kernel-install)
                (jazz:run-symbol (read-argument (car arguments)) (cdr arguments))
@@ -1693,6 +1722,10 @@
                  (jazz:print "Usage:" console)
                  (jazz:print "  jam configure [-name] [-system] [-platform] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-kernel-interpret] [-destination] [-properties]" console)
                  (jazz:print "  jam make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" console)
+                 (jazz:print "  jam install" console)
+                 (jazz:print "  jam deploy" console)
+                 (jazz:print "  jam run" console)
+                 (jazz:print "  jam test" console)
                  (jazz:print "  jam list" console)
                  (jazz:print "  jam delete [configuration]" console)
                  (jazz:print "  jam help or ?" console)

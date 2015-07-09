@@ -162,4 +162,53 @@
                     directories)))))
   (else
     (definition public (install-application descriptor destination . rest)
-      ))))
+      )))
+
+
+;;;
+;;;; Deploy
+;;;
+
+
+;; if [ -z "$2" ]; then
+;;   header="Update"
+;; else
+;;   header="$2"
+;; fi
+;; info="$(./jam -l info)"
+;; message="`echo -e "$header\\n\\n$info"`"
+
+(definition public (deploy-application descriptor installation-directory)
+  (let ((jazz (string-append kernel-install "jazz"))
+        (name (symbol->string (product-descriptor-name descriptor)))
+        (dir (parse~ installation-directory)))
+    (feedback "Building {a}" name)
+    (call-process
+      (list
+        path: jazz
+        arguments: `("-make"
+                     ,name)))
+    (feedback "")
+    (feedback "Installing {a}" name)
+    (call-process
+      (list
+        path: jazz
+        arguments: `("-install"
+                     ,name)))
+    (feedback "")
+    (feedback "Deploying {a}" name)
+    (call-process
+      (list
+        path: "git"
+        arguments: `("add" ".")
+        directory: dir))
+    (call-process
+      (list
+        path: "git"
+        arguments: `("commit" "-a" "-m" "Update" "--allow-empty")
+        directory: dir))
+    (call-process
+      (list
+        path: "git"
+        arguments: `("push")
+        directory: dir)))))

@@ -36,6 +36,57 @@
 
 
 ;;;
+;;;; Dependencies
+;;;
+
+
+(define jazz:all-dependencies
+  #f)
+
+
+(define (jazz:get-dependencies)
+  (or jazz:all-dependencies
+      (let ((dependencies (let ((file ".dependencies"))
+                            (if (file-exists? file)
+                                (call-with-input-file file (lambda (port) (read-all port read)))
+                              '()))))
+        (set! jazz:all-dependencies dependencies)
+        dependencies)))
+
+
+(define (jazz:find-dependency name)
+  (jazz:find-if (lambda (dep)
+                  (eq? (jazz:dependency-name dep) name))
+                (jazz:get-dependencies)))
+
+
+(define (jazz:require-dependency name)
+  (or (jazz:find-dependency name)
+      (error "Unknown dependency" name)))
+
+
+(define (jazz:dependency-name dep)
+  (car dep))
+
+(define (jazz:dependency-directory dep)
+  (cadr dep))
+
+(define (jazz:dependency-url dep)
+  (caddr dep))
+
+
+(define (jazz:clone-dependencies names)
+  (define (clone-dependency name)
+    (let ((dep (jazz:require-dependency name)))
+      (jazz:invoke-process
+         (list
+           path: "git"
+           arguments: `("clone" ,(jazz:dependency-url dep) ,(jazz:dependency-directory dep))))))
+  
+  (for-each clone-dependency names))
+
+
+;;;
 ;;;; Versions
 ;;;
 
@@ -1348,6 +1399,16 @@
 ;;;
 
 
+(define (jazz:find-if predicate lst)
+  (let iter ((scan lst))
+    (if (null? scan)
+        #f
+      (let ((value (car scan)))
+        (if (predicate value)
+            value
+          (iter (cdr scan)))))))
+
+
 (define (jazz:collect-if predicate lst)
   (let iter ((scan lst))
     (if (not (null? scan))
@@ -1640,7 +1701,10 @@
         (jazz:setup-settings)
         (jazz:load-configurations)
         (jazz:process-jamini)
-        (cond ((equal? action "list")
+        (cond ((equal? action "clone")
+               (jazz:clone-dependencies (map read-argument arguments))
+               (exit))
+              ((equal? action "list")
                (jazz:list-configurations)
                (exit))
               ((equal? action "delete")

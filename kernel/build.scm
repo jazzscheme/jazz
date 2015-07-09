@@ -814,7 +814,7 @@
                   (iter (cdr scan) (cons obj syms) options)))))))
 
 
-(define (jazz:parse-symbol symbol link jobs local? proc)
+(define (jazz:parse-symbol symbol proc)
   (define (parse-target/configuration/image str proc)
     (let ((colon (jazz:string-find str #\:)))
       (if (not colon)
@@ -849,9 +849,7 @@
           (else (jazz:error "Unknown image type: {s}" image))))
   
   (let ((name (symbol->string symbol)))
-    (parse-target/configuration/image name
-      (lambda (target configuration image)
-        (proc target configuration image link jobs local?)))))
+    (parse-target/configuration/image name proc)))
 
 
 ;;;
@@ -861,7 +859,9 @@
 
 (define (jazz:make-symbols symbols local?)
   (define (make-symbol symbol link jobs)
-    (jazz:parse-symbol symbol link jobs local? make-target))
+    (jazz:parse-symbol symbol
+      (lambda (target configuration image)
+        (make-target target configuration image link jobs local?))))
   
   (define (make-target target configuration image link jobs local?)
     (case target
@@ -915,7 +915,9 @@
 
 (define (jazz:install-symbols symbols local?)
   (define (install-symbol symbol)
-    (jazz:parse-symbol symbol #f #f local? install-target))
+    (jazz:parse-symbol symbol
+      (lambda (target configuration image)
+        (install-target target configuration image #f #f local?))))
   
   (define (install-target target configuration image link jobs local?)
     (jazz:install-product target configuration))
@@ -940,8 +942,8 @@
 
 
 (define (jazz:deploy-symbol symbol arguments)
-  (jazz:parse-symbol symbol #f #f #f
-    (lambda (target configuration image link jobs local?)
+  (jazz:parse-symbol symbol
+    (lambda (target configuration image)
       (jazz:deploy-product target configuration arguments))))
 
 
@@ -951,8 +953,8 @@
 
 
 (define (jazz:run-symbol symbol arguments)
-  (jazz:parse-symbol symbol #f #f #f
-    (lambda (target configuration image link jobs local?)
+  (jazz:parse-symbol symbol
+    (lambda (target configuration image)
       (jazz:run-product target configuration arguments))))
 
 
@@ -962,8 +964,8 @@
 
 
 (define (jazz:test-symbol symbol arguments)
-  (jazz:parse-symbol symbol #f #f #f
-    (lambda (target configuration image link jobs local?)
+  (jazz:parse-symbol symbol
+    (lambda (target configuration image)
       (jazz:test-product target configuration arguments))))
 
 

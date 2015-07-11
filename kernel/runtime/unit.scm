@@ -325,8 +325,8 @@
       (let ((jazz (and source-access? (jazz:make-repository 'Jazz "lib" (or (jazz:jazz-repository) jazz:kernel-source))))
             (binary-repositories (or jazz:kernel-binary-repositories '()))
             (source-repositories (or (and source-access? jazz:kernel-source-repositories) '()))
-            (binary-dynamic-repositories (or (jazz:dependencies) '()))
-            (source-dynamic-repositories (or (and source-access? (jazz:dependencies)) '()))
+            (binary-dynamic-repositories '()) ;; dynamic-dependencies (or (jazz:dependencies) '())
+            (source-dynamic-repositories '()) ;; dynamic-dependencies (or (and source-access? (jazz:dependencies)) '())
             (repositories (jazz:repositories)))
         (define (listify repository)
           (if repository
@@ -348,6 +348,7 @@
                                                  (let ((dir (jazz:absolutize-directory jazz:kernel-install path)))
                                                    (and dir (jazz:load-repository dir error?: #f))))
                                                source-repositories))
+                    #; ;; dynamic-dependencies
                     (dynamic-binary-list (jazz:collect (lambda (entry)
                                                          (let ((name (car entry))
                                                                (branch (cadr entry)))
@@ -355,6 +356,7 @@
                                                            (let ((path (%%string-append source-dynamic-root (jazz:join-strings (list name branch) #\/))))
                                                              (jazz:load-repository path name: name error?: #f))))
                                                        source-dynamic-repositories))
+                    #; ;; dynamic-dependencies
                     (dynamic-source-list (jazz:collect (lambda (entry)
                                                          (let ((name (car entry))
                                                                (branch (cadr entry)))
@@ -364,7 +366,7 @@
                                                        binary-dynamic-repositories))
                     (build-list (if build (%%list build) '()))
                     (jazz-list (if jazz (%%list jazz) '())))
-                (append repositories-list binary-list source-list dynamic-binary-list dynamic-source-list build-list jazz-list))
+                (append repositories-list binary-list source-list #; dynamic-binary-list #; dynamic-source-list build-list jazz-list))
             (jazz:error "Invalid .dependencies"))))))
   
   (let ((build (if (and jazz:kernel-bundle-install (file-exists? (%%string-append jazz:kernel-bundle-install "lib")))
@@ -1622,6 +1624,7 @@
                                                ,@(if (jazz:build-repository) `("-build-repository" ,(jazz:build-repository)) '())
                                                ,@(if (jazz:jazz-repository) `("-jazz-repository" ,(jazz:jazz-repository)) '())
                                                ,@(if (jazz:repositories) `("-repositories" ,(jazz:repositories)) '())
+                                               #; ;; dynamic-dependencies
                                                ,@(let ((dependencies (string-append (current-directory) ".dependencies")))
                                                    (if (jazz:file-exists? dependencies)
                                                        `("-dependencies" ,dependencies)

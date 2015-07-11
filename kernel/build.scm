@@ -1298,6 +1298,7 @@
            arguments: `("-:daD"
                         "-make"
                         ,(symbol->string product)
+                        #; ;; dynamic-dependencies
                         ,@(let ((dependencies (string-append (current-directory) ".dependencies")))
                             (if (jazz:file-exists? dependencies)
                                 `("-dependencies" ,dependencies)

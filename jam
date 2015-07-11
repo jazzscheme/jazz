@@ -11,23 +11,16 @@ gambitinstall () {
     [ -n "${GAMBITDIR:+x}" ] && echo "$GAMBITDIR" || echo "$REL/foreign/gambit"
 }
 
+GAMBITURL="https://github.com/feeley/gambit"
 GAMBITSOURCE="$REL/gambit"
 GAMBITINSTALL=$(gambitinstall)
 GSC="$GAMBITINSTALL/bin/gsc"
 SCM="$REL/kernel/jam.scm"
 
-## no git submodules
-#UPDATE_SUBMODULES="true"
-UPDATE_SUBMODULES="false"
+UPDATE_DEPENDENCIES="false"
 
-gambit_init () {
-    cd "$REL"
-    git submodule init
-}
-
-gambit_update () {
-    cd "$REL"
-    git submodule update
+gambit_clone () {
+    git clone $GAMBITURL $GAMBITSOURCE
 }
 
 gambit_configure () {
@@ -58,19 +51,15 @@ gambit_realclean () {
 }
 
 gambit () {
-    (gambit_init) &&
-    (gambit_update) &&
+    (gambit_clone) &&
     (gambit_make) &&
     (gambit_install)
 }
 
 gambit_dispatch () {
     case "$1" in
-    "init" )
-        gambit_init
-        ;;
-    "update" )
-        gambit_update
+    "clone" )
+        gambit_clone
         ;;
     "configure" )
         gambit_configure
@@ -122,7 +111,7 @@ display_info () {
 while getopts "l" OPTION; do
     case $OPTION in
     "l" )
-        UPDATE_SUBMODULES="false"
+        UPDATE_DEPENDENCIES="false"
         ;;
     esac
 done
@@ -143,6 +132,8 @@ case "$1" in
     "environment" )
         echo "REL: $REL"
         echo "ABS: $ABS"
+        echo "GAMBITDIR: $GAMBITDIR"
+        echo "GAMBITURL: $GAMBITURL"
         echo "GAMBITSOURCE: $GAMBITSOURCE"
         echo "GAMBITINSTALL: $GAMBITINSTALL"
         echo "GSC: $GSC"

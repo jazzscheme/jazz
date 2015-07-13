@@ -69,5 +69,6 @@
    (mutable-bindings?   getter: generate)
    (kernel-interpret?   getter: generate)
    (destination         getter: generate)
+   (features            getter: generate)
    (properties          getter: generate)
    (local?              getter: generate))))

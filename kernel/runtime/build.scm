@@ -149,6 +149,7 @@
           (source jazz:kernel-source)
           (destination jazz:kernel-destination)
           (destination-directory jazz:kernel-install)
+          (features jazz:kernel-features)
           (properties jazz:kernel-properties)
           (executable #f)
           (resources #f)
@@ -332,7 +333,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
                   (lambda (output)
-                    (jazz:print-architecture #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination properties output)))
+                    (jazz:print-architecture #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination features properties output)))
                 #t)
             #f)))
       
@@ -681,7 +682,7 @@
           (if (%%not (file-exists? file))
               (begin
                 (jazz:feedback "; generating {a}..." file)
-                (jazz:save-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination properties file jazz:kernel-platform)))))
+                (jazz:save-configuration #f system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties file jazz:kernel-platform)))))
       
       ;;;
       ;;;; Kernel Interpret
@@ -724,7 +725,7 @@
                     (print "  (path-directory (path-normalize (car (command-line)))))" output)
                     (newline output)
                     (newline output)
-                    (jazz:print-architecture #t system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination properties output)
+                    (jazz:print-architecture #t system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination features properties output)
                     (newline output)
                     (jazz:print-variable 'jazz:kernel-interpreted? #t output)
                     (newline output)
@@ -1068,7 +1069,7 @@
               (build-library)))))))
 
 
-(define (jazz:print-architecture for-kernel-interpret? system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination properties output)
+(define (jazz:print-architecture for-kernel-interpret? system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination features properties output)
   (if (not for-kernel-interpret?)
       (begin
         (display "(jazz:verbose-kernel 'kernel.architecture)" output)
@@ -1097,6 +1098,8 @@
   (jazz:print-variable 'jazz:kernel-mutable-bindings? mutable-bindings? output)
   (newline output)
   (jazz:print-variable 'jazz:kernel-destination destination output)
+  (newline output)
+  (jazz:print-variable 'jazz:kernel-features features output)
   (newline output)
   (jazz:print-variable 'jazz:kernel-properties properties output)
   (newline output)

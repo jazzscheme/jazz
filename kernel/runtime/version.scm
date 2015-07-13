@@ -436,7 +436,7 @@
 ;;;
 
 
-(define (jazz:save-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination properties file system-platform)
+(define (jazz:save-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties file system-platform)
   (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding system-platform))
     (lambda (output)
       (display "(configuration " output)
@@ -444,12 +444,12 @@
       (newline output)
       (newline output)
       (display "  " output)
-      (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination properties output)
+      (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties output)
       (display ")" output)
       (newline output))))
 
 
-(define (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination properties output)
+(define (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties output)
   (define first?
     #t)
   
@@ -475,6 +475,7 @@
   (print-property mutable-bindings?: mutable-bindings?)
   (print-property kernel-interpret?: kernel-interpret?)
   (print-property destination: destination)
+  (print-property features: features)
   (print-property properties: properties)
   (display ")" output))
 

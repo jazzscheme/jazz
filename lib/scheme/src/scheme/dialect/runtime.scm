@@ -1064,6 +1064,7 @@
 (jazz:define-walker-declaration define              scheme jazz:walk-define-declaration jazz:walk-define)
 (jazz:define-walker-declaration define-macro        scheme jazz:walk-define-macro-declaration jazz:walk-define-macro)
 (jazz:define-walker-declaration define-special-form scheme jazz:walk-define-special-form-declaration jazz:walk-define-special-form)
+(jazz:define-walker-special     cond-expand         scheme jazz:walk-cond-expand)
 (jazz:define-walker-special     quote               scheme jazz:walk-quote)
 (jazz:define-walker-special     begin               scheme jazz:walk-begin)
 (jazz:define-walker-special     lambda              scheme jazz:walk-lambda)

@@ -4483,6 +4483,23 @@
     #f))
 
 
+(define (jazz:walk-cond-expand walker resume declaration environment form-src)
+  (let iter ((scan (%%cdr (jazz:source-code form-src))))
+       (if (%%null? scan)
+           (jazz:error "Unfulfilled cond-expand")
+         (let ((clause (jazz:source-code (%%car scan))))
+           (if (or (%%not (%%pair? clause))
+                   (%%not (%%symbol? (jazz:source-code (%%car clause)))))
+               (jazz:error "Ill-formed cond-expand clause: {s}" (%%desourcify clause))
+             (let ((feature-requirement (jazz:source-code (%%car clause))))
+               (if (or (jazz:feature-satisfied? feature-requirement)
+                       (%%eq? feature-requirement 'else))
+                   (if (%%null? (%%cdr clause))
+                       (jazz:walk walker resume declaration environment '(unspecified))
+                     (jazz:walk walker resume declaration environment (cons 'begin (%%cdr clause))))
+                 (iter (%%cdr scan)))))))))
+
+
 (define (jazz:walk-quote walker resume declaration environment form-src)
   (define (scheme-data? expr)
     (or (%%null? expr)

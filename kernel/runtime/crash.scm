@@ -42,6 +42,9 @@
 (define (jazz:log-backtrace ignore)
   (continuation-capture
     (lambda (k)
+      ;; dump frames
+      (display-continuation-backtrace k (current-error-port) #f #f 500 500)
+      ;; dump variables
       (display-continuation-backtrace k (current-error-port) #f #t 500 500))))
 
 

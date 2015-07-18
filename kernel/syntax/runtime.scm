@@ -126,6 +126,17 @@
 
 
 (define (jazz:feature-satisfied? feature-requirement)
-  (if (%%symbol? feature-requirement)
-      (%%memq feature-requirement (##cond-expand-features))
-    (error "Features can only be symbols for now"))))
+  (cond ((%%symbol? feature-requirement)
+         (%%memq feature-requirement (##cond-expand-features)))
+        ((and (%%pair? feature-requirement)
+              (%%eq? (%%car feature-requirement) 'and))
+         (jazz:every? jazz:feature-satisfied? (%%cdr feature-requirement)))
+        ((and (%%pair? feature-requirement)
+              (%%eq? (%%car feature-requirement) 'or))
+         (jazz:some? jazz:feature-satisfied? (%%cdr feature-requirement)))
+        ((and (%%pair? feature-requirement)
+              (%%eq? (%%car feature-requirement) 'not)
+              (%%pair? (%%cdr feature-requirement)))
+         (%%not (jazz:feature-satisfied? (%%cadr feature-requirement))))
+        (else
+         (error "Invalid cond-expand feature" feature-requirement)))))

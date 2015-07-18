@@ -1351,14 +1351,23 @@
 
 
 (define (jazz:process-cond-expand form-src proc)
+  (define (valid-feature-requirement clause)
+    (if (%%pair? clause)
+        (let ((requirement (jazz:desourcify-all (%%car clause))))
+          (if (or (%%symbol? requirement)
+                  (and (%%pair? requirement)
+                       (%%memq (%%car requirement) '(and or not))))
+              requirement
+            #f))
+      #f))
+  
   (let iter ((scan (%%cdr (jazz:source-code form-src))))
        (if (%%null? scan)
            (jazz:error "Unfulfilled cond-expand")
          (let ((clause (jazz:source-code (%%car scan))))
-           (if (or (%%not (%%pair? clause))
-                   (%%not (%%symbol? (jazz:source-code (%%car clause)))))
-               (jazz:error "Ill-formed cond-expand clause: {s}" (%%desourcify clause))
-             (let ((feature-requirement (jazz:source-code (%%car clause))))
+           (let ((feature-requirement (valid-feature-requirement clause)))
+             (if (%%not feature-requirement)
+                 (jazz:error "Ill-formed cond-expand clause: {s}" (%%desourcify clause))
                (if (or (jazz:feature-satisfied? feature-requirement)
                        (%%eq? feature-requirement 'else))
                    (if (%%null? (%%cdr clause))

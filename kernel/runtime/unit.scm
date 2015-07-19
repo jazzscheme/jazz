@@ -1616,7 +1616,7 @@
                (let ((process (open-process
                                 (list
                                   path: (jazz:install-path "jazz")
-                                  arguments: `("-:daqQ-" "-subbuild"
+                                  arguments: `("-:daqQ-" "-worker"
                                                "-link" ,(%%symbol->string jazz:link)
                                                ,@(if (%%memq 'keep-c jazz:compile-options) `("-keep-c" "-track-scheme") '())
                                                ,@(if (%%memq 'expansion jazz:compile-options) `("-expansion") '())
@@ -1675,7 +1675,7 @@
         (if stop-build?
             (build-process-ended #f)
           (let ((established-port (%%car port/echo)))
-            (send-command established-port name)
+            (send-build-command established-port name)
             (let ((changes (read established-port)))
               (if (eof-object? changes)
                   (build-process-died)
@@ -1711,8 +1711,8 @@
           (local-make name)
         (remote-make name)))
     
-    (define (send-command established-port name)
-      (write name established-port)
+    (define (send-build-command established-port name)
+      (write `(build ,name) established-port)
       (newline established-port)
       (force-output established-port))
     
@@ -1727,25 +1727,39 @@
     (if stop-build? 1 0)))
 
 
-(define (jazz:subprocess-build-products port)
+;;;
+;;;; Worker
+;;;
+
+
+(define (jazz:worker-process port)
   (declare (proper-tail-calls))
   (let ((established-port (open-tcp-client port)))
+    (define (build product)
+      (jazz:reset-changed-units)
+      (jazz:build-product product)
+      (write (jazz:get-changed-units) established-port)
+      (force-output established-port))
+    
     (let iter ()
-         (let ((product (read established-port)))
-           (if (or (eof-object? product)
-                   (null? product))
+         (let ((form (read established-port)))
+           (if (or (eof-object? form)
+                   (null? form))
                (close-port established-port)
-             (with-exception-handler
-               (lambda (exc)
-                 (display-exception exc)
-                 (force-output)
-                 (exit))
-               (lambda ()
-                 (jazz:reset-changed-units)
-                 (jazz:build-product product)
-                 (write (jazz:get-changed-units) established-port)
-                 (force-output established-port)
-                 (iter))))))))
+             (let ((command (car form))
+                   (arguments (cdr form)))
+               (with-exception-handler
+                 (lambda (exc)
+                   (display-exception exc)
+                   (force-output)
+                   (exit))
+                 (lambda ()
+                   (case command
+                     ((build)
+                      (build (car arguments)))
+                     (else
+                      (error "Unknown subprocess command" command)))
+                   (iter)))))))))
 
 
 ;;;

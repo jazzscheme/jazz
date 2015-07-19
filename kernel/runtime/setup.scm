@@ -260,13 +260,13 @@
   ;; x -> expand
   ;; commented out to get proper tail call into the repl
   ;; (let ((exit-code ...)))
-  (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "subbuild" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
+  (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
     (lambda (commands options remaining)
       (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
             (nosource? (jazz:get-option "nosource" options))
             (debug? (jazz:get-option "debug" options))
             (force? (jazz:get-option "force" options))
-            (subbuild? (jazz:get-option "subbuild" options))
+            (worker? (jazz:get-option "worker" options))
             (keep-c? (jazz:get-option "keep-c" options))
             (track-scheme? (jazz:get-option "track-scheme" options))
             (expansion? (jazz:get-option "expansion" options))
@@ -421,9 +421,9 @@
               (make
                (setup-build)
                (exit (jazz:make-product (%%string->symbol make))))
-              (subbuild?
+              (worker?
                (setup-build)
-               (jazz:subprocess-build-products port))
+               (jazz:worker-process port))
               (build
                (setup-build)
                (jazz:build-product (%%string->symbol build)))

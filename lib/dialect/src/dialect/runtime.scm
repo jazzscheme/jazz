@@ -5544,14 +5544,14 @@
                 (jazz:read-source-all port)))))))))
 
 
-(define (jazz:read-toplevel-form resource #!key (read-literals? #t))
-  (let ((source (jazz:resource-pathname resource))
-        (all (jazz:read-toplevel-forms resource read-literals?: read-literals?)))
+(define (jazz:read-toplevel-form pathname/resource #!key (read-literals? #t) (script? #f))
+  (let ((source (if (string? pathname/resource) pathname/resource (jazz:resource-pathname pathname/resource)))
+        (all (jazz:read-toplevel-forms pathname/resource read-literals?: read-literals?)))
     (if (%%null? all)
         (jazz:error "Found empty unit declaration in {a}" source)
       (let ((form-src (%%car all))
             (extraneous? (%%not-null? (%%cdr all))))
-        (if (and (%%pair? (jazz:source-code form-src)) (%%memq (jazz:source-code (%%car (jazz:source-code form-src))) '(unit module)))
+        (if (and (%%pair? (jazz:source-code form-src)) (%%memq (jazz:source-code (%%car (jazz:source-code form-src))) (if script? '(script) '(unit module))))
             (if (%%not extraneous?)
                 form-src
               (jazz:error "Found extraneous expressions after unit declaration in {a}" source))

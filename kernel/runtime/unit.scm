@@ -1616,7 +1616,8 @@
                (let ((process (open-process
                                 (list
                                   path: (jazz:install-path "jazz")
-                                  arguments: `("-:daqQ-" "-worker"
+                                  arguments: `("-:daqQ-"
+                                               "-worker"
                                                "-link" ,(%%symbol->string jazz:link)
                                                ,@(if (%%memq 'keep-c jazz:compile-options) `("-keep-c" "-track-scheme") '())
                                                ,@(if (%%memq 'expansion jazz:compile-options) `("-expansion") '())
@@ -1921,6 +1922,16 @@
   (make-parameter #f))
 
 
+(define jazz:load-interpreted-hook
+  #f)
+
+(define (jazz:get-load-interpreted-hook)
+  jazz:load-interpreted-hook)
+
+(define (jazz:set-load-interpreted-hook hook)
+  (set! jazz:load-interpreted-hook hook))
+
+
 (define (jazz:load-unit-src/bin unit-name #!key (force-source? #f))
   (jazz:with-unit-resources unit-name #f
     (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
@@ -1950,13 +1961,15 @@
                          (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
                          (if (and (%%pair? warn) (%%memq unit-name warn))
                              (pp (jazz:current-load-stack)))))))
-                (parameterize ((jazz:walk-for 'interpret)
-                               (jazz:generate-symbol-for "&")
-                               (jazz:generate-symbol-context unit-name)
-                               (jazz:generate-symbol-counter 0))
-                  (jazz:with-extension-reader (%%get-resource-extension src)
-                    (lambda ()
-                      (jazz:load-resource "loading src" src)))))
+                (if (or (%%not jazz:load-interpreted-hook)
+                        (%%not (jazz:load-interpreted-hook unit-name)))
+                    (parameterize ((jazz:walk-for 'interpret)
+                                   (jazz:generate-symbol-for "&")
+                                   (jazz:generate-symbol-context unit-name)
+                                   (jazz:generate-symbol-counter 0))
+                      (jazz:with-extension-reader (%%get-resource-extension src)
+                        (lambda ()
+                          (jazz:load-resource "loading src" src))))))
               (else
                (if force-source?
                    (jazz:error "Unable to find unit source: {s}" unit-name)
@@ -2206,18 +2219,30 @@
   (make-parameter '()))
 
 
+(define jazz:load-script-hook
+  #f)
+
+(define (jazz:get-load-script-hook)
+  jazz:load-script-hook)
+
+(define (jazz:set-load-script-hook hook)
+  (set! jazz:load-script-hook hook))
+
+
 (define (jazz:load-script path)
-  (parameterize ((jazz:walk-for 'interpret)
-                 (jazz:generate-symbol-for "&")
-                 (jazz:generate-symbol-context (gensym))
-                 (jazz:generate-symbol-counter 0)
-                 (jazz:requested-pathname path))
-    (jazz:with-extension-reader (jazz:pathname-extension path)
-      (lambda ()
-        (jazz:load-file (%%list
-                          path: path
-                          char-encoding: 'UTF)
-                        #t)))))
+  (if (or (%%not jazz:load-script-hook)
+          (%%not (jazz:load-script-hook path)))
+      (parameterize ((jazz:walk-for 'interpret)
+                     (jazz:generate-symbol-for "&")
+                     (jazz:generate-symbol-context (gensym))
+                     (jazz:generate-symbol-counter 0)
+                     (jazz:requested-pathname path))
+        (jazz:with-extension-reader (jazz:pathname-extension path)
+          (lambda ()
+            (jazz:load-file (%%list
+                              path: path
+                              char-encoding: 'UTF)
+                            #t))))))
 
 
 (define (jazz:unload-unit unit-name)

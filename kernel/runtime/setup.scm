@@ -46,11 +46,23 @@
 ;;;
 
 
+(jazz:define-variable jazz:expand-unit-internal)
+(jazz:define-variable jazz:expand-script-internal)
 (jazz:define-variable jazz:compile-unit-internal)
 (jazz:define-variable jazz:custom-compile-unit-internal)
 (jazz:define-variable jazz:build-unit-internal)
 (jazz:define-variable jazz:get-subunit-names-internal)
 
+
+(define (jazz:expand-unit . rest)
+  (jazz:load-build)
+  (jazz:load-unit 'dialect.development)
+  (%%apply jazz:expand-unit-internal rest))
+
+(define (jazz:expand-script . rest)
+  (jazz:load-build)
+  (jazz:load-unit 'dialect.development)
+  (%%apply jazz:expand-script-internal rest))
 
 (define (jazz:compile-unit . rest)
   (jazz:load-build)

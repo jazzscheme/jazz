@@ -67,20 +67,21 @@
 ;;;
 
 
-(define (jazz:expand-unit unit-name #!key (backend 'scheme) (walk-for #f))
-  (parameterize ((jazz:walk-for (or walk-for 'walk)))
-    (let* ((src (jazz:find-unit-src unit-name #f))
-           (form (jazz:read-toplevel-form src))
-           (kind (jazz:source-code (car (jazz:source-code form))))
-           (rest (cdr (jazz:source-code form))))
-      (parameterize ((jazz:requested-unit-name unit-name)
-                     (jazz:requested-unit-resource src)
-                     (jazz:generate-symbol-for "%")
-                     (jazz:generate-symbol-context unit-name)
-                     (jazz:generate-symbol-counter 0))
-        (case kind
-          ((unit) (jazz:expand-unit-source rest))
-          ((module) (jazz:generate-module rest backend)))))))
+(jazz:define-variable-override jazz:expand-unit-internal
+  (lambda (unit-name #!key (backend 'scheme) (walk-for #f))
+    (parameterize ((jazz:walk-for (or walk-for 'walk)))
+      (let* ((src (jazz:find-unit-src unit-name #f))
+             (form (jazz:read-toplevel-form src))
+             (kind (jazz:source-code (car (jazz:source-code form))))
+             (rest (cdr (jazz:source-code form))))
+        (parameterize ((jazz:requested-unit-name unit-name)
+                       (jazz:requested-unit-resource src)
+                       (jazz:generate-symbol-for "%")
+                       (jazz:generate-symbol-context unit-name)
+                       (jazz:generate-symbol-counter 0))
+          (case kind
+            ((unit) (jazz:expand-unit-source rest))
+            ((module) (jazz:generate-module rest backend))))))))
 
 
 (define (jazz:expand unit-name . rest)
@@ -104,6 +105,18 @@
   (pretty-print
     (jazz:present-source
       (apply jazz:expand-unit unit-name rest))))
+
+
+(jazz:define-variable-override jazz:expand-script-internal
+  (lambda (path #!key (backend 'scheme))
+    (parameterize ((jazz:walk-for 'walk))
+      (let* ((form (jazz:read-toplevel-form path script?: #t))
+             (rest (cdr (jazz:source-code form))))
+        (parameterize ((jazz:generate-symbol-for "%")
+                       (jazz:generate-symbol-context (gensym))
+                       (jazz:generate-symbol-counter 0)
+                       (jazz:requested-pathname path))
+          (jazz:generate-script rest backend))))))
 
 
 ;;;

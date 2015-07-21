@@ -156,6 +156,45 @@
 
 
 ;;;
+;;;; Exit Jobs
+;;;
+
+
+(define (jazz:make-exit-jobs-safe)
+  (let ((lst (fifo->list ##exit-jobs)))
+    (##clear-exit-jobs!)
+    (for-each jazz:add-exit-job! lst)))
+
+
+(define (jazz:add-exit-job! thunk)
+  (##add-exit-job!
+    (jazz:safe-exit-job thunk)))
+
+
+(define (jazz:safe-exit-job thunk)
+  (lambda ()
+    (with-exception-handler
+      (lambda (exc)
+        (let ((dir (or jazz:jazz-settings-directory "~/.jazz/")))
+          (jazz:create-directory dir)
+          (call-with-output-file (%%string-append dir "exit.exception")
+            (lambda (port)
+              (write exc port)
+              (newline port)
+              (newline port)
+              (display-exception exc port)
+              (newline port)
+              (newline port)
+              (continuation-capture
+                (lambda (k)
+                  (display-continuation-backtrace k port #f #f 500 500)))
+              (force-output port))))
+        (##clear-exit-jobs!)
+        (##exit 1))
+      thunk)))
+
+
+;;;
 ;;;; Library
 ;;;
 
@@ -165,6 +204,7 @@
       (begin
         (jazz:setup-settings)
         (jazz:process-jazzini #t)))
+  (jazz:make-exit-jobs-safe)
   (jazz:prepare-repositories)
   (jazz:setup-repositories))
 
@@ -319,7 +359,8 @@
           (if jazz:kernel-source-access?
               (begin
                 (jazz:setup-settings)
-                (jazz:process-jazzini #t))))
+                (jazz:process-jazzini #t)))
+          (jazz:make-exit-jobs-safe))
         
         #; ;; dynamic-dependencies
         (define (locate-dependencies root-path)

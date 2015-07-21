@@ -1759,7 +1759,7 @@
                      ((build)
                       (build (car arguments)))
                      (else
-                      (error "Unknown subprocess command" command)))
+                      (error "Unknown worker command" command)))
                    (iter)))))))))
 
 

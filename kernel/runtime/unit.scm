@@ -1948,28 +1948,29 @@
                                                (and ext (%%string=? ext "jazz"))))))
                  (jazz:load-resource "loading bin" bin quiet?)))
               (src
-                (jazz:increment-interpreted-load-counter)
-                (let ((warn (jazz:warn-interpreted?)))
-                  (if warn
-                      (case warn
-                        ((error)
-                         (jazz:error "Loading {a} interpreted" unit-name))
-                        ((stack)
-                         (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
-                         (pp (jazz:current-load-stack)))
-                        (else
-                         (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
-                         (if (and (%%pair? warn) (%%memq unit-name warn))
-                             (pp (jazz:current-load-stack)))))))
                 (if (or (%%not jazz:load-interpreted-hook)
                         (%%not (jazz:load-interpreted-hook unit-name)))
-                    (parameterize ((jazz:walk-for 'interpret)
-                                   (jazz:generate-symbol-for "&")
-                                   (jazz:generate-symbol-context unit-name)
-                                   (jazz:generate-symbol-counter 0))
-                      (jazz:with-extension-reader (%%get-resource-extension src)
-                        (lambda ()
-                          (jazz:load-resource "loading src" src))))))
+                    (begin
+                      (jazz:increment-interpreted-load-counter)
+                      (let ((warn (jazz:warn-interpreted?)))
+                        (if warn
+                            (case warn
+                              ((error)
+                               (jazz:error "Loading {a} interpreted" unit-name))
+                              ((stack)
+                               (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
+                               (pp (jazz:current-load-stack)))
+                              (else
+                               (jazz:feedback "Warning: Loading {a} interpreted" unit-name)
+                               (if (and (%%pair? warn) (%%memq unit-name warn))
+                                   (pp (jazz:current-load-stack)))))))
+                      (parameterize ((jazz:walk-for 'interpret)
+                                     (jazz:generate-symbol-for "&")
+                                     (jazz:generate-symbol-context unit-name)
+                                     (jazz:generate-symbol-counter 0))
+                        (jazz:with-extension-reader (%%get-resource-extension src)
+                          (lambda ()
+                            (jazz:load-resource "loading src" src)))))))
               (else
                (if force-source?
                    (jazz:error "Unable to find unit source: {s}" unit-name)

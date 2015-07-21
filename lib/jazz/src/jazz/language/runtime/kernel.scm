@@ -1211,8 +1211,6 @@
 (native jazz:structure-kind)
 (native jazz:structure-ref)
 (native jazz:structure-set!)
-(native make-foo)
-(native make-bar)
 
 
 ;;;
@@ -1220,6 +1218,7 @@
 ;;;
 
 
+(native gensym)
 (native jazz:generate-symbol)
 (native jazz:with-uniqueness)
 (native jazz:with-uniqueness-typed)

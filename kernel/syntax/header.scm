@@ -174,6 +174,15 @@
 
 
 ;;;
+;;;; Fifo
+;;;
+
+
+(define (fifo->list fifo)
+  (macro-fifo->list fifo))
+
+
+;;;
 ;;;; Repl
 ;;;
 

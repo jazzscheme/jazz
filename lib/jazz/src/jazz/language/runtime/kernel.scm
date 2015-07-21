@@ -313,6 +313,14 @@
 
 
 ;;;
+;;;; Fifo
+;;;
+
+
+(native fifo->list)
+
+
+;;;
 ;;;; Fixnum
 ;;;
 
@@ -1228,7 +1236,9 @@
 (native jazz:open-process)
 (native jazz:process-status)
 (native jazz:exit)
+(native jazz:exit-jobs)
 (native jazz:add-exit-job!)
+(native jazz:clear-exit-jobs!)
 (native make-serialized)
 (native serialized?)
 (native serialized-class)

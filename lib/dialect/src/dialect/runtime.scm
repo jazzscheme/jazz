@@ -1367,7 +1367,7 @@
          (let ((clause (jazz:source-code (%%car scan))))
            (let ((feature-requirement (valid-feature-requirement clause)))
              (if (%%not feature-requirement)
-                 (jazz:error "Ill-formed cond-expand clause: {s}" (%%desourcify clause))
+                 (jazz:error "Ill-formed cond-expand clause: {s}" (jazz:desourcify-all clause))
                (if (or (jazz:feature-satisfied? feature-requirement)
                        (%%eq? feature-requirement 'else))
                    (if (%%null? (%%cdr clause))

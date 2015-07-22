@@ -342,6 +342,15 @@ ___EXT(___release_scmobj)(dst); }
 
 
 ;;;
+;;;; Cocoa NSCursor
+;;;
+
+
+(c-type NSCursor "NSCursor")
+(c-type NSCursor* (pointer NSCursor))
+
+
+;;;
 ;;;; Cocoa Types
 ;;;
 
@@ -3471,38 +3480,44 @@ void platformSetMousePosition(PlatformWindow* window, NSPoint* pos)
 }
 
 
-void platformSetCursor(int kind)
+NSCursor* platformGetSystemCursor(int kind)
 {
     switch (kind)
     {
         case PLATFORM_ARROWCURSOR:
-            [[NSCursor arrowCursor] set];
-            break;
+            return [NSCursor arrowCursor];
         case PLATFORM_IBEAMCURSOR:
-            [[NSCursor IBeamCursor] set];
-            break;
+            return [NSCursor IBeamCursor];
         case PLATFORM_CROSSHAIRCURSOR:
-            [[NSCursor crosshairCursor] set];
-            break;
+            return [NSCursor crosshairCursor];
         case PLATFORM_CLOSEDHANDCURSOR:
-            [[NSCursor closedHandCursor] set];
-            break;
+            return [NSCursor closedHandCursor];
         case PLATFORM_OPENHANDCURSOR:
-            [[NSCursor openHandCursor] set];
-            break;
+            return [NSCursor openHandCursor];
         case PLATFORM_POINTINGHANDCURSOR:
-            [[NSCursor pointingHandCursor] set];
-            break;
+            return [NSCursor pointingHandCursor];
         case PLATFORM_RESIZELEFTRIGHTCURSOR:
-            [[NSCursor resizeLeftRightCursor] set];
-            break;
+            return [NSCursor resizeLeftRightCursor];
         case PLATFORM_RESIZEUPDOWNCURSOR:
-            [[NSCursor resizeUpDownCursor] set];
-            break;
+            return [NSCursor resizeUpDownCursor];
         case PLATFORM_DISAPPEARINGITEMCURSOR:
-            [[NSCursor disappearingItemCursor] set];
-            break;
+            return [NSCursor disappearingItemCursor];
+        default:
+            return NULL;
     }
+}
+
+
+NSCursor* platformMakeCursor(char* filename, NSPoint* hotSpot)
+{
+    NSImage* image = [[NSImage alloc] initWithContentsOfFile: [NSString stringWithUTF8String:filename]];
+    return [[NSCursor alloc] initWithImage: image hotSpot: *hotSpot];
+}
+
+
+void platformSetCursor(NSCursor* cursor)
+{
+    [cursor set];
 }
 
 
@@ -3874,7 +3889,9 @@ void platformResumeMusic(char* alias)
 (c-external (platformSwapInterval int) void)
 (c-external (platformGetMousePosition platformwindow NSPoint*) void)
 (c-external (platformSetMousePosition platformwindow NSPoint*) void)
-(c-external (platformSetCursor int) void)
+(c-external (platformGetSystemCursor int) NSCursor*)
+(c-external (platformMakeCursor char-string NSPoint*) NSCursor*)
+(c-external (platformSetCursor NSCursor*) void)
 (c-external (platformShowCursor platformwindow) void)
 (c-external (platformHideCursor platformwindow) void)
 (c-external (platformCaptureCursor platformwindow) void)

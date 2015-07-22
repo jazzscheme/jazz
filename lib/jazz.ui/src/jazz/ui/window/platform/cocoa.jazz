@@ -719,6 +719,9 @@
 (definition public Current-Cursor
   #f)
 
+(definition public Cursor-Cache
+  (make-table test: eqv?))
+
 
 (definition public Cursors
   (list
@@ -729,8 +732,8 @@
     (list :finger              PLATFORM_POINTINGHANDCURSOR)
     (list :all                 PLATFORM_ARROWCURSOR)
     (list :west-east           PLATFORM_ARROWCURSOR)
-    (list :no                  PLATFORM_ARROWCURSOR)
-    (list :move                PLATFORM_DISAPPEARINGITEMCURSOR)
+    (list :no                  (cons {Cursor-Resource "no"} {Point 5 5}))
+    (list :move                (cons {Cursor-Resource "move"} {Point 5 5}))
     (list :opened-hand         PLATFORM_OPENHANDCURSOR)
     (list :closed-hand         PLATFORM_CLOSEDHANDCURSOR)
     (list :zoom                PLATFORM_ARROWCURSOR)
@@ -742,20 +745,37 @@
     (list :horizontal-splitter PLATFORM_RESIZEUPDOWNCURSOR)))
 
 
+(definition (load-cursor name)
+  (define (load id/resource)
+    (if (number? id/resource)
+        (platformGetSystemCursor id/resource)
+      (bind (resource . hotspot) id/resource
+        (let ((path (parse~ (get-resource~ (get-application) 'cursor (get-name~ resource)))))
+          (with-NSPoint hotspot
+            (lambda (pos)
+              (platformMakeCursor path pos)))))))
+  
+  (or (table-ref Cursor-Cache name #f)
+      (let ((cursor (load (get-named-cursor name))))
+        (table-set! Cursor-Cache name cursor)
+        cursor)))
+
+
 (definition (get-named-cursor name)
   (let ((info (assq name Cursors)))
-    (and info (cadr info))))
+    (if info
+        (cadr info)
+      (error "Unknown cursor: {t}" name))))
 
 
 (definition public (get-cursor)
   Current-Cursor)
 
 
-(definition public (set-cursor cursor)
-  (unless #f @to-fix-this-doesnt-work-when-switching-overlapped-windows! (= cursor Current-Cursor)
-    (set! Current-Cursor cursor)
-    (let ((cursor (or (if (symbol? cursor) (get-named-cursor cursor) cursor) PLATFORM_ARROWCURSOR)))
-      (platformSetCursor cursor))))
+(definition public (set-cursor name)
+  (unless #f @to-fix-this-doesnt-work-when-switching-overlapped-windows! (= name Current-Cursor)
+    (set! Current-Cursor name)
+    (platformSetCursor (load-cursor name))))
 
 
 (definition public (platform-show-cursor handle)

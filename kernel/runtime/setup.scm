@@ -173,7 +173,7 @@
 
 (define (jazz:safe-exit-job thunk)
   (lambda ()
-    (with-exception-handler
+    (with-exception-catcher
       (lambda (exc)
         (let ((dir (or jazz:jazz-settings-directory "~/.jazz/")))
           (jazz:create-directory dir)

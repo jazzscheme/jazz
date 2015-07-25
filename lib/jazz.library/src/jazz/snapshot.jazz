@@ -123,20 +123,15 @@
 ;;;
 
 
-(definition snapshot-file-creation-mutex (make-mutex))
-
-
 (definition (create-timestamped-file directory prefix extension)
-  (mutex-lock! snapshot-file-creation-mutex)
-  (prog1 (with-exception-catcher
-           (lambda (exc)
-             (console "Snapshot timestamped file creation failed" exc)
-             #f)
-           (lambda ()
-             (let ((file (timestamped-file (or directory (snapshots-directory)) (or prefix (->string (current-process-name))) (or extension "snapshot"))))
-               (create~ file)
-               file)))
-    (mutex-unlock! snapshot-file-creation-mutex)))
+  (with-exception-catcher
+    (lambda (exc)
+      (console "Snapshot timestamped file creation failed" exc)
+      #f)
+    (lambda ()
+      (let ((file (timestamped-file (or directory (snapshots-directory)) (or prefix (->string (current-process-name))) (or extension "snapshot"))))
+        (create~ file)
+        file))))
 
 
 (definition (call-with-snapshot-output-file args proc)

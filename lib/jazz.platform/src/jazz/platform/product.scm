@@ -244,7 +244,7 @@
   (cocoa
    (define jazz:cocoa-units
      (let ((opengl-include-path (jazz:quote-jazz-pathname "foreign/opengl/include")))
-       `((jazz.platform.cocoa cc-options: ,(string-append "-I" opengl-include-path) ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc)))))
+       `((jazz.platform.cocoa.foreign cc-options: ,(string-append "-I" opengl-include-path) ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc)))))
   (else))
 
 

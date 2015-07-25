@@ -1,0 +1,4274 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Cocoa Foreign
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.platform.cocoa.foreign jazz
+
+
+(import (jazz.foreign)
+        (jazz.platform.types)
+        (jazz.system.access))
+
+
+;;;
+;;;; Objective C
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+#include <objc/objc.h>
+#include <Foundation/NSString.h>
+
+const char *class_getName(Class cls);
+id objc_getClass(const char *name);
+id objc_msgSend(id self, SEL op, ...);
+
+id retain_id(id x)
+{
+  if (x != nil)
+    [x retain];
+  return x;
+}
+
+___SCMOBJ release_id(void *ptr)
+{
+  id x = ___CAST(id,ptr);
+  if (x != nil)
+    [x release];
+  return ___FIX(___NO_ERR);
+}
+
+Class retain_Class(Class x)
+{
+  if (x != nil)
+    [x retain];
+  return x;
+}
+
+___SCMOBJ release_Class(void *ptr)
+{
+  Class x = ___CAST(Class,ptr);
+  if (x != nil)
+    [x release];
+  return ___FIX(___NO_ERR);
+}
+
+//#)
+
+
+;;;
+;;;; Objective C Types
+;;;
+
+
+(c-type id (pointer (struct "objc_object") (id Class) "release_id"))
+
+@warnings (
+(c-type Class_ (pointer (struct "objc_class") (Class id) "release_Class"))
+(c-type SEL (pointer (struct "objc_selector") (SEL)))
+
+(c-external (string->Class nonnull-char-string) Class_
+    "___result = retain_Class(objc_getClass(___arg1));")
+
+(c-external (Class->string Class_) nonnull-char-string
+    "___result = ___CAST(char*,class_getName(___arg1));")
+
+(c-external (string->SEL nonnull-UTF-8-string) SEL
+    "___result_voidstar = sel_registerName(___arg1);")
+
+(c-external (SEL->string SEL) nonnull-UTF-8-string
+    "___result = ___CAST(char*,sel_getName(___arg1));"))
+
+
+;;;
+;;;; Objective C Messages
+;;;
+
+
+@warnings (
+(c-external (send0 id SEL) id
+    "___result = retain_id(___CAST(id (*)(id, SEL),objc_msgSend)(___arg1, ___arg2));")
+
+(c-external (send1 id SEL id) id
+    "___result = retain_id(___CAST(id (*)(id, SEL, id),objc_msgSend)(___arg1, ___arg2, ___arg3));")
+
+(c-external (send2 id SEL id id) id
+    "___result = retain_id(___CAST(id (*)(id, SEL, id, id),objc_msgSend)(___arg1, ___arg2, ___arg3, ___arg4));"))
+
+
+;;;
+;;;; Objective C Conversions
+;;;
+
+
+(c-external (id->string id) nonnull-UTF-8-string
+    "___result = ___CAST(char*,[___CAST(NSString*,___arg1) UTF8String]);")
+
+@warnings (
+(c-external (string->id nonnull-UTF-8-string) id
+    "___result = retain_id([NSString stringWithUTF8String: ___arg1]);")
+
+(c-external (id->bool id) bool
+    "___result = [___CAST(NSNumber*,___arg1) boolValue];")
+
+(c-external (bool->id bool) id
+    "___result = retain_id([NSNumber numberWithBool:___arg1]);")
+
+(c-external (id->int id) int
+    "___result = [___CAST(NSNumber*,___arg1) intValue];")
+
+(c-external (int->id int) id
+    "___result = retain_id([NSNumber numberWithInt:___arg1]);")
+
+(c-external (id->float id) float
+    "___result = [___CAST(NSNumber*,___arg1) floatValue];")
+
+(c-external (float->id float) id
+    "___result = retain_id([NSNumber numberWithFloat:___arg1]);")
+
+(c-external (id->double id) double
+    "___result = [___CAST(NSNumber*,___arg1) doubleValue];")
+
+(c-external (double->id double) id
+    "___result = retain_id([NSNumber numberWithDouble:___arg1]);"))
+
+
+;;;
+;;;; Cocoa NSString
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+___SCMOBJ SCMOBJ_to_NSStringSTAR(___SCMOBJ src, NSString **dst, int arg_num)
+{
+  /*
+   * Convert a Scheme string to NSString* .
+   */
+
+  NSString *result;
+  ___SCMOBJ ___temp;
+
+  if (src == ___FAL)
+    result = nil;
+  else if (!___STRINGP(src))
+    return ___FIX(___STOC_WCHARSTRING_ERR+arg_num);
+  else
+    {
+      int i;
+      int len = ___INT(___STRINGLENGTH(src));
+      unichar *buf = ___alloc_mem(sizeof(unichar)*len);
+
+      if (buf == 0)
+        return ___FIX(___STOC_HEAP_OVERFLOW_ERR+arg_num);
+
+      for (i=0; i<len; i++)
+        {
+          ___UCS_4 c = ___INT(___STRINGREF(src,___FIX(i)));
+          buf[i] = c;
+        }
+
+      result = retain_id([NSString stringWithCharacters:buf length:len]);
+
+      ___free_mem(buf);
+    }
+
+  *dst = result;
+
+  return ___FIX(___NO_ERR);
+}
+
+___SCMOBJ NSStringSTAR_to_SCMOBJ(NSString *src, ___SCMOBJ *dst, int arg_num)
+{
+  ___SCMOBJ result;
+
+  if (src == nil)
+    result = ___FAL;
+  else
+    {
+      int i;
+      int len = [src length];
+
+      result = ___alloc_scmobj(___PSTATE, ___sSTRING, len<<___LCS);
+
+      if (___FIXNUMP(result))
+        return ___FIX(___CTOS_HEAP_OVERFLOW_ERR+arg_num);
+
+      for (i=0; i<len; i++)
+        {
+          ___UCS_4 c = [src characterAtIndex:i];
+          ___STRINGSET(result,___FIX(i),___CHR(c))
+        }
+    }
+
+  *dst = result;
+
+  return ___FIX(___NO_ERR);
+}
+
+#define ___BEGIN_CFUN_SCMOBJ_to_NSStringSTAR(src,dst,i) \
+if ((___err = SCMOBJ_to_NSStringSTAR(src, &dst, i)) == ___FIX(___NO_ERR)) {
+#define ___END_CFUN_SCMOBJ_to_NSStringSTAR(src,dst,i) }
+
+#define ___BEGIN_CFUN_NSStringSTAR_to_SCMOBJ(src,dst) \
+if ((___err = NSStringSTAR_to_SCMOBJ(src, &dst, ___RETURN_POS)) == ___FIX(___NO_ERR)) {
+#define ___END_CFUN_NSStringSTAR_to_SCMOBJ(src,dst) \
+___EXT(___release_scmobj)(dst); }
+
+#define ___BEGIN_SFUN_NSStringSTAR_to_SCMOBJ(src,dst,i) \
+if ((___err = NSStringSTAR_to_SCMOBJ(src, &dst, i)) == ___FIX(___NO_ERR)) {
+#define ___END_SFUN_NSStringSTAR_to_SCMOBJ(src,dst,i) \
+___EXT(___release_scmobj)(dst); }
+
+#define ___BEGIN_SFUN_SCMOBJ_to_NSStringSTAR(src,dst) \
+{ ___err = SCMOBJ_to_NSStringSTAR(src, &dst, ___RETURN_POS);
+#define ___END_SFUN_SCMOBJ_to_NSStringSTAR(src,dst) }
+
+//#)
+
+(c-type NSString* "NSString*"
+  "NSStringSTAR_to_SCMOBJ"
+  "SCMOBJ_to_NSStringSTAR"
+  #t)
+
+
+;;;
+;;;; Cocoa NSArray
+;;;
+
+
+(c-type NSArray "NSArray")
+(c-type NSArray* (pointer NSArray))
+
+
+(definition public NSArray-length
+  (c-function NSArray-length (NSArray*) int "___result = [___arg1 count];"))
+
+(definition public NSArray-ref
+  (c-function NSArray-ref (NSArray* int) id "___result_voidstar = [___arg1 objectAtIndex:___arg2];"))
+
+
+(definition public (nsarray->list array)
+  (let ((count (NSArray-length array)))
+    (map (lambda (n)
+           (NSArray-ref array n))
+         (naturals 0 count))))
+
+
+;;;
+;;;; Cocoa NSDate
+;;;
+
+
+@warnings (
+(define NSDate      (string->Class "NSDate"))
+(define alloc       (string->SEL "alloc"))
+(define init        (string->SEL "init"))
+(define description (string->SEL "description"))
+
+(define (date)
+  (id->string
+   (send0 (send0 (send0 NSDate alloc) init) description))))
+
+
+;;;
+;;;; Cocoa NSBundle
+;;;
+
+
+@warnings (
+(define NSBundle    (string->Class "NSBundle"))
+(define mainBundle  (string->SEL "mainBundle"))
+(define objectForInfoDictionaryKey (string->SEL "objectForInfoDictionaryKey:"))
+
+(define (mainBundle-info key)
+  (let ((info
+         (send1 (send0 NSBundle mainBundle)
+                objectForInfoDictionaryKey (string->id key))))
+    (and info
+         (id->string info))))
+
+(define CFBundleName (mainBundle-info "CFBundleName"))
+(define CFBundleDisplayName (mainBundle-info "CFBundleDisplayName")))
+
+
+;;;
+;;;; Cocoa NSScreen
+;;;
+
+
+(c-type NSScreen "NSScreen")
+(c-type NSScreen* (pointer NSScreen))
+
+
+(c-external (id->nsscreen id) NSScreen*
+  #/Objective-C/
+    ___result = retain_id((id) ___arg1);
+//#)
+
+
+;;;
+;;;; Cocoa NSCursor
+;;;
+
+
+(c-type NSCursor "NSCursor")
+(c-type NSCursor* (pointer NSCursor))
+
+
+;;;
+;;;; Cocoa Types
+;;;
+
+
+(c-type CGFloat (native double))
+
+
+(c-structure NSPoint
+  (CGFloat x)
+  (CGFloat y))
+
+
+(c-structure NSSize
+  (CGFloat width)
+  (CGFloat height))
+
+
+(c-structure NSRect
+  (NSPoint origin)
+  (NSSize size))
+
+
+(c-type CGContextRef (pointer (struct "CGContext")))
+
+
+;;;
+;;;; Cocoa Conversions
+;;;
+
+
+(definition public (new-NSPoint x <fl> y <fl>)
+  (let ((point (NSPoint-make)))
+    (NSPoint-x-set! point x)
+    (NSPoint-y-set! point y)
+    point))
+
+
+(definition public (with-NSPoint point proc)
+  (let ((pt (cond ((not point) (NSPoint-make))
+                  ((is? point Point) (point->NSPoint point))
+                  (else point))))
+    (prog1 (proc pt)
+      (NSPoint-free pt))))
+
+
+(definition public (NSPoint->point pt) <Point>
+  (new Point
+    (fxround (NSPoint-x-ref pt))
+    (fxround (NSPoint-y-ref pt))))
+
+
+(definition public (point->NSPoint point)
+  (new-NSPoint (cast <fl> (get-h~ point))
+               (cast <fl> (get-v~ point))))
+
+
+(definition public (new-NSSize width <fl> height <fl>)
+  (let ((size (NSSize-make)))
+    (NSSize-width-set! size width)
+    (NSSize-height-set! size height)
+    size))
+
+
+(definition public (with-NSSize dim proc)
+  (let ((size (cond ((not dim) (NSSize-make))
+                    ((is? dim Dimension) (dimension->NSSize dim))
+                    (else dim))))
+    (prog1 (proc size)
+      (NSSize-free size))))
+
+
+(definition public (NSSize->dimension size) <Dimension>
+  (new Dimension
+    (fxround (NSSize-width-ref size))
+    (fxround (NSSize-height-ref size))))
+
+
+(definition public (dimension->NSSize dim)
+  (new-NSSize (cast <fl> (get-width~ dim))
+              (cast <fl> (get-height~ dim))))
+
+
+(definition public (new-NSRect x <fl> y <fl> width <fl> height <fl>)
+  (let ((rect (NSRect-make)))
+    (let ((orig (NSRect-origin-ref rect))
+          (size (NSRect-size-ref rect)))
+      (NSPoint-x-set!     orig x)
+      (NSPoint-y-set!     orig y)
+      (NSSize-width-set!  size width)
+      (NSSize-height-set! size height)
+      rect)))
+
+
+(definition public (with-NSRect rect proc)
+  (let ((rect (cond ((not rect) (NSRect-make))
+                    ((is? rect Rect) (rect->NSRect rect))
+                    (else rect))))
+    (prog1 (proc rect)
+      (NSRect-free rect))))
+
+
+(definition public (rect->NSRect rect)
+  (let ((l (get-left~ rect))
+        (t (get-top~ rect))
+        (r (get-right~ rect))
+        (b (get-bottom~ rect)))
+    (new-NSRect (cast <fl> l)
+                (cast <fl> t)
+                (cast <fl> (- r l))
+                (cast <fl> (- b t)))))
+
+
+(definition public (NSRect->rect rect) <Rect>
+  (let ((orig (NSRect-origin-ref rect))
+        (size (NSRect-size-ref rect)))
+    (new Rect
+      (fxround (NSPoint-x-ref orig))
+      (fxround (NSPoint-y-ref orig))
+      (fxround (+ (NSPoint-x-ref orig) (NSSize-width-ref size)))
+      (fxround (+ (NSPoint-y-ref orig) (NSSize-height-ref size))))))
+
+
+;;;
+;;;; Cocoa Region
+;;;
+
+
+@port-from-carbon (
+(c-type RgnHandle (pointer (struct "OpaqueRgnHandle")))
+
+
+(c-external (NewRgn) RgnHandle)
+(c-external (DisposeRgn RgnHandle) void)
+(c-external (OffsetRgn RgnHandle short short) void)
+(c-external (UnionRgn RgnHandle RgnHandle RgnHandle) void)
+
+
+(definition (GetRegionBounds region)
+  (let ((rect ((c-function GetRegionBounds (RgnHandle) Rect*
+                 #/Objective-C/
+                   Rect *rect = malloc(sizeof(rect));
+                   GetRegionBounds( ___arg1, rect);
+                   ___result_voidstar = rect;
+                 //#)
+               region)))
+    (let ((l (Rect-left-ref rect))
+          (t (Rect-top-ref rect))
+          (b (Rect-bottom-ref rect))
+          (r (Rect-right-ref rect)))
+      (Rect-free rect)
+      (values l t r b))))
+
+
+(c-external (RectRgn short short short short) RgnHandle
+  #/Objective-C/
+    RgnHandle reg = NewRgn();
+    Rect rect = {___arg2, ___arg1,  ___arg4, ___arg3};
+    RectRgn( reg, &rect );
+    ___result_voidstar = reg;
+//#)
+
+
+(c-external (RectInRgn short short short short RgnHandle) bool
+  #/Objective-C/
+    Rect rect = {___arg2, ___arg1,  ___arg4, ___arg3};
+    ___result = RectInRgn( &rect, ___arg5 );
+//#))
+
+
+;;;
+;;;; Platform Header
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+#define PLATFORM_USE_FULLSCREEN 0
+
+
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <string.h>
+#include <limits.h>
+
+#include <OpenGL/gl3.h>
+
+#import <Cocoa/Cocoa.h>
+
+
+typedef struct PlatformWindowConfig      PlatformWindowConfig;
+typedef struct PlatformFramebufferConfig PlatformFramebufferConfig;
+typedef struct PlatformWindow            PlatformWindow;
+typedef struct PlatformState             PlatformState;
+typedef struct PlatformInputState        PlatformInputState;
+
+//#)
+
+
+;;;
+;;;; Platform Constants
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+/* Key and button state/action definitions */
+#define PLATFORM_RELEASE            0
+#define PLATFORM_PRESS              1
+
+/* Printable keys */
+#define PLATFORM_KEY_SPACE                  32
+#define PLATFORM_KEY_APOSTROPHE             39
+#define PLATFORM_KEY_COMMA                  44
+#define PLATFORM_KEY_MINUS                  45
+#define PLATFORM_KEY_PERIOD                 46
+#define PLATFORM_KEY_SLASH                  47
+#define PLATFORM_KEY_0                      48
+#define PLATFORM_KEY_1                      49
+#define PLATFORM_KEY_2                      50
+#define PLATFORM_KEY_3                      51
+#define PLATFORM_KEY_4                      52
+#define PLATFORM_KEY_5                      53
+#define PLATFORM_KEY_6                      54
+#define PLATFORM_KEY_7                      55
+#define PLATFORM_KEY_8                      56
+#define PLATFORM_KEY_9                      57
+#define PLATFORM_KEY_SEMICOLON              59
+#define PLATFORM_KEY_EQUAL                  61
+#define PLATFORM_KEY_A                      65
+#define PLATFORM_KEY_B                      66
+#define PLATFORM_KEY_C                      67
+#define PLATFORM_KEY_D                      68
+#define PLATFORM_KEY_E                      69
+#define PLATFORM_KEY_F                      70
+#define PLATFORM_KEY_G                      71
+#define PLATFORM_KEY_H                      72
+#define PLATFORM_KEY_I                      73
+#define PLATFORM_KEY_J                      74
+#define PLATFORM_KEY_K                      75
+#define PLATFORM_KEY_L                      76
+#define PLATFORM_KEY_M                      77
+#define PLATFORM_KEY_N                      78
+#define PLATFORM_KEY_O                      79
+#define PLATFORM_KEY_P                      80
+#define PLATFORM_KEY_Q                      81
+#define PLATFORM_KEY_R                      82
+#define PLATFORM_KEY_S                      83
+#define PLATFORM_KEY_T                      84
+#define PLATFORM_KEY_U                      85
+#define PLATFORM_KEY_V                      86
+#define PLATFORM_KEY_W                      87
+#define PLATFORM_KEY_X                      88
+#define PLATFORM_KEY_Y                      89
+#define PLATFORM_KEY_Z                      90
+#define PLATFORM_KEY_LEFT_BRACKET           91
+#define PLATFORM_KEY_BACKSLASH              92
+#define PLATFORM_KEY_RIGHT_BRACKET          93
+#define PLATFORM_KEY_GRAVE_ACCENT           96
+#define PLATFORM_KEY_WORLD_1                161
+#define PLATFORM_KEY_WORLD_2                162
+
+/* Function keys */
+#define PLATFORM_KEY_ESCAPE                 256
+#define PLATFORM_KEY_ENTER                  257
+#define PLATFORM_KEY_TAB                    258
+#define PLATFORM_KEY_BACKSPACE              259
+#define PLATFORM_KEY_INSERT                 260
+#define PLATFORM_KEY_DELETE                 261
+#define PLATFORM_KEY_RIGHT                  262
+#define PLATFORM_KEY_LEFT                   263
+#define PLATFORM_KEY_DOWN                   264
+#define PLATFORM_KEY_UP                     265
+#define PLATFORM_KEY_PAGE_UP                266
+#define PLATFORM_KEY_PAGE_DOWN              267
+#define PLATFORM_KEY_HOME                   268
+#define PLATFORM_KEY_END                    269
+#define PLATFORM_KEY_CAPS_LOCK              280
+#define PLATFORM_KEY_SCROLL_LOCK            281
+#define PLATFORM_KEY_NUM_LOCK               282
+#define PLATFORM_KEY_PRINT_SCREEN           283
+#define PLATFORM_KEY_PAUSE                  284
+#define PLATFORM_KEY_F1                     290
+#define PLATFORM_KEY_F2                     291
+#define PLATFORM_KEY_F3                     292
+#define PLATFORM_KEY_F4                     293
+#define PLATFORM_KEY_F5                     294
+#define PLATFORM_KEY_F6                     295
+#define PLATFORM_KEY_F7                     296
+#define PLATFORM_KEY_F8                     297
+#define PLATFORM_KEY_F9                     298
+#define PLATFORM_KEY_F10                    299
+#define PLATFORM_KEY_F11                    300
+#define PLATFORM_KEY_F12                    301
+#define PLATFORM_KEY_F13                    302
+#define PLATFORM_KEY_F14                    303
+#define PLATFORM_KEY_F15                    304
+#define PLATFORM_KEY_F16                    305
+#define PLATFORM_KEY_F17                    306
+#define PLATFORM_KEY_F18                    307
+#define PLATFORM_KEY_F19                    308
+#define PLATFORM_KEY_F20                    309
+#define PLATFORM_KEY_F21                    310
+#define PLATFORM_KEY_F22                    311
+#define PLATFORM_KEY_F23                    312
+#define PLATFORM_KEY_F24                    313
+#define PLATFORM_KEY_F25                    314
+#define PLATFORM_KEY_KP_0                   320
+#define PLATFORM_KEY_KP_1                   321
+#define PLATFORM_KEY_KP_2                   322
+#define PLATFORM_KEY_KP_3                   323
+#define PLATFORM_KEY_KP_4                   324
+#define PLATFORM_KEY_KP_5                   325
+#define PLATFORM_KEY_KP_6                   326
+#define PLATFORM_KEY_KP_7                   327
+#define PLATFORM_KEY_KP_8                   328
+#define PLATFORM_KEY_KP_9                   329
+#define PLATFORM_KEY_KP_DECIMAL             330
+#define PLATFORM_KEY_KP_DIVIDE              331
+#define PLATFORM_KEY_KP_MULTIPLY            332
+#define PLATFORM_KEY_KP_SUBTRACT            333
+#define PLATFORM_KEY_KP_ADD                 334
+#define PLATFORM_KEY_KP_ENTER               335
+#define PLATFORM_KEY_KP_EQUAL               336
+#define PLATFORM_KEY_LEFT_SHIFT             340
+#define PLATFORM_KEY_LEFT_CONTROL           341
+#define PLATFORM_KEY_LEFT_ALT               342
+#define PLATFORM_KEY_LEFT_SUPER             343
+#define PLATFORM_KEY_RIGHT_SHIFT            344
+#define PLATFORM_KEY_RIGHT_CONTROL          345
+#define PLATFORM_KEY_RIGHT_ALT              346
+#define PLATFORM_KEY_RIGHT_SUPER            347
+#define PLATFORM_KEY_MENU                   348
+#define PLATFORM_KEY_LAST                   PLATFORM_KEY_MENU
+
+/* Mouse button definitions */
+#define PLATFORM_MOUSE_BUTTON_1      0
+#define PLATFORM_MOUSE_BUTTON_2      1
+#define PLATFORM_MOUSE_BUTTON_3      2
+#define PLATFORM_MOUSE_BUTTON_4      3
+#define PLATFORM_MOUSE_BUTTON_5      4
+#define PLATFORM_MOUSE_BUTTON_6      5
+#define PLATFORM_MOUSE_BUTTON_7      6
+#define PLATFORM_MOUSE_BUTTON_8      7
+#define PLATFORM_MOUSE_BUTTON_LAST   PLATFORM_MOUSE_BUTTON_8
+
+/* Mouse button aliases */
+#define PLATFORM_MOUSE_BUTTON_LEFT   PLATFORM_MOUSE_BUTTON_1
+#define PLATFORM_MOUSE_BUTTON_RIGHT  PLATFORM_MOUSE_BUTTON_2
+#define PLATFORM_MOUSE_BUTTON_MIDDLE PLATFORM_MOUSE_BUTTON_3
+
+/* platformCreateWindow modes */
+#define PLATFORM_WINDOWED               0x00010001
+#define PLATFORM_FULLSCREEN             0x00010002
+
+/* platformCreateWindow kinds */
+#define PLATFORM_WINDOW                 0x00010011
+#define PLATFORM_DIALOG                 0x00010012
+#define PLATFORM_POPUP                  0x00010013
+#define PLATFORM_BORDERLESS             0x00010014
+
+/* PLATFORM_CLIENT_API tokens */
+#define PLATFORM_OPENGL_API             0x00000001
+#define PLATFORM_OPENGL_ES_API          0x00000002
+
+/* PLATFORM_OPENGL_PROFILE bit tokens */
+#define PLATFORM_OPENGL_CORE_PROFILE    0x00000001
+#define PLATFORM_OPENGL_COMPAT_PROFILE  0x00000002
+
+/* cursor kinds */
+#define PLATFORM_ARROWCURSOR            0x00000001
+#define PLATFORM_IBEAMCURSOR            0x00000002
+#define PLATFORM_CROSSHAIRCURSOR        0x00000003
+#define PLATFORM_CLOSEDHANDCURSOR       0x00000004
+#define PLATFORM_OPENHANDCURSOR         0x00000005
+#define PLATFORM_POINTINGHANDCURSOR     0x00000006
+#define PLATFORM_RESIZELEFTRIGHTCURSOR  0x00000007
+#define PLATFORM_RESIZEUPDOWNCURSOR     0x00000008
+#define PLATFORM_DISAPPEARINGITEMCURSOR 0x00000009
+
+/* cursorMode values */
+#define PLATFORM_CURSOR_NORMAL          0x00040001
+#define PLATFORM_CURSOR_HIDDEN          0x00040002
+#define PLATFORM_CURSOR_CAPTURED        0x00040003
+
+/* platformGetError tokens */
+#define PLATFORM_NO_ERROR               0
+#define PLATFORM_NOT_INITIALIZED        0x00070001
+#define PLATFORM_NO_CURRENT_CONTEXT     0x00070002
+#define PLATFORM_INVALID_ENUM           0x00070003
+#define PLATFORM_INVALID_VALUE          0x00070004
+#define PLATFORM_OUT_OF_MEMORY          0x00070005
+#define PLATFORM_OPENGL_UNAVAILABLE     0x00070006
+#define PLATFORM_VERSION_UNAVAILABLE    0x00070007
+#define PLATFORM_PLATFORM_ERROR         0x00070008
+#define PLATFORM_WINDOW_NOT_ACTIVE      0x00070009
+#define PLATFORM_FORMAT_UNAVAILABLE     0x0007000A
+
+//#)
+
+
+;;;
+;;;; Platform Prototypes
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+// Error handling
+void platformSetError(int error, const char* format, ...);
+int platformGetError();
+const char* platformErrorString(int error);
+
+// Window handling
+PlatformWindow* platformCreateWindow(int width, int height, int mode, int kind, const char* title, bool closable, bool miniaturizable, bool resizable, bool opengl);
+void platformDestroyWindow(PlatformWindow* window);
+void platformGetWindowSize(PlatformWindow* window, int* width, int* height);
+void platformIconifyWindow(PlatformWindow* window);
+void platformRestoreWindow(PlatformWindow* window);
+void platformShowWindow(PlatformWindow* window);
+void platformHideWindow(PlatformWindow* window);
+
+// Window event notification
+void platformReleaseAllKeys(PlatformWindow* window);
+void platformReleaseAllButtons(PlatformWindow* window);
+void platformInputWindowFocus(PlatformWindow* window, GLboolean activated);
+void platformInputWindowPos(PlatformWindow* window, int x, int y);
+void platformInputWindowSize(PlatformWindow* window, int width, int height);
+void platformInputWindowIconify(PlatformWindow* window, int iconified);
+void platformInputWindowVisibility(PlatformWindow* window, int visible);
+
+// Input event notification
+bool platformInputKey(PlatformWindow* window, int key, int action);
+void platformInputChar(PlatformWindow* window, int character);
+void platformInputScroll(PlatformWindow* window, double x, double y);
+void platformInputMouseClick(PlatformWindow* window, int button, int clickCount, int action);
+void platformInputCursorMotion(PlatformWindow* window, double x, double y);
+
+// Input handling
+int  platformGetInputMode(PlatformWindow* window, int mode);
+void platformSetInputMode(PlatformWindow* window, int mode, int value);
+int  platformGetKey(int key);
+int  platformGetMouseButton(PlatformWindow* window, int button);
+void platformInternalGetCursorPos(PlatformWindow* window, double* xpos, double* ypos);
+void platformInternalSetCursorPos(PlatformWindow* window, double x, double y);
+
+// Time
+void   platformInitTimer();
+double platformGetTime();
+void   platformSetTime(double time);
+
+// OpenGL support
+void platformMakeContextCurrent(PlatformWindow* window);
+PlatformWindow* platformGetCurrentContext();
+void platformInternalMakeContextCurrent(PlatformWindow* window);
+PlatformWindow* platformInternalGetCurrentContext();
+
+// OpenGL context helpers
+GLboolean platformRefreshContextParams();
+GLboolean platformIsValidContext(PlatformWindowConfig* wndconfig);
+
+//#)
+
+
+;;;
+;;;; Platform Structures
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+struct PlatformWindowConfig
+{
+    int             mode;
+    const char*     title;
+    int             refreshRate;
+    GLboolean       closable;
+    GLboolean       miniaturizable;
+    GLboolean       resizable;
+    GLboolean       visible;
+    int             clientAPI;
+    int             glMajor;
+    int             glMinor;
+    GLboolean       glForward;
+    GLboolean       glDebug;
+    int             glProfile;
+    int             glRobustness;
+};
+
+
+struct PlatformFramebufferConfig
+{
+    int         redBits;
+    int         greenBits;
+    int         blueBits;
+    int         alphaBits;
+    int         depthBits;
+    int         stencilBits;
+    int         accumRedBits;
+    int         accumGreenBits;
+    int         accumBlueBits;
+    int         accumAlphaBits;
+    int         auxBuffers;
+    GLboolean   stereo;
+    int         samples;
+};
+
+
+struct PlatformInputState
+{
+    char      key[PLATFORM_KEY_LAST + 1];
+    unsigned int modifierFlags;
+};
+
+
+struct PlatformWindow
+{
+    struct PlatformWindow* next;
+
+    // Settings and state
+    GLboolean iconified;
+    GLboolean closeRequested;
+    int       width, height;
+    int       positionX, positionY;
+    int       mode;
+    GLboolean visible;
+    int       refreshRate;
+
+    // Input state
+    double    cursorPosX, cursorPosY;
+    int       cursorMode;
+    char      mouseButton[PLATFORM_MOUSE_BUTTON_LAST + 1];
+
+    // OpenGL extensions and context attributes
+    int       clientAPI;
+    int       glMajor, glMinor, glRevision;
+    GLboolean glForward, glDebug;
+    int       glProfile;
+    int       glRobustness;
+
+    // Cocoa stuff
+    int       kind;
+    id        object;
+    id        delegate;
+    id        view;
+
+    // The total sum of the distances the cursor has been warped
+    // since the last cursor motion event was processed
+    // This is kept to counteract Cocoa doing the same internally
+    double    warpDeltaX, warpDeltaY;
+    
+    // OpenGL Context
+    id        pixelFormat;
+    id        context;
+};
+
+
+struct PlatformState
+{
+    double           cursorPosX, cursorPosY;
+
+    PlatformWindow*  windowListHead;
+    PlatformWindow*  focusedWindow;
+
+    struct {
+        double base;
+        double resolution;
+    } timer;
+
+    CGDisplayModeRef desktopMode;
+    CGEventSourceRef eventSource;
+    id               delegate;
+    id               autoreleasePool;
+
+    char*            clipboardString;
+};
+
+
+GLboolean platformInitialized;
+PlatformState platform;
+PlatformInputState platformInput;
+
+//#)
+
+
+;;;
+;;;; Platform Callbacks
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+void call_error(char* msg);
+void call_debug(char* msg);
+void call_terminal(char* msg);
+void call_test(char* msg);
+void paint_callback(PlatformWindow* window, NSRect* dirtyRect);
+void reshape_callback(PlatformWindow* window, int width, int height);
+void close_callback(PlatformWindow* window);
+int key_press_callback(PlatformWindow* window, int key, int action);
+void char_callback(PlatformWindow* window, int c);
+void button_callback(PlatformWindow* window, int x, int y, int button, int clickCount, int action);
+void moved_callback(PlatformWindow* window, double x, double y);
+void wheel_callback(PlatformWindow* window, double x, double y);
+void file_callback(NSString* filename);
+void drop_callback(PlatformWindow* window, NSArray* filenames);
+void entered_callback(PlatformWindow* window);
+void exited_callback(PlatformWindow* window);
+void activate_callback(PlatformWindow* window);
+void deactivate_callback(PlatformWindow* window);
+void terminate_callback();
+void finished_playing_callback(NSString* alias);
+void user_callback(int data1, int data2);
+
+//#)
+
+
+;;;
+;;;; Platform Debug
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+void debug(NSString* str)
+{
+    call_debug((char*) [str UTF8String]);
+}
+
+void terminal(NSString* str)
+{
+    call_terminal((char*) [str UTF8String]);
+}
+
+//#)
+
+
+;;;
+;;;; Platform Init
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+#include <sys/param.h> // For MAXPATHLEN
+
+GLboolean platformInitialized = GL_FALSE;
+
+PlatformState platform;
+
+PlatformWindow* currentWindow;
+
+
+// Change to our application bundle's resources directory, if present
+static void changeToResourcesDirectory()
+{
+    char resourcesPath[MAXPATHLEN];
+
+    CFBundleRef bundle = CFBundleGetMainBundle();
+    if (!bundle)
+        return;
+
+    CFURLRef resourcesURL = CFBundleCopyResourcesDirectoryURL(bundle);
+
+    CFStringRef last = CFURLCopyLastPathComponent(resourcesURL);
+    if (CFStringCompare(CFSTR("Resources"), last, 0) != kCFCompareEqualTo)
+    {
+        CFRelease(last);
+        CFRelease(resourcesURL);
+        return;
+    }
+
+    CFRelease(last);
+
+    if (!CFURLGetFileSystemRepresentation(resourcesURL,
+                                          true,
+                                          (UInt8*) resourcesPath,
+                                          MAXPATHLEN))
+    {
+        CFRelease(resourcesURL);
+        return;
+    }
+
+    CFRelease(resourcesURL);
+
+    chdir(resourcesPath);
+}
+
+
+void platformInit()
+{
+    if (platformInitialized)
+        return;
+
+    memset(&platform, 0, sizeof(platform));
+
+    platform.autoreleasePool = [[NSAutoreleasePool alloc] init];
+
+    changeToResourcesDirectory();
+
+    platform.desktopMode = CGDisplayCopyDisplayMode(CGMainDisplayID());
+
+    platformInitTimer();
+
+    platform.eventSource = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+    CGEventSourceSetLocalEventsSuppressionInterval(platform.eventSource,
+                                                   0.0);
+
+    platformInitialized = GL_TRUE;
+}
+
+
+void platformTerminate()
+{
+    if (!platformInitialized)
+        return;
+
+    // Close all remaining windows
+    while (platform.windowListHead)
+        platformDestroyWindow(platform.windowListHead);
+
+    if (platform.eventSource)
+    {
+        CFRelease(platform.eventSource);
+        platform.eventSource = NULL;
+    }
+
+    CGDisplayModeRelease(platform.desktopMode);
+
+    [NSApp setDelegate:nil];
+    [platform.delegate release];
+    platform.delegate = nil;
+
+    [platform.autoreleasePool release];
+    platform.autoreleasePool = nil;
+
+    platformInitialized = GL_FALSE;
+}
+
+//#)
+
+
+;;;
+;;;; Platform Window Utilities
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+#include <crt_externs.h>
+
+static void platformInternalGetWindowSize(PlatformWindow* window, int* width, int* height)
+{
+    const NSRect contentRect = [window->view frame];
+
+    if (width)
+        *width = contentRect.size.width;
+    if (height)
+        *height = contentRect.size.height;
+}
+
+static float transformY(float y)
+{
+    const float height = CGDisplayBounds(CGMainDisplayID()).size.height;
+    return height - y;
+}
+
+//#)
+
+
+;;;
+;;;; Platform Jazz Window
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+@interface JazzWindow : NSWindow
+{
+    PlatformWindow* window;
+    
+}
+
+- (void)setPlatformWindow:(PlatformWindow*)win;
+
+@end
+
+@implementation JazzWindow
+
+- (void)setPlatformWindow:(PlatformWindow*)win
+{
+    window = win;
+}
+
+- (BOOL)canBecomeKeyWindow
+{
+    return window->kind == PLATFORM_WINDOW ||
+           window->kind == PLATFORM_DIALOG;
+}
+
+- (BOOL)worksWhenModal
+{
+    return window && window->kind == PLATFORM_POPUP;
+}
+
+@end
+
+//#)
+
+
+;;;
+;;;; Platform Jazz FullScreen Window
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+@interface JazzFullScreenWindow : JazzWindow
+{
+    JazzWindow* mainWindow;
+    NSRect mainWindowFrame;
+}
+
+- (JazzWindow*)getMainWindow;
+- (NSRect)getmainWindowFrame;
+- (void)setMainWindow:(JazzWindow*)win;
+
+@end
+
+@implementation JazzFullScreenWindow
+
+- (JazzWindow*)getMainWindow
+{
+    return mainWindow;
+}
+
+- (NSRect)getmainWindowFrame
+{
+    return mainWindowFrame;
+}
+
+- (void)setMainWindow:(JazzWindow*)win
+{
+    mainWindow = win;
+    mainWindowFrame = [win frame];
+}
+
+@end
+
+
+@interface FullScreenView : NSView
+{
+}
+
+- (void)drawRect:(NSRect)dirtyRect;
+
+@end
+
+@implementation FullScreenView
+
+- (BOOL)isOpaque
+{
+    return YES;
+}
+
+- (void)drawRect:(NSRect)dirtyRect
+{
+    [[NSColor blackColor] set];
+    NSRectFill(dirtyRect);
+}
+
+@end
+
+
+bool inhibitActivation = false;
+
+
+JazzFullScreenWindow* fullscreenWindow;
+
+
+void enterWindowed(PlatformWindow* window, NSRect bounds, bool hidesOnDeactivate)
+{
+    if (fullscreenWindow)
+        return;
+  
+    inhibitActivation = true;
+  
+    JazzWindow* mainWindow = window->object;
+   
+    NSView *firstResponder = (NSView *)[mainWindow firstResponder];
+
+    if ([[mainWindow screen] isEqual:[[NSScreen screens] objectAtIndex:0]])
+    {
+        [NSMenu setMenuBarVisible:NO];
+    }
+
+    NSRect newFrame = [mainWindow contentRectForFrameRect:[mainWindow frame]];
+    fullscreenWindow = [[JazzFullScreenWindow alloc]
+        initWithContentRect:newFrame
+        styleMask:NSBorderlessWindowMask
+        backing:NSBackingStoreBuffered
+        defer:YES
+        screen:[mainWindow screen]];
+    [fullscreenWindow setMainWindow:mainWindow];
+
+    window->object = fullscreenWindow;
+    [window->object setDelegate:window->delegate];
+    
+    NSView *contentView = [[[mainWindow contentView] retain] autorelease];
+    [mainWindow setContentView:[[[FullScreenView alloc] init] autorelease]];
+  
+    [window->context update];
+    
+    [fullscreenWindow setPlatformWindow:window];
+    [fullscreenWindow setHidesOnDeactivate:hidesOnDeactivate];
+    [fullscreenWindow setAcceptsMouseMovedEvents:YES];
+    [fullscreenWindow setContentView:contentView];
+    [fullscreenWindow setTitle:[mainWindow title]];
+    [fullscreenWindow makeFirstResponder:firstResponder];
+    [fullscreenWindow makeKeyAndOrderFront:nil];
+        
+    [mainWindow orderOut:nil];
+        
+    NSRect fullFrame = [fullscreenWindow frameRectForContentRect: bounds];
+    // quick hack around a mac problem where fps becomes really low when
+    // the fullscreen window size is exactly the same size as the screen
+    fullFrame.origin.y = fullFrame.origin.y - 1;
+    fullFrame.size.height = fullFrame.size.height + 1;
+    // hack around annoying orderOut bug
+    [mainWindow setFrame:fullFrame
+                display:NO
+                animate:NO];
+    [fullscreenWindow
+        setFrame:fullFrame
+        display:YES
+        animate:YES];
+ 
+    inhibitActivation = false;
+}
+
+
+void exitWindowed(PlatformWindow* window)
+{
+    if (!fullscreenWindow)
+        return;
+  
+    inhibitActivation = true;
+  
+    NSWindow* mainWindow = [fullscreenWindow getMainWindow];
+    NSRect mainWindowFrame = [fullscreenWindow getmainWindowFrame];
+    // hack around annoying orderOut bug
+    [mainWindow orderOut:nil];
+    [mainWindow setFrame:mainWindowFrame
+                display:NO
+                animate:NO];
+         
+    NSView *firstResponder = (NSView *)[fullscreenWindow firstResponder];
+
+    NSRect newFrame = [fullscreenWindow frameRectForContentRect:
+        [mainWindow contentRectForFrameRect:[mainWindow frame]]];
+    [fullscreenWindow
+        setFrame:newFrame
+        display:YES
+        animate:YES];
+
+    NSView *contentView = [[[fullscreenWindow contentView] retain] autorelease];
+    [fullscreenWindow setContentView:[[[FullScreenView alloc] init] autorelease]];
+  
+    window->object = mainWindow;
+    [window->object setDelegate:window->delegate];
+
+    [mainWindow setContentView:contentView];
+    [mainWindow makeFirstResponder:firstResponder];
+    [mainWindow makeKeyAndOrderFront:nil];
+
+    [fullscreenWindow close];
+    fullscreenWindow = NULL;
+
+    if ([[mainWindow screen] isEqual:[[NSScreen screens] objectAtIndex:0]])
+    {
+        [NSMenu setMenuBarVisible:YES];
+    }
+ 
+    inhibitActivation = false;
+}
+
+
+void enterFullScreenWindowed(PlatformWindow* window)
+{
+    enterWindowed(window, [[window->object screen] frame], true);
+}
+
+
+void exitFullScreenWindowed(PlatformWindow* window)
+{
+    exitWindowed(window);
+}
+
+
+void toggleFullScreenWindowed(PlatformWindow* window)
+{
+    if (!fullscreenWindow)
+        enterFullScreenWindowed(window);
+    else
+        exitFullScreenWindowed(window);
+}
+
+
+void platformInternalPostEmptyEvent()
+{
+    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+    NSEvent* event = [NSEvent otherEventWithType:NSApplicationDefined
+                                        location:NSMakePoint(0, 0)
+                                   modifierFlags:0
+                                       timestamp:0
+                                    windowNumber:0
+                                         context:nil
+                                         subtype:0
+                                           data1:0
+                                           data2:0];
+    [NSApp postEvent:event atStart:YES];
+    [pool drain];
+}
+
+//#)
+
+
+;;;
+;;;; Platform Jazz Window Delegate
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+@interface JazzWindowDelegate : NSObject <NSDraggingDestination>
+{
+    PlatformWindow* window;
+}
+
+- (id)initWithPlatformWindow:(PlatformWindow*)initWndow;
+
+@end
+
+@implementation JazzWindowDelegate
+
+- (id)initWithPlatformWindow:(PlatformWindow*)initWindow
+{
+    self = [super init];
+    if (self != nil)
+        window = initWindow;
+
+    return self;
+}
+
+- (BOOL)windowShouldClose:(id)sender
+{
+    close_callback(window);
+    return NO;
+}
+
+- (void)windowDidResize:(NSNotification *)notification
+{
+    [window->context update];
+
+    NSRect contentRect =
+        [window->object contentRectForFrameRect:[window->object frame]];
+
+    platformInputWindowSize(window, contentRect.size.width, contentRect.size.height);
+}
+
+- (void)windowDidMove:(NSNotification *)notification
+{
+    [window->context update];
+
+    NSRect contentRect =
+        [window->object contentRectForFrameRect:[window->object frame]];
+
+    CGPoint mainScreenOrigin = CGDisplayBounds(CGMainDisplayID()).origin;
+    double mainScreenHeight = CGDisplayBounds(CGMainDisplayID()).size.height;
+    CGPoint flippedPos = CGPointMake(contentRect.origin.x - mainScreenOrigin.x,
+                                      mainScreenHeight - contentRect.origin.y -
+                                          mainScreenOrigin.y - window->height);
+
+    platformInputWindowPos(window, flippedPos.x, flippedPos.y);
+}
+
+- (void)windowDidMiniaturize:(NSNotification *)notification
+{
+    platformInputWindowIconify(window, GL_TRUE);
+}
+
+- (void)windowDidDeminiaturize:(NSNotification *)notification
+{
+    platformInputWindowIconify(window, GL_FALSE);
+}
+
+- (void)windowDidBecomeKey:(NSNotification *)notification
+{
+    platformInputWindowFocus(window, GL_TRUE);
+}
+
+- (void)windowDidResignKey:(NSNotification *)notification
+{
+    platformInputWindowFocus(window, GL_FALSE);
+}
+
+- (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)sender
+{
+    return NSDragOperationGeneric;
+}
+
+- (BOOL)performDragOperation:(id)sender
+{
+    NSPasteboard* pboard = [sender draggingPasteboard];
+    NSArray* filenames = [pboard propertyListForType:NSFilenamesPboardType];
+    drop_callback(window, retain_id(filenames));
+    return YES;
+}
+
+@end
+
+
+// quick hack around nextEventMatchingMask calling drawRect
+bool inEventAvailable = false;
+
+//#)
+
+
+;;;
+;;;; Platform Jazz Application Delegate
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+@interface JazzApplicationDelegate : NSObject
+@end
+
+@implementation JazzApplicationDelegate
+
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
+{
+    terminate_callback();
+    
+    return NSTerminateCancel;
+}
+
+- (void)applicationDidFinishLaunching:(NSNotification *)notification
+{
+    [NSApp stop:nil];
+
+    platformInternalPostEmptyEvent();
+}
+
+- (void)applicationDidHide:(NSNotification *)notification
+{
+    PlatformWindow* window;
+
+    for (window = platform.windowListHead;  window;  window = window->next)
+        platformInputWindowVisibility(window, GL_FALSE);
+}
+
+- (void)applicationDidUnhide:(NSNotification *)notification
+{
+    PlatformWindow* window;
+
+    for (window = platform.windowListHead;  window;  window = window->next)
+    {
+        if ([window->object isVisible])
+            platformInputWindowVisibility(window, GL_TRUE);
+    }
+}
+
+- (BOOL)application:(NSApplication *)theApplication openFile:(NSString *)filename
+{
+    file_callback(filename);
+    return YES;
+}
+
+
+@end
+
+//#)
+
+
+;;;
+;;;; Platform Keys
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+static int convertMacKeyCode(unsigned int macKeyCode)
+{
+    // Keyboard symbol translation table
+    static const unsigned int table[128] =
+    {
+        /* 00 */ PLATFORM_KEY_A,
+        /* 01 */ PLATFORM_KEY_S,
+        /* 02 */ PLATFORM_KEY_D,
+        /* 03 */ PLATFORM_KEY_F,
+        /* 04 */ PLATFORM_KEY_H,
+        /* 05 */ PLATFORM_KEY_G,
+        /* 06 */ PLATFORM_KEY_Z,
+        /* 07 */ PLATFORM_KEY_X,
+        /* 08 */ PLATFORM_KEY_C,
+        /* 09 */ PLATFORM_KEY_V,
+        /* 0a */ PLATFORM_KEY_GRAVE_ACCENT,
+        /* 0b */ PLATFORM_KEY_B,
+        /* 0c */ PLATFORM_KEY_Q,
+        /* 0d */ PLATFORM_KEY_W,
+        /* 0e */ PLATFORM_KEY_E,
+        /* 0f */ PLATFORM_KEY_R,
+        /* 10 */ PLATFORM_KEY_Y,
+        /* 11 */ PLATFORM_KEY_T,
+        /* 12 */ PLATFORM_KEY_1,
+        /* 13 */ PLATFORM_KEY_2,
+        /* 14 */ PLATFORM_KEY_3,
+        /* 15 */ PLATFORM_KEY_4,
+        /* 16 */ PLATFORM_KEY_6,
+        /* 17 */ PLATFORM_KEY_5,
+        /* 18 */ PLATFORM_KEY_EQUAL,
+        /* 19 */ PLATFORM_KEY_9,
+        /* 1a */ PLATFORM_KEY_7,
+        /* 1b */ PLATFORM_KEY_MINUS,
+        /* 1c */ PLATFORM_KEY_8,
+        /* 1d */ PLATFORM_KEY_0,
+        /* 1e */ PLATFORM_KEY_RIGHT_BRACKET,
+        /* 1f */ PLATFORM_KEY_O,
+        /* 20 */ PLATFORM_KEY_U,
+        /* 21 */ PLATFORM_KEY_LEFT_BRACKET,
+        /* 22 */ PLATFORM_KEY_I,
+        /* 23 */ PLATFORM_KEY_P,
+        /* 24 */ PLATFORM_KEY_ENTER,
+        /* 25 */ PLATFORM_KEY_L,
+        /* 26 */ PLATFORM_KEY_J,
+        /* 27 */ PLATFORM_KEY_APOSTROPHE,
+        /* 28 */ PLATFORM_KEY_K,
+        /* 29 */ PLATFORM_KEY_SEMICOLON,
+        /* 2a */ PLATFORM_KEY_BACKSLASH,
+        /* 2b */ PLATFORM_KEY_COMMA,
+        /* 2c */ PLATFORM_KEY_SLASH,
+        /* 2d */ PLATFORM_KEY_N,
+        /* 2e */ PLATFORM_KEY_M,
+        /* 2f */ PLATFORM_KEY_PERIOD,
+        /* 30 */ PLATFORM_KEY_TAB,
+        /* 31 */ PLATFORM_KEY_SPACE,
+        /* 32 */ PLATFORM_KEY_WORLD_1,
+        /* 33 */ PLATFORM_KEY_BACKSPACE,
+        /* 34 */ -1,
+        /* 35 */ PLATFORM_KEY_ESCAPE,
+        /* 36 */ PLATFORM_KEY_RIGHT_SUPER,
+        /* 37 */ PLATFORM_KEY_LEFT_SUPER,
+        /* 38 */ PLATFORM_KEY_LEFT_SHIFT,
+        /* 39 */ PLATFORM_KEY_CAPS_LOCK,
+        /* 3a */ PLATFORM_KEY_LEFT_ALT,
+        /* 3b */ PLATFORM_KEY_LEFT_CONTROL,
+        /* 3c */ PLATFORM_KEY_RIGHT_SHIFT,
+        /* 3d */ PLATFORM_KEY_RIGHT_ALT,
+        /* 3e */ PLATFORM_KEY_RIGHT_CONTROL,
+        /* 3f */ -1, /* Function */
+        /* 40 */ PLATFORM_KEY_F17,
+        /* 41 */ PLATFORM_KEY_KP_DECIMAL,
+        /* 42 */ -1,
+        /* 43 */ PLATFORM_KEY_KP_MULTIPLY,
+        /* 44 */ -1,
+        /* 45 */ PLATFORM_KEY_KP_ADD,
+        /* 46 */ -1,
+        /* 47 */ PLATFORM_KEY_NUM_LOCK, /* Really KeypadClear... */
+        /* 48 */ -1, /* VolumeUp */
+        /* 49 */ -1, /* VolumeDown */
+        /* 4a */ -1, /* Mute */
+        /* 4b */ PLATFORM_KEY_KP_DIVIDE,
+        /* 4c */ PLATFORM_KEY_KP_ENTER,
+        /* 4d */ -1,
+        /* 4e */ PLATFORM_KEY_KP_SUBTRACT,
+        /* 4f */ PLATFORM_KEY_F18,
+        /* 50 */ PLATFORM_KEY_F19,
+        /* 51 */ PLATFORM_KEY_KP_EQUAL,
+        /* 52 */ PLATFORM_KEY_KP_0,
+        /* 53 */ PLATFORM_KEY_KP_1,
+        /* 54 */ PLATFORM_KEY_KP_2,
+        /* 55 */ PLATFORM_KEY_KP_3,
+        /* 56 */ PLATFORM_KEY_KP_4,
+        /* 57 */ PLATFORM_KEY_KP_5,
+        /* 58 */ PLATFORM_KEY_KP_6,
+        /* 59 */ PLATFORM_KEY_KP_7,
+        /* 5a */ PLATFORM_KEY_F20,
+        /* 5b */ PLATFORM_KEY_KP_8,
+        /* 5c */ PLATFORM_KEY_KP_9,
+        /* 5d */ -1,
+        /* 5e */ -1,
+        /* 5f */ -1,
+        /* 60 */ PLATFORM_KEY_F5,
+        /* 61 */ PLATFORM_KEY_F6,
+        /* 62 */ PLATFORM_KEY_F7,
+        /* 63 */ PLATFORM_KEY_F3,
+        /* 64 */ PLATFORM_KEY_F8,
+        /* 65 */ PLATFORM_KEY_F9,
+        /* 66 */ -1,
+        /* 67 */ PLATFORM_KEY_F11,
+        /* 68 */ -1,
+        /* 69 */ PLATFORM_KEY_F13,
+        /* 6a */ PLATFORM_KEY_F16,
+        /* 6b */ PLATFORM_KEY_F14,
+        /* 6c */ -1,
+        /* 6d */ PLATFORM_KEY_F10,
+        /* 6e */ -1,
+        /* 6f */ PLATFORM_KEY_F12,
+        /* 70 */ -1,
+        /* 71 */ PLATFORM_KEY_F15,
+        /* 72 */ PLATFORM_KEY_INSERT, /* Really Help... */
+        /* 73 */ PLATFORM_KEY_HOME,
+        /* 74 */ PLATFORM_KEY_PAGE_UP,
+        /* 75 */ PLATFORM_KEY_DELETE,
+        /* 76 */ PLATFORM_KEY_F4,
+        /* 77 */ PLATFORM_KEY_END,
+        /* 78 */ PLATFORM_KEY_F2,
+        /* 79 */ PLATFORM_KEY_PAGE_DOWN,
+        /* 7a */ PLATFORM_KEY_F1,
+        /* 7b */ PLATFORM_KEY_LEFT,
+        /* 7c */ PLATFORM_KEY_RIGHT,
+        /* 7d */ PLATFORM_KEY_DOWN,
+        /* 7e */ PLATFORM_KEY_UP,
+        /* 7f */ -1,
+    };
+
+    if (macKeyCode >= 128)
+        return -1;
+
+    return table[macKeyCode];
+}
+
+//#)
+
+
+;;;
+;;;; Platform Jazz Content View
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+@interface JazzContentView : NSView
+{
+    PlatformWindow* window;
+    NSTrackingArea* trackingArea;
+}
+
+- (id)initWithPlatformWindow:(PlatformWindow*)initWindow;
+
+@end
+
+@implementation JazzContentView
+
+- (BOOL)isFlipped
+{
+    return YES;
+}
+
+- (id)initWithPlatformWindow:(PlatformWindow*)initWindow
+{
+    self = [super init];
+    if (self != nil)
+    {
+        window = initWindow;
+        trackingArea = nil;
+
+        [self updateTrackingAreas];
+    }
+
+    return self;
+}
+
+-(void)dealloc
+{
+    [self releaseTrackingAreas];
+    [super dealloc];
+}
+
+- (BOOL)isOpaque
+{
+    return YES;
+}
+
+- (BOOL)canBecomeKeyView
+{
+    return YES;
+}
+
+- (BOOL)acceptsFirstResponder
+{
+    return YES;
+}
+
+- (void)drawRect:(NSRect)dirtyRect
+{
+    if (inEventAvailable)
+        return;
+  
+    [[NSColor blackColor] set];
+    NSRectFill(dirtyRect);
+   
+    paint_callback(window, &dirtyRect);
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_LEFT, [event clickCount], PLATFORM_PRESS);
+}
+
+- (void)mouseDragged:(NSEvent *)event
+{
+    [self mouseMoved:event];
+}
+
+- (void)mouseUp:(NSEvent *)event
+{
+    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_LEFT, [event clickCount], PLATFORM_RELEASE);
+}
+
+- (void)mouseMoved:(NSEvent *)event
+{
+    // We need to reset before calling cursor motion
+    // in case mouse move does a capture cursor...
+    double wX, wY;
+  
+    wX = window->warpDeltaX;
+    wY = window->warpDeltaY;
+    
+    window->warpDeltaX = 0;
+    window->warpDeltaY = 0;
+    
+    if (window->cursorMode == PLATFORM_CURSOR_CAPTURED)
+    {
+        platformInputCursorMotion(window,
+                                  [event deltaX] - wX,
+                                  [event deltaY] - wY);
+    }
+    else
+    {
+        const NSRect contentRect = [window->view frame];
+        const NSPoint pos = [event locationInWindow];
+
+        platformInputCursorMotion(window, pos.x, contentRect.size.height - pos.y);
+    }
+}
+
+- (void)rightMouseDown:(NSEvent *)event
+{
+    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_RIGHT, [event clickCount], PLATFORM_PRESS);
+}
+
+- (void)rightMouseDragged:(NSEvent *)event
+{
+    [self mouseMoved:event];
+}
+
+- (void)rightMouseUp:(NSEvent *)event
+{
+    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_RIGHT, [event clickCount], PLATFORM_RELEASE);
+}
+
+- (void)otherMouseDown:(NSEvent *)event
+{
+    platformInputMouseClick(window, [event buttonNumber], [event clickCount], PLATFORM_PRESS);
+}
+
+- (void)otherMouseDragged:(NSEvent *)event
+{
+    [self mouseMoved:event];
+}
+
+- (void)otherMouseUp:(NSEvent *)event
+{
+    platformInputMouseClick(window, [event buttonNumber], [event clickCount], PLATFORM_RELEASE);
+}
+
+- (void)mouseEntered:(NSEvent *)event
+{
+    entered_callback(window);
+}
+
+- (void)mouseExited:(NSEvent *)event
+{
+    exited_callback(window);
+}
+
+- (void)updateTrackingAreas
+{
+    if (trackingArea != nil)
+    {
+        [self removeTrackingArea:trackingArea];
+        [trackingArea release];
+    }
+
+    NSTrackingAreaOptions options = NSTrackingMouseEnteredAndExited |
+                                    NSTrackingActiveAlways |
+                                    NSTrackingInVisibleRect;
+
+    trackingArea = [[NSTrackingArea alloc] initWithRect:[self bounds]
+                                                options:options
+                                                  owner:self
+                                               userInfo:nil];
+
+    [self addTrackingArea:trackingArea];
+    [super updateTrackingAreas];
+}
+
+- (void)releaseTrackingAreas
+{
+    if (trackingArea != nil)
+    {
+        [trackingArea release];
+        trackingArea = nil;
+    }
+}
+
+- (void)keyDown:(NSEvent *)event
+{
+    NSUInteger i, length;
+    NSString* characters;
+    int key = convertMacKeyCode([event keyCode]);
+
+    if (key != -1)
+    {
+        if (!platformInputKey(window, key, PLATFORM_PRESS))
+        {
+            int flags = [event modifierFlags];
+            if ((flags & NSCommandKeyMask) || (flags & NSFunctionKeyMask))
+            {
+                [super keyDown:event];
+            }
+            else
+            {
+                characters = [event characters];
+                length = [characters length];
+    
+                for (i = 0;  i < length;  i++)
+                    platformInputChar(window, [characters characterAtIndex:i]);
+            }
+        }
+    }
+}
+
+- (void)flagsChanged:(NSEvent *)event
+{
+    int mode, keyCode, key;
+    unsigned int newModifierFlags =
+        [event modifierFlags] | NSDeviceIndependentModifierFlagsMask;
+
+    if (newModifierFlags > platformInput.modifierFlags)
+        mode = PLATFORM_PRESS;
+    else
+        mode = PLATFORM_RELEASE;
+
+    platformInput.modifierFlags = newModifierFlags;
+
+    // work around invoking the mac Select the previous input source
+    // with super-alt-space doesn't generate keyUp for the modifiers
+    keyCode = [event keyCode];
+    if (keyCode == 0)
+    {
+        PlatformWindow* win;
+
+        for (win = platform.windowListHead;  win;  win = win->next)
+        {
+            if ([win->object isVisible])
+                platformReleaseAllKeys(win);
+        }
+    }
+    else
+    {
+        key = convertMacKeyCode(keyCode);
+        if (key != -1)
+            platformInputKey(window, key, mode);
+    }
+}
+
+- (void)keyUp:(NSEvent *)event
+{
+    int key = convertMacKeyCode([event keyCode]);
+    if (key != -1)
+        platformInputKey(window, key, PLATFORM_RELEASE);
+}
+
+- (void)scrollWheel:(NSEvent *)event
+{
+    double deltaX = [event deltaX];
+    double deltaY = [event deltaY];
+
+    if (fabs(deltaX) > 0.0 || fabs(deltaY) > 0.0)
+        platformInputScroll(window, deltaX, deltaY);
+}
+
+@end
+
+//#)
+
+
+;;;
+;;;; Platform Jazz Application
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+@interface JazzApplication : NSApplication
+@end
+
+@implementation JazzApplication
+
+// From http://cocoadev.com/index.pl?GameKeyboardHandlingAlmost
+// This works around an AppKit bug, where key up events while holding
+// down the command key don't get sent to the key window.
+- (void)sendEvent:(NSEvent *)event
+{
+    if ([event type] == NSApplicationDefined)
+        user_callback([event data1], [event data2]);
+    
+    if ([event type] == NSKeyUp && ([event modifierFlags] & NSCommandKeyMask))
+        [[self keyWindow] sendEvent:event];
+    else
+        [super sendEvent:event];
+}
+
+- (void)sound:(NSSound *)sound didFinishPlaying:(BOOL)finishedPlaying
+{
+    if (finishedPlaying)
+    {
+        NSString* name = [sound name];
+        if (name)
+            finished_playing_callback(name);
+    }
+}
+
+@end
+
+
+static NSString* findAppName()
+{
+    unsigned int i;
+    NSDictionary* infoDictionary = [[NSBundle mainBundle] infoDictionary];
+
+    // Keys to search for as potential application names
+    NSString* NameKeys[] =
+    {
+        @"CFBundleDisplayName",
+        @"CFBundleName",
+        @"CFBundleExecutable",
+    };
+
+    for (i = 0;  i < sizeof(NameKeys) / sizeof(NameKeys[0]);  i++)
+    {
+        id name = [infoDictionary objectForKey:NameKeys[i]];
+        if (name &&
+            [name isKindOfClass:[NSString class]] &&
+            ![@"" isEqualToString:name])
+        {
+            return name;
+        }
+    }
+
+    char** progname = _NSGetProgname();
+    if (progname && *progname)
+        return [NSString stringWithUTF8String:*progname];
+
+    // Really shouldn't get here
+    return @"Jazz Application";
+}
+
+
+static void createMenuBar()
+{
+    NSString* appName = findAppName();
+
+    NSMenu* bar = [[NSMenu alloc] init];
+    [NSApp setMainMenu:bar];
+
+    NSMenuItem* appMenuItem =
+        [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    NSMenu* appMenu = [[NSMenu alloc] init];
+    [appMenuItem setSubmenu:appMenu];
+
+    [appMenu addItemWithTitle:[NSString stringWithFormat:@"About %@", appName]
+                       action:@selector(orderFrontStandardAboutPanel:)
+                keyEquivalent:@""];
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    NSMenu* servicesMenu = [[NSMenu alloc] init];
+    [NSApp setServicesMenu:servicesMenu];
+    [[appMenu addItemWithTitle:@"Services"
+                       action:NULL
+                keyEquivalent:@""] setSubmenu:servicesMenu];
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    [appMenu addItemWithTitle:[NSString stringWithFormat:@"Hide %@", appName]
+                       action:@selector(hide:)
+                keyEquivalent:@"h"];
+    [[appMenu addItemWithTitle:@"Hide Others"
+                       action:@selector(hideOtherApplications:)
+                keyEquivalent:@"h"]
+        setKeyEquivalentModifierMask:NSAlternateKeyMask | NSCommandKeyMask];
+    [appMenu addItemWithTitle:@"Show All"
+                       action:@selector(unhideAllApplications:)
+                keyEquivalent:@""];
+    [appMenu addItem:[NSMenuItem separatorItem]];
+    [appMenu addItemWithTitle:[NSString stringWithFormat:@"Quit %@", appName]
+                       action:@selector(terminate:)
+                keyEquivalent:@"q"];
+
+    NSMenuItem* windowMenuItem =
+        [bar addItemWithTitle:@"" action:NULL keyEquivalent:@""];
+    NSMenu* windowMenu = [[NSMenu alloc] initWithTitle:@"Window"];
+    [NSApp setWindowsMenu:windowMenu];
+    [windowMenuItem setSubmenu:windowMenu];
+
+    [windowMenu addItemWithTitle:@"Miniaturize"
+                          action:@selector(performMiniaturize:)
+                   keyEquivalent:@"m"];
+    [windowMenu addItemWithTitle:@"Zoom"
+                          action:@selector(performZoom:)
+                   keyEquivalent:@""];
+
+#if PLATFORM_USE_FULLSCREEN == 1
+     if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
+     {
+         [windowMenu addItem:[NSMenuItem separatorItem]];
+         [windowMenu addItemWithTitle:@"Enter Full Screen"
+                               action:@selector(toggleFullScreen:)
+                        keyEquivalent:@"f"];
+     }
+#endif
+
+    [windowMenu addItem:[NSMenuItem separatorItem]];
+    [windowMenu addItemWithTitle:@"Bring All to Front"
+                          action:@selector(arrangeInFront:)
+                   keyEquivalent:@""];
+}
+
+
+static void initializeAppKit()
+{
+    if (NSApp)
+        return;
+
+    [JazzApplication sharedApplication];
+    
+    // In case we are unbundled, make us a proper UI application
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+
+    // Menu bar setup must go between sharedApplication above and
+    // finishLaunching below, in order to properly emulate the behavior
+    // of NSApplicationMain
+    createMenuBar();
+    
+    // There can only be one application delegate, but we allocate it the
+    // first time a window is created to keep all window code in this file
+    platform.delegate = [[JazzApplicationDelegate alloc] init];
+
+    [NSApp setDelegate:platform.delegate];
+    [NSApp run];
+}
+
+//#)
+
+
+;;;
+;;;; Platform Window Creation
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+
+static GLboolean createWindow(PlatformWindow* window,
+                              const PlatformWindowConfig* wndconfig,
+                              int kind)
+{
+    unsigned int styleMask = 0;
+
+    if (wndconfig->mode == PLATFORM_WINDOWED)
+    {
+        if (kind == PLATFORM_DIALOG)
+        {
+            styleMask = NSTitledWindowMask;
+            
+            if (wndconfig->closable)
+                styleMask |= NSClosableWindowMask;
+            
+            if (wndconfig->miniaturizable)
+                styleMask |= NSMiniaturizableWindowMask;
+
+            if (wndconfig->resizable)
+                styleMask |= NSResizableWindowMask;
+        }
+        else if (kind == PLATFORM_POPUP)
+        {
+            styleMask = NSBorderlessWindowMask;
+
+            if (wndconfig->resizable)
+                styleMask |= NSResizableWindowMask;
+        }
+        else if (kind == PLATFORM_BORDERLESS)
+        {
+            styleMask = NSBorderlessWindowMask;
+        }
+        else
+        {
+            styleMask = NSTitledWindowMask;
+
+            if (wndconfig->closable)
+                styleMask |= NSClosableWindowMask;
+            
+            if (wndconfig->miniaturizable)
+                styleMask |= NSMiniaturizableWindowMask;
+
+            if (wndconfig->resizable)
+                styleMask |= NSResizableWindowMask;
+        }
+    }
+    else
+        styleMask = NSBorderlessWindowMask;
+
+    window->kind = kind;
+    window->object = [[JazzWindow alloc]
+        initWithContentRect:NSMakeRect(0, 0, window->width, window->height)
+                  styleMask:styleMask
+                    backing:NSBackingStoreBuffered
+                      defer:NO];
+
+#if PLATFORM_USE_FULLSCREEN == 1
+     if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
+     {
+         if (wndconfig->resizable)
+             [window->object setCollectionBehavior:NSWindowCollectionBehaviorFullScreenPrimary];
+     }
+#endif
+
+    [window->object setPlatformWindow:window];
+    window->view = [[JazzContentView alloc] initWithPlatformWindow:window];
+
+    [window->object setTitle:[NSString stringWithUTF8String:wndconfig->title]];
+    [window->object setContentView:window->view];
+    [window->object setDelegate:window->delegate];
+    [window->object setAcceptsMouseMovedEvents:YES];
+    [window->object center];
+    
+    // because modal dialogs can have popups
+    if (kind == PLATFORM_POPUP)
+        [window->object setLevel:NSModalPanelWindowLevel];
+
+    if ([window->object respondsToSelector:@selector(setRestorable:)])
+        [window->object setRestorable:NO];
+
+    return GL_TRUE;
+}
+
+
+static GLboolean createContext(PlatformWindow* window,
+                               const PlatformWindowConfig* wndconfig,
+                               const PlatformFramebufferConfig* fbconfig)
+{
+    unsigned int attributeCount = 0;
+
+    // Mac OS X needs non-zero color size, so set resonable values
+    int colorBits = fbconfig->redBits + fbconfig->greenBits + fbconfig->blueBits;
+    if (colorBits == 0)
+        colorBits = 24;
+    else if (colorBits < 15)
+        colorBits = 15;
+
+    if (wndconfig->clientAPI == PLATFORM_OPENGL_ES_API)
+    {
+        platformSetError(PLATFORM_VERSION_UNAVAILABLE,
+                      "Cocoa/NSOpenGL: NSOpenGL does not support OpenGL ES");
+        return GL_FALSE;
+    }
+
+#define ADD_ATTR(x) { attributes[attributeCount++] = x; }
+#define ADD_ATTR2(x, y) { ADD_ATTR(x); ADD_ATTR(y); }
+
+    // Arbitrary array size here
+    NSOpenGLPixelFormatAttribute attributes[40];
+
+    ADD_ATTR(NSOpenGLPFADoubleBuffer);
+
+    if (wndconfig->mode == PLATFORM_FULLSCREEN)
+    {
+        ADD_ATTR(NSOpenGLPFANoRecovery);
+        ADD_ATTR2(NSOpenGLPFAScreenMask,
+                  CGDisplayIDToOpenGLDisplayMask(CGMainDisplayID()));
+    }
+
+    if (wndconfig->glMajor > 2)
+        ADD_ATTR2(NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersion3_2Core);
+
+    ADD_ATTR2(NSOpenGLPFAColorSize, colorBits);
+
+    if (fbconfig->alphaBits > 0)
+        ADD_ATTR2(NSOpenGLPFAAlphaSize, fbconfig->alphaBits);
+
+    if (fbconfig->depthBits > 0)
+        ADD_ATTR2(NSOpenGLPFADepthSize, fbconfig->depthBits);
+
+    if (fbconfig->stencilBits > 0)
+        ADD_ATTR2(NSOpenGLPFAStencilSize, fbconfig->stencilBits);
+
+    int accumBits = fbconfig->accumRedBits + fbconfig->accumGreenBits +
+                    fbconfig->accumBlueBits + fbconfig->accumAlphaBits;
+
+    if (accumBits > 0)
+        ADD_ATTR2(NSOpenGLPFAAccumSize, accumBits);
+
+    if (fbconfig->auxBuffers > 0)
+        ADD_ATTR2(NSOpenGLPFAAuxBuffers, fbconfig->auxBuffers);
+
+    if (fbconfig->stereo)
+        ADD_ATTR(NSOpenGLPFAStereo);
+
+    if (fbconfig->samples > 0)
+    {
+        ADD_ATTR2(NSOpenGLPFASampleBuffers, 1);
+        ADD_ATTR2(NSOpenGLPFASamples, fbconfig->samples);
+    }
+
+    ADD_ATTR(0);
+
+#undef ADD_ATTR
+#undef ADD_ATTR2
+
+    window->pixelFormat =
+        [[NSOpenGLPixelFormat alloc] initWithAttributes:attributes];
+
+    window->context =
+        [[NSOpenGLContext alloc] initWithFormat:window->pixelFormat shareContext:nil];
+
+    return GL_TRUE;
+}
+
+
+void platformInternalGetCursorPos(PlatformWindow* window, double* xpos, double* ypos)
+{
+    const NSRect contentRect = [window->view frame];
+    const NSPoint pos = [window->object mouseLocationOutsideOfEventStream];
+
+    if (xpos)
+        *xpos = pos.x;
+    if (ypos)
+        *ypos = contentRect.size.height - pos.y - 1;
+}
+
+
+void platformInternalSetCursorPos(PlatformWindow* window, double x, double y)
+{
+    const NSRect contentRect = [window->view frame];
+    const NSPoint pos = [window->object mouseLocationOutsideOfEventStream];
+
+    window->warpDeltaX += x - pos.x;
+    window->warpDeltaY += y - contentRect.size.height + pos.y;
+
+    const NSPoint localPoint = NSMakePoint(x, contentRect.size.height - y - 1);
+    const NSPoint globalPoint = [window->object convertBaseToScreen:localPoint];
+
+    CGWarpMouseCursorPosition(CGPointMake(globalPoint.x,
+                                          transformY(globalPoint.y)));
+}
+
+
+void platformInternalApplyCursorMode(PlatformWindow* window)
+{
+    switch (window->cursorMode)
+    {
+        case PLATFORM_CURSOR_NORMAL:
+            [NSCursor unhide];
+            break;
+        case PLATFORM_CURSOR_HIDDEN:
+            [NSCursor hide];
+            break;
+        case PLATFORM_CURSOR_CAPTURED:
+            [NSCursor hide];
+            break;
+    }
+    
+    if (window->cursorMode == PLATFORM_CURSOR_CAPTURED)
+        CGAssociateMouseAndMouseCursorPosition(false);
+    else
+        CGAssociateMouseAndMouseCursorPosition(true);
+}
+
+//#)
+
+
+;;;
+;;;; Platform Time
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+#include <mach/mach_time.h>
+
+
+static uint64_t getRawTime()
+{
+    return mach_absolute_time();
+}
+
+
+void platformInitTimer()
+{
+    mach_timebase_info_data_t info;
+    mach_timebase_info(&info);
+
+    platform.timer.resolution = (double) info.numer / (info.denom * 1.0e9);
+    platform.timer.base = getRawTime();
+}
+
+
+double platformGetTime()
+{
+    return (double) (getRawTime() - platform.timer.base) *
+        platform.timer.resolution;
+}
+
+
+void platformSetTime(double time)
+{
+    platform.timer.base = getRawTime() -
+        (uint64_t) (time / platform.timer.resolution);
+}
+
+//#)
+
+
+;;;
+;;;; Platform Error
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+static int platformError = PLATFORM_NO_ERROR;
+
+
+void platformSetError(int error, const char* format, ...)
+{
+    char buffer[16384];
+    const char* description;
+
+    if (format)
+    {
+        int count;
+        va_list vl;
+
+        va_start(vl, format);
+        count = vsnprintf(buffer, sizeof(buffer), format, vl);
+        va_end(vl);
+
+        if (count < 0)
+            buffer[sizeof(buffer) - 1] = '\0';
+
+        description = buffer;
+    }
+    else
+        description = platformErrorString(error);
+
+    call_error((char *) description);
+}
+
+
+int platformGetError()
+{
+    int error = platformError;
+    platformError = PLATFORM_NO_ERROR;
+    return error;
+}
+
+
+const char* platformErrorString(int error)
+{
+    switch (error)
+    {
+        case PLATFORM_NO_ERROR:
+            return "No error";
+        case PLATFORM_NOT_INITIALIZED:
+            return "The platform is not initialized";
+        case PLATFORM_NO_CURRENT_CONTEXT:
+            return "There is no current OpenGL context";
+        case PLATFORM_INVALID_ENUM:
+            return "Invalid argument for enum parameter";
+        case PLATFORM_INVALID_VALUE:
+            return "Invalid value for parameter";
+        case PLATFORM_OUT_OF_MEMORY:
+            return "Out of memory";
+        case PLATFORM_OPENGL_UNAVAILABLE:
+            return "OpenGL is not available on this machine";
+        case PLATFORM_VERSION_UNAVAILABLE:
+            return "The requested OpenGL version is unavailable";
+        case PLATFORM_PLATFORM_ERROR:
+            return "A platform-specific error occurred";
+        case PLATFORM_WINDOW_NOT_ACTIVE:
+            return "The specified window is not active";
+        case PLATFORM_FORMAT_UNAVAILABLE:
+            return "The requested format is unavailable";
+    }
+
+    return "ERROR: UNKNOWN ERROR TOKEN PASSED TO platformErrorString";
+}
+
+//#)
+
+
+;;;
+;;;; Platform OpenGL
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+static GLboolean parseGLVersion(int* api, int* major, int* minor, int* rev)
+{
+    int i, _api = PLATFORM_OPENGL_API, _major, _minor = 0, _rev = 0;
+    const char* version;
+    const char* prefixes[] =
+    {
+        "OpenGL ES-CM ",
+        "OpenGL ES-CL ",
+        "OpenGL ES ",
+        NULL
+    };
+
+    version = (const char*) glGetString(GL_VERSION);
+
+    for (i = 0;  prefixes[i];  i++)
+    {
+        const size_t length = strlen(prefixes[i]);
+
+        if (strncmp(version, prefixes[i], length) == 0)
+        {
+            version += length;
+            _api = PLATFORM_OPENGL_ES_API;
+            break;
+        }
+    }
+
+    if (!sscanf(version, "%d.%d.%d", &_major, &_minor, &_rev))
+    {
+        platformSetError(PLATFORM_PLATFORM_ERROR, "No version found in version string");
+        return GL_FALSE;
+    }
+
+    *api = _api;
+    *major = _major;
+    *minor = _minor;
+    *rev = _rev;
+
+    return GL_TRUE;
+}
+
+
+GLboolean platformRefreshContextParams()
+{
+    PlatformWindow* window = platformInternalGetCurrentContext();
+
+    if (!parseGLVersion(&window->clientAPI,
+                        &window->glMajor,
+                        &window->glMinor,
+                        &window->glRevision))
+    {
+        return GL_FALSE;
+    }
+
+    // Read back forward-compatibility flag
+    {
+      window->glForward = GL_FALSE;
+
+      if (window->clientAPI == PLATFORM_OPENGL_API && window->glMajor >= 3)
+      {
+          GLint flags;
+          glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
+
+          if (flags & GL_CONTEXT_FLAG_FORWARD_COMPATIBLE_BIT)
+              window->glForward = GL_TRUE;
+          if (flags & 0)
+              window->glDebug = GL_TRUE;
+      }
+    }
+
+    // Read back OpenGL context profile
+    {
+      window->glProfile = 0;
+
+      if (window->glMajor > 3 || (window->glMajor == 3 && window->glMinor >= 2))
+      {
+          GLint mask;
+          glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &mask);
+
+          if (mask & GL_CONTEXT_COMPATIBILITY_PROFILE_BIT)
+              window->glProfile = PLATFORM_OPENGL_COMPAT_PROFILE;
+          else if (mask & GL_CONTEXT_CORE_PROFILE_BIT)
+              window->glProfile = PLATFORM_OPENGL_CORE_PROFILE;
+      }
+    }
+
+    return GL_TRUE;
+}
+
+
+GLboolean platformIsValidContext(PlatformWindowConfig* wndconfig)
+{
+    PlatformWindow* window = platformInternalGetCurrentContext();
+
+    if (window->glMajor < wndconfig->glMajor ||
+        (window->glMajor == wndconfig->glMajor &&
+         window->glMinor < wndconfig->glMinor))
+    {
+        // The desired OpenGL version is greater than the actual version
+        // This only happens if the machine lacks {GLX|WGL}_ARB_create_context
+        // /and/ the user has requested an OpenGL version greater than 1.0
+
+        // For API consistency, we emulate the behavior of the
+        // {GLX|WGL}_ARB_create_context extension and fail here
+
+        platformSetError(PLATFORM_VERSION_UNAVAILABLE,
+                      "platformCreateWindow: The requested OpenGL version is not available");
+        return GL_FALSE;
+    }
+
+    return GL_TRUE;
+}
+
+
+void platformMakeContextCurrent(PlatformWindow* window)
+{
+    if (platformInternalGetCurrentContext() == window)
+        return;
+
+    platformInternalMakeContextCurrent(window);
+}
+
+
+PlatformWindow* platformGetCurrentContext()
+{
+    return platformInternalGetCurrentContext();
+}
+
+void platformInternalMakeContextCurrent(PlatformWindow* window)
+{
+    if (window)
+        [window->context makeCurrentContext];
+    else
+        [NSOpenGLContext clearCurrentContext];
+
+    currentWindow = window;
+}
+
+
+PlatformWindow* platformInternalGetCurrentContext()
+{
+    return currentWindow;
+}
+
+
+void platformSwapBuffers(PlatformWindow* window)
+{
+    [window->context flushBuffer];
+}
+
+
+void platformSwapInterval(int interval)
+{
+    if (!platformInternalGetCurrentContext())
+    {
+        platformSetError(PLATFORM_NO_CURRENT_CONTEXT, NULL);
+        return;
+    }
+
+    PlatformWindow* window = platformInternalGetCurrentContext();
+
+    GLint sync = interval;
+    [window->context setValues:&sync forParameter:NSOpenGLCPSwapInterval];
+}
+
+//#)
+
+
+;;;
+;;;; Platform Input
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+static void setCursorMode(PlatformWindow* window, int newMode)
+{
+    const int oldMode = window->cursorMode;
+
+    if (newMode != PLATFORM_CURSOR_NORMAL &&
+        newMode != PLATFORM_CURSOR_HIDDEN &&
+        newMode != PLATFORM_CURSOR_CAPTURED)
+    {
+        platformSetError(PLATFORM_INVALID_ENUM, NULL);
+        return;
+    }
+
+    if (oldMode == newMode)
+        return;
+
+    window->cursorMode = newMode;
+
+    if (platform.focusedWindow == window)
+    {
+        if (oldMode == PLATFORM_CURSOR_CAPTURED)
+        {
+            platformInternalSetCursorPos(window,
+                                      platform.cursorPosX,
+                                      platform.cursorPosY);
+        }
+        else if (newMode == PLATFORM_CURSOR_CAPTURED)
+        {
+            int width, height;
+
+            platformInternalGetCursorPos(window,
+                                      &platform.cursorPosX,
+                                      &platform.cursorPosY);
+
+            window->cursorPosX = platform.cursorPosX;
+            window->cursorPosY = platform.cursorPosY;
+
+            platformInternalGetWindowSize(window, &width, &height);
+            platformInternalSetCursorPos(window, width / 2, height / 2);
+        }
+
+        platformInternalApplyCursorMode(window);
+    }
+}
+
+
+void platformGetCursorPos(PlatformWindow* window, double* xpos, double* ypos)
+{
+    if (xpos)
+        *xpos = 0;
+    if (ypos)
+        *ypos = 0;
+
+    if (window->cursorMode == PLATFORM_CURSOR_CAPTURED)
+    {
+        if (xpos)
+            *xpos = window->cursorPosX;
+        if (ypos)
+            *ypos = window->cursorPosY;
+    }
+    else
+        platformInternalGetCursorPos(window, xpos, ypos);
+}
+
+
+void platformSetCursorPos(PlatformWindow* window, double xpos, double ypos)
+{
+    if (platform.focusedWindow != window)
+        return;
+
+    if (window->cursorMode == PLATFORM_CURSOR_CAPTURED)
+    {
+        // Only update the accumulated position if the cursor is disabled
+        window->cursorPosX = xpos;
+        window->cursorPosY = ypos;
+    }
+    else
+    {
+        // Update system cursor position
+        platformInternalSetCursorPos(window, xpos, ypos);
+    }
+}
+
+
+bool platformInputKey(PlatformWindow* window, int key, int action)
+{
+    if (key < 0 || key > PLATFORM_KEY_LAST)
+        return 0;
+
+    // Are we trying to release an already released key?
+    if (action == PLATFORM_RELEASE && platformInput.key[key] != PLATFORM_PRESS)
+        return 0;
+
+    // Register key action
+    platformInput.key[key] = (char) action;
+    
+    return key_press_callback(window, key, action);
+}
+
+
+void platformInputChar(PlatformWindow* window, int character)
+{
+    // Valid Unicode (ISO 10646) character?
+    if (!((character >= 32 && character <= 126) || character >= 160))
+        return;
+
+    char_callback(window, character);
+}
+
+
+void platformInputScroll(PlatformWindow* window, double xoffset, double yoffset)
+{
+    wheel_callback(window, xoffset, yoffset);
+}
+
+
+void platformInputMouseClick(PlatformWindow* window, int button, int clickCount, int action)
+{
+    if (button < 0 || button > PLATFORM_MOUSE_BUTTON_LAST)
+        return;
+
+    // Register mouse button action
+    window->mouseButton[button] = (char) action;
+
+    // Get cursor position
+    double xpos, ypos;
+    platformGetCursorPos(window, &xpos, &ypos);
+    
+    button_callback(window, xpos, ypos, button, clickCount, action);
+}
+
+
+void platformInputCursorMotion(PlatformWindow* window, double x, double y)
+{
+    if (window->cursorMode == PLATFORM_CURSOR_CAPTURED)
+    {
+        if (x == 0.0 && y == 0.0)
+            return;
+
+        window->cursorPosX += x;
+        window->cursorPosY += y;
+
+        x = window->cursorPosX;
+        y = window->cursorPosY;
+    }
+
+    moved_callback(window, x, y);
+}
+
+
+int platformGetKey(int key)
+{
+    if (key < 0 || key > PLATFORM_KEY_LAST)
+    {
+        platformSetError(PLATFORM_INVALID_ENUM,
+                      "platformGetKey: The specified key is invalid");
+        return PLATFORM_RELEASE;
+    }
+
+    return (int) platformInput.key[key];
+}
+
+
+int platformGetMouseButton(PlatformWindow* window, int button)
+{
+    if (button < 0 || button > PLATFORM_MOUSE_BUTTON_LAST)
+    {
+        platformSetError(PLATFORM_INVALID_ENUM,
+                      "platformGetMouseButton: The specified mouse button is invalid");
+        return PLATFORM_RELEASE;
+    }
+
+    return (int) window->mouseButton[button];
+}
+
+//#)
+
+
+;;;
+;;;; Platform Window Input
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+static int Max(int a, int b)
+{
+    return (a > b) ? a : b;
+}
+
+
+void platformReleaseAllKeys(PlatformWindow* window)
+{
+    int i;
+
+    for (i = 0;  i <= PLATFORM_KEY_LAST;  i++)
+    {
+        if (platformInput.key[i] == PLATFORM_PRESS)
+            platformInputKey(window, i, PLATFORM_RELEASE);
+    }
+    
+    platformInput.modifierFlags = 0;
+}
+
+
+void platformReleaseAllButtons(PlatformWindow* window)
+{
+    int i;
+
+    for (i = 0;  i <= PLATFORM_MOUSE_BUTTON_LAST;  i++)
+    {
+        if (window->mouseButton[i] == PLATFORM_PRESS)
+            platformInputMouseClick(window, i, 1, PLATFORM_RELEASE);
+    }
+}
+
+
+void platformInputWindowFocus(PlatformWindow* window, GLboolean activated)
+{
+    if (inhibitActivation)
+        return;
+    
+    if (activated)
+    {
+        if (platform.focusedWindow != window)
+        {
+            platform.focusedWindow = window;
+            
+            activate_callback(window);
+        }
+    }
+    else
+    {
+        if (platform.focusedWindow == window)
+        {
+            platformReleaseAllKeys(window);
+            platformReleaseAllButtons(window);
+
+            platform.focusedWindow = NULL;
+            
+            deactivate_callback(window);
+        }
+    }
+}
+
+
+void platformInputWindowPos(PlatformWindow* window, int x, int y)
+{
+    window->positionX = x;
+    window->positionY = y;
+}
+
+
+void platformInputWindowSize(PlatformWindow* window, int width, int height)
+{
+    if (window->width == width && window->height == height)
+        return;
+
+    window->width = width;
+    window->height = height;
+    
+    reshape_callback(window, width, height);
+}
+
+
+void platformInputWindowIconify(PlatformWindow* window, int iconified)
+{
+    if (window->iconified == iconified)
+        return;
+
+    window->iconified = iconified;
+}
+
+
+void platformInputWindowVisibility(PlatformWindow* window, int visible)
+{
+    window->visible = visible;
+}
+
+
+PlatformWindow* platformCreateWindow(int width, int height,
+                                     int mode, int kind, const char* title,
+                                     bool closable, bool miniaturizable, bool resizable, bool opengl)
+{
+    PlatformFramebufferConfig fbconfig;
+    PlatformWindowConfig wndconfig;
+    PlatformWindow* window;
+    PlatformWindow* previous;
+    
+    // Set up desired framebuffer config
+    fbconfig.redBits        = 8;
+    fbconfig.greenBits      = 8;
+    fbconfig.blueBits       = 8;
+    fbconfig.alphaBits      = 0;
+    fbconfig.depthBits      = 24;
+    fbconfig.stencilBits    = 8;
+    fbconfig.accumRedBits   = 0;
+    fbconfig.accumGreenBits = 0;
+    fbconfig.accumBlueBits  = 0;
+    fbconfig.accumAlphaBits = 0;
+    fbconfig.auxBuffers     = 0;
+    fbconfig.stereo         = GL_FALSE;
+    fbconfig.samples        = 0;
+
+    // Set up desired window config
+    wndconfig.mode           = mode;
+    wndconfig.title          = title;
+    wndconfig.refreshRate    = 0;
+    wndconfig.closable       = closable;
+    wndconfig.miniaturizable = miniaturizable;
+    wndconfig.resizable      = resizable;
+    wndconfig.visible        = GL_FALSE;
+    wndconfig.clientAPI      = PLATFORM_OPENGL_API;
+    wndconfig.glMajor        = 3;
+    wndconfig.glMinor        = 2;
+    wndconfig.glForward      = GL_TRUE;
+    wndconfig.glDebug        = GL_FALSE;
+    wndconfig.glProfile      = PLATFORM_OPENGL_CORE_PROFILE;
+    wndconfig.glRobustness   = GL_FALSE;
+
+    // Save the currently current context so it can be restored later
+    if (opengl)
+        previous = platformGetCurrentContext();
+    
+    if (mode != PLATFORM_WINDOWED && mode != PLATFORM_FULLSCREEN)
+    {
+        platformSetError(PLATFORM_INVALID_ENUM,
+                      "platformCreateWindow: Invalid window mode");
+        return GL_FALSE;
+    }
+
+    if (opengl)
+    {
+        // Check width & height
+        if (width > 0 && height <= 0)
+        {
+            // Set the window aspect ratio to 4:3
+            height = (width * 3) / 4;
+        }
+        else if (width <= 0 && height > 0)
+        {
+            // Set the window aspect ratio to 4:3
+            width = (height * 4) / 3;
+        }
+        else if (width <= 0 && height <= 0)
+        {
+            // Default window size
+            width  = 640;
+            height = 480;
+        }
+    }
+
+    window = (PlatformWindow*) calloc(1, sizeof(PlatformWindow));
+    if (!window)
+    {
+        platformSetError(PLATFORM_OUT_OF_MEMORY, NULL);
+        return NULL;
+    }
+
+    window->next = platform.windowListHead;
+    platform.windowListHead = window;
+
+    // Remember window settings
+    window->width      = width;
+    window->height     = height;
+    window->mode       = mode;
+    window->cursorMode = PLATFORM_CURSOR_NORMAL;
+    
+    initializeAppKit();
+
+    window->delegate = [[JazzWindowDelegate alloc] initWithPlatformWindow:window];
+
+    createWindow(window, &wndconfig, kind);
+
+    if (opengl)
+        createContext(window, &wndconfig, &fbconfig);
+
+    [window->context setView:[window->object contentView]];
+
+    if (opengl)
+        platformMakeContextCurrent(window);
+
+    // Cache the actual (as opposed to requested) context parameters
+    if (opengl && !platformRefreshContextParams())
+    {
+        platformDestroyWindow(window);
+        platformMakeContextCurrent(previous);
+        return GL_FALSE;
+    }
+
+    // Verify the context against the requested parameters
+    if (opengl && !platformIsValidContext(&wndconfig))
+    {
+        platformDestroyWindow(window);
+        platformMakeContextCurrent(previous);
+        return GL_FALSE;
+    }
+
+    if (opengl)
+    {
+        // Clearing the front buffer to black to avoid garbage pixels left over
+        // from previous uses of our bit of VRAM
+        glClear(GL_COLOR_BUFFER_BIT);
+        platformSwapBuffers(window);
+
+        // Restore the previously current context (or NULL)
+        platformMakeContextCurrent(previous);
+    }
+    
+    // Register drag & drop pasteboard types
+    [window->object registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, nil]];
+
+    if (wndconfig.visible)
+        platformShowWindow(window);
+
+    return window;
+}
+
+
+// hack around a strange problem where if we call [NSApp run] then everything works correctly, but if
+// we manage events ourselves, then upon hide or close, the next window doesn't automatically become key
+void platformMakeFrontKeyHack(NSWindow* goingAwayWindow)
+{
+    if (![NSApp keyWindow])
+    {
+        NSWindow* fullscreenMainWindow = NULL;
+        if (fullscreenWindow)
+            fullscreenMainWindow = [fullscreenWindow getMainWindow];
+       
+        NSArray* windows = [NSApp orderedWindows];
+        int count = [windows count];
+        bool done = false;
+        if (count > 0)
+        {
+            for (int n = 0; n < count; n++)
+            {
+                if (!done)
+                {
+                    NSWindow* window = [windows objectAtIndex:n];
+                    if (window != goingAwayWindow && window != fullscreenMainWindow && [window canBecomeKeyWindow] && [window isVisible])
+                    {
+                        [window makeKeyAndOrderFront:window];
+                        done = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+void platformCloseWindow(PlatformWindow* window)
+{
+    NSWindow* goingAwayWindow = window->object;
+  
+    platformDestroyWindow(window);
+    platformMakeFrontKeyHack(goingAwayWindow);
+}
+
+
+void platformDestroyWindow(PlatformWindow* window)
+{
+    // The window's context must not be current on another thread when the window is destroyed
+    if (window == platformInternalGetCurrentContext())
+        platformInternalMakeContextCurrent(NULL);
+
+    // Clear the active window pointer if this is the active window
+    if (window == platform.focusedWindow)
+        platform.focusedWindow = NULL;
+    
+    [NSApp removeWindowsItem:window->object];
+
+    [window->object orderOut:nil];
+
+    [window->pixelFormat release];
+    window->pixelFormat = nil;
+
+    [window->context release];
+    window->context = nil;
+
+    [window->object setDelegate:nil];
+    [window->delegate release];
+    window->delegate = nil;
+
+    [window->view release];
+    window->view = nil;
+
+    [window->object close];
+    window->object = nil;
+
+    // Unlink window from global linked list
+    {
+        PlatformWindow** prev = &platform.windowListHead;
+
+        while (*prev != window)
+            prev = &((*prev)->next);
+
+        *prev = window->next;
+    }
+
+    free(window);
+}
+
+
+NSString* platformGetWindowTitle(PlatformWindow* window)
+{
+    return [window->object title];
+}
+
+
+void platformGetWindowSize(PlatformWindow* window, int* width, int* height)
+{
+    if (width != NULL)
+        *width = window->width;
+
+    if (height != NULL)
+        *height = window->height;
+}
+
+
+void platformIconifyWindow(PlatformWindow* window)
+{
+    if (window->iconified)
+        return;
+
+    [window->object miniaturize:nil];
+}
+
+
+void platformRestoreWindow(PlatformWindow* window)
+{
+    if (!window->iconified)
+        return;
+
+    [window->object deminiaturize:nil];
+}
+
+
+void platformShowWindow(PlatformWindow* window)
+{
+    if (window->mode == PLATFORM_FULLSCREEN)
+        return;
+
+    [window->object orderFront:nil];
+    platformInputWindowVisibility(window, GL_TRUE);
+}
+
+
+void platformHideWindow(PlatformWindow* window)
+{
+    if (window->mode == PLATFORM_FULLSCREEN)
+        return;
+
+    [window->object orderOut:nil];
+    platformInputWindowVisibility(window, GL_FALSE);
+}
+
+//#)
+
+
+;;;
+;;;; Platform Screen
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+NSScreen* platformGetMainScreen()
+{
+    return [NSScreen mainScreen];
+}
+
+
+NSScreen* platformGetPrimaryScreen()
+{
+    return [[NSScreen screens] objectAtIndex:0];
+}
+
+
+NSArray* platformGetScreens()
+{
+    return [NSScreen screens];
+}
+
+
+double platformGetPrimaryScreenFrameHeight()
+{
+    NSRect frame = [[[NSScreen screens] objectAtIndex:0] frame];
+    return frame.size.height;
+}
+
+
+double platformGetWindowScreenFrameHeight(PlatformWindow* window)
+{
+    NSRect frame = [[window->object screen] frame];
+    return frame.size.height;
+}
+
+
+void platformGetScreenFrameRect(NSScreen* screen, NSRect* rect)
+{
+    *rect = [screen frame];
+}
+
+
+void platformGetScreenContentRect(NSScreen* screen, NSRect* rect)
+{
+    *rect = [screen visibleFrame];
+}
+
+
+NSModalSession modalSession;
+
+
+void platformEnterModal(PlatformWindow* window)
+{
+    modalSession = [NSApp beginModalSessionForWindow:window->object];
+}
+
+
+bool platformRunModal(PlatformWindow* window)
+{
+    return [NSApp runModalSession:modalSession] == NSModalResponseContinue;
+}
+
+
+void platformExitModal(PlatformWindow* window)
+{
+    [NSApp endModalSession:modalSession];
+    modalSession = nil;
+}
+
+
+void platformDisableWindow(PlatformWindow* window)
+{
+    [window->object setAcceptsMouseMovedEvents:NO];
+}
+
+
+void platformEnableWindow(PlatformWindow* window)
+{
+    [window->object setAcceptsMouseMovedEvents:YES];
+}
+
+
+void platformEnterWindowed(PlatformWindow* window, NSRect* bounds, bool hidesOnDeactivate)
+{
+    enterWindowed(window, *bounds, hidesOnDeactivate);
+}
+
+
+void platformExitWindowed(PlatformWindow* window)
+{
+    exitWindowed(window);
+}
+
+
+void platformEnterFullscreenWindowed(PlatformWindow* window)
+{
+    enterFullScreenWindowed(window);
+}
+
+
+void platformExitFullscreenWindowed(PlatformWindow* window)
+{
+    exitFullScreenWindowed(window);
+}
+
+
+// Need to understand why using new Lion's native
+// fullscreen makes event handling really choppy...
+void platformEnterFullscreen(PlatformWindow* window)
+{
+    [window->object toggleFullScreen:nil];
+}
+
+
+void platformExitFullscreen(PlatformWindow* window)
+{
+    [window->object toggleFullScreen:nil];
+}
+
+//#)
+
+
+;;;
+;;;; Platform Window
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+
+void platformSetWindowTitle(PlatformWindow* window, char* title)
+{
+    [window->object setTitle:[NSString stringWithUTF8String:title]];
+}
+
+
+void platformGetWindowFramePos(PlatformWindow* window, NSPoint* pos)
+{
+    NSRect frame = [window->object frame];
+    pos->x = frame.origin.x;
+    pos->y = frame.origin.y;
+}
+
+
+void platformSetWindowFramePos(PlatformWindow* window, NSPoint* pos)
+{
+    int x = pos->x;
+    int y = pos->y;
+
+    if (window->mode == PLATFORM_FULLSCREEN || window->iconified)
+        return;
+
+    NSRect contentRect =
+        [window->object contentRectForFrameRect:[window->object frame]];
+
+    contentRect.origin.x = x;
+    contentRect.origin.y = y;
+
+    [window->object setFrame:[window->object frameRectForContentRect:contentRect]
+                        display:YES];
+}
+
+
+int platformGetWindowFrameHeight(PlatformWindow* window)
+{
+    NSRect frame = [window->object frame];
+    return frame.size.height;
+}
+
+
+void platformGetWindowFrameSize(PlatformWindow* window, NSSize* size)
+{
+    NSRect frame = [window->object frame];
+    size->width = frame.size.width;
+    size->height = frame.size.height;
+}
+
+
+void platformSetWindowFrameSize(PlatformWindow* window, NSSize* size)
+{
+    int width = size->width;
+    int height = size->height;
+
+    if (window->iconified)
+        return;
+
+    // Don't do anything if the window size did not change
+    if (width == window->width && height == window->height)
+        return;
+
+    [window->object setContentSize:NSMakeSize(width, height)];
+}
+
+
+void platformGetWindowFrameRect(PlatformWindow* window, NSRect* rect)
+{
+    *rect = [window->object frame];
+}
+
+
+void platformSetWindowFrameRect(PlatformWindow* window, NSRect* rect)
+{
+    [window->object setFrame: *rect display: YES];
+}
+
+
+void platformGetWindowContentPos(PlatformWindow* window, NSPoint* pos)
+{
+    NSRect frame = [window->object frame];
+    NSRect content = [window->object contentRectForFrameRect:frame];
+    pos->x = content.origin.x;
+    pos->y = content.origin.y;
+}
+
+
+double platformGetWindowContentHeight(PlatformWindow* window)
+{
+    NSRect frame = [window->object frame];
+    NSRect content = [window->object contentRectForFrameRect:frame];
+    return content.size.height;
+}
+
+
+void platformGetWindowContentSize(PlatformWindow* window, NSSize* size)
+{
+    NSRect frame = [window->object frame];
+    NSRect content = [window->object contentRectForFrameRect:frame];
+    size->width = content.size.width;
+    size->height = content.size.height;
+}
+
+
+void platformGetWindowContentRect(PlatformWindow* window, NSRect* rect)
+{
+    NSRect frame = [window->object frame];
+    *rect = [window->object contentRectForFrameRect:frame];
+}
+
+
+void platformSetWindowContentRect(PlatformWindow* window, NSRect* rect)
+{
+    NSRect frame = [window->object frameRectForContentRect:*rect];
+    [window->object setFrame: frame display: YES];
+}
+
+
+void platformGetWindowViewRect(PlatformWindow* window, NSRect* rect)
+{
+    *rect = [window->view frame];
+}
+
+//#)
+
+
+;;;
+;;;; Platform Cursor
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+
+void platformGetMousePosition(PlatformWindow* window, NSPoint* pos)
+{
+    platformGetCursorPos(window, &pos->x, &pos->y);
+}
+
+
+void platformSetMousePosition(PlatformWindow* window, NSPoint* pos)
+{
+    platformSetCursorPos(window, pos->x, pos->y);
+}
+
+
+NSCursor* platformGetSystemCursor(int kind)
+{
+    switch (kind)
+    {
+        case PLATFORM_ARROWCURSOR:
+            return [NSCursor arrowCursor];
+        case PLATFORM_IBEAMCURSOR:
+            return [NSCursor IBeamCursor];
+        case PLATFORM_CROSSHAIRCURSOR:
+            return [NSCursor crosshairCursor];
+        case PLATFORM_CLOSEDHANDCURSOR:
+            return [NSCursor closedHandCursor];
+        case PLATFORM_OPENHANDCURSOR:
+            return [NSCursor openHandCursor];
+        case PLATFORM_POINTINGHANDCURSOR:
+            return [NSCursor pointingHandCursor];
+        case PLATFORM_RESIZELEFTRIGHTCURSOR:
+            return [NSCursor resizeLeftRightCursor];
+        case PLATFORM_RESIZEUPDOWNCURSOR:
+            return [NSCursor resizeUpDownCursor];
+        case PLATFORM_DISAPPEARINGITEMCURSOR:
+            return [NSCursor disappearingItemCursor];
+        default:
+            return NULL;
+    }
+}
+
+
+NSCursor* platformMakeCursor(char* filename, NSPoint* hotSpot)
+{
+    NSImage* image = [[NSImage alloc] initWithContentsOfFile: [NSString stringWithUTF8String:filename]];
+    return [[NSCursor alloc] initWithImage: image hotSpot: *hotSpot];
+}
+
+
+void platformSetCursor(NSCursor* cursor)
+{
+    [cursor set];
+}
+
+
+void platformShowCursor(PlatformWindow* window)
+{
+    setCursorMode(window, PLATFORM_CURSOR_NORMAL);
+}
+
+
+void platformHideCursor(PlatformWindow* window)
+{
+    setCursorMode(window, PLATFORM_CURSOR_HIDDEN);
+}
+
+
+void platformCaptureCursor(PlatformWindow* window)
+{
+    setCursorMode(window, PLATFORM_CURSOR_CAPTURED);
+}
+
+
+void platformReleaseCursor(PlatformWindow* window)
+{
+    setCursorMode(window, PLATFORM_CURSOR_NORMAL);
+}
+
+
+bool platformKeyDown(int key)
+{
+    return platformGetKey(key) == PLATFORM_PRESS;
+}
+
+
+bool platformShiftDown()
+{
+    return [NSEvent modifierFlags] & NSShiftKeyMask;
+}
+
+
+bool platformControlDown()
+{
+    return [NSEvent modifierFlags] & NSControlKeyMask;
+}
+
+
+bool platformAltDown()
+{
+    return [NSEvent modifierFlags] & NSAlternateKeyMask;
+}
+
+
+bool platformMetaDown()
+{
+    return [NSEvent modifierFlags] & NSCommandKeyMask;
+}
+
+//#)
+
+
+;;;
+;;;; Platform Clipboard
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+
+char* platformGetClipboardString(const char* type)
+{
+    NSString* stringType;
+    if (! type)
+        stringType = NSStringPboardType;
+    else
+        stringType = [NSString stringWithUTF8String:type];
+    
+    NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
+
+    NSString* object = [pasteboard stringForType:stringType];
+
+    if (! object)
+        return NULL;
+    else
+    {
+        free(platform.clipboardString);
+        platform.clipboardString = strdup([object UTF8String]);
+
+        return platform.clipboardString;
+	}
+}
+
+
+void platformSetClipboardString(const char* string, const char* type)
+{
+    NSString* stringType;
+    if (! type)
+        stringType = NSStringPboardType;
+    else
+        stringType = [NSString stringWithUTF8String:type];
+    
+    NSArray* types = [NSArray arrayWithObjects:stringType, nil];
+
+    NSPasteboard* pasteboard = [NSPasteboard generalPasteboard];
+    [pasteboard declareTypes:types owner:nil];
+    [pasteboard setString:[NSString stringWithUTF8String:string]
+                  forType:stringType];
+}
+
+
+void platformInvalidateRect(PlatformWindow* window, NSRect* rect)
+{
+    [window->view setNeedsDisplayInRect:*rect];
+}
+
+//#)
+
+
+;;;
+;;;; Platform Focus
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+
+PlatformWindow* platformGetFocus()
+{
+    return platform.focusedWindow;
+}
+
+
+void platformSetFocus(PlatformWindow* window)
+{
+    ProcessSerialNumber psn = { 0, kCurrentProcess };
+    TransformProcessType(&psn, kProcessTransformToForegroundApplication);
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    SetFrontProcess(&psn);
+#pragma GCC diagnostic pop
+    
+    [window->object makeKeyAndOrderFront:nil];
+}
+
+//#)
+
+
+;;;
+;;;; Platform Events
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+
+bool ignoreKeyRepeat = false;
+
+
+bool platformGetIgnoreKeyRepeat()
+{
+    return ignoreKeyRepeat;
+}
+
+
+void platformSetIgnoreKeyRepeat(bool ignore)
+{
+    ignoreKeyRepeat = true;
+}
+
+
+NSEvent* nextEvent;
+
+
+bool platformEventAvailable()
+{
+    if (nextEvent)
+        return true;
+    
+    NSEvent* event;
+    do
+    {
+        inEventAvailable = true;
+        event = [NSApp nextEventMatchingMask:NSAnyEventMask
+                                   untilDate:nil
+                                      inMode:NSDefaultRunLoopMode
+                                     dequeue:YES];
+        inEventAvailable = false;
+    }
+    while (event && ignoreKeyRepeat && [event type] == NSKeyDown && [event isARepeat]);
+    
+    nextEvent = event;
+
+    return nextEvent != NULL;
+}
+
+
+void platformPollEvents()
+{
+    NSEvent* event;
+  
+    do
+    {
+        if (nextEvent)
+        {
+            event = nextEvent;
+            nextEvent = NULL;
+        }
+        else
+            event = [NSApp nextEventMatchingMask:NSAnyEventMask
+                                       untilDate:nil
+                                          inMode:NSDefaultRunLoopMode
+                                         dequeue:YES];
+
+        if (event && (! ignoreKeyRepeat || [event type] != NSKeyDown || ! [event isARepeat]))
+            [NSApp sendEvent:event];
+    }
+    while (event);
+
+    [platform.autoreleasePool drain];
+    platform.autoreleasePool = [[NSAutoreleasePool alloc] init];
+}
+
+
+CGContextRef platformCurrentGraphics()
+{
+    return [[NSGraphicsContext currentContext] graphicsPort];
+}
+
+
+char* platformTemporaryDirectory()
+{
+    
+    return strdup([[NSTemporaryDirectory() stringByAppendingPathComponent:@"jazz_temporary"] UTF8String]);
+}
+
+
+void platformLog(char* msg)
+{
+    NSLog(@"%@", [NSString stringWithUTF8String:msg]);
+}
+
+
+void platformAlert(char* msg, char* title, char* header, int style)
+{
+    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+    [[alert window] setTitle:[NSString stringWithUTF8String:title]];
+    [alert setAlertStyle:style];
+    [alert setMessageText:[NSString stringWithUTF8String:header]];
+    [alert setInformativeText:[NSString stringWithUTF8String:msg]];
+    [alert runModal];
+    
+    platformMakeFrontKeyHack(NULL);
+}
+
+//#)
+
+
+;;;
+;;;; Platform Sound
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+
+void platformBell()
+{
+    [[NSSound soundNamed:@"Funk"] play];
+}
+
+
+void platformSystemSound(char* name)
+{
+    [[NSSound soundNamed:[NSString stringWithUTF8String:name]] play];
+}
+
+
+void platformPlaySound(char* filename)
+{
+    NSSound *sound = [[NSSound alloc] initWithContentsOfFile:[NSString stringWithUTF8String:filename] byReference:YES];
+
+    [sound play];
+    [sound release];
+}
+
+
+void platformOpenMusic(char* filename, char* alias)
+{
+    NSSound *sound = [[NSSound alloc] initWithContentsOfFile:[NSString stringWithUTF8String:filename] byReference:YES];
+
+    [sound setName: [NSString stringWithUTF8String:alias]];
+    [sound setDelegate: NSApp];
+}
+
+
+void platformCloseMusic(char* alias)
+{
+    NSSound *sound = [NSSound soundNamed:[NSString stringWithUTF8String:alias]];
+    [sound setName: nil];
+    [sound stop];
+    [sound release];
+}
+
+
+void platformPlayMusic(char* alias)
+{
+    [[NSSound soundNamed:[NSString stringWithUTF8String:alias]] play];
+}
+
+
+void platformStopMusic(char* alias)
+{
+    [[NSSound soundNamed:[NSString stringWithUTF8String:alias]] stop];
+}
+
+
+void platformPauseMusic(char* alias)
+{
+    [[NSSound soundNamed:[NSString stringWithUTF8String:alias]] pause];
+}
+
+
+void platformResumeMusic(char* alias)
+{
+    [[NSSound soundNamed:[NSString stringWithUTF8String:alias]] resume];
+}
+
+//#)
+
+
+;;;
+;;;; Platform
+;;;
+
+
+(c-type platformwindow (pointer (struct "PlatformWindow")))
+
+
+(c-external (platformInit) void)
+(c-external (platformGetMainScreen) NSScreen*)
+(c-external (platformGetPrimaryScreen) NSScreen*)
+(c-external (platformGetScreens) NSArray*)
+(c-external (platformGetPrimaryScreenFrameHeight) double)
+(c-external (platformGetWindowScreenFrameHeight platformwindow) double)
+(c-external (platformGetScreenFrameRect NSScreen* NSRect*) void)
+(c-external (platformGetScreenContentRect NSScreen* NSRect*) void)
+(c-external (platformCreateWindow int int int int char-string bool bool bool bool) platformwindow)
+(c-external (platformMakeContextCurrent platformwindow) void)
+(c-external (platformGetWindowTitle platformwindow) NSString*)
+(c-external (platformSetWindowTitle platformwindow char-string) void)
+(c-external (platformGetWindowFramePos platformwindow NSPoint*) void)
+(c-external (platformSetWindowFramePos platformwindow NSPoint*) void)
+(c-external (platformGetWindowFrameHeight platformwindow) double)
+(c-external (platformGetWindowFrameSize platformwindow NSSize*) void)
+(c-external (platformSetWindowFrameSize platformwindow NSSize*) void)
+(c-external (platformGetWindowFrameRect platformwindow NSRect*) void)
+(c-external (platformSetWindowFrameRect platformwindow NSRect*) void)
+(c-external (platformGetWindowContentPos platformwindow NSPoint*) void)
+(c-external (platformGetWindowContentHeight platformwindow) double)
+(c-external (platformGetWindowContentSize platformwindow NSSize*) void)
+(c-external (platformGetWindowContentRect platformwindow NSRect*) void)
+(c-external (platformSetWindowContentRect platformwindow NSRect*) void)
+(c-external (platformGetWindowViewRect platformwindow NSRect*) void)
+(c-external (platformEnterModal platformwindow) void)
+(c-external (platformRunModal platformwindow) void)
+(c-external (platformExitModal platformwindow) void)
+(c-external (platformDisableWindow platformwindow) void)
+(c-external (platformEnableWindow platformwindow) void)
+(c-external (platformEnterWindowed platformwindow NSRect* bool) void)
+(c-external (platformExitWindowed platformwindow) void)
+(c-external (platformEnterFullscreenWindowed platformwindow) void)
+(c-external (platformExitFullscreenWindowed platformwindow) void)
+(c-external (platformEnterFullscreen platformwindow) void)
+(c-external (platformExitFullscreen platformwindow) void)
+(c-external (platformShowWindow platformwindow) void)
+(c-external (platformHideWindow platformwindow) void)
+(c-external (platformSwapBuffers platformwindow) void)
+(c-external (platformSwapInterval int) void)
+(c-external (platformGetMousePosition platformwindow NSPoint*) void)
+(c-external (platformSetMousePosition platformwindow NSPoint*) void)
+(c-external (platformGetSystemCursor int) NSCursor*)
+(c-external (platformMakeCursor char-string NSPoint*) NSCursor*)
+(c-external (platformSetCursor NSCursor*) void)
+(c-external (platformShowCursor platformwindow) void)
+(c-external (platformHideCursor platformwindow) void)
+(c-external (platformCaptureCursor platformwindow) void)
+(c-external (platformReleaseCursor platformwindow) void)
+(c-external (platformKeyDown int) bool)
+(c-external (platformShiftDown) bool)
+(c-external (platformControlDown) bool)
+(c-external (platformAltDown) bool)
+(c-external (platformMetaDown) bool)
+(c-external (platformGetClipboardString char-string) char-string)
+(c-external (platformSetClipboardString char-string char-string) void)
+(c-external (platformInvalidateRect platformwindow NSRect*) void)
+(c-external (platformGetFocus) platformwindow)
+(c-external (platformSetFocus platformwindow) void)
+(c-external (platformGetIgnoreKeyRepeat) bool)
+(c-external (platformSetIgnoreKeyRepeat bool) void)
+(c-external (platformEventAvailable) bool)
+(c-external (platformPollEvents) void)
+(c-external (platformCurrentGraphics) CGContextRef)
+(c-external (platformCloseWindow platformwindow) void)
+(c-external (platformTemporaryDirectory) char-string)
+(c-external (platformLog char-string) void)
+(c-external (platformAlert char-string char-string char-string int) void)
+(c-external (platformBell) void)
+(c-external (platformSystemSound char-string) void)
+(c-external (platformPlaySound char-string) void)
+(c-external (platformOpenMusic char-string char-string) void)
+(c-external (platformCloseMusic char-string) void)
+(c-external (platformPlayMusic char-string) void)
+(c-external (platformStopMusic char-string) void)
+(c-external (platformPauseMusic char-string) void)
+(c-external (platformResumeMusic char-string) void)
+
+
+;;;
+;;;; Enumerants
+;;;
+
+
+(c-enumerant PLATFORM_WINDOWED)
+(c-enumerant PLATFORM_FULLSCREEN)
+
+(c-enumerant PLATFORM_WINDOW)
+(c-enumerant PLATFORM_DIALOG)
+(c-enumerant PLATFORM_POPUP)
+(c-enumerant PLATFORM_BORDERLESS)
+
+(c-enumerant PLATFORM_RELEASE)
+(c-enumerant PLATFORM_PRESS)
+
+(c-enumerant PLATFORM_KEY_LEFT_SHIFT)
+(c-enumerant PLATFORM_KEY_LEFT_CONTROL)
+(c-enumerant PLATFORM_KEY_LEFT_ALT)
+(c-enumerant PLATFORM_KEY_LEFT_SUPER)
+(c-enumerant PLATFORM_KEY_RIGHT_SHIFT)
+(c-enumerant PLATFORM_KEY_RIGHT_CONTROL)
+(c-enumerant PLATFORM_KEY_RIGHT_ALT)
+(c-enumerant PLATFORM_KEY_RIGHT_SUPER)
+
+(c-enumerant PLATFORM_MOUSE_BUTTON_LEFT)
+(c-enumerant PLATFORM_MOUSE_BUTTON_RIGHT)
+(c-enumerant PLATFORM_MOUSE_BUTTON_MIDDLE)
+
+(c-enumerant PLATFORM_ARROWCURSOR)
+(c-enumerant PLATFORM_IBEAMCURSOR)
+(c-enumerant PLATFORM_CROSSHAIRCURSOR)
+(c-enumerant PLATFORM_CLOSEDHANDCURSOR)
+(c-enumerant PLATFORM_OPENHANDCURSOR)
+(c-enumerant PLATFORM_POINTINGHANDCURSOR)
+(c-enumerant PLATFORM_RESIZELEFTRIGHTCURSOR)
+(c-enumerant PLATFORM_RESIZEUPDOWNCURSOR)
+(c-enumerant PLATFORM_DISAPPEARINGITEMCURSOR)
+
+(c-enumerant NSWarningAlertStyle)
+(c-enumerant NSInformationalAlertStyle)
+(c-enumerant NSCriticalAlertStyle)
+
+
+;;;
+;;;; Forward
+;;;
+
+
+(definition get-window
+  #f)
+
+(definition public (set-get-window proc)
+  (set! get-window proc))
+
+
+(define translate-shortcut
+  #f)
+
+(definition public (set-translate-shortcut proc)
+  (set! translate-shortcut proc))
+
+
+;;;
+;;;; Debug
+;;;
+
+
+(c-definition (call-error msg) (char-string) void "call_error" ""
+  (error msg))
+
+(c-definition (call-debug msg) (char-string) void "call_debug" ""
+  (debug-line msg))
+
+(c-definition (call-terminal msg) (char-string) void "call_terminal" ""
+  (terminal-line msg))
+
+(c-definition (call-test msg) (char-string) void "call_test" ""
+  #f)
+
+
+;;;
+;;;; Callbacks
+;;;
+
+
+(definition log-callbacks?
+  #f)
+
+
+(c-definition (paint-callback handle rect) (platformwindow NSRect*) void "paint_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'paint)))
+      (when get-window
+        (let ((window (get-window handle))
+              (context (platformCurrentGraphics)))
+          ;; the mac can call this before the window is registered
+          (when window
+            (paint-cocoa~ window context rect)))))))
+
+
+(c-definition (reshape-callback handle width height) (platformwindow int int) void "reshape_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'reshape width height)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (call-size-change~ window 'restored width height))))))
+
+
+(c-definition (close-callback handle) (platformwindow) void "close_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'close)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (close-window~ window))))))
+
+
+(definition modifier-keys
+  (list PLATFORM_KEY_LEFT_SHIFT
+        PLATFORM_KEY_LEFT_CONTROL
+        PLATFORM_KEY_LEFT_ALT
+        PLATFORM_KEY_LEFT_SUPER
+        PLATFORM_KEY_RIGHT_SHIFT
+        PLATFORM_KEY_RIGHT_CONTROL
+        PLATFORM_KEY_RIGHT_ALT
+        PLATFORM_KEY_RIGHT_SUPER))
+
+
+(c-definition (key-press-callback handle key action) (platformwindow int int) int "key_press_callback" ""
+  (let ((result
+          (thread-call (primordial-thread) 'execute-event
+            (lambda ()
+              (when log-callbacks?
+                (system-log (list 'key key action)))
+              (if (when get-window
+                    (let ((window (get-window handle)))
+                      (let ((char (integer->char key)))
+                        (if (eq? action PLATFORM_PRESS)
+                            (begin
+                              (key-down~ window char)
+                              (unless (memv? key modifier-keys)
+                                (translate-shortcut char)))
+                          (key-up~ window char)
+                          #f))))
+                  1
+                0)))))
+    ;; not sure why this is necessary
+    (if (thread-call-result? result)
+        result
+      1)))
+
+
+(c-definition (char-callback handle c) (platformwindow int) void "char_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'char c)))
+      (when get-window
+        (let ((window (get-window handle))
+              (c (integer->char c)))
+          (call-key-press~ window c))))))
+
+
+(c-definition (button-callback handle x y button click-count action) (platformwindow int int int int int) void "button_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'button x y button action)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (ecase button
+            ((PLATFORM_MOUSE_BUTTON_LEFT)
+             (ecase action
+               ((PLATFORM_PRESS) (if (= click-count 2) (double-click~ window x y) (mouse-down~ window x y)))
+               ((PLATFORM_RELEASE) (mouse-up~ window x y))))
+            ((PLATFORM_MOUSE_BUTTON_RIGHT)
+             (ecase action
+               ((PLATFORM_PRESS) (right-mouse-down~ window x y) (context-menu~ window x y))
+               ((PLATFORM_RELEASE) (right-mouse-up~ window x y))))))))))
+
+
+(c-definition (moved-callback handle x y) (platformwindow double double) void "moved_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      @too-much
+      (when log-callbacks?
+        (system-log (list 'move x y)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (mouse-moved~ window x y))))))
+
+
+(c-definition (wheel-callback handle x y) (platformwindow double double) void "wheel_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'wheel x y)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (mouse-wheel~ window #f #f (new Point (fxround (* 30. x)) (fxround (* 30. y)))))))))
+
+
+(c-definition (file-callback filename) (NSString*) void "file_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'file filename)))
+      (let ((appl (get-application)))
+        (when appl
+          (drop-file~ appl filename))))))
+
+
+(c-definition (drop-callback handle filenames) (platformwindow NSArray*) void "drop_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'drop filenames)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (drop-files~ window filenames))))))
+
+
+(c-definition (entered-callback handle) (platformwindow) void "entered_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'entered)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (mouse-enter~ window))))))
+
+
+(c-definition (exited-callback handle) (platformwindow) void "exited_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'exited)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (mouse-leave~ window))))))
+
+
+(c-definition (activate-callback handle) (platformwindow) void "activate_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'activate)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (when window
+            (focus-gain~ window)
+            (activate-application~ window)))))))
+
+
+(c-definition (deactivate-callback handle) (platformwindow) void "deactivate_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'deactivate)))
+      (when get-window
+        (let ((window (get-window handle)))
+          (when window
+            (deactivate-application~ window)
+            (focus-lose~ window)))))))
+
+
+(c-definition (terminate-callback) () void "terminate_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'terminate)))
+      (let ((process (get-process)))
+        (when process
+          ;; probably not 100% correct to exit applicationShouldTerminate but seems to work
+          (exit-process~ process))))))
+
+
+(definition *music-played-callback*
+  #f)
+
+(definition public (platformMusicPlayedCallback callback)
+  (set! *music-played-callback* callback))
+
+(c-definition (finished-playing-callback alias) (NSString*) void "finished_playing_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'music-played alias)))
+      (when *music-played-callback*
+        (*music-played-callback* alias)))))
+
+
+(c-definition (user-callback data1 data2) (int int) void "user_callback" ""
+  (let ((window (get-toplevel)))
+    (when window
+      (user-notification~ window data1 data2))))
+
+
+;; quicky
+(definition public VK_LEFT 0)
+(definition public VK_RIGHT 0)
+(definition public VK_DOWN 0)
+(definition public VK_UP 0)
+(definition public VK_RBUTTON 0)
+
+
+;;;
+;;;; Log
+;;;
+
+
+(definition public (system-log msg)
+  (platformLog (->string msg)))
+
+
+;;;
+;;;; Process
+;;;
+
+
+(c-external (getpid) int)
+
+
+(definition (relinquish-process)
+  )
+
+
+(definition public (current-process-id)
+  (getpid))
+
+
+(definition public (collect-processes-info)
+  '()))

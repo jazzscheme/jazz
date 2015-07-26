@@ -44,6 +44,7 @@
         (jazz.debuggee.jazz.autoload)
         (jazz.debuggee.jazz.autoload-external)
         (jazz.editor.jazz.inspector)
+        (jazz.evaluate)
         (jazz.io)
         (jazz.jrm)
         (jazz.library)
@@ -282,99 +283,17 @@
   ;;;
   
   
-  (definition temporary-evaluation-file
-    #f)
-  
-  (definition (get-temporary-evaluation-file)
-    (or temporary-evaluation-file
-        ;; changing the extension to jazz is a quick hack for debugger highlight
-        ;; the right solution is to do the same thing as (read-source-all port container line col)
-        ;; e.g. make it so compilation locations point to the original source file
-        (let ((file (get-temporary-file extension: "jazz")))
-          (set! temporary-evaluation-file file)
-          file)))
-  
-  
-  (definition (effective-evaluation-mode evaluation-mode)
-    (if (and (eq? evaluation-mode 'compile) (not (compiler-present?)))
-        'interpret
-      evaluation-mode))
-  
-  
   (method override (evaluate-expressions forms syntax str container line col evaluation-mode walk-debugger walk-cookie)
-    (let ((evaluation-mode (effective-evaluation-mode (or evaluation-mode (find-setting 'jazz.evaluation-mode 'interpret)))))
-      (define (unit/module-form? expr)
-        (and (pair? (source-code expr))
-             (memq? (source-code (car (source-code expr))) '(unit module))))
-      
-      (define (parse-unit/module expr)
-        (let ((first (source-code (car expr))))
-          (if (memq? first '(protected public))
-              (values (source-code (cadr expr)) first)
-            (values first 'public))))
-      
-      (define (present result)
-        (unless (eq? evaluation-mode 'live)
-          (when (specified? result)
-            (let ((values (call-with-values (lambda () result) list)))
-              (for-each (lambda (value)
-                          (format :console #"\($\)\(color Ochre {s}\){%}"# value))
-                        values))
-            (display-prompt (get-console-port) (current-repl-level))
-            (force-output (get-console-port)))))
-      
-      (thread-call (primordial-thread) 'evaluate-expressions
-        (lambda ()
-          (let ((expressions (parameterize ((walk-for 'eval))
-                               (with-readtable (case syntax
-                                                 ((scheme) scheme-readtable)
-                                                 ((jazz) jazz-readtable))
-                                 (lambda ()
-                                   (call-with-input-string str
-                                     (lambda (port)
-                                       (read-source-all port container line col))))))))
+    (thread-call (primordial-thread) 'evaluate-expressions
+      (lambda ()
+        (let ((evaluate-hook (get-evaluate-forms-hook)))
+          (when (or (not evaluate-hook)
+                    (not (evaluate-hook forms syntax str container line col evaluation-mode)))
             (catch (Walk-Problems exc
                      (report-walk-problems~ walk-debugger (get-local-process) (exception-detail exc) walk-cookie)
                      (unless (delay-reporting?)
                        (throw exc)))
-              (let ((first (car expressions))
-                    (evaluate (cons 'begin expressions)))
-                (if (and (eq? syntax 'jazz) (unit/module-form? first))
-                    (receive (unit-name access) (parse-unit/module (cdr (source-code first)))
-                      (load-unit unit-name)
-                      (outline-unit unit-name)
-                      (case evaluation-mode
-                        ((compile)
-                         (let ((file (get-temporary-evaluation-file)))
-                           (call-with-output-file (path-settings file char-encoding: 'UTF-8)
-                             (lambda (output)
-                               (display (make-string line #\newline) output)
-                               (display str output)
-                               (newline output)))
-                           (let ((path (parse~ file)))
-                             (let ((pathname (parameterize ((requested-unit-name unit-name)
-                                                            (jazz:walk-for 'compile)
-                                                            (generate-symbol-for "&")
-                                                            (generate-symbol-context unit-name)
-                                                            (generate-symbol-counter 0)
-                                                            (path->container-override
-                                                              (lambda (target)
-                                                                (and (equal? target path)
-                                                                     unit-name))))
-                                               (with-jazz-readtable
-                                                 (lambda ()
-                                                   (compile-file path options: compile-options))))))
-                               (load-file (list path: pathname char-encoding: 'UTF) #f)))))
-                        ((interpret live)
-                         (parameterize ((requested-unit-name unit-name)
-                                        (walk-for 'eval)
-                                        (generate-symbol-for (format "%{a}&" (eval-count)))
-                                        (generate-symbol-context unit-name)
-                                        (generate-symbol-counter 0))
-                           (present (eval evaluate))))))
-                  (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
-                                 (generate-symbol-counter 0))
-                    (present (eval evaluate)))))
+              (evaluate-forms syntax str container line col evaluation-mode)
               (hook-evaluate forms syntax str container line col)))))))
   
   

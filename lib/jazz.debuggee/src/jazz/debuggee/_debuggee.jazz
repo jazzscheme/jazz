@@ -430,6 +430,48 @@
 
 
 ;;;
+;;;; Evaluate
+;;;
+
+
+(definition *eval-count*
+  0)
+
+
+(definition public (eval-count)
+  (prog1 *eval-count*
+    (increase! *eval-count*)))
+
+
+(definition public (evaluate-in-unit unit-name expr evaluator)
+  (load-unit unit-name)
+  (let ((module-declaration (outline-unit unit-name)))
+    (parameterize ((requested-unit-name #f)
+                   (generate-symbol-for (format "%{a}&" (eval-count)))
+                   (generate-symbol-context unit-name)
+                   (generate-symbol-counter 0))
+      (evaluator
+        `(module ,unit-name ,(get-dialect-name~ module-declaration) ,expr)))))
+
+
+(definition *evaluate-hooks*
+  '())
+
+
+(definition public (register-evaluate-hook hook)
+  (set! *evaluate-hooks* (append *evaluate-hooks* (list hook))))
+
+(definition public (unregister-evaluate-hook hook)
+  (set! *evaluate-hooks* (remove! hook *evaluate-hooks*)))
+
+
+(definition public (hook-evaluate forms syntax str container line col)
+  (for-each (lambda (hook)
+              (hook forms syntax str container line col))
+            *evaluate-hooks*))
+
+
+;;;
 ;;;; Repl
 ;;;
 
@@ -514,26 +556,6 @@
   (format port #"\($\)"#)
   (format port #"\(prompt {a}\)"# (prompt))
   (force-output port))
-
-
-(definition *eval-count*
-  0)
-
-
-(definition public (eval-count)
-  (prog1 *eval-count*
-    (increase! *eval-count*)))
-
-
-(definition public (evaluate-in-unit unit-name expr evaluator)
-  (load-unit unit-name)
-  (let ((module-declaration (outline-unit unit-name)))
-    (parameterize ((requested-unit-name #f)
-                   (generate-symbol-for (format "%{a}&" (eval-count)))
-                   (generate-symbol-context unit-name)
-                   (generate-symbol-counter 0))
-      (evaluator
-        `(module ,unit-name ,(get-dialect-name~ module-declaration) ,expr)))))
 
 
 ;;;
@@ -1224,28 +1246,6 @@
                 (if (= level 0)
                     ""
                   (format " {a}" level)))))))
-
-
-;;;
-;;;; Evaluate
-;;;
-
-
-(definition *evaluate-hooks*
-  '())
-
-
-(definition public (register-evaluate-hook hook)
-  (set! *evaluate-hooks* (append *evaluate-hooks* (list hook))))
-
-(definition public (unregister-evaluate-hook hook)
-  (set! *evaluate-hooks* (remove! hook *evaluate-hooks*)))
-
-
-(definition public (hook-evaluate forms syntax str container line col)
-  (for-each (lambda (hook)
-              (hook forms syntax str container line col))
-            *evaluate-hooks*))
 
 
 ;;;

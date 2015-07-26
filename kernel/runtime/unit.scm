@@ -2007,6 +2007,21 @@
 
 
 ;;;
+;;;; Evaluate
+;;;
+
+
+(define jazz:evaluate-forms-hook
+  #f)
+
+(define (jazz:get-evaluate-forms-hook)
+  jazz:evaluate-forms-hook)
+
+(define (jazz:set-evaluate-forms-hook hook)
+  (set! jazz:evaluate-forms-hook hook))
+
+
+;;;
 ;;;; Build
 ;;;
 

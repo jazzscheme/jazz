@@ -1,0 +1,139 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Geometry
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.evaluate jazz
+
+
+(import (jazz.debuggee)
+        (jazz.io)
+        (jazz.platform)
+        (jazz.system))
+
+
+(definition temporary-evaluation-file
+  #f)
+
+(definition (get-temporary-evaluation-file)
+  (or temporary-evaluation-file
+      ;; changing the extension to jazz is a quick hack for debugger highlight
+      ;; the right solution is to do the same thing as (read-source-all port container line col)
+      ;; e.g. make it so compilation locations point to the original source file
+      (let ((file (get-temporary-file extension: "jazz")))
+        (set! temporary-evaluation-file file)
+        file)))
+
+
+(definition (effective-evaluation-mode evaluation-mode)
+  (if (and (eq? evaluation-mode 'compile) (not (compiler-present?)))
+      'interpret
+    evaluation-mode))
+
+
+(definition public (evaluate-forms syntax str container line col evaluation-mode (expand?: expand? #f))
+  (let ((evaluation-mode (effective-evaluation-mode (or evaluation-mode (find-setting 'jazz.evaluation-mode 'interpret)))))
+    (define (unit/module-form? expr)
+      (and (pair? (source-code expr))
+           (memq? (source-code (car (source-code expr))) '(unit module))))
+    
+    (define (parse-unit/module expr)
+      (let ((first (source-code (car expr))))
+        (if (memq? first '(protected public))
+            (values (source-code (cadr expr)) first)
+          (values first 'public))))
+    
+    (define (present result)
+      (unless (eq? evaluation-mode 'live)
+        (when (specified? result)
+          (let ((values (call-with-values (lambda () result) list)))
+            (for-each (lambda (value)
+                        (format :console #"\($\)\(color Ochre {s}\){%}"# value))
+                      values))
+          (display-prompt (get-console-port) (current-repl-level))
+          (force-output (get-console-port)))))
+    
+    (let ((forms (parameterize ((walk-for 'eval))
+                   (with-readtable (case syntax
+                                     ((scheme) scheme-readtable)
+                                     ((jazz) jazz-readtable))
+                     (lambda ()
+                       (call-with-input-string str
+                         (lambda (port)
+                           (read-source-all port container line col))))))))
+      (let ((first (car forms)))
+        (if (and (eq? syntax 'jazz) (unit/module-form? first) (null? (cdr forms)))
+            (let ((expression first))
+              (receive (unit-name access) (parse-unit/module (cdr (source-code first)))
+                (unless expand?
+                  (load-unit unit-name))
+                (outline-unit unit-name)
+                (case evaluation-mode
+                  ((compile)
+                   (let ((file (get-temporary-evaluation-file)))
+                     (call-with-output-file (path-settings file char-encoding: 'UTF-8)
+                       (lambda (output)
+                         (display (make-string line #\newline) output)
+                         (display str output)
+                         (newline output)))
+                     (let ((path (parse~ file)))
+                       (let ((pathname (parameterize ((requested-unit-name unit-name)
+                                                      (jazz:walk-for 'compile)
+                                                      (generate-symbol-for "&")
+                                                      (generate-symbol-context unit-name)
+                                                      (generate-symbol-counter 0)
+                                                      (path->container-override
+                                                        (lambda (target)
+                                                          (and (equal? target path)
+                                                               unit-name))))
+                                         (with-jazz-readtable
+                                           (lambda ()
+                                             (compile-file path options: compile-options))))))
+                         (load-file (list path: pathname char-encoding: 'UTF) #f)))))
+                  ((interpret live)
+                   (if expand?
+                       (begin
+                         (load-unit 'dialect.development)
+                         (expand-form expression))
+                     (parameterize ((requested-unit-name unit-name)
+                                    (walk-for 'eval)
+                                    (generate-symbol-for (format "%{a}&" (eval-count)))
+                                    (generate-symbol-context unit-name)
+                                    (generate-symbol-counter 0))
+                       (present (eval expression))))))))
+          (let ((expression (cons 'begin forms)))
+            (parameterize ((generate-symbol-for (format "%{a}&" (eval-count)))
+                           (generate-symbol-counter 0))
+              (present (eval expression))))))))))

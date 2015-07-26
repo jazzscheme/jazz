@@ -69,19 +69,24 @@
 
 (jazz:define-variable-override jazz:expand-unit-internal
   (lambda (unit-name #!key (backend 'scheme) (walk-for #f))
-    (parameterize ((jazz:walk-for (or walk-for 'walk)))
-      (let* ((src (jazz:find-unit-src unit-name #f))
-             (form (jazz:read-toplevel-form src))
-             (kind (jazz:source-code (car (jazz:source-code form))))
-             (rest (cdr (jazz:source-code form))))
+    (let ((src (jazz:find-unit-src unit-name #f)))
+      (let ((form (jazz:read-toplevel-form src)))
         (parameterize ((jazz:requested-unit-name unit-name)
-                       (jazz:requested-unit-resource src)
-                       (jazz:generate-symbol-for "%")
-                       (jazz:generate-symbol-context unit-name)
-                       (jazz:generate-symbol-counter 0))
-          (case kind
-            ((unit) (jazz:expand-unit-source rest))
-            ((module) (jazz:generate-module rest backend))))))))
+                       (jazz:requested-unit-resource src))
+          (jazz:expand-form form backend: backend walk-for: walk-for))))))
+
+
+(define (jazz:expand-form form #!key (unit-name #f) (backend 'scheme) (walk-for #f))
+  (parameterize ((jazz:walk-for (or walk-for 'walk)))
+    (let ((kind (jazz:source-code (car (jazz:source-code form))))
+          (rest (cdr (jazz:source-code form))))
+      (parameterize ((jazz:generate-symbol-for "%")
+                     (jazz:generate-symbol-context (or unit-name (gensym)))
+                     (jazz:generate-symbol-counter 0))
+        (case kind
+          ((unit) (jazz:expand-unit-source rest))
+          ((module) (jazz:generate-module rest backend))
+          (else (jazz:error "Ill-formed toplevel form: {s}" kind)))))))
 
 
 (define (jazz:expand unit-name . rest)

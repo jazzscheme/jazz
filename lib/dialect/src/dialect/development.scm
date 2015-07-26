@@ -69,11 +69,12 @@
 
 (jazz:define-variable-override jazz:expand-unit-internal
   (lambda (unit-name #!key (backend 'scheme) (walk-for #f))
-    (let ((src (jazz:find-unit-src unit-name #f)))
-      (let ((form (jazz:read-toplevel-form src)))
-        (parameterize ((jazz:requested-unit-name unit-name)
-                       (jazz:requested-unit-resource src))
-          (jazz:expand-form form backend: backend walk-for: walk-for))))))
+    (parameterize ((jazz:walk-for (or walk-for 'walk)))
+      (let ((src (jazz:find-unit-src unit-name #f)))
+        (let ((form (jazz:read-toplevel-form src)))
+          (parameterize ((jazz:requested-unit-name unit-name)
+                         (jazz:requested-unit-resource src))
+            (jazz:expand-form form unit-name: unit-name backend: backend walk-for: walk-for)))))))
 
 
 (define (jazz:expand-form form #!key (unit-name #f) (backend 'scheme) (walk-for #f))

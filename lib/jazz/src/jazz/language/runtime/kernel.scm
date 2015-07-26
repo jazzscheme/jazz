@@ -758,6 +758,8 @@
 (native jazz:set-load-interpreted-hook)
 (native jazz:get-evaluate-forms-hook)
 (native jazz:set-evaluate-forms-hook)
+(native jazz:get-console-evaluate-hook)
+(native jazz:set-console-evaluate-hook)
 (native jazz:walk-literal)
 (native jazz:walk-for)
 (native jazz:register-service)

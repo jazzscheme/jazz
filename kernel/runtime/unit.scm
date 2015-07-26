@@ -2022,6 +2022,21 @@
 
 
 ;;;
+;;;; Console
+;;;
+
+
+(define jazz:console-evaluate-hook
+  #f)
+
+(define (jazz:get-console-evaluate-hook)
+  jazz:console-evaluate-hook)
+
+(define (jazz:set-console-evaluate-hook hook)
+  (set! jazz:console-evaluate-hook hook))
+
+
+;;;
 ;;;; Build
 ;;;
 

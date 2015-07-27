@@ -312,7 +312,7 @@
   ;; x -> expand
   ;; commented out to get proper tail call into the repl
   ;; (let ((exit-code ...)))
-  (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "debugger" "link" "jobs" "port" "dialect") missing-argument-for-option
+  (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "debugger" "link" "j" "jobs" "port" "dialect") missing-argument-for-option
     (lambda (commands options remaining)
       (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
             (nosource? (jazz:get-option "nosource" options))
@@ -343,7 +343,7 @@
             (compile (or (jazz:get-option "c" options)(jazz:get-option "compile" options)))
             (debugger (jazz:get-option "debugger" options))
             (link (symbol-argument (jazz:get-option "link" options)))
-            (jobs (number-argument (jazz:get-option "jobs" options)))
+            (jobs (number-argument (or (jazz:get-option "j" options) (jazz:get-option "jobs" options))))
             (port (number-argument (jazz:get-option "port" options)))
             (dialect (symbol-argument (jazz:get-option "dialect" options))))
         (define (setup-kernel)

@@ -5082,8 +5082,10 @@
           (iterate))))))
 
 
-(definition public (write-binary-content data port)
-  (let ((u8vect (object->u8vector data)))
+(definition public (write-binary-content port data (encoder #f))
+  (let ((u8vect (if encoder
+                    (object->u8vector data encoder)
+                  (object->u8vector data))))
     (let ((size (u8vector-length u8vect)))
       (receive (b1 b2 b3 b4) (32-bit-integer->bytes size)
         (write-u8 b1 port)
@@ -5094,7 +5096,7 @@
         (force-output port)))))
 
 
-(definition public (read-binary-content port)
+(definition public (read-binary-content port (decoder #f))
   (let* ((b1 (read-u8 port))
          (b2 (read-u8 port))
          (b3 (read-u8 port))
@@ -5104,7 +5106,44 @@
       (let ((size (bytes->32-bit-integer b1 b2 b3 b4)))
         (let ((u8vect (make-u8vector size)))
           (read-subu8vector u8vect 0 size port)
-          (u8vector->object u8vect))))))
+          (if decoder
+              (u8vector->object u8vect decoder)
+            (u8vector->object u8vect)))))))
+
+
+;;;
+;;;; Marshall
+;;;
+
+
+(definition public (marshall obj)
+  (or (marshall-object~ (class-of obj) obj)
+      (if (object? obj)
+          ;; until-full-marshalling
+          (make-serialized 'literal (->string obj :reader))
+          @wait
+          (error "Unable to marshall: {a}" obj)
+        obj)))
+
+
+;;;
+;;;; Unmarshall
+;;;
+
+
+(definition public (unmarshall obj)
+  (if (serialized? obj)
+        ;; until-full-marshalling
+      (if (eq? (serialized-class obj) 'literal)
+          (parameterize ((walk-for #f))
+            (with-jazz-readtable
+              (lambda ()
+                (read-string-element (serialized-content obj)))))
+        (let ((class (deserialize-class (serialized-class obj)))
+              (content (serialized-content obj)))
+          (or (unmarshall-object~ class content)
+              (error "Unable to unmarshall: {a}" (category-name class)))))
+    obj))
 
 
 ;;;

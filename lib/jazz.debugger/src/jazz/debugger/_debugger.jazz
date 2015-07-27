@@ -305,6 +305,39 @@
 
 
 ;;;
+;;;; Walk
+;;;
+
+
+(definition package (walk-problems-message detail)
+  (define (collect-problems)
+    (let ((queue (new-queue)))
+      (for-each-detail detail
+                       (lambda (detail)
+                         (when (null? (get-children~ detail))
+                           (enqueue queue detail))))
+      (queue-list queue)))
+  
+  (define (for-each-detail detail proc)
+    (proc detail)
+    (for-each (lambda (child)
+                (for-each-detail child proc))
+              (get-children~ detail)))
+  
+  (let ((max 8)
+        (problems (collect-problems)))
+    (let ((effective-problems (if (> (length problems) max) (subseq problems 0 max) problems)))
+      `(<span>
+         "Walk problems encountered"
+         ,@(map (lambda (problem)
+                  `(<bulleted> ,(->string (get-title~ problem))))
+                effective-problems)
+         ,@(if (> (length problems) max)
+               '((<bulleted> "..."))
+             '())))))
+
+
+;;;
 ;;;; Break
 ;;;
 

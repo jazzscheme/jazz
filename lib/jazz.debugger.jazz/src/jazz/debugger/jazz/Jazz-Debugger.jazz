@@ -581,45 +581,21 @@
   
   
   (method (report-walk-problems process detail cookie)
-    (define (collect-problems)
-      (let ((queue (new-queue)))
-        (for-each-detail detail
-          (lambda (detail)
-            (when (null? (get-children~ detail))
-              (enqueue queue detail))))
-        (queue-list queue)))
-    
-    (define (for-each-detail detail proc)
-      (proc detail)
-      (for-each (lambda (child)
-                  (for-each-detail child proc))
-                (get-children~ detail)))
-    
     (unless (eqv? cookie last-reported-cookie)
       (set! last-reported-cookie cookie)
       (let ((problems-view (get-problems-view)))
         (when problems-view
-          (let ((max 8)
-                (problems (collect-problems)))
-            (let ((effective-problems (if (> (length problems) max) (subseq problems 0 max) problems)))
-              (execute-event
-                (lambda ()
-                  (let ((code (message-box `(<span>
-                                              "Walk problems encountered"
-                                              ,@(map (lambda (problem)
-                                                       `(<bulleted> ,(->string (get-title~ problem))))
-                                                     effective-problems)
-                                              ,@(if (> (length problems) max)
-                                                    '((<bulleted> "..."))
-                                                  '()))
-                                           type: 'question
-                                           title: "Problems"
-                                           yes: "Highlight"
-                                           no: "Ignore")))
-                    (case code
-                      ((yes)
-                       (report-problems~ problems-view detail highlight?: #t)
-                       (ensure-focusable~ problems-view))))))))))))
+          (execute-event
+            (lambda ()
+              (let ((code (message-box (walk-problems-message detail)
+                                       type: 'question
+                                       title: "Problems"
+                                       yes: "Highlight"
+                                       no: "Ignore")))
+                (case code
+                  ((yes)
+                   (report-problems~ problems-view detail highlight?: #t)
+                   (ensure-focusable~ problems-view))))))))))
   
   
   ;;;

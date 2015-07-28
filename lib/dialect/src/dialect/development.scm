@@ -87,6 +87,7 @@
         (case kind
           ((unit) (jazz:expand-unit-source rest))
           ((module) (jazz:generate-module rest backend))
+          ((script) (jazz:generate-script rest backend))
           (else (jazz:error "Ill-formed toplevel form: {s}" kind)))))))
 
 

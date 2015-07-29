@@ -223,6 +223,10 @@
   jazz:built)
 
 
+(define jazz:kernel-path
+  (and (%%eq? jazz:image 'executable) jazz:executable-path (jazz:executable-path)))
+
+
 (define jazz:kernel-install
   (or (and (%%eq? jazz:image 'executable) jazz:executable-directory (jazz:executable-directory))
       (and (jazz:global-bound? '*kernel-install*)

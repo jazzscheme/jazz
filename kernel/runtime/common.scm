@@ -376,6 +376,9 @@
 ;;;
 
 
+(jazz:define-variable jazz:executable-path
+  #f)
+
 (jazz:define-variable jazz:executable-directory
   #f)
 

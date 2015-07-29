@@ -85,6 +85,11 @@
   (else))
 
 
+(jazz:define-variable-override jazz:executable-path
+  (lambda ()
+    (jazz:platform-executable-path)))
+
+
 (jazz:define-variable-override jazz:executable-directory
   (lambda ()
     (let ((path (jazz:platform-executable-path)))

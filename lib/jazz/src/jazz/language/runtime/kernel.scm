@@ -609,6 +609,7 @@
 (native jazz:kernel-destination)
 (native jazz:kernel-properties)
 (native jazz:kernel-built)
+(native jazz:kernel-path)
 (native jazz:kernel-install)
 (native jazz:kernel-bundle-install)
 (native jazz:kernel-bundle-root)

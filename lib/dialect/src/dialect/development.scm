@@ -67,14 +67,23 @@
 ;;;
 
 
-(jazz:define-variable-override jazz:expand-unit-internal
-  (lambda (unit-name #!key (backend 'scheme) (walk-for #f))
-    (parameterize ((jazz:walk-for (or walk-for 'walk)))
-      (let ((src (jazz:find-unit-src unit-name #f)))
-        (let ((form (jazz:read-toplevel-form src)))
-          (parameterize ((jazz:requested-unit-name unit-name)
-                         (jazz:requested-unit-resource src))
-            (jazz:expand-form form unit-name: unit-name backend: backend walk-for: walk-for)))))))
+(define (jazz:expanding-unit unit-name thunk #!key (walk-for #f))
+  (let ((src (jazz:find-unit-src unit-name #f)))
+    (parameterize ((jazz:walk-for (or walk-for 'walk))
+                   (jazz:generate-symbol-for "%")
+                   (jazz:generate-symbol-context unit-name)
+                   (jazz:generate-symbol-counter 0)
+                   (jazz:requested-unit-name unit-name)
+                   (jazz:requested-unit-resource src))
+      (thunk))))
+
+
+(define (jazz:expand-unit unit-name #!key (backend 'scheme) (walk-for #f))
+  (jazz:expanding-unit unit-name
+    (lambda ()
+      (let ((form (jazz:read-toplevel-form (jazz:requested-unit-resource))))
+        (jazz:expand-form form unit-name: unit-name backend: backend walk-for: walk-for)))
+     walk-for: walk-for))
 
 
 (define (jazz:expand-form form #!key (unit-name #f) (backend 'scheme) (walk-for #f))
@@ -114,15 +123,20 @@
       (apply jazz:expand-unit unit-name rest))))
 
 
-(jazz:define-variable-override jazz:expand-script-internal
-  (lambda (path #!key (backend 'scheme))
-    (parameterize ((jazz:walk-for 'walk))
-      (let* ((form (jazz:read-toplevel-form path script?: #t))
-             (rest (cdr (jazz:source-code form))))
-        (parameterize ((jazz:generate-symbol-for "%")
-                       (jazz:generate-symbol-context (gensym))
-                       (jazz:generate-symbol-counter 0)
-                       (jazz:requested-pathname path))
+(define (jazz:expanding-script path thunk)
+  (parameterize ((jazz:walk-for 'walk)
+                 (jazz:generate-symbol-for "%")
+                 (jazz:generate-symbol-context (gensym))
+                 (jazz:generate-symbol-counter 0)
+                 (jazz:requested-pathname path))
+    (thunk)))
+
+
+(define (jazz:expand-script path #!key (backend 'scheme))
+  (jazz:expanding-script path
+    (lambda ()
+      (let ((form (jazz:read-toplevel-form path script?: #t)))
+        (let ((rest (cdr (jazz:source-code form))))
           (jazz:generate-script rest backend))))))
 
 

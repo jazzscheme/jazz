@@ -2425,6 +2425,10 @@
       (thunk))))
 
 
+(define (jazz:with-resource-reader resource thunk)
+  (jazz:with-extension-reader (%%get-resource-extension resource) thunk))
+
+
 (define (jazz:register-reader-extension extension readtable-getter)
   (%%table-set! jazz:Extension-Readers extension readtable-getter))
 

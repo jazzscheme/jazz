@@ -617,6 +617,7 @@
 (native jazz:kernel-source-accessible?)
 (native jazz:kernel-source-access?)
 (native jazz:kernel-version)
+(native jazz:kernel-boot)
 (native jazz:install-path)
 (native jazz:bundle-depth)
 (native jazz:get-update-version)

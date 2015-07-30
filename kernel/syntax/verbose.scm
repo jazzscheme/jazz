@@ -35,6 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+;; put here to be as early as possible in the boot
+(define jazz:kernel-boot
+  (let ((f64vec (##make-f64vector 1)))
+    (##get-current-time! f64vec 0)
+    (##f64vector-ref f64vec 0)))
+
+
 (define jazz:kernel-verbose?
   #f)
 

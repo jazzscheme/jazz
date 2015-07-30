@@ -2040,7 +2040,7 @@
           (when (is? (apply-key key object) type)
             (increase! total)))
     total))
-            
+
 
 (definition public (find seq target (key: key #f) (test: test #f) (start: start #f) (reversed?: reversed? #f) (return: return 'position))
   (if (and (null/pair? seq) (not reversed?))
@@ -2612,13 +2612,23 @@
                      (regexp?: regexp? #f)
                      (match-test: match-test #f)
                      (constituent-test: constituent-test #f)) <int+>
-  (let ((search-set (->search-set (if (string? target)
-                                      (allocate-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
-                                    target))))
-    (let ((found (regular-search-impl seq search-set match-test constituent-test start end reversed?)))
-      (if found
-          (car found)
-        #f))))
+  (if (and (string? seq)
+           (not end)
+           (not reversed?)
+           (not whole-words?)
+           (not ignore-case?)
+           (not ignore-diacritic?)
+           (not regexp?)
+           (not match-test)
+           (not constituent-test))
+      (string-search seq target start: start)
+    (let ((search-set (->search-set (if (string? target)
+                                        (allocate-search-context target whole-words? ignore-case? ignore-diacritic? regexp? #f #f #f)
+                                      target))))
+      (let ((found (regular-search-impl seq search-set match-test constituent-test start end reversed?)))
+        (if found
+            (car found)
+          #f)))))
 
 
 (definition public (search-all seq <Sequence> target <Object>
@@ -4048,6 +4058,19 @@
     (let ((output (open-output-string)))
       (print expr output detail)
       (get-output-string output))))
+
+
+(definition public (string-search str target (start: start #f))
+  (let ((strlen (string-length str))
+        (tarlen (string-length target)))
+    (let (iter (pos (or start 0)))
+      (let ((end (+ pos tarlen)))
+        (cond ((> end strlen)
+               #f)
+              ((equal? (substring str pos end) target)
+               pos)
+              (else
+               (iter (+ pos 1))))))))
 
 
 (definition public (remove-trailing-char string c)

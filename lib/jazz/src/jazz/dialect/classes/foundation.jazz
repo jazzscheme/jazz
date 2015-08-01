@@ -346,20 +346,39 @@
   (make-parameter #f))
 
 
-(class Literal extends Object
+(class Literal-Class extends Class
+  
+  
+  (method override (marshall-object obj)
+    (serialize-object (class-of obj)
+                      (vector
+                        (serialize (get-name~ obj))
+                        (serialize (get-arguments~ obj)))))
+  
+  
+  (method override (unmarshall-object content)
+    (bind-vector (name arguments) content
+      (new self
+        (deserialize name)
+        (deserialize arguments)))))
+
+
+(class Literal metaclass Literal-Class extends Object
   
   
   (slot name      getter generate)
   (slot arguments getter generate)
   
   
+  (method override (initialize name arguments)
+    (set! name~self name)
+    (set! arguments~self arguments))
+  
+  
   (method override (print output readably)
     (if (*print-literal*)
         (format output "~{{a}{?: {l detail: :v}~}}" name (not-null? arguments) arguments readably)
-      (print-unreadable self output
-        (lambda (output)
-          (format output "{a}"
-            name)))))
+      (format output "~{Literal {s} {s}}" name arguments)))
   
   
   (method override (walk-references proc)

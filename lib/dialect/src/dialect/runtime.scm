@@ -1759,7 +1759,11 @@
 ;;;
 
 
-(jazz:define-class jazz:Literal jazz:Object (constructor: jazz:allocate-literal)
+(jazz:define-class jazz:Literal-Class jazz:Class (metaclass: jazz:Class)
+  ())
+
+
+(jazz:define-class jazz:Literal jazz:Object (constructor: jazz:allocate-literal metaclass: jazz:Literal-Class)
   ((name      getter: generate)
    (arguments getter: generate)))
 

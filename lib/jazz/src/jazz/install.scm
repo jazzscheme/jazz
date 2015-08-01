@@ -43,6 +43,8 @@
 ;;;
 
 
+;; having the literal class as a literal is a bit strange but usefull for marshalling
+(jazz:define-literal Literal          jazz.literals:construct-literal)
 (jazz:define-literal Point            jazz.literals:construct-point)
 (jazz:define-literal Distance         jazz.literals:construct-distance)
 (jazz:define-literal Dimension        jazz.literals:construct-dimension)

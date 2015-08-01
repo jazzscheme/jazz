@@ -42,10 +42,16 @@
 (define (jazz:log-backtrace ignore)
   (continuation-capture
     (lambda (k)
-      ;; dump frames
-      (display-continuation-backtrace k (current-error-port) #f #f 500 500)
-      ;; dump variables
-      (display-continuation-backtrace k (current-error-port) #f #t 500 500))))
+      (let ((port (current-error-port)))
+        (display "Frames:" port)
+        (newline port)
+        ;; dump frames
+        (display-continuation-backtrace k port #f #f 500 500)
+        (newline port)
+        (display "Variables:" port)
+        (newline port)
+        ;; dump variables
+        (display-continuation-backtrace k port #f #t 500 500)))))
 
 
 (jazz:set-crash-reporter jazz:log-backtrace)

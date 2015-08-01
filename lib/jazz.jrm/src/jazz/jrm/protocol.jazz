@@ -144,15 +144,7 @@
 
 
 (definition public (write-binary-data data port)
-  (let ((u8vect (object->u8vector data marshall)))
-    (let ((size (u8vector-length u8vect)))
-      (receive (b1 b2 b3 b4) (32-bit-integer->bytes size)
-        (write-u8 b1 port)
-        (write-u8 b2 port)
-        (write-u8 b3 port)
-        (write-u8 b4 port)
-        (write-subu8vector u8vect 0 size port)
-        (force-output port)))))
+  (write-binary data port))
 
 
 (definition public (write-binary-header application-code version port)
@@ -174,16 +166,10 @@
 
 
 (definition public (read-binary-data port)
-  (let* ((b1 (read-u8 port))
-         (b2 (read-u8 port))
-         (b3 (read-u8 port))
-         (b4 (read-u8 port)))
-    (if (eof-object? b4)
+  (let ((data (read-binary port)))
+    (if (eof-object? data)
         (throw-remote-connection-broke)
-      (let ((size (bytes->32-bit-integer b1 b2 b3 b4)))
-        (let ((u8vect (make-u8vector size)))
-          (read-subu8vector u8vect 0 size port)
-          (u8vector->object u8vect unmarshall))))))
+      data)))
 
 
 (definition public (read-binary-header port)

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Pulses
+;;;; Events
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,68 +35,40 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.utility.Pulse jazz
+(module jazz.event jazz
 
 
-(import (jazz.event))
+(definition public (event-thread)
+  (primordial-thread))
 
 
-(class Pulse extends Object
-  
-  
-  (property name    initialize #f accessors generate)
-  (property delay   initialize #f accessors generate)
-  (property period  initialize #f accessors generate)
-  (property repeat? initialize #f accessors generate)
-  (property execute initialize #f accessors generate)
-  
-  
-  (slot thread initialize #f)
-  (slot mutex  initialize (make-mutex))
-  
-  
-  (method override (initialize name period execute . rest)
-    (bind-keywords ((delay #f) (repeat? #t)) rest
-      (nextmethod)
-      (set! name~self name)
-      (set! period~self period)
-      (set! delay~self delay)
-      (set! repeat?~self repeat?)
-      (set! execute~self execute)
-      (set! thread~self (start-loop))))
-  
-  
-  (method override (destroy)
-    (mutex-lock! mutex)
-    (when thread
-      (let ((thread thread~self))
-        (set! thread~self #f)
-        (mutex-unlock! mutex)
-        (exit-thread thread)))
-    (mutex-unlock! mutex)
-    (nextmethod))
-  
-  
-  (method (terminated?)
-    (not thread))
-  
-  
-  ;;;
-  ;;;; Loop
-  ;;;
-  
-  
-  (method (start-loop)
-    (thread-start!
-      (new-thread
-        (lambda ()
-          (declare (proper-tail-calls))
-          (let (loop (timeout (or delay period)))
-            (sleep timeout)
-            (execute-event
-              (lambda ()
-                (unless (terminated?)
-                  (execute))))
-            (when repeat?
-              (loop period))))
-        name)))))
+(definition public (event-thread?)
+  (eq? (current-thread) (event-thread)))
+
+
+;; delayed events are part of the current event and
+;; are thus processed in priority before other events
+(definition public (delay-event thunk)
+  (write-delayed-event thunk)
+  ;; to unblock thread-process
+  (thread-write (event-thread) (lambda ())))
+
+
+(definition public (post-event thunk)
+  (thread-post (event-thread) 'post-event
+    thunk))
+
+
+(definition public (block-event thunk)
+  (thread-block (event-thread) 'block-event
+    thunk))
+
+
+(definition public (execute-event thunk)
+  (thread-execute (event-thread) 'execute-event
+    thunk))
+
+
+(definition public (call-event thunk)
+  (thread-call (event-thread) 'call-event
+    thunk)))

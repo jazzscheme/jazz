@@ -255,6 +255,12 @@
     unprocessed)
   
   
+  (method protected virtual (call-mouse-moved x y)
+    (if manage-captured?
+        (mouse-moved (- x (get-h~ warp-delta)) (- y (get-v~ warp-delta)))
+      (mouse-moved x y)))
+  
+  
   (method protected virtual (mouse-moved x y)
     (mouse-move (fxround x) (fxround y)))
   
@@ -312,6 +318,9 @@
 
   (slot cursor-visible?  initialize #t getter generate)
   (slot cursor-captured? initialize #f getter generate)
+  (slot manage-captured? initialize #f getter generate)
+  (slot manage-preserved initialize #f getter generate)
+  (slot warp-delta       initialize #f getter generate)
   
   
   (method public (show-cursor)
@@ -325,18 +334,35 @@
   
   
   (method public (capture-cursor)
-    (when (not cursor-captured?)
-      (when (get-active?~ (get-application))
-        (platform-capture-cursor handle))
-      (set! cursor-visible? #f)
-      (set! cursor-captured? #t)))
+    (when (and (not cursor-captured?) (get-active?~ (get-application)))
+      (let ((manage? (not (platform-capture-cursor handle))))
+        (set! cursor-visible? #f)
+        (set! cursor-captured? #t)
+        (set! manage-captured? manage?)
+        (when manage?
+          (hide-cursor)
+          (let ((pos (mouse-position))
+                (center (center-cursor)))
+            (set! manage-preserved pos)
+            (set! warp-delta (nu- center pos))
+            (set-mouse-position center))))))
+  
+  
+  (method (center-cursor)
+    (new Point (fxround/ (get-width) 2) (fxround/ (get-height) 2)))
   
   
   (method public (release-cursor)
     (when cursor-captured?
       (platform-release-cursor handle)
+      (when manage-captured?
+        (set-mouse-position manage-preserved)
+        (show-cursor))
       (set! cursor-visible? #t)
-      (set! cursor-captured? #f)))
+      (set! cursor-captured? #f)
+      (set! manage-captured? #f)
+      (set! manage-preserved #f)
+      (set! warp-delta #f)))
 
   
   (method protected virtual (cursor-update hit)

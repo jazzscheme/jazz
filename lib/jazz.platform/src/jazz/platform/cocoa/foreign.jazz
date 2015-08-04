@@ -897,11 +897,6 @@ struct PlatformWindow
     id        object;
     id        delegate;
     id        view;
-
-    // The total sum of the distances the cursor has been warped
-    // since the last cursor motion event was processed
-    // This is kept to counteract Cocoa doing the same internally
-    double    warpDeltaX, warpDeltaY;
     
     // OpenGL Context
     id        pixelFormat;
@@ -1775,21 +1770,11 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)mouseMoved:(NSEvent *)event
 {
-    // We need to reset before calling cursor motion
-    // in case mouse move does a capture cursor...
-    double wX, wY;
-  
-    wX = window->warpDeltaX;
-    wY = window->warpDeltaY;
-    
-    window->warpDeltaX = 0;
-    window->warpDeltaY = 0;
-    
     if (window->cursorMode == PLATFORM_CURSOR_CAPTURED)
     {
         platformInputCursorMotion(window,
-                                  [event deltaX] - wX,
-                                  [event deltaY] - wY);
+                                  [event deltaX],
+                                  [event deltaY]);
     }
     else
     {
@@ -2306,11 +2291,6 @@ void platformInternalGetCursorPos(PlatformWindow* window, double* xpos, double* 
 void platformInternalSetCursorPos(PlatformWindow* window, double x, double y)
 {
     const NSRect contentRect = [window->view frame];
-    const NSPoint pos = [window->object mouseLocationOutsideOfEventStream];
-
-    window->warpDeltaX += x - pos.x;
-    window->warpDeltaY += y - contentRect.size.height + pos.y;
-
     const NSPoint localPoint = NSMakePoint(x, contentRect.size.height - y - 1);
     const NSPoint globalPoint = [window->object convertBaseToScreen:localPoint];
 
@@ -2679,9 +2659,6 @@ static void setCursorMode(PlatformWindow* window, int newMode)
 
             window->cursorPosX = platform.cursorPosX;
             window->cursorPosY = platform.cursorPosY;
-
-            platformInternalGetWindowSize(window, &width, &height);
-            platformInternalSetCursorPos(window, width / 2, height / 2);
         }
 
         platformInternalApplyCursorMode(window);
@@ -2715,7 +2692,7 @@ void platformSetCursorPos(PlatformWindow* window, double xpos, double ypos)
 
     if (window->cursorMode == PLATFORM_CURSOR_CAPTURED)
     {
-        // Only update the accumulated position if the cursor is disabled
+        // Only update the accumulated position if the cursor is captured
         window->cursorPosX = xpos;
         window->cursorPosY = ypos;
     }

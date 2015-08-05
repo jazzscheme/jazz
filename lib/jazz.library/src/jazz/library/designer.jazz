@@ -1,0 +1,395 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Library Designer Classes
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.library.designer jazz
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.locale.components)
+        (jazz.ui.designer))
+
+
+;;;
+;;;; Canvas-Element
+;;;
+
+
+(class Canvas-Element-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>       name-mandatory?: #t name-unicity?: #t can-view-properties?: #t
+      (<properties~>)))
+  
+  
+  (method override (class-presentation->name class presentation)
+    (if (and (not (get-name-mandatory?)) (or (empty-string? presentation) (= presentation "{}")))
+        #f
+      presentation))
+  
+  
+  (method override (class-name->presentation class name)
+    (if (or name (get-name-mandatory?))
+        name
+      "{}"))
+  
+  
+  (method override (component-get-addable-details component)
+    '((name-info 100 #t))))
+
+
+;;;
+;;;; Canvas-Node
+;;;
+
+
+(class Canvas-Node-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install> image: {Image-Resource "OpenedFolder"} can-rename?: #f can-delete?: #f can-relocate?: #f can-copy?: #f indexable?: #f))
+  
+  
+  (method override (class-name->presentation class name)
+    (class-presentation class))
+  
+  
+  (method override (component-get-addable-details component)
+    '((name-info 100 #t))))
+
+
+;;;
+;;;; Trait
+;;;
+
+
+(class Trait-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>                                   image: {Image-Resource "Trait"} name-mandatory?: #t name-unicity?: #t
+      (<properties~>
+        (<Property-Descriptor> name: client-form standard?: #f
+          (<Value-Domain>      name: domain)))))
+  
+  
+  (method override (component-set-presentation component designer presentation)
+    (set-name~ designer component (string->symbol presentation) trait: #f)))
+
+
+;;;
+;;;; Column-Preferences
+;;;
+
+
+(class Column-Preferences-Descriptor extends Preferences-Descriptor
+  
+  
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: border
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: border-after
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: minimum
+          (<Value-Domain>      name: domain)))))
+  
+  
+  (method override (component-presentation-property? component property)
+    (memq? (field-name property) '(title)))
+  
+  
+  (method override (component-get-presentation component)
+    (or (get-title~ component) (format "{a} {s}" (category-name (column-class~ component)))))
+  
+  
+  (method override (component-set-presentation component designer title)
+    (set-property~ designer component title: title)))
+
+
+;;;
+;;;; Indented-Column-Preferences
+;;;
+
+
+(class Indented-Column-Preferences-Descriptor extends Column-Preferences-Descriptor
+  
+  
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: indentation
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: use-contouring?
+          (<Boolean-Domain>    name: domain))))))
+
+
+;;;
+;;;; Group
+;;;
+
+
+(class Group-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>                               title: "Group" image: {Image-Resource "OpenedFolder"} indexable?: #f
+      (<properties~>
+        (<Property-Descriptor> name: title
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: icon
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: classes
+          (<Classes-Domain>    name: domain))
+        (<Property-Descriptor> name: sort?
+          (<Boolean-Domain>    name: domain)))))
+  
+  
+  (method override (component-get-component-image component)
+    (or (get-icon~ component) (nextmethod component)))
+  
+  
+  (method override (component-get-custom-card component)
+    Group-Card)
+  
+  
+  (method override (component-sort-components? component)
+    (get-sort?~ component))
+
+
+  ;;;
+  ;;;; Classes
+  ;;;
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    '()
+    @historical
+    (map (lambda (model)
+           (when model
+             (resolve-reference~ model)))
+         (get-component-classes)))
+  
+  
+  (method override (component-get-classes component)
+    (or (get-classes~ component)
+        (when (get-parent~ component)
+          (get-component-classes~ (get-parent~ component))))))
+
+
+;;;
+;;;; Classes-Domain
+;;;
+
+
+(class Classes-Domain extends List-Domain
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    @w
+    (set! domain (new Class-Domain))))
+
+
+;;;
+;;;; Class-Domain
+;;;
+
+
+(class Class-Domain extends Enumeration-Domain
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    @convert
+    (set-choices '((() "Separator") () (Group "Group") () (Note "Note") (Task "Task") (Calendar-Event "Event") (Anniversary "Anniversary") () (Company "Company") (Organism "Organism") (Person "Person") () (Password "Password") () (Apartment "Apartment") (Recipe "Recipe")))))
+
+
+;;;
+;;;; Favorite
+;;;
+
+
+(class Favorite-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>                              image: {Image-Resource "Link"}
+      (<properties~>
+        (<Property-Descriptor> name: title
+          (<Localized-Domain>  name: domain))))))
+
+
+;;;
+;;;; Favorites
+;;;
+
+
+(class Favorites-Descriptor extends Group-Descriptor
+  
+  
+  (form
+    (<install> title: "Favorites" image: {Image-Resource "Favorites"} can-rename?: #f can-delete?: #f can-relocate?: #f can-copy?: #f)))
+
+
+;;;
+;;;; Favorite-Clipboard
+;;;
+
+
+(class Favorite-Clipboard-Descriptor extends Favorite-Descriptor
+  
+  
+  (form
+    (<install>                              image: {Image-Resource "Paste"}
+      (<properties~>
+        (<Property-Descriptor> name: string
+          (<Value-Domain>      name: domain))))))
+
+
+;;;
+;;;; Favorite-Definition
+;;;
+
+
+(class Favorite-Definition-Descriptor extends Favorite-Descriptor
+  
+  
+  (form
+    (<install>                                  image: {Image-Resource "Definition"}
+      (<properties~>
+        (<Property-Descriptor> name: definition
+          (<Value-Domain>      name: domain))))))
+
+
+;;;
+;;;; Favorite-Directory
+;;;
+
+
+(class Favorite-Directory-Descriptor extends Favorite-Descriptor
+  
+  
+  (form
+    (<install>                 image: {Image-Resource "ClosedFolder"}
+      (<properties~>
+        (<Property-Descriptor> name: directory
+          (<Directory-Domain>  name: domain))))))
+
+
+;;;
+;;;; Favorite-File
+;;;
+
+
+(class Favorite-File-Descriptor extends Favorite-Descriptor
+  
+  
+  (form
+    (<install>                              title: "File" image: {Image-Resource "File"}
+      (<properties~>
+        (<Property-Descriptor> name: file
+          (<File-Domain>       name: domain nullable?: #t))))))
+
+
+;;;
+;;;; Favorite-Handler
+;;;
+
+
+(class Favorite-Handler-Descriptor extends Favorite-Descriptor
+  
+  
+  (form
+    (<install>                               image: {Image-Resource "Redo"}
+      (<properties~>
+        (<Property-Descriptor> name: handler
+          (<Value-Domain>      name: domain))))))
+
+
+;;;
+;;;; Favorite-Launch
+;;;
+
+
+(class Favorite-Launch-Descriptor extends Favorite-Descriptor
+  
+  
+  (form
+    (<install>                 image: {Image-Resource "Link"}
+      (<properties~>
+        (<Property-Descriptor> name: file
+          (<File-Domain>       name: domain))))))
+
+
+;;;
+;;;; Favorite-Search
+;;;
+
+
+(class Favorite-Search-Descriptor extends Favorite-Descriptor
+  
+  
+  (form
+    (<install>                                   image: {Image-Resource "Find"}
+      (<properties~>
+        (<Property-Descriptor> name: directories
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: extensions
+          (<Value-Domain>      name: domain))))))
+
+
+;;;
+;;;; Locale-Node
+;;;
+
+
+(class Locale-Node-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: title
+          (<Localized-Domain>  name: domain)))))
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    `((,(reference Locale-Node))))))

@@ -1,0 +1,417 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Project Designer Classes
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.project.designer jazz
+
+
+(import (jazz.debugger)
+        (jazz.designer)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.library.designer)
+        (jazz.project)
+        (jazz.ui.designer))
+
+
+;;;
+;;;; Project-Group
+;;;
+
+
+(class Project-Group-Descriptor extends Group-Descriptor
+  
+  
+  (form
+    (<install>       can-cut?: #f can-copy?: #f can-paste?: #f can-relocate?: #f
+      (<properties~>)))
+  
+  
+  (method override (class-presentation->name class presentation)
+    presentation)
+  
+  
+  (method override (class-name->presentation class name)
+    name)
+  
+  
+  (method override (component-sort-components component predicate components)
+    (sort nu<? components key: (lambda (component)
+                                 (cons (if (is? component Project-Group) 0 1)
+                                       (get-presentation-property~ component)))))
+  
+  
+  (method override (component-addable-class? component class)
+    (or (subtype? class Project-File)
+        (subtype? class Project-Group)))
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    (list (list (reference Project-Group)))))
+
+
+;;;
+;;;; Project-Directory
+;;;
+
+
+(class Project-Directory-Descriptor extends Project-Group-Descriptor
+  
+  
+  (form
+    (<install>                 can-rename?: #f
+      (<properties~>
+        (<Property-Descriptor> name: directory
+          (<Directory-Domain>  name: domain)))))
+  
+  
+  (method override (component-get-presentation component)
+    (if (get-name~ component)
+        (name->presentation~ (class-of component) (get-name~ component))
+      (let ((directory (get-directory~ component)))
+        (if directory
+            (get-name~ directory)
+          "<no-directory>")))))
+
+
+;;;
+;;;; Project-File
+;;;
+
+
+(class Project-File-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>                 image: {Image-Resource "File"} can-cut?: #f can-copy?: #f can-paste?: #f can-relocate?: #f
+      (<properties~>
+        (<Property-Descriptor> name: source
+          (<File-Domain>       name: domain))
+        (<Property-Descriptor> name: build?
+          (<Boolean-Domain>    name: domain)))))
+  
+  
+  (method override (component-presentation-property? component property)
+    (memq? (field-name property) '(source)))
+  
+  
+  (method override (component-get-presentation component)
+    (let ((source (get-source~ component)))
+      (if source
+          (get-name~ source)
+        "<no-source>"))))
+
+
+;;;
+;;;; Repositories-Preferences
+;;;
+
+
+(class Repositories-Preferences-Descriptor extends Preferences-Descriptor
+  
+  
+  (form
+    (<install>                 can-rename?: #f can-delete?: #f can-move?: #f can-copy?: #f
+      (<properties~>
+        (<Property-Descriptor> name: repositories)))))
+
+
+;;;
+;;;; Workbench-Preferences
+;;;
+
+
+(class Workbench-Preferences-Descriptor extends Preferences-Descriptor
+  
+  
+  (form
+    (<install>                                      can-rename?: #f can-delete?: #f can-relocate?: #f can-copy?: #f
+      (<properties~>
+        (<Property-Descriptor> name: active-project
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: active-traits
+          (<Value-Domain>      name: domain))))))
+
+
+;;;
+;;;; Configuration
+;;;
+
+
+(class Configuration-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>                              image: {Image-Resource "Link"}
+      (<properties~>
+        (<Property-Descriptor> name: title
+          (<Value-Domain>      name: domain)))))
+  
+  
+  (method override (component-presentation-property? component property)
+    (memq? (field-name property) '(title)))
+  
+  
+  (method override (component-get-presentation component)
+    (get-title~ component))
+  
+  
+  (method override (component-set-presentation component designer presentation)
+    (set-property~ designer component title: presentation))
+  
+  
+  (method override (component-property-domain component property)
+    (case (field-name property)
+      ((title) (new Localized-Domain))
+      (else (nextmethod component property)))))
+
+
+;;;
+;;;; Project
+;;;
+
+
+(class Project-Descriptor extends Project-File-Descriptor
+  
+  
+  (form
+    (<install>                                          image: {Image-Resource "Project"}
+      (<properties~>
+        (<Property-Descriptor> name: title
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: icon
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: owner
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: copyright
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: version
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: include-extensions
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: documentation
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: editable?
+          (<Boolean-Domain>    name: domain))
+        (<Property-Descriptor> name: active?
+          (<Boolean-Domain>    name: domain))
+        (<Property-Descriptor> name: catalog-extensions
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: catalog-heuristics
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: description-file
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: catalog?
+          (<Boolean-Domain>    name: domain)))))
+  
+  
+  (method override (component-presentation-property? component property)
+    (memq? (field-name property) '(title)))
+  
+  
+  (method override (component-get-presentation component)
+    (let ((title (project-title~ component))
+          (traits (get-default-traits~ component)))
+      (if (not traits)
+          title
+        (format "{a}{a}" title (present-process-traits traits)))))
+  
+  
+  (method override (component-set-presentation component designer presentation)
+    (set-property~ designer component title: presentation))
+  
+  
+  (method override (component-get-component-image component)
+    (let ((description-file (get-description-file~ component)))
+      (cond ((not description-file) (nextmethod component))
+            ((filename=? (get-name~ description-file) ".repository") {Image-Resource "CompareManager"})
+            ((filename=? (get-name~ description-file) ".package") {Image-Resource "Catalog"})
+            (else (nextmethod component)))))
+  
+  
+  (method override (component-addable-class? component class)
+    (or (subtype? class Project-File)
+        (subtype? class Project-Group)))
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    (list
+      (list
+        (reference Project-Group))
+      ;#f
+      ;Jazz-File
+      ;C-File
+      ))
+  
+  
+  (method override (component-property-domain component property)
+    (case (field-name property)
+      ((title) (new Localized-Domain))
+      ((include-extensions catalog-extensions catalog-heuristics) (new Value-Domain))
+      ((documentation) (new File-Domain))
+      ((active?) (new Boolean-Domain))
+      (else (nextmethod component property)))))
+
+
+;;;
+;;;; Project-Not-Found
+;;;
+
+
+(class Project-Not-Found-Descriptor extends Project-Descriptor
+  
+  
+  (form
+    (<install> image: {Image-Resource "Execute"})))
+
+
+;;;
+;;;; Package
+;;;
+
+
+(class Package-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>                              image: {Image-Resource "Package"}
+      (<properties~>
+        (<Property-Descriptor> name: title
+          (<Localized-Domain>  name: domain)))))
+  
+  
+  (method override (component-presentation-property? component property)
+    (memq? (field-name property) '(title)))
+  
+  
+  (method override (component-get-presentation component)
+    (or (get-title~ component) (->string (category-name (class-of component)))))
+  
+  
+  (method override (component-set-presentation component designer presentation)
+    (set-property~ designer component title: presentation))
+  
+  
+  (method override (component-addable-class? component class)
+    (or (subtype? class Project-File)
+        (subtype? class Project-Group)))
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    (list
+      (list
+        (reference Project-Group))
+      ;#f
+      ;Jazz-File
+      ;C-File
+      )))
+
+
+;;;
+;;;; Repositories
+;;;
+
+
+(class Repositories-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>       image: {Image-Resource "Repositories"}
+      (<properties~>))))
+
+
+;;;
+;;;; Repository
+;;;
+
+
+(class Repository-Descriptor extends Component-Descriptor
+  
+  
+  (form
+    (<install>                                 image: {Image-Resource "CompareManager"}
+      (<properties~>
+        (<Property-Descriptor> name: title
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: directory
+          (<Directory-Domain>  name: domain)))))
+  
+  
+  (method override (component-presentation-property? component property)
+    (memq? (field-name property) '(title)))
+  
+  
+  (method override (component-get-presentation component)
+    (get-title~ component))
+  
+  
+  (method override (component-set-presentation component designer presentation)
+    (set-property~ designer component title: presentation))
+  
+  
+  (method override (component-addable-class? component class)
+    (or (subtype? class Project-File)
+        (subtype? class Project-Group)))
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    (list
+      (list
+        (reference Project-Group)))))
+
+
+;;;
+;;;; Workbench
+;;;
+
+
+(class Workbench-Descriptor extends Project-Descriptor
+  
+  
+  (form
+    (<install>       image: {Image-Resource "Workbench"} can-rename?: #f can-delete?: #f can-relocate?: #f can-cut?: #f can-copy?: #f
+      (<properties~>)))
+  
+  
+  (method override (component-get-presentation component)
+    "Workbench")
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    (list
+      (list
+        (reference Project-Group))))))

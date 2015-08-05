@@ -59,6 +59,14 @@
 (c-enumerant Z_BEST_SPEED "S32")
 (c-enumerant Z_BEST_COMPRESSION "S32")
 (c-enumerant Z_DEFAULT_COMPRESSION "S32")
+(c-enumerant Z_DEFLATED "S32")
+(c-enumerant MAX_WBITS "S32")
+(c-enumerant Z_DEFAULT_STRATEGY "S32")
+
+
+(constant DEFAULT_MEM_LEVEL 8)
+(constant DEFAULT_WBITS 15)
+(constant GZIP_WBITS 16)
 
 
 (c-structure z_stream
@@ -92,25 +100,25 @@
 //#)
 
 
-(c-external (inflate-init z_stream*) int "inflateInit")
-(c-external (inflate z_stream* int) int "inflate")
-(c-external (inflate-end z_stream*) void "inflateEnd")
-
-(c-external (deflate-init z_stream* int) int "deflateInit")
+(c-external (deflate-init2 z_stream* int int int int int) int "deflateInit2")
 (c-external (deflate z_stream* int) int "deflate")
 (c-external (deflate-end z_stream*) void "deflateEnd")
+
+(c-external (inflate-init2 z_stream* int) int "inflateInit2")
+(c-external (inflate z_stream* int) int "inflate")
+(c-external (inflate-end z_stream*) void "inflateEnd")
 
 
 (definition default-chunk
   32768)
 
 
-(definition public (zlib-deflate in (level: level #f) (chunk: chunk #f))
+(definition public (zlib-deflate in (level: level #f) (gzip?: gzip? #f) (chunk: chunk #f))
   (let ((stream (z_stream-make)))
     (z_stream-zalloc-set! stream #f)
     (z_stream-zfree-set! stream #f)
     (z_stream-opaque-set! stream #f)
-    (let ((ret (deflate-init stream (or level Z_DEFAULT_COMPRESSION))))
+    (let ((ret (deflate-init2 stream (or level Z_DEFAULT_COMPRESSION) Z_DEFLATED (+ MAX_WBITS (if gzip? GZIP_WBITS 0)) DEFAULT_MEM_LEVEL Z_DEFAULT_STRATEGY)))
       (assert (= ret Z_OK))
       (call-with-output-u8vector '()
         (lambda (port)
@@ -131,14 +139,14 @@
               (deflate-end stream))))))))
 
 
-(definition public (zlib-inflate in (chunk: chunk #f))
+(definition public (zlib-inflate in (gzip?: gzip? #f) (chunk: chunk #f))
   (let ((stream (z_stream-make)))
     (z_stream-zalloc-set! stream #f)
     (z_stream-zfree-set! stream #f)
     (z_stream-opaque-set! stream #f)
     (z_stream-avail_in-set! stream 0)
     (z_stream-next_in-set! stream #f)
-    (let ((ret (inflate-init stream)))
+    (let ((ret (inflate-init2 stream (+ DEFAULT_WBITS (if gzip? GZIP_WBITS 0)))))
       (assert (= ret Z_OK))
       (call-with-output-u8vector '()
         (lambda (port)

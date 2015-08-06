@@ -259,7 +259,7 @@
                   traits-references)
         (set-default-traits~ component traits-references)
         (set-property~ form default-traits: traits-references)
-        (when design-events?
+        (when (and design-events? (not-null? (get-designers~ component)))
           (fire-refresh component 'all))
         (set-modified? #t))))
   
@@ -284,7 +284,7 @@
                       (set-name~ component-form name)))))))
           (set-name~ component name)
           (set-name~ form name)
-          (when design-events?
+          (when (and design-events? (not-null? (get-designers~ component)))
             (fire-name-change component name old-name undoable?)
             (let ((presentation (get-presentation-property~ component)))
               (fire-presentation-change component presentation old-presentation undoable?))
@@ -332,14 +332,16 @@
                         (let ((old-value (or old-value (read-property component property))))
                           (when (and restore (not (has-property?~ restore property)))
                             (set-property~ restore property old-value))
-                          (let* ((fire-presentation? (and design-events? (presentation-property?~ component property)))
-                                 (old-presentation (and fire-presentation? (get-presentation-property~ component))))
-                            (write-property component property value)
-                            (when design-events?
-                              (when fire-presentation?
-                                (let ((presentation (get-presentation-property~ component)))
-                                  (fire-presentation-change component presentation old-presentation undoable?)))
-                              (fire-property-change branch component property value undoable?))))
+                          (if (null? (get-designers~ component))
+                              (write-property component property value)
+                            (let* ((fire-presentation? (and design-events? (presentation-property?~ component property)))
+                                   (old-presentation (and fire-presentation? (get-presentation-property~ component))))
+                              (write-property component property value)
+                              (when design-events?
+                                (when fire-presentation?
+                                  (let ((presentation (get-presentation-property~ component)))
+                                    (fire-presentation-change component presentation old-presentation undoable?)))
+                                (fire-property-change branch component property value undoable?)))))
                       (when (and restore (not (has-property?~ restore property)))
                         (set-property~ restore property (get-property~ next-restore property)))
                       (set-property~ next-restore property value)))))))
@@ -379,7 +381,7 @@
                 (if (not next-form)
                     (begin
                       (write-property component property value)
-                      (when design-events?
+                      (when (and design-events? (not-null? (get-designers~ component)))
                         (fire-property-change branch component property value undoable?)))
                   (set-property~ next-restore property value))))
             (when restore
@@ -435,7 +437,7 @@
           (add-import import))
         ;; the two sexpr where toggled so that the
         ;; event occurs after the properties are set
-        (when design-events?
+        (when (and design-events? (not-null? (get-designers~ parent)))
           (fire-child-add child parent descendant?))
         (set-modified? #t)))
     child)
@@ -495,7 +497,7 @@
                   (add-child child parent form: form)))
               (set-parent~ child #f)
               (remove-child~ parent-form form)
-              (when design-events?
+              (when (and design-events? (get-designers~ child))
                 (fire-child-remove child parent))
               (set-modified? #t)))))))
   

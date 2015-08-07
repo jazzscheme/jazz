@@ -627,6 +627,7 @@
 (native jazz:jazz-settings-directory)
 (native jazz:jazz-settings-version)
 (native jazz:list->updates)
+(native jazz:home-directory)
 (native jazz:versioned-directory)
 (native jazz:path->container-override)
 (native jazz:platform-eol-encoding)

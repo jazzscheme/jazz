@@ -306,6 +306,30 @@
     (else 'lf)))
 
 
+;; work around "~" not always existing on windows
+(cond-expand
+  (windows
+   (define jazz:home-directory
+     (let ((home-dir #f))
+       (lambda ()
+         (define (home-heuristic)
+           (if (file-exists? "~")
+               "~"
+             (let ((dir "c:/Home"))
+               (if (%%not (file-exists? dir))
+                   (create-directory dir))
+               dir)))
+         
+         (or home-dir
+             (let ((home (home-heuristic)))
+               (set! home-dir home)
+               home))))))
+  (else
+   (define jazz:home-directory
+     (lambda ()
+       "~"))))
+
+
 ;;;
 ;;;; Command Line
 ;;;

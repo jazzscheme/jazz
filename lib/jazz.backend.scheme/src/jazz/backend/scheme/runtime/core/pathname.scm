@@ -49,7 +49,7 @@
         (jazz:pathname-normalize
           (if (jazz:pathname-exists? dir)
               dir
-            "~"))))
+            (jazz:home-directory)))))
     
     (define (jazz:current-directory-set! dir)
       (current-directory dir))

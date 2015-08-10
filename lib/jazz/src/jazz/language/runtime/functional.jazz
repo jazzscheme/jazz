@@ -5129,33 +5129,43 @@
           (iterate))))))
 
 
-(definition public (write-binary-content port data (encoder #f))
-  (let ((u8vect (if encoder
-                    (object->u8vector data encoder)
-                  (object->u8vector data))))
-    (let ((size (u8vector-length u8vect)))
-      (receive (b1 b2 b3 b4) (32-bit-integer->bytes size)
-        (write-u8 b1 port)
-        (write-u8 b2 port)
-        (write-u8 b3 port)
-        (write-u8 b4 port)
-        (write-subu8vector u8vect 0 size port)
-        (force-output port)))))
+(definition public (write-32-bit-integer n port)
+  (receive (b1 b2 b3 b4) (32-bit-integer->bytes n)
+    (write-u8 b1 port)
+    (write-u8 b2 port)
+    (write-u8 b3 port)
+    (write-u8 b4 port)))
 
 
-(definition public (read-binary-content port (decoder #f))
+(definition public (read-32-bit-integer port)
   (let* ((b1 (read-u8 port))
          (b2 (read-u8 port))
          (b3 (read-u8 port))
          (b4 (read-u8 port)))
     (if (eof-object? b4)
         b4
-      (let ((size (bytes->32-bit-integer b1 b2 b3 b4)))
-        (let ((u8vect (make-u8vector size)))
-          (read-subu8vector u8vect 0 size port)
-          (if decoder
-              (u8vector->object u8vect decoder)
-            (u8vector->object u8vect)))))))
+      (bytes->32-bit-integer b1 b2 b3 b4))))
+
+
+(definition public (write-binary-content port data (encoder #f))
+  (let ((u8vect (if encoder
+                    (object->u8vector data encoder)
+                  (object->u8vector data))))
+    (let ((size (u8vector-length u8vect)))
+      (write-32-bit-integer size port)
+      (write-subu8vector u8vect 0 size port)
+      (force-output port))))
+
+
+(definition public (read-binary-content port (decoder #f))
+  (let ((size (read-32-bit-integer port)))
+    (if (eof-object? size)
+        size
+      (let ((u8vect (make-u8vector size)))
+        (read-subu8vector u8vect 0 size port)
+        (if decoder
+            (u8vector->object u8vect decoder)
+          (u8vector->object u8vect))))))
 
 
 (definition public (write-binary data port)

@@ -192,7 +192,7 @@
                 (jazz:with-extension-reader (%%get-resource-extension src)
                   (lambda ()
                     (parameterize ((jazz:walk-for 'compile))
-                      (jazz:compile-file src bin update-obj? update-bin? build-package output-language: output-language options: options custom-cc: custom-cc custom-cc-options: custom-cc-options cc-options: cc-options ld-options: ld-options unit-name: manifest-name)))))))
+                      (jazz:compile-source-file src bin update-obj? update-bin? build-package output-language: output-language options: options custom-cc: custom-cc custom-cc-options: custom-cc-options cc-options: cc-options ld-options: ld-options unit-name: manifest-name)))))))
         (if (or compile? (jazz:force-outlines?))
             (let ((path (jazz:binary-with-extension src ".otl")))
               (jazz:create-directories (jazz:pathname-dir path))
@@ -202,7 +202,7 @@
                     (jazz:outline-generate declaration output))))))))))
 
 
-(define (jazz:compile-file src bin update-obj? update-bin? build-package #!key (output-language #f) (options #f) (custom-cc #f) (custom-cc-options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz:kernel-platform))
+(define (jazz:compile-source-file src bin update-obj? update-bin? build-package #!key (output-language #f) (options #f) (custom-cc #f) (custom-cc-options #f) (cc-options #f) (ld-options #f) (unit-name #f) (platform jazz:kernel-platform))
   (define bin-pathname-base
     (jazz:binary-with-extension src ""))
   

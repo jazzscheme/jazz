@@ -64,6 +64,7 @@
 (define (jazz:repository-dependencies repository)
   (%%get-repository-dependencies repository))
 
+
 ;;;
 ;;;; Package
 ;;;
@@ -88,4 +89,19 @@
   (%%set-package-profiles package profiles))
 
 (define (jazz:package-project package)
-  (%%get-package-project package)))
+  (%%get-package-project package))
+
+
+;;;
+;;;; Resource
+;;;
+
+
+(define (jazz:resource-package resource)
+  (%%get-resource-package resource))
+
+(define (jazz:resource-path resource)
+  (%%get-resource-path resource))
+
+(define (jazz:resource-extension resource)
+  (%%get-resource-extension resource)))

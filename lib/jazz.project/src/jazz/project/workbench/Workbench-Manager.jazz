@@ -756,7 +756,7 @@
                           (let ((title (join path "/"))
                                 (image (if (directory? right) {Image-Resource "OpenedFolder"} {Image-Resource "File"})))
                             (let ((c0 (new Tree-Node title: title image: image)))
-                              (add-row~ tree children: (list c0 what (cons #t info) what))))))
+                              (add-row~ tree children: (list c0 what (cons 'left info) what))))))
                       
                       (for-each add out-of-synch)
                       (let ((code (message-box "The following elements are out of synch. Synchronize?" class: Synchronize-Box type: 'confirmation content: border)))
@@ -770,17 +770,27 @@
                                    (lambda (row rank)
                                      (let ((cell (new Cell rank 2)))
                                        (let ((data (get-cell-data~ tree cell)))
-                                         (bind (marked? . info) data
-                                           (when marked?
+                                         (bind (action . info) data
+                                           (unless (eq? action 'none)
                                              (bind (what path left right parent) info
-                                               (case what
-                                                 ((:left)
-                                                  (remove-child~ designer left)
-                                                  (increase! removed))
-                                                 ((:right)
-                                                  (let ((component (import-pathname project right parent #f)))
-                                                    (process-refresh~ designer component 'descendants))
-                                                  (increase! added))))))))))
+                                               (case action
+                                                 ((left)
+                                                  (case what
+                                                    ((:left)
+                                                     (remove-child~ designer left)
+                                                     (increase! removed))
+                                                    ((:right)
+                                                     (let ((component (import-pathname project right parent #f)))
+                                                       (process-refresh~ designer component 'descendants))
+                                                     (increase! added))))
+                                                 ((right)
+                                                  (case what
+                                                    ((:left)
+                                                     ;; unsupported
+                                                     )
+                                                    ((:right)
+                                                     (delete-file~ right)
+                                                     (increase! removed))))))))))))
                                  (update-project-catalog project)
                                  (user-message "{a} added, {a} removed"
                                                added

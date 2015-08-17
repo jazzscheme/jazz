@@ -79,18 +79,44 @@
   
   
   (method (on-double-click evt)
-    (toggle-marked))
+    (toggle-action))
   
   
-  (method (toggle-marked)
+  (method (toggle-action)
     (let ((selected (get-selected-rows)))
       (let ((rows (if (null? selected) (collect-visible-rows) selected)))
         (for-each (lambda (row)
                     (let ((cell (new Cell (row->line row) 2)))
                       (let ((data (get-cell-data cell)))
-                        (set-car! data (not (car data)))
+                        (let ((action (car data)))
+                          (if (eq? action 'none)
+                              (bell)
+                            (set-car! data (case action
+                                             ((left) 'right)
+                                             ((right) 'left)))
+                            (invalidate-cell cell))))))
+                  rows))))
+  
+  
+  (method (set-actions action)
+    (let ((selected (get-selected-rows)))
+      (let ((rows (if (null? selected) (collect-visible-rows) selected)))
+        (for-each (lambda (row)
+                    (let ((cell (new Cell (row->line row) 2)))
+                      (let ((data (get-cell-data cell)))
+                        (set-car! data action)
                         (invalidate-cell cell))))
-                  rows)))))
+                  rows))))
+  
+  
+  (method (copy-right)
+    (set-actions 'right))
+  
+  (method (no-action)
+    (set-actions 'none))
+  
+  (method (copy-left)
+    (set-actions 'left)))
 
 
 ;;;
@@ -143,12 +169,18 @@
   (method override (draw-data surface context row data width height)
     (draw-background surface context row data width height)
     (when data
-      (bind (action? . info) data
-        (when action?
+      (bind (action . info) data
+        (unless (eq? action 'none)
           (let ((appl (get-application))
-                (image (case (car info)
-                         ((:left) {Image-Resource "DeleteLeft"})
-                         ((:right) {Image-Resource "AddLeft"}))))
+                (image (case action
+                         ((left)
+                          (case (car info)
+                            ((:left) {Image-Resource "DeleteLeft"})
+                            ((:right) {Image-Resource "AddLeft"})))
+                         ((right)
+                          (case (car info)
+                            ((:left) {Image-Resource "Execute"})
+                            ((:right) {Image-Resource "DeleteRight"}))))))
             (draw-image~ (get-images-portfolio~ appl) surface context image (+ (quotient (- width 16) 2) 1) 0)))))))
 
 

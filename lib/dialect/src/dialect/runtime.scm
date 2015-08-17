@@ -4812,7 +4812,7 @@
 
 (define (jazz:walk-body walker resume declaration environment form-list)
   (define (walk-internal-define environment form-src variable)
-    (receive (name specifier value parameters) (jazz:parse-define walker resume declaration #t (%%cdr (jazz:source-code form-src)))
+    (receive (name specifier value parameters) (jazz:parse-define walker resume declaration #t form-src)
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
             (signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
         (let ((effective-type (if signature (jazz:build-function-type signature type) type)))
@@ -4867,18 +4867,24 @@
         (iter (%%cdr scan))))))
 
 
-(define (jazz:parse-define walker resume declaration walk? rest)
-  (if (%%symbol? (jazz:source-code (%%car rest)))
-      (let ((name (jazz:source-code (%%car rest))))
-        (jazz:parse-specifier (%%cdr rest)
-          (lambda (specifier rest)
-            (values name specifier (and walk? (%%car rest)) #f))))
-    (let ((name (jazz:source-code (%%car (jazz:source-code (%%car rest)))))
-          (parameters (%%cdr (%%desourcify (%%car rest)))))
-      (jazz:parse-specifier (%%cdr rest)
-        (lambda (specifier body)
-          (let ((specifier-list (if specifier (%%list specifier) '())))
-            (values name specifier `(lambda ,parameters ,@specifier-list ,@body) parameters)))))))
+(define (jazz:parse-define walker resume declaration walk? form-src)
+  (let ((rest (%%cdr (jazz:source-code form-src))))
+    (let ((first (jazz:source-code (%%car rest))))
+      (cond ((%%symbol? first)
+             (let ((name (jazz:source-code (%%car rest))))
+               (jazz:parse-specifier (%%cdr rest)
+                 (lambda (specifier rest)
+                   (values name specifier (and walk? (%%car rest)) #f)))))
+            ((and (%%pair? first)
+                  (%%symbol? (jazz:source-code (%%car first))))
+             (let ((name (jazz:source-code (%%car (jazz:source-code (%%car rest)))))
+                   (parameters (%%cdr (%%desourcify (%%car rest)))))
+               (jazz:parse-specifier (%%cdr rest)
+                 (lambda (specifier body)
+                   (let ((specifier-list (if specifier (%%list specifier) '())))
+                     (values name specifier `(lambda ,parameters ,@specifier-list ,@body) parameters))))))
+            (else
+             (jazz:walk-error walker resume declaration form-src "Ill-formed define variable: {s}" (jazz:desourcify-all first)))))))
 
 
 ;; Until I unify signature and function type

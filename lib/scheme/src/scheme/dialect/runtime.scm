@@ -150,7 +150,8 @@
 
 (define (jazz:walk-define-declaration walker resume declaration environment form-src)
   (receive (name specifier value parameters) (jazz:parse-define walker resume declaration #f form-src)
-    (%%assert (%%class-is? declaration jazz:Namespace-Declaration)
+    (if (%%not (%%class-is? declaration jazz:Namespace-Declaration))
+        (jazz:walk-error walker resume declaration form-src "Ill-placed define")
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
             (signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
         (let ((effective-type (if signature (jazz:build-function-type signature type) type)))
@@ -163,7 +164,8 @@
 
 (define (jazz:walk-define walker resume declaration environment form-src)
   (receive (name specifier value parameters) (jazz:parse-define walker resume declaration #t form-src)
-    (%%assert (%%class-is? declaration jazz:Namespace-Declaration)
+    (if (%%not (%%class-is? declaration jazz:Namespace-Declaration))
+        (jazz:walk-error walker resume declaration form-src "Ill-placed define")
       (let* ((new-declaration (jazz:require-declaration declaration name))
              (new-environment (%%cons new-declaration environment)))
         (jazz:set-define-declaration-value new-declaration (jazz:walk walker resume new-declaration new-environment value))

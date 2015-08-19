@@ -722,8 +722,8 @@
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s32vector-length       '((##s32vector-length <s32vector:fx>)))
 (cond-expand
   (release
-    (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s32vector-ref       ((##s32vector-ref    <s32vector^fx:fx>)))
-    (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s32vector-set!      ((##s32vector-set!   <s32vector^fx^any:void>))))
+    (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s32vector-ref      '((##s32vector-ref    <s32vector^fx:fx>)))
+    (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:s32vector-set!     '((##s32vector-set!   <s32vector^fx^any:void>))))
   (else))
 
 (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:u32vector              '((##u32vector        <fx*:u32vector>)))

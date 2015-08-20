@@ -50,7 +50,6 @@
         ~
         local-context
         hook
-        site
         expand-body)
 
 (import (jazz.language.runtime.kernel)
@@ -189,27 +188,6 @@
                         `(cons ',(source-code name) ,name))
                       names))
         form-src))))
-
-
-(define-syntax site
-  (lambda (form-src usage-environment macro-environment)
-    (let ((header (source-code (cadr (source-code form-src))))
-          (body (cddr (source-code form-src))))
-      (let ((name (if (pair? header) (car header) header))
-            (properties (if (pair? header) (cdr header) '())))
-        (let ((desourcified-properties (map source-code properties)))
-          (let ((on? (getf desourcified-properties on?: #t)))
-            (sourcify-if
-              (if (not on?)
-                  `(begin
-                     ,@body)
-                (let ((site (generate-symbol "site")))
-                  `(let ((,site <Call-Site> (static (register-site ',name ',properties))))
-                     ((get-procedure~ ,site)
-                      ,site
-                      (lambda ()
-                        ,@body)))))
-              form-src)))))))
 
 
 ;; @macro (push! x (f)) @expansion (set! x (cons x (f)))

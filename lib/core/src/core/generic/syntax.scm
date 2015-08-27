@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Generic Expander
+;;;; Generic Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -36,7 +36,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.generic.syntax.expander
+(unit protected core.generic.syntax
+
+
+;;;
+;;;; Expansion
+;;;
 
 
 (define (jazz:dynamic-parameter? parameter)
@@ -177,4 +182,53 @@
         (dynamic-signature-strings (map (lambda (class/call)
                                           (%%symbol->string (if (%%pair? class/call) (%%car class/call) class/call)))
                                         dynamic-signature)))
-    (%%string->symbol (%%string-append generic-string ":implementation:" (jazz:join-strings dynamic-signature-strings "/"))))))
+    (%%string->symbol (%%string-append generic-string ":implementation:" (jazz:join-strings dynamic-signature-strings "/")))))
+
+
+;;;
+;;;; Generic
+;;;
+
+
+;; locator - a.b.c.foo
+;; name - foo
+;; root-specific - (maybe abstract) specific matching generic signature
+;; pending-specifics - delayed evaluation at boot -> signatures are proc (unnecessary now?)
+
+
+(jazz:define-class jazz:Generic jazz:Object (constructor: jazz:allocate-generic)
+  ((locator              getter: generate)
+   (name                 getter: generate)
+   (root-specific        getter: generate setter: generate)
+   (pending-specifics    getter: generate setter: generate)))
+
+
+(jazz:define-macro (jazz:define-generic . rest)
+  (%%apply jazz:expand-define-generic rest))
+
+
+(jazz:define-macro (%%specific-dispatch generic dynamic-classes)
+  `(jazz:get-specific-implementation (jazz:dispatch-from-root ,generic ,dynamic-classes)))
+
+
+;;;
+;;;; Specific
+;;;
+
+
+;; dynamic-signature - classes of the dynamic parameters
+;; implementation - lambda to call
+;; best-ancestor - nextmethod specific
+;; ancestor-specifics - nextmethod specific + other direct ancestors
+;; descendant-specifics - reverse relation
+
+
+(jazz:define-class jazz:Specific jazz:Object (constructor: jazz:allocate-specific)
+  ((dynamic-signature    getter: generate setter: generate)
+   (implementation       getter: generate setter: generate)
+   (ancestor-specifics   getter: generate setter: generate)
+   (descendant-specifics getter: generate setter: generate)))
+
+
+(jazz:define-macro (jazz:define-specific . rest)
+  (%%apply jazz:expand-define-specific rest)))

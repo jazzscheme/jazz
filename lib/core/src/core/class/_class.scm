@@ -41,4 +41,5 @@
 (require (core.base)
          
          (core.class.syntax (phase syntax))
+         (core.class.classes (phase syntax))
          (core.class.runtime)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Macros
+;;;; Base Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.base.syntax.macros
+(unit protected core.base.syntax
+
+
+;;;
+;;;; Boolean
+;;;
 
 
 (jazz:define-syntax %%boolean

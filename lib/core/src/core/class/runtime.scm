@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Classes Runtime
+;;;; Class Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.class.runtime.runtime
+(unit protected core.class.runtime
+
+
+;;;
+;;;; Runtime
+;;;
 
 
 (define jazz:new-interface-rank
@@ -2372,4 +2377,176 @@
 (define (jazz:reset-queue queue)
   (%%set-queue-head queue '())
   (%%set-queue-tail queue #f)
-  (%%set-queue-shared queue #f)))
+  (%%set-queue-shared queue #f))
+
+
+;;;
+;;;; Output Hook
+;;;
+
+
+(cond-expand
+  (gambit
+    (jazz:define-variable jazz:print-hook
+      #f)
+    
+    
+    (set! ##wr
+          (lambda (we obj)
+            (cond ((and (%%not (%%jazz? obj)) (%%record? obj))
+                   (##default-wr we (jazz:record->vector obj)))
+                  ((and (%%jazz? obj) jazz:print-hook)
+                   (jazz:print-hook obj (jazz:writeenv-port we) (jazz:writeenv-style we)))
+                  (else
+                   (jazz:write-object (jazz:class-of obj) we obj))))))
+  
+  (else))
+
+
+;;;
+;;;; Output
+;;;
+
+
+(define jazz:output-mode
+  ':reader)
+
+
+(jazz:define-variable-override jazz:display
+  (lambda (value output)
+    (jazz:output-value value output ':human)))
+
+
+(jazz:define-variable-override jazz:write
+  (lambda (value output)
+    (jazz:output-value value output ':reader)))
+
+
+(define (jazz:print value output detail)
+  (case detail
+    ((:human) (display value output))
+    ((:reader :text :describe) (write value output))
+    (else (jazz:error "Unknown print detail: {s}" detail))))
+
+
+(define (jazz:->string value)
+  (cond ((%%unspecified? value)
+         "<unspecified>")
+        ((%%values? value)
+         "<values>")
+        (else
+         (let ((output (open-output-string)))
+           (jazz:output-value value output jazz:output-mode)
+           (get-output-string output)))))
+
+
+(define (jazz:output-value value output detail)
+  (cond ((or (%%null? value) (%%pair? value))
+         (jazz:output-list value output detail))
+        ((jazz:primitive? value)
+         (jazz:print value output detail))
+        (else
+         (jazz:print-jazz value output detail))))
+
+
+(define (jazz:output-list lst output detail)
+  (define (output-list-content lst output detail)
+    (if (%%not (%%null? lst))
+        (let ((scan lst)
+              (done? #f))
+          (%%while (and (%%not done?) (%%not (%%null? scan)))
+            (jazz:output-value (%%car scan) output detail)
+            (set! scan (%%cdr scan))
+            (if (%%not (%%null? scan))
+                (if (%%pair? scan)
+                    (display " " output)
+                  (begin
+                    (display " . " output)
+                    (jazz:output-value scan output detail)
+                    (set! done? #t))))))))
+  
+  (display "(" output)
+  (output-list-content lst output detail)
+  (display ")" output))
+
+
+(define (jazz:debug . rest)
+  (let ((port (console-port)))
+    (%%when (%%not-null? rest)
+      (display (jazz:->string (%%car rest)) port)
+      (for-each (lambda (expr)
+                  (display " " port)
+                  (display (jazz:->string expr) port))
+                (%%cdr rest)))
+    (newline port)
+    (force-output port)))
+
+
+(define (jazz:debug-string str)
+  (let ((port (console-port)))
+    (display str port)
+    (force-output port)))
+
+
+(define (jazz:debug-line str)
+  (let ((port (console-port)))
+    (display str port)
+    (newline port)
+    (force-output port)))
+
+
+(define jazz:terminal
+  jazz:debug)
+
+
+(define jazz:terminal-string
+  jazz:debug-string)
+
+
+(define jazz:terminal-line
+  jazz:debug-line)
+
+
+(define (jazz:terminal-port)
+  (console-port))
+
+
+(define (jazz:bootstrap-output-value value output)
+  (display (jazz:->string value) output))
+
+
+(cond-expand
+  (chicken
+    (define (jazz:pretty-print expr . rest)
+      (apply pretty-print expr rest)))
+
+  (gambit
+    (define (jazz:pretty-print expr . rest)
+      (apply pretty-print expr rest)))
+
+  (else
+   (define (jazz:pretty-print expr . rest)
+     (display expr)
+     (newline))))
+
+
+(define (jazz:print-value call-print we object)
+  (if (jazz:use-print?)
+      (let ((detail (if (eq? (jazz:writeenv-style we) 'display) ':human ':reader)))
+        (call-print object (jazz:writeenv-port we) detail))
+    (##default-wr we object)))
+
+
+(define (jazz:print-jazz object output detail)
+  (if (jazz:use-print?)
+      (jazz:call-print object output detail)
+    (jazz:print-serial object output)))
+
+
+(cond-expand
+  (gambit
+    (jazz:define-variable-override jazz:print-hook
+      (lambda (object port style)
+        (let ((detail (if (%%eq? style 'display) ':human ':reader)))
+          (jazz:print-jazz object port detail)))))
+  (else)))

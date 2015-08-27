@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Generic Methods
+;;;; Generic Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -16,12 +16,11 @@
 ;;;
 ;;;  The Original Code is JazzScheme.
 ;;;
-;;;  The Initial Developer of the Original Code is Stephane Le Cornec.
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
 ;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
-;;;    Guillaume Cartier
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -36,7 +35,20 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.generic.runtime.generic
+(unit protected core.generic.runtime
+
+
+;;;
+;;;; Specific
+;;;
+
+
+(define (jazz:new-specific signature-proc implementation)
+  (jazz:allocate-specific signature-proc implementation '() '()))
+
+
+;;;
+;;;; Generic
 
 
 (define (jazz:new-generic locator dynamic-signature root-proc)

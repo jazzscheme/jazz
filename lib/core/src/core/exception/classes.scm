@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Unspecified
+;;;; Exception Classes
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,16 +35,14 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.base.runtime.unspecified
+(unit protected core.exception.classes
 
 
-(define (jazz:unspecified)
-  (%%unspecified))
+;;;
+;;;; Exception
+;;;
 
 
-(define (jazz:unspecified? expr)
-  (%%unspecified? expr))
-
-
-(define (jazz:specified? expr)
-  (%%not (%%unspecified? expr))))
+(jazz:define-virtual-syntax (jazz:present-exception (jazz:Exception exception)))
+(jazz:define-virtual-syntax (jazz:exception-message (jazz:Exception exception)))
+(jazz:define-virtual-syntax (jazz:get-detail (jazz:Exception exception))))

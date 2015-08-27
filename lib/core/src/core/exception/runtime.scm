@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit protected core.exception.runtime.exception
+(unit protected core.exception.runtime
 
 
 ;;;
@@ -204,4 +204,34 @@
                                (%%continuation-graft
                                  raise-cont
                                  (lambda () (handler exc)))))))))))
-        thunk)))))
+        thunk))))
+
+
+;;;
+;;;; Error
+;;;
+
+
+(jazz:define-class jazz:Error jazz:Exception (constructor: jazz:allocate-error)
+  ((message getter: generate)))
+
+
+(define (jazz:new-error message)
+  (jazz:allocate-error message))
+
+
+(jazz:define-method (jazz:exception-message (jazz:Error error))
+  (jazz:get-error-message error))
+
+
+(jazz:define-method (jazz:present-exception (jazz:Error error))
+  (jazz:get-error-message error))
+
+
+(define (jazz:raise-jazz-error fmt-string . rest)
+  (declare (proper-tail-calls))
+  (let ((message (apply jazz:format fmt-string rest)))
+    (raise (jazz:new-error message))))
+
+
+(set! jazz:error jazz:raise-jazz-error))

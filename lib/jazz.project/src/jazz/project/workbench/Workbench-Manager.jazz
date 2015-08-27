@@ -218,6 +218,10 @@
     (add-document))
   
   
+  (method (on-add-directory evt)
+    (add-directory))
+  
+  
   (method (on-add-group evt)
     (add-group))
   
@@ -499,6 +503,20 @@
                      (associations (list (cons 'name name) (cons 'unit unit))))
                 (copy-template template destination associations)
                 (let ((component (import-pathname (ascendant-project parent) destination parent #f)))
+                  (select-component~ (get-tree) component)))))))))
+  
+  
+  (method protected (add-directory)
+    (let ((parent (or (selected-object) (get-workbench))))
+      (when (or (is? parent Project)
+                (is? parent Project-Directory))
+        (let ((parent-directory (default-import-directory parent)))
+          (let ((dirname (request-string title: "Enter Directory Name" prefix: "Name:" accepts-empty?: #f)))
+            (let ((dir (new-directory~ parent-directory dirname)))
+              (if (exists?~ dir)
+                  (message-box "Directory already exists")
+                (create~ dir)
+                (let ((component (import-pathname (ascendant-project parent) dir parent #f recursive?: #f)))
                   (select-component~ (get-tree) component)))))))))
   
   
@@ -1397,6 +1415,7 @@
         (when (> (length (get-selection~ tree)) 1)
           (hide-item 'add-project)
           (hide-item 'add-document)
+          (hide-item 'add-directory)
           (hide-item 'install-project)
           (hide-item 'import-files)
           (hide-item 'import-directory)
@@ -1404,7 +1423,12 @@
           (hide-item 'set-current-directory))
         
         (when (is-not? object Project-Directory)
-          (hide-item 'set-current-directory)))
+          (hide-item 'set-current-directory))
+        
+        (when (not (and (or (is? object Project)
+                            (is? object Project-Directory))
+                        (default-import-directory object)))
+          (hide-item 'add-directory)))
       
       (let ((object (selected-object)))
         (typecase object
@@ -1471,6 +1495,7 @@
     (<install>
       (<Label-Item>     name: add-project           title: "New Project..." before: add-item action-handler: {Action workbench-manager add-project})
       (<Label-Item>     name: add-document          title: "New Document..." before: add-item icon: {Image-Resource "Add"} action-handler: {Action workbench-manager add-document})
+      (<Label-Item>     name: add-directory         title: "New Directory..." before: add-item action-handler: {Action workbench-manager add-directory})
       (<Label-Item>     name: install-project       title: "Install Project..." before: cut icon: {Image-Resource "Import"} action-handler: {Action workbench-manager install-project})
       (<Label-Item>     name: import-files          title: "Import Files..." before: cut action-handler: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory      title: "Import Directory..." before: cut action-handler: {Action workbench-manager import-directory})
@@ -1497,6 +1522,7 @@
       (<Separator-Item>                           before: add-item)
       (<Label-Item>     name: add-project         title: "New Project..." before: add-item action-handler: {Action workbench-manager add-project})
       (<Label-Item>     name: add-document        title: "New Document..." before: add-item icon: {Image-Resource "Add"} action-handler: {Action workbench-manager add-document})
+      (<Label-Item>     name: add-directory       title: "New Directory..." before: add-item action-handler: {Action workbench-manager add-directory})
       (<Label-Item>     name: install-project     title: "Install Project..." before: cut icon: {Image-Resource "Import"} action-handler: {Action workbench-manager install-project})
       (<Label-Item>     name: import-files        title: "Import Files..." before: cut action-handler: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action-handler: {Action workbench-manager import-directory})

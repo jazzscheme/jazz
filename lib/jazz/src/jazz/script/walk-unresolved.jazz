@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Walk
+;;;; Walk Unresolved
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.script.walk jazz
+(module jazz.script.walk-unresolved jazz
 
 
 (import (jazz.io)
@@ -43,29 +43,32 @@
 
 
 ;;;
-;;;; Walk
+;;;; Unresolved
 ;;;
 
 
-(define (walk)
-  (call-with-output-file (list path: "~/walk-problems.jazz" eol-encoding: (get-eol-encoding))
-    (lambda (port)
-      (let ((count 0))
-        (define (walk-with-catch unit-name)
-          (catch (Walk-Problems exc
-                   (format port ";;;{%}")
-                   (format port ";;;; {a}{%}" unit-name)
-                   (format port ";;;{%}")
-                   (format port "{%}{%}")
-                   (display-exception exc port)
-                   (format port "{%}{%}")
-                   (increase! count))
-            (walk-unit unit-name)))
-        
-        (iterate-units walk-with-catch feedback:
-          (lambda (unit-name)
-            (terminal 'walking unit-name)))
-        (format :console "Found {a} problem{a} sent to ~~/walk-problems.jazz" (format-cardinality count) (format-plural count))))))
+(define (walk-unresolved)
+  (let ((unresolved (make-table test: eq?))
+        (count 0))
+    (define (walk unit-name)
+      (catch (Walk-Problems exc
+               (let ((problems (append (get-warnings~ exc) (get-errors~ exc))))
+                 (for-each (lambda (problem)
+                             (when (is? problem Unresolved-Error)
+                               (table-add unresolved (get-symbol~ problem) unit-name)
+                               (increase! count)))
+                           problems)))
+        (walk-unit unit-name)))
+    
+    (iterate-units walk feedback:
+      (lambda (unit-name)
+        (terminal 'walking unit-name)))
+    
+    (call-with-output-file (list path: "~/walk-unresolved.jazz" eol-encoding: (get-eol-encoding))
+      (lambda (port)
+        (pp (table-keys unresolved) port)
+        (pp (remove-duplicates (apply append (table-values unresolved))) port)))
+    (format :console "Found {a} unresolved{a} sent to ~~/walk-unresolved.jazz" (format-cardinality count) (format-plural count))))
 
 
 ;;;
@@ -73,6 +76,6 @@
 ;;;
 
 
-(register-product-run 'walk
+(register-product-run 'walk-unresolved
   (lambda (descriptor)
-    (walk))))
+    (walk-unresolved))))

@@ -386,8 +386,6 @@
 ;;;
 
 
-(native base64-string->u8vector)
-(native base64-substring->u8vector)
 (native compile-file)
 (native compile-file-to-target)
 (native datum-parsing-exception?)
@@ -395,8 +393,6 @@
 (native fxwrap*)
 (native fxwrap+)
 (native fxwrap-)
-(native subu8vector->base64-string)
-(native u8vector->base64-string)
 (native object->string)
 (native os-exception-arguments)
 (native os-exception-code)

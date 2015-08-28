@@ -40,8 +40,7 @@
 
 (export attributes)
 
-(import (jazz.language.syntax.marshall (phase syntax))
-        (jazz.language.runtime.kernel))
+(import (jazz.language.runtime.kernel))
 
 
 (native private jazz:getf)

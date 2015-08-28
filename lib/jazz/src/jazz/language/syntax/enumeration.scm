@@ -40,8 +40,6 @@
 
 (export enumeration)
 
-(import (jazz.language.runtime.kernel))
-
 
 (define-syntax enumeration
   (lambda (form-src usage-environment macro-environment)

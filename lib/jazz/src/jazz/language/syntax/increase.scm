@@ -43,8 +43,7 @@
         multiply!
         divide!)
 
-(import (jazz.language.runtime.kernel)
-        (scheme.syntax-rules (phase syntax)))
+(import (scheme.syntax-rules (phase syntax)))
 
 
 (define-syntax increase!

@@ -5016,6 +5016,7 @@
       (let ((resource (jazz:requested-unit-resource)))
         (%%make-resource (%%get-resource-package resource)
                          (jazz:pathname-brother (%%get-resource-path resource) filename)
+                         #f
                          #f)))))
 
 
@@ -5466,6 +5467,7 @@
   (let ((path (%%get-resource-path bin)))
     (%%make-resource (%%get-resource-package bin)
                      (jazz:pathname-brother path (jazz:add-extension (jazz:pathname-base path) "otl"))
+                     (%%get-resource-underscore? bin)
                      #f)))
 
 

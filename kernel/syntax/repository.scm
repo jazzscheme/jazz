@@ -119,9 +119,10 @@
 
 
 (jazz:define-structure Resource () (constructor: %%make-resource accessors-type: macro)
-  ((package   getter: generate)
-   (path      getter: generate)
-   (extension getter: generate)))
+  ((package     getter: generate)
+   (path        getter: generate)
+   (underscore? getter: generate)
+   (extension   getter: generate)))
 
 
 ;;;

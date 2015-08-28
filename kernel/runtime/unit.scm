@@ -757,6 +757,7 @@
                 (if (and (%%fx<= package-length pathname-length)
                          (%%string=? (%%substring pathname 0 package-length) package-pathname))
                     (let* ((path (%%substring pathname package-length pathname-length))
+                           (underscore? #f)
                            (extension (and path (jazz:pathname-extension path))))
                       ;; remove extension
                       (if extension
@@ -771,8 +772,10 @@
                                          (name-length (%%string-length name))
                                          (previous-pos (%%fx- pos name-length)))
                                     (if (and (%%fx>= previous-pos 0) (%%string=? (%%substring path previous-pos pos) name))
-                                        (set! path (%%substring path 0 pos))))))))
-                      (%%make-resource package path extension))
+                                        (begin
+                                          (set! path (%%substring path 0 pos))
+                                          (set! underscore? #t))))))))
+                      (%%make-resource package path underscore? extension))
                   (iter (%%cdr packages)))))))))))
 
 
@@ -863,10 +866,10 @@
 
 (define (jazz:find-unit-src unit-name extensions . rest)
   (define (find-src package path)
-    (define (try path)
+    (define (try path underscore?)
       (define (try-extension extension)
         (if (jazz:file-exists? (jazz:package-root-pathname package (%%string-append path "." extension)))
-            (%%make-resource package path extension)
+            (%%make-resource package path underscore? extension)
           #f))
       
       (let iter ((extensions (or extensions '("jazz" "scm"))))
@@ -879,8 +882,8 @@
              ;; why was this arbitrary test necessary?
              #;
              (jazz:lower-case-unit-name? unit-name))
-        (try (%%string-append path "/_" (jazz:pathname-name path)))
-      (try path)))
+        (try (%%string-append path "/_" (jazz:pathname-name path)) #t)
+      (try path #f)))
   
   (let ((error? (if (%%null? rest) #t (%%car rest))))
     (continuation-capture
@@ -920,16 +923,16 @@
   
   (define (find-unit-binaries src)
     (define (find package path extension)
-      (define (try path)
+      (define (try path underscore?)
         ;; we only test .o1 and let gambit find the right file by returning no extension when found
         (if (jazz:file-exists? (jazz:package-root-pathname package (%%string-append path extension)))
-            (%%make-resource package path #f)
+            (%%make-resource package path underscore? #f)
           #f))
       
       (if (and (jazz:directory-exists? (jazz:package-root-pathname package path))
                (jazz:lower-case-unit-name? unit-name))
-          (try (%%string-append path "/_" (jazz:pathname-name path)))
-        (try path)))
+          (try (%%string-append path "/_" (jazz:pathname-name path)) #t)
+        (try path #f)))
     
     (define (find-uptodate package path)
       (let ((obj (find package path ".o"))

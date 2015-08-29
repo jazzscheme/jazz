@@ -402,6 +402,13 @@
         name))))
 
 
+(define (jazz:pathname-spine pathname)
+  (let ((pos (jazz:string-find-reversed pathname #\.)))
+    (if pos
+        (%%substring pathname 0 pos)
+      pathname)))
+
+
 (define (jazz:pathname-extension pathname)
   (let ((name (jazz:pathname-name pathname)))
     (let ((pos (jazz:string-find-reversed name #\.)))

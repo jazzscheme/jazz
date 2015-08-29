@@ -1404,6 +1404,7 @@
     product))
 
 
+#; ;; dynamic-dependencies
 (define (jazz:adjust-build-repository product)
   ;; dynamic repositories - build location mirrors the source location
   ;; we want to build in $BINARY/$REPO/$BRANCH
@@ -1503,6 +1504,7 @@
 
 (define (jazz:update-product name)
   (let ((product (jazz:setup-product name)))
+    #; ;; dynamic-dependencies
     (jazz:adjust-build-repository product)
     (let ((update (%%get-product-update product))
           (descriptor (%%get-product-descriptor product)))
@@ -1519,6 +1521,7 @@
 
 (define (jazz:build-product name)
   (let ((product (jazz:setup-product name)))
+    #; ;; dynamic-dependencies
     (jazz:adjust-build-repository product)
     (let ((build (%%get-product-build product))
           (build-library (%%get-product-build-library product))

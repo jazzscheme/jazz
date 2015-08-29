@@ -90,7 +90,7 @@
 ;;;
 
 
-;; A product is the runtime implementation of some user level entity that can be run and updated / built.
+;; A product is the runtime implementation of some user level entity that can be run, updated, built and installed.
 
 
 (jazz:define-structure Product () (constructor: %%make-product accessors-type: macro)

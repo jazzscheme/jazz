@@ -1009,7 +1009,7 @@
               manifest)))))
 
 
-(define (jazz:unit-status unit-name)
+(define (jazz:unit-status unit-name #!key (all? #f))
   (jazz:with-unit-resources unit-name #f
     (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
       (let ((loaded? (jazz:unit-loaded? unit-name)))
@@ -1021,7 +1021,11 @@
               (display "source hash: ")
               (display (digest-file (jazz:resource-pathname src) 'SHA-1))
               (newline))
-          (begin (display "source file not found") (newline)))
+          (begin (display "source not found") (newline)))
+        (if all?
+            (begin
+              (if obj (begin (display "obj ") (display (jazz:resource-pathname obj)) (newline)))
+              (if bin (begin (display "bin ") (display (jazz:resource-pathname bin)) (newline)))))
         (display "obj-uptodate? ") (display obj-uptodate?) (newline)
         (display "bin-uptodate? ") (display bin-uptodate?) (newline)
         (display "lib-uptodate? ") (display lib-uptodate?) (newline)

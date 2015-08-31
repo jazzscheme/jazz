@@ -1,0 +1,237 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Properties Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.ui.card.Properties-Manager jazz
+
+
+(import (jazz.designer.ui)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view))
+
+
+(class undocumented Properties-Manager extends Properties-Card
+
+
+  (form
+    (<install>
+      (<!>     name: scroller style: tool
+        (<!>   name: content
+          (<!> name: header   style: tool)))))
+  
+  
+  (method override (destroy)
+    (let ((appl (get-application)))
+      (close-selected~ appl self))
+    (nextmethod))
+    
+  
+  (method meta override (external-name . rest)
+    'Properties)
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-icon)
+    {Image-Resource "Properties"})
+  
+
+  (method meta override (host-title)
+    "Properties")
+  
+  
+  (method override (host-install)
+    (let ((appl (get-application)))
+      (add-selected-listener~ appl (new Event-Handler target: self method-name: 'on-selected-change))))
+  
+  
+  (method override (host-uninstall)
+    (let ((appl (get-application)))
+      (remove-selected-listener~ appl self)))
+  
+  
+  (method override (client-activate)
+    (close-auto-expanded~ (get-tree))
+    (let ((guest (current-document)))
+      (typecase guest
+        ((Text-Editor)
+         (set-client #f)
+         (set-designer #f)
+         (set-editor #f))
+        ((Component-Editor)
+         (set-editor guest)
+         (set-designer (get-designer~ guest))
+         (set-client (get-selection~ guest)))
+        (else
+         (set-client #f)
+         (set-designer #f)
+         (set-editor #f)))))
+  
+  
+  (method override (client-deactivate)
+    (set-client #f)
+    (set-designer #f)
+    (set-editor #f))
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method override (focus-default)
+    (let ((tree (get-tree)))
+      (acquire-focus~ tree)))
+  
+  
+  (method override (get-tools-view)
+    (locate 'tools))
+    
+  
+  ;;;
+  ;;;; Hosting
+  ;;;
+  
+  
+  (method override (install-in-host host)
+    (nextmethod host)
+    (when (is? host Docked-Host)
+      (set-flat?~ (locate 'scroller) #t)
+      (set-flat?~ (locate 'header) #t)
+      (set-filter~ (locate 'tree) 'standard)))
+  
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method override (guest-actions)
+    (cons (find-actions 'properties-manager)
+          (nextmethod)))
+    
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method virtual (on-selected-change evt)
+    (close-auto-expanded~ (get-tree))
+    (let ((owner (get-owner~ evt)))
+      (typecase owner
+        ((Designer)
+         (let ((editor #f)
+               (designer owner)
+               (client (get-selected~ evt))
+               (force? (get-force?~ evt)))
+           (set-editor editor)
+           (set-designer designer)
+           (set-client client force?: force?)))
+        ((Text-Editor)
+         (set-editor #f)
+         (set-designer #f)
+         (set-client #f))
+        ((Component-Editor)
+         (let* ((editor owner)
+                (designer (get-designer~ editor))
+                (client (get-selected~ evt))
+                (force? (get-force?~ evt)))
+           (set-editor editor)
+           (set-designer designer)
+           (set-client client force?: force?)))
+        (else
+         (set-editor #f)
+         (set-designer #f)
+         (set-client #f)))))
+  
+  
+  (method (on-present-documentation evt)
+    (define (determine-class client property)
+      (let (iter (class (class-of (car client))))
+        (cond ((not class)
+               #f)
+              ((memq? property (get-slots~ class))
+               class)
+              (else
+               (iter (get-ascendant~ class))))))
+    
+    (let ((tree (get-tree)))
+      (let ((client (get-client~ tree))
+            (property (selected-property~ tree)))
+        (when (and client (not-null? client) property)
+          (let ((frame (show-help~ (get-application))))
+            (when frame
+              (let ((text (get-guest~ frame))
+                    (class (determine-class client property)))
+                (when class
+                  (let ((class-title (->string (category-name class)))
+                        (property-title (->string (get-name~ property))))
+                    (let (iter (scan (get-chapters~ text)) (class-level #f) (class-pos #f))
+                      (if (null? scan)
+                          (if class-pos
+                              (select-chapter~ text class-pos)
+                            (set-caret~ text (text-beginning~ text))
+                            (user-message "Property {a} not found in documentation" property-title))
+                        (bind (level pos header title) (car scan)
+                          (cond ((and class-level (<= level class-level))
+                                 (select-chapter~ text class-pos))
+                                ((equal? title class-title)
+                                 (iter (cdr scan) level pos))
+                                ((equal? title property-title)
+                                 (if class-pos
+                                     (select-chapter~ text pos)
+                                   (iter (cdr scan) class-level class-pos)))
+                                (else
+                                 (iter (cdr scan) class-level class-pos)))))))))))))))
+  
+  
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method override (on-editor evt)
+    (case (get-kind~ evt)
+      ;; application selected event will take care of this
+      ((:selection-changed))
+      (else (nextmethod evt))))))

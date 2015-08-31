@@ -1,0 +1,1014 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; View Surrogate
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.ui.surrogate.View-Surrogate jazz
+
+
+(import (jazz.designer.ui)
+        (jazz.designer.ui.menu)
+        (jazz.designer.ui.view)
+        (jazz.geometry)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.resizer)
+        (jazz.ui.view)
+        (jazz.ui.window))
+
+
+(class undocumented View-Surrogate extends Component-Surrogate implements Renderer
+
+  
+  (slot protected client-renderer                initialize #f)
+  (slot protected client-focus-gained-handler    initialize #f)
+  (slot protected client-focus-lose-handler      initialize #f)
+  (slot protected client-cursor-update-handler   initialize #f)
+  (slot protected client-mouse-down-handler      initialize #f)
+  (slot protected client-mouse-up-handler        initialize #f)
+  (slot protected client-drag-move-handler       initialize #f)
+  (slot protected client-drag-up-handler         initialize #f)
+  (slot protected client-double-click-handler    initialize #f)
+  (slot protected client-current-drop-handler    initialize #f)
+  (slot protected client-receive-drop-handler    initialize #f)
+  (slot protected client-context-menu-handler    initialize #f)
+  (slot protected client-key-press-handler       initialize #f)
+  (slot protected client-arrow-press-handler     initialize #f)
+  (slot protected client-backspace-press-handler initialize #f)
+  (slot protected client-return-press-handler    initialize #f)
+  
+  
+  (slot state               initialize #f)
+  (slot current-part        initialize #f)
+  (slot start-mouse         initialize #f)
+  (slot start-positions     initialize #f)
+  (slot start-position      initialize #f)
+  (slot start-size          initialize #f)
+  (slot effective-client    initialize #f)
+  (slot effective-selection initialize #f)
+  (slot atomic-preserved    initialize #f)
+
+
+  ;;;
+  ;;;; Installation
+  ;;;
+  
+  
+  (method override (install-handlers)
+    (nextmethod)
+    (set! client-renderer                (get-renderer~ client))
+    (set! client-focus-gained-handler    (get-focus-gained-handler~ client))
+    (set! client-focus-lose-handler      (get-focus-lose-handler~ client))
+    (set! client-cursor-update-handler   (get-cursor-update-handler~ client))
+    (set! client-mouse-down-handler      (get-mouse-down-handler~ client))
+    (set! client-mouse-up-handler        (get-mouse-up-handler~ client))
+    (set! client-drag-move-handler       (get-drag-move-handler~ client))
+    (set! client-drag-up-handler         (get-drag-up-handler~ client))
+    (set! client-double-click-handler    (get-double-click-handler~ client))
+    (set! client-current-drop-handler    (get-current-drop-handler~ client))
+    (set! client-receive-drop-handler    (get-receive-drop-handler~ client))
+    (set! client-context-menu-handler    (get-context-menu-handler~ client))
+    (set! client-key-press-handler       (get-key-press-handler~ client))
+    (set! client-arrow-press-handler     (get-arrow-press-handler~ client))
+    (set! client-backspace-press-handler (get-backspace-press-handler~ client))
+    (set! client-return-press-handler    (get-return-press-handler~ client))
+    (set-renderer~ client                self)
+    (set-focus-gained-handler~ client    (new Surrogate-Handler target: self method-name: 'on-focus-gained    preserved: client-focus-gained-handler))
+    (set-focus-lose-handler~ client      (new Surrogate-Handler target: self method-name: 'on-focus-lose      preserved: client-focus-lose-handler))
+    (set-cursor-update-handler~ client   (new Surrogate-Handler target: self method-name: 'on-cursor-update   preserved: client-cursor-update-handler))
+    (set-mouse-down-handler~ client      (new Surrogate-Handler target: self method-name: 'on-mouse-down      preserved: client-mouse-down-handler))
+    (set-mouse-up-handler~ client        (new Surrogate-Handler target: self method-name: 'on-mouse-up        preserved: client-mouse-up-handler))
+    (set-drag-move-handler~ client       (new Surrogate-Handler target: self method-name: 'on-drag-move       preserved: client-drag-move-handler))
+    (set-drag-up-handler~ client         (new Surrogate-Handler target: self method-name: 'on-drag-up         preserved: client-drag-up-handler))
+    (set-double-click-handler~ client    (new Surrogate-Handler target: self method-name: 'on-double-click    preserved: client-double-click-handler))
+    (set-current-drop-handler~ client    (new Surrogate-Handler target: self method-name: 'on-current-drop    preserved: client-current-drop-handler))
+    (set-receive-drop-handler~ client    (new Surrogate-Handler target: self method-name: 'on-receive-drop    preserved: client-receive-drop-handler))
+    (set-context-menu-handler~ client    (new Surrogate-Handler target: self method-name: 'on-context-menu    preserved: client-context-menu-handler))
+    (set-key-press-handler~ client       (new Surrogate-Handler target: self method-name: 'on-key-press       preserved: client-key-press-handler))
+    (set-arrow-press-handler~ client     (new Surrogate-Handler target: self method-name: 'on-arrow-press     preserved: client-key-press-handler))
+    (set-backspace-press-handler~ client (new Surrogate-Handler target: self method-name: 'on-backspace-press preserved: client-key-press-handler))
+    (set-return-press-handler~ client    (new Surrogate-Handler target: self method-name: 'on-return-press    preserved: client-key-press-handler))
+    (invalidate-border))
+  
+  
+  (method override (remove-handlers)
+    (nextmethod)
+    (set-renderer~ client                client-renderer)
+    (set-focus-gained-handler~ client    client-focus-gained-handler)
+    (set-focus-lose-handler~ client      client-focus-lose-handler)
+    (set-cursor-update-handler~ client   client-cursor-update-handler)
+    (set-mouse-down-handler~ client      client-mouse-down-handler)
+    (set-mouse-up-handler~ client        client-mouse-up-handler)
+    (set-drag-move-handler~ client       client-drag-move-handler)
+    (set-drag-up-handler~ client         client-drag-up-handler)
+    (set-double-click-handler~ client    client-double-click-handler)
+    (set-current-drop-handler~ client    client-current-drop-handler)
+    (set-receive-drop-handler~ client    client-receive-drop-handler)
+    (set-context-menu-handler~ client    client-context-menu-handler)
+    (set-key-press-handler~ client       client-key-press-handler)
+    (set-arrow-press-handler~ client     client-arrow-press-handler)
+    (set-backspace-press-handler~ client client-backspace-press-handler)
+    (set-return-press-handler~ client    client-return-press-handler)
+    (invalidate-border))
+
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+
+
+  (method override (render drawing surface draw-self? nodes context)
+    (define (default-render)
+      (let ((content? (get-show-content?~ editor)))
+        (when (eq? client (get-client~ editor)) @w (is? (get-parent~ client) View-Workbench)
+          (fill-rect~ surface (get-bounds~ client) {Color White}))
+        (when content?
+          (draw-background~ drawing surface context))
+        (when content?
+          (draw-content~ drawing surface context))
+        (when (or content? (is-not? drawing Outline-View))
+          (draw-children~ drawing surface nodes context))))
+    
+    (default-render)
+    (draw surface))
+  
+  
+  (method public virtual (draw surface)
+    (let ((reference (get-reference~ editor))
+          (selection (get-selection~ editor))
+          (outer? (eq? client (outer-client))))
+      (define (draw-selected-background surface)
+        (define (some-selection-focused?)
+          (some? (lambda (component)
+                   (and (is? component View)
+                        (is-focused?~ component)))
+                 selection))
+        
+        (when (and (neq? client reference)
+                   (memq client selection)
+                   (not (editing?)))
+          (let ((color (if (some-selection-focused?) Focused-Background Unfocused-Background)))
+            (fill-rect~ surface (get-bounds~ client) color))))
+      
+      (define (draw-surrogate-frame surface)
+        (when (get-show-frames?~ editor)
+          (let ((rank (find selection client))
+                (outer (get-bounds~ client)))
+            (define (determine-colors)
+              (if rank
+                  (values (selected-color rank) (selected-inner-color rank))
+                (let ((owned-form (owned-form client)))
+                  (if owned-form
+                      (case (ownership-level owned-form)
+                        ((create) (values Unselected-Owned-Color Unselected-Owned-Inner-Color))
+                        ((modify) (values Unselected-Modify-Color Unselected-Modify-Inner-Color))
+                        ((traverse) (values (selected-color #f) (selected-inner-color #f))))
+                    (values (selected-color #f) (selected-inner-color #f))))))
+            
+            (define (owned-form component)
+              (let ((designer (get-designer~ (get-editor))))
+                (and designer
+                     (component-owned-form component (get-form~ designer) (get-reference~ designer)))))
+            
+            (define (draw-frame)
+              (set-style~ surface 'solid)
+              (receive (outer-color inner-color) (determine-colors)
+                (frame-rect~ surface outer outer-color)
+                (frame-rect~ surface (inflate-rect outer -1 -1) inner-color)))
+            
+            (define (draw-handles)
+              ;; todo
+              #f)
+            
+            (draw-frame)
+            (draw-handles))))
+  
+      (define (draw-information surface)
+        (define (parse-info info)
+          (if (string? info)
+              (values info (parse-font #f))
+            (values (car info) (parse-font (cadr info)))))
+        
+        (define (parse-font info)
+          (case info
+            ((#f small) {Font font-name: "Times New Roman" point-size: 12})
+            ((medium)   {Font font-name: "Times New Roman" point-size: 18})
+            ((large)    {Font font-name: "Times New Roman" point-size: 28})
+            (else info)))
+        
+        (let ((info (get-information)))
+          (when (and info (draw-information?))
+            (receive (text font) (parse-info info)
+              (set-font~ surface font)
+              (let* ((extent (get-text-extent~ surface text))
+                     (pos (center extent (get-size~ client))))
+                (draw-text~ surface (get-h~ pos) (get-v~ pos) text {Color Medium-Gray}))))))
+      
+      (when outer?
+        (draw-showed-property surface))
+      (draw-selected-background surface)
+      (when outer?
+        (draw-surrogate-frame surface)
+        (draw-information surface))))
+  
+  
+  (method public (draw-showed-property surface)
+    (let ((property (get-showed-property~ editor)))
+      (when (and property (property? (category-field (class-of client) property)))
+        (let* ((value (read-property client property))
+               (string (->string value))
+               (extent (get-text-extent~ surface string))
+               (size (nu+ extent {Dimension 7 4}))
+               (pos (center size (get-size~ client)))
+               (rect (position/size->rect pos size)))
+          (frame-rect~ surface rect {Color Black})
+          (fill-rect~ surface (inflate-rect rect -1 -1) {Color White})
+          (set-font~ surface {Font Label})
+          (draw-text~ surface (+ (get-h~ pos) 3) (+ (get-v~ pos) 2) string {Color Dark-Red})))))
+  
+  
+  (method public virtual (draw-selected surface rank)
+    (let ((outside (acquire~ editor client (get-bounds~ client))))
+      (let ((l (get-left~ outside))
+            (t (get-top~ outside))
+            (r (- (get-right~ outside) 1))
+            (b (- (get-bottom~ outside) 1)))
+        (set-style~ surface 'alternate)
+        (set-color~ surface (selected-color rank))
+        (set-line-width~ surface 1)
+        (line~ surface l t r t)
+        (line~ surface r t r b)
+        (line~ surface l t l b)
+        (line~ surface l b r b)
+        (set-color~ surface {Color Black})
+        (set-style~ surface 'solid))))
+  
+  
+  (method protected virtual (get-information)
+    #f)
+  
+  
+  (method protected virtual (draw-information?)
+    (null? (get-visible-children~ client)))
+  
+  
+  (method (with-information-update thunk)
+    (let ((before (draw-information?)))
+      (prog1 (thunk)
+        (let ((after (draw-information?)))
+          (unless (eqv? before after)
+            (invalidate-view~ client))))))
+  
+  
+  (method (border-region)
+    (border-region~ (outer-client) insets: {Rect 2 2 2 2}))
+  
+  
+  (method override (invalidate-border)
+    (invalidate-border~ (outer-client) insets: {Rect 2 2 2 2}))
+  
+  
+  (method override (redraw-border)
+    (redraw-border~ (outer-client) insets: {Rect 2 2 2 2}))
+
+
+  ;;;
+  ;;;; Focus
+  ;;;
+
+
+  (method protected virtual (on-focus-gained evt)
+    (focus-gained))
+  
+  
+  (method protected virtual (focus-gained)
+    (invalidate-selection)
+    (focus-update-actions))
+
+
+  (method protected virtual (on-focus-lose evt)
+    (focus-lose))
+  
+  
+  (method protected virtual (focus-lose)
+    (invalidate-selection))
+  
+  
+  (method override (focus-actions)
+    (cons (find-actions 'view-surrogate)
+          (focus-actions~ client)))
+  
+  
+  ;; This is an ugly hack. We enable the components tree actions
+  ;; even tough we use the surrogate-view actions because they
+  ;; are the ones that are checked in update-component-menu
+  (method virtual (focus-update-actions)
+    (set-action-enabled? {Action components-tree rename} (can-rename?))
+    (set-action-enabled? {Action view-surrogate send-to-back} (can-send-to-back?))
+    (set-action-enabled? {Action view-surrogate bring-to-front} (can-bring-to-front?))
+    (set-action-enabled? {Action components-tree open} #t)
+    @wait-for-traits
+    (set-action-enabled? {Action components-tree set-default-traits} #f))
+
+
+  ;;;
+  ;;;; Cursor
+  ;;;
+
+
+  (method protected virtual (on-cursor-update evt)
+    (receive (outer-surrogate outer-pos) (outer-surrogate (get-position~ evt))
+      (cursor-update~ outer-surrogate outer-pos)))
+  
+  
+  (method public virtual (cursor-update pos)
+    (let ((mode (get-mode~ editor)))
+      (case mode
+        ((rect)
+         (set-cursor :cross))
+        (else
+         (let ((part (and (selected?~ editor client)
+                          (or (not (memq? state '(tolerance process))) current-part)
+                          (or current-part (if (size-client?)
+                                               (let ((part (find-resize-part pos (get-size~ client) full?: #t)))
+                                                 (and (or (neq? client (get-client~ editor))
+                                                          (member? part '((1 . 0) (0 . 1) (1 . 1))))
+                                                      part))
+                                             #f)))))
+           (cond (part
+                   (set-cursor (get-resize-cursor part)))
+                 ((and (move-client?) (neq? client (get-client~ editor)))
+                  (set-cursor :opened-hand))
+                 (else
+                  (set-cursor :arrow))))))))
+
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (definition Drag-Tolerance
+    3)
+
+  
+  (method protected virtual (on-mouse-down evt)
+    (let ((mode (get-mode~ editor))
+          (pos (get-position~ evt)))
+      (if (or (eq? mode 'rect) (get-control?~ evt))
+          (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))
+        (receive (outer-surrogate outer-pos) (outer-surrogate pos)
+          (mouse-down~ outer-surrogate outer-pos)))))
+
+  
+  (method protected virtual (on-mouse-up evt)
+    (receive (outer-surrogate outer-pos) (outer-surrogate (get-position~ evt))
+      (mouse-up~ outer-surrogate outer-pos)))
+  
+  
+  (method protected virtual (on-drag-move evt)
+    (let ((pos (get-position~ evt)))
+      (if (get-rubber-band?~ editor)
+          (process-rubber-band~ editor (acquire~ (get-client~ editor) client pos))
+        (receive (outer-surrogate outer-pos) (outer-surrogate pos)
+          (drag-move~ outer-surrogate outer-pos)))))
+  
+  
+  (method protected virtual (on-drag-up evt)
+    (let ((pos (get-position~ evt)))
+      (if (get-rubber-band?~ editor)
+          (end-rubber-band~ editor (acquire~ (get-client~ editor) client pos))
+        (receive (outer-surrogate outer-pos) (outer-surrogate pos)
+          (drag-up~ outer-surrogate outer-pos)))))
+  
+  
+  (method protected virtual (on-double-click evt)
+    (receive (outer-surrogate outer-pos) (outer-surrogate (get-position~ evt))
+      (double-click~ outer-surrogate outer-pos)))
+
+
+  (method (on-current-drop evt)
+    (receive (outer-surrogate outer-pos) (outer-widget (get-position~ evt))
+      (current-drop~ outer-surrogate outer-pos (get-drag-drop~ evt))))
+
+
+  (method (on-receive-drop evt)
+    (receive (outer-surrogate outer-pos) (outer-widget (get-position~ evt))
+      (receive-drop~ outer-surrogate outer-pos (get-sender~ evt) (get-drag-drop~ evt))))
+
+
+  (method protected virtual (on-context-menu evt)
+    (receive (outer-surrogate outer-pos) (outer-surrogate (get-position~ evt))
+      (context-menu~ outer-surrogate outer-pos)))
+  
+  
+  (method (outer-surrogate pos)
+    (let ((outer (outer-client)))
+      (values (get-surrogate~ outer) (acquire~ outer client pos))))
+  
+  
+  (method (outer-widget pos)
+    (receive (outer-surrogate outer-pos) (outer-surrogate pos)
+      (let ((outer (get-client~ outer-surrogate)))
+        (let ((widget (inner-widget~ outer)))
+          (values (get-surrogate~ widget) (acquire~ widget outer outer-pos))))))
+  
+  
+  (method protected virtual (select?)
+    #t)
+  
+  
+  (method protected virtual (move-client?)
+    #t)
+  
+  
+  (method protected virtual (size-client?)
+    #t)
+  
+  
+  (method (find-effective-client pos effective-selection)
+    (if (memq? client (get-selection))
+        (or (find effective-selection client test: has-parent?~ return: 'item)
+            client)
+      (let ((position (acquire~ editor client pos)))
+        (let (loop (ignore (list client)))
+          (let ((drawing (find-drawing~ editor position ignore: ignore)))
+            (cond ((memq? drawing effective-selection)
+                   drawing)
+                  ((not drawing) #f)
+                  (else
+                   (loop (cons drawing ignore)))))))))
+  
+  
+  (method public virtual (mouse-down pos)
+    (define (some-movable? selection)
+      (some? (lambda (client)
+               (move-client?~ (get-surrogate~ client)))
+             selection))
+    
+    (define (select)
+      (when (select?)
+        (select~ editor client)))
+    
+    (if #f @until-fully-debugged (alt-down?)
+        (begin
+          (select)
+          (edit-client))
+      @wait
+      (begin
+        (set! state 'scroll)
+        (set! start-position pos)
+        (acquire-capture~ client))
+      (let ((previous-selection (get-selection)))
+        (select)
+        (when (and (move-client?) (some-movable? (get-selection~ editor)))
+          (let ((part (if (and (memq? client previous-selection) (size-client?)) (find-resize-part pos (get-size~ client) full?: #t) #f)))
+            (when (or (neq? client (get-client~ editor))
+                      (member? part '((1 . 0) (0 . 1) (1 . 1))))
+              (let ((selection (get-selection)))
+                (set! state 'tolerance)
+                (set! current-part part)
+                (set! start-mouse (to-desktop~ client pos))
+                (set! effective-selection (collect-oldest-ancestors (get-selection) (get-client~ editor)))
+                (set! effective-client (find-effective-client pos effective-selection))
+                (set! start-positions (map (lambda (view) (get-position~ (outer-client~ (get-surrogate~ view)))) effective-selection))
+                (set! start-position (get-position~ client))
+                (set! start-size (get-size~ client))
+                (set! atomic-preserved (start-atomic-undo~ (get-undoer)))
+                (acquire-capture~ client)))))))
+    (acquire-focus~ client))
+  
+  
+  (method public virtual (mouse-up pos)
+    )
+  
+  
+  (method public virtual (drag-move pos)
+    (when effective-client
+      (case state
+        ((scroll)
+         (let ((delta (nu- pos start-position)))
+           (scroll~ client delta)))
+        ((tolerance process)
+         (let ((desktop-pos (to-desktop~ client pos)))
+           (when (or current-part (not start-position) (eq? state 'process) (>= (distance desktop-pos start-mouse) Drag-Tolerance))
+             (set! state 'process)
+             (let* ((start (from-desktop~ client start-mouse))
+                    (delta (nu- pos start))
+                    (dh (get-h~ delta))
+                    (dv (get-v~ delta))
+                    (selection (get-selection)))
+               (if (not current-part)
+                   (for-each (lambda (view start-position)
+                               (let ((actual-delta (nu- (nu+ start-position delta) (get-position~ view))))
+                                 (move-client~ (get-surrogate~ view) (get-h~ actual-delta) (get-v~ actual-delta))))
+                             effective-selection
+                             start-positions)
+                 (resize-client dh dv current-part
+                   (lambda (dh dv dwidth dheight)
+                     (let ((max-position (nu+ start-position (nu- start-size {Dimension 16 16})))
+                           (new-position (nu+ start-position (new Dimension dh dv)))
+                           (new-size (nu+ start-size (new Dimension dwidth dheight))))
+                       (let ((effective-position (new Point
+                                                   (min (get-h~ new-position) (get-h~ max-position))
+                                                   (min (get-v~ new-position) (get-v~ max-position))))
+                             (effective-size (new Dimension
+                                               (max (get-width~ new-size) 16)
+                                               (max (get-height~ new-size) 16))))
+                         (let ((actual-delta (nu- effective-position (get-position~ client))))
+                           (move-client (get-h~ actual-delta) (get-v~ actual-delta)))
+                         (let ((actual-delta (nu- effective-size (get-size~ client))))
+                           (size-client (get-width~ actual-delta) (get-height~ actual-delta)))))))
+                 (let ((parent (get-parent~ client)))
+                   (unless (adjust?~ parent)
+                     (layout-view~ parent)))))))))))
+  
+  
+  (method public virtual (drag-up pos)
+    ;; temporary solution until this validation is done live while dragging
+    (define (verify-position/size)
+      (let ((min-size (minimal-size~ client)))
+        (when min-size
+          (let ((rect (get-rect~ client))
+                (parent-rect (get-rect~ (get-parent~ client)))
+                (designer (get-designer~ editor)))
+            (receive (new-position new-size) (fit-within parent-rect rect minimum-size: min-size)
+              (set-property~ designer client 'size new-size)
+              (set-property~ designer client 'position new-position))))))
+    
+    (define (relocate-selection)
+      (unless (nu=? (car start-positions) (get-position~ (car effective-selection)))
+        (let* ((editor-pos (acquire~ editor client pos))
+               (view (let ((view (find-drawing~ editor editor-pos ignore: (list effective-client client))))
+                       (if (has-ascendant?~ view (get-client~ editor))
+                           view
+                         (get-client~ editor))))
+               (view-pos (and view (acquire~ view editor editor-pos))))
+          (let ((designer (get-designer~ editor))
+                (selection (get-selection)))
+            ;; It is required to nullify the selection because some parent could be removed while their children are in the selection
+            (set-selection '())
+            (for-each (lambda (selected)
+                        (when (and (neq? (get-parent~ selected) view)
+                                   (can-relocate-component?~ designer selected view))
+                          (let ((new-position (acquire~ view selected {Point 0 0})))
+                            (relocate-component~ designer selected view)
+                            (set-property~ designer selected 'position new-position))))
+                      effective-selection)
+            (set-selection selection)))))
+    
+    (case state
+        ((scroll)
+         (release-capture~ client)
+         (set! current-part #f)
+         (set! state #f))
+        ((tolerance process)
+         (release-capture~ client)
+         (let ((part current-part))
+           (set! current-part #f)
+           (set! state #f)
+           (when effective-client
+             (if part
+                 (verify-position/size)
+               (relocate-selection)))
+           (end-atomic-undo~ (get-undoer) atomic-preserved)))))
+  
+  
+  (method public virtual (double-click pos)
+    (edit-default-property))
+
+
+  (method public virtual (current-drop pos drag-drop)
+    (let ((sender (get-view~ (get-source~ drag-drop))))
+      (typecase sender
+        ((Toolbox-Tree)
+         (let ((addable (selected-addable~ sender)))
+           (let ((class (selected-class~ sender)))
+             (and class
+                  (addable-class?~ client class)
+                  (new Drop-Target view: client user-data: (selected-component~ sender))))))
+        ((Properties-Tree)
+         (let ((row (get-row~ (get-source~ drag-drop))))
+           (and (is? row Value-Row)
+                (new Drop-Target view: client user-data: row))))
+        (else #f))))
+
+
+  (method public virtual (receive-drop pos sender drag-drop)
+    (let ((data (get-user-data~ (get-target~ drag-drop))))
+      (typecase sender
+        ((Toolbox-Tree)
+         (typecase data
+           ((Toolbox-Form)
+            (add-new-form (resolve-form~ data) pos import: (get-unit~ data)))
+           ((Toolbox-Model)
+            (add-new (get-class~ data) pos import: (get-unit~ data)))))
+        ((Properties-Tree)
+         (set-selection~ sender '())
+         (let* ((property (get-property~ data))
+                (name (field-name property)))
+           (if (eq? name (get-showed-property~ editor))
+               (set-showed-property~ editor #f)
+             (set-showed-property~ editor (field-name property))))))))
+  
+  
+  (method public (add-new model pos (centered?: centered? #t) (name: name #f) (properties: properties '()) (import: import #f))
+    (with-information-update
+      (lambda ()
+        (let ((preferences (get-preferences 'designer))
+              (designer (get-designer~ editor))
+              (view? (subclass? model View)))
+          (let ((child (if view?
+                           (new model parent: client visible?: #f)
+                         (new model parent: client))))
+            (if view?
+                (add-view~ designer child client position: pos centered?: centered? name: name import: import properties: properties descendant?: #t)
+              (add-child~ designer child client import: import name: name properties: properties descendant?: #t))
+            (layout-view~ client)
+            (when view?
+              (layout-view~ child))
+            (set-selection~ editor (list child) origin: self)
+            (when (and (not name) (xor (get-new-requests-name?~ preferences) (shift-down?)))
+              (let ((presentation (request-component-presentation model (get-children~ client))))
+                (when presentation
+                  (let ((name (presentation->name~ model presentation)))
+                    (set-name~ designer child name)))))
+            (when (get-default-property~ child)
+              (select-docked Properties-Manager focus?: #t))
+            child)))))
+  
+  
+  ;; this should probably be unified with add-new above
+  (method public (add-new-form form pos (centered?: centered? #t) (name: name #f) (import: import #f))
+    (with-information-update
+      (lambda ()
+        (let ((preferences (get-preferences 'designer))
+              (designer (get-designer~ editor)))
+          (let ((child (add-form~ designer form client imports: import name: name)))
+            (set-property~ designer child 'position pos)
+            (when centered?
+              (center-child~ designer child))
+            (let ((model (class-of child)))
+              (layout-view~ client)
+              (layout-view~ child)
+              (set-selection~ editor (list child) origin: self)
+              (when (and (not name) (xor (get-new-requests-name?~ preferences) (shift-down?)))
+                (let ((presentation (request-component-presentation model (get-children~ client))))
+                  (when presentation
+                    (let ((name (presentation->name~ model presentation)))
+                      (set-name~ designer child name)))))
+              (when (get-default-property~ child)
+                (select-docked Properties-Manager focus?: #t))))))))
+
+
+  (method public virtual (context-menu pos)
+    (when (select?)
+      (select~ editor client))
+    ;; the select should do the acquire-focus... this is a quick fix
+    (acquire-focus~ client)
+    (let ((menu (get-context-menu)))
+      (when menu
+        (update-context-menu menu)
+        (layout-menu~ menu)
+        (track-popup-menu~ client menu pos))))
+  
+  
+  (method public virtual (get-context-menu)
+    (let ((menu (new (context-menu-class))))
+      ;; Add submenu is too long to generate and not useful
+      (update-component-menu menu (get-selection~ editor) '() #f '() #f)
+      menu))
+  
+  
+  (method public virtual (context-menu-class)
+    Surrogate-Menu)
+  
+  
+  (method public virtual (update-context-menu menu)
+    )
+
+
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method (move-client dh dv)
+    (when (or (/= dh 0) (/= dv 0))
+      (let ((selection (get-selection~ editor))
+            (designer (get-designer~ editor)))
+        (when (move-client?)
+          (let ((pos (get-position~ client)))
+            (parameterize ((inhibit-clipping? #t))
+              (safe-set-property~ designer client position: (new Point (+ (get-h~ pos) dh) (+ (get-v~ pos) dv)))))
+          (update-focus-actions~ (get-application))))))
+
+
+  (method (size-client dwidth dheight)
+    (when (or (/= dwidth 0) (/= dheight 0))
+      (let* ((size (get-size~ client))
+             (new-size (new Dimension (+ (get-width~ size) dwidth) (+ (get-height~ size) dheight))))
+        (with ((region (border-region)))
+          (parameterize ((inhibit-clipping? #t))
+            (safe-set-property~ (get-designer~ editor) client size: new-size))
+          (invalidate-region~ client region))
+        (with ((region (border-region)))
+          (invalidate-region~ client region))
+        (when (eq? client (get-reference~ editor))
+          (update-scrollbars~ client)))
+      (update-focus-actions~ (get-application))))
+  
+  
+  (method protected virtual (edit-client)
+    (edit-component~ editor client))
+
+
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method protected virtual (on-key-press evt)
+    (key-press (get-key~ evt)))
+  
+  
+  (method protected virtual (key-press evt)
+    )
+  
+  
+  (method (on-arrow-press evt)
+    (unless (eq? client (get-client~ editor))
+      (let ((modifiers (get-modifiers~ evt)))
+        (case (get-property~ evt direction:)
+          ((left)  (move-selection -1  0 modifiers))
+          ((up)    (move-selection  0 -1 modifiers))
+          ((right) (move-selection  1  0 modifiers))
+          ((down)  (move-selection  0  1 modifiers))))))
+  
+  
+  (method (on-backspace-press evt)
+    (backspace-press (get-key~ evt)))
+  
+  
+  (method protected virtual (backspace-press evt)
+    (delete-selection~ editor))
+  
+  
+  (method protected virtual (on-return-press evt)
+    (return-press (get-key~ evt)))
+  
+  
+  (method protected virtual (return-press evt)
+    (edit-default-property))
+
+
+  ;;;
+  ;;;; Move
+  ;;;
+  
+  
+  (method (move-selection dh dv modifiers)
+    (define (move-quantum shift?)
+      (if shift?
+          10
+        1))
+    
+    (let* ((shift? (shift-key? modifiers))
+           (control? (control-key? modifiers))
+           (single? (and shift? control?))
+           (quantum (move-quantum shift?))
+           (selection (get-selection)))
+      (with-atomic-undo~ (get-undoer)
+        (lambda ()
+          (for-each (lambda (view)
+                      (move-client~ (get-surrogate~ view) (* dh quantum) (* dv quantum)))
+                    (if single? (list (car selection)) selection))))))
+  
+
+  ;;;
+  ;;;; Save
+  ;;;
+
+
+  (method public (save-form)
+    (let ((selection (get-selection)))
+      (when selection
+        (save~ selection))))
+  
+
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method protected virtual (editing?)
+    #f)
+  
+
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method public virtual (can-undo?)
+    (can-undo?~ (get-undoer)))
+  
+  
+  (method public virtual (can-redo?)
+    (can-redo?~ (get-undoer)))
+  
+  
+  (method public virtual (can-cut?)
+    (can-cut-selection?~ editor))
+  
+  
+  (method public virtual (can-copy?)
+    (can-copy-component?~ client))
+  
+  
+  (method public virtual (can-paste?)
+    (can-paste-component?~ client))
+  
+  
+  (method public virtual (can-paste-properties?)
+    (can-paste-properties-component?~ client))
+  
+  
+  (method public virtual (can-delete?)
+    (can-delete-selection?~ editor))
+  
+  
+  (method public virtual (can-rename?)
+    (can-rename-selection?~ editor))
+  
+  
+  (method public virtual (can-send-to-back?)
+    (can-send-selection-to-back?~ editor))
+  
+  
+  (method public virtual (can-bring-to-front?)
+    (can-bring-selection-to-front?~ editor))
+  
+  
+  (method public virtual (can-select-all?)
+    (can-select-all-component?~ client))
+  
+  
+  (method public virtual (undo)
+    (undo~ (get-undoer))
+    (update-focus-actions~ (get-application)))
+  
+  
+  (method public virtual (redo)
+    (redo~ (get-undoer))
+    (update-focus-actions~ (get-application)))
+  
+  
+  (method public virtual (cut-selection)
+    (cut-selection~ editor))
+  
+  
+  (method public virtual (copy-selection)
+    (copy-selection~ editor))
+  
+  
+  (method public virtual (paste-clipboard)
+    (let ((selection (get-selection)))
+      (if (/= (length selection) 1)
+          (bell)
+        (let ((designer (get-designer~ editor))
+              (parent (car selection)))
+          (with-atomic-undo~ (get-undoer~ designer)
+            (lambda ()
+              (let* ((components (paste-clipboard~ designer parent))
+                     (views (collect-type View components))
+                     (positions (map get-position~ views))
+                     (top-left (rect-position (points-bounding-box positions))))
+                (for-each (lambda (view position)
+                            (set-property~ designer view 'position (nu- position top-left)))
+                          views
+                          positions)
+                (set-selection components))))))))
+  
+  
+  (method public virtual (paste-properties)
+    )
+  
+  
+  (method public virtual (delete-selection)
+    (delete-selection~ editor))
+  
+  
+  (method public virtual (rename-selection)
+    )
+  
+  
+  (method public virtual (select-all . rest)
+    (set-selection (collect-type View (get-children~ client))))
+  
+  
+  (method (get-undoer)
+    (get-undoer~ (get-designer~ editor)))
+  
+
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method override (select rank focus?)
+    (when (= rank 0)
+      (when focus?
+        (acquire-focus~ client)))
+    (parameterize ((inhibit-clipping? #t))
+      (invalidate-border)
+      (invalidate-view~ client)))
+  
+  
+  (method override (unselect)
+    (parameterize ((inhibit-clipping? #t))
+      (invalidate-border)
+      (invalidate-view~ client)))
+  
+  
+  (method (invalidate-selection)
+    (invalidate-selection~ editor))
+  
+
+  ;;;
+  ;;;; Properties
+  ;;;
+  
+  
+  (method (edit-default-property)
+    (let ((default-property (get-default-property~ client)))
+      (if (not default-property)
+          (bell)
+        (let ((manager (select-docked Properties-Manager focus?: #t)))
+          (select-property~ (get-tree~ manager) default-property))))))
+
+
+;;;
+;;;; Surrogate-Menu
+;;;
+
+
+(class Surrogate-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: add-item          title: "Add" icon: {Image-Resource "Add"}
+        (<Add-Menu>     name: add-menu))
+      (<Separator-Item> name: end-add-group)
+      (<Label-Item>     name: cut              title: "Cut" icon: {Image-Resource "Cut"} action-handler: {Action view cut})
+      (<Label-Item>     name: copy             title: "Copy" icon: {Image-Resource "Copy"} action-handler: {Action view copy})
+      (<Label-Item>     name: paste            title: "Paste" icon: {Image-Resource "Paste"} action-handler: {Action view paste})
+      (<Label-Item>     name: paste-properties title: "Paste Properties" action-handler: {Action view paste-properties})
+      (<Separator-Item> name: end-edition)
+      (<Label-Item>     name: bring-to-front   title: "Bring To Front" action-handler: {Action view-surrogate bring-to-front})
+      (<Label-Item>     name: send-to-back     title: "Send To Back" action-handler: {Action view-surrogate send-to-back})
+      (<Separator-Item> name: end-layer)
+      (<Label-Item>     name: delete-selection title: "Delete" icon: {Image-Resource "Remove"} action-handler: {Action view-surrogate delete-selection})
+      (<Label-Item>     name: rename-selected  title: "Rename" action-handler: {Action view-surrogate rename-selected})
+      (<Label-Item>     name: select-all       title: "Select All" action-handler: {Action view-surrogate select-all})
+      (<Separator-Item> name: before-designer)
+      (<Label-Item>     name: open             title: "Open" action-handler: {Action view-surrogate open})
+      (<Separator-Item> name: end-close/rename)
+      (<Label-Item>     name: properties       title: "Properties" action-handler: {Action view-surrogate properties})))))

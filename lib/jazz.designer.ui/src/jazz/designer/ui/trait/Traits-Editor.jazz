@@ -1,0 +1,207 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Traits Editor
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.ui.trait.Traits-Editor jazz
+
+
+(import (jazz.designer.ui)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view))
+
+
+(class undocumented Traits-Editor extends Layout-View
+
+
+  (form
+    (<install>                                   layout-type: fill
+      (<Layout-View>           name: tools
+        (<Push-Tool>           name: new-default size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New Default" resource: {Image-Resource "NewTrait"} portfolio: :images action-handler: {Event-Handler :guest on-new-default}))
+      (<Scroller-View>         name: scroller    hscroll?: #t vscroll?: #t style: tool
+        (<!>                   name: content     layout-type: fill
+          (<Tree-Header>       name: header      shown?: #f
+            (<!>               name: content
+              (<Traits-Tree>   name: tree
+                (<!>           name: trait       width: 183))))))))
+                
+  
+  (method meta override (external-name . rest)
+    'Traits)
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-icon)
+    {Image-Resource "Traits"})
+  
+
+  (method meta override (host-title)
+    "Traits")
+  
+  
+  (method override (client-activate)
+    (define (designed-trait designer client)
+      (let ((trait-form (first-child~ (get-form~ designer))))
+        (find-if (lambda (child)
+                   (and (is? child Trait)
+                        (eq? (get-form~ child) trait-form)))
+                 (get-children~ client))))
+    
+    (let ((guest (current-document)))
+      (cond ((and (is? guest Component-Editor)
+                  (not (previewing?~ guest)))
+             (let ((designer (get-designer~ guest))
+                   (client (get-client~ guest)))
+               (set-editor guest)
+               (set-client (if (designing-trait?~ designer) (designed-trait designer client) client))
+               (set-designer designer)
+               (when (designing-trait?~ designer)
+                 (select-trait~ (locate 'tree) (designed-trait designer client)))))
+            (else
+             (set-editor #f)
+             (set-client #f)
+             (set-designer #f))))
+    (client-update))
+  
+  
+  (method override (client-deactivate)
+    (set-editor #f)
+    (set-client #f)
+    (set-designer #f)
+    (client-update))
+  
+  
+  (method (client-update)
+    (set-enabled?~ (locate 'new-default) (get-client)))
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method override (focus-default)
+    (let ((tree (locate 'tree)))
+      (acquire-focus~ tree)
+      (auto-select-first~ tree)))
+  
+  
+  (method override (get-tools-view)
+    (locate 'tools))
+    
+  
+  ;;;
+  ;;;; Hosting
+  ;;;
+  
+  
+  (method override (install-in-host host)
+    (nextmethod host)
+    @convert
+    (set-layout-type~ (get-root~ host) 'fill)
+    @convert
+    (set-layout-insets~ (get-root~ host) {Rect 0 2 0 0}))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-tree)
+    (locate 'tree))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-new-default evt)
+    (new-default))
+  
+  
+  ;;;
+  ;;;; Component
+  ;;;
+  
+  
+  (method protected virtual (new-default)
+    (new-default-trait~ (get-tree)))
+  
+  
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method public (get-editor)
+    (get-editor~ (get-tree)))
+  
+  
+  (method public (set-editor editor)
+    (set-editor~ (get-tree) editor))
+
+  
+  ;;;
+  ;;;; Client
+  ;;;
+  
+  
+  (method public (get-client)
+    (get-client~ (get-tree)))
+  
+  
+  (method public (set-client client)
+    (set-client~ (get-tree) client))
+
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method public (get-designer)
+    (get-designer~ (get-tree)))
+  
+  
+  (method public (set-designer designer)
+    (set-designer~ (get-tree) designer))))

@@ -1,0 +1,407 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Class Descriptor
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.ui.descriptor.Component-Descriptor jazz
+
+
+(import (jazz.designer.ui)
+        (jazz.designer.ui.descriptor)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui.clipboard))
+
+
+(class undocumented Component-Descriptor extends Component
+  
+  
+  (property title                 initialize #f  accessors generate)
+  (property image                 initialize #f  accessors generate)
+  (property name-prohibited?      initialize #f  accessors generate)
+  (property name-mandatory?       initialize #f  accessors generate)
+  (property name-unicity?         initialize #t  accessors generate)
+  (property can-cut?                             accessors generate)
+  (property can-copy?                            accessors generate)
+  (property can-paste?                           accessors generate)
+  (property can-paste-properties?                accessors generate)
+  (property can-rename?                          accessors generate)
+  (property can-select-all?                      accessors generate)
+  (property can-delete?                          accessors generate)
+  (property can-relocate?                        accessors generate)
+  (property can-view-properties?                 accessors generate)
+  (property sort-components?                     accessors generate)
+  (property indexable?                           accessors generate)
+  (property categorized-classes   initialize '() accessors generate)
+  
+  
+  (slot children-descriptor getter generate)
+  
+  
+  (form
+    (<install>
+      (<Properties-Descriptor>   name: properties
+        (<Property-Descriptor>   name: before            standard?: #f
+          (<Value-Domain>        name: domain            nullable?: #t))
+        (<Property-Descriptor>   name: children          standard?: #f
+          (<Value-Domain>        name: domain))
+        (<Property-Descriptor>   name: visible?          standard?: #f
+          (<Boolean-Domain>      name: domain))
+        (<Property-Descriptor>   name: class-info        title: "class" category: info
+          (<Presentation-Domain> name: domain))
+        (<Property-Descriptor>   name: name-info         title: "name" category: info
+          (<Name-Domain>         name: domain))
+        (<Property-Descriptor>   name: presentation-info title: "label" category: info standard?: #f
+          (<Presentation-Domain> name: domain)))
+      (<Children-Descriptor>     name: children)))
+  
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method override (setup-component)
+    (nextmethod)
+    (set! children-descriptor (child 'children)))
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  (method meta override (get-class-descriptor (context: context #f))
+    (instantiate~ Component-Meta-Descriptor))
+
+
+  ;;;
+  ;;;; Domain
+  ;;;
+  
+  
+  (method public virtual (class-get-domain class property)
+    (let ((property-descriptor (require-property-descriptor class (field-name property))))
+      (or (and property-descriptor (get-domain~ property-descriptor))
+          (error "No domain found for {s}" property))))
+  
+  
+  (method public virtual (class-get-category class property)
+    (get-domain-category
+      (let ((property-descriptor (require-property-descriptor class (field-name property))))
+        (or (and property-descriptor (get-category~ property-descriptor))
+            'property))))
+  
+  
+  (method public virtual (class-get-standard? class property)
+    (let ((property-descriptor (require-property-descriptor class (field-name property))))
+      (and property-descriptor
+           (get-standard?~ property-descriptor))))
+
+  
+  (method public virtual (component-property-domain component property)
+    (get-domain~ (class-of component) property))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method public virtual (class-presentation class)
+    (or title (->string (category-name class))))
+  
+  
+  (method public virtual (class-image class)
+    (or image {Image-Resource "Component"}))
+  
+  
+  (method public virtual (class-name-prohibited? class)
+    name-prohibited?)
+  
+  
+  (method public virtual (class-name-mandatory? class)
+    name-mandatory?)
+  
+  
+  (method public virtual (class-name-unicity? class)
+    name-unicity?)
+  
+  
+  (method public virtual (class-presentation->name class presentation)
+    (if (or (not presentation) (empty-string? presentation) (equal? presentation "{}"))
+        #f
+      (string->symbol presentation)))
+  
+  
+  (method public virtual (class-name->presentation class name)
+    (if (not name)
+        "{}"
+      (->string name)))
+  
+  
+  (method public virtual (class-property-presentation class property)
+    (or (let ((property-descriptor (require-property-descriptor class (field-name property))))
+          (and property-descriptor (get-title~ property-descriptor)))
+        ;; lets be lazy!!
+        (remove-enclosing #\? (join (map (lambda (substr) 
+                                           (capitalize (substitute #\- #\space substr))) 
+                                         (split (->string (field-name property)) "->")) 
+                                    "->"))))
+  
+  
+  (method public virtual (class-detail-presentation class property)
+    (case (field-name property)
+      ((class-info) "Class")
+      ((name-info) "Name")
+      ((presentation-info) "Name")
+      (else (property-presentation~ class property))))
+  
+  
+  (method public virtual (class-persist-property? class property)
+    #t)
+  
+  
+  (method public virtual (component-presentation-property? component property)
+    #f)
+  
+  
+  (method public virtual (component-get-presentation component)
+    (name->presentation~ (class-of component) (get-name~ component)))
+  
+  
+  (method public virtual (component-set-presentation component designer presentation)
+    (set-name~ designer component (presentation->name~ (class-of component) presentation)))
+  
+  
+  (method protected (component-get-string-presentation component)
+    (or (get-name~ component) ""))
+  
+  
+  (method protected (component-set-string-presentation component designer presentation)
+    (if (empty-string? presentation)
+        (set-name~ designer component #f)
+      (set-name~ designer component presentation)))
+  
+  
+  (method public virtual (component-present-property component property value)
+    (let ((domain (property-domain~ component property)))
+      (present~ domain value)))
+  
+  
+  (method public virtual (component-get-components component)
+    (get-children~ component))
+  
+  
+  (method public virtual (component-get-component-image component)
+    (get-class-image~ (class-of component)))
+  
+  
+  (method public virtual (component-can-cut-component? component)
+    (either can-cut? (can-delete-component?~ component)))
+  
+  
+  (method public virtual (component-can-copy-component? component)
+    (either can-copy? #t))
+  
+  
+  (method public virtual (component-can-paste-component? component)
+    (either can-paste? #t))
+  
+  
+  (method public virtual (component-can-paste-properties-component? component)
+    (either can-paste-properties? #f))
+  
+  
+  (method public virtual (component-can-rename-component? component)
+    (either can-rename? (not (get-name-prohibited?~ (class-of component)))))
+  
+  
+  (method public virtual (component-can-select-all-component? component)
+    (either can-select-all? #f))
+  
+  
+  (method public virtual (component-can-delete-component? component)
+    (either can-delete? #t))
+  
+  
+  (method public virtual (component-can-relocate-component? component)
+    (either can-relocate? #t))
+  
+  
+  (method public virtual (component-can-view-properties? component)
+    (either can-view-properties? #t))
+  
+  
+  (method public (component-determine-can-paste component (try-parent? #t))
+    (boolean (determine-paster~ component try-parent?)))
+  
+  
+  (method public virtual (component-determine-paster component (try-parent? #t))
+    (when (and (can-paste-component?~ component) (clipboard-format-available? 'jazz-parcels))
+      (let* ((parcels (get-jazz-parcels))
+             (models (remove-duplicates (map get-master-model~ parcels))))
+        (cond ((memq? #f models)
+               #f)
+              ((every? (lambda (class)
+                         (addable-class?~ component class))
+                       models)
+               component)
+              (else
+               (when try-parent?
+                 (let ((parent (get-parent~ component)))
+                   (when parent
+                     (determine-paster~ parent #f)))))))))
+  
+  
+  (method public virtual (component-can-send-before? component types father before)
+    (and (every? (lambda (type) (addable-class?~ component type)) types)
+         (not (sort-components?~ component))))
+  
+  
+  (method public virtual (component-sort-components? component)
+    (either sort-components? #f))
+  
+  
+  (method public virtual (component-sort-components component predicate components)
+    (sort predicate components key: get-presentation-property~))
+  
+  
+  (method public virtual (component-indexable? component)
+    (either indexable? #t))
+  
+  
+  (method public virtual (component-surrogate-class component)
+    Component-Surrogate)
+
+
+  (method public virtual (component-install-surrogate component editor)
+    (let ((surrogate (new (component-surrogate~ component) client: component editor: editor)))
+      (set-surrogate~ component surrogate)
+      (install-handlers~ surrogate)
+      (install-children-surrogates~ component editor)))
+  
+  
+  (method public virtual (component-install-children-surrogates component editor)
+    (for-each (lambda (component)
+                (install-surrogate~ component editor))
+              (get-components~ component)))
+
+
+  (method public (component-remove-surrogate component)
+    (remove-component-surrogate~ component))
+
+
+  (method public (component-remove-component-surrogate component)
+    (for-each remove-component-surrogate~ (get-components~ component))
+    (let ((surrogate (get-surrogate~ component)))
+      (when surrogate
+        (remove-handlers~ surrogate)
+        (set-surrogate~ component #f))))
+  
+  
+  (method public virtual (component-get-addable-default component)
+    #f)
+  
+  
+  (method public virtual (component-get-addable-classes component)
+    (flatten (component-get-categorized-addable-classes component)))
+  
+  
+  (method public virtual (component-get-categorized-addable-classes component)
+    categorized-classes)
+  
+  
+  (method public virtual (component-addable-class? component class)
+    (some? (lambda (addable-class)
+             (subtype? class addable-class))
+           (map resolve-runtime-reference (get-addable-classes~ component))))
+  
+  
+  (method public virtual (component-get-classes component)
+    '())
+  
+  
+  (method public virtual (component-get-addable-traits component)
+    #t)
+  
+  
+  (method public virtual (component-get-addable-default-trait component)
+    Trait)
+  
+  
+  (method public virtual (component-get-addable-base component)
+    (let ((classes (get-addable-classes~ component)))
+      (if (= 1 (length classes))
+          (resolve-runtime-reference (car classes))
+        Component)))
+  
+  
+  (method public virtual (component-get-addable-details component)
+    (let ((base (get-addable-base~ component)))
+      (when base
+        '((name-info 100 #t)))))
+  
+  
+  (method public virtual (component-get-recursive-details? component)
+    #f)
+  
+  
+  (method public virtual (component-get-class-searchable-classes component)
+    '())
+  
+  
+  (method public virtual (component-get-custom-details component)
+    '())
+  
+  
+  (method public virtual (component-get-custom-card component)
+    #f)
+  
+  
+  (method public virtual (component-add-component-menu component menu)
+    )
+  
+  
+  (method public virtual (component-save-properties component designer)
+    )
+  
+  
+  (method public virtual (can-try-out? class)
+    #f)
+  
+  
+  (method public virtual (try-out class)
+    )))

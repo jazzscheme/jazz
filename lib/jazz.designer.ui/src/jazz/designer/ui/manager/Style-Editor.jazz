@@ -1,0 +1,268 @@
+(module protected jazz.designer.ui.manager.Style-Editor jazz
+
+
+(import (jazz.designer.ui)
+        (jazz.geometry)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view))
+
+
+(class Style-Editor extends Layout-View
+  
+  
+  (slot client accessors generate)
+  (slot selection)
+  
+  
+  (form
+    (<install>                                 layout-type: flow layout-insets: {Rect 4 5 0 0} background: {Color Medium}
+      (<Border-View>     name: style-border    size: {Dimension 120 22} border-insets: {Rect 2 2 2 1} border-color: {Color Medium}
+        (<Border-View>                         border-color: {Color red: 200 green: 188 blue: 166}
+          (<Style-Combo> name: style           enabled?: #f editable?: #t)))
+      (<Border-View>     name: font-border     size: {Dimension 140 22} border-insets: {Rect 2 2 2 1} border-color: {Color Medium}
+        (<Border-View>                         border-color: {Color red: 200 green: 188 blue: 166}
+          (<Font-Combo>  name: font            enabled?: #f editable?: #t)))
+      (<Border-View>     name: size-border     size: {Dimension 40 22} border-insets: {Rect 2 2 2 1} border-color: {Color Medium}
+        (<Border-View>                         border-color: {Color red: 200 green: 188 blue: 166}
+          (<Size-Combo>  name: size            enabled?: #f editable?: #t)))
+      (<Separator>)
+      (<Toggle-Tool>     name: bold            size: {Dimension 22 22} tooltip?: #t tooltip-text: "Bold" resource: {Image-Resource "Bold"} portfolio: :images enabled?: #f action-handler: {Event-Handler :form on-bold})
+      (<Toggle-Tool>     name: italic          size: {Dimension 22 22} tooltip?: #t tooltip-text: "Italic" resource: {Image-Resource "Italic"} portfolio: :images enabled?: #f action-handler: {Event-Handler :form on-italic})
+      (<Toggle-Tool>     name: underline       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Underline" resource: {Image-Resource "Underline"} portfolio: :images enabled?: #f action-handler: {Event-Handler :form on-underline})
+      (<Separator>)
+      (<Color-Chooser>   name: text-color      size: {Dimension 22 22} enabled?: #f color: #f portfolio: :images resource: {Image-Resource "TextColor"} tooltip-text: "Select Text Color" action-handler: {Event-Handler :form on-pick-color})
+      (<Color-Chooser>   name: highlight-color size: {Dimension 22 22} enabled?: #f color: #f portfolio: :images resource: {Image-Resource "HighlightColor"} tooltip-text: "Select Highlight Color" action-handler: {Event-Handler :form on-pick-color})
+      (<Color-Chooser>   name: frame-color     size: {Dimension 22 22} enabled?: #f color: #f portfolio: :images resource: {Image-Resource "FrameColor"} tooltip-text: "Select Frame Color" action-handler: {Event-Handler :form on-pick-color})))
+  
+  
+  (method meta override (external-name . rest)
+    'Style)
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-icon)
+    {Image-Resource "Document"})
+  
+
+  (method meta override (host-title)
+    "Style")
+  
+  
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method (on-editor evt)
+    (case (get-kind~ evt)
+      ((:selection-changed)
+       (let ((selection (and (not-null? (get-selection~ evt)) (car (get-selection~ evt)))))
+         (set! selection~self selection)
+         (selection-update)))))
+         
+  
+  (method (on-designer evt)
+    (case (get-kind~ evt)
+      ((:property-change)
+       (when (eq? (get-effective-property)
+                  (get-name~ (get-property~ evt property:)))
+         (selection-update)))))
+  
+  
+  (method (enable-combo name client enable?)
+    (let ((component (locate name)))
+      (set-enabled?~ component enable?)
+      (set-client~ component client)
+      (selection-change~ component)))
+  
+  
+  (method (enable-toggler name enable? selected?)
+    (let ((component (locate name)))
+      (set-enabled?~ component enable?)
+      (set-selected?~ component selected?)))
+  
+  
+  (method (enable-color-button name enable? color)
+    (let ((component (locate name)))
+      (set-enabled?~ component enable?)
+      (set-color~ component color)))
+  
+  
+  (method virtual (get-effective-property)
+    'style)
+  
+  
+  (method virtual (get-effective-view)
+    (and (is? selection View) selection))
+  
+  
+  (method virtual (get-effective-style view)
+    (get-style~ view))
+  
+  
+  (method (selection-update)
+    (let* ((view (get-effective-view))
+           (style (and view (get-effective-style view)))
+           (valid-style? (or (not style) (is? style Style)))
+           (font (and style valid-style? (get-font~ style))))
+      (enable-combo 'style view (and view valid-style?))
+      (enable-combo 'font view (and view valid-style?))
+      (enable-combo 'size view font)
+      (enable-toggler 'bold font (and font (get-bold?~ font)))
+      (enable-toggler 'underline font (and font (get-underline?~ font)))
+      (enable-toggler 'italic font (and font (get-italic?~ font)))
+      (enable-color-button 'text-color font (and style valid-style? (get-color~ style)))
+      (enable-color-button 'highlight-color font (and style valid-style? (get-highlight~ style)))
+      (enable-color-button 'frame-color font (and style valid-style? (get-frame~ style)))))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-bold evt)
+    (toggle-bold~ client))
+  
+  
+  (method (on-italic evt)
+    (toggle-italic~ client))
+  
+  
+  (method (on-underline evt)
+    (toggle-underline~ client))
+  
+  
+  (method (on-pick-color evt)
+    (let* ((sender (get-sender~ evt))
+           (position (nu+ (get-position~ sender) (new Point 0 (get-height~ sender)))))
+      (popup (new Color-Picker colors: #f geometry: {Cell 3 8} action-handler: (new Event-Handler execute: (lambda (evt) (on-color sender evt)))) position initiator: sender)))
+  
+  
+  (method (on-color sender evt)
+    (close-popups)
+    (let ((color (get-property~ evt color:)))
+      (case (get-name~ sender)
+        ((text-color)
+         (change-text-color~ client color))
+        ((highlight-color)
+         (change-highlight-color~ client color))
+        ((frame-color)
+         (change-frame-color~ client color)))))
+  
+  ;;;
+  ;;;; Client
+  ;;;
+  
+  
+  (method override (client-activate)
+    (let ((guest (current-document)))
+      (let ((client (and (is? guest View-Editor) (not (previewing?~ guest)) guest)))
+        (set! client~self client)
+        (when client
+          (set-editor~ (locate 'font) self)
+          (set-editor~ (locate 'size) self)
+          (set-editor~ (locate 'style) self)
+          (add-editor-listener~ client (new Event-Handler target: self method-name: 'on-editor))
+          (add-designer-listener~ (get-designer~ client) (new Event-Handler target: self method-name: 'on-designer))))))
+  
+  
+  (method override (client-deactivate)
+    (when client
+      (remove-editor-listener~ client self)
+      (and (get-designer~ client) (remove-designer-listener~ (get-designer~ client) self)))
+    (set! client #f)
+    (set! selection #f)
+    (selection-update)))
+
+
+(class Style-Combo extends Text-Style-Combo
+  
+  
+  (slot editor accessors generate)
+  
+  
+  (method override (client-update)
+    (set-choices (map (lambda (name)
+                        (list (new Text-Style base: name) (->string name)))
+                      (sort string-ci<? (symbolic-styles) key: ->string))))
+  
+  
+  (method override (selection-change)
+    (let* ((style (and client (get-effective-style~ editor client)))
+           (base (and (is? style Text-Style) (get-base~ style)))
+           (name (and base (not-null? base) (last base))))
+      (set-content (and name (->string name)))))
+  
+  
+  (method override (combo-choice)
+    (let ((val (get-value)))
+      (on-style~ (get-client~ editor) val))))
+
+
+(class Font-Combo extends Text-Font-Combo
+  
+  
+  (slot editor accessors generate)
+  
+  
+  (method override (selection-change)
+    (let* ((style (and client (get-effective-style~ editor client)))
+           (font (and (is? style Text-Style) (get-font~ style))))
+      (if font
+          (set-value (get-font-name~ font))
+        (set-choice '("" #f)))))
+  
+  
+  (method override (combo-choice)
+    (let ((val (get-value)))
+      (on-font-name~ (get-client~ editor) val))))
+
+
+(class Size-Combo extends Text-Size-Combo
+  
+  
+  (slot editor accessors generate)
+  
+  
+  (method override (selection-change)
+    (let* ((style (and client (get-effective-style~ editor client)))
+           (font (and (is? style Text-Style) (get-font~ style))))
+        (if font
+            (set-value (get-point-size~ font))
+          (set-choice '("" #f)))))
+  
+  
+  (method override (combo-choice)
+    (let ((val (get-value)))
+      (on-font-size~ (get-client~ editor) val))))
+
+
+(class Color-Chooser extends Push-Tool
+  
+  
+  (property color  initialize #f accessors explicit)
+  
+  
+  (method public (get-color)
+    color)
+
+
+  (method public (set-color value)
+    (set! color value)
+    (invalidate-view))
+  
+  
+  (method override (draw-tool surface context)
+    (nextmethod surface context)
+    (when color
+      (let* ((offset (if (eq? state 'pushed) 2 1))
+             (rect (offset-rect (new Rect 2 14 18 18) offset offset)))
+        (fill-rect~ surface rect (if (view-enabled?) color {Color Dark})))))))

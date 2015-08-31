@@ -1,0 +1,418 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Value Row
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.ui.row.Value-Row jazz
+
+
+(import (jazz.designer.ui)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view))
+
+
+(class undocumented Value-Row extends Tree-Row
+
+
+  (property domain    initialize #f accessors generate)
+  (property property_ initialize #f getter get-property setter set-property)
+  (property value     initialize #f accessors generate)
+  (property violation initialize #f accessors generate)
+
+  
+  (slot editor    initialize #f getter generate)
+  (slot modified? initialize #f accessors generate)
+
+
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+
+  (method override (initialize . rest)
+    (bind-keywords ((property #f) (value #f) (domain #f) . others) rest
+      (apply nextmethod others)
+      (set! property_~self property)
+      (set! value~self value)
+      (set! domain~self domain)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-property)
+    property_)
+
+
+  (method public (set-property prop)
+    (set! property_ prop))
+  
+  
+  (method public (get-title)
+    (let ((node (car children)))
+      (get-title~ node)))
+  
+  
+  (method public (set-title title)
+    (let ((node (car children)))
+      (set-title~ node title)))
+
+
+  (method public (get-client)
+    (get-client~ (get-tree)))
+  
+  
+  ;;;
+  ;;;; Value
+  ;;;
+  
+  
+  (method public (enter-value v (imports: imports #f))
+    (set! value v)
+    (set-modified? #t)
+    (if (not property_)
+        (update value)
+      (enter-value~ (get-card~ (get-tree)) property_ value imports: imports)))
+  
+  
+  (method public (enter-edited-value)
+    (enter-value (get-edited-value) imports: (get-edited-imports)))
+  
+  
+  (method public (default-value)
+    #f)
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method public (present value)
+    (present~ domain value))
+  
+  
+  (method (get-entry)
+    (first-child~ editor))
+  
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method public (editable?)
+    (or (not property_)
+        (property-setter property_)))
+  
+  
+  (method public (get-edited-value)
+    (get-value~ (get-entry)))
+  
+  
+  (method public (set-edited-value value)
+    (if violation
+        (set-edited-violation)
+      (set-value~ (get-entry) value)))
+  
+  
+  (method public (get-edited-modified?)
+    (get-modified?~ (get-entry)))
+  
+  
+  (method public (set-edited-modified? flag)
+    (set-modified?~ (get-entry) flag))
+  
+  
+  (method public (start-edition (focus?: focus? #t))
+    (when (not (in-edition?))
+      (edit focus?: focus?)))
+  
+  
+  (method public (finish-edition)
+    (when (in-edition?)
+      (close-editor)))
+  
+  
+  (method public (close-editor)
+    (save-edition)
+    (end-edition~ (get-tree)))
+  
+  
+  (method public (save-edition)
+    (when (get-edited-modified?)
+      (let ((entry (get-entry)))
+        (let ((violation (presentation-violation~ entry))
+              (string (get-presentation~ entry))
+              (label (get-preserved-data~ (get-cell-editor~ (get-parent)))))
+          (set! violation~self (and violation (cons string violation)))
+          (set-frame-color~ label (and violation {Color Red}))
+          (if violation
+              (set-title~ label string)
+            (enter-edited-value))
+          (set-edited-modified? #f)
+          (invalidate-cell~ (get-parent) (new Cell (row->line~ parent self) 1))))))
+  
+  
+  (method public (in-edition?)
+    (and editor (in-edition?~ (get-tree))))
+  
+  
+  (method public (get-edited-imports)
+    (get-imports~ (get-entry)))
+  
+  
+  (method (set-edited-violation)
+    (set-presentation~ (get-entry) (car violation)))
+  
+  
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method public (editor-up-arrow)
+    (up-arrow-press~ (get-tree) NoModifiers))
+  
+  
+  (method public (editor-down-arrow)
+    (down-arrow-press~ (get-tree) NoModifiers))
+  
+  
+  (method public (editor-tab)
+    (let ((modifiers NoModifiers))
+      (if (shift-down?)
+          (up-arrow-press~ (get-tree) modifiers)
+        (down-arrow-press~ (get-tree) modifiers))))
+  
+  
+  (method public (editor-return)
+    (with-cursor :wait
+      (lambda ()
+        (set-edited-modified? #t)
+        (save-edition))
+      duration: .150))
+  
+  
+  (method public (editor-focus-delegate)
+    (start-edition)
+    (focus-editor select-all?: #f)
+    (invalidate-drawing))
+  
+  
+  (method public (editor-focus-lose)
+    (unless (window-losing-focus?)
+      (when (get-player)
+        (finish-edition)
+        (invalidate-drawing))))
+  
+  
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method public (edit (focus?: focus? #t))
+    (let* ((tree (get-tree))
+           (cell (new Cell (row->line~ tree self) 1))
+           (border (new Border-View border-type: 'solid border-color: {Color Dark-Red}))
+           (scroller (new Scroller-View parent: border vscroll?: #f hscroll?: #f))
+           (content (get-content~ scroller)))
+      (set-layout-type~ content 'fill)
+      (set! editor (new-editor))
+      (set-parent~ editor content)
+      (set-edited-value value)
+      (edit-cell~ tree cell editor: border after-end: (lambda (site) (set! editor #f)))
+      (when focus?
+        (focus-editor))
+      (set-client~ scroller editor)))
+  
+  
+  (method protected (new-editor)
+    (let ((editor (new Value-Editor)))
+      (setup-entry~ domain editor (get-client))
+      editor))
+  
+  
+  (method protected (editor-class)
+    )
+  
+  
+  (method public (focus-editor (start: start #f) (end: end #f) (select-all?: select-all? #t))
+    (let* ((entry (get-entry))
+           (view (tab-view~ entry)))
+      (when view
+        (set-escape-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-escape))
+        (set-arrow-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-arrow))
+        (set-tab-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-tab))
+        (set-return-press-handler~ view (new Event-Handler target: self method-name: 'on-editor-return))
+        (set-focus-lose-handler~ view (new Event-Handler target: self method-name: 'on-focus-lose))
+        (when (is? (get-entry) Enumeration-Entry)
+          (set-action-handler~ (locate~ entry 'combo) (new Event-Handler target: self method-name: 'on-editor-action)))
+        (acquire-focus~ view)
+        (select-all~ view))))
+  
+  
+  (method (on-editor-tab evt)
+    (editor-tab))
+  
+  
+  (method (on-editor-return evt)
+    (editor-return))
+  
+  
+  (method (on-editor-arrow evt)
+    (let ((direction (get-property~ evt direction:))
+          (view (tab-view~ (get-entry))))
+      (case direction
+        ((up) (editor-up-arrow))
+        ((down) (editor-down-arrow))
+        (else
+         (typecase view
+           ((Text-View) (arrow-move~ view evt))
+           (else (arrow-press~ view evt)))))))
+  
+  
+  (method (on-editor-escape evt)
+    (end-edition~ (get-tree)))
+  
+  
+  (method (on-focus-lose evt)
+    (editor-focus-lose))
+  
+  
+  (method (on-editor-action evt)
+    (let ((combo (locate~ (get-entry) 'combo)))
+      (on-action~ combo evt)
+      (editor-return)))
+
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (definition Modified-Color
+    {Color Dark-Red})
+  
+  
+  (method public (update value)
+    (let* ((tree (get-tree))
+           (title (present value))
+           (line (row->line~ tree self))
+           (cell (new Cell line 1))
+           (edited? (in-edition?))
+           (data (if edited?
+                     (get-preserved-data~ (get-cell-editor~ tree))
+                   (get-cell-data~ tree cell))))
+      (set-value value)
+      (set-property-modified? #t)
+      (set-color~ data #f)
+      (set-title~ data title)
+      (if edited?
+          (set-edited-modified? #t)
+        (invalidate-cell~ tree cell))))
+  
+  
+  (method (set-property-modified? flag)
+    (when property_
+      (let* ((tree (get-tree))
+             (line (row->line~ tree self))
+             (cell (new Cell line 0))
+             (node (get-cell-data~ tree cell))
+             (color (if flag Modified-Color #f)))
+        (set-color~ node color)
+        (invalidate-cell~ tree cell))))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method override (double-click pos)
+    (if (is? domain Boolean-Domain)
+        (begin
+          (enter-edited-value)
+          (set-edited-value (not value))
+          (enter-edited-value)
+          (focus-editor))
+      (nextmethod pos)))
+
+  
+  (method public (show-property)
+    (let* ((client (get-client))
+           (surrogate (get-surrogate~ client)))
+      (if (not surrogate)
+          (bell)
+        (let ((editor (get-editor~ surrogate)))
+          (if (is-not? editor View-Editor)
+              (bell)
+            (set-showed-property~ editor (field-name property_)))))))
+  
+  
+  (method public (revert-property)
+    (set-edited-value value)
+    (set-edited-modified? #f)
+    (set-property-modified? #f)
+    (set-modified? #f)
+    (focus-editor))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method (draw-data surface context value column row data width height)
+    (draw-data~ domain surface context value column row data width height)))
+
+
+;;;
+;;;; Value-Editor
+;;;
+
+
+(class Value-Editor extends Layout-View
+  
+  
+  (form
+    (<install> layout-type: fill))))

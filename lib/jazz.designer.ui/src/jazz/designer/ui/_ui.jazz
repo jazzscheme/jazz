@@ -1,0 +1,283 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Designer UI
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.designer.ui jazz
+
+
+(export (jazz.designer.ui.autoload)
+        (jazz.designer.ui.syntax))
+
+(import (jazz.designer.ui.autoload)
+        (jazz.graphic)
+        (jazz.library)
+        (jazz.system)
+        (jazz.ui.view))
+
+
+;;;
+;;;; Colors
+;;;
+
+
+(definition public Focused-Background
+  {Color Dark-Purple alpha: 0.15})
+
+(definition public Unfocused-Background
+  {Color Dark alpha: 0.15})
+
+
+(definition public Selected-Colors
+  '({Color Red} {Color red: 227 green: 11 blue: 239} {Color Blue}))
+
+(definition public Selected-Inner-Colors
+  '({Color Light-Red} {Color red: 248 green: 146 blue: 254} {Color red: 133 green: 134 blue: 254}))
+
+(definition public Unselected-Owned-Color
+  {Color red: 24 green: 175 blue: 43})
+
+(definition public Unselected-Owned-Inner-Color
+  {Color red: 189 green: 237 blue: 203})
+
+(definition public Unselected-Modify-Color
+  {Color red: 1 green: 194 blue: 213})
+
+(definition public Unselected-Modify-Inner-Color
+  {Color red: 160 green: 225 blue: 231})
+
+(definition public Unselected-Color
+  {Color Medium-Gray})
+
+(definition public Unselected-Inner-Color
+  {Color Gray})
+
+
+(definition public (selected-color rank)
+  (if (not rank)
+      Unselected-Color
+    (let ((colors Selected-Colors))
+      (element colors (min rank (- (length colors) 1))))))
+
+
+(definition public (set-selected-color rank color)
+  (if (not rank)
+      (set! Unselected-Color color)
+    (let ((colors Selected-Colors))
+      (set-element! colors (min rank (- (length colors) 1)) color))))
+
+
+(definition public (selected-inner-color rank)
+  (if (not rank)
+      Unselected-Inner-Color
+    (let ((colors Selected-Inner-Colors))
+      (element colors (min rank (- (length colors) 1))))))
+
+
+(definition public (set-selected-inner-color rank color)
+  (if (not rank)
+      (set! Unselected-Inner-Color color)
+    (let ((colors Selected-Inner-Colors))
+      (set-element! colors (min rank (- (length colors) 1)) color))))
+
+
+(definition public (unselected-owned-color)
+  Unselected-Owned-Color)
+
+(definition public (set-unselected-owned-color color)
+  (set! Unselected-Owned-Color color))
+
+
+(definition public (unselected-owned-inner-color)
+  Unselected-Owned-Inner-Color)
+
+(definition public (set-unselected-owned-inner-color color)
+  (set! Unselected-Owned-Inner-Color color))
+
+
+(definition public (unselected-modify-color)
+  Unselected-Modify-Color)
+
+(definition public (set-unselected-modify-color color)
+  (set! Unselected-Modify-Color color))
+
+
+(definition public (unselected-modify-inner-color)
+  Unselected-Modify-Inner-Color)
+
+(definition public (set-unselected-modify-inner-color color)
+  (set! Unselected-Modify-Inner-Color color))
+
+
+;;;
+;;;; Domain
+;;;
+
+
+(definition domain-categories
+  #f)
+
+
+(definition (delay-domain-categories)
+  (or domain-categories
+      (let ((categories (make-table test: eq?)))
+        (table-set! categories 'info     (new Domain-Category 'infos      0 {Image-Resource "Info"}))
+        (table-set! categories 'property (new Domain-Category 'properties 1 {Image-Resource "Property"}))
+        (table-set! categories 'handler  (new Domain-Category 'handlers   2 {Image-Resource "Handler"}))
+        (set! domain-categories categories)
+        categories)))
+
+
+(definition public (get-domain-category name)
+  (table-ref (delay-domain-categories) name #f))
+
+(definition public (set-domain-category name category)
+  (table-set! (delay-domain-categories) name category))
+
+
+;;;
+;;;; Field
+;;;
+
+
+(definition public (read-composite-value text (separator: separator #\,) (expected: expected #f))
+  (let ((readtable (readtable-copy jazz-readtable)))
+    (readtable-char-handler-set! readtable separator (readtable-char-handler readtable #\space))
+    (let ((content (with-readtable readtable
+                     (lambda ()
+                       (read-string-content text)))))
+      (if (and expected (/= (length content) expected))
+          (signal (new Parse-Error message: (format "Expected a composite of length {s}: {a}" expected text)))
+        content))))
+
+
+;;;
+;;;; Property
+;;;
+
+
+(definition public (initialized-value-heuristic component property)
+  (let ((initialize (get-initialize~ property)))
+    (if (not initialize)
+        (unspecified)
+      (initialize component))))
+
+
+;;;
+;;;; Suite
+;;;
+
+
+(definition *editor-suites*
+  (make-table test: eq?))
+
+
+(definition public (register-editor-suite suite)
+  (table-set! *editor-suites* (get-name~ suite) suite))
+
+
+(definition public (find-editor-suite name)
+  (table-ref *editor-suites* name #f))
+
+(definition public (require-editor-suite name)
+  (or (find-editor-suite name)
+      (error "Unable to find editor suite: {s}" name)))
+
+
+(definition *default-editor-suite*
+  #f)
+
+
+(definition public (get-default-editor-suite)
+  *default-editor-suite*)
+
+(definition public (set-default-editor-suite suite)
+  (set! *default-editor-suite* suite))
+
+
+;;;
+;;;; Toolbox
+;;;
+
+
+(definition *symbolic-addable-references*
+  (make-table test: eq?))
+
+
+(definition public (register-symbolic-addable-references name references)
+  (table-set! *symbolic-addable-references* name references))
+
+
+(definition public (find-symbolic-addable-references name)
+  (table-ref *symbolic-addable-references* name #f))
+
+(definition public (require-symbolic-addable-references name)
+  (or (find-symbolic-addable-references name)
+      (error "Unknown symbolic addable references: {s}" name)))
+
+
+;;;
+;;;; Descriptors
+;;;
+
+
+(definition public (missing-named-children component)
+  (collect-if (lambda (element)
+                (bind (name reference) element
+                  (not (find-child~ component name))))
+              (get-descriptor-named-children component)))
+
+
+(definition public (get-descriptor-named-children component)
+  (if component
+      (append-map (lambda (child-descriptor)
+                    (let ((name (get-target~ child-descriptor)))
+                      (map (lambda (reference)
+                             (list name (get-runtime-reference~ reference)))
+                           (get-classes~ child-descriptor))))
+                  (get-children~ (get-children-descriptor~ (get-class-descriptor~ (class-of component)))))
+    '()))
+
+
+;;;
+;;;; Source
+;;;
+
+
+(definition public (designer-source-workspace)
+  (let ((source-in-designer? (get-source-in-designer?~ (get-preferences 'designer))))
+    (if (xor source-in-designer? (shift-down?))
+        'designer
+      #f))))

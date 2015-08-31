@@ -1,0 +1,113 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Traits Dialog
+;;;
+
+
+(module jazz.designer.ui.editor.Traits-Dialog jazz
+
+
+(import (jazz.designer.ui)
+        (jazz.designer.ui.view)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui))
+
+
+(class Traits-Dialog extends Toolbox-Manager
+  
+  
+  (slot models)
+  
+  
+  (form
+    (<install>                                           size: {Dimension 650 550}
+      (<!>                             name: tools       visible?: #f)
+      (<!>                             name: descendants location: west size: {Dimension 275 550}
+        (<!>                           name: border      border-type: edge style: entry))
+      (<Layout-View>                                     position: {Point 10 10} location: north size: {Dimension 500 31}
+        (<Push-Button>                                   position: {Point 5 5} title: "New" action-handler: {Event-Handler :form on-new}))
+      (<Layout-View>                                     location: center size: {Dimension 80 550} layout-type: center
+        (<View>                                          size: {Dimension 80 80}
+          (<Push-Button>                                 position: {Point 2 15} size: {Dimension 75 22} title: "<<<" action-handler: {Event-Handler :form on-add})
+          (<Push-Button>                                 position: {Point 2 47} size: {Dimension 75 22} title: ">>>" action-handler: {Event-Handler :form on-remove})))
+      (<Border-View>                   name: border      location: east size: {Dimension 275 550} border-type: edge style: entry
+        (<Scroller-View>               name: scroller    style: document hscroll?: #t vscroll?: #t
+          (<!>                         name: content     layout-type: fill
+            (<Tree-Header>                               style: document shown?: #f
+              (<!>                     name: content
+                (<Tree-View>           name: list        filled-column: column selection-mode: row multiple-selection?: #f
+                  (<Tree-Label-Column> name: column      width: 335)))))))
+      (<Layout-View>                                     location: south layout-type: #f size: {Dimension 500 37} layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Push-Button>                 name: ok          title: "OK" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :form on-ok} default?: #t position: {Point 9 3})
+        (<Separator>                                     location: tail size: {Dimension 3 0} location: tail)
+        (<Push-Button>                 name: cancel      title: "Cancel" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel} position: {Point 97 3})
+        (<Separator>                                     size: {Dimension 5 0} location: tail))))
+  
+  
+  (method meta override (host-title)
+    "Choose Traits")
+  
+  
+  (method override (form-model form)
+    (case (get-name~ form)
+      ((descendants) Dialog-Toolbox-Editor)
+      (else (nextmethod form))))
+  
+  
+  (method (setup-traits locators imports)
+    (for-each (lambda (locator import)
+                (let ((model (find-model~ client locator import)))
+                  (if model
+                      (add-trait model)
+                    (designer-error "Unknown trait {a} in module {a}" locator import))))
+              locators
+              imports))
+  
+  
+  (method (add-trait addable)
+    (remove-child~ designer addable)
+    (with-update-locked~ (locate 'list)
+      (lambda ()
+        (add-row~ (locate 'list) children: (list (new Tree-Label title: (get-title~ addable))) user-data: addable))))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-add evt)
+    (let ((selected (selected-addable~ (get-tree))))
+      (when selected
+        (add-trait selected))))
+  
+  
+  (method (on-remove evt)
+    (let* ((list-tree (locate 'list))
+           (selected (get-single-selected-data~ list-tree)))
+      (when selected
+        (with-update-locked~ list-tree
+          (lambda ()
+            (remove-row~ list-tree (get-selected-row~ list-tree))))
+        (let ((module-name (get-unit~ selected)))
+          (add-child~ designer selected (find-toolbox-module module-name) form: (get-form~ selected))))))
+  
+  
+  (method (on-ok evt)
+    (set! models (map get-user-data~ (collect-visible-rows~ (locate 'list))))
+    (on-ok~ (get-host) evt))
+  
+  
+  ;;;
+  ;;;; Result
+  ;;;
+    
+  
+  (method override (get-modal-result)
+    (list (map get-model~ models) (map get-unit~ models)))
+  )
+)

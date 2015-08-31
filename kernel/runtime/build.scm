@@ -1021,7 +1021,7 @@
                (header-o (string-append header ".o"))
                (sub-units (remove-duplicates (%%apply append (map jazz:get-subunit-names update)))))
           (define (build-library)
-            (jazz:create-build-package package)
+            (jazz:load/create-build-package package)
             (make-library-header header-s product-name sub-units)
             (compile-file-to-target header-s output: header-c module-name: header-name)
             (compile-file header-c options: '(obj) cc-options: "-D___DYNAMIC ")

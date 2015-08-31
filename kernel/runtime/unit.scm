@@ -572,7 +572,13 @@
                              (let ((package-name (%%string->symbol dirname)))
                                (if (%%table-ref table package-name #f)
                                    (iter (%%cdr dirnames) packages)
-                                 (let ((package (jazz:load-package repository parent package-name package-pathname)))
+                                 (let ((package (if (%%eq? repository jazz:Build-Repository)
+                                                    (let ((source-package (jazz:find-package package-name)))
+                                                      (if source-package
+                                                          (jazz:load/create-build-package source-package)
+                                                        ;; when each repository has its own build repository we can then safely remove the dangling binary package
+                                                        (jazz:load-package repository parent package-name package-pathname)))
+                                                  (jazz:load-package repository parent package-name package-pathname))))
                                    (iter (%%cdr dirnames) (%%cons package (let ((library-path (%%get-package-library-path package)))
                                                                             (if library-path
                                                                                 (let ((library-directory (jazz:repository-pathname (%%get-package-repository package) (%%string-append library-path "/"))))
@@ -629,10 +635,10 @@
             (jazz:error "Package at {s} is defining: {s}" package-pathname name)))))))
 
 
-(define (jazz:create-build-package package)
+(define (jazz:load/create-build-package package)
   (let* ((name (%%get-package-name package))
          (parent (%%get-package-parent package))
-         (bin-parent (if parent (jazz:create-build-package parent) #f))
+         (bin-parent (if parent (jazz:load/create-build-package parent) #f))
          (dir (%%string-append (if parent (%%string-append (%%get-package-library-path parent) "/") "") (%%symbol->string name) "/"))
          (path (%%string-append dir jazz:Package-Filename))
          (src (jazz:repository-pathname (%%get-package-repository package) path))
@@ -1616,7 +1622,7 @@
   
   (if (%%not (%%table-ref swept-packages name #f))
       (begin
-        (sweep-package (jazz:create-build-package (jazz:find-package name)))
+        (sweep-package (jazz:load/create-build-package (jazz:find-package name)))
         (%%table-set! swept-packages name #t))))
 
 

@@ -187,7 +187,7 @@
             (let ((package (%%get-resource-package src))
                   (pathname (jazz:resource-pathname src))
                   (bindir (jazz:resource-build-dir src)))
-              (let ((build-package (jazz:create-build-package package)))
+              (let ((build-package (jazz:load/create-build-package package)))
                 (jazz:create-directories bindir)
                 (jazz:with-extension-reader (%%get-resource-extension src)
                   (lambda ()

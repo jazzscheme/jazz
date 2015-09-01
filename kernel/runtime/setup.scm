@@ -300,12 +300,13 @@
   ;; x -> expand
   ;; commented out to get proper tail call into the repl
   ;; (let ((exit-code ...)))
-  (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "debugger" "link" "j" "jobs" "port" "dialect") missing-argument-for-option
+  (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "debugger" "link" "j" "jobs" "port" "dialect") missing-argument-for-option
     (lambda (commands options remaining)
       (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
             (nosource? (jazz:get-option "nosource" options))
             (debug? (jazz:get-option "debug" options))
             (force? (jazz:get-option "force" options))
+            (sweep? (jazz:get-option "sweep" options))
             (worker? (jazz:get-option "worker" options))
             (keep-c? (jazz:get-option "keep-c" options))
             (track-scheme? (jazz:get-option "track-scheme" options))
@@ -368,7 +369,7 @@
             (if dynamic-file
                 (jazz:dependencies (call-with-input-file dynamic-file read))))
           (jazz:prepare-repositories)
-          (if build?
+          (if (and build? sweep?)
               (jazz:sweep-build-repository))
           (jazz:setup-repositories))
         

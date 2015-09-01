@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Integrity Log Nodes
+;;;; Violations-Found Signal
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,41 +35,28 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.integrity.Integrity-Log-Node jazz
+(module protected jazz.integrity.Violations-Found jazz
 
 
-(import (jazz.debuggee)
-        (jazz.debuggee.view)
-        (jazz.designer.ui.view)
-        (jazz.library)
-        (jazz.ui.view))
-
-
-(class undocumented Integrity-Log-Node extends Log-Node
+(class undocumented Violations-Found extends Signal
   
   
-  (method override (node-image)
-    {Image-Resource "IntegrityError"})
+  (slot design-file  getter generate)
+  (slot architecture getter generate)
+  (slot violations   getter generate)
   
   
-  (method override (node-location)
-    (let ((component (get-property~ node 'component)))
-      (if (and component
-               (pair? component)
-               (eq? (car component) 'module-public))
-          (->string (third component))
-        "")))
+  (method override (initialize design-file architecture violations)
+    (nextmethod)
+    (set! design-file~self design-file)
+    (set! architecture~self architecture)
+    (set! violations~self violations))
   
   
-  (method override (edit-location tree)
-    (let ((editor (open-class (resolve-runtime-reference (deserialize-runtime-reference (get-property~ node 'component)))))
-          (path (get-property~ node 'path))
-          (property (get-property~ node 'property)))
-      (let ((client (get-client~ editor)))
-        (let ((component (follow-component~ (new Path (or path '())) client)))
-          (if (not component)
-              (begin
-                (message-box (format "Unable to find component: {l}" path))
-                (signal-cancel))
-            (set-selection~ editor (list component) origin: self)
-            (select-property~ editor property))))))))
+  ;;;
+  ;;;; Forwarding
+  ;;;
+  
+  
+  (method (forwardable?)
+    #t)))

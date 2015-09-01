@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Restore Forms
+;;;; Data
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,19 +35,72 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.component.Restore-Form jazz
+(module protected jazz.component.Data jazz
 
 
-(import (jazz.library))
-
-
-(class undocumented Restore-Form extends Form
-
-
-  (slot component getter generate)
-
-
-  (method override (initialize . initargs)
-    (bind-keywords ((component #f) . others) initargs
-      (apply nextmethod others)
-      (set! component~self component)))))
+(class Data extends Object
+  
+  
+  (slot version getter generate)
+  (slot dialect getter generate)
+  (slot imports getter generate)
+  (slot context getter generate)
+  
+  
+  (method override (initialize version dialect imports context)
+    (nextmethod)
+    (set! version~self version)
+    (set! dialect~self dialect)
+    (set! imports~self imports)
+    (set! context~self context))
+  
+  
+  (method override (copy-object object)
+    (new Data version dialect imports context))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" dialect))))
+  
+  
+  ;;;
+  ;;;; Version
+  ;;;
+  
+  
+  (method public (set-version version)
+    (set! version~self version))
+  
+  
+  ;;;
+  ;;;; Imports
+  ;;;
+  
+  
+  (method package (set-imports imports)
+    (set! imports~self imports))
+  
+  
+  (method public (add-import import)
+    (define (same-import? x y)
+      (eq? (import-module x)
+           (import-module y)))
+    
+    (define (import-module import)
+      (if (symbol? import)
+          import
+        (car import)))
+    
+    (let ((import (listify import))
+          (imports (or imports '())))
+      (unless (member? import imports test: same-import?)
+        (set-imports (cons import imports)))))
+  
+  
+  (method public (effective-imports)
+    (let ((imports (or imports '())))
+      (if dialect
+          (cons dialect imports)
+        imports)))))

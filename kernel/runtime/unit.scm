@@ -527,6 +527,56 @@
         table)))
 
 
+(define (jazz:sweep-build-repository)
+  (if jazz:Build-Repository
+      (let ((table (jazz:repository-packages-table jazz:Build-Repository)))
+        (jazz:iterate-table-safe table
+          (lambda (name package)
+            (jazz:sweep-build-package package))))))
+
+
+(define (jazz:sweep-build-package package)
+  (let ((units (%%apply append (map (lambda (descriptor)
+                                      (let ((name (jazz:product-descriptor-name descriptor)))
+                                        (let ((update (jazz:cond-expanded-product-descriptor-update name descriptor)))
+                                          (%%apply append (map jazz:get-subunit-names update)))))
+                                    (%%get-package-products package)))))
+    (let ((resources (map (lambda (unit-name) (jazz:find-unit-src unit-name #f)) units)))
+      (let ((referenced (map (lambda (resource) (%%get-resource-path resource)) resources))
+            (root (jazz:package-root-pathname package "")))
+        (define (sweep-file pathname path)
+          (let ((spine (jazz:pathname-spine path)))
+            (if (%%not (jazz:some? (lambda (ref)
+                                     (%%equal? ref spine))
+                                   referenced))
+                (begin
+                  (jazz:feedback "; removing {a}..." path)
+                  (if (%%not (jazz:dry-run?))
+                      (delete-file pathname))))))
+        
+        (define (sweep-directory pathname path)
+          (if (%%not (or (%%equal? path "")
+                         (jazz:some? (lambda (ref)
+                                       (jazz:string-starts-with? ref path))
+                                     referenced)))
+              (begin
+                (jazz:feedback "; removing {a}..." path)
+                (if (%%not (jazz:dry-run?))
+                    (jazz:delete-directory pathname)))
+            (for-each (lambda (name)
+                        (let ((pathname (%%string-append pathname name))
+                              (path (%%string-append path name)))
+                          (case (jazz:pathname-type pathname)
+                            ((regular)
+                             (sweep-file pathname path))
+                            ((directory)
+                             (sweep-directory (%%string-append pathname "/") (%%string-append path "/"))))))
+                      (jazz:directory-content pathname))))
+        
+        (if (jazz:pathname-exists? root)
+            (sweep-directory root ""))))))
+
+
 (jazz:define-variable jazz:setup-repositories-called?
   #f)
 
@@ -1532,7 +1582,6 @@
 
 (define (jazz:update-product-descriptor descriptor)
   (let ((name (jazz:product-descriptor-name descriptor)))
-    (jazz:remove-unreferenced-product-binaries name)
     (let ((update (jazz:cond-expanded-product-descriptor-update name descriptor)))
       (for-each jazz:build-unit update))))
 
@@ -1576,65 +1625,6 @@
     (if library
         (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: library)
       (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor))))
-
-
-(define (jazz:remove-unreferenced-product-binaries name)
-  (receive (package descriptor) (jazz:get-product-descriptor name)
-    (jazz:remove-unreferenced-package-binaries (%%get-package-name package))))
-
-
-(define swept-packages
-  (make-table test: eq?))
-
-
-;; removing unreferenced binaries has to be done at the package
-;; level where we have complete knowledge of all products units
-(define (jazz:remove-unreferenced-package-binaries name)
-  (define (sweep-package package)
-    (let ((units (%%apply append (map (lambda (descriptor)
-                                        (let ((name (jazz:product-descriptor-name descriptor)))
-                                          (let ((update (jazz:cond-expanded-product-descriptor-update name descriptor)))
-                                            (%%apply append (map jazz:get-subunit-names update)))))
-                                      (%%get-package-products package)))))
-      (let ((resources (map (lambda (unit-name) (jazz:find-unit-src unit-name #f)) units)))
-        (let ((referenced (map (lambda (resource) (%%get-resource-path resource)) resources))
-              (root (jazz:package-root-pathname package "")))
-          (define (sweep-file pathname path)
-            (let ((spine (jazz:pathname-spine path)))
-              (if (%%not (jazz:some? (lambda (ref)
-                                       (%%equal? ref spine))
-                                     referenced))
-                  (begin
-                    (jazz:feedback "; removing {a}..." path)
-                    (if (%%not (jazz:dry-run?))
-                        (delete-file pathname))))))
-          
-          (define (sweep-directory pathname path)
-            (if (%%not (or (%%equal? path "")
-                           (jazz:some? (lambda (ref)
-                                         (jazz:string-starts-with? ref path))
-                                       referenced)))
-                (begin
-                  (jazz:feedback "; removing {a}..." path)
-                  (if (%%not (jazz:dry-run?))
-                      (jazz:delete-directory pathname)))
-              (for-each (lambda (name)
-                          (let ((pathname (%%string-append pathname name))
-                                (path (%%string-append path name)))
-                            (case (jazz:pathname-type pathname)
-                              ((regular)
-                               (sweep-file pathname path))
-                              ((directory)
-                               (sweep-directory (%%string-append pathname "/") (%%string-append path "/"))))))
-                        (jazz:directory-content pathname))))
-          
-          (if (jazz:pathname-exists? root)
-              (sweep-directory root ""))))))
-  
-  (if (%%not (%%table-ref swept-packages name #f))
-      (begin
-        (sweep-package (jazz:load/create-build-package (jazz:find-package name)))
-        (%%table-set! swept-packages name #t))))
 
 
 (define (jazz:install-product name)

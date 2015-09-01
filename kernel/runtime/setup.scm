@@ -357,7 +357,7 @@
                  (and (jazz:file-exists? dynamic-file)
                       dynamic-file))))
         
-        (define (setup-repositories)
+        (define (setup-repositories build?)
           (if build-repository (jazz:build-repository build-repository))
           (if jazz-repository (jazz:jazz-repository jazz-repository))
           (if repositories (jazz:repositories repositories))
@@ -368,17 +368,19 @@
             (if dynamic-file
                 (jazz:dependencies (call-with-input-file dynamic-file read))))
           (jazz:prepare-repositories)
+          (if build?
+              (jazz:sweep-build-repository))
           (jazz:setup-repositories))
         
         (define (setup-runtime)
           (setup-kernel)
-          (setup-repositories)
+          (setup-repositories #f)
           (jazz:load-libraries))
         
         (define (setup-build)
           (setup-kernel)
           (jazz:process-buildini #t)
-          (setup-repositories)
+          (setup-repositories #t)
           (set! jazz:link (or link (jazz:build-link)))
           (set! jazz:link-options (jazz:parse-link jazz:link))
           (set! jazz:jobs jobs)

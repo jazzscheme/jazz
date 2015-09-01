@@ -52,7 +52,6 @@
 (jazz:define-literal Path               jazz.library.literals:construct-path)
 (jazz:define-literal Manifest           jazz.library.literals:construct-manifest)
 (jazz:define-literal Directory-Group    jazz.library.literals:construct-directory-group)
-(jazz:define-literal Locales            jazz.library.literals:construct-locales)
 (jazz:define-literal Image-Resource     jazz.library.literals:construct-image-resource)
 (jazz:define-literal Icon-Resource      jazz.library.literals:construct-icon-resource)
 (jazz:define-literal Cursor-Resource    jazz.library.literals:construct-cursor-resource)

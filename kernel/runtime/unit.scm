@@ -643,6 +643,17 @@
          (path (%%string-append dir jazz:Package-Filename))
          (src (jazz:repository-pathname (%%get-package-repository package) path))
          (dst (jazz:repository-pathname jazz:Build-Repository path)))
+    (define (updated-uptodate?)
+      (if (jazz:file-exists? dst)
+          (if (= (jazz:file-modification-seconds src) (jazz:file-modification-seconds dst))
+              #t
+            (if (%%string=? (digest-file src 'SHA-1) (digest-file dst 'SHA-1))
+                (begin
+                  (jazz:file-times-set! dst (jazz:file-access-time src) (jazz:file-modification-time src))
+                  #t)
+              #f))
+        #f))
+    
     (define (load-package)
       (let ((package (jazz:load-package jazz:Build-Repository bin-parent name dst)))
         (%%table-set! (jazz:repository-packages-table jazz:Build-Repository)
@@ -650,7 +661,7 @@
                       package)
         package))
     
-    (if (and (jazz:file-exists? dst) (>= (jazz:file-modification-seconds dst) (jazz:file-modification-seconds src)))
+    (if (updated-uptodate?)
         (or (jazz:repository-find-package jazz:Build-Repository name)
             (load-package))
       (begin

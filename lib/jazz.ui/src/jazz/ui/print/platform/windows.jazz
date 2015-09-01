@@ -41,10 +41,10 @@
 (import (jazz.graphic)
         (jazz.library)
         (jazz.platform)
+        (jazz.platform.cairo)
         (jazz.platform.cairo.cairo-windows)
         (jazz.ui)
         (jazz.ui.dialog))
-(import jazz.platform.cairo)
 
 
 ;;;
@@ -69,32 +69,9 @@
           (fxround (* (- page-width x-offset printable-width) (/ (cast <fl> default-resolution) x-resolution)))
           (fxround (* (- page-height y-offset printable-height) (/ (cast <fl> default-resolution) y-resolution))))))
     
-    (if print-to-file?
-        (print-picture~ view)
-      (let ((surface (new Surface (cairo_win32_printing_surface_create hdc)))
-            (page-setup (get-page-setup~ view))
-            (resolution (GetDeviceCaps hdc LOGPIXELSX)))
-        (set-min-margins~ page-setup (calculate-min-margins hdc))
-        (let ((job (new Printer-Job surface view page-setup resolution selection?: selection? from: (and pages? from) to: (and pages? to) nb-copies: nb-copies)))
-          (print-job~ job))))))
-
-
-(definition (delete-existing directory filename)
-  (let ((regexp (new Regular-Expression (format "{a}*.emf" filename))))
-    (iterate-directory~ directory
-      (lambda (file)
-        (when (matches?~ regexp (get-name~ file))
-          (delete-file~ file)))
-      recursive?: #f)))
-
-
-(definition package (platform-print-picture view)
-  @wait
-  (let ((directory (choose-directory))
-        (filename "page"))
-    (delete-existing directory filename)
-    (let* ((page-setup (get-page-setup~ view))
-           (resolution (GetDeviceCaps (desktop-surface) LOGPIXELSX))
-           (job (new Picture-Job directory filename view page-setup resolution)))
-      (print-job~ job))
-    (message-box "Print done"))))
+    (let ((surface (new Surface (cairo_win32_printing_surface_create hdc)))
+          (page-setup (get-page-setup~ view))
+          (resolution (GetDeviceCaps hdc LOGPIXELSX)))
+      (set-min-margins~ page-setup (calculate-min-margins hdc))
+      (let ((job (new Printer-Job surface view page-setup resolution selection?: selection? from: (and pages? from) to: (and pages? to) nb-copies: nb-copies)))
+        (print-job~ job))))))

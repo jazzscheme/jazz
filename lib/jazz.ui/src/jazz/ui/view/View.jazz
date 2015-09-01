@@ -1089,10 +1089,6 @@
   
   (method public virtual (print-document)
     (platform-print-document self))
-  
-  
-  (method public virtual (print-picture)
-    (platform-print-picture self))
 
   
   (method public virtual (print-layout (from-preview?: from-preview? #f))
@@ -1201,33 +1197,6 @@
       (set-clipper~ surface (new Rect 0 0 (get-width) (get-height)))
       (paint-drawing surface context)
       (export-to-png~ surface (or destination (choose-new-file default-extension: "png")))))
-
-
-  @convert
-  (method public (export-picture (context: context #f) (where: where 'file) (destination: destination #f))
-    ;; it is necessary to use a temporary file because directly poping
-    ;; the savefile dialog can disrupt the context (ex: popups closing)
-    (let ((file (case where ((clipboard) #f) ((file) (get-temporary-file)))))
-      (with-cursor :wait
-        (lambda ()
-          (let ((metafile))
-            (with ((picture (new Picture file: file)))
-              (with-printing
-                (lambda ()
-                  (let ((content (offset-rect (get-print-area context))))
-                    (with-clip~ picture content
-                      (lambda ()
-                        (paint-drawing picture context (get-left~ content) (get-top~ content) 1. #f))))))
-              (set! metafile (get-metafile~ picture)))
-            (if (eq? where 'clipboard)
-                (set-clipboard-metafile metafile)
-              (delete-metafile~ Picture metafile)
-              (catch (Cancel-Signal
-                       (delete-file~ file))
-                (let ((dest (or destination (choose-new-file default-extension: "emf" extensions: '(("Enhanced metafiles" . "emf"))))))
-                  (when (exists?~ dest)
-                    (delete-file~ dest))
-                  (move-pathname~ file dest)))))))))
 
 
   ;;;

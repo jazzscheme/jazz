@@ -2527,4 +2527,11 @@
 
 (jazz:register-reader-extension "scm"
   (lambda ()
-    jazz:scheme-readtable)))
+    jazz:scheme-readtable))
+
+
+(jazz:register-reader-extension "jazz"
+  (lambda ()
+    (jazz:load-foundation)
+    (jazz:load-unit 'jazz.dialect)
+    jazz:jazz-readtable)))

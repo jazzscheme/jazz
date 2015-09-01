@@ -52,16 +52,4 @@
 (jazz:define-literal Rect             jazz.literals:construct-rect)
 (jazz:define-literal Range            jazz.literals:construct-range)
 (jazz:define-literal Exception-Detail jazz.literals:construct-exception-detail)
-(jazz:define-literal Walk-Location    jazz.literals:construct-walk-location)
-
-
-;;;
-;;;; Extension
-;;;
-
-
-(jazz:register-reader-extension "jazz"
-  (lambda ()
-    (jazz:load-foundation)
-    (jazz:load-unit 'jazz.dialect)
-    (jazz:global-ref 'jazz:jazz-readtable))))
+(jazz:define-literal Walk-Location    jazz.literals:construct-walk-location))

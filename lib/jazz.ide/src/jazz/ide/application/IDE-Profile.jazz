@@ -61,20 +61,19 @@
   ;;;
   
   
-  (method (add-missing-imports import)
-    (let ((units (call-with-input-file "~/walk-unresolved.jazz"
-                   (lambda (port)
-                     (read port)
-                     (read port))))
-          (cataloguer (get-cataloguer~ (get-application))))
+  (method (add-missing-imports import units)
+    (let ((cataloguer (get-cataloguer~ (get-application)))
+          (processed 0))
       (for-each (lambda (unit)
                   (let ((definitions (get-definitions~ cataloguer unit)))
-                    (if (> (length definitions) 1)
+                    (if (/= (length definitions) 1)
                         (debug 'ambiguous unit)
+                      (user-message "Processing {a}..." unit)
                       (let ((text (get-guest~ (edit~ (car definitions)))))
-                        (let ((expl (new (explorer-class~ text) text)))
+                        (let ((expl (new (explorer-class~ text) (get-model~ text))))
                           (insert-import-invoice~ expl import))))))
-                units)))
+                units)
+      (user-message "Processed {a} unit{a}" processed (format-plural processed))))
   
   
   (method (remove-unreferenced-imports (unit: unit #f) (targets: targets #f))

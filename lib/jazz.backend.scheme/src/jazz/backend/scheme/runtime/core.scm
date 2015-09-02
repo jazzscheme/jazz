@@ -103,14 +103,14 @@
 ;; run the message loop
 (define (run-loop)
   (let ((get-process (jazz:global-ref 'jazz.system.access:get-process))
-        (run-loop (jazz:global-ref 'jazz.system.process.Process:Process:run-loop)))
+        (run-loop (jazz:global-ref 'jazz.process.Process:Process:run-loop)))
     (run-loop (get-process))))
 
 
 ;; resume the message loop
 (define (resume)
   (let ((get-process (jazz:global-ref 'jazz.system.access:get-process))
-        (invoke-resume-loop (jazz:global-ref 'jazz.system.process.Process:Process:invoke-resume-loop)))
+        (invoke-resume-loop (jazz:global-ref 'jazz.process.Process:Process:invoke-resume-loop)))
     (invoke-resume-loop (get-process))))
 
 

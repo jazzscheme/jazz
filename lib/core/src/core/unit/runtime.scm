@@ -42,9 +42,27 @@
 (require (core.base))
 
 
+(define jazz:for-each-subunit-continue
+  (make-parameter #f))
+
+
+(define (jazz:outline-subunit unit-name)
+  (let ((continue (jazz:for-each-subunit-continue)))
+    (if continue
+        (jazz:with-exception-filter
+          (lambda (exc)
+            (%%is? exc jazz:Walk-Problems))
+          (lambda (exc)
+            (continue unit-name)
+            #f)
+          (lambda ()
+            (jazz:outline-unit unit-name)))
+      (jazz:outline-unit unit-name))))
+
+
 (define (jazz:for-each-subunit toplevel-name proc)
   (let ((subunits (%%make-table test: eq?)))
-    (let iter ((unit-name toplevel-name) (declaration (jazz:outline-unit toplevel-name)) (phase #f))
+    (let iter ((unit-name toplevel-name) (declaration (jazz:outline-subunit toplevel-name)) (phase #f))
       (define (process-require require)
         (jazz:parse-require require
           (lambda (name feature-requirement phase)
@@ -58,8 +76,8 @@
                 (iterate unit-name name phase)))))
       
       (define (iterate parent-name unit-name phase)
-        (let ((declaration (jazz:outline-unit unit-name)))
-          (if (%%eq? (jazz:get-declaration-access declaration) 'protected)
+        (let ((declaration (jazz:outline-subunit unit-name)))
+          (if (and declaration (%%eq? (jazz:get-declaration-access declaration) 'protected))
               (if (%%not (jazz:descendant-unit? toplevel-name unit-name))
                   (jazz:error "Illegal access from {a} to protected unit {a}" toplevel-name unit-name)
                 #; ;; debugging
@@ -70,9 +88,11 @@
                   (%%table-set! subunits unit-name parent-name)
                   (iter unit-name declaration phase))))))
       
-      (proc unit-name declaration phase)
-      (if (jazz:is? declaration jazz:Unit-Declaration)
-          (for-each process-require (jazz:get-unit-declaration-requires declaration))
-        (begin
-          (for-each process-require (jazz:get-module-declaration-requires declaration))
-          (for-each process-export (jazz:get-module-declaration-exports declaration))))))))
+      (if declaration
+          (begin
+            (proc unit-name declaration phase)
+            (if (jazz:is? declaration jazz:Unit-Declaration)
+                (for-each process-require (jazz:get-unit-declaration-requires declaration))
+              (begin
+                (for-each process-require (jazz:get-module-declaration-requires declaration))
+                (for-each process-export (jazz:get-module-declaration-exports declaration))))))))))

@@ -310,11 +310,10 @@
 ;;;
 
 
-(jazz:define-variable-override jazz:build-unit-internal
-  (lambda (unit-name)
-    (jazz:for-each-subunit unit-name
-      (lambda (unit-name declaration phase)
-        (jazz:compile-unit unit-name)))))
+(define (jazz:build-unit-internal-impl unit-name)
+  (jazz:for-each-subunit unit-name
+    (lambda (unit-name declaration phase)
+      (jazz:compile-unit unit-name))))
 
 
 ;;;
@@ -322,10 +321,21 @@
 ;;;
 
 
-(jazz:define-variable-override jazz:get-subunit-names-internal
-  (lambda (parent-name)
-    (let* ((sub-units '())
-           (proc (lambda (unit-name declaration phase)
-                   (set! sub-units (%%cons unit-name sub-units)))))
-      (jazz:for-each-subunit parent-name proc)
-      sub-units))))
+(define (jazz:get-subunit-names-internal-impl parent-name #!key (walk-continue? #f))
+  (let ((sub-units '()))
+    (let ((proc (lambda (unit-name declaration phase)
+                  (set! sub-units (%%cons unit-name sub-units)))))
+      (parameterize ((jazz:for-each-subunit-continue
+                       (and walk-continue? (lambda (unit-name)
+                                             (set! sub-units (%%cons unit-name sub-units))))))
+        (jazz:for-each-subunit parent-name proc))
+      sub-units)))
+
+
+;;;
+;;;; Override
+;;;
+
+
+(jazz:define-variable-override jazz:build-unit-internal jazz:build-unit-internal-impl)
+(jazz:define-variable-override jazz:get-subunit-names-internal jazz:get-subunit-names-internal-impl))

@@ -88,15 +88,32 @@
             rebuild-architecture?)))))
 
 
-(define (jazz:load-version-file version-file)
-  (if (file-exists? version-file)
-      (call-with-input-file (%%list path: version-file eol-encoding: 'cr-lf)
-        (lambda (input)
-          (let ((version (read input))
-                (gambit-version (read input))
-                (gambit-stamp (read input)))
-            (values version gambit-version gambit-stamp))))
-    (values #f #f #f)))
+(define (jazz:build-repository-needs-sweep?-impl)
+  (let ((build-dir (%%string-append jazz:kernel-install "build/")))
+    (let ((sweep-file (%%string-append build-dir "sweep")))
+      (define (determine-version)
+        (if (jazz:file-exists? sweep-file)
+            (receive (version gambit-version gambit-stamp) (jazz:load-version-file sweep-file)
+              version)
+          (let ((version-file (%%string-append build-dir "kernel/version")))
+            (if (jazz:file-exists? version-file)
+                (receive (version gambit-version gambit-stamp) (jazz:load-version-file version-file)
+                  version)
+              #f))))
+      
+      (let ((version (determine-version)))
+        (if (%%not version)
+            #f
+          (let ((sweep? #f))
+            (jazz:for-each-higher-jazz-version version
+              (lambda (jazz-version)
+                (if (jazz:get-version-sweep jazz-version)
+                    (set! sweep? #t))))
+            (if sweep?
+                (begin
+                  (jazz:create-directory build-dir)
+                  (jazz:save-version-file sweep-file)))
+            sweep?))))))
 
 
 (define (jazz:manifest-needs-rebuild?-impl manifest)
@@ -111,6 +128,28 @@
                     (and recompile (%%memq name recompile)))
                 (set! rebuild? #t)))))
       rebuild?)))
+
+
+(define (jazz:load-version-file version-file)
+  (if (file-exists? version-file)
+      (call-with-input-file (%%list path: version-file eol-encoding: 'cr-lf)
+        (lambda (input)
+          (let ((version (read input))
+                (gambit-version (read input))
+                (gambit-stamp (read input)))
+            (values version gambit-version gambit-stamp))))
+    (values #f #f #f)))
+
+
+(define (jazz:save-version-file version-file)
+  (call-with-output-file (list path: version-file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
+    (lambda (output)
+      (write (jazz:get-jazz-version-number) output)
+      (newline output)
+      (write (system-version) output)
+      (newline output)
+      (write (system-stamp) output)
+      (newline output))))
 
 
 ;;;
@@ -232,14 +271,7 @@
           
           (proc rebuild? rebuild-architecture? touch touched?)
           (if (or was-touched? (%%not (file-exists? version-file)))
-              (call-with-output-file (list path: version-file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
-                (lambda (output)
-                  (write (jazz:get-jazz-version-number) output)
-                  (newline output)
-                  (write (system-version) output)
-                  (newline output)
-                  (write (system-stamp) output)
-                  (newline output))))
+              (jazz:save-version-file version-file))
           was-touched?))
       
       (define (kernel-seconds)
@@ -1134,6 +1166,7 @@
 ;;;
 
 
+(jazz:define-variable-override jazz:build-repository-needs-sweep? jazz:build-repository-needs-sweep?-impl)
 (jazz:define-variable-override jazz:manifest-needs-rebuild? jazz:manifest-needs-rebuild?-impl)
 (jazz:define-variable-override jazz:get-changed-units jazz:get-changed-units-impl)
 (jazz:define-variable-override jazz:push-changed-units jazz:push-changed-units-impl)

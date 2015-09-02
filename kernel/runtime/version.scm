@@ -53,6 +53,7 @@
    (rebuild              getter: generate)
    (recompile            getter: generate)
    (recompile-references getter: generate)
+   (sweep                getter: generate)
    (update               getter: generate)
    (description          getter: generate)))
 
@@ -65,6 +66,7 @@
           (rebuild #f)
           (recompile #f)
           (recompile-references #f)
+          (sweep #f)
           (update #f)
           (description #f))
   (jazz:make-version
@@ -74,6 +76,7 @@
     rebuild
     recompile
     recompile-references
+    sweep
     update
     description))
 

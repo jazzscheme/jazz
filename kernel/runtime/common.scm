@@ -152,6 +152,10 @@
   (lambda rest
     #f))
 
+(jazz:define-variable jazz:build-repository-needs-sweep?
+  (lambda rest
+    #f))
+
 (jazz:define-variable jazz:get-changed-units #f)
 (jazz:define-variable jazz:push-changed-units #f)
 (jazz:define-variable jazz:reset-changed-units #f)

@@ -529,12 +529,14 @@
 
 (define (jazz:sweep-build-repository)
   (if jazz:Build-Repository
-      (let ((table (jazz:repository-packages-table jazz:Build-Repository)))
-        (jazz:iterate-table-safe table
-          (lambda (name package)
-            ;; when each repository has its own build repository we can then safely remove the dangling binary package
-            (if (jazz:find-package name)
-                (jazz:sweep-build-package package)))))))
+      (begin
+        (jazz:feedback "; sweeping binaries...")
+        (let ((table (jazz:repository-packages-table jazz:Build-Repository)))
+          (jazz:iterate-table-safe table
+            (lambda (name package)
+              ;; when each repository has its own build repository we can then safely remove the dangling binary package
+              (if (jazz:find-package name)
+                  (jazz:sweep-build-package package))))))))
 
 
 (define (jazz:sweep-build-package package)

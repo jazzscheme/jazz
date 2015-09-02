@@ -54,7 +54,7 @@
             (or (%%is? exc jazz:Walk-Source-Not-Found)
                 (%%is? exc jazz:Walk-Problems)))
           (lambda (exc)
-            (continue unit-name)
+            (continue unit-name exc)
             #f)
           (lambda ()
             (jazz:outline-unit unit-name)))

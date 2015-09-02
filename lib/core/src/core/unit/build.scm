@@ -326,8 +326,9 @@
     (let ((proc (lambda (unit-name declaration phase)
                   (set! sub-units (%%cons unit-name sub-units)))))
       (parameterize ((jazz:for-each-subunit-continue
-                       (and walk-continue? (lambda (unit-name)
-                                             (set! sub-units (%%cons unit-name sub-units))))))
+                       (and walk-continue? (lambda (unit-name exc)
+                                             (if (%%is? exc jazz:Walk-Problems)
+                                                 (set! sub-units (%%cons unit-name sub-units)))))))
         (jazz:for-each-subunit parent-name proc))
       sub-units)))
 

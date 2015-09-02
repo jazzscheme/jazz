@@ -89,13 +89,13 @@
 
 
 (define (jazz:build-repository-needs-sweep?-impl)
-  (let ((build-dir (%%string-append jazz:kernel-install "build/")))
-    (let ((sweep-file (%%string-append build-dir "sweep")))
+  (let ((dir (%%string-append jazz:kernel-install "build/kernel/")))
+    (let ((swept-file (%%string-append dir "version-swept")))
       (define (determine-version)
-        (if (jazz:file-exists? sweep-file)
-            (receive (version gambit-version gambit-stamp) (jazz:load-version-file sweep-file)
+        (if (jazz:file-exists? swept-file)
+            (receive (version gambit-version gambit-stamp) (jazz:load-version-file swept-file)
               version)
-          (let ((version-file (%%string-append build-dir "kernel/version")))
+          (let ((version-file (%%string-append dir "kernel/version")))
             (if (jazz:file-exists? version-file)
                 (receive (version gambit-version gambit-stamp) (jazz:load-version-file version-file)
                   version)
@@ -111,8 +111,8 @@
                     (set! sweep? #t))))
             (if sweep?
                 (begin
-                  (jazz:create-directory build-dir)
-                  (jazz:save-version-file sweep-file)))
+                  (jazz:create-directories dir)
+                  (jazz:save-version-file swept-file)))
             sweep?))))))
 
 
@@ -141,10 +141,10 @@
     (values #f #f #f)))
 
 
-(define (jazz:save-version-file version-file)
+(define (jazz:save-version-file version-file #!optional (version #f))
   (call-with-output-file (list path: version-file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
     (lambda (output)
-      (write (jazz:get-jazz-version-number) output)
+      (write (or version (jazz:get-jazz-version-number)) output)
       (newline output)
       (write (system-version) output)
       (newline output)
@@ -285,9 +285,14 @@
       ;;;
       
       (define (build-kernel)
-        (with-version-file (kernel-file "version")
-          (lambda (rebuild? rebuild-architecture? touch touched?)
-            (compile-kernel rebuild? rebuild-architecture? touch touched?))))
+        (let ((version-file (kernel-file "version")))
+          (let ((version-swept-file (kernel-file "version-swept")))
+            (if (%%not (file-exists? version-swept-file))
+                (receive (version gambit-version gambit-stamp) (jazz:load-version-file version-file)
+                  (jazz:save-version-file version-swept-file version))))
+          (with-version-file version-file
+            (lambda (rebuild? rebuild-architecture? touch touched?)
+              (compile-kernel rebuild? rebuild-architecture? touch touched?)))))
       
       (define (compile-kernel rebuild? rebuild-architecture? touch touched?)
         (let ((architecture? (generate-architecture rebuild? rebuild-architecture?)))

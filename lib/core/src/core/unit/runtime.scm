@@ -51,7 +51,8 @@
     (if continue
         (jazz:with-exception-filter
           (lambda (exc)
-            (%%is? exc jazz:Walk-Problems))
+            (or (%%is? exc jazz:Walk-Source-Not-Found)
+                (%%is? exc jazz:Walk-Problems)))
           (lambda (exc)
             (continue unit-name)
             #f)

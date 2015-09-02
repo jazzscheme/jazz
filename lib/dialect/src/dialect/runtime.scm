@@ -3114,6 +3114,19 @@
 
 
 ;;;
+;;;; Walk Source Not Found
+;;;
+
+
+(jazz:define-class jazz:Walk-Source-Not-Found jazz:Error (constructor: jazz:allocate-walk-source-not-found)
+  ((unit-name getter: generate)))
+
+
+(define (jazz:new-walk-source-not-found message unit-name)
+  (jazz:allocate-walk-source-not-found message unit-name))
+
+
+;;;
 ;;;; Walk Problem
 ;;;
 
@@ -5489,7 +5502,7 @@
           (if (%%not src)
               (if (%%not error?)
                   #f
-                (jazz:error "Unable to locate unit source: {s}" unit-name))
+                (raise (jazz:new-walk-source-not-found (jazz:format "Unable to locate unit source: {s}" unit-name) unit-name)))
             (jazz:with-verbose (jazz:outline-verbose?) "outlining" (jazz:resource-pathname src)
               (lambda ()
                 ;; not reading the literals is necessary as reading a literal will load units

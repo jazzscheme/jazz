@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Crash Handler
+;;;; Mac Crash Handler
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,62 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.platform.crash.windows jazz
+(module protected jazz.crash.mac jazz
 
 
-(import (jazz.platform.types)
-        (jazz.platform.windows.WinTypes)
-        (jazz.snapshot))
-
-
-;;;
-;;;; Filter
-;;;
-
-
-(c-definition (SnapshotProcess code desc) (unsigned-int wchar_t-string) VOID "snapshot_process" ""
-  (snapshot-process reason: (or desc (format "Received 0x{x}" code))))
-
-
-(c-declare platform.crash #/C/
-static LPWSTR exception_description(DWORD code)
-{
-    switch (code)
-    {
-        case 0xE0000001L:
-            return L"Crash process";
-
-        case EXCEPTION_ACCESS_VIOLATION:
-            return L"Access violation";
-
-        case EXCEPTION_DATATYPE_MISALIGNMENT:
-            return L"Datatype misalignment";
-
-        case EXCEPTION_FLT_DIVIDE_BY_ZERO:
-            return L"Division by zero";
-
-        case EXCEPTION_ILLEGAL_INSTRUCTION:
-            return L"Illegal instruction";
-
-        case EXCEPTION_STACK_OVERFLOW:
-            return L"Stack overflow";
-
-        default:
-            return NULL;
-    }
-}
-
-static VOID windows_unhandled_exception_handler(PVOID arg)
-{
-    LPEXCEPTION_POINTERS info = (LPEXCEPTION_POINTERS) arg;
-    LPEXCEPTION_RECORD record = info->ExceptionRecord;
-
-    DWORD code = record->ExceptionCode;
-    LPWSTR desc = exception_description(code);
-    
-    snapshot_process(code, desc);
-}
-//#)
+(import (jazz.snapshot))
 
 
 (definition package (setup-crash-handler log?)
@@ -98,6 +46,4 @@ static VOID windows_unhandled_exception_handler(PVOID arg)
     (lambda (arg)
       (when log?
         (log-backtrace arg))
-      ((c-function windows_unhandled_exception_handler (PVOID) VOID
-         "windows_unhandled_exception_handler(___arg1);")
-       arg)))))
+      (snapshot-process reason: (format "Received signal {s}" arg))))))

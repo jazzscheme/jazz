@@ -206,8 +206,7 @@
       (jazz.platform.windows.WinCtrl     cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinDlg      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinPerf     cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpdh"))
-      (jazz.platform.windows.WinPSAPI    cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpsapi"))
-      (jazz.platform.crash.windows       cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))
+      (jazz.platform.windows.WinPSAPI    cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpsapi")))))
 
 
 (define jazz:com-units
@@ -230,18 +229,6 @@
      (let ((opengl-include-path (jazz:quote-jazz-pathname "foreign/opengl/include")))
        `((jazz.platform.cocoa.foreign cc-options: ,(string-append "-I" opengl-include-path) ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc)))))
   (else))
-
-
-(cond-expand
-  (mac
-   (define jazz:crash-units
-     '((jazz.platform.crash.mac))))
-  (unix
-   (define jazz:crash-units
-     '((jazz.platform.crash.unix))))
-  (windows
-   (define jazz:crash-units
-     '())))
 
 
 (cond-expand
@@ -287,8 +274,6 @@
   (cocoa
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
-                          (jazz.platform.crash)
-                          ,@jazz:crash-units
                           ,@jazz:types-units
                           ,@jazz:cairo-units
                           ,@jazz:fontconfig-units
@@ -300,8 +285,6 @@
   (windows
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
-                          (jazz.platform.crash)
-                          ,@jazz:crash-units
                           ,@jazz:types-units
                           ,@jazz:cairo-units
                           ,@jazz:fontconfig-units
@@ -315,8 +298,6 @@
   (x11
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
-                          (jazz.platform.crash)
-                          ,@jazz:crash-units
                           ,@jazz:types-units
                           ,@jazz:cairo-units
                           ,@jazz:fontconfig-units

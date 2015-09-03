@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Unix Crash Handler
+;;;; Crash Product
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -16,7 +16,7 @@
 ;;;
 ;;;  The Original Code is JazzScheme.
 ;;;
-;;;  The Initial Developer of the Original Code is Jeremie Lasalle Ratelle.
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
 ;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
@@ -35,15 +35,38 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.platform.crash.unix jazz
+(unit jazz.crash.product
 
 
-(import (jazz.snapshot))
+;;;
+;;;; Build
+;;;
 
 
-(definition package (setup-crash-handler log?)
-  (set-crash-reporter
-    (lambda (arg)
-      (when log?
-        (log-backtrace arg))
-      (snapshot-process reason: (format "Received signal {s}" arg))))))
+(cond-expand
+  (mac
+    (define jazz:crash-units
+      '((jazz.platform.crash.mac))))
+  (unix
+    (define jazz:crash-units
+      '((jazz.platform.crash.unix))))
+  (windows
+    (define jazz:crash-units
+      (let ((base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
+        `((jazz.platform.crash.windows cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))))
+
+
+(define (jazz:build-crash descriptor #!key (unit #f) (force? #f))
+  (let ((unit-specs jazz:crash-units))
+    (jazz:custom-compile/build unit-specs unit: unit force?: force?)
+    (if (or (not unit) (not (assq unit unit-specs)))
+        (jazz:build-product-descriptor descriptor))))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(jazz:register-product 'jazz.crash
+  build: jazz:build-crash))

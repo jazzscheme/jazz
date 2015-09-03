@@ -177,6 +177,17 @@
   (method (child-remove child)
     (when (is? child Project)
       (project-remove~ designer child)))
+  
+  
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method override (remove-selection selection)
+    (let ((projects (remove-duplicates (map ascendant-project selection))))
+      (nextmethod selection)
+      (for-each update-project-catalog projects)))
 
   
   ;;;
@@ -710,9 +721,13 @@
   
   
   (method protected (ascendant-project component)
-    (if (is? component Project)
-        component
-      (ascendant-project (get-parent~ component))))
+    (define (ascendant component)
+      (cond ((not component) #f)
+            ((is? component Project) component)
+            (else (ascendant (get-parent~ component)))))
+    
+    (or (ascendant component)
+        (error "Unable to find ascendant project for {s}" component)))
   
   
   ;;;

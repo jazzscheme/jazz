@@ -63,7 +63,6 @@
 
 (cond-expand
   (windows
-    (jazz:register-foreign-libraries 'jazz.platform.odbc.odbc-lowlevel  'odbc32)
     (jazz:register-foreign-libraries 'jazz.platform.windows.WinMM       'winmm)
     (jazz:register-foreign-libraries 'jazz.platform.windows.WinPerf     'pdh)
     (jazz:register-foreign-libraries 'jazz.platform.windows.WinPSAPI    'psapi)

@@ -193,7 +193,6 @@
         (pdh-lib-path       (jazz:quote-jazz-pathname "foreign/windows/pdh/lib"))
         (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
     `((jazz.platform.windows)
-      (jazz.platform.odbc.odbc-lowlevel  ld-options: "-lodbc32")
       (jazz.platform.windows.WinDef      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinTypes    cc-options: ,base-windows-cc-options ld-options: "-mwindows")
       (jazz.platform.windows.WinBase     cc-options: ,base-windows-cc-options ld-options: "-mwindows")
@@ -209,16 +208,6 @@
       (jazz.platform.windows.WinPerf     cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpdh"))
       (jazz.platform.windows.WinPSAPI    cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpsapi"))
       (jazz.platform.crash.windows       cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))
-
-
-(define jazz:unix-odbc-units
-  '((jazz.platform.odbc.odbc-lowlevel))
-  #; ;; some platforms are missing sql.h
-  '((jazz.platform.odbc.odbc-lowlevel ld-options: "-lodbc")))
-
-
-(define jazz:windows-odbc-units
-  '((jazz.platform.odbc.odbc-lowlevel ld-options: "-lodbc32")))
 
 
 (define jazz:com-units

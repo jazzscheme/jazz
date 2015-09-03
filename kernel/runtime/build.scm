@@ -1101,7 +1101,7 @@
             #t)
 
           (or ;; quick patch
-              (memq product-name '(jazz.platform jazz.graphic.opengl))
+              (memq product-name '(jazz.platform jazz.opengl))
               (and o1-exists? (library-manifest-uptodate? header-s sub-units))
               (build-library)))))))
 

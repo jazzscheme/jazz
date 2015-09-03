@@ -136,37 +136,6 @@
 
 (cond-expand
   (cocoa
-    (define jazz:fontconfig-units
-      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/mac/fontconfig/include"))
-            (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/mac/fontconfig/lib"))
-            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
-            (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
-            (png-include-path        (jazz:quote-jazz-pathname "foreign/mac/png/include"))
-            (png-lib-path            (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
-        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
-              (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
-          `((jazz.platform.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
-  (windows
-    (define jazz:fontconfig-units
-      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/windows/fontconfig/include"))
-            (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/windows/fontconfig/lib"))
-            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/windows/freetype/include"))
-            (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/windows/freetype/lib"))
-            (expat-lib-path          (jazz:quote-jazz-pathname "foreign/windows/expat/lib"))
-            (png-lib-path            (jazz:quote-jazz-pathname "foreign/windows/png/lib"))
-            (zlib-lib-path           (jazz:quote-jazz-pathname "foreign/windows/zlib/lib")))
-        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path))
-              (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
-          `((jazz.platform.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
-  (else
-    (define jazz:fontconfig-units
-      (let ((cc-flags (jazz:pkg-config-cflags "fontconfig"))
-            (ld-flags (jazz:pkg-config-libs "fontconfig")))
-        `((jazz.platform.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
-
-
-(cond-expand
-  (cocoa
     (define jazz:freetype-units
       (let ((freetype-include-path (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
             (freetype-lib-path     (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
@@ -236,7 +205,6 @@
    (define jazz:platform-files
      (list (cons "foreign/mac/cairo/lib/libcairo.2.dylib" "libcairo.2.dylib")
            (cons "foreign/mac/pixman/lib/libpixman-1.0.dylib" "libpixman-1.0.dylib")
-           (cons "foreign/mac/fontconfig/lib/libfontconfig.1.dylib" "libfontconfig.1.dylib")
            (cons "foreign/mac/freetype/lib/libfreetype.6.dylib" "libfreetype.6.dylib")
            (cons "foreign/mac/png/lib/libpng16.16.dylib" "libpng16.16.dylib"))))
   (windows
@@ -244,7 +212,6 @@
      (list (cons "foreign/windows/gcc/lib/libgcc_s_dw2-1.dll" "libgcc_s_dw2-1.dll")
            (cons "foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")
            (cons "foreign/windows/pixman/lib/libpixman-1-0.dll" "libpixman-1-0.dll")
-           (cons "foreign/windows/fontconfig/lib/libfontconfig-1.dll" "libfontconfig-1.dll")
            (cons "foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll")
            (cons "foreign/windows/expat/lib/libexpat-1.dll" "libexpat-1.dll")
            (cons "foreign/windows/png/lib/libpng16-16.dll" "libpng16-16.dll")
@@ -276,7 +243,6 @@
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
                           ,@jazz:cairo-units
-                          ,@jazz:fontconfig-units
                           ,@jazz:freetype-units
                           ,@jazz:cocoa-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
@@ -287,7 +253,6 @@
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
                           ,@jazz:cairo-units
-                          ,@jazz:fontconfig-units
                           ,@jazz:freetype-units
                           ,@jazz:windows-units
                           ,@jazz:windows-odbc-units
@@ -300,7 +265,6 @@
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
                           ,@jazz:cairo-units
-                          ,@jazz:fontconfig-units
                           ,@jazz:freetype-units
                           ,@jazz:x11-units
                           ,@jazz:unix-odbc-units)))

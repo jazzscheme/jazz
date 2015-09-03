@@ -134,29 +134,6 @@
                 (jazz.platform.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))))
 
 
-(cond-expand
-  (cocoa
-    (define jazz:freetype-units
-      (let ((freetype-include-path (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
-            (freetype-lib-path     (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
-            (png-lib-path          (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
-        (let ((cc-flags (string-append "-I" freetype-include-path))
-              (ld-flags (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype.6")))
-          `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
-  (windows
-    (define jazz:freetype-units
-      (let ((freetype-include-path (jazz:quote-jazz-pathname "foreign/windows/freetype/include"))
-            (freetype-lib-path     (jazz:quote-jazz-pathname "foreign/windows/freetype/lib")))
-        (let ((cc-flags (string-append "-I" freetype-include-path))
-              (ld-flags (string-append "-L" freetype-lib-path " -lfreetype")))
-          `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
-  (else
-    (define jazz:freetype-units
-      (let ((cc-flags (jazz:pkg-config-cflags "freetype2"))
-            (ld-flags (jazz:pkg-config-libs "freetype2")))
-        `((jazz.platform.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
-
-
 (define jazz:windows-units
   (let ((pdh-include-path   (jazz:quote-jazz-pathname "foreign/windows/pdh/include"))
         (pdh-lib-path       (jazz:quote-jazz-pathname "foreign/windows/pdh/lib"))
@@ -205,14 +182,12 @@
    (define jazz:platform-files
      (list (cons "foreign/mac/cairo/lib/libcairo.2.dylib" "libcairo.2.dylib")
            (cons "foreign/mac/pixman/lib/libpixman-1.0.dylib" "libpixman-1.0.dylib")
-           (cons "foreign/mac/freetype/lib/libfreetype.6.dylib" "libfreetype.6.dylib")
            (cons "foreign/mac/png/lib/libpng16.16.dylib" "libpng16.16.dylib"))))
   (windows
    (define jazz:platform-files
      (list (cons "foreign/windows/gcc/lib/libgcc_s_dw2-1.dll" "libgcc_s_dw2-1.dll")
            (cons "foreign/windows/cairo/lib/libcairo-2.dll" "libcairo-2.dll")
            (cons "foreign/windows/pixman/lib/libpixman-1-0.dll" "libpixman-1-0.dll")
-           (cons "foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll")
            (cons "foreign/windows/expat/lib/libexpat-1.dll" "libexpat-1.dll")
            (cons "foreign/windows/png/lib/libpng16-16.dll" "libpng16-16.dll")
            (cons "foreign/windows/zlib/lib/zlib1.dll" "zlib1.dll"))))
@@ -243,7 +218,6 @@
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
                           ,@jazz:cairo-units
-                          ,@jazz:freetype-units
                           ,@jazz:cocoa-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
@@ -253,7 +227,6 @@
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
                           ,@jazz:cairo-units
-                          ,@jazz:freetype-units
                           ,@jazz:windows-units
                           ,@jazz:windows-odbc-units
                           ,@jazz:com-units)))
@@ -265,7 +238,6 @@
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
                           ,@jazz:cairo-units
-                          ,@jazz:freetype-units
                           ,@jazz:x11-units
                           ,@jazz:unix-odbc-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)

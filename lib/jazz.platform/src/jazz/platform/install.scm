@@ -57,8 +57,7 @@
 (cond-expand
   (windows
     (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-logfont 'cairo))
-  (else
-    (jazz:register-foreign-libraries 'jazz.platform.freetype            'freetype2)))
+  (else))
 
 
 (cond-expand

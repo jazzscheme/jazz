@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit jazz.media.openal.product
+(unit jazz.openal.product
 
 
 ;;;
@@ -46,7 +46,7 @@
 (cond-expand
   (cocoa
     (define jazz:openal-units
-      `((jazz.media.openal ld-options: "-framework OpenAL"))))
+      `((jazz.openal ld-options: "-framework OpenAL"))))
   (else
     (define jazz:openal-units
       '())))
@@ -64,5 +64,5 @@
 ;;;
 
 
-(jazz:register-product 'jazz.media.openal
+(jazz:register-product 'jazz.openal
   build: jazz:build-openal))

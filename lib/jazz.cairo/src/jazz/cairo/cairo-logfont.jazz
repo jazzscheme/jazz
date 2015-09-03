@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Cairo Base
+;;;; Cairo Freetype
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,40 +35,35 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.platform.cairo.cairo-base jazz
+(module protected jazz.cairo.cairo-logfont jazz
 
 
-(import (jazz.foreign)
-        (jazz.platform.types))
+(import (jazz.cairo.cairo-base)
+        (jazz.foreign)
+        (jazz.platform)
+        (jazz.platform.windows.WinGDI))
 
 
-(cond-expand
-  (cocoa   (c-include "<cairo.h>"))
-  (windows (c-include "<cairo-win32.h>"))
-  (x11     (c-include "<cairo-xlib.h>"))
-  (else))
+(c-include "<cairo-win32.h>")
 
 
-(c-enumeration cairo_format_t
-  (CAIRO_FORMAT_ARGB32 0)
-  (CAIRO_FORMAT_RGB24  1)
-  (CAIRO_FORMAT_A8     2)
-  (CAIRO_FORMAT_A1     3))
-
-(c-type cairo_format_t int)
+(definition DC
+  #f)
 
 
-(c-type cairo_surface_t       (native "cairo_surface_t"))
-(c-type cairo_surface_t*      (pointer cairo_surface_t cairo_surface_t*))
-(c-type cairo_font_face_t     (native "cairo_font_face_t"))
-(c-type cairo_font_face_t*    (pointer cairo_font_face_t cairo_font_face_t*))
-(c-type cairo_scaled_font_t   (native "cairo_scaled_font_t"))
-(c-type cairo_scaled_font_t*  (pointer cairo_scaled_font_t cairo_scaled_font_t*))
+(definition package (cairo_logfont_glyph_index font char)
+  (unless DC
+    (set! DC (CreateCompatibleDC NULL)))
+  (SelectObject DC (get-handle~ font))
+  ;; GetGlyphIndex only supports WORD chars and Unicode chars can go to 1114111
+  (if (> char 65535)
+      128
+    (GetGlyphIndex DC char)))
 
 
 ;;;
-;;;; Image Surface
+;;;; Windows Fonts
 ;;;
 
 
-(c-external (cairo_image_surface_create cairo_format_t int int) cairo_surface_t*))
+(c-external (cairo_win32_font_face_create_for_logfontw LOGFONTW*) cairo_font_face_t*))

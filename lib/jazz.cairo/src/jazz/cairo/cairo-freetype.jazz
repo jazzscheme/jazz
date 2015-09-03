@@ -35,35 +35,38 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.platform.cairo.cairo-logfont jazz
+(module protected jazz.cairo.cairo-freetype jazz
 
 
-(import (jazz.foreign)
-        (jazz.platform)
-        (jazz.platform.windows.WinGDI)
-        (jazz.platform.cairo.cairo-base))
+(import (jazz.cairo.cairo-base)
+        (jazz.fontconfig)
+        (jazz.foreign)
+        (jazz.freetype)
+        (jazz.platform.types))
 
 
-(c-include "<cairo-win32.h>")
+(c-include "<cairo-ft.h>")
 
 
-(definition DC
-  #f)
+(c-external (cairo_ft_scaled_font_lock_face cairo_scaled_font_t*) FT_Face)
+(c-external (cairo_ft_scaled_font_unlock_face cairo_scaled_font_t*) void)
 
 
-(definition package (cairo_logfont_glyph_index font char)
-  (unless DC
-    (set! DC (CreateCompatibleDC NULL)))
-  (SelectObject DC (get-handle~ font))
-  ;; GetGlyphIndex only supports WORD chars and Unicode chars can go to 1114111
-  (if (> char 65535)
-      128
-    (GetGlyphIndex DC char)))
+(c-external (cairo_ft_font_face_create_for_ft_face FT_Face* int) cairo_font_face_t*
+  #/C/
+    ___result_voidstar = cairo_ft_font_face_create_for_ft_face(*___arg1,___arg2);
+//#)
 
 
-;;;
-;;;; Windows Fonts
-;;;
+(c-external (cairo_ft_font_face_create_for_pattern FcPattern*) cairo_font_face_t*
+  #/C/
+    ___result_voidstar = cairo_ft_font_face_create_for_pattern(___arg1);
+//#)
 
 
-(c-external (cairo_win32_font_face_create_for_logfontw LOGFONTW*) cairo_font_face_t*))
+(definition package (cairo_ft_glyph_index font char)
+  (let ((face (cairo_ft_scaled_font_lock_face (get-scaled-font~ font))))
+    (prog1 ((c-function FT_Get_Char_Index (FT_Face ulong) uint
+              "___result = FT_Get_Char_Index(___arg1, ___arg2);")
+            face char)
+      (cairo_ft_scaled_font_unlock_face (get-scaled-font~ font))))))

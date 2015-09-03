@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Cairo Freetype
+;;;; Platform Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,38 +35,22 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.platform.cairo.cairo-freetype jazz
+(unit jazz.platform.install
 
 
-(import (jazz.fontconfig)
-        (jazz.foreign)
-        (jazz.freetype)
-        (jazz.platform.types)
-        (jazz.platform.cairo.cairo-base))
-
-
-(c-include "<cairo-ft.h>")
-
-
-(c-external (cairo_ft_scaled_font_lock_face cairo_scaled_font_t*) FT_Face)
-(c-external (cairo_ft_scaled_font_unlock_face cairo_scaled_font_t*) void)
-
-
-(c-external (cairo_ft_font_face_create_for_ft_face FT_Face* int) cairo_font_face_t*
-  #/C/
-    ___result_voidstar = cairo_ft_font_face_create_for_ft_face(*___arg1,___arg2);
-//#)
-
-
-(c-external (cairo_ft_font_face_create_for_pattern FcPattern*) cairo_font_face_t*
-  #/C/
-    ___result_voidstar = cairo_ft_font_face_create_for_pattern(___arg1);
-//#)
-
-
-(definition package (cairo_ft_glyph_index font char)
-  (let ((face (cairo_ft_scaled_font_lock_face (get-scaled-font~ font))))
-    (prog1 ((c-function FT_Get_Char_Index (FT_Face ulong) uint
-              "___result = FT_Get_Char_Index(___arg1, ___arg2);")
-            face char)
-      (cairo_ft_scaled_font_unlock_face (get-scaled-font~ font))))))
+(cond-expand
+  (cocoa
+    (jazz:register-foreign-libraries 'jazz.cairo                'cairo-ft)
+    (jazz:register-foreign-libraries 'jazz.cairo.cairo-base     'cairo-ft)
+    (jazz:register-foreign-libraries 'jazz.cairo.cairo-freetype 'cairo-ft)
+    (jazz:register-foreign-libraries 'jazz.cairo.cairo-quartz   'cairo-ft))
+  (windows
+    (jazz:register-foreign-libraries 'jazz.cairo                'cairo)
+    (jazz:register-foreign-libraries 'jazz.cairo.cairo-base     'cairo)
+    (jazz:register-foreign-libraries 'jazz.cairo.cairo-logfont  'cairo)
+    (jazz:register-foreign-libraries 'jazz.cairo.cairo-windows  'cairo))
+  (x11
+    (jazz:register-foreign-libraries 'jazz.cairo                'cairo-ft)
+    (jazz:register-foreign-libraries 'jazz.cairo.cairo-base     'cairo-ft)
+    (jazz:register-foreign-libraries 'jazz.cairo.cairo-freetype 'cairo-ft)
+    (jazz:register-foreign-libraries 'jazz.cairo.cairo-x11      'cairo-ft))))

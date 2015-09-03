@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Cairo Windows
+;;;; Cairo Quartz
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,15 +35,16 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.platform.cairo.cairo-windows jazz
+(module protected jazz.cairo.cairo-quartz jazz
 
 
-(import (jazz.foreign)
-        (jazz.platform)
-        (jazz.platform.cairo.cairo-base))
+(import (jazz.cairo.cairo-base)
+        (jazz.foreign)
+        (jazz.platform.types)
+        (jazz.platform.cocoa (cond cocoa)))
 
 
-(c-include "<cairo-win32.h>")
+(c-include "<cairo-quartz.h>")
 
 
 ;;;
@@ -51,12 +52,12 @@
 ;;;
 
 
-(c-external (cairo_win32_surface_create HDC) cairo_surface_t*)
-(c-external (cairo_win32_surface_create_with_dib cairo_format_t int int) cairo_surface_t*)
-(c-external (cairo_win32_surface_create_with_ddb HDC cairo_format_t int int) cairo_surface_t*)
-(c-external (cairo_win32_surface_get_dc cairo_surface_t*) HDC)
-(c-external (cairo_win32_printing_surface_create HDC) cairo_surface_t*)
+(cond-expand
+  (cocoa
+   (c-external (cairo_quartz_surface_create cairo_format_t uint uint) cairo_surface_t*)
+   (c-external (cairo_quartz_surface_create_for_cg_context CGContextRef uint uint) cairo_surface_t*))
+  (else))
 
 
 (definition public (create-cairo-memory-surface compatibility width height)
-  (cairo_win32_surface_create_with_ddb (and compatibility (cairo_win32_surface_get_dc (get-handle~ compatibility))) CAIRO_FORMAT_RGB24 width height)))
+  (cairo_image_surface_create CAIRO_FORMAT_ARGB32 width height)))

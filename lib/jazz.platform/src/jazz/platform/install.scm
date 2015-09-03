@@ -39,33 +39,10 @@
 
 
 (cond-expand
-  (cocoa
-    (jazz:register-foreign-libraries 'jazz.platform.cairo                'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-base     'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-quartz   'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-freetype 'cairo-ft))
-  (windows
-    (jazz:register-foreign-libraries 'jazz.platform.cairo                'cairo)
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-base     'cairo))
-  (x11
-    (jazz:register-foreign-libraries 'jazz.platform.cairo                'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-base     'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-x11      'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-freetype 'cairo-ft)))
-
-
-(cond-expand
-  (windows
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-logfont 'cairo))
-  (else))
-
-
-(cond-expand
   (windows
     (jazz:register-foreign-libraries 'jazz.platform.windows.WinMM       'winmm)
     (jazz:register-foreign-libraries 'jazz.platform.windows.WinPerf     'pdh)
     (jazz:register-foreign-libraries 'jazz.platform.windows.WinPSAPI    'psapi)
-    (jazz:register-foreign-libraries 'jazz.platform.cairo.cairo-windows 'cairo)
     (jazz:register-foreign-libraries 'jazz.platform.windows.com 'lole32 'oleaut32))
   (cocoa
     (jazz:register-foreign-libraries 'jazz.platform.cocoa               'Cocoa 'OpenGL 'IOKit))

@@ -221,11 +221,6 @@
   '((jazz.platform.odbc.odbc-lowlevel ld-options: "-lodbc32")))
 
 
-(define jazz:minilzo-units
-  (let ((minilzo-include-path (jazz:quote-jazz-pathname "foreign/minilzo/include")))
-    `((jazz.platform.minilzo cc-options: ,(string-append "-I" minilzo-include-path)))))
-
-
 (define jazz:com-units
   '((jazz.platform.windows.com cc-options: "-DUNICODE -D___SINGLE_HOST" ld-options: "-mwindows -lole32 -loleaut32")))
 
@@ -309,8 +304,7 @@
                           ,@jazz:cairo-units
                           ,@jazz:fontconfig-units
                           ,@jazz:freetype-units
-                          ,@jazz:cocoa-units
-                          ,@jazz:minilzo-units)))
+                          ,@jazz:cocoa-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor)))))
@@ -325,7 +319,6 @@
                           ,@jazz:freetype-units
                           ,@jazz:windows-units
                           ,@jazz:windows-odbc-units
-                          ,@jazz:minilzo-units
                           ,@jazz:com-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
@@ -340,9 +333,8 @@
                           ,@jazz:fontconfig-units
                           ,@jazz:freetype-units
                           ,@jazz:x11-units
-                          ,@jazz:unix-odbc-units
-                          ,@jazz:minilzo-units)))
-        (jazz:custom-compile/build unit-specs unit: unit force?: force?)
+                          ,@jazz:unix-odbc-units)))
+        (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor unit: unit force?: force?))))))
 

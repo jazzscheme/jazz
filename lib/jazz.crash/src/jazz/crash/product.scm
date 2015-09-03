@@ -46,14 +46,14 @@
 (cond-expand
   (mac
     (define jazz:crash-units
-      '((jazz.platform.crash.mac))))
+      '((jazz.crash.mac))))
   (unix
     (define jazz:crash-units
-      '((jazz.platform.crash.unix))))
+      '((jazz.crash.unix))))
   (windows
     (define jazz:crash-units
       (let ((base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
-        `((jazz.platform.crash.windows cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))))
+        `((jazz.crash.windows cc-options: ,base-windows-cc-options ld-options: "-mwindows"))))))
 
 
 (define (jazz:build-crash descriptor #!key (unit #f) (force? #f))

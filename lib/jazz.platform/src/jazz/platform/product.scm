@@ -148,7 +148,6 @@
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
                           ,@jazz:windows-units
-                          ,@jazz:windows-odbc-units
                           ,@jazz:com-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
@@ -157,8 +156,7 @@
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
-                          ,@jazz:x11-units
-                          ,@jazz:unix-odbc-units)))
+                          ,@jazz:x11-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor unit: unit force?: force?))))))

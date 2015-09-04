@@ -40,7 +40,8 @@
 
 (import (jazz.cairo)
         (jazz.fontconfig)
-        (jazz.freetype))
+        (jazz.freetype)
+        (jazz.io))
 
 
 ;;;
@@ -80,16 +81,10 @@
 ;;;
 
 
-(cond-expand
-  (mac
-   (definition (determine-fonts-dirname)
-     (cond (kernel-source (string-append kernel-source "etc/fonts/"))
-           (bundle-depth (string-append kernel-install "../Resources/etc/fonts/"))
-           (else (string-append kernel-install "etc/fonts/")))))
-  (else
-   (definition (determine-fonts-dirname)
-     (cond (kernel-source (string-append kernel-source "etc/fonts/"))
-           (else (string-append kernel-install "etc/fonts/"))))))
+(definition public (fonts-dir)
+  (if (is-alias? 'Jazz)
+      {Directory Jazz "lib" "jazz.fonts" "fonts"}
+    {Directory Build "lib" "jazz.fonts" "fonts"}))
 
 
 (definition public (create-freetype-font local?
@@ -106,7 +101,7 @@
                           (else 0)))
              (path  (or (list-ref paths index) (list-ref paths 0))))
         (let ((face (make-freetype-face))
-              (path (if (starts-with? path "/") path (string-append (determine-fonts-dirname) path))))
+              (path (if (starts-with? path "/") path (string-append (parse~ (fonts-dir)) path))))
           (when (/= 0 (freetype-new-face freetype-library path 0 face))
             (error "Unable to create freetype font face: {a}" path))
           face))

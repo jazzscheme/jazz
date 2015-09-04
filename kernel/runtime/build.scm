@@ -600,7 +600,7 @@
              
              (if resources
                  (split (jazz:package-pathname (%%get-product-package (jazz:get-product product)) resources) product-name)
-               (split (source-file "etc/resources/windows") "jazz"))))
+               (split (source-file "kernel/resources/windows") "jazz"))))
           (else
            #f)))
       

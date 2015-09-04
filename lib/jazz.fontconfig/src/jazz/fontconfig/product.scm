@@ -46,24 +46,24 @@
 (cond-expand
   (cocoa
     (define jazz:fontconfig-units
-      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/mac/fontconfig/include"))
-            (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/mac/fontconfig/lib"))
-            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
-            (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
-            (png-include-path        (jazz:quote-jazz-pathname "foreign/mac/png/include"))
-            (png-lib-path            (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/include"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/lib"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/freetype/include"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/freetype/lib"))
+            (png-include-path        (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/png/include"))
+            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
           `((jazz.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (windows
     (define jazz:fontconfig-units
-      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "foreign/windows/fontconfig/include"))
-            (fontconfig-lib-path     (jazz:quote-jazz-pathname "foreign/windows/fontconfig/lib"))
-            (freetype-include-path   (jazz:quote-jazz-pathname "foreign/windows/freetype/include"))
-            (freetype-lib-path       (jazz:quote-jazz-pathname "foreign/windows/freetype/lib"))
-            (expat-lib-path          (jazz:quote-jazz-pathname "foreign/windows/expat/lib"))
-            (png-lib-path            (jazz:quote-jazz-pathname "foreign/windows/png/lib"))
-            (zlib-lib-path           (jazz:quote-jazz-pathname "foreign/windows/zlib/lib")))
+      (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/include"))
+            (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/lib"))
+            (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/freetype/include"))
+            (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/freetype/lib"))
+            (expat-lib-path          (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/expat/lib"))
+            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/png/lib"))
+            (zlib-lib-path           (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/zlib/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path))
               (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
           `((jazz.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
@@ -77,10 +77,10 @@
 (cond-expand
   (cocoa
    (define jazz:platform-files
-     (list (cons "foreign/mac/fontconfig/lib/libfontconfig.1.dylib" "libfontconfig.1.dylib"))))
+     (list (cons "lib/jazz.fontconfig/foreign/mac/fontconfig/lib/libfontconfig.1.dylib" "libfontconfig.1.dylib"))))
   (windows
    (define jazz:platform-files
-     (list (cons "foreign/windows/fontconfig/lib/libfontconfig-1.dll" "libfontconfig-1.dll"))))
+     (list (cons "lib/jazz.fontconfig/foreign/windows/fontconfig/lib/libfontconfig-1.dll" "libfontconfig-1.dll"))))
   (else
    (define jazz:platform-files
      '())))

@@ -49,8 +49,8 @@
      '((jazz.zlib.foreign ld-options: "-lz.1"))))
   (windows
    (define jazz:zlib-units
-     (let ((zlib-include-path  (jazz:quote-jazz-pathname "foreign/windows/zlib/include"))
-           (zlib-lib-path      (jazz:quote-jazz-pathname "foreign/windows/zlib/lib")))
+     (let ((zlib-include-path  (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/include"))
+           (zlib-lib-path      (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
        `((jazz.zlib.foreign
            cc-options: ,(string-append "-I" zlib-include-path)
            ld-options: ,(string-append "-L" zlib-lib-path " -lz"))))))
@@ -65,7 +65,7 @@
      '()))
   (windows
    (define jazz:platform-files
-     (list (cons "foreign/windows/zlib/lib/zlib1.dll" "zlib1.dll"))))
+     (list (cons "lib/jazz.zlib/foreign/windows/zlib/lib/zlib1.dll" "zlib1.dll"))))
   (else
    (define jazz:platform-files
      '())))

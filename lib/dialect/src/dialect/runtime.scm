@@ -732,11 +732,17 @@
 
 
 (jazz:define-class jazz:Unit-Declaration jazz:Declaration (constructor: jazz:allocate-unit-declaration)
-  ((requires getter: generate setter: generate)))
+  ((container getter: generate)
+   (requires  getter: generate setter: generate)))
 
 
 (define (jazz:new-unit-declaration name access parent requires)
-  (let ((new-declaration (jazz:allocate-unit-declaration name #f #f access 'uptodate '() #f parent #f #f requires)))
+  (define (determine-package)
+    (let ((resource (jazz:requested-unit-resource)))
+      (%%assert resource
+        (%%get-resource-package resource))))
+  
+  (let ((new-declaration (jazz:allocate-unit-declaration name #f #f access 'uptodate '() #f parent #f #f (determine-package) requires)))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 
@@ -825,6 +831,7 @@
 
 (jazz:define-class jazz:Module-Declaration jazz:Namespace-Declaration (constructor: jazz:allocate-module-declaration)
   ((walker          getter: generate setter: generate)
+   (container       getter: generate)
    (dialect-name    getter: generate)
    (dialect-invoice getter: generate)
    (requires        getter: generate setter: generate)
@@ -836,7 +843,12 @@
 
 
 (define (jazz:new-module-declaration name access parent walker dialect-name dialect-invoice)
-  (let ((new-declaration (jazz:allocate-module-declaration name #f #f access 'uptodate '() #f parent #f #f (jazz:make-access-lookups jazz:public-access) (jazz:new-queue) #f walker dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (%%make-table test: eq?))))
+  (define (determine-package)
+    (let ((resource (jazz:requested-unit-resource)))
+      (%%assert resource
+        (%%get-resource-package resource))))
+  
+  (let ((new-declaration (jazz:allocate-module-declaration name #f #f access 'uptodate '() #f parent #f #f (jazz:make-access-lookups jazz:public-access) (jazz:new-queue) #f walker (determine-package) dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (%%make-table test: eq?))))
     (jazz:setup-declaration new-declaration)
     new-declaration))
 

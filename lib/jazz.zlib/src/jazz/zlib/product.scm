@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit zlib.product
+(unit jazz.zlib.product
 
 
 ;;;
@@ -46,12 +46,12 @@
 (cond-expand
   (cocoa
    (define jazz:zlib-units
-     '((zlib.foreign ld-options: "-lz.1"))))
+     '((jazz.zlib.foreign ld-options: "-lz.1"))))
   (windows
    (define jazz:zlib-units
      (let ((zlib-include-path  (jazz:quote-jazz-pathname "foreign/windows/zlib/include"))
            (zlib-lib-path      (jazz:quote-jazz-pathname "foreign/windows/zlib/lib")))
-       `((zlib.foreign
+       `((jazz.zlib.foreign
            cc-options: ,(string-append "-I" zlib-include-path)
            ld-options: ,(string-append "-L" zlib-lib-path " -lz"))))))
   (else
@@ -99,5 +99,5 @@
 ;;;
 
 
-(jazz:register-product 'contrib.zlib
+(jazz:register-product 'jazz.zlib
   build: jazz:build-zlib))

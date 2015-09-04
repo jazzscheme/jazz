@@ -65,8 +65,8 @@
 
 
 (define jazz:windows-units
-  (let ((pdh-include-path   (jazz:quote-jazz-pathname "foreign/windows/pdh/include"))
-        (pdh-lib-path       (jazz:quote-jazz-pathname "foreign/windows/pdh/lib"))
+  (let ((pdh-include-path   (jazz:quote-jazz-pathname "lib/jazz.platform/foreign/windows/pdh/include"))
+        (pdh-lib-path       (jazz:quote-jazz-pathname "lib/jazz.platform/foreign/windows/pdh/lib"))
         (base-windows-cc-options "-DUNICODE -D_WIN32_WINNT=0x0502"))
     `((jazz.platform.windows)
       (jazz.platform.windows.WinDef      cc-options: ,base-windows-cc-options ld-options: "-mwindows")
@@ -102,8 +102,7 @@
 (cond-expand
   (cocoa
    (define jazz:cocoa-units
-     (let ((opengl-include-path (jazz:quote-jazz-pathname "foreign/opengl/include")))
-       `((jazz.platform.cocoa.foreign cc-options: ,(string-append "-I" opengl-include-path) ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc)))))
+     `((jazz.platform.cocoa.foreign ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc))))
   (else))
 
 
@@ -113,7 +112,7 @@
      '()))
   (windows
    (define jazz:platform-files
-     (list (cons "foreign/windows/gcc/lib/libgcc_s_dw2-1.dll" "libgcc_s_dw2-1.dll"))))
+     (list (cons "lib/jazz.platform/foreign/windows/gcc/lib/libgcc_s_dw2-1.dll" "libgcc_s_dw2-1.dll"))))
   (else
    (define jazz:platform-files
      '())))

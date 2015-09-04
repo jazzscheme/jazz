@@ -46,16 +46,16 @@
 (cond-expand
   (cocoa
     (define jazz:freetype-units
-      (let ((freetype-include-path (jazz:quote-jazz-pathname "foreign/mac/freetype/include"))
-            (freetype-lib-path     (jazz:quote-jazz-pathname "foreign/mac/freetype/lib"))
-            (png-lib-path          (jazz:quote-jazz-pathname "foreign/mac/png/lib")))
+      (let ((freetype-include-path (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/include"))
+            (freetype-lib-path     (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
+            (png-lib-path          (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" freetype-include-path))
               (ld-flags (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype.6")))
           `((jazz.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (windows
     (define jazz:freetype-units
-      (let ((freetype-include-path (jazz:quote-jazz-pathname "foreign/windows/freetype/include"))
-            (freetype-lib-path     (jazz:quote-jazz-pathname "foreign/windows/freetype/lib")))
+      (let ((freetype-include-path (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/include"))
+            (freetype-lib-path     (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/lib")))
         (let ((cc-flags (string-append "-I" freetype-include-path))
               (ld-flags (string-append "-L" freetype-lib-path " -lfreetype")))
           `((jazz.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
@@ -69,10 +69,10 @@
 (cond-expand
   (cocoa
    (define jazz:platform-files
-     (list (cons "foreign/mac/freetype/lib/libfreetype.6.dylib" "libfreetype.6.dylib"))))
+     (list (cons "lib/jazz.freetype/foreign/mac/freetype/lib/libfreetype.6.dylib" "libfreetype.6.dylib"))))
   (windows
    (define jazz:platform-files
-     (list (cons "foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll"))))
+     (list (cons "lib/jazz.freetype/foreign/windows/freetype/lib/libfreetype-6.dll" "libfreetype-6.dll"))))
   (else
    (define jazz:platform-files
      '())))

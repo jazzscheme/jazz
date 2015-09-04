@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Web Page
+;;;; Dispatcher
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,10 +17,11 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
+;;;    Vladimir Sedach <vsedach@gmail.com>
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -35,23 +36,30 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.network.http.Web-Page jazz
+(module protected jazz.webserver.Dispatcher jazz
 
 
-(class Web-Page extends Object
+(import (jazz.webserver.Default-404-Handler))
+
+
+(class HTTP-Dispatcher extends Object
+
+
+  (slot default-404-handler initialize (new Default-404-Handler))  
+  (slot handlers            initialize '()                        accessors generate)
   
   
-  (slot input  accessors generate)
-  (slot output accessors generate)
+  (method public (dispatch request port server)
+    (let loop ((handlers handlers))
+         (if (null? handlers)
+             (send~ (handle-request~ default-404-handler request port server)
+               port)
+           (let ((maybe-reply (handle-request~ (car handlers) request port server)))
+             (if maybe-reply
+                 (send~ maybe-reply port)
+               (loop (cdr handlers))))))
+    (close-port port))
   
   
-  (method override (initialize input output)
-    (nextmethod)
-    (set! input~self input)
-    (set! output~self output))
-  
-  
-  (method override (print output readably)
-    (print-unreadable self output
-      (lambda (output)
-        (format output "{s} {s}" input output))))))
+  (method public (add-handler handler)
+    (set! handlers (cons handler handlers)))))

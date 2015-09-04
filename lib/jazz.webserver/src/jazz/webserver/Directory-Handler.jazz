@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Cookies
+;;;; Directory Handler
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -21,6 +21,7 @@
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
+;;;    Vladimir Sedach <vsedach@gmail.com>
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -35,27 +36,41 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.network.http.Cookie jazz
+(module protected jazz.webserver.Directory-Handler jazz
 
 
-(class Cookie extends Object
+(import (jazz.io)
+        (jazz.webserver.Handler)
+        (jazz.webserver.HTTP-Response)
+        (jazz.webserver.HTTP-Request))
+
+
+(class Directory-Handler extends HTTP-Request-Handler
   
   
-  (slot name    getter    generate)
-  (slot value   getter    generate)
-  (slot expires accessors generate)
-  (slot path    accessors generate)
-  (slot domain  accessors generate)
-  (slot secure? accessors generate)
+  (slot root-directory accessors generate)
   
   
-  (method override (initialize name value)
+  (method override (initialize 
+                     (root-directory: root-directory #f))
     (nextmethod)
-    (set! name~self name)
-    (set! value~self value))
+    (set! root-directory~self root-directory))
   
   
-  (method override (print printer readably)
-    (print-unreadable self printer
-      (lambda (printer)
-        (format printer "{s} {s}" name value))))))
+  (method override (handle-request request port server)
+    
+    (define (find-file path)
+      (when (and root-directory (not (empty-string? path)))
+        (let ((file (new-file~ root-directory (tokenise-filename path))))
+          (when (and (exists?~ file)
+                     (not (is-directory?~ file)))
+            file))))
+    
+    (let ((maybe-file (find-file (get-uri~ request))))
+      (when maybe-file
+          (new HTTP-Response
+            code: 'ok
+            content: (call-with-input-file (path-settings maybe-file) read-u8-content)))))
+  
+  )
+)

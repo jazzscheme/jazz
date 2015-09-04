@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; HTTP Pages
+;;;; HTTP File Responses
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,81 +35,32 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.network.http.HTTP-Pages jazz
+(module protected jazz.webserver.HTTP-File-Response jazz
 
 
-(import (jazz.jml)
-        (jazz.network))
+(import (jazz.network))
 
 
-(class HTTP-Pages extends XHTML-Parser
+(class HTTP-File-Response extends HTTP-Response
   
   
-  (slot server    getter generate)
-  (slot request   getter generate)
-  (slot generator getter generate)
+  (slot content getter generate)
   
   
-  (method override (initialize server request generator preferences)
-    (nextmethod preferences: preferences)
-    (set! server~self server)
-    (set! request~self request)
-    (set! generator~self generator))
-
+  (method override (initialize . rest)
+    (bind-keywords ((file #f) . others) rest
+      (apply nextmethod others)
+      (call-with-input-file (path-settings file)
+        (lambda (port)
+          (set! content (read-u8-content port))))))
+  
   
   ;;;
-  ;;;; Process
+  ;;;; Send
   ;;;
   
   
-  (method public (process-request request resource)
-    (parse
-      (invoke-pages request resource)))
-  
-  
-  (method virtual (invoke-pages request resource)
-    (define (find-pattern request resource)
-      (let ((associations (get-pattern-associations)))
-        (cadr (assoc resource associations))))
-    
-    (or (find-pattern request resource)
-        (error "Unable to find pages for {s}" resource)))
-
-  
-  ;;;
-  ;;;; Pattern
-  ;;;
-  
-  
-  (method protected virtual (get-pattern-associations)
-    '())
-
-  
-  ;;;
-  ;;;; Pattern
-  ;;;
-  
-  
-  (method public (forward-pages)
-    )
-
-  
-  ;;;
-  ;;;; Debug
-  ;;;
-  
-  
-  (method (debug-info)
-    (if (not (get-debug?~ server))
-        '()
-      `((<hr>)
-        ,@(all-details~ server request))))
-  
-  
-  (method (debug-values . values)
-    (when (get-debug?~ server)
-      `(<table> border: "1"
-         (<tr>
-           ,@(map (lambda (value)
-                    `(<td> ,(->string value)))
-                  values)))))))
+  (method override (send-message port)
+    (nextmethod port)
+    ;;(debug 'write (u8-content-size content) 'bytes)
+    (write-u8-content content port))))

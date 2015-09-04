@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Handler
+;;;; Sessions
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -21,7 +21,6 @@
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
-;;;    Vladimir Sedach <vsedach@gmail.com>
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -36,23 +35,58 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.network.http.Default-404-Handler jazz
+(module protected jazz.webserver.Session jazz
 
 
-(import (jazz.network.http.Handler)
-        (jazz.network.http.HTTP-Response))
+(import (jazz.library))
 
 
-(class Default-404-Handler extends HTTP-Request-Handler
+(class Session extends Object
+
+  
+  (slot id               initialize #f          getter generate)
+  (slot session-timeout  initialize 3600        accessors generate) ;; seconds
+  (slot last-access-time initialize (real-time) accessors generate)
+  (slot properties       initialize '()         getter generate)
   
   
-  ;; static/class allocated slot (slot reply404 initialize (new HTTP-Response "404 not found"))
+  (method override (initialize id)
+    (nextmethod)
+    (set! id~self id))
   
   
-  (method override (handle-request request port server)
-    (new HTTP-Response
-      code: 'not-found
-      content: "DOCUMENT NOT FOUND"))
+  (method override (print printer readably)
+    (print-unreadable self printer
+      (lambda (printer)
+        (format printer "id: {s}" id))))
+
+
+  (method public virtual (expired?)
+    (< (- (real-time) last-access-time) session-timeout))
+
+
+  (method public virtual (end-session)
+    )
   
-  )
-)
+  
+  ;;;
+  ;;;; Properties
+  ;;;
+  
+  
+  (definition Not-Found
+    {Box not-found})
+
+
+  (method public virtual (get-property name (error?: error? #t))
+    (let ((value (getf properties name not-found: Not-Found)))
+      (if (neq? value Not-Found)
+          value
+        (when error?
+          (error "Unknown property: {s}" name)))))
+  
+  
+  (method public virtual (set-property name value)
+    (if (getprop properties name)
+        (setf properties name value)
+      (set! properties (addf properties name value))))))

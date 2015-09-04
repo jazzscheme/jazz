@@ -46,10 +46,10 @@
 (cond-expand
   (windows
     (define jazz:opengl-files
-      (list (cons "foreign/windows/opengl/glew/bin/glew32.dll" "glew32.dll"))))
+      (list (cons "lib/jazz.opengl/foreign/windows/opengl/glew/bin/glew32.dll" "glew32.dll"))))
   (cocoa
     (define jazz:opengl-files
-      (list (cons "foreign/mac/opengl/glew/lib/libGLEW.dylib" "libGLEW.dylib"))))
+      (list (cons "lib/jazz.opengl/foreign/mac/opengl/glew/lib/libGLEW.dylib" "libGLEW.dylib"))))
   (else
     (define jazz:opengl-files
       '())))
@@ -74,8 +74,8 @@
 (cond-expand
   (windows
     (define jazz:opengl-units
-      (let ((glew-include-path (jazz:quote-jazz-pathname "foreign/windows/opengl/glew/include"))
-            (glew-lib-path     (jazz:quote-jazz-pathname "foreign/windows/opengl/glew/lib")))
+      (let ((glew-include-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/windows/opengl/glew/include"))
+            (glew-lib-path     (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/windows/opengl/glew/lib")))
         `((jazz.opengl.foreign.gl-header)
           (jazz.opengl.foreign.gl ld-options: "-lopengl32")
           (jazz.opengl.foreign.glext-header)
@@ -88,8 +88,8 @@
           (jazz.opengl.platform.windows cc-options: "-DUNICODE -D_WIN32_WINNT=0x0502" ld-options: "-mwindows -lopengl32")))))
   (cocoa
     (define jazz:opengl-units
-      (let ((glew-include-path (jazz:quote-jazz-pathname "foreign/mac/opengl/glew/include"))
-            (glew-lib-path     (jazz:quote-jazz-pathname "foreign/mac/opengl/glew/lib")))
+      (let ((glew-include-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/include"))
+            (glew-lib-path     (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/lib")))
         `((jazz.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))
           (jazz.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path) ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))))))
   (else

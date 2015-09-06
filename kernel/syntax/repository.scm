@@ -82,7 +82,10 @@
    (char-encoding getter: generate)
    (products      getter: generate)
    (profiles      getter: generate setter: generate)
-   (project       getter: generate)))
+   (project       getter: generate)
+   (title         getter: generate)
+   (description   getter: generate)
+   (authors       getter: generate)))
 
 
 ;;;

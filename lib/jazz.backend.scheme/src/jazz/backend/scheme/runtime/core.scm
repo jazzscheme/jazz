@@ -822,6 +822,15 @@
 (define (jazz:package-project package)
   (%%get-package-project package))
 
+(define (jazz:package-title package)
+  (%%get-package-title package))
+
+(define (jazz:package-description package)
+  (%%get-package-description package))
+
+(define (jazz:package-authors package)
+  (%%get-package-authors package))
+
 
 ;;;
 ;;;; Resource

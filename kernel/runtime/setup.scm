@@ -417,7 +417,8 @@
                          (begin
                            (let ((path (if (jazz:pathname-extension arg) arg (jazz:add-extension arg "jazz"))))
                              (if (file-exists? path)
-                                 (jazz:load-script path)))
+                                 (jazz:load-script path)
+                               (jazz:error "Can't find file {s}" path)))
                            (iter (%%cdr scan))))))))
         
         (define (show-version)

@@ -831,6 +831,9 @@
 (define (jazz:package-authors package)
   (%%get-package-authors package))
 
+(define (jazz:package-stage package)
+  (%%get-package-stage package))
+
 
 ;;;
 ;;;; Resource

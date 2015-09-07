@@ -85,7 +85,8 @@
    (project       getter: generate)
    (title         getter: generate)
    (description   getter: generate)
-   (authors       getter: generate)))
+   (authors       getter: generate)
+   (stage         getter: generate)))
 
 
 ;;;

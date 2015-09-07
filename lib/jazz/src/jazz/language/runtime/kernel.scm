@@ -678,6 +678,7 @@
 (native jazz:package-title)
 (native jazz:package-description)
 (native jazz:package-authors)
+(native jazz:package-stage)
 (native jazz:resource-package)
 (native jazz:resource-path)
 (native jazz:resource-extension)

@@ -679,7 +679,8 @@
                     (project (%%assq 'project alist))
                     (title (%%assq 'title alist))
                     (description (%%assq 'description alist))
-                    (authors (%%assq 'authors alist)))
+                    (authors (%%assq 'authors alist))
+                    (stage (%%assq 'stage alist)))
                 (let ((package
                         (jazz:make-package repository name parent
                           (if library (%%cadr library) #f)
@@ -691,7 +692,8 @@
                           (if project (%%cadr project) #f)
                           (if title (%%cadr title) #f)
                           (if description (%%cadr description) #f)
-                          (if authors (%%cdr authors) #f))))
+                          (if authors (%%cdr authors) #f)
+                          (if stage (%%cadr stage) #f))))
                   (jazz:cache-package-roots package)
                   package))
             (jazz:error "Package at {s} is defining: {s}" package-pathname name)))))))
@@ -770,14 +772,14 @@
   ".package")
 
 
-(define (jazz:make-package repository name parent library-root units-root install char-encoding products profiles project title description authors)
+(define (jazz:make-package repository name parent library-root units-root install char-encoding products profiles project title description authors stage)
   (let ((library-path (if (%%not library-root)
                           #f
                         (%%string-append (%%symbol->string name) "/" library-root)))
         (units-path (if (%%not units-root)
                         (%%symbol->string name)
                       (%%string-append (%%symbol->string name) "/" units-root))))
-    (%%make-package repository name parent library-root library-path units-root units-path install char-encoding products profiles project title description authors)))
+    (%%make-package repository name parent library-root library-path units-root units-path install char-encoding products profiles project title description authors stage)))
 
 
 (define (jazz:package-root package)

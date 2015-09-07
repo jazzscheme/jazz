@@ -2,7 +2,11 @@
 
 (import (jazz.runtime))
 
+
 (definition (show-packages)
+  (define stages
+    '(release beta alpha experimental sample internal obsolete))
+  
   (let ((repositories (get-repositories))
         (packages '()))
     (for-each (lambda (repository)
@@ -11,12 +15,22 @@
                     (lambda (package)
                       (set! packages (cons package packages))))))
               repositories)
-    (for-each (lambda (package)
-                (let ((name (package-name package))
-                      (description (package-description package))
-                      (authors (package-authors package)))
-                  (when description
-                    (format :console "{a}{?, {a}~}{?, {l detail: :human separator: \", \"}~}{%}" name description authors))))
-              (sort ci<? packages key: package-name))))
+    (let ((partitions (partition packages key: package-stage)))
+      (let ((sorted (sort < partitions key: (lambda (partition) (let ((stage (car partition))) (or (find stages stage) +infinity))))))
+        (for-each (lambda (partition)
+                    (bind (stage . packages) partition
+                      (unless (eq? partition (car sorted))
+                        (format :console "{%}"))
+                      (format :console "{a}{%}" (or stage 'unstaged))
+                      (for-each (lambda (package)
+                                  (let ((name (package-name package))
+                                        (description (package-description package))
+                                        (authors (package-authors package)))
+                                    (if description
+                                        (format :console "  {a}{?, {a}~}{?, {l detail: :human separator: \", \"}~}{%}" name description authors)
+                                      (format :console "  {a}{%}" name))))
+                                (sort ci<? packages key: package-name))))
+                  sorted)))))
+
 
 (show-packages))

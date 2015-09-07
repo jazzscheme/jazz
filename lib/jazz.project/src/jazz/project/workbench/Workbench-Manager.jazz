@@ -424,9 +424,10 @@
   
   
   (method (edit-descriptor)
-    (let ((project (selected-project)))
-      (let ((description-file (get-description-file~ project)))
-        (edit-document~ (get-application) description-file))))
+    (for-each (lambda (project)
+                (let ((description-file (get-description-file~ project)))
+                  (edit-document~ (get-application) description-file)))
+              (selected-objects)))
   
   
   (method (edit-documentation)
@@ -1172,8 +1173,7 @@
   
   
   (method public (launch-selection)
-    (let ((appl (get-application))
-          (tree (get-tree)))
+    (let ((appl (get-application)))
       (for-each (lambda (component)
                   (typecase component
                     ((Project)
@@ -1182,7 +1182,7 @@
                      (let* ((file (get-source~ component))
                             (ext (get-extension~ file)))
                        (edit-document~ appl file)))))
-                (selected-components~ tree))))
+                (selected-objects))))
   
   
   ;;;
@@ -1367,49 +1367,60 @@
   (method public (new-menu)
     (let ((tree (get-tree)))
       (define (new-group-menu object)
-        (let ((menu (new Group-Menu client: (get-tree))))
-          (update-component-menu menu (selected-components~ tree) '() #f '() #f)
+        (let ((menu (new Group-Menu client: (get-tree)))
+              (objects (selected-objects)))
+          (update-component-menu menu objects '() #f '() #f)
           (update-group/project-menu menu object)
           (layout-menu~ menu)
           menu))
       
       (define (new-workbench-menu object)
-        (let ((menu (new Workbench-Menu client: (get-tree))))
-          (update-component-menu menu (selected-components~ tree) '() #f '() #f)
-          (update-project-menu menu object)
+        (let ((menu (new Workbench-Menu client: (get-tree)))
+              (objects (selected-objects)))
+          (update-component-menu menu objects '() #f '() #f)
+          (update-project-menu menu object objects)
           (update-group/project-menu menu object)
           (layout-menu~ menu)
           menu))
       
       (define (new-concrete-project-menu object)
-        (let ((menu (new Concrete-Project-Menu client: (get-tree))))
-          (update-component-menu menu (selected-components~ tree) '() #f '() #f)
-          (update-project-menu menu object)
+        (let ((menu (new Concrete-Project-Menu client: (get-tree)))
+              (objects (selected-objects)))
+          (update-component-menu menu objects '() #f '() #f)
+          (update-project-menu menu object objects)
           (update-group/project-menu menu object)
           (layout-menu~ menu)
           menu))
       
       (define (new-project-menu object)
-        (let ((menu (new Project-Menu client: (get-tree))))
-          (update-component-menu menu (selected-components~ tree) '() #f '() #f)
-          (update-project-menu menu object)
+        (let ((menu (new Project-Menu client: (get-tree)))
+              (objects (selected-objects)))
+          (update-component-menu menu objects '() #f '() #f)
+          (update-project-menu menu object objects)
           (update-group/project-menu menu object)
           (layout-menu~ menu)
           menu))
       
       (define (new-element-menu object)
         (let ((menu (new Element-Menu client: (get-tree))))
-          (update-component-menu menu (selected-components~ tree) '() #f '() #f)
+          (update-component-menu menu (selected-objects) '() #f '() #f)
           menu))
       
-      (define (update-project-menu menu object)
-        (let ((description-file (and (is? object Project) (get-description-file~ object))))
-          (set-visible?~ (locate~ menu 'edit-descriptor) (boolean description-file))
-          (when description-file
-            (let ((name (get-name~ description-file)))
-              (set-title~ (locate~ menu 'edit-descriptor)
-                (cond ((ci=? name ".repository") "Edit Repository")
-                      ((ci=? name ".package") "Edit Package"))))))
+      (define (update-project-menu menu object objects)
+        (let ((kind (uniform objects key: (lambda (object)
+                                            (and (is? object Project)
+                                                 (let ((description-file (get-description-file~ object)))
+                                                   (and description-file
+                                                        (let ((name (get-name~ description-file)))
+                                                          (cond ((ci=? name ".repository") 'repository)
+                                                                ((ci=? name ".package") 'package)
+                                                                (else #f))))))))))
+          (set-visible?~ (locate~ menu 'edit-descriptor) (boolean kind))
+          (when kind
+            (set-title~ (locate~ menu 'edit-descriptor)
+              (case kind
+                ((repository) "Edit Repository")
+                ((package) "Edit Package")))))
         (let ((documentation (and (is? object Project) (get-documentation~ object))))
           (when (not documentation)
             (set-visible?~ (locate~ menu 'edit-documentation) #f)))

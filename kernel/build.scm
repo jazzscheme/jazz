@@ -1296,14 +1296,14 @@
   
   (define (build-recursive target configuration image)
     (let ((configuration-name (jazz:get-configuration-name configuration)))
-      (let ((jam (string-append jazz:source "jam"))
+      (let ((jaz (string-append jazz:source "jaz"))
             (argument (string-append (if configuration-name
                                          (jazz:format "{a}@{a}" target configuration-name)
                                        (symbol->string target))
                                      (if image
                                          (string-append ":" (symbol->string image))
                                        ""))))
-        (jazz:call-process (list path: "sh" arguments: `(,jam "make" ,argument))))))
+        (jazz:call-process (list path: "sh" arguments: `(,jaz "make" ,argument))))))
   
   (if local?
       (build-kernel configuration image)
@@ -1656,7 +1656,7 @@
     (force-output console)
     (jazz:setup-settings)
     (jazz:load-configurations)
-    (jazz:process-jamini)
+    (jazz:process-jazini)
     (let loop ((newline? #t))
       (if newline?
           (newline console))
@@ -1733,7 +1733,7 @@
             (arguments (cdr command-arguments)))
         (jazz:setup-settings)
         (jazz:load-configurations)
-        (jazz:process-jamini)
+        (jazz:process-jazini)
         (cond ((equal? action "clone")
                (jazz:clone-dependencies (map read-argument arguments))
                (exit))
@@ -1798,16 +1798,16 @@
               ((or (equal? action "help") (equal? action "?"))
                (let ((console (console-port)))
                  (jazz:print "Usage:" console)
-                 (jazz:print "  jam configure [-name] [-system] [-platform] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-kernel-interpret] [-destination] [-features] [-properties]" console)
-                 (jazz:print "  jam make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" console)
-                 (jazz:print "  jam install" console)
-                 (jazz:print "  jam deploy" console)
-                 (jazz:print "  jam run" console)
-                 (jazz:print "  jam test" console)
-                 (jazz:print "  jam list" console)
-                 (jazz:print "  jam delete [configuration]" console)
-                 (jazz:print "  jam help or ?" console)
-                 (jazz:print "  jam debug" console))
+                 (jazz:print "  jaz configure [-name] [-system] [-platform] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-kernel-interpret] [-destination] [-features] [-properties]" console)
+                 (jazz:print "  jaz make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" console)
+                 (jazz:print "  jaz install" console)
+                 (jazz:print "  jaz deploy" console)
+                 (jazz:print "  jaz run" console)
+                 (jazz:print "  jaz test" console)
+                 (jazz:print "  jaz list" console)
+                 (jazz:print "  jaz delete [configuration]" console)
+                 (jazz:print "  jaz help or ?" console)
+                 (jazz:print "  jaz debug" console))
                (exit))
               ((equal? action "debug")
                (jazz:setup-kernel-build)
@@ -1874,8 +1874,8 @@
   (jazz:setup-kernel-build))
 
 
-(define (jazz:process-jamini)
-  (jazz:load-global/local-configurations ".jamini"))
+(define (jazz:process-jazini)
+  (jazz:load-global/local-configurations ".jazini"))
 
 
 ;;;

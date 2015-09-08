@@ -1,0 +1,113 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Cairo Test
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.cairo.test jazz
+
+
+;;;
+;;;; Cairo
+;;;
+
+;; this test is to try and debug an incredibly weird bug where the cairo library built
+;; on my mac using brew crashes on someone else's mac but the reverse of using the library
+;; built on his mac works on mine
+;; - the 2 macs are identical machines with identical xcode and gcc
+;; - the following libraries built by brew on both sides have very slightly different sizes
+;;   - libcairo.2.dylib 857272 (good) vs 857264 (bad)
+;;   - libfontconfig.1.dylib 226288 (good) vs 226300 (bad)
+;;   - libpixman-1.0.dylib 602708 (good) vs 602788 (bad)
+;; - a binary diff didn't yield any clue I could see
+;; - I tried reinstalling everything in brew from scratch. still crashed
+;; - I absolutely hate it, but for the moment I will just copy the 3 libraries to Jazz
+
+
+(import jazz.cairo
+        jazz.freetype)
+
+(define (create-face)
+  (let ((face (make-freetype-face))
+        (path (string-append kernel-source "lib/jazz.fonts/fonts/" "vera/Vera.ttf")))
+    (debug error: (freetype-new-face freetype-library path 0 face))
+    face))
+
+(define (create-scaled-font)
+  (define (create-cairo-scaled-font font-face point-size)
+    (let ((height (cast <fl> point-size))
+          (matrix (cairo_matrix_t-make))
+          (ctm (cairo_matrix_t-make))
+          (options (cairo_font_options_create)))
+      (cairo_font_options_set_antialias options CAIRO_ANTIALIAS_DEFAULT)
+      (cairo_font_options_set_subpixel_order options CAIRO_SUBPIXEL_ORDER_DEFAULT)
+      (cairo_font_options_set_hint_style options CAIRO_HINT_STYLE_SLIGHT)
+      (cairo_font_options_set_hint_metrics options CAIRO_HINT_METRICS_DEFAULT)
+      (if height
+          (cairo_matrix_init_scale matrix height height)
+        (cairo_matrix_init_identity matrix))
+      (cairo_matrix_init_identity ctm)
+      (debug font-options-status: (cairo_font_options_status options))
+      (prog1 (cairo_scaled_font_create font-face matrix ctm options)
+        (cairo_matrix_t-free matrix)
+        (cairo_matrix_t-free ctm)
+        (cairo_font_options_destroy options))))
+  
+  (debug 'create-face)
+  (let ((face (create-face)))
+    (debug 'create-font-face)
+    (let ((font-face (cairo_ft_font_face_create_for_ft_face face 0)))
+      (debug 'create-scaled-font)
+      (let ((scaled-font (create-cairo-scaled-font font-face 10.5)))
+        (debug font-face-status: (cairo_font_face_status font-face))
+        (debug scaled-font-status: (cairo_scaled_font_status scaled-font))
+        scaled-font))))
+
+(debug 'cairo-version (cairo_version))
+(debug 'freetype-version (freetype-version freetype-library))
+(let ((scaled-font (create-scaled-font)))
+  (debug 'create-surface)
+  (let ((surface (cairo_image_surface_create CAIRO_FORMAT_ARGB32 0 0)))
+    (debug 'create-context)
+    (let ((context (cairo_create surface)))
+      (debug 'set-scaled-font)
+      (cairo_set_scaled_font context scaled-font)
+      (debug 'text-extents-make)
+      (let ((extents (cairo_text_extents_t-make)))
+        (debug surface-status: (cairo_surface_status surface))
+        (debug context-status: (cairo_status context))
+        (debug 'text-extents)
+        (cairo_text_extents context "toto" extents)
+        (debug width: (cairo_text_extents_t-x_advance-ref extents))
+        (debug 'works!))))))

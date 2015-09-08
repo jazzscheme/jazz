@@ -38,151 +38,61 @@
 (module jazz.test jazz
 
 
-;;;
-;;;; Zlib
-;;;
+(import (jazz.application)
+        (jazz.graphic)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.ui.window))
 
 
-@zlib (
-(import (jazz.zlib))
-
-
-(definition inflated-data
-  (let ((u8vec (make-u8vector 131072)))
-    (loop (for n from 0 below 131072)
-          (u8vector-set! u8vec n n))
-    u8vec))
-
-(definition (test-deflate data (chunk: chunk #f))
-  (time (list (u8vector-length data) (u8vector-length (zlib-deflate data chunk: chunk)))))
-
-(definition (test-inflate data (chunk: chunk #f))
-  (time (list (u8vector-length data) (u8vector-length (zlib-inflate data chunk: chunk)))))
-
-
-(test-deflate inflated-data)
-(test-deflate inflated-data chunk: 4)
-
-(let ((deflated-data (zlib-deflate inflated-data)))
-  (test-inflate deflated-data)
-  (test-inflate deflated-data chunk: 4)))
-
-
-;;;
-;;;; Cairo
-;;;
-
-;; this test is to try and debug an incredibly weird bug where the cairo library built
-;; on my mac using brew crashes on someone else's mac but the reverse of using the library
-;; built on his mac works on mine
-;; - the 2 macs are identical machines with identical xcode and gcc
-;; - the following libraries built by brew on both sides have very slightly different sizes
-;;   - libcairo.2.dylib 857272 (good) vs 857264 (bad)
-;;   - libfontconfig.1.dylib 226288 (good) vs 226300 (bad)
-;;   - libpixman-1.0.dylib 602708 (good) vs 602788 (bad)
-;; - a binary diff didn't yield any clue I could see
-;; - I tried reinstalling everything in brew from scratch. still crashed
-;; - I absolutely hate it, but for the moment I will just copy the 3 libraries to Jazz
-
-
-@cairo (
-(import jazz.cairo
-        jazz.freetype)
-
-(define (create-face)
-  (let ((face (make-freetype-face))
-        (path (string-append kernel-source "lib/jazz.fonts/fonts/" "vera/Vera.ttf")))
-    (debug error: (freetype-new-face freetype-library path 0 face))
-    face))
-
-(define (create-scaled-font)
-  (define (create-cairo-scaled-font font-face point-size)
-    (let ((height (cast <fl> point-size))
-          (matrix (cairo_matrix_t-make))
-          (ctm (cairo_matrix_t-make))
-          (options (cairo_font_options_create)))
-      (cairo_font_options_set_antialias options CAIRO_ANTIALIAS_DEFAULT)
-      (cairo_font_options_set_subpixel_order options CAIRO_SUBPIXEL_ORDER_DEFAULT)
-      (cairo_font_options_set_hint_style options CAIRO_HINT_STYLE_SLIGHT)
-      (cairo_font_options_set_hint_metrics options CAIRO_HINT_METRICS_DEFAULT)
-      (if height
-          (cairo_matrix_init_scale matrix height height)
-        (cairo_matrix_init_identity matrix))
-      (cairo_matrix_init_identity ctm)
-      (debug font-options-status: (cairo_font_options_status options))
-      (prog1 (cairo_scaled_font_create font-face matrix ctm options)
-        (cairo_matrix_t-free matrix)
-        (cairo_matrix_t-free ctm)
-        (cairo_font_options_destroy options))))
+(class My-App extends Application
   
-  (debug 'create-face)
-  (let ((face (create-face)))
-    (debug 'create-font-face)
-    (let ((font-face (cairo_ft_font_face_create_for_ft_face face 0)))
-      (debug 'create-scaled-font)
-      (let ((scaled-font (create-cairo-scaled-font font-face 10.5)))
-        (debug font-face-status: (cairo_font_face_status font-face))
-        (debug scaled-font-status: (cairo_scaled_font_status scaled-font))
-        scaled-font))))
-
-(debug 'cairo-version (cairo_version))
-(debug 'freetype-version (freetype-version freetype-library))
-(let ((scaled-font (create-scaled-font)))
-  (debug 'create-surface)
-  (let ((surface (cairo_image_surface_create CAIRO_FORMAT_ARGB32 0 0)))
-    (debug 'create-context)
-    (let ((context (cairo_create surface)))
-      (debug 'set-scaled-font)
-      (cairo_set_scaled_font context scaled-font)
-      (debug 'text-extents-make)
-      (let ((extents (cairo_text_extents_t-make)))
-        (debug surface-status: (cairo_surface_status surface))
-        (debug context-status: (cairo_status context))
-        (debug 'text-extents)
-        (cairo_text_extents context "toto" extents)
-        (debug width: (cairo_text_extents_t-x_advance-ref extents))
-        (debug 'ca-marche))))))
+  
+  (method override (show-toplevel)
+    )
+  
+  
+  (method override (finish-process)
+    (nextmethod)
+    (new-palette My-Test host-title: "Test" host-size: {Dimension 600 450})))
 
 
-;;;
-;;;; Message
-;;;
+(class My-Palette extends Palette
+  
+  
+  (method override (close-window)
+    (nextmethod)
+    (exit)))
 
 
-@message (
-(import jazz.platform)
+(class My-Test extends View
+  
+  
+  (form
+    (<install>
+      (<Push-Button>                              title: "Hello" position: {Point 50 50})
+      (<Border-View>                              position: {Point 50 100} size: {Dimension 500 300} border-type: edge style: ()
+        (<Scroller-View>                          vscroll?: #t
+          (<content~>                             layout-type: fill
+            (<Tree-Header>
+              (<content~>
+                (<Tree-View>           name: tree font: {Font Label-User} default-row-height: 15
+                  (<Tree-Node-Column>             title: "Foo" width: 200 toplevel-controls?: #f display-images?: #f)
+                  (<Tree-Label-Column>            title: "Bar" width: 100)
+                  (<Tree-Label-Column>            title: "Baz" width: 100)))))))))
+  
+  
+  (method meta override (palette-class)
+    My-Palette))
 
 
-(system-message "Some message" title: "Title" header: "Header"))
-
-
-;;;
-;;;; Freetype
-;;;
-
-
-@freetype (
-(import jazz.freetype)
-
-
-(debug (freetype-version freetype-library))
-
-(let ((face (make-freetype-face)))
-  (debug (freetype-new-face freetype-library "c:/Windows/Fonts/Tahoma.ttf" 0 face)))
-
-
-@w (
-(FcInit)
-
-(debug (Fc-font-list))
-
-(let ((pattern (Fc-make-pattern "Tahoma" 12 #f #f #f)))
-  (debug pattern)
-  (let ((matched (Fc-font-match pattern)))
-    (when matched
-      (debug matched)
-      (debug (Fc-pattern-get-file matched))
-      (debug (Fc-pattern-get-fullname matched)))))))
+(import jazz.event)
+(delay-event
+  (lambda ()
+    (boot-environment~ (new My-App))))
 
 
 ;;;
@@ -223,34 +133,6 @@
 (class Goo extends jazz.ui:View)
 
 (debug (new Goo))))
-
-
-;;;
-;;;; Cairo Region
-;;;
-
-
-@cairo-region (
-(import jazz.graphic
-        jazz.cairo)
-
-
-(let ((region (cairo_region_create)))
-  (debug region)
-  (debug (cairo_region_reference region)))
-
-
-(let ((region (new Cairo-Region)))
-  (combine-or!~ region (new Cairo-Region rect: (new Rect 0 0 100 100)))
-  (combine-or!~ region (new Cairo-Region rect: (new Rect 0 0 100 100)))
-  (combine-or!~ region (new Cairo-Region rect: (new Rect 0 0 100 100)))
-  (combine-or!~ region (new Cairo-Region rect: (new Rect 0 0 100 100)))
-  (combine-or!~ region (new Cairo-Region rect: (new Rect 0 0 100 100)))
-  (combine-or!~ region (new Cairo-Region rect: (new Rect 0 10 50 50)))
-  (combine-or!~ region (new Cairo-Region rect: (new Rect 10 10 100 20)))
-  (debug (cairo_region_num_rectangles (get-handle~ region)))
-  (combine-diff!~ region (new Cairo-Region rect: (new Rect 0 0 500 500)))
-  (debug (cairo_region_num_rectangles (get-handle~ region)))))
 
 
 ;;;
@@ -296,62 +178,6 @@ Y
 
 (import jazz.ui)
 (new View))
-
-
-;;;
-;;;; OpenAL
-;;;
-
-
-@openal (
-(import (jazz.openal))
-
-
-(alListener3f AL_POSITION 0. 0. 0.)
-(alListener3f AL_VELOCITY 0. 0. 0.)
-(alListener3f AL_ORIENTATION 0. 0. 1.)
-(debug (alGetError))
-
-
-(define source
-  (let ((vec (make-u32vector 1)))
-    (alGenSources 1 vec)
-    (u32vector-ref vec 0)))
-(debug (alGetError))
-
-
-(alSource3f source AL_POSITION 0. 0. 0.)
-(alSource3f source AL_VELOCITY 0. 0. 0.)
-(debug (alGetError))
-
-
-(alTest "/Users/cartier/Devel/yownu/explosion.wav" source)
-(debug (alGetError))
-
-
-(debug 'done))
-
-
-;;;
-;;;; Screen
-;;;
-
-
-@screen (
-(import (jazz.ui)
-        (jazz.ui.screen))
-
-
-(define (screen-info screen)
-  (list screen (get-frame-rect~ screen) (get-content-rect~ screen)))
-
-
-(debug (screen-info (main-screen)))
-(debug (screen-info (auxiliary-screen)))
-(debug (screen-info (primary-screen)))
-(debug (screen-info (secondary-screen)))
-(debug (map screen-info (all-screens)))
-(debug (center-screen (main-screen) {Dimension 100 50})))
 
 
 ;;;
@@ -447,70 +273,6 @@ Y
 (let ((start (QueryTSC)))
   (sleep 1)
   (debug (- (QueryTSC) start))))
-
-
-;;;
-;;;; Log
-;;;
-
-
-@log (
-(import (gambit.log)
-        (gambit.log.plot)
-        (jazz.application)
-        (jazz.jml)
-        (jazz.system)
-        (jazz.ui))
-
-
-(class My-App extends Application
-  
-  
-  (method override (new-toplevel)
-    (new My-Toplevel))
-  
-  
-  (method override (finish-process)
-    (nextmethod)
-    (plot-graph "world")))
-
-
-(class My-Toplevel extends Toplevel
-
-
-  (form
-    (<install> caption-base: "Plot" position: {Point 100 100} size: {Dimension 1300 450})))
-
-
-(definition public (run-test)
-  (boot-environment~ (new My-App))))
-
-
-;;;
-;;;; Termite
-;;;
-
-
-@termite (
-(import (termite))
-
-
-(let ((me (me)))
-  (spawn
-    (lambda ()
-      (send me "Hello, world!"))))
-
-(debug (retrieve))
-
-(define better-pong-server
-  (spawn
-    (lambda ()
-      (let loop ()
-           (recv
-             ((from 'ping) ; pattern to match
-              (where (pid? from)) ; constraint
-              (send from 'pong))) ; action
-           (loop))))))
 
 
 ;;;
@@ -675,31 +437,6 @@ Y
 
 
 ;;;
-;;;; SRFI
-;;;
-
-
-@srfi (
-(import (srfi-1)
-        (srfi-13)
-        (srfi-14))
-
-(write (find-tail even? '(1 2 3)))
-(write (string-map char-upcase "hello"))
-(write char-set/lower-case))
-
-
-;;;
-;;;; Fmt
-;;;
-
-
-@fmt (
-(import fmt)
-(import fmt.fmt-test))
-
-
-;;;
 ;;;; Dialect
 ;;;
 
@@ -769,22 +506,6 @@ Y
 
 
 ;;;
-;;;; Snapshot
-;;;
-
-
-@snapshot (
-(import (jazz.io)
-        (jazz.snapshot))
-
-
-(initialize-aliases)
-(snapshots-directory {Directory Home})
-(debug (snapshot-process))
-(exit))
-
-
-;;;
 ;;;; Scheme Classes
 ;;;
 
@@ -816,28 +537,6 @@ Y
 
 (debug (hoo 1 2 3))
 (debug (hoo 1 #f 2 3)))
-
-
-;;;
-;;;; Mac Crash
-;;;
-
-
-@mac-crash (
-(import (jazz.cairo)
-        (jazz.platform)
-        (jazz.system)
-        (jazz.ui))
-
-
-(definition package (test)
-  (initialize-windowing)
-  (let ((window (new Window))
-        (visual (XDefaultVisual x11-default-display (XDefaultScreen x11-default-display))))
-    (debug (cairo_xlib_surface_create x11-default-display (get-handle~ window) visual (get-width~ window) (get-height~ window)))))
-
-
-(test))
 
 
 ;;;
@@ -1067,103 +766,6 @@ Y
 
 
 ;;;
-;;;; Designer
-;;;
-
-
-@designer (
-(import (jazz.application)
-        (jazz.designer)
-        (jazz.graphic)
-        (jazz.io)
-        (jazz.jml)
-        (jazz.library)
-        (jazz.system)
-        (jazz.ui)
-        (jazz.ui.view)
-        (jazz.ui.window))
-
-
-(class My-Search extends Layout-View
-  
-  
-  (form
-    (<install>
-      (<Push-Button>                   name: search     title: "Search" position: {Point 755 14} size: {Dimension 80 24} action-handler: {Event-Handler :form on-search} default?: #t)
-      (<Group-Box>                     name: group      position: {Point 10 8} size: {Dimension 280 97} title: "Group")
-      (<Border-View>                   name: border     position: {Point 311 43} size: {Dimension 373 91} border-type: edge style: ()
-        (<Scroller-View>                                vscroll?: #t
-          (<content~>                                   layout-type: fill
-            (<Tree-Header>
-              (<content~>
-                (<Tree-View>           name: tree       font: {Font Label-User} default-row-height: 15
-                  (<Tree-Node-Column>  name: node       title: "Find" width: 176 toplevel-controls?: #f display-images?: #f)
-                  (<Tree-Label-Column> name: label      title: "Replace" width: 173)))))))
-      (<Check-Box>                     name: checkbox   title: "Check-Box" position: {Point 360 283} size: {Dimension 100 18})
-      (<Combo-Box>                     name: combo      position: {Point 180 297})
-      (<Radio-Button>                  name: radio      position: {Point 128 190} title: "Radio")
-      (<Label-View>                    name: label      position: {Point 291 214} title: "Label")
-      (<Tab-View>                      name: tab        position: {Point 85 348} size: {Dimension 450 120}
-        (<Tab-Sheet>                                    position: {Point 113 36} title: "Sheet")
-        (<Tab-Sheet>                                    position: {Point 379 44} title: "Very Long Name"))
-      (<Horizontal-Line>               name: horizontal position: {Point 412 249})
-      (<Vertical-Line>                 name: vertical   position: {Point 541 232})
-      (<Image-View>                    name: image      position: {Point 33 221})
-      (<Layout-View>                   name: layout     position: {Point 574 216}))))
-
-
-(class My-App extends Application
-  
-  
-  (method override (finish-process)
-    (nextmethod)
-    (new-frame View-Editor client: (new My-Search)))
-
-  
-  ;;;
-  ;;;; Preferences
-  ;;;
-  
-  
-  (method override (persist-preferences?)
-    #f)
-  
-  
-  (method override (default-preferences)
-    (new My-Preferences))
-  
-  
-  (method override (default-bindings)
-    (new My-Bindings)))
-
-
-(class My-Preferences extends Application-Preferences
-  
-  
-  (form
-    (<install>                toplevel-state: maximized toolbar-classes: ((:menubar . {Class-Reference Menubar}) (:toolbar . {Class-Reference Toolbar}) (:status . {Class-Reference Status-Toolbar}))
-      (<workspaces~>          active: designer
-        (<Designer-Workspace>)))))
-
-
-(class My-Bindings extends Application-Bindings
-  
-  
-  (form
-    (<install>
-      (<Combo-Text-Actions>                name: combo-text)
-      (<Components-Viewer-Actions>         name: components-viewer)
-      (<Components-Tree-Actions>           name: components-tree)
-      (<Traits-Tree-Actions>               name: traits-tree)
-      (<View-Editor-Actions>               name: view-editor)
-      (<View-Surrogate-Actions>            name: view-surrogate))))
-
-
-(definition public (run-test)
-  (boot-environment~ (new My-App))))
-
-
-;;;
 ;;;; To Fix
 ;;;
 
@@ -1192,67 +794,6 @@ Y
       (get-row~ outline))))
 
 (foo~ (new X) (new A) #f))
-
-
-;;;
-;;;; Application
-;;;
-
-
-@app (
-(import (jazz.application)
-        (jazz.graphic)
-        (jazz.jml)
-        (jazz.library)
-        (jazz.system)
-        (jazz.ui)
-        (jazz.ui.view)
-        (jazz.ui.window))
-
-
-(class My-App extends Application
-  
-  
-  (method override (show-toplevel)
-    )
-  
-  
-  (method override (finish-process)
-    (nextmethod)
-    (new-palette My-Test host-title: "Test" host-size: {Dimension 600 450})))
-
-
-(class My-Palette extends Palette
-  
-  
-  (method override (close-window)
-    (nextmethod)
-    (exit)))
-
-
-(class My-Test extends View
-  
-  
-  (form
-    (<install>
-      (<Push-Button>                              title: "Hello" position: {Point 50 50})
-      (<Border-View>                              position: {Point 50 100} size: {Dimension 500 300} border-type: edge style: ()
-        (<Scroller-View>                          vscroll?: #t
-          (<content~>                             layout-type: fill
-            (<Tree-Header>
-              (<content~>
-                (<Tree-View>           name: tree font: {Font Label-User} default-row-height: 15
-                  (<Tree-Node-Column>             title: "Foo" width: 200 toplevel-controls?: #f display-images?: #f)
-                  (<Tree-Label-Column>            title: "Bar" width: 100)
-                  (<Tree-Label-Column>            title: "Baz" width: 100)))))))))
-  
-  
-  (method meta override (palette-class)
-    My-Palette))
-
-
-(definition public (run-test)
-  (boot-environment~ (new My-App))))
 
 
 ;;;

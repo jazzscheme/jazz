@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Test Run
+;;;; Zlib Test
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,29 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.test.run jazz
+(module jazz.zlib.test jazz
 
 
-(import (jazz.debuggee)
-        (jazz.test))
+(import (jazz.syntax (phase syntax))
+        (jazz.zlib))
 
 
-(definition (run descriptor)
-  (load-unit 'jazz.test)
-  (when (global-bound? 'jazz.test:run-test)
-    (let ((run-test (global-ref 'jazz.test:run-test)))
-      (debug run-test)
-      (run-test)))
-  (when (get-controller-debugger)
-    (set-default-context 'jazz.test)
-    (start-repl)))
+(definition inflated-data
+  (let ((u8vec (make-u8vector 131072)))
+    (loop (for n from 0 below 131072)
+          (u8vector-set! u8vec n n))
+    u8vec))
+
+(definition (test-deflate data (chunk: chunk #f))
+  (time (list (u8vector-length data) (u8vector-length (zlib-deflate data chunk: chunk)))))
+
+(definition (test-inflate data (chunk: chunk #f))
+  (time (list (u8vector-length data) (u8vector-length (zlib-inflate data chunk: chunk)))))
 
 
-(register-product-run 'test run))
+(test-deflate inflated-data)
+(test-deflate inflated-data chunk: 4)
+
+(let ((deflated-data (zlib-deflate inflated-data)))
+  (test-inflate deflated-data)
+  (test-inflate deflated-data chunk: 4)))

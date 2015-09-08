@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit Log
+;;;; Gambit Logview Product
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,46 +35,31 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module gambit.log jazz
+(unit gambit.logview.product
 
 
 ;;;
-;;;; Lib
+;;;; Build
 ;;;
 
 
-(require gambit.log.implementation.loglib-scm)
+(define jazz:gambit-logview-units
+  (let ((gambit-log-path (jazz:quote-jazz-pathname "lib/gambit.log/src/gambit/log/implementation"))
+        (gambit-logview-path (jazz:quote-jazz-pathname "lib/gambit.logview/src/gambit/logview/implementation")))
+    `((gambit.logview.implementation.logview-jazz cc-options: ,(string-append "-I" gambit-log-path " -I" gambit-logview-path)))))
 
 
-(native setup-logging-heartbeat!)
+(define (jazz:build-gambit-logview descriptor #!key (unit #f) (force? #f))
+  (let ((unit-specs jazz:gambit-logview-units))
+    (jazz:custom-compile/build unit-specs unit: unit force?: force?)
+    (if (or (not unit) (not (assq unit unit-specs)))
+        (jazz:build-product-descriptor descriptor))))
 
 
-(native log-context-alloc)
-(native log-setup)
-(native log-define-state)
-(native log-start)
-(native log-transition)
-(native log-stop)
-(native log-cleanup)
-
-(native log-BLACK)
-(native log-WHITE)
-(native log-RED)
-(native log-GREEN)
-(native log-BLUE)
-(native log-YELLOW)
-(native log-MAGENTA)
-(native log-CYAN)
-
-(native log-LAVENDER)
-(native log-PINK)
-(native log-GOLD)
-(native log-TOMATO)
-(native log-PURPLE)
-(native log-GRAY)
-(native log-BROWN)
-(native log-CORNSILK)
-(native log-IVORY)
+;;;
+;;;; Register
+;;;
 
 
-(export (gambit.log.implementation.logview-jazz)))
+(jazz:register-product 'gambit.logview
+  build: jazz:build-gambit-logview))

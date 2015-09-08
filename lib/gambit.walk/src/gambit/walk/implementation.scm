@@ -6,7 +6,7 @@
 ;;;; Walk
 ;;;
 
-(unit gambit.walk
+(unit protected gambit.walk.implementation
 
 (declare (proper-tail-calls)
          (optimize-dead-local-variables))

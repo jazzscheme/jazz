@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit Ext Product
+;;;; Logview Sample
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,31 +35,38 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit gambit.product
+(module gambit.logview.sample jazz
 
 
-;;;
-;;;; Build
-;;;
+(import (gambit.log)
+        (gambit.log.plot)
+        (jazz.application)
+        (jazz.jml)
+        (jazz.system)
+        (jazz.ui))
 
 
-(define jazz:gambit-ext-units
-  (let ((gambit-include-path (jazz:quote-jazz-pathname "lib/gambit.ext/src/gambit/log/implementation")))
-    `((gambit.log.implementation.loglib-scm cc-options: ,(string-append "-I" gambit-include-path))
-      (gambit.log.implementation.logview-jazz cc-options: ,(string-append "-I" gambit-include-path)))))
+(class LogView-App extends Application
+  
+  
+  (method override (new-toplevel)
+    (new LogView-Toplevel))
+  
+  
+  (method override (finish-process)
+    (nextmethod)
+    (plot-graph "world")))
 
 
-(define (jazz:build-gambit-ext descriptor #!key (unit #f) (force? #f))
-  (let ((unit-specs jazz:gambit-ext-units))
-    (jazz:custom-compile/build unit-specs unit: unit force?: force?)
-    (if (or (not unit) (not (assq unit unit-specs)))
-        (jazz:build-product-descriptor descriptor))))
+(class LogView-Toplevel extends Toplevel
 
 
-;;;
-;;;; Register
-;;;
+  (form
+    (<install> caption-base: "Plot" position: {Point 100 100} size: {Dimension 1300 450})))
 
 
-(jazz:register-product 'gambit.ext
-  build: jazz:build-gambit-ext))
+(definition (run descriptor)
+  (boot-environment~ (new LogView-App)))
+
+
+(register-product-run 'sample-logview run))

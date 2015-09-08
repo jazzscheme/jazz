@@ -8,14 +8,15 @@
   (define (package-product package)
     (assq (package-name package) (package-products package)))
   
-  (let ((target (last (command-arguments)))
+  (let ((target (string->symbol (last (command-arguments))))
         (repositories (get-repositories))
         (packages '()))
     (for-each (lambda (repository)
                 (unless (repository-binary? repository)
                   (iterate-packages repository
                     (lambda (package)
-                      (when (search (symbol->string (package-name package)) target)
+                      (when (or (eq? (package-name package) target)
+                                (member? target (package-products package) key: car test: eq?))
                         (set! packages (cons package packages)))))))
               repositories)
     (let ((sorted (sort ci<? packages key: (lambda (package) (symbol->string (package-name package))))))
@@ -24,14 +25,20 @@
                     (format :console "{%}"))
                   (let ((name (package-name package))
                         (description (package-description package))
-                        (authors (package-authors package)))
+                        (authors (package-authors package))
+                        (stage (package-stage package))
+                        (products (package-products package)))
                     (if description
-                        (format :console "{a}{?, {a}~}{?, {l detail: :human separator: \", \"}~}{%}" name description authors)
+                        (format :console "{a}{? ({a})~}{?, {a}~}{?, {l detail: :human separator: \", \"}~}{%}" name stage description authors)
                       (format :console "{a}{%}" name))
-                    (let ((product (package-product package)))
-                      (for-each (lambda (dependency)
-                                  (format :console "  {a}{%}" dependency))
-                                (cond-expanded-product-descriptor-dependencies name product)))))
+                    (format :console "  dependencies: {l detail: :human separator: \", \"}{%}"
+                      (let ((product (package-product package)))
+                        (cond-expanded-product-descriptor-dependencies name product)))
+                    (let ((names (map car products)))
+                    (when (or (/= (length names) 1)
+                              (neq? (car names) name))
+                      (format :console "  products: {l detail: :human separator: \", \"}{%}"
+                        names)))))
                 sorted))))
 
 

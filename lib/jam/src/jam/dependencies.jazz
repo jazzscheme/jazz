@@ -1,0 +1,74 @@
+(module jam.dependencies jazz
+
+
+(import (jazz.runtime))
+
+
+(definition (package-dependencies)
+  (define (package-product package)
+    (assq (package-name package) (package-products package)))
+  
+  (let ((target (string->symbol (last (command-arguments))))
+        (repositories (get-repositories))
+        (packages '()))
+    (for-each (lambda (repository)
+                (unless (repository-binary? repository)
+                  (iterate-packages repository
+                    (lambda (package)
+                      (when (or (eq? (package-name package) target)
+                                (member? target (package-products package) key: car test: eq?))
+                        (set! packages (cons package packages)))))))
+              repositories)
+    (cond ((null? packages)
+           (format :console "Unable to find package {s}" target))
+          ((> (length packages) 1)
+           (format :console "Ambiguous name: {s}" target))
+          (else
+           (let ((package (car packages)))
+             (let ((name (package-name package))
+                   (description (package-description package))
+                   (authors (package-authors package))
+                   (stage (package-stage package))
+                   (products (package-products package)))
+               (if description
+                   (format :console "{a}{? ({a})~}{?, {a}~}{?, {l detail: :human separator: \", \"}~}{%}" name stage description authors)
+                 (format :console "{a}{%}" name))
+               (let ((units (package-units package))
+                     (explicit (cond-expanded-product-descriptor-dependencies name (package-product package)))
+                     (implicit (make-table test: eq?)))
+                 (define (add package)
+                   (let ((name (package-name package)))
+                     (unless (table-ref implicit name #f)
+                       (table-set! implicit name package)
+                       #t)))
+                 
+                 (define (follow unit)
+                   (let ((declaration (walk-unit unit)))
+                     (typecase declaration
+                       ((Unit-Declaration)
+                        (when (add (get-container~ declaration))
+                          (for-each follow (get-requires~ declaration))))
+                       ((Module-Declaration)
+                        (when (add (get-container~ declaration))
+                          (add (find-package (get-dialect-name~ declaration)))
+                          (iterate-table (get-references~ (get-walker~ declaration))
+                            (lambda (locator declaration)
+                              (let ((resolved-declaration (resolve-binding declaration)))
+                                (let ((module (get-toplevel~ resolved-declaration)))
+                                  (add (get-container~ module)))))))))))
+                 
+                 (define (present names (suffix #f))
+                   (for-each (lambda (name)
+                               (format :console "  {a}{? ({a})~}{%}" name suffix))
+                             (sort ci<? names)))
+                 
+                 (for-each follow units)
+                 (let ((implicit (remove name (table-keys implicit))))
+                   (present (intersection explicit implicit))
+                   (present (difference explicit implicit) "unneeded")
+                   (present (difference implicit explicit) "missing")))))))))
+
+
+(register-product-run 'jam-dependencies
+  (lambda (descriptor)
+    (package-dependencies))))

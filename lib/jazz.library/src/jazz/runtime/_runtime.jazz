@@ -38,7 +38,8 @@
 (module jazz.runtime jazz
 
 
-(require (dialect.development))
+(require (core.unit.runtime)
+         (dialect.development))
 
 (import (jazz.io)
         (jazz.library))
@@ -130,29 +131,39 @@
   (let ((table (make-table test: eq?)))
     (iterate-packages repository
       (lambda (package)
-        (for-each (lambda (product)
-                    (let ((pair (assq 'update (cdr product))))
-                      (when pair
-                        (let ((updated-names (cdr pair)))
-                          (for-each (lambda (updated-name/cond)
-                                      (define (process-updated-name updated-name)
-                                        (for-each-subunit updated-name
-                                          (lambda (unit-name declaration phase)
-                                            @debug
-                                            (let ((actual-package (table-ref table unit-name #f)))
-                                              (when actual-package
-                                                (debug 'duplicate (package-name actual-package) (package-name package) updated-name unit-name)))
-                                            (table-set! table unit-name package))))
-                                      
-                                      (if (symbol? updated-name/cond)
-                                          (process-updated-name updated-name/cond)
-                                        ;; this could possibly be used to be smarter about conditional inclusion of modules
-                                        (for-each (lambda (clause)
-                                                    (for-each process-updated-name (cdr clause)))
-                                                  (cdr updated-name/cond))))
-                                    updated-names)))))
-                  (package-products package))))
+        (add-package-units package table)))
     (sort string<? (table-keys table) key: symbol->string)))
+
+
+(definition public (package-units package)
+  (let ((table (make-table test: eq?)))
+    (add-package-units package table)
+    (sort string<? (table-keys table) key: symbol->string)))
+
+
+(definition (add-package-units package table)
+  (for-each (lambda (product)
+              (let ((pair (assq 'update (cdr product))))
+                (when pair
+                  (let ((updated-names (cdr pair)))
+                    (for-each (lambda (updated-name/cond)
+                                (define (process-updated-name updated-name)
+                                  (for-each-subunit updated-name
+                                    (lambda (unit-name declaration phase)
+                                      @debug
+                                      (let ((actual-package (table-ref table unit-name #f)))
+                                        (when actual-package
+                                          (debug 'duplicate (package-name actual-package) (package-name package) updated-name unit-name)))
+                                      (table-set! table unit-name package))))
+                                
+                                (if (symbol? updated-name/cond)
+                                    (process-updated-name updated-name/cond)
+                                  ;; this could possibly be used to be smarter about conditional inclusion of modules
+                                  (for-each (lambda (clause)
+                                              (for-each process-updated-name (cdr clause)))
+                                            (cdr updated-name/cond))))
+                              updated-names)))))
+            (package-products package)))
 
 
 (definition public (iterate-packages repository proc)

@@ -739,8 +739,8 @@
 (define (jazz:new-unit-declaration name access parent requires)
   (define (determine-package)
     (let ((resource (jazz:requested-unit-resource)))
-      (%%assert resource
-        (%%get-resource-package resource))))
+      (and resource
+           (%%get-resource-package resource))))
   
   (let ((new-declaration (jazz:allocate-unit-declaration name #f #f access 'uptodate '() #f parent #f #f (determine-package) requires)))
     (jazz:setup-declaration new-declaration)
@@ -845,8 +845,8 @@
 (define (jazz:new-module-declaration name access parent walker dialect-name dialect-invoice)
   (define (determine-package)
     (let ((resource (jazz:requested-unit-resource)))
-      (%%assert resource
-        (%%get-resource-package resource))))
+      (and resource
+           (%%get-resource-package resource))))
   
   (let ((new-declaration (jazz:allocate-module-declaration name #f #f access 'uptodate '() #f parent #f #f (jazz:make-access-lookups jazz:public-access) (jazz:new-queue) #f walker (determine-package) dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (%%make-table test: eq?))))
     (jazz:setup-declaration new-declaration)

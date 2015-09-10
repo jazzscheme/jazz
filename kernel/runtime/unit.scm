@@ -2358,6 +2358,8 @@
                      (jazz:generate-symbol-for "&")
                      (jazz:generate-symbol-context (gensym))
                      (jazz:generate-symbol-counter 0)
+                     (jazz:requested-unit-name #f)
+                     (jazz:requested-unit-resource #f)
                      (jazz:requested-pathname path))
         (jazz:with-extension-reader (jazz:pathname-extension path)
           (lambda ()

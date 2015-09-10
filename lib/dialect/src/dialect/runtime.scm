@@ -853,6 +853,12 @@
     new-declaration))
 
 
+(define (jazz:get-unit/module-container unit/module)
+  (if (%%is? unit/module jazz:Unit-Declaration)
+      (jazz:get-unit-declaration-container unit/module)
+    (jazz:get-module-declaration-container unit/module)))
+
+
 (define (jazz:add-module-require module-declaration require)
   (define (find-require requires)
     (let ((require-name (%%car require)))

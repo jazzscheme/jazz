@@ -127,11 +127,8 @@
 
 
 (definition public (repository-units repository)
-  (load-runtime)
   (let ((table (make-table test: eq?)))
-    (iterate-packages repository
-      (lambda (package)
-        (add-package-units package table)))
+    (add-repository-units repository table)
     (sort string<? (table-keys table) key: symbol->string)))
 
 
@@ -141,7 +138,14 @@
     (sort string<? (table-keys table) key: symbol->string)))
 
 
-(definition (add-package-units package table)
+(definition protected (add-repository-units repository table)
+  (load-runtime)
+  (iterate-packages repository
+    (lambda (package)
+      (add-package-units package table))))
+
+
+(definition protected (add-package-units package table)
   (for-each (lambda (product)
               (let ((pair (assq 'update (cdr product))))
                 (when pair
@@ -166,20 +170,27 @@
             (package-products package)))
 
 
+(definition public (iterate-repositories proc (repositories: repositories #f))
+  (let ((repositories (or repositories (get-repositories))))
+    (for-each (lambda (repository)
+                (unless (repository-binary? repository)
+                  (proc repository)))
+              repositories)))
+
+
 (definition public (iterate-packages repository proc)
   (for-each proc (repository-packages repository)))
 
 
 (definition public (iterate-units proc (repositories: repositories #f) (feedback: feedback #f))
-  (let ((repositories (or repositories (get-repositories))))
-    (for-each (lambda (repository)
-                (unless (repository-binary? repository)
-                  (for-each (lambda (unit-name)
-                              (when feedback
-                                (feedback unit-name))
-                              (proc unit-name))
-                            (repository-units repository))))
-              repositories)))
+  (iterate-repositories
+    (lambda (repository)
+      (for-each (lambda (unit-name)
+                  (when feedback
+                    (feedback unit-name))
+                  (proc unit-name))
+                (repository-units repository)))
+    repositories: repositories))
 
 
 (definition public (outline-all (feedback: feedback #f))

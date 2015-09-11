@@ -1871,6 +1871,10 @@
       jazz:default-char-encoding))
 
 
+(define (jazz:resource-package resource)
+  (%%get-resource-package resource))
+
+
 (define (jazz:resource-pathname resource)
   (jazz:package-root-pathname (%%get-resource-package resource)
     (jazz:resource-package-pathname resource)))

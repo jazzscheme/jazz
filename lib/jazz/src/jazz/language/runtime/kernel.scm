@@ -1124,6 +1124,7 @@
 ;;;
 
 
+(native jazz:resource-package)
 (native jazz:resource-pathname)
 
 

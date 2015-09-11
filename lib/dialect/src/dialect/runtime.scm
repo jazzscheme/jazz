@@ -771,6 +771,7 @@
           (let ((require-invoices (map (lambda (require)
                                          (jazz:parse-require require
                                            (lambda (require-name feature-requirement phase)
+                                             (jazz:require-unit-src require-name)
                                              (jazz:new-require-invoice require-name phase))))
                                        requires)))
             (jazz:new-unit-declaration name access #f require-invoices)))))))
@@ -882,8 +883,10 @@
         (jazz:load-unit require-name))
       (let ((requires (jazz:get-module-declaration-requires module-declaration)))
         (if (%%not (find-require requires))
-            (let ((require-invoice (jazz:new-require-invoice require-name phase)))
-              (jazz:set-module-declaration-requires module-declaration (%%append requires (%%list require-invoice)))))))))
+            (begin
+              (jazz:require-unit-src require-name)
+              (let ((require-invoice (jazz:new-require-invoice require-name phase)))
+                (jazz:set-module-declaration-requires module-declaration (%%append requires (%%list require-invoice))))))))))
 
 
 (define (jazz:add-module-import module-declaration module-invoice register?)

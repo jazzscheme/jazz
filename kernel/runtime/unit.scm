@@ -992,6 +992,10 @@
           #f)))))
 
 
+(define (jazz:require-unit-src unit-name)
+  (jazz:find-unit-src unit-name #f #t))
+
+
 (define (jazz:with-unit-resources unit-name extensions proc)
   (define force-interpreted?
     (let ((interpreted? (jazz:force-interpreted?)))

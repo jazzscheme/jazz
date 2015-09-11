@@ -547,7 +547,7 @@
                                                                  (jazz:get-subunit-names unit-name walk-continue?: #t))
                                                                update)))))
                                     (%%get-package-products package)))))
-    (let ((resources (map (lambda (unit-name) (jazz:find-unit-src unit-name #f)) units)))
+    (let ((resources (map (lambda (unit-name) (jazz:find-unit-src unit-name)) units)))
       (let ((referenced (map (lambda (resource) (%%get-resource-path resource)) resources))
             (root (jazz:package-root-pathname package "")))
         (define (sweep-file pathname path)
@@ -945,7 +945,7 @@
     (and (%%char<=? #\a first-char) (%%char<=? first-char #\z))))
 
 
-(define (jazz:find-unit-src unit-name extensions . rest)
+(define (jazz:find-unit-src unit-name #!key (extensions #f) (error? #t))
   (define (find-src package path)
     (define (try path underscore?)
       (define (try-extension extension)
@@ -966,34 +966,33 @@
         (try (%%string-append path "/_" (jazz:pathname-name path)) #t)
       (try path #f)))
   
-  (let ((error? (if (%%null? rest) #t (%%car rest))))
-    (continuation-capture
-      (lambda (return)
-        (let ((path (jazz:name->path unit-name)))
-          (for-each (lambda (package)
-                      (let ((src (find-src package path)))
-                        (if src
-                            (continuation-return return src))))
-                    (jazz:cached-packages jazz:*source-packages-cache* unit-name))
-          (jazz:iterate-packages #f
-            (lambda (package)
-              (let ((src (find-src package path)))
-                (if src
-                    (begin
-                      (jazz:cache-package jazz:*source-packages-cache* unit-name package)
-                      #; ;; test
-                      (jazz:validate-repository-unicity (%%get-package-repository package)
-                                                        unit-name
-                                                        (lambda (package)
-                                                          (find-src package path)))
-                      (continuation-return return src)))))))
-        (if error?
-            (jazz:error "Unable to find unit: {s}" unit-name)
-          #f)))))
+  (continuation-capture
+    (lambda (return)
+      (let ((path (jazz:name->path unit-name)))
+        (for-each (lambda (package)
+                    (let ((src (find-src package path)))
+                      (if src
+                          (continuation-return return src))))
+                  (jazz:cached-packages jazz:*source-packages-cache* unit-name))
+        (jazz:iterate-packages #f
+          (lambda (package)
+            (let ((src (find-src package path)))
+              (if src
+                  (begin
+                    (jazz:cache-package jazz:*source-packages-cache* unit-name package)
+                    #; ;; test
+                    (jazz:validate-repository-unicity (%%get-package-repository package)
+                                                      unit-name
+                                                      (lambda (package)
+                                                        (find-src package path)))
+                    (continuation-return return src)))))))
+      (if error?
+          (jazz:error "Unable to find unit: {s}" unit-name)
+        #f))))
 
 
 (define (jazz:require-unit-src unit-name)
-  (jazz:find-unit-src unit-name #f #t))
+  (jazz:find-unit-src unit-name error?: #t))
 
 
 (define (jazz:with-unit-resources unit-name extensions proc)
@@ -1061,7 +1060,7 @@
                       (continuation-return return (values obj bin manifest))))))))
         (values #f #f #f))))
   
-  (let ((src (jazz:find-unit-src unit-name extensions #f))
+  (let ((src (jazz:find-unit-src unit-name extensions: extensions error?: #f))
         (image-unit (jazz:get-image-unit unit-name)))
     (receive (obj bin manifest) (find-unit-binaries src)
       (let ((obj-uptodate? (if obj #t #f))

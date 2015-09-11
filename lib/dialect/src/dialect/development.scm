@@ -48,7 +48,7 @@
 
 
 (define (jazz:parse unit-name)
-  (let ((src (jazz:find-unit-src unit-name #f)))
+  (let ((src (jazz:find-unit-src unit-name)))
     (let ((form-src (jazz:read-toplevel-form src)))
       (pretty-print
         (jazz:desourcify-all form-src)))))
@@ -56,7 +56,7 @@
 
 (define (jazz:parse-source unit-name)
   (parameterize ((jazz:walk-for 'interpret))
-    (let* ((src (jazz:find-unit-src unit-name #f))
+    (let* ((src (jazz:find-unit-src unit-name))
            (form-src (jazz:read-toplevel-form src)))
       (pretty-print
         (jazz:present-source form-src)))))
@@ -68,7 +68,7 @@
 
 
 (define (jazz:expanding-unit unit-name thunk #!key (walk-for #f))
-  (let ((src (jazz:find-unit-src unit-name #f)))
+  (let ((src (jazz:find-unit-src unit-name)))
     (parameterize ((jazz:walk-for (or walk-for 'walk))
                    (jazz:generate-symbol-for "%")
                    (jazz:generate-symbol-context unit-name)

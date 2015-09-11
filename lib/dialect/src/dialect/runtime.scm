@@ -5634,7 +5634,7 @@
 
 
 (define (jazz:generate-unit unit-name #!optional (backend 'scheme))
-  (let ((src (jazz:find-unit-src unit-name '("jazz" "scm"))))
+  (let ((src (jazz:find-unit-src unit-name)))
     (parameterize ((jazz:requested-unit-name unit-name)
                    (jazz:requested-unit-resource src)
                    (jazz:walk-for 'interpret)

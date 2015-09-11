@@ -97,7 +97,7 @@
                                        (%%string-length container))))
         ;; find path from unit name
         ((%%symbol? container)
-         (let ((src (jazz:find-unit-src container #f #f)))
+         (let ((src (jazz:find-unit-src container error?: #f)))
            (if src
                (jazz:resource-pathname src)
              #f)))

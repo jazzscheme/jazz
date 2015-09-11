@@ -135,7 +135,7 @@
 
 
 (define (jazz:find-unit-product unit-name)
-  (let ((src (jazz:find-unit-src unit-name #f)))
+  (let ((src (jazz:find-unit-src unit-name)))
     (let ((package (%%get-resource-package src)))
       (let ((products (%%get-package-products package)))
         (continuation-capture

@@ -65,9 +65,9 @@
   (let ((subunits (%%make-table test: eq?)))
     (let iter ((unit-name toplevel-name) (declaration (jazz:outline-subunit toplevel-name)) (phase #f))
       (define (process-require require)
-        (jazz:parse-require require
-          (lambda (name feature-requirement phase)
-            (iterate unit-name name phase))))
+        (let ((name (jazz:get-require-invoice-name require))
+              (phase (jazz:get-require-invoice-phase require)))
+          (iterate unit-name name phase)))
       
       (define (process-export export)
         (let ((reference (jazz:get-module-invoice-module export)))

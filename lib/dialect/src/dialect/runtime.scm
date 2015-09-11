@@ -768,15 +768,20 @@
       (if (and (jazz:requested-unit-name) (%%neq? name (jazz:requested-unit-name)))
           (jazz:error "Unit at {s} is defining {s}" (jazz:requested-unit-name) name)
         (let ((requires (collect-requires body)))
-          (jazz:new-unit-declaration name access #f requires))))))
+          (let ((require-invoices (map (lambda (require)
+                                         (jazz:parse-require require
+                                           (lambda (require-name feature-requirement phase)
+                                             (jazz:new-require-invoice require-name phase))))
+                                       requires)))
+            (jazz:new-unit-declaration name access #f require-invoices)))))))
 
 
 (jazz:define-method (jazz:outline-generate (jazz:Unit-Declaration declaration) output)
   (jazz:format output "(unit {a}" (jazz:get-lexical-binding-name declaration))
-  (for-each (lambda (spec)
-              (jazz:parse-require spec
-                (lambda (unit-name feature-requirement phase)
-                  (jazz:format output "{%}  {s}" `(require (,unit-name ,@(jazz:outline-generate-phase-list phase)))))))
+  (for-each (lambda (require-invoice)
+              (let ((name (jazz:get-require-invoice-name require-invoice))
+                    (phase (jazz:get-require-invoice-phase require-invoice)))
+                (jazz:format output "{%}  {s}" `(require (,name ,@(jazz:outline-generate-phase-list phase))))))
             (jazz:get-unit-declaration-requires declaration))
   (jazz:format output "){%}"))
 
@@ -859,20 +864,26 @@
     (jazz:get-module-declaration-container unit/module)))
 
 
+(define (jazz:get-unit/module-requires unit/module)
+  (if (%%is? unit/module jazz:Unit-Declaration)
+      (jazz:get-unit-declaration-requires unit/module)
+    (jazz:get-module-declaration-requires unit/module)))
+
+
 (define (jazz:add-module-require module-declaration require)
-  (define (find-require requires)
-    (let ((require-name (%%car require)))
-      (jazz:find-if (lambda (req)
-                      (%%eq? (%%car req) require-name))
-                    requires)))
-  
   (jazz:parse-require require
-    (lambda (unit-name feature-requirement phase)
+    (lambda (require-name feature-requirement phase)
+      (define (find-require requires)
+        (jazz:find-if (lambda (req)
+                        (%%eq? (jazz:get-require-invoice-name req) require-name))
+                      requires))
+      
       (%%when (%%eq? phase 'syntax)
-        (jazz:load-unit unit-name))))
-  (let ((requires (jazz:get-module-declaration-requires module-declaration)))
-    (if (%%not (find-require requires))
-        (jazz:set-module-declaration-requires module-declaration (%%append requires (%%list require))))))
+        (jazz:load-unit require-name))
+      (let ((requires (jazz:get-module-declaration-requires module-declaration)))
+        (if (%%not (find-require requires))
+            (let ((require-invoice (jazz:new-require-invoice require-name phase)))
+              (jazz:set-module-declaration-requires module-declaration (%%append requires (%%list require-invoice)))))))))
 
 
 (define (jazz:add-module-import module-declaration module-invoice register?)
@@ -1532,10 +1543,10 @@
 (jazz:define-method (jazz:outline-generate (jazz:Module-Declaration declaration) output)
   (let ((declarations (jazz:outline-generate-filter-access (jazz:resolve-bindings (jazz:queue-list (jazz:get-namespace-declaration-children declaration))) (jazz:get-public-lookup declaration))))
     (jazz:format output "(module {a} {a}" (jazz:get-lexical-binding-name declaration) (jazz:get-module-declaration-dialect-name declaration))
-    (for-each (lambda (spec)
-                (jazz:parse-require spec
-                  (lambda (unit-name feature-requirement phase)
-                    (jazz:format output "{%}  {s}" `(require (,unit-name ,@(jazz:outline-generate-phase-list phase)))))))
+    (for-each (lambda (require-invoice)
+                (let ((name (jazz:get-require-invoice-name require-invoice))
+                      (phase (jazz:get-require-invoice-phase require-invoice)))
+                  (jazz:format output "{%}  {s}" `(require (,name ,@(jazz:outline-generate-phase-list phase))))))
               (jazz:get-module-declaration-requires declaration))
     (for-each (lambda (module-invoice)
                 (let ((name (jazz:get-module-invoice-name module-invoice))
@@ -1560,6 +1571,20 @@
                 (jazz:outline-generate decl output))
               declarations)
     (jazz:format output "){%}")))
+
+
+;;;
+;;;; Require Invoice
+;;;
+
+
+(jazz:define-class jazz:Require-Invoice jazz:Object (constructor: jazz:allocate-require-invoice)
+  ((name  getter: generate)
+   (phase getter: generate)))
+
+
+(define (jazz:new-require-invoice name phase)
+  (jazz:allocate-require-invoice name phase))
 
 
 ;;;
@@ -5082,20 +5107,20 @@
 
 
 (define (jazz:walk-import-declaration walker resume declaration environment form-src)
-  (define (jazz:walk-module-import import)
-    (define (jazz:lookup-module name)
+  (define (walk-module-import import)
+    (define (lookup-module name)
       (or (jazz:outline-module name error?: #f)
           (jazz:walk-unresolved walker resume declaration name)))
     
     (receive (module-name module-phase module-autoload module-transformation) (jazz:parse-module-invoice import)
       (jazz:new-import-invoice module-name
-                               (jazz:lookup-module module-name)
+                               (lookup-module module-name)
                                module-phase
                                module-transformation)))
   
   (define (walk-imports imports)
     (map (lambda (import)
-           (jazz:walk-module-import (jazz:listify import)))
+           (walk-module-import (jazz:listify import)))
          imports))
   
   (let ((form (%%desourcify form-src)))

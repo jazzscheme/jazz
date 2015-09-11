@@ -66,10 +66,8 @@
            (let ((dialect-name (jazz:get-module-declaration-dialect-name declaration)))
              (%%when (%%neq? dialect-name 'foundation)
                (enqueue-load-unit dialect-name)))
-           (for-each (lambda (spec)
-                       (jazz:parse-require spec
-                                           (lambda (unit-name feature-requirement phase)
-                                             (enqueue-load-unit unit-name))))
+           (for-each (lambda (require-invoice)
+                       (enqueue-load-unit (jazz:get-require-invoice-name require-invoice)))
                      (jazz:get-module-declaration-requires declaration))
            (for-each (lambda (module-invoice)
                        (let ((symbols (jazz:get-export-invoice-symbols module-invoice))

@@ -631,6 +631,8 @@
                    (if console?
                        '("-mconsole")
                      '("-mwindows"))))
+            ((mac)
+             '("-headerpad_max_install_names"))
             (else
              '()))))
       

@@ -287,7 +287,15 @@
   
   
   (method protected virtual (read-moniker moniker)
-    (load-lines~ moniker char-encoding: (or char-encoding 'UTF-fallback-ISO-8859-1) char-encoding-errors: #t))
+    ;; we cannot directly use UTF-fallback-ISO-8859-1 as
+    ;; it fails in the case of an UTF-8 file with no BOM
+    (with-exception-filter
+      (lambda (exc)
+        (os-exception? exc))
+      (lambda (exc)
+        (load-lines~ moniker char-encoding: 'UTF-fallback-ISO-8859-1 char-encoding-errors: #t))
+      (lambda ()
+        (load-lines~ moniker char-encoding: char-encoding char-encoding-errors: #t))))
   
   
   (method public (reload-content lst)

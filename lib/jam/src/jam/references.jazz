@@ -43,15 +43,16 @@
 
 
 (definition (package-references)
-  (let ((package (package-argument)))
+  (let ((output (current-output-port))
+        (package (package-argument)))
     (let ((name (package-name package))
           (description (package-description package))
           (authors (package-authors package))
           (stage (package-stage package))
           (products (package-products package)))
       (if description
-          (format :console "{a}{? ({a})~}{?, {a}~}{?, {l detail: :human separator: \", \"}~}{%}" name stage description authors)
-        (format :console "{a}{%}" name))
+          (format output "{a}{? ({a})~}{?, {a}~}{?, {l detail: :human separator: \", \"}~}{%}" name stage description authors)
+        (format output "{a}{%}" name))
       (let ((units (package-units package))
             (explicit (map product-package (cond-expanded-product-descriptor-dependencies name (package-product package))))
             (implicit (make-table test: eq?))
@@ -80,10 +81,11 @@
                        (follow-declaration module)))))))))
         
         (for-each follow units)
-        (format :console "  Found {a} references in{%}" (table-length references))
+        (format output "  Found {a} references in{%}" (table-length references))
         (for-each (lambda (name)
-                    (format :console "    {a}{%}" name))
-                  (sort ci<? (table-keys implicit)))))))
+                    (format output "    {a}{%}" name))
+                  (sort ci<? (table-keys implicit)))))
+    (force-output output)))
 
 
 (register-product-run 'jam-references

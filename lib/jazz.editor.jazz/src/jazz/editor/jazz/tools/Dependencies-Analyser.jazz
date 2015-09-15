@@ -181,31 +181,32 @@
         (let ((ide (get-process)))
           (start-remote-server~ ide)
           (start-debuggers~ ide)))
-      (let ((debugger-arg (if debug-analysis? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '())))
-        (let ((port (open-process
-                      (list
-                        path: (parse~ kernel)
-                        arguments: (append debugger-arg (list "-run" "jam-dependencies" "-analysis" (get-string-content~ (locate 'package))))
-                        stdout-redirection: #t
-                        stderr-redirection: #t
-                        show-console: #f))))
-          (thread-start!
-            (new-thread
-              (lambda ()
-                (let ((code (process-status port)))
-                  (assert (= code 0)
-                    (let (analysing)
-                      (let ((unit-name #f @wait (read port)))
-                        (if unit-name
-                            (begin
-                              (feedback "Analysing {a}..." unit-name)
-                              (analysing))
-                          (let ((explicit (read-binary port))
-                                (implicit (read-binary port)))
-                            (present-all explicit implicit)
-                            @wait
-                            (feedback "Done"))))))))
-              'analyse))))))
+      (thread-start!
+        (new-thread
+          (lambda ()
+            (let ((debugger-arg (if debug-analysis? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '())))
+              (let ((server-port (open-tcp-server 0)))
+                (open-process
+                  (list
+                    path: (parse~ kernel)
+                    arguments: `("-:daqQ-" ,@debugger-arg "-run" "jam-dependencies" "-analysis" ,(number->string (socket-info-port-number (tcp-server-socket-info server-port))) ,(get-string-content~ (locate 'package)))
+                    stdin-redirection: #f
+                    stdout-redirection: #f
+                    stderr-redirection: #f
+                    show-console: #f))
+                (let ((port (read server-port)))
+                  (let (analysing)
+                    (let ((unit-name #f @wait (read port)))
+                      (if unit-name
+                          (begin
+                            (feedback "Analysing {a}..." unit-name)
+                            (analysing))
+                        (let ((explicit (read-binary port))
+                              (implicit (read-binary port)))
+                          (present-all explicit implicit)
+                          @wait
+                          (feedback "Done"))))))
+                'analyse)))))))
 
   
   ;;;

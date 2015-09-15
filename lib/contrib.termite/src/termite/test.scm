@@ -6,10 +6,10 @@
 ;;;
 
 
-(module termite.test jazz
+(module termite.test scheme
 
 
-@experimental (
+#; ( ;; experimental
 (import (termite))
 
 

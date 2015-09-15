@@ -1,4 +1,4 @@
-(module webserver jazz
+(module webserver scheme
 
         
 (require (webserver.implementation.http))

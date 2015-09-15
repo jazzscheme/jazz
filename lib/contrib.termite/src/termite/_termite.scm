@@ -6,10 +6,10 @@
 ;;;
 
 
-(module termite jazz
+(module termite scheme
 
 
-@experimental (
+#; ( ;; experimental
 (require (termite.implementation))
 
 (export (termite.syntax (phase syntax)))

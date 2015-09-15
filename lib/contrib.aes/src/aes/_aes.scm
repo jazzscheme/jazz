@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Zlib
+;;;; AES
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,18 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module zlib jazz
+(module aes scheme
 
 
-(require zlib.implementation)
+(require aes.implementation)
 
 
-(native gzip-genport)
-(native gunzip-genport)
-(native deflate-genport)
-(native inflate-genport)
-
-(native gzip-u8vector)
-(native gunzip-u8vector)
-(native deflate-u8vector)
-(native inflate-u8vector)
-
-(native make-zlib-condition)
-(native zlib-condition?)
-(native zlib-condition-msg))
+(native u8vector->aes-context)
+(native aes-encrypt-unpadded-u8vector-using-context)
+(native aes-decrypt-unpadded-u8vector-using-context)
+(native aes-encrypt-u8vector-using-context)
+(native aes-decrypt-u8vector-using-context)
+(native aes-encrypt-subu8vector)
+(native aes-decrypt-subu8vector)
+(native aes-encrypt-u8vector)
+(native aes-decrypt-u8vector))

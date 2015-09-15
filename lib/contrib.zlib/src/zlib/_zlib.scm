@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; XML
+;;;; Zlib
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,22 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module xml jazz
+(module zlib scheme
 
 
-(require xml.implementation)
+(require zlib.implementation)
 
 
-(native xml-string->sxml))
+(native gzip-genport)
+(native gunzip-genport)
+(native deflate-genport)
+(native inflate-genport)
+
+(native gzip-u8vector)
+(native gunzip-u8vector)
+(native deflate-u8vector)
+(native inflate-u8vector)
+
+(native make-zlib-condition)
+(native zlib-condition?)
+(native zlib-condition-msg))

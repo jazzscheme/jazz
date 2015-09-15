@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module sqlite jazz
+(module sqlite scheme
 
 
 (require (sqlite.implementation.resqlite3))

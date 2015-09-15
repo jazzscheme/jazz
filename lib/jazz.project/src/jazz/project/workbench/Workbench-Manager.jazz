@@ -45,6 +45,7 @@
         (jazz.designer.ui)
         (jazz.designer.ui.menu)
         (jazz.doc)
+        (jazz.editor.jazz)
         (jazz.git.ui)
         (jazz.graphic)
         (jazz.groupware)
@@ -279,6 +280,17 @@
   
   (method (on-search-project evt)
     (search-project))
+  
+  
+  (method (on-dependencies evt)
+    (for-each (lambda (project)
+                (let ((host (new-frame Dependencies-Analyser kernel: (project-kernel~ (current-project)))))
+                  (let ((analyser (get-guest~ host)))
+                    (let ((text (locate~ analyser 'package)))
+                      (set-string-content~ text (->string (get-name~ project)))
+                      (acquire-focus~ (locate~ analyser 'declarations))
+                      (analyse~ analyser)))))
+              (selected-objects)))
   
   
   (method (on-explore-depot evt)
@@ -1324,6 +1336,24 @@
   
   
   ;;;
+  ;;;; Dependencies
+  ;;;
+  
+  
+  (method (project-dependencies)
+    (project-dependencies~ (current-project)))
+  
+  
+  ;;;
+  ;;;; References
+  ;;;
+  
+  
+  (method (project-references)
+    (project-references~ (current-project)))
+  
+  
+  ;;;
   ;;;; Utilities
   ;;;
   
@@ -1420,7 +1450,9 @@
             (set-title~ (locate~ menu 'edit-descriptor)
               (case kind
                 ((repository) "Edit Repository")
-                ((package) "Edit Package")))))
+                ((package) "Edit Package"))))
+          (when (neq? kind 'package)
+            (set-visible?~ (locate~ menu 'dependencies) #f)))
         (let ((documentation (and (is? object Project) (get-documentation~ object))))
           (when (not documentation)
             (set-visible?~ (locate~ menu 'edit-documentation) #f)))
@@ -1543,25 +1575,26 @@
   
   (form
     (<install>
-      (<Label-Item>     name: edit-project        title: "Edit Project" before: add-item icon: {Image-Resource "Edit"} action-handler: {Action workbench-manager edit-project})
-      (<Label-Item>     name: edit-descriptor     title: "Edit Descriptor" before: add-item action-handler: {Action workbench-manager edit-descriptor})
-      (<Label-Item>     name: edit-documentation  title: "Edit Documentation" before: add-item action-handler: {Action workbench-manager edit-documentation})
-      (<Separator-Item>                           before: add-item)
-      (<Label-Item>     name: add-project         title: "New Project..." before: add-item action-handler: {Action workbench-manager add-project})
-      (<Label-Item>     name: add-document        title: "New Document..." before: add-item icon: {Image-Resource "Add"} action-handler: {Action workbench-manager add-document})
-      (<Label-Item>     name: add-directory       title: "New Directory..." before: add-item action-handler: {Action workbench-manager add-directory})
-      (<Label-Item>     name: install-project     title: "Install Project..." before: cut icon: {Image-Resource "Import"} action-handler: {Action workbench-manager install-project})
-      (<Label-Item>     name: import-files        title: "Import Files..." before: cut action-handler: {Action workbench-manager import-files})
-      (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action-handler: {Action workbench-manager import-directory})
-      (<Label-Item>     name: synchronize-content title: "Synchronize..." before: cut action-handler: {Action workbench-manager synchronize-content})
-      (<Separator-Item>                           before: cut)
-      (<Label-Item>     name: search-project      title: "Search Project" before: cut icon: {Image-Resource "Find"} action-handler: {Action workbench-manager search-project})
-      (<Label-Item>     name: update-catalog      title: "Update Catalog" before: cut icon: {Image-Resource "Catalog"} action-handler: {Action workbench-manager update-catalog})
-      (<Label-Item>     name: update-dynamic      title: "Update Dynamic" before: cut action-handler: {Action workbench-manager update-dynamic})
-      (<Separator-Item>                           before: cut)
-      (<Label-Item>     name: explore-depot       title: "Explore Depot" before: cut icon: {Image-Resource "Configure"} action-handler: {Action workbench-manager explore-depot})
-      (<Separator-Item>                           before: cut)
-      (<!>              name: delete-selection    title: "Remove"))))
+      (<Label-Item>     name: edit-project         title: "Edit Project" before: add-item icon: {Image-Resource "Edit"} action-handler: {Action workbench-manager edit-project})
+      (<Label-Item>     name: edit-descriptor      title: "Edit Descriptor" before: add-item action-handler: {Action workbench-manager edit-descriptor})
+      (<Label-Item>     name: edit-documentation   title: "Edit Documentation" before: add-item action-handler: {Action workbench-manager edit-documentation})
+      (<Separator-Item>                            before: add-item)
+      (<Label-Item>     name: add-project          title: "New Project..." before: add-item action-handler: {Action workbench-manager add-project})
+      (<Label-Item>     name: add-document         title: "New Document..." before: add-item icon: {Image-Resource "Add"} action-handler: {Action workbench-manager add-document})
+      (<Label-Item>     name: add-directory        title: "New Directory..." before: add-item action-handler: {Action workbench-manager add-directory})
+      (<Label-Item>     name: install-project      title: "Install Project..." before: cut icon: {Image-Resource "Import"} action-handler: {Action workbench-manager install-project})
+      (<Label-Item>     name: import-files         title: "Import Files..." before: cut action-handler: {Action workbench-manager import-files})
+      (<Label-Item>     name: import-directory     title: "Import Directory..." before: cut action-handler: {Action workbench-manager import-directory})
+      (<Label-Item>     name: synchronize-content  title: "Synchronize..." before: cut action-handler: {Action workbench-manager synchronize-content})
+      (<Separator-Item>                            before: cut)
+      (<Label-Item>     name: search-project       title: "Search Project" before: cut icon: {Image-Resource "Find"} action-handler: {Action workbench-manager search-project})
+      (<Label-Item>     name: update-catalog       title: "Update Catalog" before: cut icon: {Image-Resource "Catalog"} action-handler: {Action workbench-manager update-catalog})
+      (<Label-Item>     name: update-dynamic       title: "Update Dynamic" before: cut action-handler: {Action workbench-manager update-dynamic})
+      (<Label-Item>     name: dependencies         title: "Dependencies" before: cut icon: {Image-Resource "Class"} action-handler: {Action workbench-manager dependencies})
+      (<Separator-Item>                            before: cut)
+      (<Label-Item>     name: explore-depot        title: "Explore Depot" before: cut icon: {Image-Resource "Configure"} action-handler: {Action workbench-manager explore-depot})
+      (<Separator-Item>                            before: cut)
+      (<!>              name: delete-selection     title: "Remove"))))
 
 
 ;;;

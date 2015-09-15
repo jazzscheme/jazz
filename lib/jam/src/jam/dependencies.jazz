@@ -39,59 +39,101 @@
 
 
 (import (jam)
+        (jazz.platform)
         (jazz.runtime))
+
+
+(definition (collect-dependencies package (feedback #f))
+  (let ((units (package-units package))
+        (dependencies (make-table test: eq?)))
+    (define (add-unit unit-name)
+      (let ((package (resource-package (find-unit-src unit-name))))
+        (let ((table (package-table package)))
+          (when table
+            (table-add table unit-name (list unit-name #t))))))
+    
+    (define (package-table pkg)
+      (unless (eq? pkg package)
+        (let ((package-name (package-name pkg)))
+          (or (table-ref dependencies package-name #f)
+              (let ((t (make-table test: eq?)))
+                (table-set! dependencies package-name t)
+                t)))))
+    
+    (define (follow unit)
+      (when feedback
+        (feedback unit))
+      (let ((declaration (or (walk-unit unit) (outline-unit unit))))
+        (for-each (lambda (require-invoice)
+                    (add-unit (get-name~ require-invoice)))
+                  (get-unit/module-requires declaration))
+        (when (is? declaration Module-Declaration)
+          (add-unit (get-dialect-name~ declaration))
+          (let ((references (get-references~ (get-walker~ declaration)))
+                (binding-references (make-table test: eq?)))
+            (iterate-table references
+              (lambda (locator declaration)
+                (table-set! binding-references declaration '())))
+            (iterate-binding-references declaration
+              (lambda (binding-reference)
+                (let ((src (get-source~ binding-reference))
+                      (decl (get-binding~ binding-reference)))
+                  (when (table-ref binding-references decl #f)
+                    (table-add binding-references decl (if (source? src)
+                                                           (marshall-locat (source-locat src))
+                                                         ;; fix
+                                                         #t))))))
+            (iterate-table binding-references
+              (lambda (declaration binding-references)
+                ;; fix binding-references should never be null
+                (let ((resolved-declaration (resolve-binding declaration)))
+                  (let ((locator (get-locator~ resolved-declaration))
+                        (module (get-toplevel~ resolved-declaration)))
+                    (let ((package (get-container~ module)))
+                      (let ((table (package-table package)))
+                        (when table
+                          (table-add table locator (cons unit binding-references)))))))))))))
+    
+    (for-each follow units)
+    dependencies))
 
 
 (definition (package-dependencies)
   (let ((output (current-output-port))
+        (mode (mode-argument))
         (package (package-argument)))
     (let ((name (package-name package))
           (description (package-description package))
           (authors (package-authors package))
-          (stage (package-stage package))
-          (products (package-products package)))
-      (if description
-          (format output "{a}{? ({a})~}{?, {a}~}{?, {l detail: :human separator: \", \"}~}{%}" name stage description authors)
-        (format output "{a}{%}" name))
-      (let ((units (package-units package))
-            (explicit (map product-package (cond-expanded-product-descriptor-dependencies name (package-product package))))
-            (implicit (make-table test: eq?)))
-        (define (add package)
-          (let ((name (package-name package)))
-            (unless (table-ref implicit name #f)
-              (table-set! implicit name package)
-              #t)))
-        
-        (define (add-unit unit-name)
-          (add (resource-package (find-unit-src unit-name))))
-        
-        (define (follow unit)
-          (let ((declaration (or (walk-unit unit) (outline-unit unit))))
-            (for-each (lambda (require-invoice)
-                        (add-unit (get-name~ require-invoice)))
-                      (get-unit/module-requires declaration))
-            (when (is? declaration Module-Declaration)
-              (add-unit (get-dialect-name~ declaration))
-              (iterate-table (get-references~ (get-walker~ declaration))
-                (lambda (locator declaration)
-                  (let ((resolved-declaration (resolve-binding declaration)))
-                    (let ((module (get-toplevel~ resolved-declaration)))
-                      (add (get-container~ module)))))))))
-        
+          (stage (package-stage package)))
+      (when (eq? mode 'interactive)
+        (if description
+            (format output "{a}{? ({a})~}{?, {a}~}{?, {l detail: :human separator: \", \"}~}{%}" name stage description authors)
+          (format output "{a}{%}" name)))
+      (let ((explicit (map product-package (cond-expanded-product-descriptor-dependencies name (package-product package))))
+            (implicit (collect-dependencies package @wait (and (eq? mode 'analysis) (lambda (unit) (format output "{s}{%}" unit))))))
         (define (present names (suffix #f))
           (for-each (lambda (name)
                       (format output "  {a}{? ({a})~}{%}" name suffix))
                     (sort ci<? names)))
         
-        (for-each follow units)
-        (let ((explicit (map package-name explicit))
-              (implicit (remove name (table-keys implicit))))
-          (present (intersection explicit implicit))
-          (present (difference explicit implicit) "unneeded")
-          (present (difference implicit explicit) "missing"))))
+        (case mode
+          ((interactive)
+           (let ((explicit (map package-name explicit))
+                 (implicit (remove name (table-keys implicit))))
+             (present (intersection explicit implicit))
+             (present (difference explicit implicit) "unneeded")
+             (present (difference implicit explicit) "missing")))
+          (else
+           @wait
+           (format output "{s}{%}" #f)
+           (write-binary (map package-name explicit) output)
+           (write-binary implicit output)))))
+           
     (force-output output)))
 
 
 (register-product-run 'jam-dependencies
   (lambda (descriptor)
-    (package-dependencies))))
+    (package-dependencies)
+    (exit))))

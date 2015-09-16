@@ -141,11 +141,16 @@
         (lambda ()
           (apply user-message rest))))
     
+    (define (jazz=>scheme lst)
+      (if (memq? 'jazz lst)
+          (remove 'scheme lst)
+        lst))
+    
     (define (present-all explicit implicit)
       (execute-event
         (lambda ()
-          (let ((e explicit)
-                (i (table-keys implicit))
+          (let ((e (jazz=>scheme explicit))
+                (i (jazz=>scheme (table-keys implicit)))
                 (tree (locate 'declarations)))
             (remove-every-row~ tree)
             (with-update-locked~ tree
@@ -184,29 +189,31 @@
       (thread-start!
         (new-thread
           (lambda ()
-            (let ((debugger-arg (if debug-analysis? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '())))
-              (let ((server-port (open-tcp-server 0)))
+            (let ((server-port (open-tcp-server 0)))
+              (let ((debugger-args (if debug-analysis? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
+                    (port-args (list "-port" (number->string (socket-info-port-number (tcp-server-socket-info server-port)))))
+                    (package-arg (get-string-content~ (locate 'package))))
                 (open-process
                   (list
                     path: (parse~ kernel)
-                    arguments: `("-:daqQ-" ,@debugger-arg "-run" "jam-dependencies" "-analysis" ,(number->string (socket-info-port-number (tcp-server-socket-info server-port))) ,(get-string-content~ (locate 'package)))
+                    arguments: `("-:daqQ-" ,@debugger-args "-run" "jam" "dependencies" "-analysis" ,@port-args ,package-arg)
                     stdin-redirection: #f
                     stdout-redirection: #f
                     stderr-redirection: #f
-                    show-console: #f))
-                (let ((port (read server-port)))
-                  (let (analysing)
-                    (let ((unit-name #f @wait (read port)))
-                      (if unit-name
-                          (begin
-                            (feedback "Analysing {a}..." unit-name)
-                            (analysing))
-                        (let ((explicit (read-binary port))
-                              (implicit (read-binary port)))
-                          (present-all explicit implicit)
-                          @wait
-                          (feedback "Done"))))))
-                'analyse)))))))
+                    show-console: #f)))
+              (let ((port (read server-port)))
+                (let (analysing)
+                  (let ((unit-name #f @wait (read port)))
+                    (if unit-name
+                        (begin
+                          (feedback "Analysing {a}..." unit-name)
+                          (analysing))
+                      (let ((explicit (read-binary port))
+                            (implicit (read-binary port)))
+                        (present-all explicit implicit)
+                        @wait
+                        (feedback "Done"))))))))
+          'analyse))))
 
   
   ;;;

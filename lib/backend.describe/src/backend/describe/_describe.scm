@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Runtime UI
+;;;; Describe Backend
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,40 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.runtime.ui jazz
+(unit backend.describe
 
 
-(import (jazz.runtime)
-        (jazz.system))
+(require (backend.syntax))
 
 
-(definition public (load-all-with-feedback)
-  (let ((count 0))
-    (load-all feedback:
-      (lambda (unit-name)
-        (if unit-name
-            (begin
-              (user-feedback "Loading {a}..." unit-name)
-              (increase! count)))))
-    (user-feedback "Loaded {a} unit{a}" count (format-plural count))))
-
-
-(definition public (walk-all-with-feedback)
-  (let ((count 0))
-    (walk-all feedback:
-      (lambda (unit-name)
-        (if unit-name
-            (begin
-              (user-feedback "Walking {a}..." unit-name)
-              (increase! count)))))
-    (user-feedback "Walked {a} unit{a}" count (format-plural count))))
-
-
-(definition public (outline-all-with-feedback)
-  (let ((count 0))
-    (parameterize ((outline-feedback
-                     (lambda (unit-name)
-                       (user-feedback "Outlining {a}..." unit-name)
-                       (increase! count))))
-      (outline-all))
-    (user-feedback "Outlined {a} unit{a}" count (format-plural count)))))
+(jazz:define-backend describe))

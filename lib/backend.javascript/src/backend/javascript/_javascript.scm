@@ -35,10 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module backend.javascript jazz
+(unit backend.javascript
 
 
-(import (jazz.backend))
+(require (backend.syntax))
 
 
-(define-backend javascript))
+(jazz:define-backend javascript))

@@ -38,4 +38,7 @@
 (unit backend.scheme
 
 
+(require (backend.syntax))
+
+
 (jazz:define-backend scheme))

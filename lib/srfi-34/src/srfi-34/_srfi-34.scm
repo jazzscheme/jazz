@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Describe Backend
+;;;; SRFI 34
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module backend.describe jazz
+(module srfi-34 scheme
 
 
-(import (jazz.backend))
+(export guard)
+
+(import (scheme.syntax-rules (phase syntax)))
 
 
-(define-backend describe))
+(include "implementation.scm"))

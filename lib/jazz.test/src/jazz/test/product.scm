@@ -42,5 +42,5 @@
         (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
 
 
-(jazz:register-product 'test
+(jazz:register-product 'jazz.test
   build: jazz:build-test)

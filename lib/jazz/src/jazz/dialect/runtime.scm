@@ -304,32 +304,32 @@
   (let ((ascendant (resolve-class (jazz:get-class-declaration-ascendant class-declaration)))
         (interfaces (map resolve-interface (jazz:get-class-declaration-interfaces class-declaration))))
     
-    (let ((private (jazz:get-access-lookup class-declaration jazz:private-access)))
+    (let ((private (jazz:get-private-lookup class-declaration)))
       (if ascendant
           (let ((same-module? (%%eq? (jazz:get-declaration-toplevel class-declaration)
                                      (jazz:get-declaration-toplevel ascendant))))
             (%%table-merge! private (jazz:get-access-lookup ascendant (if same-module? jazz:private-access jazz:public-access)) #t)))
       (for-each (lambda (interface)
-                  (%%table-merge! private (jazz:get-access-lookup interface jazz:public-access)))
+                  (%%table-merge! private (jazz:get-public-lookup interface)))
                 interfaces))
     
-    (let ((public (jazz:get-access-lookup class-declaration jazz:public-access)))
+    (let ((public (jazz:get-public-lookup class-declaration)))
       (if ascendant
-          (%%table-merge! public (jazz:get-access-lookup ascendant jazz:public-access)))
+          (%%table-merge! public (jazz:get-public-lookup ascendant)))
       (for-each (lambda (interface)
-                  (%%table-merge! public (jazz:get-access-lookup interface jazz:public-access)))
+                  (%%table-merge! public (jazz:get-public-lookup interface)))
                 interfaces))
     
     ;; jazz:add-declaration-child does not set jazz:protected-access
-    (let ((not-private (jazz:get-access-lookup class-declaration jazz:public-access)))
+    (let ((not-private (jazz:get-public-lookup class-declaration)))
       (%%vector-set! (jazz:get-namespace-declaration-lookups class-declaration) jazz:protected-access not-private))
     
     #;
-    (let ((protected (jazz:get-access-lookup class-declaration jazz:protected-access)))
+    (let ((protected (jazz:get-protected-lookup class-declaration)))
       (if ascendant
-          (%%table-merge! protected (jazz:get-access-lookup ascendant jazz:public-access)))
+          (%%table-merge! protected (jazz:get-public-lookup ascendant)))
       (for-each (lambda (interface)
-                  (%%table-merge! protected (jazz:get-access-lookup interface jazz:public-access)))
+                  (%%table-merge! protected (jazz:get-public-lookup interface)))
                 interfaces))))
 
 
@@ -514,26 +514,26 @@
   
   (let ((ascendants (map resolve-interface (jazz:get-interface-declaration-ascendants interface-declaration))))
     
-    (let ((private (jazz:get-access-lookup interface-declaration jazz:private-access)))
+    (let ((private (jazz:get-private-lookup interface-declaration)))
       (for-each (lambda (interface)
-                  (%%table-merge! private (jazz:get-access-lookup interface jazz:public-access) #t))
+                  (%%table-merge! private (jazz:get-public-lookup interface) #t))
                 ascendants))
     
     ;; a quick test
-    (let ((private (jazz:get-access-lookup interface-declaration jazz:private-access)))
+    (let ((private (jazz:get-private-lookup interface-declaration)))
       (%%vector-set! (jazz:get-namespace-declaration-lookups interface-declaration) jazz:public-access private)
       (%%vector-set! (jazz:get-namespace-declaration-lookups interface-declaration) jazz:protected-access private))
     
     #;
-    (let ((public (jazz:get-access-lookup interface-declaration jazz:public-access)))
+    (let ((public (jazz:get-public-lookup interface-declaration)))
       (for-each (lambda (interface)
-                  (%%table-merge! public (jazz:get-access-lookup interface jazz:public-access)))
+                  (%%table-merge! public (jazz:get-public-lookup interface)))
                 ascendants))
     
     #;
-    (let ((protected (jazz:get-access-lookup interface-declaration jazz:protected-access)))
+    (let ((protected (jazz:get-protected-lookup interface-declaration)))
       (for-each (lambda (interface)
-                  (%%table-merge! protected (jazz:get-access-lookup interface jazz:public-access)))
+                  (%%table-merge! protected (jazz:get-public-lookup interface)))
                 ascendants))))
 
 

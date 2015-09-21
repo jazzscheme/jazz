@@ -1033,7 +1033,7 @@
           #f
         (let ((module-invoice (%%car scan)))
           (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice)))
-            (let ((imported (jazz:get-access-lookup imported-module-declaration jazz:public-access)))
+            (let ((imported (jazz:get-public-lookup imported-module-declaration)))
               (if (%%table-ref imported symbol #f)
                   (jazz:get-lexical-binding-name (jazz:get-module-invoice-module module-invoice))
                 (iter (%%cdr scan)))))))))

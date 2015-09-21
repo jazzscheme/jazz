@@ -584,10 +584,10 @@
         (jazz:debug (jazz:get-declaration-locator decl))))
     (%%when (%%not (jazz:find-declaration-child namespace-declaration name))
       (jazz:enqueue (jazz:get-namespace-declaration-children namespace-declaration) child))
-    (%%table-set! (jazz:get-access-lookup namespace-declaration jazz:private-access) name child)
+    (%%table-set! (jazz:get-private-lookup namespace-declaration) name child)
     ;; for now everything not private is considered public
     (%%when (%%neq? (jazz:get-declaration-access child) 'private)
-      (%%table-set! (jazz:get-access-lookup namespace-declaration jazz:public-access) name child))
+      (%%table-set! (jazz:get-public-lookup namespace-declaration) name child))
     child))
 
 
@@ -598,11 +598,11 @@
 
 
 (define (jazz:find-declaration namespace-declaration name)
-  (%%table-ref (jazz:get-access-lookup namespace-declaration jazz:private-access) name #f))
+  (%%table-ref (jazz:get-private-lookup namespace-declaration) name #f))
 
 
 (define (jazz:find-public-declaration namespace-declaration name)
-  (%%table-ref (jazz:get-access-lookup namespace-declaration jazz:public-access) name #f))
+  (%%table-ref (jazz:get-public-lookup namespace-declaration) name #f))
 
 
 (define (jazz:find-declaration-child namespace-declaration name)
@@ -903,7 +903,7 @@
         (if actual
             (merge-invoice actual module-invoice)
           (jazz:set-module-declaration-imports module-declaration (%%append imports (%%list module-invoice)))))))
-  (let ((private (jazz:get-access-lookup module-declaration jazz:private-access))
+  (let ((private (jazz:get-private-lookup module-declaration))
         (mangler (jazz:generate-library-mangler (jazz:get-module-invoice-transformation module-invoice))))
     (cond (mangler
             (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice))
@@ -912,11 +912,11 @@
                                 (let ((mangled-key (mangler key)))
                                   (if mangled-key
                                       (table-set! imported mangled-key declaration))))
-                              (jazz:get-access-lookup imported-module-declaration jazz:public-access))
+                              (jazz:get-public-lookup imported-module-declaration))
               (jazz:table-merge-reporting-conflicts! module-declaration "Import" private imported)))
           (else
            (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice)))
-             (let ((imported (jazz:get-access-lookup imported-module-declaration jazz:public-access)))
+             (let ((imported (jazz:get-public-lookup imported-module-declaration)))
                (jazz:table-merge-reporting-conflicts! module-declaration "Import" private imported)))))))
 
 
@@ -941,7 +941,7 @@
       (if actual
           (merge-invoice actual module-invoice)
         (jazz:set-module-declaration-exports module-declaration (%%append exports (%%list module-invoice))))))
-  (let ((public (jazz:get-access-lookup module-declaration jazz:public-access))
+  (let ((public (jazz:get-public-lookup module-declaration))
         (mangler (jazz:generate-library-mangler (jazz:get-module-invoice-transformation module-invoice)))
         (autoload (jazz:get-export-invoice-autoload module-invoice))
         (symbols (jazz:get-export-invoice-symbols module-invoice)))
@@ -969,14 +969,14 @@
                                 (let ((mangled-key (mangler key)))
                                   (if mangled-key
                                       (table-set! exported mangled-key declaration))))
-                              (jazz:get-access-lookup exported-module-declaration jazz:public-access))
+                              (jazz:get-public-lookup exported-module-declaration))
               (jazz:table-merge-reporting-conflicts! module-declaration "Export" public exported)
               (table-for-each (lambda (key declaration)
                                 (add-to-module-references declaration))
                               exported)))
           (else
            (let* ((exported-module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration))
-                  (exported-table (jazz:get-access-lookup exported-module-declaration jazz:public-access)))
+                  (exported-table (jazz:get-public-lookup exported-module-declaration)))
              (jazz:table-merge-reporting-conflicts! module-declaration "Export" public exported-table)
              (table-for-each (lambda (key declaration)
                                (add-to-module-references declaration))
@@ -1135,7 +1135,7 @@
   (%%when (jazz:analysis-mode?)
     (for-each (lambda (module-invoice)
                 (let ((imported-module-declaration (jazz:get-module-invoice-module module-invoice)))
-                  (let ((imported (jazz:get-access-lookup imported-module-declaration jazz:public-access)))
+                  (let ((imported (jazz:get-public-lookup imported-module-declaration)))
                     (%%when (%%table-ref imported symbol #f)
                       (jazz:set-import-invoice-hit? module-invoice #t)))))
               (jazz:get-module-declaration-imports declaration)))
@@ -1277,21 +1277,6 @@
     (jazz:walk-declarations walker #f declaration (%%cons declaration (jazz:walker-environment walker)) body)
     (jazz:validate-walk-problems walker)
     declaration))
-
-
-(define (jazz:walk-module-export walker export)
-  (receive (module-name module-phase module-autoload module-transformation) (jazz:parse-module-invoice export)
-    (let ((module-reference (jazz:new-module-reference module-name #f)))
-      (jazz:new-export-invoice module-name
-                               module-reference
-                               module-phase
-                               module-transformation
-                               (if (%%not module-autoload)
-                                   #f
-                                 (map (lambda (symbol)
-                                        (jazz:new-autoload-reference symbol #f #f))
-                                      module-autoload))
-                               #f))))
 
 
 (define (jazz:rename-identifier-conflicts expressions environment)
@@ -1521,7 +1506,7 @@
           (jazz:sort (jazz:queue-list queue) (lambda (x y) (%%string<? (%%symbol->string x) (%%symbol->string y)))))
       ',(let ((walker (jazz:get-module-declaration-walker declaration))
               (queue (jazz:new-queue)))
-          (jazz:iterate-table-safe (jazz:get-access-lookup declaration jazz:public-access)
+          (jazz:iterate-table-safe (jazz:get-public-lookup declaration)
             (lambda (name decl)
               (%%when (or (%%eq? (jazz:get-declaration-toplevel decl) declaration)
                           ;; quick hack
@@ -1673,6 +1658,20 @@
 
 
 (define (jazz:walk-export-declaration walker resume declaration environment form-src)
+  (define (walk-module-export export)
+    (receive (module-name module-phase module-autoload module-transformation) (jazz:parse-module-invoice export)
+      (let ((module-reference (jazz:new-module-reference module-name #f)))
+        (jazz:new-export-invoice module-name
+                                 module-reference
+                                 module-phase
+                                 module-transformation
+                                 (if (%%not module-autoload)
+                                     #f
+                                   (map (lambda (symbol)
+                                          (jazz:new-autoload-reference symbol #f #f))
+                                        module-autoload))
+                                 #f))))
+  
   (define (walk-exports exports)
     (let ((partition (jazz:partition exports symbol? assv)))
       (let ((symbols-exports (%%assq #t partition))
@@ -1685,7 +1684,7 @@
                       '())
                     (if module-exports
                         (map (lambda (export)
-                               (jazz:walk-module-export walker export))
+                               (walk-module-export export))
                              (%%cdr module-exports))
                       '()))))))
   

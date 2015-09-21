@@ -5638,6 +5638,12 @@
   (jazz:generate-unit unit-name #f))
 
 
+;; useful for units that cannot be walked
+(define (jazz:walk/outline-unit unit-name)
+  (or (jazz:walk-unit unit-name)
+      (jazz:outline-unit unit-name)))
+
+
 (define (jazz:generate-unit unit-name #!optional (backend 'scheme))
   (let ((src (jazz:find-unit-src unit-name)))
     (parameterize ((jazz:requested-unit-name unit-name)

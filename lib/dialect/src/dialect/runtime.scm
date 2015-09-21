@@ -196,6 +196,7 @@
    (literals     getter: generate setter: generate)
    (variables    getter: generate)
    (statics      getter: generate)
+   (exports      getter: generate)
    (references   getter: generate)
    (autoloads    getter: generate setter: generate)))
 
@@ -220,6 +221,8 @@
   (jazz:get-walker-variables (jazz:get-module-declaration-walker lib-decl)))
 (define (jazz:get-module-declaration-walker-statics lib-decl)
   (jazz:get-walker-statics (jazz:get-module-declaration-walker lib-decl)))
+(define (jazz:get-module-declaration-walker-exports lib-decl)
+  (jazz:get-walker-exports (jazz:get-module-declaration-walker lib-decl)))
 (define (jazz:get-module-declaration-walker-references lib-decl)
   (jazz:get-walker-references (jazz:get-module-declaration-walker lib-decl)))
 (define (jazz:get-module-declaration-walker-autoloads lib-decl)
@@ -927,11 +930,11 @@
       (%%when new-autoload
         (jazz:set-export-invoice-autoload actual (if actual-autoload (%%append actual-autoload new-autoload) new-autoload)))))
   
-  (define (add-to-module-references declaration)
+  (define (add-to-module-exports declaration)
     (%%when (and declaration
                  (%%neq? module-declaration (jazz:get-declaration-toplevel declaration)))
-      (let ((references-table (jazz:get-module-declaration-walker-references module-declaration)))
-        (%%table-set! references-table (jazz:get-declaration-locator declaration) declaration))))
+      (let ((exports-table (jazz:get-module-declaration-walker-exports module-declaration)))
+        (%%table-set! exports-table (jazz:get-declaration-locator declaration) declaration))))
   
   (%%when (%%eq? (jazz:get-module-invoice-phase module-invoice) 'syntax)
     (let ((module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration)))
@@ -951,7 +954,7 @@
                           (let ((name (jazz:reference-name (jazz:get-declaration-reference-name declaration-reference)))
                                 (declaration (jazz:resolve-autoload-reference declaration-reference module-declaration exported-module-reference)))
                             (%%table-set! public name declaration)
-                            (add-to-module-references declaration)))
+                            (add-to-module-exports declaration)))
                         autoload)))
           (symbols
             (for-each (lambda (declaration-reference)
@@ -960,7 +963,7 @@
                             (if mangled-name
                                 (let ((declaration (jazz:resolve-reference declaration-reference module-declaration)))
                                   (%%table-set! public mangled-name declaration)
-                                  (add-to-module-references declaration))))))
+                                  (add-to-module-exports declaration))))))
                       symbols))
           (mangler
             (let ((exported-module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration))
@@ -972,14 +975,14 @@
                               (jazz:get-public-lookup exported-module-declaration))
               (jazz:table-merge-reporting-conflicts! module-declaration "Export" public exported)
               (table-for-each (lambda (key declaration)
-                                (add-to-module-references declaration))
+                                (add-to-module-exports declaration))
                               exported)))
           (else
            (let* ((exported-module-declaration (jazz:resolve-reference (jazz:get-module-invoice-module module-invoice) module-declaration))
                   (exported-table (jazz:get-public-lookup exported-module-declaration)))
              (jazz:table-merge-reporting-conflicts! module-declaration "Export" public exported-table)
              (table-for-each (lambda (key declaration)
-                               (add-to-module-references declaration))
+                               (add-to-module-exports declaration))
                              exported-table))))))
 
 
@@ -1111,12 +1114,15 @@
            (iter (jazz:get-declaration-parent declaration) (%%cons (jazz:get-lexical-binding-name declaration) composite-identifier)))))
   
   (let ((partition (%%make-table test: eq?)))
-    (jazz:iterate-table (jazz:get-module-declaration-walker-references module-declaration)
-      (lambda (locator declaration)
-        (let ((resolved-declaration (jazz:resolve-binding declaration)))
-          (let ((module (jazz:get-declaration-toplevel resolved-declaration)))
-            (%%table-set! partition module
-              (merge-sorted (compose-name module resolved-declaration) (%%table-ref partition module '())))))))
+    (define (merge-declaration locator declaration)
+      (let ((resolved-declaration (jazz:resolve-binding declaration)))
+        (let ((module (jazz:get-declaration-toplevel resolved-declaration)))
+          (%%table-set! partition module
+            (merge-sorted (compose-name module resolved-declaration) (%%table-ref partition module '()))))))
+    
+    ;; necessary to merge exports because of runtime access through module-ref
+    (jazz:iterate-table (jazz:get-module-declaration-walker-exports module-declaration) merge-declaration)
+    (jazz:iterate-table (jazz:get-module-declaration-walker-references module-declaration) merge-declaration)
     (let iter ((in (%%table->list partition))
                (out '()))
          (if (%%null? in)

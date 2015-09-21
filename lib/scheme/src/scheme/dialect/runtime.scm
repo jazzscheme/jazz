@@ -65,7 +65,7 @@
 
 
 (define (jazz:new-scheme-walker)
-  (jazz:allocate-scheme-walker #f #f '() '() '() (jazz:new-queue) (jazz:new-queue) (%%make-table test: eq?) '()))
+  (jazz:allocate-scheme-walker #f #f '() '() '() (jazz:new-queue) (jazz:new-queue) (%%make-table test: eq?) (%%make-table test: eq?) '()))
 
 
 (jazz:define-method (jazz:runtime-export (jazz:Scheme-Walker walker) declaration)

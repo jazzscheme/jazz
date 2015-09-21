@@ -65,7 +65,7 @@
 
 
 (define (jazz:new-foundation-walker)
-  (jazz:allocate-foundation-walker #f #f '() '() '() (jazz:new-queue) (jazz:new-queue) (%%make-table test: eq?) '()))
+  (jazz:allocate-foundation-walker #f #f '() '() '() (jazz:new-queue) (jazz:new-queue) (%%make-table test: eq?) (%%make-table test: eq?) '()))
 
 
 ;;;

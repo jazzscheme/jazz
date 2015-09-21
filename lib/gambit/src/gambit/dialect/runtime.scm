@@ -65,7 +65,7 @@
 
 
 (define (jazz:new-gambit-walker)
-  (jazz:allocate-gambit-walker #f #f '() '() '() (jazz:new-queue) (jazz:new-queue) (%%make-table test: eq?) '()))
+  (jazz:allocate-gambit-walker #f #f '() '() '() (jazz:new-queue) (jazz:new-queue) (%%make-table test: eq?) (%%make-table test: eq?) '()))
 
 
 ;;;

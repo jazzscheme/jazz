@@ -2420,28 +2420,29 @@
 
 
 ;;;
-;;;; Distributed Service
+;;;; Coupler
 ;;;
 
 
-(define jazz:Distributed-Services
+(define jazz:Couplers
   (%%make-table test: eq?))
 
 
-(define (jazz:register-distributed-service name thunk)
-  (%%table-set! jazz:Distributed-Services name
+(define (jazz:register-coupler name thunk)
+  (%%table-set! jazz:Couplers name
     (cons thunk
-          (%%table-ref jazz:Distributed-Services name '()))))
+          (%%table-ref jazz:Couplers name '()))))
 
 
-(define (jazz:get-distributed-service name)
-  (%%table-ref jazz:Distributed-Services name '()))
+(define (jazz:get-couplers name)
+  (%%table-ref jazz:Couplers name '()))
 
 
-(define (jazz:activate-distributed-service name)
+(define (jazz:activate-couplers name)
   (for-each (lambda (proc)
               (proc))
-            (jazz:get-distributed-service name)))
+            (jazz:get-couplers name))
+  (%%table-clear jazz:Couplers name))
 
 
 ;;;

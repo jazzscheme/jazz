@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Image Resources
+;;;; Resource Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,19 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.resource.Image-Resource jazz
+(unit jazz.resource.install
 
 
-(import (jazz.library))
-
-
-(class Image-Resource extends Resource
-  
-  
-  ;;;
-  ;;;; Type
-  ;;;
-  
-  
-  (method meta override (resource-type)
-    'image)))
+(jazz:define-literal Image-Resource  jazz.resource.literals:construct-image-resource)
+(jazz:define-literal Icon-Resource   jazz.resource.literals:construct-icon-resource)
+(jazz:define-literal Cursor-Resource jazz.resource.literals:construct-cursor-resource)
+(jazz:define-literal Sound-Resource  jazz.resource.literals:construct-sound-resource))

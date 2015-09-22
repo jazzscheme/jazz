@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Service Handle
+;;;; Service Manager
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.service.platform.windows.Service-Handle jazz
+(module protected jazz.daemon.platform.windows.Service-Manager jazz
 
 
-(class Service-Handle extends Object)
+(class Service-Manager extends Object)
 
 
 @convert (
@@ -47,16 +47,19 @@
 (import (jazz.library))
 
 
-(class Service-Handle extends Object
+(class Service-Manager extends Object
 
 
   (slot handle)
 
 
-  (method (initialize hnd)
+  (method (initialize)
     (nextmethod)
-    (set! handle hnd)
-    (destroy-mandatory))
+    (let ((hnd (OpenSCManager NULL NULL SC_MANAGER_ALL_ACCESS)))
+      (if (not hnd)
+          (error "Could not open service control manager (#x{x})" (winerror))
+        (set! handle hnd)
+        (destroy-mandatory))))
 
 
   (method (destroy)
@@ -65,11 +68,25 @@
   
   
   ;;;
-  ;;;; Delete
+  ;;;; Create
   ;;;
   
   
-  (method public (delete-service)
-    (when (not (DeleteService handle))
-      (error "Could not delete service (#x{x})" (winerror))))))
+  (method public (create-service name command (presentation: presentation #f))
+    (let ((service-handle (CreateService handle name (or presentation name) SERVICE_ALL_ACCESS SERVICE_WIN32_OWN_PROCESS SERVICE_DEMAND_START SERVICE_ERROR_NORMAL command NULL NULL NULL NULL NULL)))
+      (if (= service-handle NULL)
+          (error "Could not create service (#x{x})" (winerror))
+        (new Service-Handle service-handle))))
+  
+  
+  ;;;
+  ;;;; Open
+  ;;;
+  
+  
+  (method public (open-service name)
+    (let ((service-handle (OpenService handle name SERVICE_ALL_ACCESS)))
+      (if (not service-handle)
+          (error "Could not open service (#x{x})" (winerror))
+        (new Service-Handle service-handle))))))
 )

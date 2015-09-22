@@ -1,0 +1,135 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Localized Domain
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.domain.Localized-Domain jazz
+
+
+(import (jazz.domain)
+        (jazz.jml)
+        (jazz.locale)
+        (jazz.locale.components))
+
+
+;;;
+;;;; Localized-Domain
+;;;
+
+
+(class undocumented Localized-Domain extends Domain
+
+  
+  (property active-locale initialize #f getter generate setter explicit)
+  
+   
+  (form
+    (<install> nullable?: #t))
+  
+  
+  (method public (set-active-locale value)
+    (set! active-locale (and value (standardize-locale value))))
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method override (get-nil-presentation)
+    (if active-locale
+        ""
+      (nextmethod)))
+  
+  
+  (method override (present-value value)
+    (if active-locale
+        (or (localize~ value active-locale) "")
+      (->string value :reader)))
+  
+  
+  (method override (parse-presentation text)
+    (if active-locale
+        text
+      (let ((obj (read-string-safe text)))
+        (if (is? obj Locales)
+            obj
+          (signal (new Parse-Error message: "A Locales object is required."))))))
+  
+  
+  ;;;
+  ;;;; Multi-Domains
+  ;;;
+  
+  
+  (method override (get-multi-domains client)
+    (and (not active-locale)
+         (let ((locale-tree (get-locale-tree client)))
+           (if locale-tree
+               (map (lambda (node)
+                      (let ((name (get-name~ node))
+                            (title (get-title~ node)))
+                        (list name title (new Localized-Domain active-locale: (symbol->keyword name)))))
+                    (collect-descendants~ locale-tree Locale-Node))
+             ;; Hack for Forms that come from files
+             (list (list 'locale #f (new Value-Domain)))))))
+  
+  
+  ;;;
+  ;;;; Validation
+  ;;;
+  
+    
+  (method override (validate-value value (validation-context #f))
+    (or (nextmethod value validation-context)
+        (let* ((toolbox-module (and validation-context (get-module-metadata~ validation-context)))
+               (locale-tree (and toolbox-module (get-locale-tree~ toolbox-module))))
+          (validate-locales value locale-tree add-violation))))
+  
+  
+  ;;;
+  ;;;; Entry
+  ;;;
+  
+  
+  (method override (setup-entry view client)
+    (if active-locale
+        (new jazz.designer.ui:Localized-Entry parent: view domain: self active-locale: active-locale)
+      (let ((locale-tree (get-locale-tree (car client))))
+        (if locale-tree
+            (let ((entry (new jazz.designer.ui:Localized-Dialog-Entry parent: view domain: self)))
+              (set-locale-tree~ entry locale-tree)
+              entry)
+          (new jazz.designer.ui:Localized-Entry parent: view domain: self active-locale: #f)))))))

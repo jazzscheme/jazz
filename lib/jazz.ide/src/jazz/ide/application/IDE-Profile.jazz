@@ -39,6 +39,7 @@
 
 
 (import (jazz.application)
+        (jazz.application.services)
         (jazz.catalog)
         (jazz.component)
         (jazz.designer)
@@ -62,18 +63,28 @@
   ;;;
   
   
-  (method (add-missing-imports import units)
+  (method (add-missing-imports import (units: units #f) (targets: targets #f))
     (let ((cataloguer (get-cataloguer))
           (processed 0))
-      (for-each (lambda (unit)
-                  (let ((definitions (get-definitions~ cataloguer unit)))
-                    (if (/= (length definitions) 1)
-                        (debug 'ambiguous unit)
-                      (user-message "Processing {a}..." unit)
-                      (let ((text (get-guest~ (edit~ (car definitions)))))
-                        (let ((expl (new (explorer-class~ text) (get-model~ text))))
-                          (insert-import-invoice~ expl import))))))
-                units)
+      (define (add-import unit)
+        (let ((definitions (get-definitions~ cataloguer unit)))
+          (if (/= (length definitions) 1)
+              (debug 'ambiguous unit)
+            (user-message "Processing {a}..." unit)
+            (let ((text (get-guest~ (edit~ (car definitions)))))
+              (let ((expl (new (explorer-class~ text) (get-model~ text))))
+                (insert-import-invoice~ expl import)))
+            (increase! processed))))
+      
+      (let ((all (call-with-input-file "~/walk-unresolved.jazz" read-all)))
+        (for-each (lambda (info)
+                    (bind (unresolved . units) info
+                      (when (or (not targets) (memq? unresolved targets))
+                        (for-each (lambda (unit-name)
+                                    (when (or (not units) (memq? unit-name units))
+                                      (add-import unit-name)))
+                                  units))))
+                  all))
       (user-message "Processed {a} unit{a}" processed (format-plural processed))))
   
   
@@ -200,6 +211,17 @@
     (call-with-input-file (path-settings file)
       (lambda (port)
         (debug (read-all port read-u8)))))
+  
+  
+  (method (make-directory-feedback)
+    (let ((directory #f))
+      (lambda (file)
+        (let ((dir (get-parent~ file)))
+          (when (or (not directory) (not (pathname=? dir directory)))
+            (let ((expanded (expand~ dir)))
+              (let ((len (length expanded)))
+                (user-message "Searching {l detail: :human}..." (subseq expanded (max 0 (- len 3)) len))
+                (set! directory dir))))))))
 
   
   ;;;

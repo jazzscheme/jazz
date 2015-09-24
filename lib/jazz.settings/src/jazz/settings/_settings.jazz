@@ -1,0 +1,297 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Settings
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.settings jazz
+
+
+(import (jazz.io))
+
+
+;;;
+;;;; Arguments
+;;;
+
+
+(definition public (get-argument arg arg-parser (default (unspecified)))
+  (let ((arg-value (and arg (command-argument arg))))
+    (if arg-value
+        (arg-parser arg-value)
+      (if (specified? default)
+          default
+        (error "Mandatory argument not found: {a}" arg)))))
+
+
+;;;
+;;;; Parameters
+;;;
+
+
+(definition public (get-parameter arg arg-parser setting setting-parser (default (unspecified)))
+  (let ((arg-value (and arg (command-argument arg))))
+    (if arg-value
+        (arg-parser arg-value)
+      (let ((setting-value (if setting 
+                               (find-setting setting Not-Found)
+                             Not-Found)))
+        (if (neq? setting-value Not-Found)
+            (setting-parser setting-value)
+          (if (specified? default)
+              default
+            (error "Mandatory parameter not found: {a} / {a}" arg setting)))))))
+
+
+(definition public (boolean-parameter arg setting (default (unspecified)))
+  (get-parameter arg parse-boolean setting identity default))
+
+
+(definition public (integer-parameter arg setting (default (unspecified)))
+  (get-parameter arg parse-integer setting identity default))
+
+
+(definition public (string-parameter arg setting (default (unspecified)))
+  (get-parameter arg identity setting identity default))
+
+
+(definition public (symbol-parameter arg setting (default (unspecified)))
+  (get-parameter arg read-string-element setting identity default))
+
+
+@convert
+(definition public (pathname-argument name)
+  (let ((arg (command-argument name)))
+    (if (not arg)
+        #f
+      (tokenise-filename
+        (if (eqv? (element arg 0) #\double-quote)
+            (subseq arg 1 (- (length arg) 1))
+          arg)))))
+
+
+(definition public (file-parameter arg setting extension (default (unspecified)))
+  (define (parse-file str)
+    (let ((file (new File (tokenise-filename str))))
+      (if (/= (get-extension~ file) extension)
+          (error "Argument /{a} is not of the expected .{a} type" arg extension)
+        file)))
+  
+  (get-parameter arg parse-file setting identity default))
+
+
+(definition public (directory-parameter arg setting (default (unspecified)))
+  (define (parse-directory str)
+    (new Directory (tokenise-filename str)))
+  
+  (get-parameter arg parse-directory setting identity default))
+
+
+(definition public (host-parameter . rest)
+  (apply string-connection-parameter rest))
+
+
+(definition public (string-connection-parameter arg setting (default (unspecified)))
+  (let ((host-setting-value (find-setting setting (unspecified))))
+    (if (specified? host-setting-value)
+        host-setting-value
+      (string-parameter arg #f default))))
+
+
+(definition public (service-parameter . rest)
+  (apply integer-connection-parameter rest))
+
+
+(definition public (integer-connection-parameter arg setting (default (unspecified)))
+  (let ((service-setting-value (find-setting setting (unspecified))))
+    (if (specified? service-setting-value)
+        service-setting-value
+      (integer-parameter arg #f default))))
+
+
+(definition public (point-parameter arg setting (default (unspecified)))
+  (define (parse-point str)
+    (let ((content (split str "x")))
+      (assert (= (length content) 2)
+        (let ((h (string->number (first content)))
+              (v (string->number (second content))))
+          (assert (integer? h)
+            (assert (integer? v)
+              (new Point h v)))))))
+  
+  (get-parameter arg parse-point setting identity default))
+
+
+(definition public (point->argument point)
+  (format "{a}x{a}"
+          (get-h~ point)
+          (get-v~ point)))
+
+
+(definition public (dimension-parameter arg setting (default (unspecified)))
+  (define (parse-dimension str)
+    (let ((content (split str "x")))
+      (assert (= (length content) 2)
+        (let ((width (string->number (first content)))
+              (height (string->number (second content))))
+          (assert (integer? width)
+            (assert (integer? height)
+              (new Dimension width height)))))))
+  
+  (get-parameter arg parse-dimension setting identity default))
+
+
+(definition public (dimension->argument dimension)
+  (format "{a}x{a}"
+          (get-width~ dimension)
+          (get-height~ dimension)))
+
+
+;;;
+;;;; Settings
+;;;
+
+
+(interface Settings-Provider
+  
+  
+  (method public virtual abstract (get-setting setting (default #f))
+    ))
+  
+
+(class File-Settings extends Object implements Settings-Provider
+  
+  
+  (slot file      initialize #f)
+  (slot content   initialize (make-table test: eq?))
+  (slot modified? initialize #f)
+  
+  
+  (method override (initialize (file: file #f))
+    (nextmethod)
+    (set-file file))
+  
+
+  (method override (get-setting setting (default #f))
+    (table-ref content setting default))
+  
+  
+  (method public (set-setting setting value)
+    (table-set! content setting value)
+    (set! modified? #t))
+  
+  
+  (method public (get-file)
+    file)
+
+
+  (method public (set-file value)
+    (set! file value)
+    (when file
+      (with-jazz-readtable
+        (lambda ()
+          (call-with-input-file (path-settings file eol-encoding: 'cr-lf)
+            (lambda (port)
+              (table-load content port #f)))))    
+      (set! modified? #f)))
+  
+  
+  (method public (save-content)
+    (define (find-longest list)
+      (apply max (map (lambda (info)
+                        (cardinality (symbol->string (car info))))
+                      list)))
+    
+    (call-with-output-file (path-settings file)
+      (lambda (output)
+        (let ((all (table->list content)))
+          (when (not-null? all)
+            (let ((max (find-longest all))
+                  (sorted (sort string<? all key: (lambda (info) (symbol->string (car info))))))
+              (for-each (lambda (info)
+                          (bind (setting . value) info
+                            (format output "{s}{_ :v} {s}{%}" setting (- max (cardinality (symbol->string setting))) value)))
+                        sorted))))))
+    (set! modified? #f)))
+
+
+;;;
+;;;; Settings List
+;;;
+
+
+(definition *settings*
+  '())
+
+
+(definition public (get-settings)
+  *settings*)
+
+
+(definition public (register-settings settings <Settings-Provider>)
+  (set! *settings* (cons settings *settings*)))
+
+
+(definition Not-Found
+  (list 'not-found))
+
+
+(definition public (find-setting name (default #f))
+  (continuation-capture
+    (lambda (return)
+      (for-each (lambda (settings)
+                  (let ((value (get-setting~ settings name Not-Found)))
+                    (when (neq? value Not-Found)
+                      (continuation-return return value))))
+                *settings*)
+      default)))
+
+
+(definition public (require-setting name)
+  (or (find-setting name)
+      (error "Unable to find setting: {s}" name)))
+
+
+(definition public (require-string-setting name)
+  (let ((setting (require-setting name)))
+    (if (not (string? setting))
+        (error "Setting {a} must be a string: {s}" name setting)
+      setting)))
+
+
+(definition public (user-setting name (default #f) (unspecified (unspecified)))
+  (let ((value (find-setting name default)))
+    (if (eq? value unspecified)
+        default
+      value))))

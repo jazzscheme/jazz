@@ -38,9 +38,11 @@
 (module protected jazz.editor.jazz.tools.Dependencies-Analyser jazz
 
 
-(import (jazz.event)
+(import (jazz.application)
+        (jazz.event)
         (jazz.feedback)
         (jazz.ide)
+        (jazz.io)
         (jazz.jml)
         (jazz.jrm)
         (jazz.library)
@@ -71,8 +73,7 @@
             (<Tree-Header>                                       style: document
               (<!>                     name: content
                 (<Tree-View>           name: declarations        filled-column: declaration multiple-selection?: #t portfolio: :images double-click-handler: {Event-Handler :form on-double-click}
-                  (<Tree-Node-Column>  name: declaration         title: "Name" width: 500)
-                  (<Tree-Label-Column> name: references          title: "References" width: 100)))))))))
+                  (<Tree-Node-Column>  name: declaration         title: "Name" width: 500)))))))))
   
   
   (method meta override (external-name . rest)
@@ -122,7 +123,13 @@
   
   
   (method (on-double-click evt)
-    )
+    (let ((locat (get-single-selected-data~ (locate 'declarations))))
+      (if (not locat)
+          (bell)
+        (bind (filename line col) locat
+          (let ((file (new File (tokenise-filename filename)))
+                (pos (new Cell line col)))
+            (edit-document~ (get-application) file selection: (new Range$Cell$ pos pos)))))))
 
   
   ;;;
@@ -162,24 +169,21 @@
       (let ((package-names (sort ci<? keys)))
         (for-each (lambda (package-name)
                     (let ((declarations (table-ref implicit package-name #f)))
-                      (let ((father (add-row~ tree children: (list (new Tree-Node title: (format "{a}" package-name) image: image)
-                                                                   (new Tree-Label title: "")))))
+                      (let ((father (add-row~ tree children: (list (new Tree-Node title: (format "{a}" package-name) image: image)))))
                         (when declarations
                           (let ((locators (sort ci<? (table-keys declarations) key: present-reference)))
                             (for-each (lambda (locator)
-                                        (let ((references (table-ref declarations locator))
-                                              (count 0))
-                                          (for-each (lambda (references)
-                                                      (let ((references (cdr references)))
-                                                        (increase! count (if (null? references)
-                                                                             1
-                                                                           (length references)))))
-                                                    references)
-                                          (let ((father (add-row~ tree father: father children: (list (new Tree-Node title: (present-reference locator) image: {Image-Resource "Link"})
-                                                                                                      (new Tree-Label title: (number->string count))))))
-                                            (for-each (lambda (reference)
-                                                        (add-row~ tree father: father children: (list (new Tree-Node title: (->string reference :reader) image: {Image-Resource "Green"})
-                                                                                                      (new Tree-Label title: ""))))
+                                        (let ((references (table-ref declarations locator)))
+                                          (let ((father (add-row~ tree father: father children: (list (new Tree-Node title: (present-reference locator) image: {Image-Resource "Document"})))))
+                                            (for-each (lambda (references)
+                                                        (bind (unit . locations) references
+                                                          (let ((father (add-row~ tree father: father children: (list (new Tree-Node title: (->string unit) image: {Image-Resource "Green"})))))
+                                                            (for-each (lambda (locat)
+                                                                        (if (eq? locat #t)
+                                                                            (add-row~ tree father: father children: (list (new Tree-Node title: "<unknown>" image: {Image-Resource "Link"})))
+                                                                          (bind (filename line col) locat
+                                                                            (add-row~ tree father: father children: (list (new Tree-Node title: (format "{a}.{a}" line col) image: {Image-Resource "Link"})) user-data: locat))))
+                                                                      locations))))
                                                       references))))
                                       locators))))))
                   package-names)))

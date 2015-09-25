@@ -41,7 +41,6 @@
 (import (jazz.application)
         (jazz.catalog)
         (jazz.digest)
-        (jazz.edition)
         (jazz.event)
         (jazz.feedback)
         (jazz.io)
@@ -278,12 +277,7 @@
         (when (not-null? exceptions)
           (post-event
             (lambda ()
-              @wait
-              (for-each debug (map exception-reason exceptions))
-              @wait
-              (let ((exc (car exceptions)))
-                (message-box (exception-reason exc))
-                (edit-exception exc))))))))
+              (for-each debug (map exception-reason exceptions))))))))
   
   
   (method public (update-file file)
@@ -291,9 +285,8 @@
     (let ((exception/entry (scan-file file #f)))
       (when exception/entry
         (if (exception? exception/entry)
-            (let ((line (if (is? exception/entry Explore-Error) (format " at line {a}" (+ (get-line~ (get-start~ exception/entry)) 1)) "")))
-              (user-message/action-handler (format "Error{a}: {a}" line (exception-reason exception/entry))
-                                           (new Event-Handler execute: (lambda (evt) (edit-exception exception/entry))))
+            (let ((line (if (is? exception/entry Source-Error) (format " at line {a}" (+ (get-line~ (get-start~ exception/entry)) 1)) "")))
+              (user-message "Error{a}: {a}" line (exception-reason exception/entry))
               (bell))
           (with-mutex
             (lambda ()
@@ -314,32 +307,19 @@
         (table-add content-index name entry))))
   
   
-  (definition (edit-exception exc)
-    (if (is? exc Explore-Error)
-        (let ((source (get-source~ exc))
-              (range (get-range~ exc)))
-          (edit-document source selection: range))
-      (bell)))
-  
-  
   ;;;
   ;;;; Files
   ;;;
   
   
   (method protected virtual (iterate-files proc)
-    (define (iterate-dir dir)
-      (iterate-directory~ dir
-        (lambda (file)
-          (when (scan-file? file)
-            (proc file)))
-        files?: #t
-        directories?: #f
-        recursive?: #t))
-    
-    (if (is? directories Directory-Group)
-        (for-each iterate-dir (get-list~ directories))
-      (iterate-dir directories)))
+    (iterate-directory~ directories
+      (lambda (file)
+        (when (scan-file? file)
+          (proc file)))
+      files?: #t
+      directories?: #f
+      recursive?: #t))
   
   
   ;;;
@@ -396,7 +376,7 @@
                            (wrap-exception exc))
                          (lambda ()
                            (scan file updated-digest report?))))))))
-        (format :console "{%}Unable to catalog inexistant file: {a}" (parse~ file))
+        (console-feedback "{%}Unable to catalog inexistant file: {a}" (parse~ file))
         #f)))
   
   

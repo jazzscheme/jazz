@@ -38,4 +38,4 @@
 (unit jazz.locale.install
 
 
-(jazz:define-literal Locales jazz.locale.literals:construct-locales))
+(jazz:define-literal Locales jazz.locale:construct-locales))

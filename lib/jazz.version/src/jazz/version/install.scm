@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Spine-Browser Actions
+;;;; Version Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,17 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ide.code.Spine-Browser-Actions jazz
+(unit jazz.version.install
 
 
-(import (jazz.jml)
-        (jazz.library)
-        (jazz.ui))
-
-
-(class Spine-Browser-Actions extends Actions
-
-  
-  (form
-    (<install>
-      (<Action-Item> name: cancel action-handler: {Event-Handler :focus-guest on-cancel} shortcut: {Shortcut :control #\Q})))))
+(jazz:define-literal Version jazz.version:construct-version))

@@ -39,6 +39,7 @@
 
 
 (import (jazz.catalog)
+        (jazz.catalog.edit)
         (jazz.feedback)
         (jazz.resource)
         (jazz.system))
@@ -152,39 +153,6 @@
           (format :string "{a}:{a}" (locator-name parent) name))))
     
     (string->symbol (locator-name self)))
-
-
-  ;;;
-  ;;;; Edit
-  ;;;
-
-  
-  (method override (edit-reference direction search-result . rest)
-    (define (find-declaration-range text)
-      (when (equal? (reference->name (get-string~ text (get-selection~ text))) name)
-        (declaration-range~ text (get-start~ text))))
-    
-    (define (fallback-find text)
-      (user-message "Unable to find definition")
-      (let ((target (get-find~ (get-search~ search-result))))
-        (or (select-next~ text target)
-            (select-previous~ text target))))
-    
-    (receive (frame new?) (apply edit return-new?: #t rest)
-      (let ((text (get-guest~ frame)))
-        (let ((range (find-declaration-range text)))
-          (if range
-              (let ((start (get-start~ range))
-                    (end (get-end~ range)))
-                (set-beginning~ search-result start)
-                (set-ending~ search-result end)
-                (let ((direction (or direction 'forward)))
-                  (let ((range (case direction
-                                 ((forward) (new Range$Cell$ start start))
-                                 ((backward) (new Range$Cell$ end end)))))
-                    (highlight-reference~ text direction range search-result))))
-            (fallback-find text))))
-      (values frame new?)))
   
   
   ;;;
@@ -199,4 +167,37 @@
               references)
     (for-each (lambda (definition)
                 (update-indexes~ definition definitions-index references-index))
-              definitions))))
+              definitions)))
+
+
+;;;
+;;;; Edit
+;;;
+
+
+(specific (edit-reference (<Lisp-Entry> entry) direction search-result . rest)
+  (define (find-declaration-range text)
+    (when (equal? (reference->name (get-string~ text (get-selection~ text))) (get-name~ entry))
+      (declaration-range~ text (get-start~ text))))
+  
+  (define (fallback-find text)
+    (user-message "Unable to find definition")
+    (let ((target (get-find~ (get-search~ search-result))))
+      (or (select-next~ text target)
+          (select-previous~ text target))))
+  
+  (receive (frame new?) (apply edit-entry entry return-new?: #t rest)
+    (let ((text (get-guest~ frame)))
+      (let ((range (find-declaration-range text)))
+        (if range
+            (let ((start (get-start~ range))
+                  (end (get-end~ range)))
+              (set-beginning~ search-result start)
+              (set-ending~ search-result end)
+              (let ((direction (or direction 'forward)))
+                (let ((range (case direction
+                               ((forward) (new Range$Cell$ start start))
+                               ((backward) (new Range$Cell$ end end)))))
+                  (highlight-reference~ text direction range search-result))))
+          (fallback-find text))))
+    (values frame new?))))

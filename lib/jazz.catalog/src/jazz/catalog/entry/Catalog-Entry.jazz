@@ -38,8 +38,7 @@
 (module protected jazz.catalog.entry.Catalog-Entry jazz
 
 
-(import (jazz.catalog)
-        (jazz.ui))
+(import (jazz.catalog))
 
 
 (class undocumented Catalog-Entry extends Object
@@ -168,76 +167,6 @@
 
   (method public virtual (present-detailed)
     (present-name))
-
-
-  ;;;
-  ;;;; Edit
-  ;;;
-
-
-  (method public virtual (edit . rest)
-    )
-
-
-  (method public virtual (edit-reference direction search-result . rest)
-    (apply edit rest))
-  
-  
-  (method protected (edit-textual-reference target . rest)
-    (define (make-reference-search-result target)
-      (define (reference-searcher target)
-        (let ((parser-class (get-parser-class (get-dialect~ file-definition))))
-          (let ((match-test (get-match-test~ parser-class))
-                (constituent-test (get-constituent-test~ parser-class)))
-            (->search-set (list (make-search-context target whole-words?: #t match-test: match-test constituent-test: constituent-test))))))
-      
-      (let ((search (new Projects-Search 'references (reference-searcher target) #f)))
-        (let ((resultset (new Search-Resultset search)))
-          (new Reference-Search-Result resultset self))))
-    
-    (let ((search-result (make-reference-search-result target)))
-      (apply edit-reference 'forward search-result rest)))
-
-
-  ;;;
-  ;;;; Browse
-  ;;;
-  
-  
-  (method public virtual (insert-definition tree father level sort?)
-    (let ((row (insert-self tree father level)))
-      (insert-self-definitions tree row level sort?)))
-  
-  
-  (method protected virtual (insert-self tree father level)
-    (let* ((image (get-image))
-           (definitions (get-definitions))
-           (state (insert-state level definitions))
-           (title (present-name)))
-      (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: self)))
-  
-  
-  (method protected virtual (insert-self-definitions tree father level sort?)
-    (insert-definitions tree father (get-definitions) level sort?))
-  
-  
-  (method protected virtual (insert-state level definitions)
-    (cond ((and parent (= level 2) (= 1 (length (get-definitions~ parent))))
-           'expanded)
-          ((and (> level 1) (not-null? definitions))
-           'collapsed)
-          (else
-           'expanded)))
-  
-  
-  (method (insert-definitions tree father definitions level sort?)
-    (define (sort-definitions definitions)
-      (sort string<? definitions key: present-name~))
-    
-    (let ((ordered (if sort? (sort-definitions definitions) definitions)))
-      (for-each (lambda (definition)
-                  (insert-definition~ definition tree father (+ level 1) sort?))
-                ordered)))
 
 
   ;;;

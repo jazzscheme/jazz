@@ -56,5 +56,4 @@
 (jazz:define-literal Handler-Reference  jazz.library.literals:construct-handler-reference)
 (jazz:define-literal Trait-Reference    jazz.library.literals:construct-trait-reference)
 (jazz:define-literal Event              jazz.library.literals:construct-event)
-(jazz:define-literal Event-Handler      jazz.library.literals:construct-event-handler)
-(jazz:define-literal Version            jazz.library.literals:construct-version))
+(jazz:define-literal Event-Handler      jazz.library.literals:construct-event-handler))

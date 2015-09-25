@@ -39,8 +39,7 @@
 
 
 (import (jazz.catalog)
-        (jazz.resource)
-        (jazz.ui))
+        (jazz.resource))
 
 
 (class undocumented Category-Entry extends Hierarchical-Entry
@@ -67,88 +66,4 @@
     (nextmethod definitions-index references-index)
     (for-each (lambda (qualified)
                 (update-index references-index (last qualified)))
-              extends))
-
-
-  ;;;
-  ;;;; Browse
-  ;;;
-  
-  
-  (method override (insert-self-definitions tree father level sort?)
-    (insert-ascendants tree father)
-    (insert-interfaces tree father)
-    (insert-inherited tree father)
-    (nextmethod tree father level sort?))
-  
-  
-  (method (collect-ascendants)
-    (let ((catalog (get-catalog))
-          (fact (new List-Factory)))
-      (define (process qualified)
-        (when qualified
-          (let ((category (get-qualified-category catalog qualified)))
-            (when (and category (not (memq? category (get-list~ fact))))
-              (put~ fact category)
-              (for-each process (get-extends~ category))))))
-      
-      (for-each process extends)
-      (get-output~ fact)))
-  
-  
-  (method protected virtual (insert-ascendants tree father)
-    (let ((ascendants (collect-ascendants)))
-      (when ascendants
-        (let ((row (add-row~ tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: "Superclasses" image: {Image-Resource "OpenedFolder"})))))
-          (for-each (lambda (category)
-                      (add-row~ tree father: row state: 'collapsed row-height: 17 children: (list (new Tree-Node title: (present-name~ category) image: (get-image~ category))) user-data: category))
-                    ascendants)))))
-  
-  
-  (method protected virtual (insert-interfaces tree father)
-    )
-  
-  
-  (method (insert-interfaces-list tree father title interfaces)
-    (when interfaces
-      (let ((catalog (get-catalog))
-            (row (add-row~ tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: title image: {Image-Resource "OpenedFolder"})))))
-        (define (insert row qualified)
-          (when qualified
-            (let ((interface (get-qualified-category catalog qualified)))
-              (when interface
-                (let ((row (add-row~ tree father: row state: 'collapsed row-height: 17 children: (list (new Tree-Node title: (present-name~ interface) image: (get-image~ interface))) user-data: interface)))
-                  (for-each (lambda (interface)
-                              (insert row interface))
-                            (get-extends~ interface)))))))
-        
-        (for-each (lambda (interface)
-                    (insert row interface))
-                  interfaces))))
-
-
-  (method (insert-inherited tree father)
-    (define (collect-inherited ascendants)
-      (apply append (map get-definitions~ ascendants)))
-    
-    (let* ((ascendants (collect-ascendants))
-           (inherited (collect-inherited ascendants)))
-      (when inherited
-        (let ((row (add-row~ tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: "Inherited members" image: {Image-Resource "OpenedFolder"})))))
-          (insert-definitions tree row inherited 0 #t)))))
-  
-  
-  (definition (get-qualified-category catalog qualified)
-    (define (get-category-package definition)
-      (find-if (lambda (definition)
-                 (is? definition Package-Entry))
-               (get-definitions~ (get-file-definition~ definition))))
-    
-    (let ((name (last qualified))
-          (qualifier (butlast qualified)))
-      (find-if (lambda (definition)
-                 (and (is? definition Category-Entry)
-                      (let ((package (get-category-package definition)))
-                        (and package
-                             (= (get-qualified~ package) qualifier)))))
-               (get-definitions~ catalog name))))))
+              extends))))

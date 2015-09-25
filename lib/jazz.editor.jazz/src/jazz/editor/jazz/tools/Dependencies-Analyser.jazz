@@ -118,23 +118,67 @@
   
   
   (method override (edit-selection select)
-    (define (find-editable row)
-      (if (get-user-data~ row)
-          row
-        (let (iter (scan (gather (get-sons~ row))))
-          (if (null? scan)
-              #f
-            (or (find-editable (car scan))
-                (iter (cdr scan)))))))
-    
     (let ((tree (get-tree)))
       (let ((info (get-single-selected-data~ tree)))
-        (bind (name . locat) info
-          (bind (filename line col) locat
-            (let ((file (new File (tokenise-filename filename)))
-                  (start (new Cell line col))
-                  (end (new Cell line (+ col (cardinality (symbol->string name))))))
-              (edit-document~ (get-application) file selection: (new Range$Cell$ start end))))))))
+        (when info
+          (bind (name . locat) info
+            (bind (filename line col) locat
+              (let ((file (new File (tokenise-filename filename)))
+                    (start (new Cell line col))
+                    (end (new Cell line (+ col (cardinality (symbol->string name))))))
+                (edit-document~ (get-application) file selection: (new Range$Cell$ start end)))))))))
+  
+  
+  (method override (next-editable current)
+    (let ((tree (get-tree)))
+      (define (target-row)
+        (let ((current (get-selected-row~ tree)))
+          (or current
+              (let ((count (get-visible-count~ tree)))
+                (and (> count 0)
+                     (get-row~ tree 0))))))
+        
+      (define (find-editable row)
+        (let ((next (next-row~ tree row)))
+          (cond ((not next)
+                 #f)
+                ((editable-row? (get-user-data~ next))
+                 next)
+                (else
+                 (find-editable next)))))
+      
+      (let ((target (target-row)))
+        (when target
+          (let ((row (find-editable target)))
+            (when row
+              (ensure-expanded~ tree row)
+              (row->line~ tree row)))))))
+  
+  
+  (method override (previous-editable current)
+    (let ((tree (get-tree)))
+      (define (target-row)
+        (let ((current (get-selected-row~ tree)))
+          (or current
+              (let ((count (get-visible-count~ tree)))
+                (and (> count 0)
+                     (get-row~ tree (- count 1)))))))
+        
+      (define (find-editable row)
+        (let ((previous (previous-row~ tree row)))
+          (cond ((not previous)
+                 #f)
+                ((editable-row? (get-user-data~ previous))
+                 previous)
+                (else
+                 (find-editable previous)))))
+      
+      (let ((target (target-row)))
+        (when target
+          (let ((row (find-editable target)))
+            (when row
+              (ensure-expanded~ tree row)
+              (row->line~ tree row)))))))
 
   
   ;;;

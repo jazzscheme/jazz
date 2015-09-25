@@ -41,6 +41,7 @@
 (import (jazz.application)
         (jazz.event)
         (jazz.feedback)
+        (jazz.graphic)
         (jazz.ide)
         (jazz.io)
         (jazz.jml)
@@ -54,26 +55,26 @@
         (jazz.ui.view))
 
 
-(class Dependencies-Analyser extends View
+(class Dependencies-Analyser extends Navigable-Results
   
   
   (property kernel initialize #f accessors generate)
 
 
   (form
-    (<install>                                                   size: {Dimension 495 599}
-      (<Border-View>                   name: name-border         position: {Point 2 9} size: {Dimension 250 19} border-type: edge style: entry
-        (<Scroller-View>                                         hscroll?: #f vscroll?: #f
-          (<!>                         name: content             layout-type: fill
-            (<IDE-Text-View>           name: package             left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t return-press-handler: {Event-Handler :form on-return-press}))))
-      (<Push-Button>                   name: analyse             title: "Analyse" position: {Point 372 7} size: {Dimension 120 22} action-handler: {Event-Handler :form on-analyse})
-      (<Border-View>                   name: declarations-border position: {Point 2 35} size: {Dimension 491 562} border-type: edge style: entry
-        (<Scroller-View>                                         style: document hscroll?: #t vscroll?: #t
-          (<!>                         name: content             layout-type: fill
-            (<Tree-Header>                                       style: document
-              (<!>                     name: content
-                (<Tree-View>           name: declarations        filled-column: declaration multiple-selection?: #t portfolio: :images double-click-handler: {Event-Handler :form on-double-click}
-                  (<Tree-Node-Column>  name: declaration         title: "Name" width: 500)))))))))
+    (<install>                                            size: {Dimension 495 599} layout-type: border
+      (<!>                           name: tools
+        (<Layout-View>                                    size: {Dimension 150 20} layout-type: fill layout-insets: {Rect 0 1 0 0} before: edit
+          (<Border-View>             name: name-border    border-color: {Color Dark}
+            (<Scroller-View>                              hscroll?: #f vscroll?: #f
+              (<!>                   name: content        layout-type: fill
+                (<IDE-Text-View>     name: package        left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t return-press-handler: {Event-Handler :guest on-analyse}))))))
+      (<!>                           name: scroller
+        (<!>                         name: content
+          (<!>                       name: header
+            (<!>                     name: content
+              (<!>                   name: results        filled-column: declaration multiple-selection?: #t portfolio: :images
+                (<Tree-Node-Column>  name: declaration    title: "Name"))))))))
   
   
   (method meta override (external-name . rest)
@@ -86,15 +87,19 @@
     
 
   (method meta override (host-icon)
-    {Image-Resource "Class"})
+    {Image-Resource "Info"})
   
   
   (method meta override (host-title)
-    "Dependencies Analyser")
+    "Dependencies")
   
   
   (method meta override (host-size)
     {Dimension 495 600})
+  
+  
+  (method override (get-tools-view)
+    (locate 'tools))
 
   
   (method override (focus-default)
@@ -104,12 +109,6 @@
   ;;;
   ;;;; Events
   ;;;
-
-
-  (method override (resize dh dv)
-    (nextmethod dh dv)
-    (move-figure~ (locate 'analyse) dh 0)
-    (size-figure~ (locate 'declarations-border) dh dv))
   
   
   (method (on-analyse evt)
@@ -118,18 +117,24 @@
         (analyse))))
   
   
-  (method override (on-return-press evt)
-    (on-analyse evt))
-  
-  
-  (method (on-double-click evt)
-    (let ((locat (get-single-selected-data~ (locate 'declarations))))
-      (if (not locat)
-          (bell)
-        (bind (filename line col) locat
-          (let ((file (new File (tokenise-filename filename)))
-                (pos (new Cell line col)))
-            (edit-document~ (get-application) file selection: (new Range$Cell$ pos pos)))))))
+  (method override (edit-selection select)
+    (define (find-editable row)
+      (if (get-user-data~ row)
+          row
+        (let (iter (scan (gather (get-sons~ row))))
+          (if (null? scan)
+              #f
+            (or (find-editable (car scan))
+                (iter (cdr scan)))))))
+    
+    (let ((tree (get-tree)))
+      (let ((info (get-single-selected-data~ tree)))
+        (bind (name . locat) info
+          (bind (filename line col) locat
+            (let ((file (new File (tokenise-filename filename)))
+                  (start (new Cell line col))
+                  (end (new Cell line (+ col (cardinality (symbol->string name))))))
+              (edit-document~ (get-application) file selection: (new Range$Cell$ start end))))))))
 
   
   ;;;
@@ -139,6 +144,10 @@
   
   (definition debug-analysis?
     #f)
+  
+  
+  (method (determine-kernel)
+    (or kernel (project-kernel~ (current-project~ (get-workbench-manager~ (get-application))))))
   
   
   (method (analyse)
@@ -157,7 +166,7 @@
         (lambda ()
           (let ((e (jazz=>scheme explicit))
                 (i (jazz=>scheme (table-keys implicit)))
-                (tree (locate 'declarations)))
+                (tree (get-tree)))
             (remove-every-row~ tree)
             (with-update-locked~ tree
               (lambda ()
@@ -173,54 +182,52 @@
                         (when declarations
                           (let ((locators (sort ci<? (table-keys declarations) key: present-reference)))
                             (for-each (lambda (locator)
-                                        (let ((references (table-ref declarations locator)))
-                                          (let ((father (add-row~ tree father: father children: (list (new Tree-Node title: (present-reference locator) image: {Image-Resource "Document"})))))
+                                        (let ((name (last (split-reference locator)))
+                                              (references (table-ref declarations locator)))
+                                          (let ((father (add-row~ tree father: father children: (list (new Tree-Node title: (present-reference locator) image: {Image-Resource "Info"})))))
                                             (for-each (lambda (references)
                                                         (bind (unit . locations) references
-                                                          (let ((father (add-row~ tree father: father children: (list (new Tree-Node title: (->string unit) image: {Image-Resource "Green"})))))
+                                                          (let ((father (add-row~ tree father: father children: (list (new Tree-Node title: (->string unit) image: {Image-Resource "Document"})))))
                                                             (for-each (lambda (locat)
-                                                                        (if (eq? locat #t)
-                                                                            (add-row~ tree father: father children: (list (new Tree-Node title: "<unknown>" image: {Image-Resource "Link"})))
-                                                                          (bind (filename line col) locat
-                                                                            (add-row~ tree father: father children: (list (new Tree-Node title: (format "{a}.{a}" line col) image: {Image-Resource "Link"})) user-data: locat))))
-                                                                      locations))))
+                                                                        (bind (filename line col) locat
+                                                                          (add-row~ tree father: father children: (list (new Tree-Node title: (format "{a}.{a}" line col) image: {Image-Resource "Link"})) user-data: (cons name locat))))
+                                                                      (sort < (collect-if pair? locations) key: second)))))
                                                       references))))
                                       locators))))))
                   package-names)))
     
-    (assert kernel
-      (when debug-analysis?
-        (let ((ide (get-process)))
-          (start-remote-server~ ide)
-          (start-debuggers~ ide)))
-      (thread-start!
-        (new-thread
-          (lambda ()
-            (let ((server-port (open-tcp-server 0)))
-              (let ((debugger-args (if debug-analysis? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
-                    (port-args (list "-port" (number->string (socket-info-port-number (tcp-server-socket-info server-port)))))
-                    (package-arg (get-string-content~ (locate 'package))))
-                (open-process
-                  (list
-                    path: (parse~ kernel)
-                    arguments: `("-:daqQ-" ,@debugger-args "-run" "jam" "dependencies" "-analysis" ,@port-args ,package-arg)
-                    stdin-redirection: #f
-                    stdout-redirection: #f
-                    stderr-redirection: #f
-                    show-console: #f)))
-              (let ((port (read server-port)))
-                (let (analysing)
-                  (let ((unit-name #f @wait (read port)))
-                    (if unit-name
-                        (begin
-                          (feedback "Analysing {a}..." unit-name)
-                          (analysing))
-                      (let ((explicit (read-binary port))
-                            (implicit (read-binary port)))
-                        (present-all explicit implicit)
-                        @wait
-                        (feedback "Done"))))))))
-          'analyse))))
+    (when debug-analysis?
+      (let ((ide (get-process)))
+        (start-remote-server~ ide)
+        (start-debuggers~ ide)))
+    (thread-start!
+      (new-thread
+        (lambda ()
+          (let ((server-port (open-tcp-server 0)))
+            (let ((debugger-args (if debug-analysis? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
+                  (port-args (list "-port" (number->string (socket-info-port-number (tcp-server-socket-info server-port)))))
+                  (package-arg (get-string-content~ (locate 'package))))
+              (open-process
+                (list
+                  path: (parse~ (determine-kernel))
+                  arguments: `("-:daqQ-" ,@debugger-args "-run" "jam" "dependencies" "-analysis" ,@port-args ,package-arg)
+                  stdin-redirection: #f
+                  stdout-redirection: #f
+                  stderr-redirection: #f
+                  show-console: #f)))
+            (let ((port (read server-port)))
+              (let (analysing)
+                (let ((unit-name #f @wait (read port)))
+                  (if unit-name
+                      (begin
+                        (feedback "Analysing {a}..." unit-name)
+                        (analysing))
+                    (let ((explicit (read-binary port))
+                          (implicit (read-binary port)))
+                      (present-all explicit implicit)
+                      @wait
+                      (feedback "Done"))))))))
+        'analyse)))
 
   
   ;;;
@@ -229,7 +236,7 @@
   
   
   (method (selected-declarations)
-    (let* ((tree (locate 'declarations))
+    (let* ((tree (get-tree))
            (selection (get-selection~ tree)))
       (map (lambda (rank)
              (get-user-data~ (get-row~ tree rank)))

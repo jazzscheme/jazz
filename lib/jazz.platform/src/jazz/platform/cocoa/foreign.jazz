@@ -38,10 +38,9 @@
 (module protected jazz.platform.cocoa.foreign jazz
 
 
-(import (jazz.application)
-        (jazz.foreign)
-        (jazz.platform.types)
-        (jazz.process))
+(import (jazz.foreign)
+        (jazz.platform.requests)
+        (jazz.platform.types))
 
 
 ;;;
@@ -4141,9 +4140,7 @@ void platformResumeMusic(char* alias)
       (lambda ()
         (when log-callbacks?
           (system-log (list 'file filename)))
-        (let ((appl (get-application)))
-          (when appl
-            (drop-file~ appl filename)))))))
+        (drop-file-callback filename)))))
 
 
 (c-definition (drop-callback handle filenames) (platformwindow NSArray*) void "drop_callback" ""
@@ -4205,31 +4202,20 @@ void platformResumeMusic(char* alias)
     (lambda ()
       (when log-callbacks?
         (system-log (list 'terminate)))
-      (let ((process (get-process)))
-        (when process
-          ;; probably not 100% correct to exit applicationShouldTerminate but seems to work
-          (exit-process~ process))))))
+      ;; probably not 100% correct to exit applicationShouldTerminate but seems to work
+      (exit-callback))))
 
-
-(definition *music-played-callback*
-  #f)
-
-(definition public (platformMusicPlayedCallback callback)
-  (set! *music-played-callback* callback))
 
 (c-definition (finished-playing-callback alias) (NSString*) void "finished_playing_callback" ""
   (thread-execute (primordial-thread) 'execute-event
     (lambda ()
       (when log-callbacks?
         (system-log (list 'music-played alias)))
-      (when *music-played-callback*
-        (*music-played-callback* alias)))))
+      (music-played-callback alias))))
 
 
 (c-definition (user-callback data1 data2) (int int) void "user_callback" ""
-  (let ((window (get-toplevel)))
-    (when window
-      (user-notification~ window data1 data2))))
+  (user-notification data1 data2))
 
 
 ;; quicky

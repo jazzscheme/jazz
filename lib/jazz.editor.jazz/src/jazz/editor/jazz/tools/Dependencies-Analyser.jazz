@@ -72,7 +72,7 @@
         (<!>                         name: content
           (<!>                       name: header
             (<!>                     name: content
-              (<!>                   name: results        filled-column: declaration multiple-selection?: #t portfolio: :images
+              (<!>                   name: results        filled-column: declaration multiple-selection?: #t portfolio: :images context-menu-handler: {Event-Handler :form on-context-menu}
                 (<Tree-Node-Column>  name: declaration    title: "Name"))))))))
   
   
@@ -110,6 +110,30 @@
   ;;;
   
   
+  (method (on-context-menu evt)
+    (let* ((sender (get-sender~ evt))
+           (pos (get-position~ evt))
+           (acquired (acquire sender pos))
+           (menu (get-context-menu)))
+      (when menu
+        (with-context-click~ sender pos
+          (lambda ()
+            (track-popup-menu menu acquired))))))
+  
+  
+  (method override (get-context-menu)
+    (new Dependencies-Menu))
+  
+  
+  (method (on-dependencies evt)
+    (let ((tree (get-tree))
+          (text (locate 'package)))
+      (let ((info (get-single-selected-data~ tree)))
+        (when (symbol? info)
+          (set-string-content~ text (->string info))
+          (analyse)))))
+  
+  
   (method (on-analyse evt)
     (with-cursor :wait
       (lambda ()
@@ -119,7 +143,7 @@
   (method override (edit-selection select)
     (let ((tree (get-tree)))
       (let ((info (get-single-selected-data~ tree)))
-        (when info
+        (when (pair? info)
           (bind (name . locat) info
             (bind (filename line col) locat
               (let ((file (new File (tokenise-filename filename)))
@@ -221,7 +245,7 @@
       (let ((package-names (sort ci<? keys)))
         (for-each (lambda (package-name)
                     (let ((declarations (table-ref implicit package-name #f)))
-                      (let ((father (add-row~ tree children: (list (new Tree-Node title: (format "{a}" package-name) image: image)))))
+                      (let ((father (add-row~ tree children: (list (new Tree-Node title: (format "{a}" package-name) image: image)) user-data: package-name)))
                         (when declarations
                           (let ((locators (sort ci<? (table-keys declarations) key: present-reference)))
                             (for-each (lambda (locator)
@@ -230,11 +254,15 @@
                                           (let ((father (add-row~ tree father: father children: (list (new Tree-Node title: (present-reference locator) image: {Image-Resource "Info"})))))
                                             (for-each (lambda (references)
                                                         (bind (unit . locations) references
+                                                          (when (eq? package-name 'jazz.library)
+                                                            (debug locator unit locations))
                                                           (let ((father (add-row~ tree father: father children: (list (new Tree-Node title: (->string unit) image: {Image-Resource "Document"})))))
                                                             (for-each (lambda (locat)
-                                                                        (bind (filename line col) locat
-                                                                          (add-row~ tree father: father children: (list (new Tree-Node title: (format "{a}.{a}" line col) image: {Image-Resource "Link"})) user-data: (cons name locat))))
-                                                                      (sort < (collect-if pair? locations) key: second)))))
+                                                                        (if (pair? locat)
+                                                                            (bind (filename line col) locat
+                                                                              (add-row~ tree father: father children: (list (new Tree-Node title: (format "{a}.{a}" line col) image: {Image-Resource "Link"})) user-data: (cons name locat)))
+                                                                          (add-row~ tree father: father children: (list (new Tree-Node title: (->string locat) image: {Image-Resource "Execute"})))))
+                                                                      (sort < locations key: (lambda (info) (if (pair? info) (second info) -1)))))))
                                                       references))))
                                       locators))))))
                   package-names)))
@@ -259,17 +287,9 @@
                   stderr-redirection: #f
                   show-console: #f)))
             (let ((port (read server-port)))
-              (let (analysing)
-                (let ((unit-name #f @wait (read port)))
-                  (if unit-name
-                      (begin
-                        (feedback "Analysing {a}..." unit-name)
-                        (analysing))
-                    (let ((explicit (read-binary port))
-                          (implicit (read-binary port)))
-                      (present-all explicit implicit)
-                      @wait
-                      (feedback "Done"))))))))
+              (let ((explicit (read-binary port))
+                    (implicit (read-binary port)))
+                (present-all explicit implicit)))))
         'analyse)))
 
   
@@ -283,4 +303,17 @@
            (selection (get-selection~ tree)))
       (map (lambda (rank)
              (get-user-data~ (get-row~ tree rank)))
-           selection)))))
+           selection))))
+
+
+;;;
+;;;; Dependencies-Menu
+;;;
+
+
+(class Dependencies-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: copy title: "Dependencies" icon: {Image-Resource "Info"} action-handler: {Event-Handler :focus-guest on-dependencies})))))

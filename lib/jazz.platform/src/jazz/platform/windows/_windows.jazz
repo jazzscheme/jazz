@@ -171,6 +171,38 @@
 
 
 ;;;
+;;;; Keyboard
+;;;
+
+
+(definition public (key-down? key)
+  (/= (hibyte (GetAsyncKeyState key)) 0))
+
+
+(definition public (shift-down?)
+  (key-down? VK_SHIFT))
+
+
+(definition public (control-down?)
+  (and (key-down? VK_CONTROL) (not (key-down? VK_RMENU))))
+
+
+(definition public (alt-down?)
+  (key-down? VK_LMENU))
+
+
+(definition public (meta-down?)
+  #f)
+
+
+(definition public (modifiers-down)
+  (values (shift-down?)
+          (control-down?)
+          (alt-down?)
+          (meta-down?)))
+
+
+;;;
 ;;;; Temporary
 ;;;
 
@@ -186,4 +218,61 @@
         (error "Unable to use {t} as a temporary directory" directory)
       (receive (no filename) (GetTempFileName (platform-filename (parse~ directory)) prefix)
         (let ((filename (if (not extension) filename (make-filename (extract-base filename) extension))))
-          (new File (tokenise-windows filename))))))))
+          (new File (tokenise-windows filename)))))))
+
+
+;;;
+;;;; User
+;;;
+
+
+(definition public (get-computer-name)
+  (unimplemented)
+  @platform
+  (let* ((size (+ MAX_COMPUTERNAME_LENGTH 1))
+         (name (make-string size)))
+    (GetComputerName name size)
+    (adjust-string name)
+    name))
+
+
+(definition public (get-system-user-name)
+  (unimplemented)
+  @Platform
+  (let ((username (make-string MAX_PATH)))
+    (GetUserName username MAX_PATH)
+    (adjust-string username)
+    username))
+
+
+;;;
+;;;; Version
+;;;
+
+
+(definition public Version-Info
+  #f)
+
+
+(definition (version-info)
+  (unless Version-Info
+    (set! Version-Info
+          (let ((info (OSVERSIONINFOEX-make)))
+            (OSVERSIONINFOEX-dwOSVersionInfoSize-set! info (OSVERSIONINFOEX-sizeof))
+            (GetVersionEx info)
+            info)))
+  Version-Info)
+
+
+(definition public Platform-Version
+  #f)
+
+
+(definition public (get-platform-version)
+  (unless Platform-Version
+    (set! Platform-Version
+          (let ((info (version-info)))
+            (new Version
+              (OSVERSIONINFOEX-dwMajorVersion-ref info)
+              (OSVERSIONINFOEX-dwMinorVersion-ref info)))))
+  Platform-Version))

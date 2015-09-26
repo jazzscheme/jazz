@@ -1320,8 +1320,27 @@ display window))
 ;;;
 
 
-(definition public (initialize-platform)
+(definition public (initialize-platform find-setting)
+  (initialize-locale)
+  (x11-set-default-display (x11-require-display))
+  (x11-generate-atoms)
+  (when (find-setting 'synchronize-x11? #f)
+    (x11-synchronize #t))
+  (initialize-xim)
+  (x11-set-error-handler x11-debug-error-handler)
+  (x11-create-cursors)
   (set-platform-log system-log))
+
+
+(definition (x11-require-display)
+  (or (XOpenDisplay (command-argument "display"))
+      (error "Can't open X11 display")))
+
+
+(definition (x11-debug-error-handler displ err)
+  (let ((code (XErrorEvent-error_code-ref err)))
+    (let ((text (XGetErrorText displ code)))
+      (error "X11 Error: {a}" text))))
 
 
 ;;;

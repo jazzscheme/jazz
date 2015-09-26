@@ -58,6 +58,7 @@
 (native jazz:reference-name)
 (native jazz:new-core-class)
 (native jazz:set-core-class)
+(native jazz:tree-fold)
 (native jazz:tree-fold-list)
 
 

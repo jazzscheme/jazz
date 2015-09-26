@@ -1291,30 +1291,30 @@
     (lambda (x seed env) env)
     (lambda (x seed child-seed env) seed)
     (lambda (x seed env)
-      (cond ((%%is? x jazz:Binding-Reference)
-             (let* ((var (jazz:get-binding-reference-binding x))
-                    (sym (jazz:unwrap-syntactic-closure (jazz:get-lexical-binding-name var))))
-               (let lp1 ((e env))
-                    (cond ((pair? e)
-                           (let lp2 ((ls (%%car e)) (found? #f))
-                                (cond ((pair? ls)
-                                       (let* ((binding (%%car ls))
-                                              (same? (%%eq? var binding)))
-                                         (cond ((and binding
-                                                     (%%not same?)
-                                                     (%%is? binding jazz:Variable)
-                                                     (%%not (jazz:get-symbol-binding-gensym binding))
-                                                     (%%eq? sym
-                                                            (jazz:unwrap-syntactic-closure
-                                                              (jazz:get-lexical-binding-name binding))))
-                                                ;; if we shadow an existing declaration, gensym a unique symbol for it
-                                                #; ;; debug
-                                                (if (jazz:testing?)
-                                                    (jazz:debug shadow: binding 'by var))
-                                                (jazz:set-symbol-binding-gensym binding (jazz:generate-symbol (symbol->string sym)))))
-                                         (lp2 (%%cdr ls) (or found? same?))))
-                                      ((%%not found?)
-                                       (lp1 (%%cdr e)))))))))))
+      (%%when (%%is? x jazz:Binding-Reference)
+        (let* ((var (jazz:get-binding-reference-binding x))
+               (sym (jazz:unwrap-syntactic-closure (jazz:get-lexical-binding-name var))))
+          (let lp1 ((e env))
+               (cond ((pair? e)
+                      (let lp2 ((ls (%%car e)) (found? #f))
+                           (cond ((pair? ls)
+                                  (let* ((binding (%%car ls))
+                                         (same? (%%eq? var binding)))
+                                    (cond ((and binding
+                                                (%%not same?)
+                                                (%%is? binding jazz:Variable)
+                                                (%%not (jazz:get-symbol-binding-gensym binding))
+                                                (%%eq? sym
+                                                       (jazz:unwrap-syntactic-closure
+                                                         (jazz:get-lexical-binding-name binding))))
+                                           ;; if we shadow an existing declaration, gensym a unique symbol for it
+                                           #; ;; debug
+                                           (if (jazz:testing?)
+                                               (jazz:debug shadow: binding 'by var))
+                                           (jazz:set-symbol-binding-gensym binding (jazz:generate-symbol (symbol->string sym)))))
+                                    (lp2 (%%cdr ls) (or found? same?))))
+                                 ((%%not found?)
+                                  (lp1 (%%cdr e))))))))))
       seed)
     #f
     (list environment)))

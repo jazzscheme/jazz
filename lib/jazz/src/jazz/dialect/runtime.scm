@@ -1477,6 +1477,16 @@
         (jazz:walk-list walker resume declaration environment arguments)))))
 
 
+(jazz:define-method (jazz:tree-fold (jazz:Dispatch expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz:tree-fold-list
+        (jazz:get-dispatch-arguments expression) down up here
+        (down expression seed environment)
+        environment)
+      environment))
+
+
 ;;;
 ;;;; Definition
 ;;;

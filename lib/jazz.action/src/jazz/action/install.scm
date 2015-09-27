@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Actions
+;;;; Action Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,31 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.action.Actions jazz
+(unit jazz.action.install
 
 
-(import (jazz.component))
-
-
-(class Actions extends Component
-  
-  
-  (property title initialize #f accessors generate)
-  
-  
-  ;;;
-  ;;;; Orphaned
-  ;;;
-  
-  
-  (method public virtual (actions-orphaned?)
-    #f)
-  
-  
-  ;;;
-  ;;;; Descriptor
-  ;;;
-  
-  
-  (method meta override (get-class-descriptor (context: context #f))
-    (new jazz.ui.designer:Actions-Descriptor))))
+(jazz:define-literal Action jazz.action:construct-action))

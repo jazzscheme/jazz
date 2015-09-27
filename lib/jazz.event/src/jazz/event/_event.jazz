@@ -38,6 +38,179 @@
 (module jazz.event jazz
 
 
+(import (jazz.platform))
+
+
+;;;
+;;;; Consumer
+;;;
+
+
+(interface undocumented Consumer)
+
+
+;;;
+;;;; Event-Consumer
+;;;
+
+
+(interface undocumented Event-Consumer extends Consumer
+  
+  
+  (method public virtual abstract (get-event-consumer))
+  (method public virtual abstract (set-event-consumer consumer))
+  (method public virtual abstract (deliver-event handler target proc evt)))
+
+
+;;;
+;;;; Event
+;;;
+
+
+(definition package (construct-event kind . rest)
+  (parse-event-modifiers rest
+    (lambda (modifiers properties)
+      (apply new Event kind #f modifiers properties))))
+
+
+(definition public (make-event class kind sender . properties)
+  (apply new class kind sender (modifiers-mask) properties))
+
+
+(definition public (clone-event evt . properties)
+  (let ((event (copy evt)))
+    (for-each-property (lambda (keyword value)
+                         (set-property~ event keyword value))
+                       properties)
+    event))
+
+
+(class Event extends Object
+
+
+  (slot kind       getter generate)
+  (slot sender     getter generate)
+  (slot modifiers  getter generate)
+  (slot properties getter generate)
+
+
+  (method override (initialize kind sender modifiers . properties)
+    (nextmethod)
+    (set! kind~self kind)
+    (set! sender~self sender)
+    (set! modifiers~self modifiers)
+    (set! properties~self properties))
+  
+  
+  (method override (copy-object deep?)
+    (apply new (class-of self) kind sender modifiers properties))
+
+
+  (method override (print output readably)
+    (let ((keys (modifiers->keys modifiers)))
+      (format output "~{{a} {s}{?: {l}~}{?: {l}~}}"
+              (category-name (class-of self))
+              kind
+              (not-null? keys)
+              keys
+              (not-null? properties)
+              properties)))
+  
+  
+  ;;;
+  ;;;; Modifiers
+  ;;;
+  
+  
+  (method public (get-down)
+    (values (get-shift?)
+            (get-control?)
+            (get-alt?)
+            (get-meta?)))
+  
+  
+  (method public (get-shift?)
+    (shift-key? modifiers))
+  
+  
+  (method public (get-control?)
+    (control-key? modifiers))
+  
+  
+  (method public (get-alt?)
+    (alt-key? modifiers))
+  
+  
+  (method public (get-meta?)
+    (meta-key? modifiers))
+  
+  
+  ;;;
+  ;;;; Properties
+  ;;;
+  
+  
+  (method public (has-property? keyword)
+    (let ((not-found {Box}))
+      (neq? (getf properties keyword not-found: not-found) not-found)))
+  
+  
+  (method public (get-property keyword)
+    (getf properties keyword))
+  
+  
+  (method public (set-property keyword value)
+    (set! properties (addf properties keyword value))))
+
+
+;;;
+;;;; Hooks
+;;;
+
+
+(definition *event-hooks*
+  '())
+
+
+(definition public (register-event-hook hook)
+  (set! *event-hooks* (append *event-hooks* (list hook))))
+
+(definition public (unregister-event-hook hook)
+  (set! *event-hooks* (remove! hook *event-hooks*)))
+
+
+(definition public (hook-event event)
+  (let ((hooks *event-hooks*))
+    (when (not-null? hooks)
+      (for-each (lambda (hook)
+                  (hook event))
+                hooks))))
+
+
+(definition *event-access-hooks*
+  '())
+
+
+(definition public (register-event-access-hook hook)
+  (set! *event-access-hooks* (append *event-access-hooks* (list hook))))
+
+(definition public (unregister-event-access-hook hook)
+  (set! *event-access-hooks* (remove! hook *event-access-hooks*)))
+
+
+(definition public (hook-event-access event)
+  (let ((hooks *event-access-hooks*))
+    (when (not-null? hooks)
+      (for-each (lambda (hook)
+                  (hook event))
+                hooks))))
+
+
+;;;
+;;;; Thread
+;;;
+
+
 (definition public (event-thread)
   (primordial-thread))
 

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Event Handler
+;;;; Handlers
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,103 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.handler.Event-Handler jazz
+(module jazz.handler jazz
 
 
-(import (jazz.library))
+(import (jazz.action)
+        (jazz.component)
+        (jazz.event)
+        (jazz.process))
+
+
+;;;
+;;;; Handler
+;;;
+
+
+(class Handler extends Object
+  
+  
+  (slot execute     getter generate)
+  (slot target      getter generate)
+  (slot target-name getter generate)
+  (slot method-name getter generate)
+  (slot form        getter generate)
+  
+  
+  (method override (initialize (execute: execute #f) (target: target #f) (target-name: target-name #f) (method-name: method-name #f))
+    (nextmethod)
+    (set! execute~self execute)
+    (set! target~self target)
+    (set! target-name~self target-name)
+    (set! method-name~self method-name))
+  
+  
+  (method override (print output readably)
+    (format output "~{{a} {s} {s}}"
+            (category-name (class-of self))
+            target-name
+            method-name))
+
+  
+  ;;;
+  ;;;; Context
+  ;;;
+  
+  
+  (method override (walk-references proc)
+    (when (eq? target-name :reference)
+      (proc method-name)))
+
+
+  (method override (setup-context context)
+    (set! form context))
+  
+  
+  ;;;
+  ;;;; Invoke
+  ;;;
+  
+  
+  (method public virtual (invoke sender . rest)
+    (if execute
+        (execute)
+      (let* ((target (or target (find-target sender)))
+             (proc (dispatch (class-of target) method-name)))
+        (apply (~ proc target) rest))))
+  
+  
+  (method public (find-target sender)
+    (define (find-form component)
+      (cond ((not component)
+             #f)
+            ((memq? form (get-class-forms~ (class-of component)))
+             component)
+            (else
+             (find-form (get-parent~ component)))))
+    
+    (if (is-not? sender Component)
+        (process-alias~ (get-process) target-name)
+      (cond ((eq? target-name :form)
+             (find-form sender))
+            ((and (pair? target-name) (eq? (car target-name) :form))
+             (child~ (find-form sender) (cdr target-name)))
+            (else
+             (child~ sender target-name))))))
+
+
+;;;
+;;;; Event-Handler
+;;;
+
+
+(definition package (walk-event-handler arguments proc)
+  (when (eq? (source-code (car arguments)) :reference)
+    (proc (source-code (cadr arguments)))))
+
+
+(definition package (construct-event-handler target-name method-name . properties)
+  (new Event-Handler target-name: target-name method-name: method-name properties: properties))
 
 
 (class Event-Handler extends Handler

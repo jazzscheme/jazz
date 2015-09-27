@@ -860,16 +860,6 @@
                   (iter (%%cdr packages)))))))))))
 
 
-(define (jazz:descendant-unit? unit-name descendant-name)
-  (let ((unit (%%symbol->string unit-name))
-        (descendant (%%symbol->string descendant-name)))
-    (let ((unit-length (%%string-length unit))
-          (descendant-length (%%string-length descendant)))
-      (and (%%fx> descendant-length unit-length)
-           (%%string=? (%%substring descendant 0 unit-length) unit)
-           (%%eqv? (%%string-ref descendant unit-length) #\.)))))
-
-
 (define (jazz:find-pathname-unit pathname)
   (let ((resource (jazz:find-resource pathname)))
     (if resource

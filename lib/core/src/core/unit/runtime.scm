@@ -76,10 +76,19 @@
                     (phase (jazz:get-module-invoice-phase export)))
                 (iterate unit-name name phase)))))
       
+      (define (descendant-unit? unit-name descendant-name)
+        (let ((unit (%%symbol->string unit-name))
+              (descendant (%%symbol->string descendant-name)))
+          (let ((unit-length (%%string-length unit))
+                (descendant-length (%%string-length descendant)))
+            (and (%%fx> descendant-length unit-length)
+                 (%%string=? (%%substring descendant 0 unit-length) unit)
+                 (%%eqv? (%%string-ref descendant unit-length) #\.)))))
+      
       (define (iterate parent-name unit-name phase)
         (let ((declaration (jazz:outline-subunit unit-name)))
           (if (and declaration (%%eq? (jazz:get-declaration-access declaration) 'protected))
-              (if (%%not (jazz:descendant-unit? toplevel-name unit-name))
+              (if (%%not (descendant-unit? toplevel-name unit-name))
                   (jazz:error "Illegal access from {a} to protected unit {a}" toplevel-name unit-name)
                 #; ;; debugging
                 (let ((actual (%%table-ref subunits unit-name #f)))

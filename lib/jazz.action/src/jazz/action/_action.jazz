@@ -35,28 +35,40 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.action.Action jazz
+(module jazz.action jazz
 
 
-(class Action extends Object
-  
-  
-  (slot action-context getter generate)
-  (slot action-name    getter generate)
-  (slot properties     getter generate)
-  
-  
-  (method override (initialize action-context action-name properties)
-    (nextmethod)
-    (set! action-context~self action-context)
-    (set! action-name~self action-name)
-    (set! properties~self properties))
-  
-  
-  (method override (print output readably)
-    (format output "~{{a} {s} {s}{?: {l}~}}"
-            (category-name (class-of self))
-            action-context
-            action-name
-            (not-null? properties)
-            properties))))
+(export (jazz.action.autoload))
+(import (jazz.action.autoload))
+
+
+;;;
+;;;; Action
+;;;
+
+
+(definition package (construct-action action-context action-name . properties)
+  (new Action action-context action-name properties))
+
+
+;;;
+;;;; Hooks
+;;;
+
+
+(definition *action-hooks*
+  '())
+
+
+(definition public (register-action-hook hook)
+  (set! *action-hooks* (append *action-hooks* (list hook))))
+
+(definition public (unregister-action-hook hook)
+  (set! *action-hooks* (remove! hook *action-hooks*)))
+
+
+(definition public (hook-action action/handler event proc)
+  (prog1 (proc)
+    (for-each (lambda (hook)
+                (hook action/handler event))
+              *action-hooks*))))

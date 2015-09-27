@@ -41,4 +41,105 @@
 (export (jazz.platform.types)
         (jazz.platform.cocoa   (cond cocoa))
         (jazz.platform.windows (cond windows))
-        (jazz.platform.x11     (cond x11))))
+        (jazz.platform.x11     (cond x11)))
+
+(import (jazz.platform.cocoa   (cond cocoa))
+        (jazz.platform.windows (cond windows))
+        (jazz.platform.x11     (cond x11)))
+
+
+;;;
+;;;; Modifiers
+;;;
+
+
+(definition public NoModifiers
+  0)
+
+
+(definition protected Shift-Bit
+  1)
+
+(definition protected Control-Bit
+  2)
+
+(definition protected Alt-Bit
+  4)
+
+(definition protected Meta-Bit
+  8)
+
+
+(definition public (shift-key? modifier)
+  (mask-bit-set? modifier Shift-Bit))
+
+
+(definition public (control-key? modifier)
+  (mask-bit-set? modifier Control-Bit))
+
+
+(definition public (alt-key? modifier)
+  (mask-bit-set? modifier Alt-Bit))
+
+
+(definition public (meta-key? modifier)
+  (mask-bit-set? modifier Meta-Bit))
+
+
+(definition public (make-modifiers-mask shift? control? alt? meta?)
+  (define (set-shift-key modifiers bit)
+    (mask-bit-set modifiers Shift-Bit bit))
+  
+  (define (set-control-key modifiers bit)
+    (mask-bit-set modifiers Control-Bit bit))
+  
+  (define (set-alt-key modifiers bit)
+    (mask-bit-set modifiers Alt-Bit bit))
+  
+  (define (set-meta-key modifiers bit)
+    (mask-bit-set modifiers Meta-Bit bit))
+  
+  (set-meta-key (set-alt-key (set-control-key (set-shift-key 0 shift?) control?) alt?) meta?))
+
+
+(definition public (modifiers->mask modifiers)
+  (make-modifiers-mask (memq? :shift modifiers)
+                       (memq? :control modifiers)
+                       (memq? :alt modifiers)
+                       (memq? :meta modifiers)))
+
+
+(definition public (modifiers->keys keys)
+  (let ((modifiers '()))
+    (define (try down? modifier)
+      (when down?
+        (set! modifiers (cons modifier modifiers))))
+    
+    (try (alt-key? keys) :alt)
+    (try (shift-key? keys) :shift)
+    (try (control-key? keys) :control)
+    (try (meta-key? keys) :meta)
+    modifiers))
+
+
+(definition protected (parse-event-modifiers rest proc)
+  (let (iter (scan rest) (keys '()))
+    (if (null? scan)
+        (proc (modifiers->mask keys) scan)
+      (let ((obj (car scan)))
+        (if (memq? obj '(:shift :control :alt :meta))
+            (iter (cdr scan) (cons obj keys))
+          (proc (modifiers->mask keys) scan))))))
+
+
+;;;
+;;;; Keyboard
+;;;
+
+
+(definition public (modifiers-mask)
+  (make-modifiers-mask (shift-down?) (control-down?) (alt-down?) (meta-down?)))
+
+
+(definition public (modifiers-keys)
+  (modifiers->keys (modifiers-mask))))

@@ -42,10 +42,8 @@
 (jazz:define-literal-walker Class-Reference   jazz.library.literals:walk-class-reference)
 (jazz:define-literal-walker Handler-Reference jazz.library.literals:walk-handler-reference)
 (jazz:define-literal-walker Trait-Reference   jazz.library.literals:walk-trait-reference)
-(jazz:define-literal-walker Event-Handler     jazz.library.literals:walk-handler)
 
 
-(jazz:define-literal Box                jazz.library.literals:construct-box)
 (jazz:define-literal Date               jazz.library.literals:construct-date)
 (jazz:define-literal Time               jazz.library.literals:construct-time)
 (jazz:define-literal Path               jazz.library.literals:construct-path)
@@ -54,6 +52,4 @@
 (jazz:define-literal Reference          jazz.library.literals:construct-reference)
 (jazz:define-literal Class-Reference    jazz.library.literals:construct-class-reference)
 (jazz:define-literal Handler-Reference  jazz.library.literals:construct-handler-reference)
-(jazz:define-literal Trait-Reference    jazz.library.literals:construct-trait-reference)
-(jazz:define-literal Event              jazz.library.literals:construct-event)
-(jazz:define-literal Event-Handler      jazz.library.literals:construct-event-handler))
+(jazz:define-literal Trait-Reference    jazz.library.literals:construct-trait-reference))

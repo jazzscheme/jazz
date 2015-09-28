@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Sequenced-Column Preferences
+;;;; Aligned Column
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,23 +35,46 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.display.Sequenced-Column-Preferences jazz
+(module protected jazz.columnar.Aligned-Column jazz
 
 
-(import (jazz.library))
+(import (jazz.columnar))
 
 
-(class undocumented Sequenced-Column-Preferences extends Column-Preferences
-
+(class undocumented Aligned-Column extends Display-Column
+  
+  
+  (slot alignment)
+  (slot max-data  initialize 0)
+  
   
   ;;;
-  ;;;; Column
+  ;;;; Initialization
   ;;;
   
   
-  (method override (column-class)
-    Sequenced-Column)
+  (method override (initialize displayer . rest)
+    (bind-keywords ((alignment 'left) . others) rest
+      (apply nextmethod displayer others)
+      (set! alignment~self alignment)))
   
   
-  (method override (new-column display)
-    (new Sequenced-Column display border: border border-after: border-after minimum: minimum))))
+  ;;;
+  ;;;; Printing
+  ;;;
+  
+  
+  (method override (prepare-print)
+    (nextmethod)
+    (for-each (lambda (data)
+                (let ((length (length data)))
+                  (when (> length max-data)
+                    (set! max-data length))))
+              content))
+  
+  
+  (method override (print-to data previous-column previous-data output)
+    (let ((padding (- max-data (length data))))
+      (case alignment
+        ((left)  (format output "{_ :v}{a}{_ :v}{_ :v}" border data padding border-after))
+        ((right) (format output "{_ :v}{_ :v}{a}{_ :v}" border padding data border-after)))))))

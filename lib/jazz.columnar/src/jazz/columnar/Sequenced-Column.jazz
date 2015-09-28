@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Indented-Column Preferences
+;;;; Sequenced Column
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,42 +35,41 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.display.Indented-Column-Preferences jazz
+(module protected jazz.columnar.Sequenced-Column jazz
 
 
-(import (jazz.jml)
-        (jazz.library)
-        (jazz.resource))
+(import (jazz.columnar))
 
 
-(class undocumented Indented-Column-Preferences extends Column-Preferences
-
-
-  (property indentation     initialize 2  accessors generate)
-  (property use-contouring? initialize #f accessors generate)
-  
-  
-  (form
-    (<install> icon: {Image-Resource "Link"}))
-
-  
-  ;;;
-  ;;;; Column
-  ;;;
-  
-  
-  (method override (column-class)
-    Indented-Column)
-  
-  
-  (method override (new-column display)
-    (new Indented-Column display border: border border-after: border-after minimum: minimum indentation: indentation use-contouring?: use-contouring?))
+(class undocumented Sequenced-Column extends Display-Column
   
   
   ;;;
-  ;;;; Descriptor
+  ;;;; Content
   ;;;
   
   
-  (method meta override (get-class-descriptor (context: context #f))
-    (new jazz.library.designer:Indented-Column-Preferences-Descriptor))))
+  (method override (put-data data rest)
+    (if (> line (get-line~ displayer))
+        (put~ (get-last-element~ factory) data)
+      (let ((fact (new List-Factory)))
+        (put~ fact data)
+        (put~ factory fact))))
+  
+  
+  (method override (increase-line)
+    (when (<= line (get-line~ displayer))
+      (increase! line)))
+  
+  
+  ;;;
+  ;;;; Printing
+  ;;;
+  
+  
+  (method override (print-to fact previous-column previous-data output)
+    (format output "{_ :v}" border)
+    (for-each (lambda (data)
+                (display data output))
+              (get-output~ fact))
+    (format output "{_ :v}" border-after))))

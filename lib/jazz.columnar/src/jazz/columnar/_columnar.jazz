@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Sequenced Column
+;;;; Columnar
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,41 +35,35 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.display.Sequenced-Column jazz
+(module jazz.columnar jazz
 
 
-(import (jazz.library))
+(export (jazz.columnar.autoload))
+(import (jazz.columnar.autoload))
 
 
-(class undocumented Sequenced-Column extends Display-Column
-  
-  
-  ;;;
-  ;;;; Content
-  ;;;
-  
-  
-  (method override (put-data data rest)
-    (if (> line (get-line~ displayer))
-        (put~ (get-last-element~ factory) data)
-      (let ((fact (new List-Factory)))
-        (put~ fact data)
-        (put~ factory fact))))
-  
-  
-  (method override (increase-line)
-    (when (<= line (get-line~ displayer))
-      (increase! line)))
-  
-  
-  ;;;
-  ;;;; Printing
-  ;;;
-  
-  
-  (method override (print-to fact previous-column previous-data output)
-    (format output "{_ :v}" border)
-    (for-each (lambda (data)
-                (display data output))
-              (get-output~ fact))
-    (format output "{_ :v}" border-after))))
+;;;
+;;;; Tabulated
+;;;
+
+
+(definition public undocumented (display-tabulated data output)
+  (unimplemented 'display-tabulated)
+  @Column-Display-Display-Column
+  (let* ((display (new Columns-Display))
+         (sample (car data))
+         (last (- (length sample) 1))
+         (columns (loop (for ignore in sample)
+                        (for n from 0)
+                        (collect (if (= n last)
+                                     (new Display-Column display)
+                                   (new Aligned-Column display border-after: 1 alignment: 'left))))))
+    (add-columns~ display columns)
+    (for-each (lambda (row)
+                (for-each (lambda (object column)
+                            (output~ column (->string object)))
+                          row
+                          columns)
+                (newline~ display))
+              data)
+    (print-to~ display output))))

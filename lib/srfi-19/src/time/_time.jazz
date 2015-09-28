@@ -42,6 +42,14 @@
 (import (time.exports))
 
 
+(definition package (construct-date . rest)    
+  (apply make-date (collect-date-values rest)))
+
+
+(definition package (construct-time . rest)
+  (apply make-time (collect-time-values rest)))
+
+
 (definition public (make-default-date)
   (make-date 0 0 0 0 0 0 0 (date-zone-offset (current-date))))
 
@@ -50,16 +58,7 @@
   (make-time (time-type (current-time)) 0 0))
 
 
-(definition (collect-date/time-values args default-date/time default-getters)
-  (cond ((null? default-getters)
-         '())
-        ((null? args)
-         (cons ((car default-getters) default-date/time) (collect-date/time-values '() default-date/time (cdr default-getters))))
-        (else
-         (cons (car args) (collect-date/time-values (cdr args) default-date/time (cdr default-getters))))))
-
-
-(definition public (collect-date-values args)
+(definition (collect-date-values args)
   (assert (<= (length args) 8))
   (let* ((default-date (make-default-date))
          (date-values (collect-date/time-values args default-date (list date-year date-month date-day date-hour date-minute date-second date-nanosecond)))
@@ -73,9 +72,18 @@
     (reverse (cons zone-offset date-values))))
 
 
-(definition public (collect-time-values args)
+(definition (collect-time-values args)
   (assert (<= (length args) 3))
   (reverse (collect-date/time-values args (make-default-time) (list time-second time-nanosecond time-type))))
+
+
+(definition (collect-date/time-values args default-date/time default-getters)
+  (cond ((null? default-getters)
+         '())
+        ((null? args)
+         (cons ((car default-getters) default-date/time) (collect-date/time-values '() default-date/time (cdr default-getters))))
+        (else
+         (cons (car args) (collect-date/time-values (cdr args) default-date/time (cdr default-getters))))))
 
 
 (definition (date/time-literal-parameter-list time/date default-time/date printers)

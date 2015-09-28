@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Library Install
+;;;; Time Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,9 +35,8 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit jazz.library.install
+(unit time.install
 
 
-(jazz:define-literal Path               jazz.library.literals:construct-path)
-(jazz:define-literal Manifest           jazz.library.literals:construct-manifest)
-(jazz:define-literal Directory-Group    jazz.library.literals:construct-directory-group))
+(jazz:define-literal Date time:construct-date)
+(jazz:define-literal Time time:construct-time))

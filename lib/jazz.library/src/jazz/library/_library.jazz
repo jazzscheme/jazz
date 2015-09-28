@@ -264,48 +264,6 @@
 
 
 ;;;
-;;;; Contents
-;;;
-
-
-(definition public (different-file-contents? file1 file2)
-  (define (different-text-file-content? file1 file2)
-    (not (equal? (load-lines~ file1 char-encoding-errors: #f)
-                 (load-lines~ file2 char-encoding-errors: #f))))
-  
-  (declare (proper-tail-calls))
-  (if (and (member? (get-extension~ file1) Text-Extensions test: extension=?)
-           (member? (get-extension~ file2) Text-Extensions test: extension=?))
-      (different-text-file-content? file1 file2)
-    (call-with-input-file (path-settings file1 eol-encoding: 'cr-lf)
-      (lambda (input1)
-        (call-with-input-file (path-settings file2 eol-encoding: 'cr-lf)
-          (lambda (input2)
-            (or @convert
-                (/= (get-size~ input1)
-                    (get-size~ input2))
-                (let (iterate)
-                  (let ((u1 (read-u8 input1))
-                        (u2 (read-u8 input2)))
-                    (cond ((and (eof-object? u1)
-                                (eof-object? u2))
-                           #f)
-                          ((eqv? u1 u2)
-                           (iterate))
-                          (else
-                           #t)))))))))))
-
-
-(definition public (different-file-contents-no-whitespace? file1 file2)
-  (call-with-input-file (path-settings file1 char-encoding: 'UTF char-encoding-errors: #f eol-encoding: 'cr-lf)
-    (lambda (input1)
-      (call-with-input-file (path-settings file2 char-encoding: 'UTF char-encoding-errors: #f eol-encoding: 'cr-lf)
-        (lambda (input2)
-          (not (wi=? (read-content-string input1)
-                     (read-content-string input2))))))))
-
-
-;;;
 ;;;; Descriptors
 ;;;
 

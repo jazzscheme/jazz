@@ -38,7 +38,6 @@
 (unit jazz.ui.install
 
 
-(jazz:define-literal Shortcut              jazz.ui.literals:construct-shortcut)
 (jazz:define-literal Format                jazz.ui.literals:construct-format)
 (jazz:define-literal Text-Style            jazz.ui.literals:construct-text-style)
 (jazz:define-literal Link-Style            jazz.ui.literals:construct-link-style)

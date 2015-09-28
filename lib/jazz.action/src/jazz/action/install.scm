@@ -38,4 +38,5 @@
 (unit jazz.action.install
 
 
-(jazz:define-literal Action jazz.action:construct-action))
+(jazz:define-literal Action   jazz.action:construct-action)
+(jazz:define-literal Shortcut jazz.action:construct-shortcut))

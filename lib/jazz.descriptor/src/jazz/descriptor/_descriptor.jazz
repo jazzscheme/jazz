@@ -97,4 +97,53 @@
 
 (definition public Children-Meta-Descriptor
   (<form>
-    (<Component-Descriptor> title: "Children Descriptor"))))
+    (<Component-Descriptor> title: "Children Descriptor")))
+
+
+;;;
+;;;; Descriptors
+;;;
+
+
+(definition public descriptor-context
+  (make-parameter #f))
+
+
+(definition Class-Descriptors
+  (make-table test: equal?))
+
+
+(definition package (reset-descriptors)
+  (empty-table Class-Descriptors))
+
+
+(definition public undocumented (get-descriptor model)
+  (let* ((context (descriptor-context))
+         (name (category-identifier model))
+         (key (cons name context)))
+    (or (table-ref Class-Descriptors key #f)
+        (let ((descriptor (get-class-descriptor~ model context: context)))
+          (set-name~ descriptor name)
+          (table-set! Class-Descriptors key descriptor)
+          descriptor))))
+
+
+(definition public undocumented (get-properties-descriptor model)
+  (let ((class-descriptor (get-descriptor model)))
+    (when class-descriptor
+      (find-component~ class-descriptor 'properties))))
+
+
+(definition public undocumented (get-property-descriptor model name)
+  (let ((properties-descriptor (get-properties-descriptor model)))
+    (when properties-descriptor
+      (find-component~ properties-descriptor name))))
+
+
+(definition public undocumented (require-property-descriptor model name)
+  (or (get-property-descriptor model name)
+      (begin
+        @to-be-replaced-by-a-validation-suite (debug 'missing 'property 'descriptor 'for model name)
+        #f)
+      @wait
+      (error "No property descriptor found for {s}" name))))

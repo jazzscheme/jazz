@@ -38,192 +38,145 @@
 (module time jazz
 
 
-(export (time.exports))
-(import (time.exports))
-
-
-(definition package (construct-date . rest)    
-  (apply make-date (collect-date-values rest)))
-
-
-(definition package (construct-time . rest)
-  (apply make-time (collect-time-values rest)))
-
-
-(definition public (make-default-date)
-  (make-date 0 0 0 0 0 0 0 (date-zone-offset (current-date))))
-
-
-(definition public (make-default-time)
-  (make-time (time-type (current-time)) 0 0))
-
-
-(definition (collect-date-values args)
-  (assert (<= (length args) 8))
-  (let* ((default-date (make-default-date))
-         (date-values (collect-date/time-values args default-date (list date-year date-month date-day date-hour date-minute date-second date-nanosecond)))
-         (zone-offset (if (< (length args) 8) 
-                          (date-zone-offset default-date)
-                        (let ((time-zone (last args)))
-                          (cond ((and (symbol? time-zone) (eq? 'Z time-zone)) 0)
-                                ((number? time-zone) time-zone)
-                                ((and (string? time-zone) (= 5 (string-length time-zone))) (* 60 (+ (* 60 (string->number (substring time-zone 0 3))) (string->number (substring time-zone 3 5)))))
-                                (else (error "badly formed time zone")))))))
-    (reverse (cons zone-offset date-values))))
-
-
-(definition (collect-time-values args)
-  (assert (<= (length args) 3))
-  (reverse (collect-date/time-values args (make-default-time) (list time-second time-nanosecond time-type))))
-
-
-(definition (collect-date/time-values args default-date/time default-getters)
-  (cond ((null? default-getters)
-         '())
-        ((null? args)
-         (cons ((car default-getters) default-date/time) (collect-date/time-values '() default-date/time (cdr default-getters))))
-        (else
-         (cons (car args) (collect-date/time-values (cdr args) default-date/time (cdr default-getters))))))
-
-
-(definition (date/time-literal-parameter-list time/date default-time/date printers)
-  (if (and (not-null? printers)
-           (find-if (lambda (printer) (not (string=? (printer time/date) (printer default-time/date)))) printers))
-      (concatenate " " ((car printers) time/date) (date/time-literal-parameter-list time/date default-time/date (cdr printers)))
-    ""))
-
-  
-(class Time-Class extends Class)
-
-
-(class primitive Time metaclass Time-Class extends Object
-   
-  
-  (method override (print output readably)
-    (format output "~{{a}{a}}"
-      (category-name (class-of self))
-      (date/time-literal-parameter-list self (make-default-time) (map (lambda (proc) (compose ->string proc)) (list time-second time-nanosecond time-type)))))
-  
-  
-  (method override (compare-object target)
-    (if (time? target)
-        (cond ((time=? self target) :equal)
-              ((time<? self target) :less)
-              (else :greater))
-      :incompatible)))
-
-
-(class Date-Class extends Class)
-
-
-(class primitive Date metaclass Date-Class extends Object
-  
-  
-  (method override (print output readably)
-    (format output "~{{a}{a}}"
-      (category-name (class-of self))
-      (date/time-literal-parameter-list self (make-default-date) (map (lambda (format-string) 
-                                                                        (lambda (date) (date->string date format-string))) 
-                                                                      '("~Y" "~m" "~d" "~H" "~M" "~S" "~N" "\"~z\"")))))
-  
-  
-  (method override (compare-object target)
-    (if (date? target)
-        (let ((time1 (date->time-utc self))
-              (time2 (date->time-utc target)))
-          (cond ((time=? time1 time2) :equal)
-                ((time<? time1 time2) :less)
-                (else :greater)))
-      :incompatible)))
-
-
-(definition public (system-date)
-  (current-date (system-timezone)))
-
-
-(definition public (time->seconds time)
-  (+ (exact->inexact (time-second time)) (/ (time-nanosecond time) 1000000000.)))
-
-
-(definition public (seconds->time seconds)
-  (let ((int-seconds (inexact->exact (floor seconds))))
-    (make-time time-utc (inexact->exact (floor (* 1000000 (- seconds int-seconds)))) int-seconds)))
-
-
-;; convert
-(definition public (date-universal->local date)
-  date)
-
-
-;; convert
-(definition public (date-local->universal date)
-  date)
-
-
-(definition public (parse-date-day date)
-  (string->date date "~Y/~m/~d"))
-
-
-(definition public (parse-date-time date)
-  (string->date date "~Y/~m/~d ~H:~M"))
-
-
-(definition public (parse-date-day-french date)
-  (string->date date "~d/~m/~Y"))
-
-
-(definition public (present-date date)
-  (date->string date "~Y/~m/~d ~H:~M:~S"))
-
-
-(definition public (present-date-day date)
-  (date->string date "~Y/~m/~d"))
-
-
-(definition public (present-date-time date)
-  (date->string date "~Y/~m/~d ~H:~M"))
-
-
-(definition public (present-date-day-french date)
-  (date->string date "~d/~m/~Y"))
-
-
-(definition public (present-date-hour date)
-  (date->string date "~H:~M"))
+(require (time.implementation))
 
 
 ;;;
-;;;; Date Arithmetic
+;;;; Constants
 ;;;
 
 
-(definition public (date= d1 d2)
-  (and (= (date-year d1) (date-year d2))
-       (= (date-month d1) (date-month d2))
-       (= (date-day d1) (date-day d2))
-       (= (date-hour d1) (date-hour d2))
-       (= (date-second d1) (date-second d2))
-       (= (date-nanosecond d1) (date-nanosecond d2))
-       (= (date-zone-offset d1) (date-zone-offset d2))))
+(native time-duration)
+(native time-monotonic)
+(native time-process)
+(native time-tai)
+(native time-thread)
+(native time-utc)
 
 
-(definition public (date-add date count type)
-  (let ((nanosecond (date-nanosecond date))
-        (second (date-second date))
-        (minute (date-minute date))
-        (hour (date-hour date))
-        (day (date-day date))
-        (month (date-month date))
-        (year (date-year date))
-        (zone-offset (date-zone-offset date)))
-    (case type
-      ((nanosecond) (increase! nanosecond count))
-      ((second) (increase! second count))
-      ((minute) (increase! minute count))
-      ((hour) (increase! hour count))
-      ((day) (increase! day count))
-      ((month) (increase! month count))
-      ((year) (increase! year count))
-      ((zone-offset) (increase! zone-offset count))
-      (else (unimplemented)))
-    (time-utc->date (date->time-utc (make-date nanosecond second minute hour day month year zone-offset))))))
+;;;
+;;;; Current time and clock resolution
+;;;
+
+
+(native current-date)
+(native current-julian-day)
+(native current-modified-julian-day)
+(native tm-current-time)
+(definition public current-time tm-current-time)
+(native time-resolution)
+(native system-timezone)
+(native system-timezone-set!)
+(native local-timezone)
+(native local-timezone-set!)
+
+
+;;;
+;;;; Time object and accessors
+;;;
+
+
+(native make-time)
+(native time?)
+(native time-type)
+(native time-nanosecond)
+(native time-second)
+(native set-time-type!)
+(native set-time-nanosecond!)
+(native set-time-second!)
+(native copy-time)
+
+
+;;;
+;;;; Time comparison procedures
+;;;
+
+
+(native time<=?)
+(native time<?)
+(native time=?)
+(native time>=?)
+(native time>?)
+
+
+;;;
+;;;; Time arithmetic procedures
+;;;
+
+
+(native time-difference)
+(native time-difference!)
+(native add-duration)
+(native add-duration!)
+(native subtract-duration)
+(native subtract-duration!)
+
+
+;;;
+;;;; Date object and accessors
+;;;
+
+
+(native make-date)
+(native date?)
+(native date-nanosecond)
+(native date-second)
+(native date-minute)
+(native date-hour)
+(native date-day)
+(native date-month)
+(native date-year)
+(native date-zone-offset)
+(native date-year-day)
+(native date-week-day)
+(native date-week-number)
+
+
+;;;
+;;;; Time/Date/Julian Day/Modified Julian Day Converters
+;;;
+
+
+(native date->julian-day)
+(native date->modified-julian-day)
+(native date->time-monotonic)
+(native date->time-tai)
+(native date->time-utc)
+(native julian-day->date)
+(native julian-day->time-monotonic)
+(native julian-day->time-tai)
+(native julian-day->time-utc)
+(native modified-julian-day->date)
+(native modified-julian-day->time-monotonic)
+(native modified-julian-day->time-tai)
+(native modified-julian-day->time-utc)
+(native time-monotonic->date)
+(native time-monotonic->julian-day)
+(native time-monotonic->modified-julian-day)
+(native time-monotonic->time-tai)
+(native time-monotonic->time-tai!)
+(native time-monotonic->time-utc)
+(native time-monotonic->time-utc!)
+(native time-tai->date)
+(native time-tai->julian-day)
+(native time-tai->modified-julian-day)
+(native time-tai->time-monotonic)
+(native time-tai->time-monotonic!)
+(native time-tai->time-utc)
+(native time-tai->time-utc!)
+(native time-utc->date)
+(native time-utc->julian-day)
+(native time-utc->modified-julian-day)
+(native time-utc->time-monotonic)
+(native time-utc->time-monotonic!)
+(native time-utc->time-tai)
+(native time-utc->time-tai!)
+
+
+;;;
+;;;; Date to String/String to Date Converters
+;;;
+
+
+(native date->string)
+(native string->date))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Timers
+;;;; Time Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,48 +35,8 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.utility.Timer jazz
+(unit jazz.time.install
 
 
-(import (jazz.feedback))
-
-
-(class Timer extends Object
-
-
-  (slot real-start)
-  (slot cpu-start)
-
-
-  (method override (initialize)
-    (nextmethod)
-    (reset))
-
-
-  (method public (reset)
-    (set! real-start (real-time))
-    (set! cpu-start (cpu-time)))
-
-
-  (method public (real-duration)
-    (- (real-time) real-start))
-  
-  (method public (real-duration-in-milliseconds)
-    (seconds->milliseconds (real-duration)))
-  
-  (method public (cpu-duration)
-    (- (cpu-time) cpu-start))
-
-  (method public (cpu-duration-in-milliseconds)
-    (seconds->milliseconds (cpu-duration)))
-
-
-  (method public (report-duration)
-    (user-message "Duration: {s} ms real, {s} ms cpu"
-                  (real-duration-in-milliseconds)
-                  (cpu-duration-in-milliseconds)))
-
-
-  (method public (report-fps)
-    (user-message "FPS: {s}"
-                  (/ 1. (real-duration))))))
+(jazz:define-literal Date time:construct-date)
+(jazz:define-literal Time time:construct-time))

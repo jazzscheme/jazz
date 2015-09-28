@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Class References
+;;;; Reference Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.utility.Class-Reference jazz
+(unit jazz.reference.install
 
 
-(import (jazz.library))
+(jazz:define-literal-walker Reference         jazz.reference:walk-reference)
+(jazz:define-literal-walker Class-Reference   jazz.reference:walk-class-reference)
 
 
-(class Class-Reference extends Reference))
+(jazz:define-literal Reference          jazz.reference:construct-reference)
+(jazz:define-literal Class-Reference    jazz.reference:construct-class-reference))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Cell Domain
+;;;; Environments
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,16 +35,44 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.domain.Cell-Domain jazz
+(module protected jazz.reference.Environment jazz
 
 
-(import (jazz.domain)
-        (jazz.jml)
-        (jazz.reference))
+(import (jazz.reference))
 
 
-(class Cell-Domain extends Literal-Domain
+(class Environment extends Object implements Environment-Provider
   
   
-  (form
-    (<install> is: {Class-Reference Cell}))))
+  (slot data    getter generate)
+  (slot locator getter generate)
+    
+  
+  (method override (initialize data locator)
+    (nextmethod)
+    (set! data~self data)
+    (set! locator~self locator))
+  
+  
+  (method override (print output readably)
+    (format output "~{{a} {a}}"
+            (category-name (class-of self))
+            data))
+
+
+  (method override (setup-context context)
+    (setup-context~ data context))
+  
+  
+  (method override (get-reference symbol)
+    (locator symbol))
+  
+  
+  (method override (locate-reference symbol)
+    (let ((reference (locator symbol)))
+      (and reference (resolve-runtime-reference reference))))
+  
+  
+  (method override (require-reference symbol)
+    (or (locate-reference symbol)
+        (error "Unable to find reference: {s}" symbol)))))

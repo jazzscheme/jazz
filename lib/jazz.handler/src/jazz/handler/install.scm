@@ -38,7 +38,9 @@
 (unit jazz.handler.install
 
 
-(jazz:define-literal-walker Event-Handler jazz.handler:walk-event-handler)
+(jazz:define-literal-walker Event-Handler     jazz.handler:walk-event-handler)
+(jazz:define-literal-walker Handler-Reference jazz.handler:walk-handler-reference)
 
 
-(jazz:define-literal Event-Handler jazz.handler:construct-event-handler))
+(jazz:define-literal Event-Handler     jazz.handler:construct-event-handler)
+(jazz:define-literal Handler-Reference jazz.handler:construct-handler-reference))

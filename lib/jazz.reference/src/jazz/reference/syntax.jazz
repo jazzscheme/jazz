@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Cell Domain
+;;;; Reference Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,16 +35,31 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.domain.Cell-Domain jazz
+(module protected jazz.reference.syntax jazz
 
 
-(import (jazz.domain)
-        (jazz.jml)
-        (jazz.reference))
+;;;
+;;;; Environment
+;;;
 
 
-(class Cell-Domain extends Literal-Domain
+(macro public (<environment> data)
+  (define (gather-references)
+    (let ((references (make-table test: eq?)))
+      (define (walk-reference reference)
+        (table-set! references reference #t))
+      
+      (walk-references~ data walk-reference)
+      references))
   
+  (define (locators-builder references)
+    (cons 'list (map (lambda (pair)
+                       (let ((reference (car pair)))
+                         `(cons ',reference (reference ,reference))))
+                     (table->list references))))
   
-  (form
-    (<install> is: {Class-Reference Cell}))))
+  (let ((locators-code (locators-builder (gather-references))))
+    `(construct-environment ',data
+                            (let ((locators (list->table ,locators-code)))
+                              (lambda (symbol)
+                                (locators-ref locators symbol)))))))

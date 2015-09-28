@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Environments
+;;;; References
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,44 +35,52 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.utility.Environment jazz
+(module jazz.reference jazz
 
 
-(import (jazz.library))
+(export (jazz.reference.autoload)
+        (jazz.reference.syntax))
+
+(import (jazz.reference.autoload))
 
 
-(class Environment extends Object implements Environment-Provider
-  
-  
-  (slot data    getter generate)
-  (slot locator getter generate)
-    
-  
-  (method override (initialize data locator)
-    (nextmethod)
-    (set! data~self data)
-    (set! locator~self locator))
-  
-  
-  (method override (print output readably)
-    (format output "~{{a} {a}}"
-            (category-name (class-of self))
-            data))
+;;;
+;;;; Environment
+;;;
 
 
-  (method override (setup-context context)
-    (setup-context~ data context))
-  
-  
-  (method override (get-reference symbol)
-    (locator symbol))
-  
-  
-  (method override (locate-reference symbol)
-    (let ((reference (locator symbol)))
-      (and reference (resolve-runtime-reference reference))))
-  
-  
-  (method override (require-reference symbol)
-    (or (locate-reference symbol)
-        (error "Unable to find reference: {s}" symbol)))))
+(definition public (construct-environment data locator)
+  (let ((environment (new Environment data locator)))
+    (setup-context~ environment environment)
+    environment))
+
+
+;;;
+;;;; Reference
+;;;
+
+
+(definition package (walk-reference arguments proc)
+  (proc (source-code (car arguments))))
+
+
+(definition package (construct-reference symbol)
+  (new Reference symbol))
+
+
+(definition public (get-reference-import reference)
+  (second (serialize-runtime-reference
+            (get-runtime-reference~ reference))))
+
+
+;;;
+;;;; Class Reference
+;;;
+
+
+(definition package (walk-class-reference arguments proc)
+  (proc (source-code (car arguments))))
+
+
+(definition package (construct-class-reference symbol)
+  (new Class-Reference symbol)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Trait References
+;;;; Component Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,33 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.utility.Trait-Reference jazz
+(unit jazz.component.install
 
 
-(import (jazz.library))
+(jazz:define-literal-walker Trait-Reference jazz.component:walk-trait-reference)
 
 
-(class Trait-Reference extends Reference
-  
-  
-  (slot parameters getter generate)
-    
-  
-  (method override (initialize symbol parameters)
-    (nextmethod symbol)
-    (set! parameters~self parameters))
-  
-  
-  (method override (print output readably)
-    (format output "~{{a} {a}{?: {l}~}}"
-            (category-name (class-of self))
-            symbol
-            (not-null? parameters)
-            parameters))
-  
-  
-  (method override (resolve-parameters)
-    (let ((trait (resolve-reference)))
-      (if (null? parameters)
-          trait
-        (child~ trait parameters))))))
+(jazz:define-literal Trait-Reference jazz.component:construct-trait-reference))

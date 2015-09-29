@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Log Reporter
+;;;; Multiplexer Reporter
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,66 +35,92 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.reporter.Log-Reporter jazz
+(module protected jazz.ui.reporter.Multiplexer-Reporter jazz
 
 
-(import (jazz.library))
+(import (jazz.ui))
 
 
-(class undocumented Log-Reporter extends Object implements Reporter
+(class undocumented Multiplexer-Reporter extends Object implements Reporter
   
   
-  (slot log)
+  (slot reporters)
   
   
-  (method override (initialize log)
+  (method override (initialize reporters)
     (nextmethod)
-    (set! log~self log))
+    (set! reporters~self reporters))
+  
+  
+  (method (main-reporter)
+    (car reporters))
   
   
   (method override (section-title title)
-    (format log "{%}{%}*** {a}{%}{%}{%}" title))
+    (for-each (lambda (reporter)
+                (section-title~ reporter title))
+              reporters))
   
   
   (method override (set-message msg)
-    (format log "{a}{%}" msg))
+    (for-each (lambda (reporter)
+                (set-message~ reporter msg))
+              reporters))
   
   
   (method override (user-message fmt . rest)
-    (set-message (apply format fmt rest)))
+    (for-each (lambda (reporter)
+                (apply (~ user-message reporter) fmt rest))
+              reporters))
   
   
   (method override (set-range range)
-    )
+    (for-each (lambda (reporter)
+                (set-range~ reporter range))
+              reporters))
   
   
   (method override (set-pos pos)
-    )
+    (for-each (lambda (reporter)
+                (set-pos~ reporter pos))
+              reporters))
   
   
   (method override (delta-pos increment)
-    )
+    (for-each (lambda (reporter)
+                (delta-pos~ reporter increment))
+              reporters))
   
   
   (method override (set-step increment)
-    )
+    (for-each (lambda (reporter)
+                (set-step~ reporter increment))
+              reporters))
   
   
   (method override (step-it)
-    )
+    (for-each (lambda (reporter)
+                (step-it~ reporter))
+              reporters))
   
   
   (method override (set-done)
-    )
+    (for-each (lambda (reporter)
+                (set-done~ reporter))
+              reporters))
   
   
   (method override (disable-cancel)
-    )
+    (for-each (lambda (reporter)
+                (disable-cancel~ reporter))
+              reporters))
   
   
   (method override (cancel-requested?)
-    #f)
+    (let ((main (main-reporter)))
+      (cancel-requested?~ main)))
   
   
   (method override (test-cancelled)
-    )))
+    (let ((main (main-reporter)))
+      (test-cancelled~ main)))))

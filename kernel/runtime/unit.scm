@@ -527,7 +527,7 @@
         table)))
 
 
-(define (jazz:sweep-build-repository)
+(define (jazz:sweep-build-repository remove-packages)
   (if jazz:Build-Repository
       (begin
         (jazz:feedback "; sweeping binaries...")
@@ -535,8 +535,10 @@
           (jazz:iterate-table-safe table
             (lambda (name package)
               ;; when each repository has its own build repository we can then safely remove the dangling binary package
-              (if (jazz:find-package name)
-                  (jazz:sweep-build-package package))))))))
+              (cond ((jazz:find-package name)
+                     (jazz:sweep-build-package package))
+                    ((and (pair? remove-packages) (memq name remove-packages))
+                     (jazz:remove-build-package name)))))))))
 
 
 (define (jazz:sweep-build-package package)
@@ -581,6 +583,19 @@
         
         (if (jazz:pathname-exists? root)
             (sweep-directory root ""))))))
+
+
+(define (jazz:remove-build-package name)
+  (if jazz:Build-Repository
+      (let ((library-directory (%%get-repository-library-directory jazz:Build-Repository)))
+        (let ((package-directory (%%string-append library-directory (%%symbol->string name) "/")))
+          (if (jazz:directory-exists? package-directory)
+              (begin
+                (jazz:feedback "; removing {a}..." name)
+                (if (%%not (jazz:dry-run?))
+                    (begin
+                      (jazz:delete-directory package-directory)
+                      (%%table-clear (jazz:repository-packages-table jazz:Build-Repository) name)))))))))
 
 
 (jazz:define-variable jazz:setup-repositories-called?

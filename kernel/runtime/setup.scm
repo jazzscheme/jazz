@@ -369,8 +369,9 @@
             (if dynamic-file
                 (jazz:dependencies (call-with-input-file dynamic-file read))))
           (jazz:prepare-repositories)
-          (if (and make? (or sweep? (jazz:build-repository-needs-sweep?)))
-              (jazz:sweep-build-repository))
+          (let ((needs-sweep (and make? (or sweep? (jazz:build-repository-needs-sweep)))))
+            (if needs-sweep
+                (jazz:sweep-build-repository needs-sweep)))
           (jazz:setup-repositories))
         
         (define (setup-runtime)

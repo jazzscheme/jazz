@@ -152,7 +152,7 @@
   (lambda rest
     #f))
 
-(jazz:define-variable jazz:build-repository-needs-sweep?
+(jazz:define-variable jazz:build-repository-needs-sweep
   (lambda rest
     #f))
 

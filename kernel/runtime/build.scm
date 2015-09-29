@@ -88,7 +88,7 @@
             rebuild-architecture?)))))
 
 
-(define (jazz:build-repository-needs-sweep?-impl)
+(define (jazz:build-repository-needs-sweep-impl)
   (let ((dir (%%string-append jazz:kernel-install "build/kernel/")))
     (let ((swept-file (%%string-append dir "version-swept")))
       (define (determine-version)
@@ -104,16 +104,17 @@
       (let ((version (determine-version)))
         (if (%%not version)
             #f
-          (let ((sweep? #f))
+          (let ((sweep #f))
             (jazz:for-each-higher-jazz-version version
               (lambda (jazz-version)
-                (if (jazz:get-version-sweep jazz-version)
-                    (set! sweep? #t))))
-            (if sweep?
+                (let ((version-sweep (jazz:get-version-sweep jazz-version)))
+                  (if version-sweep
+                      (set! sweep version-sweep)))))
+            (if sweep
                 (begin
                   (jazz:create-directories dir)
                   (jazz:save-version-file swept-file)))
-            sweep?))))))
+            sweep))))))
 
 
 (define (jazz:manifest-needs-rebuild?-impl manifest)
@@ -1173,7 +1174,7 @@
 ;;;
 
 
-(jazz:define-variable-override jazz:build-repository-needs-sweep? jazz:build-repository-needs-sweep?-impl)
+(jazz:define-variable-override jazz:build-repository-needs-sweep jazz:build-repository-needs-sweep-impl)
 (jazz:define-variable-override jazz:manifest-needs-rebuild? jazz:manifest-needs-rebuild?-impl)
 (jazz:define-variable-override jazz:get-changed-units jazz:get-changed-units-impl)
 (jazz:define-variable-override jazz:push-changed-units jazz:push-changed-units-impl)

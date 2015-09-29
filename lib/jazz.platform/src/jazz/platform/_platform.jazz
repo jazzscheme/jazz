@@ -142,4 +142,50 @@
 
 
 (definition public (modifiers-keys)
-  (modifiers->keys (modifiers-mask))))
+  (modifiers->keys (modifiers-mask)))
+
+
+;;;
+;;;; Terminal
+;;;
+
+
+(definition package (terminal-repl)
+  (show-terminal)
+  (bring-terminal-to-front)
+  (repl))
+
+
+(cond-expand
+  (windows
+    (definition package (terminal-visible?)
+      (let ((console (GetConsoleWindow)))
+        (and console (IsWindowVisible console))))
+    
+    (definition package (show-terminal)
+      (let ((console (GetConsoleWindow)))
+        (if (not console)
+            (set-terminal-title)
+          (ShowWindow console SW_SHOWNORMAL))))
+    
+    (definition package (hide-terminal)
+      (let ((console (GetConsoleWindow)))
+        (when (and console (IsWindowVisible console))
+          (ShowWindow console SW_HIDE))))
+    
+    (definition package (toggle-terminal)
+      (if (terminal-visible?)
+          (hide-terminal)
+        (show-terminal))))
+  (else
+   (definition package (terminal-visible?)
+     #f)
+   
+   (definition package (show-terminal)
+     (set-terminal-title))
+   
+   (definition package (hide-terminal)
+     )
+   
+   (definition package (toggle-terminal)
+     ))))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Library Install
+;;;; Uniform Resource Locators
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,9 +35,63 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit jazz.library.install
+(module protected jazz.io.URL jazz
 
 
-(jazz:define-literal Path               jazz.library.literals:construct-path)
-(jazz:define-literal Manifest           jazz.library.literals:construct-manifest)
-(jazz:define-literal Directory-Group    jazz.library.literals:construct-directory-group))
+(import (jazz.io))
+
+
+(definition public (extract-url-name url)
+  (let ((pos (find url #\slash reversed?: #t)))
+    (if (null? pos)
+        url
+      (subseq url (+ pos 1)))))
+
+
+(definition (tokenise-url filename)
+  (split filename "/"))
+
+
+(class URL-Class extends (:class Pathname))
+
+
+(class URL metaclass URL-Class extends Pathname
+  
+  
+  (slot title getter generate)
+  
+  
+  (method override (initialize lst (title: title #f))
+    (nextmethod lst)
+    (set! title~self title))
+  
+  
+  (method override (get-name)
+    (extract-url-name (parse)))
+  
+  
+  (method override (print output readably)
+    (let ((title (get-title)))
+      (if (null? title)
+          (nextmethod output readably)
+        (print-unreadable self output
+          (lambda (output)
+            (format output "{a}" title))))))
+  
+  
+  ;;;
+  ;;;; Split
+  ;;;
+  
+  
+  ;; For now, assumes a very standard "http://www.google.com/advanced_search" format
+  (method public (split)
+    (let* ((url (parse))
+           (header (subseq url 0 7)))
+      (if (/= header "http://")
+          (error "Unable to split url {t}" self)
+        (let* ((sub (subseq url 7))
+               (pos (find sub #\slash)))
+          (if (null? pos)
+              (values sub #f)
+            (values (subseq sub 0 pos) (subseq sub (+ pos 1))))))))))

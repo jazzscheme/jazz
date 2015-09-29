@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Uniform Resource Locators
+;;;; Category Moniker
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,63 +35,99 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.moniker.URL jazz
+(module protected jazz.io.Category-Moniker jazz
 
 
 (import (jazz.io))
 
 
-(definition public (extract-url-name url)
-  (let ((pos (find url #\slash reversed?: #t)))
-    (if (null? pos)
-        url
-      (subseq url (+ pos 1)))))
+(class undocumented Category-Moniker extends Moniker)
 
 
-(definition (tokenise-url filename)
-  (split filename "/"))
+@convert
 
 
-(class URL-Class extends (:class Pathname))
-
-
-(class URL metaclass URL-Class extends Pathname
+(class undocumented Category-Moniker extends Moniker
   
   
-  (slot title getter generate)
+  (slot name)
   
   
-  (method override (initialize lst (title: title #f))
-    (nextmethod lst)
-    (set! title~self title))
+  @convert-literal
+  (method meta (construct-literal context name)
+    (new self name))
   
   
-  (method override (get-name)
-    (extract-url-name (parse)))
-  
-  
-  (method override (print output readably)
-    (let ((title (get-title)))
-      (if (null? title)
-          (nextmethod output readably)
-        (print-unreadable self output
-          (lambda (output)
-            (format output "{a}" title))))))
+  (method (print output readably)
+    (format output "~{{a} {s}}"
+            (category-name (class-of self))
+            name))
   
   
   ;;;
-  ;;;; Split
+  ;;;; Moniker
+  ;;;
+
+
+  (method (get-name)
+    name)
+  
+  
+  (method (get-file)
+    (get-source))
+  
+  
+  ;;;
+  ;;;; Protocol
   ;;;
   
   
-  ;; For now, assumes a very standard "http://www.google.com/advanced_search" format
-  (method public (split)
-    (let* ((url (parse))
-           (header (subseq url 0 7)))
-      (if (/= header "http://")
-          (error "Unable to split url {t}" self)
-        (let* ((sub (subseq url 7))
-               (pos (find sub #\slash)))
-          (if (null? pos)
-              (values sub #f)
-            (values (subseq sub 0 pos) (subseq sub (+ pos 1))))))))))
+  @convert
+  (method meta (get-protocol)
+    'category)
+  
+  
+  @convert
+  (method meta (new-moniker list)
+    (new self (car list)))
+  
+  
+  (method (present)
+    (format "{a}" name))
+  
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method (initialize name)
+    (nextmethod)
+    (set! name~self name))
+  
+  
+  ;;;
+  ;;;; Source
+  ;;;
+  
+  
+  (method public (get-source)
+    (or (get-manifest-source name)
+        (error "Unable to find category: {t}" name)))
+    
+  
+  ;;;
+  ;;;; Input/Output
+  ;;;
+
+
+  (method (load-lines . rest)
+    (load-lines~ (get-source)))
+
+
+  (method (save-lines lines . rest)
+    (save-lines~ (get-source) lines))
+  
+  
+  (method (load-form)
+    (load-form~ (get-source)))))

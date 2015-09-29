@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Category Moniker
+;;;; Path
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,99 +35,82 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.moniker.Category-Moniker jazz
+(module jazz.io.Path jazz
 
 
-(import (jazz.io))
-
-
-(class undocumented Category-Moniker extends Moniker)
-
-
-@convert
-
-
-(class undocumented Category-Moniker extends Moniker
+(class undocumented Path extends Object
   
   
-  (slot name)
+  (slot path accessors generate)
   
   
-  @convert-literal
-  (method meta (construct-literal context name)
-    (new self name))
-  
-  
-  (method (print output readably)
-    (format output "~{{a} {s}}"
-            (category-name (class-of self))
-            name))
-  
-  
-  ;;;
-  ;;;; Moniker
-  ;;;
-
-
-  (method (get-name)
-    name)
-  
-  
-  (method (get-file)
-    (get-source))
-  
-  
-  ;;;
-  ;;;; Protocol
-  ;;;
-  
-  
-  @convert
-  (method meta (get-protocol)
-    'category)
-  
-  
-  @convert
-  (method meta (new-moniker list)
-    (new self (car list)))
-  
-  
-  (method (present)
-    (format "{a}" name))
-  
-  
-  ;;;
-  ;;;; Initialization
-  ;;;
-  
-  
-  (method (initialize name)
+  (method override (initialize path)
     (nextmethod)
-    (set! name~self name))
+    (set! path~self path))
+  
+
+  (method override (compare-object target)
+    (cond ((is-not? target (class-of self))
+           :incompatible)
+          ((= path (get-path~ target))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method override (print output readably)
+    (format output "~{{a}{?: {l}~}}"
+            (category-name (class-of self))
+            (not-null? path)
+            path))
   
   
   ;;;
-  ;;;; Source
+  ;;;; Parent
   ;;;
   
   
-  (method public (get-source)
-    (or (get-manifest-source name)
-        (error "Unable to find category: {t}" name)))
+  (method public (get-parent)
+    (new Path (butlast path)))
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method public (present)
+    (format "{l detail: :human}" path))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method public virtual (follow-component root)
+    (define (follow component path)
+      (cond ((null? path)
+             root)
+            ((integer? path)
+             (let ((children (get-children~ component)))
+               (when (< path (length children))
+                 (element children path))))
+            ((pair? path)
+             (let ((sub (follow component (car path))))
+               (when sub
+                 (let ((next (cdr path)))
+                   (if (null? next)
+                       sub
+                     (follow sub next))))))
+            (else
+             (find-child~ component path))))
     
-  
-  ;;;
-  ;;;; Input/Output
-  ;;;
-
-
-  (method (load-lines . rest)
-    (load-lines~ (get-source)))
-
-
-  (method (save-lines lines . rest)
-    (save-lines~ (get-source) lines))
+    (follow root path))
   
   
-  (method (load-form)
-    (load-form~ (get-source)))))
+  (method public virtual (follow-form form)
+    (for-each (lambda (name)
+                (set! form (child~ form name)))
+              path)
+    form)))

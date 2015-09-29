@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Manifest
+;;;; Directories
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -21,6 +21,7 @@
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
+;;;    Alain Marcotte
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -35,27 +36,20 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.library.manifest.Manifest jazz
+(module protected jazz.io.Directory-Group jazz
 
 
 (import (jazz.io))
 
 
-@comment
-{Manifest {Directory Home}}
-
-@comment
-{Manifest {Directory Home} ignore: ("a")}
-
-
-(class Manifest-Class extends (:class Directory)
+(class Directory-Group-Class extends (:class Directory)
   
   
   (method override (get-protocol)
-    'manifest))
+    'group))
 
 
-(class Manifest metaclass Manifest-Class extends Directory
+(class Directory-Group metaclass Directory-Group-Class extends Directory
   
   
   (method override (validate-components lst)
@@ -67,8 +61,7 @@
   
   (method override (print output readably)
     (let ((lst (get-list)))
-      (format output "~{{a}{?: {l detail: :v}~}}"
-              (category-name (class-of self))
+      (format output "~{Directory-Group{?: {l detail: :v}~}}"
               (not-null? lst) lst
               readably)))
     
@@ -88,7 +81,7 @@
   
   
   (method override (get-name)
-    "Manifest")
+    "Directory-Group")
   
   
   (method override (get-directory)
@@ -129,7 +122,7 @@
   ;;;
   
   
-  (method override (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (recursive?: recursive? #t) (ignored-toplevel-dirnames: ignored-toplevel-dirnames '()) (ignored-dirnames: ignored-dirnames '()))
+  (method override (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (recursive?: recursive? #t) (ignored-toplevel-dirnames: ignored-toplevel-dirnames #f) (ignored-dirnames: ignored-dirnames #f))
     ;; this function might not give the expected result
     ;; if full? is #f and the content elements are not all brothers
     ;; ignored-dirnames is not used to filter the first level, only subsequent ones
@@ -142,7 +135,7 @@
                     ((Directory)
                      (when directories?
                        (let ((name (get-name~ element)))
-                         (when (and directories? (not (member? name ignored-dirnames)))
+                         (when (and directories? (not (and ignored-dirnames (member? name ignored-dirnames))))
                            (if full?
                                (proc element)
                              (proc (list name) 'directory)))

@@ -39,7 +39,13 @@
 
 
 (import (jazz.language.runtime.format)
-        (jazz.language.runtime.functional))
+        (jazz.language.runtime.functional)
+        (jazz.language.runtime.object))
+
+
+;;;
+;;;; Header
+;;;
 
 
 (definition public (output-header title printer (language: language 'jazz) (system: system #f) (license: license #f) (author: author #f) (copyright: copyright #f) (contributors: contributors '()) (end-proper?: end-proper? #t))
@@ -102,4 +108,100 @@
     (format output "{_ :v}{a}{a}{%}" (* level 2) comment extra)
     (format output "{_ :v}{a} {a}{%}" (* level 2) toplevel title)
     (format output "{_ :v}{a}{a}{%}" (* level 2) comment extra)
-    (format output "{%}{%}"))))
+    (format output "{%}{%}")))
+
+
+;;;
+;;;; Formatter
+;;;
+
+
+(native jazz:unspecified)
+
+
+(class undocumented Formatter extends Object
+
+
+  (method public virtual (format-directive formatting output directive)
+    ))
+
+
+;;;
+;;;; Print-Sequencer
+;;;
+
+
+(class undocumented Print-Sequencer extends Object)
+
+
+@convert
+
+
+(class undocumented Print-Sequencer extends Object
+  
+  
+  (slot printer)
+  (slot start)
+  (slot sections initialize (new List-Factory))
+  
+  
+  (method (initialize prt)
+    (nextmethod)
+    (set! printer prt)
+    (start-section))
+  
+  
+  (method public (start-section)
+    (set! start (get-position)))
+  
+  
+  (method public (end-section)
+    (prog1 (cons start (get-position))
+      (start-section)))
+  
+  
+  (method (get-position)
+    (get-position~ printer))
+  
+  
+  ;;;
+  ;;;; Sections
+  ;;;
+  
+  
+  (method public (put-section section)
+    (put~ sections section))
+  
+  
+  (method public (put-sections sections-list)
+    (put-sequence~ sections sections-list))
+  
+  
+  (method public (print-sections output)
+    (for-each (lambda (section)
+                (bind (start . end) section
+                  (transfer start end output)))
+              (get-output~ sections)))
+  
+  
+  ;;;
+  ;;;; Transfer
+  ;;;
+  
+  
+  (definition transfer-size
+    1024)
+  
+  (definition transfer-buffer
+    (new Heap-Block size: transfer-size))
+  
+  
+  (method synchronized (transfer start end output)
+    (let ((size (- end start)))
+      (while (> size 0)
+        (set-position~ printer start)
+        (let ((subsize (min size transfer-size)))
+          (ReadFile (get-handle~ printer) transfer-buffer subsize NULL)
+          (WriteFile (get-handle~ output) transfer-buffer subsize NULL)
+          (decrease! size subsize)
+          (increase! start subsize)))))))

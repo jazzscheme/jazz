@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Screens
+;;;; Cocoa Screens
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,63 +35,52 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.ui.screen jazz
+(module protected jazz.screen.platform.cocoa jazz
 
 
-(export (jazz.ui.screen.platform.cocoa   (cond cocoa))
-        (jazz.ui.screen.platform.windows (cond windows))
-        (jazz.ui.screen.platform.x11     (cond x11)))
+(import (jazz.platform)
+        (jazz.screen.autoload)
+        (jazz.ui))
 
 
-(import (jazz.geometry)
-        (jazz.ui.screen.platform.cocoa   (cond cocoa))
-        (jazz.ui.screen.platform.windows (cond windows))
-        (jazz.ui.screen.platform.x11     (cond x11)))
+(definition public (platform-main-screen)
+  (new Screen (platformGetMainScreen)))
 
 
-(definition public (main-screen)
-  (platform-main-screen))
+(definition public (platform-primary-screen)
+  (new Screen (platformGetPrimaryScreen)))
 
 
-(definition public (auxiliary-screen)
-  (let ((main (main-screen)))
-    (or (find-if (lambda (screen)
-                   (not (screen=? screen main)))
-                 (all-screens))
-        main)))
+(definition public (platform-all-screens)
+  (map (lambda (id)
+         (new Screen (id->nsscreen id)))
+       (nsarray->list (platformGetScreens))))
 
 
-(definition public (primary-screen)
-  (platform-primary-screen))
+(definition (screen-cartesian->rect rect)
+  (let ((height (platformGetPrimaryScreenFrameHeight))
+        (origin (NSRect-origin-ref rect))
+        (size (NSRect-size-ref rect)))
+    (let ((x (NSPoint-x-ref origin))
+          (y (NSPoint-y-ref origin)))
+      (let ((bottom (NSPoint-y-ref origin)))
+        (let ((top (+ bottom (NSSize-height-ref size))))
+          (new Rect
+            (fxround x)
+            (fxround (- height top))
+            (fxround (+ x (NSSize-width-ref size)))
+            (fxround (- height bottom))))))))
 
 
-(definition public (secondary-screen)
-  (let ((primary (primary-screen)))
-    (or (find-if (lambda (screen)
-                   (not (screen=? screen primary)))
-                 (all-screens))
-        primary)))
+(definition public (platform-screen-frame-rect handle)
+  (with-NSRect #f
+    (lambda (rect)
+      (platformGetScreenFrameRect handle rect)
+      (screen-cartesian->rect rect))))
 
 
-(definition public (find-screen kind)
-  (case kind
-    ((main) (main-screen))
-    ((auxiliary) (auxiliary-screen))
-    ((primary) (primary-screen))
-    ((secondary) (secondary-screen))
-    (else (error "Unknown screen kind: {s}" kind))))
-
-
-(definition public (all-screens)
-  (platform-all-screens))
-
-
-(definition public (center-screen screen size)
-  (let ((content (get-content-rect~ screen)))
-    (let ((content-position (rect-position content))
-          (content-size (rect-size content)))
-      (nu+ content-position (center size content-size)))))
-
-
-(definition public (screen=? x y)
-  (nu=? (get-frame-rect~ x) (get-frame-rect~ y))))
+(definition public (platform-screen-content-rect handle)
+  (with-NSRect #f
+    (lambda (rect)
+      (platformGetScreenContentRect handle rect)
+      (screen-cartesian->rect rect)))))

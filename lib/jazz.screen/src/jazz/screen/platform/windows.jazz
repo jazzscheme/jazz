@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; UI Test
+;;;; Windows Screens
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,25 +35,42 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.ui.test jazz
+(module protected jazz.screen.platform.windows jazz
 
 
-;;;
-;;;; Screen
-;;;
+@w
+(definition (new-screen handle)
+  (let ((info (MONITORINFO-make)))
+    (MONITORINFO-cbSize-set! info (MONITORINFO-sizeof))
+    (GetMonitorInfo handle info)
+    (prog1 (new Screen
+             (/= (MONITORINFO-dwFlags-ref info) 0)
+             (RECT->rect (MONITORINFO-rcMonitor-ref info))
+             (RECT->rect (MONITORINFO-rcWork-ref info)))
+      (MONITORINFO-free info))))
 
 
-(import (jazz.screen)
-        (jazz.ui))
+(definition public (platform-main-screen)
+  #f
+  @w
+  (new-screen (MonitorFromWindow (get-handle~ (get-toplevel)) 0)))
 
 
-(define (screen-info screen)
-  (list screen (get-frame-rect~ screen) (get-content-rect~ screen)))
+(definition public (platform-primary-screen)
+  #f)
 
 
-(debug (screen-info (main-screen)))
-(debug (screen-info (auxiliary-screen)))
-(debug (screen-info (primary-screen)))
-(debug (screen-info (secondary-screen)))
-(debug (map screen-info (all-screens)))
-(debug (center-screen (main-screen) {Dimension 100 50})))
+(definition public (platform-all-screens)
+  '()
+  @w
+  (let ((queue (new-queue)))
+    (EnumDisplayMonitors #f #f enum-monitors-proc (object->serial queue))
+    (map new-screen (queue-list queue))))
+
+
+(definition public (platform-screen-frame-rect handle)
+  #f)
+
+
+(definition public (platform-screen-content-rect handle)
+  #f))

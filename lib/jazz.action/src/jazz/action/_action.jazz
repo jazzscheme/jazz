@@ -52,6 +52,78 @@
 
 
 ;;;
+;;;; Actions
+;;;
+
+
+(definition *actions*
+  (make-table test: eq?))
+
+
+(definition package (get-actions)
+  *actions*)
+
+(definition package (register-actions context actions)
+  (table-set! *actions* context actions))
+
+(definition package (find-actions context)
+  (or (table-ref *actions* context #f)
+      (error "Unable to find actions: {s}" context)))
+
+
+(definition package (find-action-item context name)
+  (find-component~ (find-actions context) name))
+
+
+(definition package (require-action-item action)
+  (or (find-action-item (get-action-context~ action) (get-action-name~ action))
+      (error "Unable to find action: {t}" action)))
+
+
+(definition package (call-action action sender properties (event: event #f))
+  (let ((action-item (require-action-item action)))
+    (invoke~ action-item sender properties action: action event: event)))
+
+
+(definition package (get-action-enabled? action)
+  (let ((action-item (require-action-item action)))
+    (get-enabled?~ action-item)))
+
+
+(definition package (set-action-enabled? action enabled?)
+  (let ((action-item (require-action-item action)))
+    (set-enabled?~ action-item enabled?)))
+
+
+(definition package (set-actions-enabled? actions enabled?)
+  (for-each (lambda (action)
+              (set-action-enabled? action enabled?))
+            actions))
+
+
+(definition package (get-class-actions object)
+  (class-actions~ object))
+
+
+(definition package (get-guest-actions view)
+  (guest-actions~ view))
+
+
+(definition package (extract-actions actions-list)
+  (let ((fact (new List-Factory)))
+    (for-each (lambda (action-list)
+                (let ((context-name (get-name~ action-list)))
+                  (for-each (lambda (action-item)
+                              (let* ((action-name (get-name~ action-item))
+                                     (shortcut (get-shortcut~ action-item)))
+                                (when shortcut
+                                  (put~ fact action-item))))
+                            (get-children~ action-list))))
+              actions-list)
+    (get-output~ fact)))
+
+
+;;;
 ;;;; Shortcut
 ;;;
 

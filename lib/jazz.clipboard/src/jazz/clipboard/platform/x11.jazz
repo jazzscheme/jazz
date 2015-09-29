@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Cocoa Clipboard
+;;;; X11 Clipboard
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.clipboard.platform.cocoa jazz
+(module protected jazz.clipboard.platform.x11 jazz
 
 
-(import (jazz.platform))
+(import (jazz.platform)
+        (jazz.ui.dialog)
+        (jazz.ui.window))
 
 
 ;;;
@@ -50,27 +52,12 @@
   )
 
 
-(definition public (get-clipboard-text (format: format #f))
-  (platformGetClipboardString (clipboard-format->type format)))
+(definition public (get-clipboard-text (format: format #f) (selection: selection XA_CLIPBOARD))
+  (x11-get-clipboard-string x11-default-display (get-handle~ (current-window)) selection))
 
 
-(definition public (set-clipboard-text text (format: format #f))
-  (platformSetClipboardString text (clipboard-format->type format)))
-
-
-(definition (clipboard-format->type format)
-  (if (or (not format)
-          (eq? format 'unicode-text))
-      #f
-    (symbol->string format)))
-
-
-(definition public undocumented (register-clipboard-format name format)
-  )
-
-
-(definition public undocumented (clipboard-format-available? format)
-  (boolean (get-clipboard-text format: format)))
+(definition public (set-clipboard-text text (format: format #f) (selection: selection XA_CLIPBOARD))
+  (x11-set-clipboard-string x11-default-display (get-handle~ (current-window)) text selection))
 
 
 ;;;
@@ -79,8 +66,29 @@
 
 
 (definition package (mouse-select-copy proc)
-  #f)
+  (let ((text (proc)))
+    (if (not text)
+        #f
+      (set-clipboard-text text selection: XA_PRIMARY)
+      #t)))
 
 
 (definition package (middle-mouse-paste proc)
+  (let ((text (get-clipboard-text selection: XA_PRIMARY)))
+    (if (not text)
+        #f
+      (proc text)
+      #t)))
+
+
+;;;
+;;;; Formats
+;;;
+
+
+(definition public undocumented (register-clipboard-format name format)
+  )
+
+
+(definition public undocumented (clipboard-format-available? format)
   #f))

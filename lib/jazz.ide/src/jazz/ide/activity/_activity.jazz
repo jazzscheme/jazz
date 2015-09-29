@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; History-Menu
+;;;; Activity Manager
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,43 +35,36 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.history.History-Menu jazz
+(module jazz.ide.activity jazz
 
 
-(import (jazz.handler)
+(import (jazz.application)
+        (jazz.ide)
         (jazz.ui)
-        (jazz.ui.history))
+        (jazz.ui.window))
 
 
-(class undocumented History-Menu extends Context-Menu
+(definition Manager
+  #f)
+
+
+(definition public (get-activity-manager (visible?: visible? #f))
+  (define (new-manager)
+    (new Activity-Manager position: (manager-position) visible?: visible?))
   
-  
-  (property manager   accessors generate)
-  (property direction accessors generate)
-  
-  
-  ;;;
-  ;;;; Setup
-  ;;;
-  
-  
-  (method override (finish rest)
-    (nextmethod rest)
-    (let ((rank 0))
-      (for-each (lambda (item)
-                  (let ((title (present~ item)))
-                    (new Label-Item parent: self title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list rank: rank)))
-                    (increase! rank)))
-                (get-history manager direction))))
-  
-  
-  ;;;
-  ;;;; Action
-  ;;;
-  
-  
-  (method (on-action evt)
-    (let ((rank (get-property~ evt rank:)))
-      (case direction
-        ((backward) (go-backward-history~ manager rank: rank))
-        ((forward)  (go-forward-history~ manager rank: rank)))))))
+  (unless Manager
+    (set! Manager (new-manager)))
+  Manager)
+
+
+;; Some temporary not very clean positioning code
+(definition package (manager-position)
+  (let* ((desktop (get-desktop))
+         (toplevel (get-toplevel))
+         (size (get-size~ toplevel))
+         (pos (new Point (- (get-width~ size) 543) (- (get-height~ size) 79))))
+    (acquire~ desktop toplevel pos)))
+
+
+(definition package (destroy-manager)
+  (set! Manager #f)))

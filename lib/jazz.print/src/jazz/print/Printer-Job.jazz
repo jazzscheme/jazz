@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Page Header
+;;;; Printer Job
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,56 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.print.Page-Header jazz
+(module protected jazz.print.Printer-Job jazz
 
 
-(import (jazz.graphic)
+(import (jazz.cairo.cairo-windows)
+        (jazz.platform)
+        (jazz.print)
         (jazz.ui))
 
 
-(class undocumented Page-Header extends Page-Text-View
-
-
+(class undocumented Printer-Job extends Print-Job
+  
+  
   ;;;
-  ;;;; Drawing
+  ;;;; Coordinates
   ;;;
   
   
-  (method override (get-drawing-background context)
-    (if (getf context printing?:)
-        (nextmethod context)
-      {Color Light-Yellow}))))
+  (method override (offset-page surface)
+    (let ((min-margins (get-min-margins~ page-setup)))
+      (translate~ surface (- (get-left~ min-margins)) (- (get-top~ min-margins)))))
+  
+  
+  ;;;
+  ;;;; Document
+  ;;;
+  
+  
+  (method override (start-document)
+    (let ((rec (DOCINFO-make)))
+      (DOCINFO-cbSize-set! rec (DOCINFO-sizeof))
+      (DOCINFO-lpszDocName-set! rec #f)
+      (DOCINFO-fwType-set! rec 0)
+      (StartDoc (cairo_win32_surface_get_dc (get-handle~ surface)) rec)
+      (DOCINFO-free rec)))
+  
+  
+  (method override (end-document)
+    (EndDoc (cairo_win32_surface_get_dc (get-handle~ surface))))
+  
+  
+  ;;;
+  ;;;; Page
+  ;;;
+  
+  
+  (method override (start-page no)
+    (nextmethod no)
+    (StartPage (cairo_win32_surface_get_dc (get-handle~ surface))))
+  
+  
+  (method override (end-page no)
+    (nextmethod no)
+    (EndPage (cairo_win32_surface_get_dc (get-handle~ surface))))))

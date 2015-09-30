@@ -1079,13 +1079,13 @@
                       conflicts))))))
 
 
-(define (jazz:add-to-module-references namespace-declaration method-declaration)
-  (%%when (and method-declaration
-               (%%neq? namespace-declaration (jazz:get-declaration-toplevel method-declaration)))
-    (let* ((module-declaration (jazz:get-declaration-toplevel namespace-declaration))
-           (references-table (jazz:get-module-declaration-walker-references module-declaration)))
-      (%%when (%%neq? module-declaration (jazz:get-declaration-toplevel method-declaration))
-        (%%table-set! references-table (jazz:get-declaration-locator method-declaration) method-declaration)))))
+(define (jazz:add-to-module-references declaration referenced-declaration)
+  (%%when referenced-declaration
+    (let ((module-declaration (jazz:get-declaration-toplevel declaration))
+          (referenced-module-declaration (jazz:get-declaration-toplevel referenced-declaration)))
+      (%%when (%%neq? module-declaration referenced-module-declaration)
+        (let ((references-table (jazz:get-module-declaration-walker-references module-declaration)))
+          (%%table-set! references-table (jazz:get-declaration-locator referenced-declaration) referenced-declaration))))))
 
 
 (define (jazz:generate-reference-list module-declaration)

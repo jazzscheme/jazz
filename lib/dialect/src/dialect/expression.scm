@@ -156,7 +156,7 @@
                                (if (jazz:match-signature? arguments types function-type)
                                    (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration environment backend)
                                        (begin
-                                         (jazz:add-to-module-references (jazz:get-declaration-toplevel declaration) specializer)
+                                         (jazz:add-to-module-references declaration specializer)
                                          (jazz:new-code
                                            (let ((locator (jazz:get-declaration-locator specializer)))
                                              `(,locator ,@(jazz:codes-forms arguments-codes)))

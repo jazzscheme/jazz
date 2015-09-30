@@ -743,7 +743,7 @@
   (let ((name (jazz:get-lexical-binding-name declaration)))
     (receive (dispatch-type method-declaration) (jazz:method-dispatch-info declaration)
       (let ((category-declaration (jazz:get-declaration-parent method-declaration)))
-        (jazz:add-to-module-references source-declaration category-declaration)
+        (jazz:add-to-module-references source-declaration method-declaration)
         (let ((object-cast (jazz:emit-type-check object category-declaration source-declaration environment backend)))
           (jazz:new-code
             (case dispatch-type

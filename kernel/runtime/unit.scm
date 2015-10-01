@@ -1314,7 +1314,7 @@
       #f)))
 
 (define (jazz:product-descriptor-product descriptor)
-  (let ((pair (%%assq 'unit (%%cdr descriptor))))
+  (let ((pair (%%assq 'product (%%cdr descriptor))))
     (if pair
         (%%cadr pair)
       #f)))

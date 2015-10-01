@@ -42,6 +42,30 @@
 
 
 ;;;
+;;;; Gambit
+;;;
+
+
+(define (jazz:gambitcomp op
+                         output-dir
+                         input-filenames
+                         output-filename
+                         cc-options
+                         ld-options-prelude
+                         ld-options
+                         verbose?)
+  (##gambcomp 'C
+              op
+              output-dir
+              input-filenames
+              output-filename
+              verbose?
+              (%%list (%%cons "CC_OPTIONS" cc-options)
+                      (%%cons "LD_OPTIONS_PRELUDE" ld-options-prelude)
+                      (%%cons "LD_OPTIONS" ld-options))))
+
+
+;;;
 ;;;; Version
 ;;;
 
@@ -201,7 +225,7 @@
           (maximum-heap #f)
           (feedback jazz:feedback))
   (let ((product-name (if (%%not product) "kernel" (%%symbol->string product)))
-        (gambit-library (if include-compiler? "gambcgsc" "gambc"))
+        (gambit-library (if include-compiler? "gambitgsc" "gambit"))
         (library-image? (%%eq? image 'library)))
     (let ((image-name (if (%%not product) "jazz" product-name))
           (gambit-dir (path-normalize "~~/"))
@@ -607,7 +631,7 @@
       
       (define (gambit-link-libraries)
         (if (%%not library-image?)
-            `("-lgambc" ,(%%string-append "-l" gambit-library))
+            `("-lgambit" ,(%%string-append "-l" gambit-library))
           '()))
       
       (define (link-libraries)
@@ -675,7 +699,7 @@
                          ,(link-file))))
           (feedback-message "; linking {a}..." (if library-image? "library" "executable"))
           (jazz:create-directories kernel-dir)
-          (##gambc-cc
+          (jazz:gambitcomp
             'exe
             (jazz:pathname-normalize build-dir)
             c-files

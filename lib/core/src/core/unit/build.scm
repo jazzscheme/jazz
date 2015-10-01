@@ -267,7 +267,7 @@
             (linkfile (string-append bin-o1 bin-extension)))
         (link-flat (%%list bin-output) output: linkfile warnings?: #f)
         (let ((exit-status
-                (##gambc-cc
+                (jazz:gambitcomp
                   'dyn
                   (jazz:resource-build-dir src)
                   (%%list linkfile (string-append bin-pathname-base ".o"))

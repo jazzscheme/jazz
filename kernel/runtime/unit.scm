@@ -1295,12 +1295,6 @@
         (%%cadr pair)
       #f)))
 
-(define (jazz:product-descriptor-unit descriptor)
-  (let ((pair (%%assq 'unit (%%cdr descriptor))))
-    (if pair
-        (%%cadr pair)
-      #f)))
-
 (define (jazz:product-descriptor-title descriptor)
   (let ((pair (%%assq 'title (%%cdr descriptor))))
     (if pair
@@ -1317,6 +1311,12 @@
   (let ((pair (%%assq 'run (%%cdr descriptor))))
     (if pair
         (%%cdr pair)
+      #f)))
+
+(define (jazz:product-descriptor-product descriptor)
+  (let ((pair (%%assq 'unit (%%cdr descriptor))))
+    (if pair
+        (%%cadr pair)
       #f)))
 
 (define (jazz:product-descriptor-test descriptor)
@@ -1462,7 +1462,7 @@
 
   (receive (package descriptor) (jazz:get-product-descriptor name)
     (let ((name (jazz:product-descriptor-name descriptor)) ; because of aliases
-          (unit (jazz:product-descriptor-unit descriptor)))
+          (unit (jazz:product-descriptor-product descriptor)))
       (if unit
           (begin
             (jazz:load-unit unit)

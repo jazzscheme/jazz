@@ -149,6 +149,26 @@
                 (processed? #f))
             (for-each-project~ project
               (lambda (project)
+                (define (search-all)
+                  (search-projects)
+                  (search-packages)
+                  (search-documentation))
+                
+                (define (search-projects)
+                  (iterate-files~ project
+                    (lambda (file)
+                      (search-in-file search file resultset reporter))))
+                
+                (define (search-packages)
+                  (let ((description-file (get-description-file~ project)))
+                    (when description-file
+                      (search-in-file search description-file resultset reporter))))
+                
+                (define (search-documentation)
+                  (let ((documentation (get-documentation~ project)))
+                    (when documentation
+                      (search-in-file search documentation resultset reporter))))
+                
                 (set! processed? #t)
                 (unless (and (dynamic-project?~ project)
                              (let ((key (get-path~ (project-context~ project))))
@@ -158,22 +178,11 @@
                                  #f)))
                   (set! processed? #f)
                   (if (not entries)
-                      (iterate-files~ project
-                        (lambda (file)
-                          (search-in-file search file resultset reporter)))
+                      (search-all)
                     (case entries
-                      ((projects)
-                       (let ((project-file (get-tag-reference~ (get-form~ project))))
-                         (when project-file
-                           (search-in-file search project-file resultset reporter))))
-                      ((packages)
-                       (let ((description-file (get-description-file~ project)))
-                         (when description-file
-                           (search-in-file search description-file resultset reporter))))
-                      ((documentation)
-                       (let ((documentation (get-documentation~ project)))
-                         (when documentation
-                           (search-in-file search documentation resultset reporter))))))))
+                      ((projects) (search-projects))
+                      ((packages) (search-packages))
+                      ((documentation) (search-documentation))))))
               stop-test: (lambda (project)
                            processed?)))
           (post-event

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Code-Text Preferences
+;;;; Exploring Code
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,34 +35,58 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.preference.Code-Text-Preferences jazz
+(module protected jazz.editor.Code-Explorer jazz
 
 
-(import (jazz.jml)
-        (jazz.ui))
+(import (jazz.ui))
 
 
-(class undocumented Code-Text-Preferences extends Text-Preferences
+(proclaim (warn optimizations))
+
+
+(class undocumented Code-Explorer extends Text-Explorer
+
+  
+  (method public virtual (backward-expr)
+    (when (backward-constituent)
+      (set! kind 'string)
+      kind))
+
+  
+  (method public virtual (forward-expr)
+    (when (forward-constituent)
+      (set! kind 'string)
+      kind))
+
+
+  (method public (collect-backward-exprs) <list>
+    (let ((list '()))
+      (while (backward-expr)
+        (set! list (cons (get-mark) list)))
+      list))
+
+
+  (method public (collect-forward-exprs n <fx>) <list>
+    (let ((fact (new List-Factory)))
+      (while (and (>= n 0) (forward-expr))
+        (put~ fact (get-mark))
+        (decrease! n))
+      (get-output~ fact)))
   
   
-  (property match-style     initialize #f     accessors generate)
-  (property match-action    initialize 'flash accessors generate)
-  (property flash-delay     initialize 0      accessors generate)
-  (property flash-duration  initialize 0.5    accessors generate)
-  (property highlight-mode  initialize 'both  accessors generate)
+  (method virtual (expression-comment? mark)
+    #f)
   
   
-  (form
-    (<install>
-      title: "Code Text"
-      base-style: {Text-Style Code-Base}
-      match-style: {Text-Style Base Text-Match}))
-  
-  
-  ;;;
-  ;;;; Descriptor
-  ;;;
-  
-  
-  (method meta override (get-class-descriptor (context: context #f))
-    (new jazz.ui.designer:Code-Text-Preferences-Descriptor))))
+  (method public (remove-expression-comments list)
+    (if (some? expression-comment? list)
+        (let (iterate (scan list))
+          (if (pair? scan)
+              (let ((mark (car scan)))
+                (if (expression-comment? mark)
+                    (if (pair? (cdr scan))
+                        (iterate (cddr scan))
+                      '())
+                  (cons mark (iterate (cdr scan)))))
+            '()))
+      list))))

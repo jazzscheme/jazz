@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Exploring Code
+;;;; Editor Designer Classes
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,58 +35,35 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.text.Code-Explorer jazz
+(module jazz.editor.designer jazz
 
 
-(import (jazz.ui))
+(import (jazz.action)
+        (jazz.designer.ui)
+        (jazz.descriptor)
+        (jazz.domain)
+        (jazz.jml)
+        (jazz.ui.designer))
 
 
-(proclaim (warn optimizations))
+;;;
+;;;; Code-Text-Preferences
+;;;
 
 
-(class undocumented Code-Explorer extends Text-Explorer
-
-  
-  (method public virtual (backward-expr)
-    (when (backward-constituent)
-      (set! kind 'string)
-      kind))
-
-  
-  (method public virtual (forward-expr)
-    (when (forward-constituent)
-      (set! kind 'string)
-      kind))
-
-
-  (method public (collect-backward-exprs) <list>
-    (let ((list '()))
-      (while (backward-expr)
-        (set! list (cons (get-mark) list)))
-      list))
-
-
-  (method public (collect-forward-exprs n <fx>) <list>
-    (let ((fact (new List-Factory)))
-      (while (and (>= n 0) (forward-expr))
-        (put~ fact (get-mark))
-        (decrease! n))
-      (get-output~ fact)))
+(class Code-Text-Preferences-Descriptor extends Text-Preferences-Descriptor
   
   
-  (method virtual (expression-comment? mark)
-    #f)
-  
-  
-  (method public (remove-expression-comments list)
-    (if (some? expression-comment? list)
-        (let (iterate (scan list))
-          (if (pair? scan)
-              (let ((mark (car scan)))
-                (if (expression-comment? mark)
-                    (if (pair? (cdr scan))
-                        (iterate (cddr scan))
-                      '())
-                  (cons mark (iterate (cdr scan)))))
-            '()))
-      list))))
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: match-style
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: match-action
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: flash-delay
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: flash-duration
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: highlight-mode
+          (<Value-Domain>      name: domain)))))))

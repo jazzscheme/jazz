@@ -1,0 +1,319 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Formatted Text View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.text.Formatted-Text-View jazz
+
+
+(import (jazz.action)
+        (jazz.application)
+        (jazz.document)
+        (jazz.event)
+        (jazz.handler)
+        (jazz.text)
+        (jazz.ui)
+        (jazz.ui.window))
+
+
+(class Formatted-Text-View extends Text-View
+
+
+  (slot ruler initialize #f)
+  
+  
+  (method override (new-model)
+    (new Formatted-Text-Model))
+  
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method override (focus-actions)
+    (cons (find-actions 'formatted-text)
+          (nextmethod)))
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method override (host-workspaces)
+    '(formatted))
+  
+  
+  ;;;
+  ;;;; Controller
+  ;;;
+  
+  
+  (method override (new-document-controller)
+    (new Formatted-Text-Controller self))
+  
+  
+  (method override (default-extension)
+    "ftx")
+  
+  
+  (method override (extensions)
+    '(("Formatted Texts" . "ftx")))
+
+
+  ;;;
+  ;;;; Ruler
+  ;;;
+  
+  
+  (method override (get-ruler)
+    ruler)
+  
+  
+  (method public (set-ruler r)
+    (set! ruler r))
+
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  ;; until converted
+  (method override (get-context-menu)
+    #f)
+
+
+  ;;;
+  ;;;; Cursor
+  ;;;
+
+
+  (method override (cursor-update evt)
+    (let ((view (get-position~ evt)))
+      (show-text-cursor)
+      (when (and (view-enabled?) selectable?)
+        (if (mouse-copy-down? evt)
+            (set-cursor :finger)
+          (let* ((pos (view->text view))
+                 (par (get-paragraph (get-line~ pos))))
+            (if (< (get-h~ view) (paragraph-left~ par))
+                (set-cursor :left-arrow)
+              (let ((style (get-style-at~ model pos)))
+                (if (is? style Link-Style)
+                    (set-cursor :finger)
+                  (set-cursor :ibeam)))))))))
+
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+
+
+  (method override (mouse-down evt)
+    (let* ((pos (view->text (get-position~ evt)))
+           (style (get-style-at~ model pos)))
+      (unless (is? style Link-Style)
+        (nextmethod evt))))
+
+
+  (method override (drag-up evt . rest)
+    (define (invoke-action action pos style)
+      (cond ((is? action Event-Handler)
+             (invoke~ action self (apply make-event Event :link self (get-properties~ action))))
+            (else
+             (action self pos style))))
+    
+    (define (goto-anchor anchor)
+      (for-each-heading~ model
+        (lambda (name heading line string)
+          (when (equal? string anchor)
+            (set-selection (new Range$Cell$
+                             (new Cell line 0)
+                             (new Cell line (cardinality string))))))))
+    
+    (let ((mouse-selecting? mouse-selecting?))
+      (nextmethod evt)
+      (when (and (view-enabled?) (not mouse-selecting?))
+        (let* ((pos (view->text (get-position~ evt)))
+               (style (get-style-at~ model pos)))
+          (when (is? style Link-Style)
+            (let ((anchor (get-anchor~ style))
+                  (action (get-action~ style)))
+              (cond (action
+                     (invoke-action action pos style))
+                    (anchor
+                     (goto-anchor anchor))
+                    (else
+                     (bell)))))))))
+
+
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method override (copy-selection)
+    (copy-formatted-selection)
+    (add-clipboard~ (get-application)))
+  
+  
+  (method override (paste-clipboard)
+    (paste-formatted-clipboard))
+  
+  
+  (method override (paste-clipboard-value clipboard)
+    (paste-formatted-clipboard-value clipboard))
+  
+  
+  (method override (cycle-paste-clipboard previous-clipboard clipboard)
+    (paste-clipboard-value clipboard))
+
+  
+  ;;;
+  ;;;; Headings
+  ;;;
+  
+  
+  (method public (for-each-heading proc)
+    (let ((all '(Heading1 Heading2 Heading3 Heading4 Heading5)))
+      (for-each-paragraph~ model
+        (lambda (line <fx> paragraph <Paragraph>)
+          (let ((run (first-run~ paragraph)))
+            (let ((style (and run (get-style~ run))))
+              (when style
+                (for-each (lambda (name)
+                            (let ((heading (locate-style name error?: #f)))
+                              (when (and heading (inherits?~ style heading))
+                                (proc name heading line (get-string~ paragraph)))))
+                          all))))))))
+  
+  
+  (method public (collect-headings)
+    (let ((headings (new List-Factory)))
+      (for-each-heading
+        (lambda (name style line string)
+           (put~ headings (list name style line string))))
+      (get-output~ headings)))
+
+  
+  ;;;
+  ;;;; Table Of Content
+  ;;;
+  
+  
+  @mvc
+  (method override (insert-table-of-content)
+    (let ((headings (collect-headings)))
+      (insert-styled "Table Of Content" 'Heading1)
+      (insert-newline)
+      (for-each (lambda (heading)
+                  (bind (name style line string) heading
+                    (when (eq? name 'Heading1)
+                      (insert-newline))
+                    (let* ((start (get-start))
+                           (line (get-line~ start)))
+                      (insert-link string anchor: string)
+                      (insert-newline)
+                      (unless (eq? name 'Heading1)
+                        (toggle-bulleted line)))))
+                headings))
+    (insert-newline)
+    (insert-newline))
+
+
+  ;;;
+  ;;;; Headings
+  ;;;
+  
+  
+  (definition Heading-Levels
+    '((Heading1 . 1)
+      (Heading2 . 2)
+      (Heading3 . 3)
+      (Heading4 . 4)
+      (Heading5 . 5)))
+  
+  
+  (definition (heading-level heading)
+    (let ((info (assq heading Heading-Levels)))
+      (if info
+          (cdr info)
+        (error "Unable to get heading level of {t}" heading))))
+
+
+  ;;;
+  ;;;; Chapters
+  ;;;
+  
+  
+  (method override (get-chapters)
+    (collect (lambda (heading)
+               (bind (name style line string) heading
+                 (let ((level (heading-level name)))
+                   (when (<= level 3)
+                     (list level (new Cell line 0) "" string)))))
+             (collect-headings)))
+  
+  
+  (method override (get-first-chapter lst)
+    #f)
+  
+  
+  (method override (get-remaining-chapters lst)
+    lst))
+
+
+;;;
+;;;; Controller
+;;;
+
+
+(class Formatted-Text-Controller extends Document-Controller
+  
+  
+  (method override (install-container)
+    (define (install-ruler)
+      (let ((host (get-host~ document))
+            (scroller (get-scroller~ document)))
+        (let ((ruler (new Ruler parent: host)))
+          (set-ruler~ document ruler)
+          (set-parent~ scroller (get-content~ ruler))
+          (set-client~ ruler document)
+          (set-content~ host ruler))))
+    
+    (install-scroller)
+    (install-ruler))))

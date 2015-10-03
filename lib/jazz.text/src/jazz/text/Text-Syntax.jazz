@@ -1,0 +1,345 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Text Syntax
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.text.Text-Syntax jazz
+
+
+(import (jazz.text)
+        (jazz.ui))
+
+
+(class Text-Syntax extends Object
+  
+  
+  (slot model     accessors generate)
+  (slot colorize? accessors generate)
+  
+  
+  (method override (initialize model (colorize?: colorize? #t))
+    (nextmethod)
+    (set! model~self model)
+    (set! colorize?~self colorize?))
+  
+  
+  ;;;
+  ;;;; Preferences
+  ;;;
+  
+  
+  (method protected virtual (preferences)
+    (new Text-Preferences))
+  
+  
+  ;;;
+  ;;;; Styles
+  ;;;
+  
+  
+  (method public virtual (comment-style? style)
+    #f)
+  
+  
+  (method public virtual (string-style? style)
+    #f)
+  
+  
+  (method public virtual (textual-style? style)
+    #f)
+   
+
+  ;;;
+  ;;;; IO
+  ;;;
+  
+  
+  (method protected virtual (default-extension)
+    "txt")
+  
+  
+  (method protected virtual (extensions)
+    '(("Texts" . "txt")))
+  
+  
+  ;;;
+  ;;;; Comment
+  ;;;
+  
+  
+  (method public virtual (comment-string)
+    #f)
+  
+  
+  (method public virtual (title-comment-string)
+    #f)
+  
+  
+  ;;;
+  ;;;; Chapters
+  ;;;
+  
+  
+  (method public virtual (get-headers) <list+>
+    #f)
+  
+  
+  (method public virtual (get-chapters) <list>
+    (let ((headers (get-headers)))
+      (if (not headers)
+          '()
+        (let ((occurences (text-regular-search-all~ model (map make-search-context headers)))
+              (chapters (new List-Factory)))
+          (for-each (lambda (info)
+                      (bind (from . to) info
+                        (let ((line (get-line~ from))
+                              (col (get-col~ from)))
+                          (when (= col (get-column~ model line))
+                            (let ((string (paragraph-string~ model line)))
+                              (let ((header (subseq string col (get-col~ to)))
+                                    (level (if (= col 0) 1 2))
+                                    (label (get-chapter-label string col from to)))
+                                (put~ chapters (list level from header label))))))))
+                    occurences)
+          (get-output~ chapters)))))
+  
+  
+  (method public virtual (get-chapter-label string col from to)
+    (subseq string (+ col (- (get-col~ to) (get-col~ from))))
+    @fixme-slow
+    (subseq string (+ col (- (position-offset~ model to) (position-offset~ model from)))))
+  
+  
+  (method public virtual (get-first-special?) <bool>
+    #t)
+  
+  
+  (method public virtual (get-first-chapter lst)
+    (if (get-first-special?)
+        (if (null? lst) #f (car lst))
+      (let ((file (get-moniker~ model)))
+        (list 0
+              (text-beginning~ model)
+              ""
+              (if (not file)
+                  "<Top>"
+                (get-name~ file))))))
+  
+  
+  (method public virtual (get-remaining-chapters lst)
+    (if (get-first-special?)
+        (if (null? lst) '() (cdr lst))
+      lst))
+  
+  
+  ;;;
+  ;;;; Constituent
+  ;;;
+  
+  
+  (method public virtual (get-match-test)
+    #f)
+  
+  
+  (method public virtual (get-constituent-test)
+    word-constituent?)
+  
+  
+  (method public (text-constituent? char)
+    (let ((proc (get-constituent-test)))
+      (proc char)))
+
+  
+  ;;;
+  ;;;; Parser
+  ;;;
+  
+  
+  (method public virtual (parser-class)
+    jazz.catalog:File-Parser)
+
+  
+  ;;;
+  ;;;; Translation
+  ;;;
+  
+  
+  (method public virtual (translate-key key)
+    key)
+  
+  
+  ;;;
+  ;;;; Completion
+  ;;;
+  
+  
+  (method public virtual (auto-complete-characters)
+    '())
+  
+  
+  (method public virtual (auto-complete-char? key last)
+    (or (memq? key (auto-complete-characters))
+        (not (text-constituent? key))))
+  
+  
+  (method public virtual (favorite-completions)
+    '())
+  
+  
+  (method public virtual (symbol-completions name)
+    '())
+  
+  
+  ;;;
+  ;;;; Explorer
+  ;;;
+  
+  
+  (method public virtual (explorer-class)
+    Text-Explorer)
+  
+  
+  ;;;
+  ;;;; Expression
+  ;;;
+  
+  
+  (method public virtual (name-at range)
+    (range-expr range))
+  
+  
+  (method public virtual (expr-at pos)
+    (name-at (expr-range pos)))
+  
+  
+  (method public virtual (supports-expr?)
+    #f)
+  
+  
+  (method public virtual (range-expr range)
+    (get-string~ model range))
+  
+  
+  (method public virtual (expr-range pos)
+    (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
+      (when (outer-expr~ expl explore-whitespace?: #f)
+        (get-range~ expl))))
+  
+  
+  (method public (outer-range range)
+    (let ((expl <Text-Explorer> (new (explorer-class) model range: range)))
+      (when (outer-expr~ expl)
+        (get-range~ expl))))
+
+  
+  ;;;
+  ;;;; Tabulation
+  ;;;
+
+
+  (method public virtual (tabulate text range)
+    )
+  
+  
+  (method protected virtual (tabulate-line text line)
+    )
+  
+  
+  (method protected virtual (untabulate-line text line)
+    )
+  
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (method protected (colorize)
+    (when colorize?
+      (colorize-syntax)))
+  
+  
+  (method protected virtual (colorize-syntax . rest)
+    )
+  
+  
+  (method protected virtual (colorize-comments . rest)
+    )
+  
+  
+  (method protected virtual (colorize-declarations . rest)
+    )
+
+  
+  (method protected virtual (colorize-range start end)
+    )
+  
+  
+  (method protected virtual (syntax-at pos)
+    self)
+  
+  
+  (method protected virtual (syntax-at-range range)
+    self)
+  
+  
+  (method protected virtual (replace-syntax range)
+    (values self #f))
+  
+  
+  (method protected virtual (recolorize syntax-style start end-line)
+    (when colorize?
+      (recolorize-text syntax-style start end-line)))
+  
+  
+  (method protected virtual (recolorize-range syntax-style start end)
+    )
+  
+  
+  (method protected virtual (recolorize-text syntax-style start end-line)
+    )
+  
+  
+  (method public (uncolorize-row line <fx>) <void>
+    (uncolorize-row~ model line))
+
+
+  ;;;
+  ;;;; Imports
+  ;;;
+  
+  
+  (method public virtual (find-imports symbol)
+    )))

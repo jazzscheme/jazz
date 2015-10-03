@@ -1,0 +1,223 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Paragraph Lines
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.text.Line jazz
+
+
+(import (jazz.geometry)
+        (jazz.graphic)
+        (jazz.text)
+        (jazz.ui))
+
+
+(class Line extends Object
+  
+  
+  (slot protected model       getter generate)
+  (slot protected runs        getter generate)
+  (slot protected rank   <fx> getter generate)
+  (slot protected offset <fx> getter generate)
+  (slot protected length <fx> getter generate)
+  (slot protected left   <fx> getter generate)
+  (slot protected top    <fx> getter generate)
+  (slot protected width  <fx> getter generate)
+  (slot protected height <fx> accessors generate)
+  
+  
+  (method override (initialize model runs rank offset left top width)
+    (define (compute-length)
+      (let ((len 0))
+        (for-each (lambda (run)
+                    (increase! len (get-length~ run)))
+                  runs)
+        len))
+    
+    (define (compute-height)
+      (if (null? runs)
+          (get-height~ (get-default-style~ model))
+        (let ((height 0))
+          (for-each (lambda (run)
+                      (let ((run-height (get-height~ run)))
+                        (set! height (max run-height height))))
+                    runs)
+          height)))
+    
+    (nextmethod)
+    (set! model~self model)
+    (set! runs~self runs)
+    (set! rank~self rank)
+    (set! offset~self offset)
+    (set! left~self left)
+    (set! top~self top)
+    (set! width~self width)
+    (set! length~self (compute-length))
+    (set! height~self (compute-height)))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (write runs output))))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-limit)
+    (+ offset length))
+  
+  
+  (method public (get-bottom)
+    (+ top height))
+  
+  
+  ;;;
+  ;;;; Width
+  ;;;
+  
+  
+  (method protected (contour-width)
+    (let ((width 0))
+      (for-each (lambda (run <Run>)
+                  (increase! width (compute-width~ run)))
+                runs)
+      width))
+  
+  
+  ;;;
+  ;;;; Range
+  ;;;
+
+
+  (method protected (range-region paragraph-left paragraph-top paragraph-width start end paragraph transformer)
+    (let ((left (get-h~ (col->view (or start 0))))
+          (right (if (not end) paragraph-width (get-h~ (col->view end)))))
+      (let ((rect (new Rect left top right (get-bottom))))
+        (let ((offset-rect (offset-rect rect paragraph-left paragraph-top)))
+          (new Cairo-Region rect: (transformer offset-rect))))))
+  
+  
+  ;;;
+  ;;;; Scan
+  ;;;
+  
+  
+  (method protected (scan end proc <procedure>)
+    (let ((b 0)
+          (h left)
+          (tabs (get-tabs~ model)))
+      (continuation-capture
+        (lambda (return)
+          (for-each (lambda (run)
+                      (let ((nmost 0)
+                            (rightmost 0))
+                        (let ((len (get-length~ run)))
+                          (scan~ run h 0 len tabs
+                            (lambda (c n left mid right)
+                              (if (and end (>= (+ b n) end))
+                                  (continuation-return return)
+                                (proc c (+ b n) left mid right)
+                                (set! nmost n)
+                                (set! rightmost right)))))
+                        (increase! b (+ nmost 1))
+                        (set! h rightmost)))
+                    runs)))))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method protected (draw-line surface context h <fx> v <fx> tabs left) <void>
+    (let ((h (+ left~self h))
+          (enabled? (draw-enabled?~ model)))
+      (for-each (lambda (run)
+                  (let ((width (draw-run~ run surface context h v height tabs left enabled?)))
+                    (increase! h width)))
+                runs)))
+  
+  
+  ;;;
+  ;;;; Coordinates
+  ;;;
+  
+  
+  (method protected (view->col pos <Point>) <fx+>
+    (let ((h (get-h~ pos))
+          (v (get-v~ pos)))
+      (when (and (>= v top) (< v (get-bottom)))
+        (continuation-capture
+          (lambda (return)
+            (scan #f
+              (lambda (c n left mid right)
+                (when (> mid h)
+                  (continuation-return return n))))
+            (get-length))))))
+  
+  
+  (method protected (col->view col <fx>) <Point>
+    (let ((rightmost 0))
+      (continuation-capture
+        (lambda (return)
+          (scan #f
+            (lambda (c n left mid right)
+              (when (= n col)
+                (continuation-return return (new Point left top)))
+              (set! rightmost right)))
+          ;; Allow the caret on an empty line (runs is null) with a
+          ;; center or right justification to be correctly aligned.
+          (unless (not-null? runs)
+            (set! rightmost left))
+          (new Point rightmost top)))))
+  
+  
+  (method protected (col->view-strict col <fx>) <Point+>
+    (continuation-capture
+      (lambda (return)
+        (scan #f
+          (lambda (c n left mid right)
+            (when (= n col)
+              (continuation-return return (new Point left top)))))
+        #f)))
+  
+  
+  (method protected (col->text col <fx>) <Cell+>
+    (when (and (>= col offset) (< col (get-limit)))
+      (new Cell rank (- col offset))))))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Tooltips
+;;;; Popup Windows
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,69 +35,48 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.window.Tooltip jazz
+(module protected jazz.window.Popup jazz
 
 
-(import (jazz.ui))
+(import (jazz.window))
 
 
-(class Tooltip extends Transient)
+(class Popup extends Overlapped
+  
+  
+  (slot initiator initialize #f accessors generate)
+  
 
-;; run-away methods - eats all memory
-;; mouse-hover calls itself until find-window returns non-Tooltip
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method override (conclude rest)
+    (nextmethod rest)
+    (destroy-mandatory))
 
-  @disable-all (
-  
-  (method (with-passing-through proc)
-    (let ((preserved (get-passing-through?)))
-      (unwind-protect
-          (begin
-            (set-passing-through? #t)
-            (proc))
-        (set-passing-through? preserved))))
+
+  (method override (show)
+    (set-visible-flag #t)
+    (show-noactivate))
   
   
-  (method (pass-through h v proc)
-    (let* ((pos (new Point h v))
-           (window (find-window~ owner (acquire~ owner self pos))))
-      (when window
-        (let ((acquired (acquire~ window self pos)))
-          (with-passing-through
-            (lambda ()
-              (proc window (get-h~ acquired) (get-v~ acquired))))))))
+  ;;;
+  ;;;; Destruction
+  ;;;
+
+
+  (method override (destroy)
+    (when initiator
+      (popup-destroy~ initiator self))
+    (nextmethod))
+    
+
+  ;;;
+  ;;;; Events
+  ;;;
   
   
-  (method (mouse-hover h v)
-    (pass-through h v
-      (lambda (window h v)
-        (mouse-hover~ window h v))))
-  
-  
-  (method (mouse-down h v)
-    (pass-through h v
-      (lambda (window h v)
-        (mouse-down~ window h v))))
-  
-  
-  (method (mouse-move h v)
-    (pass-through h v
-      (lambda (window h v)
-        (mouse-move~ window h v))))
-  
-  
-  (method (mouse-up h v)
-    (pass-through h v
-      (lambda (window h v)
-        (mouse-up~ window h v))))
-  
-  
-  (method (double-click h v)
-    (pass-through h v
-      (lambda (window h v)
-        (double-click~ window h v))))
-  
-  
-  (method (context-menu h v)
-    (pass-through h v
-      (lambda (window h v)
-        (context-menu~ window h v))))))
+  (method override (mouse-activate?)
+    #f)))

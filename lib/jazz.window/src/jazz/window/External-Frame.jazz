@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Application Sample
+;;;; External Frames
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,60 +35,51 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.application.sample jazz
+(module protected jazz.window.External-Frame jazz
 
 
-(import (jazz.application)
-        (jazz.graphic)
-        (jazz.jml)
-        (jazz.ui)
-        (jazz.ui.view)
+(import (jazz.ui)
         (jazz.window))
 
 
-(class Sample-App extends Application
-  
-  
-  (method override (show-toplevel)
-    )
-  
-  
-  (method override (finish-process)
-    (nextmethod)
-    (new-palette Sample-View host-title: "Test" host-size: {Dimension 600 450})))
+(class External-Frame extends Overlapped
 
 
-(class Sample-Palette extends Palette
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+
+  (method override (default-parent)
+    (get-desktop))
+  
+
+  ;;;
+  ;;;; Root
+  ;;;
+  
+  
+  (method override (new-root)
+    (new External-Frame-Host offscreen?: #t))
+  
+
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method (get-host)
+    (when root
+      (get-host~ root)))
+  
+
+  ;;;
+  ;;;; Close
+  ;;;
   
   
   (method override (close-window)
-    (nextmethod)
-    (exit)))
-
-
-(class Sample-View extends View
-  
-  
-  (form
-    (<install>
-      (<Push-Button>                              title: "Hello" position: {Point 50 50})
-      (<Border-View>                              position: {Point 50 100} size: {Dimension 500 300} border-type: edge style: ()
-        (<Scroller-View>                          vscroll?: #t
-          (<content~>                             layout-type: fill
-            (<Tree-Header>
-              (<content~>
-                (<Tree-View>           name: tree font: {Font Label-User} default-row-height: 15
-                  (<Tree-Node-Column>             title: "Foo" width: 200 toplevel-controls?: #f display-images?: #f)
-                  (<Tree-Label-Column>            title: "Bar" width: 100)
-                  (<Tree-Label-Column>            title: "Baz" width: 100)))))))))
-  
-  
-  (method meta override (palette-class)
-    Sample-Palette))
-
-
-(definition (run descriptor)
-  (boot-environment~ (new Sample-App)))
-
-
-(register-product-run 'sample-app run))
+    (let ((host (get-host)))
+      (when host
+        (confirm-close~ host)))
+    (close))))

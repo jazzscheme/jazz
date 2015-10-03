@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; External Frames
+;;;; Overlapped Windows
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,51 +35,35 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.window.External-Frame jazz
+(module protected jazz.window.Overlapped jazz
 
 
 (import (jazz.ui)
-        (jazz.ui.window))
+        (jazz.window))
 
 
-(class External-Frame extends Overlapped
+(class Overlapped extends View-Player
+  
+  
+  (property owner initialize #f accessors generate)
+  
+  
+  (method override (conclude rest)
+    (nextmethod rest)
+    (register-overlapped self))
 
 
-  ;;;
-  ;;;; Initialization
-  ;;;
-
-
-  (method override (default-parent)
-    (get-desktop))
+  (method override (destroy)
+    (unregister-overlapped self)
+    (nextmethod))
   
 
   ;;;
-  ;;;; Root
+  ;;;; Owners
   ;;;
   
   
-  (method override (new-root)
-    (new External-Frame-Host offscreen?: #t))
-  
-
-  ;;;
-  ;;;; Host
-  ;;;
-  
-  
-  (method (get-host)
-    (when root
-      (get-host~ root)))
-  
-
-  ;;;
-  ;;;; Close
-  ;;;
-  
-  
-  (method override (close-window)
-    (let ((host (get-host)))
-      (when host
-        (confirm-close~ host)))
-    (close))))
+  (method public (get-owners)
+    (if (not owner)
+        (list self)
+      (cons self (get-owners~ owner))))))

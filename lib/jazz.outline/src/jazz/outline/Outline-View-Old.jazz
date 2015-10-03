@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Outline Model
+;;;; Outline View
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,14 +35,17 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.outline.Outline-Model jazz
+(module protected jazz.outline.Outline-View-Old jazz
 
 
-(import (jazz.preferences)
-        (jazz.ui))
+(import (jazz.graphic)
+        (jazz.outline)
+        (jazz.preferences)
+        (jazz.ui)
+        (jazz.ui.view))
 
 
-(class Outline-Model extends View
+(class Outline-View-Old extends View
   
   
   ;;;
@@ -50,22 +53,29 @@
   ;;;
 
   
-  ;; visible : a row that has all its parents expanded
-  ;; line    : the rank of a visible row
+  ;; visible   : a row that has all its parents expanded
+  ;; displayed : a row that is displayed on-screen even if only partially
+  ;; line      : the rank of a visible row
 
   
-  (property protected default-row-height <fx> initialize 17 accessors generate)
-  (property protected row-spacing        <fx> initialize 0  accessors explicit)
-  (property protected left-padding       <fx> initialize 0  accessors explicit)
-  (property protected top-padding        <fx> initialize 0  accessors explicit)
-  (property protected background-filler       initialize #f accessors explicit)
+  (property protected default-row-height <fx>   initialize 17 accessors generate)
+  (property protected row-spacing        <fx>   initialize 0  accessors explicit)
+  (property protected left-padding       <fx>   initialize 0  accessors explicit)
+  (property protected top-padding        <fx>   initialize 0  accessors explicit)
+  (property protected background-filler         initialize #f accessors explicit)
+  (property protected fit-to-scroller?          initialize #t accessors explicit)
   
   
-  (slot protected root-row                    initialize #f getter generate)
-  (slot protected visible-count          <fx> initialize 0  getter generate)
-  (slot protected visible-height         <fx> initialize 0  getter generate)
-  (slot protected visible-width          <fx> initialize 0  getter generate)
-  (slot protected clients                     initialize '())
+  (slot protected root-row                      initialize #f getter generate)
+  (slot protected outline                       initialize #f getter generate)
+  (slot protected visible-count          <fx>   initialize 0  getter generate)
+  (slot protected visible-height         <fx>   initialize 0  getter generate)
+  (slot protected visible-width          <fx>   initialize 0  getter generate)
+  (slot protected selection                     initialize #f)
+  (slot protected line-size              <fx>   initialize 16)
+  (slot protected page-size              <fx>   initialize 320)
+  (slot protected hscrollbar?            <bool> initialize #f)
+  (slot protected vscrollbar?            <bool> initialize #f)
   
 
   ;;;
@@ -92,6 +102,7 @@
   
   (method (setup-outline)
     (set! root-row (new (row-class)))
+    (set! outline (new Display-Outline row-spacing root-row))
     (set-parent~ root-row self)
     (set-father~ root-row #f)
     (set-level~ root-row -1)
@@ -120,7 +131,8 @@
 
   (method public (set-row-spacing spacing)
     (set! row-spacing spacing)
-    (update-displayed)
+    (when outline
+      (set-row-spacing~ outline spacing))
     (invalidate-view))
 
   
@@ -149,6 +161,15 @@
   (method public (set-background-filler value)
     (set! background-filler value)
     (invalidate-view))
+  
+
+  (method public (get-fit-to-scroller?)
+    fit-to-scroller?)
+
+
+  (method public (set-fit-to-scroller? value)
+    (set! fit-to-scroller? value)
+    (layout-scrollee))
 
 
   ;;;
@@ -157,17 +178,17 @@
   
   
   (method public (get-expand-state (include-invisibles?: include-invisibles? #f))
+    (define (get-state row)
+      (let ((title (row-title row))
+            (state (get-state~ row))
+            (sons (get-sons~ row)))
+        (when (or (and include-invisibles? (> (cardinality sons) 0)) (eq? state 'expanded))
+          (cons title
+                (cons state
+                      (collect get-state sons))))))
+      
     (when root-row
-      (letrec ((proc
-                 (lambda (row)
-                   (let ((title (row-title row))
-                         (state (get-state~ row))
-                         (sons (get-sons~ row)))
-                     (when (or (and include-invisibles? (> (cardinality sons) 0)) (eq? state 'expanded))
-                       (cons title
-                             (cons state
-                                   (collect proc sons))))))))
-        (collect proc (get-sons~ root-row) type: List))))
+      (collect get-state (get-sons~ root-row) type: List)))
   
   
   (method public (set-expand-state state)
@@ -192,6 +213,13 @@
                 state)))
   
   
+  (method public (with-preserved-expand-state thunk)
+    (let ((saved-state (get-expand-state)))
+      (set-selection '())
+      (thunk)
+      (set-expand-state saved-state)))
+  
+  
   ;;;
   ;;;; Spine
   ;;;
@@ -211,6 +239,18 @@
                             subrow
                           (proc subrow subspine))))))))
         (proc root-row spine))))
+  
+  
+  ;;;
+  ;;;; Hierarchy
+  ;;;
+  
+  
+  (method override (find-subdrawing surface <Surface> device-pos <Point> pos <Point> ignore)
+    (let ((line (v->line (get-v~ pos))))
+      (when line
+        (let ((row (cast <Outline-Row> (get-row line))))
+          (find-in-drawing~ row surface device-pos ignore)))))
   
 
   ;;;
@@ -240,12 +280,22 @@
   ;;;
   
   
+  (method override (scrollee-size)
+    (new Dimension (scrollee-width) (scrollee-height)))
+  
+  
   (method override (scrollee-width)
-    (+ left-padding visible-width))
+    (let ((width (+ left-padding visible-width)))
+      (if (and scroller fit-to-scroller?)
+          (max (get-display-width) width)
+        width)))
   
   
   (method override (scrollee-height)
-    (+ top-padding visible-height))
+    (let ((height (+ top-padding visible-height)))
+      (if (and scroller fit-to-scroller?)
+          (max (get-display-height) height)
+        height)))
   
   
   (method (scrollee-content-size)
@@ -266,8 +316,11 @@
   
   
   (method override (invalidate-update)
+    (update-displayed)
     (update-visible)
-    (layout-scrollee))
+    (layout-scrollee)
+    (invalidate-view)
+    (update-scrollbars))
   
   
   (method public virtual (update-visible)
@@ -279,9 +332,26 @@
   ;;;
   
   
-  (method protected virtual (draw-outline surface context outline scrolled-v)
+  (method override (draw-background surface context)
+    )
+  
+  
+  (method override (draw-children surface nodes context)
+    (let ((clipper (get-clipper~ surface)))
+      (let ((background (cond ((debug-paint?)
+                               (cycle-debug-color!))
+                              ((not (view-enabled?))
+                               {Color Medium})
+                              (else
+                               (get-drawing-background context)))))
+        (when (and background (neq? background 'none))
+          (fill-rect~ surface clipper background)))
+      (draw-outline surface context clipper (get-scrolled-distance-v))))
+  
+  
+  (method protected virtual (draw-outline surface context clipper scrolled-v)
     (define (draw-row row line)
-      (let ((selected? #f @mvc (line-draw-selected? line)))
+      (let ((selected? (line-draw-selected? line)))
         (set-font~ surface (effective-font))
         (let ((new-context (cons selected?: (cons selected? (cons line: (cons line context))))))
           (paint-content~ row surface #t '() new-context))))
@@ -307,6 +377,37 @@
   
   (method protected virtual (draw-empty surface top bottom rt width)
     )
+
+
+  ;;;
+  ;;;; Scroll
+  ;;;
+  
+  
+  (method package (on-prior evt)
+    (prior-page (get-shift?~ evt)))
+  
+  
+  (method protected virtual (prior-page evt)
+    (scroll (new Point 0 (get-page-size 'vert))))
+  
+  
+  (method package (on-next evt)
+    (next-page (get-shift?~ evt)))
+  
+  
+  (method protected virtual (next-page evt)
+    (scroll (new Point 0 (- (get-page-size 'vert)))))
+  
+  
+  (method override (get-line-size orientation)
+    (case orientation
+      ((vert) default-row-height)
+      ((horz) 8)))
+  
+  
+  (method override (scroll-invalidate delta)
+    (follow (- (get-y~ delta))))
 
   
   ;;;
@@ -334,8 +435,16 @@
               (update-visible-width-incremental level (get-effective-width~ row))
               (update-displayed)
               (update-visible)
-              (layout-scrollee)
-              (for-each-client add-row-scroll~))))
+              (let* ((line (row->line row))
+                     (top (row-top line))
+                     (display (get-display))
+                     (display-size (get-size~ display))
+                     (display-width (get-width~ display-size))
+                     (display-height (get-height~ display-size)))
+                (added-update-selection line 1)
+                (layout-scrollee)
+                (when (< top (- display-height height))
+                  (scroll-view~ display (new Distance 0 height) (new Rect 0 top display-width (- display-height height))))))))
         (update-father-control father)
         row)))
   
@@ -359,22 +468,29 @@
         @is-this-really-a-good-idea
         (when (= (cardinality (get-sons~ father)) 0)
           (set-state~ father 'collapsed))
-        @mvc
         (when line
           (removed-update-selection line 1))
         (when (and (not update-locked?) visible?)
           (update-displayed)
           (update-visible)
-          (layout-scrollee)
-          (for-each-client remove-row-scroll~))
+          (let* ((display (get-display))
+                 (display-size (get-size~ display))
+                 (display-width (get-width~ display-size))
+                 (display-height (get-height~ display-size)))
+            (layout-scrollee)
+            (when (and top (< (+ top height) display-height))
+              (scroll-view~ display (new Distance 0 (- height)) (new Rect 0 (+ top height) display-width display-height)))))
         (detach-descendants~ row)
         (update-father-control father))))
   
   
   (method public (move-row row father (position: position #f))
-    (remove-row row)
-    (let ((position (if (procedure? position) (position) position)))
-      (add-row row: row father: father position: position)))
+    (let ((selected? (line-selected? (row->line row))))
+      (remove-row row)
+      (let ((position (if (procedure? position) (position) position)))
+        (add-row row: row father: father position: position)
+        (when selected?
+          (set-selection (cons (row->line row) (get-selection)) generate-event?: #f)))))
   
   
   (method public (find-ordered-position title father)
@@ -384,26 +500,27 @@
   
   
   (method public virtual (remove-every-row)
+    (setup-outline)
     (set! visible-count 0)
     (set! visible-height 0)
     (set! visible-width 0)
-    (for-each-client remove-every-row~))
+    (set! selection '())
+    (when scroller
+      (set-position {Point 0 0})
+      (set-size {Dimension 0 0})
+      (set-scroll-pos {Point 0 0}))
+    (unless update-locked?
+      (update-displayed)
+      (layout-scrollee)
+      (invalidate-view)))
   
   
   (method protected virtual (update-father-control father)
-    (for-each-client
-      (lambda (view)
-        (update-father-control~ view father))))
+    )
   
   
   (method override (update-displayed)
-    (for-each-client update-displayed~))
-  
-  
-  (method protected (update-displayed-from line)
-    (for-each-client
-      (lambda (client)
-        (update-displayed-from~ client line))))
+    (update-displayed~ outline (get-scrolled-distance-v)))
   
   
   (method public (first-row)
@@ -416,6 +533,13 @@
   
   (method public (first-visible-row)
     (get-next~ root-row))
+  
+  
+  (method public (get-row line <fx>) <Outline-Row+>
+    ;; this test is necessary because an update lock will stop update-displayed...
+    (if update-locked?
+        (get-row-from~ outline root-row (+ line 1))
+      (get-row~ outline line)))
   
   
   (method public (get-visible-row l)
@@ -452,7 +576,11 @@
   
   
   (method public (row-title row)
-    (get-title~ (first-child~ row)))
+    (let ((child (first-child~ row)))
+      ;; virtual dispatch problem View vs Tree-Label
+      (if (is? child View)
+          (get-title~ child)
+        (get-title~ child))))
   
   
   (method (forward row line)
@@ -482,11 +610,105 @@
     (let ((father (or father root-row)))
       (add-row father: father)))
   
+  
+  (method protected virtual (line-selected? line)
+    (= line selection))
+  
+  
+  (method protected virtual (line-draw-selected? line)
+    (line-selected? line))
+  
 
   (method public (get-row-count)
     (if (not root-row)
         0
       (cardinality (get-sons~ root-row))))
+
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method override (mouse-down evt)
+    (acquire-focus)
+    (let ((line (v->line (get-v~ (get-position~ evt)))))
+      (set-selection line)))
+  
+  
+  (method override (double-click evt)
+    (let ((line (v->line (get-v~ (get-position~ evt)))))
+      (when line
+        (expand/collapse (get-row line)))))
+
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method protected virtual (empty-selection)
+    '())
+  
+  
+  (method public virtual (get-selection)
+    selection)
+  
+  
+  (method public virtual (set-selection sel
+                                        (force?: force? #f)
+                                        (ensure-displayed?: ensure-displayed? #t)
+                                        (generate-event?: generate-event? #t)
+                                        (user-origin: user-origin #f))
+    (when (or force? #t @parameterized-fix-me (/= sel selection))
+      (let ((old selection))
+        (set! selection sel)
+        (when ensure-displayed?
+          (ensure-displayed))
+        (when (not-null? old)
+          (invalidate-selection old))
+        (when (not-null? selection)
+          (invalidate-selection selection))
+        (when generate-event?
+          (call-selection-handler old selection force? user-origin)))))
+
+  
+  (method public virtual (invalidate-selection sel)
+    (when (view-visible?)
+      (with-transformation-surface
+        (lambda (surface)
+          (with ((region (selection-region sel (lambda (rect) (logical->device~ surface rect)))))
+            (invalidate-region~ player region))))))
+  
+  
+  (method protected virtual (selection-region sel transformer)
+    (selection-row-region sel transformer))
+  
+  
+  (method protected (selection-row-region line transformer)
+    (new Region rect: (transformer (selection-row-rect line))))
+    
+  
+  (method protected virtual (selection-row-rect line)
+    (get-rect~ (get-row line)))
+
+  
+  ;; update slots that are line based
+  (method protected virtual (added-update-selection line count)
+    (when (and selection (>= selection line))
+      (increase! selection count)))
+  
+  
+  ;; update slots that are line based
+  (method protected virtual (removed-update-selection line count)
+    (when (not-null? selection)
+      (let ((selected? #f))
+        (when (>= selection line)
+          (if (>= selection (+ line count))
+              (decrease! selection count)
+            (set! selection '())
+            (set! selected? #t)))
+        selected?)))
   
   
   ;;;
@@ -495,21 +717,28 @@
   
   
   (method public (for-each-row proc)
-    (let ((line 0))
-      (define (recurse row visible?)
-        (let* ((visible? (and visible? (get-visible-flag~ row)))
-               (son-visible? (and visible? (expanded?~ row))))
-          (proc row (and visible? line))
-          (when visible?
-            (increase! line))
-          (recurse-sons row son-visible?)))
-      
-      (define (recurse-sons row son-visible?)
+    (for-each-descendant-row root-row -1 proc include-self?: #f))
+  
+  
+  (method public (for-each-descendant-row row line proc (include-self?: include-self? #t) (stop-test: stop-test #f))
+    (define (recurse row visible?)
+      (let* ((visible? (and visible? (get-visible-flag~ row)))
+             (son-visible? (and visible? (expanded?~ row))))
+        (proc row (and visible? line))
+        (when visible?
+          (increase! line))
+        (recurse-sons row son-visible?)))
+    
+    (define (recurse-sons row son-visible?)
+      (unless (and stop-test (stop-test row))
         (iterate (get-sons~ row)
                  (lambda (row)
-                   (recurse row son-visible?))))
-      
-      (recurse-sons root-row #t)))
+                   (recurse row son-visible?)))))
+    
+    (when include-self?
+      (proc row line))
+    (increase! line)
+    (recurse-sons row (expanded?~ row)))
   
   
   (method public (for-each-visible-row proc (start: start #f) (end: end #f) (wrap?: wrap? #f))
@@ -546,6 +775,43 @@
         (lambda (row line)
           (enqueue queue row)))
       (queue-list queue)))
+  
+  
+  (method public (descendants-first-row row)
+    (let ((sons (get-sons~ row)))
+      (if (empty? sons)
+          #f
+        (element sons 0))))
+  
+  
+  (method public (descendants-last-row row)
+    (let ((sons (get-sons~ row)))
+      (if (empty? sons)
+          #f
+        (let (descend (row row))
+          (let ((sons (get-sons~ row)))
+            (if (empty? sons)
+                row
+              (descend (last sons))))))))
+  
+  
+  (method public (previous-row row)
+    (let ((previous (previous-sibling~ row)))
+      (if previous
+          (or (descendants-last-row previous) previous)
+        (let ((father (get-father~ row)))
+          (if (eq? father root-row)
+              #f
+            father)))))
+  
+  
+  (method public (next-row row)
+    (if (not-empty? (get-sons~ row))
+        (descendants-first-row row)
+      (let (ascend (row row))
+        (or (next-sibling~ row)
+            (let ((father (get-father~ row)))
+              (and father (ascend father)))))))
 
   
   ;;;
@@ -558,14 +824,32 @@
   
   
   (method public virtual (set-content content)
+    (remove-every-row)
     (set-sons~ root-row content)
     (set-next~ root-row (car content))
     (invalidate-columns)
     (set! visible-count (count-visible~ root-row))
     (set! visible-height (sons-height~ root-row))
+    (set-selection (empty-selection))
     (update-displayed)
+    (update-visible)
     (layout-scrollee)
-    (invalidate-view))
+    (invalidate-view)
+    (update-scrollbars))
+  
+  
+  (method public (set-content-model seq proc)
+    (remove-every-row)
+    (set-subrows root-row seq proc)
+    (invalidate-columns)
+    (set! visible-count (count-visible~ root-row))
+    (set! visible-height (sons-height~ root-row))
+    (set-selection (empty-selection))
+    (update-displayed)
+    (update-visible)
+    (layout-scrollee)
+    (invalidate-view)
+    (update-scrollbars))
   
   
   (method public (set-subrows row seq proc)
@@ -579,12 +863,13 @@
                           (let ((subrow (proc info)))
                             (set-father~ subrow row)
                             (set-level~ subrow level)
+                            (set-height-noevent~ subrow default-row-height)
                             (when previous
                               (set-previous~ subrow previous)
                               (set-next~ previous subrow))
                             (set! previous subrow)
                             (increase! count)
-                            (increase! height (get-row-height~ subrow))
+                            (increase! height (get-height~ subrow))
                             subrow))
                         seq)))
         (set-sons~ row (and rows (coerce rows Axis)))
@@ -598,7 +883,6 @@
           (increase! visible-height height)))))
   
   
-  ;; temp...
   (method public virtual (invalidate-columns)
     )
 
@@ -650,7 +934,7 @@
             (set-state~ row 'collapsed)
           (let ((line (row->line row))
                 (top (get-v~ (get-position~ row))))
-            (let ((selected? #f @mvc (line-selected? line)))
+            (let ((selected? (line-selected? line)))
               (invalidate-collapse line row top selected?)))
           (hide-rows first (last-proper-descendant~ row) (row-visible?~ row) in-collapse?)))))
   
@@ -661,7 +945,6 @@
   
   (method protected virtual (invalidate-collapse line row top selected?)
     (when selected?
-      @mvc
       (invalidate-rect (line-rect line))))
   
   
@@ -747,7 +1030,7 @@
                (display-size (get-size~ display))
                (display-width (get-width~ display-size))
                (display-height (get-height~ display-size)))
-          @mvc (added-update-selection (+ line 1) count)
+          (added-update-selection (+ line 1) count)
           (invalidate-view)
           @buggy
           (when (< (+ top (get-scrolled-v)) display-height)
@@ -755,7 +1038,6 @@
               (invalidate-expand previous top dynamic?))
             (scroll-view~ display (new Distance 0 height) (new Rect 0 opens display-width display-height)))
           (layout-scrollee)
-          @mvc
           (when (> count 0)
             (ensure-row-range-displayed (+ line 1) (+ line count)))))))
   
@@ -775,12 +1057,12 @@
           (let* ((line (or (row->line previous) -1))
                  (top (or (get-v~ (get-position~ previous)) 0))
                  (opens (+ top (get-height~ first)))
-                 @mvc (removed (removed-update-selection (+ line 1) count))
+                 (removed (removed-update-selection (+ line 1) count))
                  (display (get-display))
                  (display-size (get-size~ display))
                  (display-width (get-width~ display-size))
                  (display-height (get-height~ display-size)))
-            @mvc (when (and previous in-collapse?)
+            (when (and previous in-collapse?)
               (collapse-selection line removed))
             (invalidate-view)
             @buggy
@@ -807,30 +1089,38 @@
   
   
   ;;;
-  ;;;; Clients
+  ;;;; Scroll
   ;;;
   
   
-  (method public (get-clients)
-    clients)
+  (method (follow v)
+    (follow~ outline (get-scrolled-distance-v) v))
+
+
+  (method public virtual (ensure-displayed . rest)
+    (when (not-null? selection)
+      (ensure-row-displayed selection)))
   
   
-  (method public (add-client client)
-    (set! clients (cons client clients)))
+  (method public (ensure-row-displayed line)
+    (let* ((row (get-row line))
+           (top (get-top~ row))
+           (bottom (get-bottom~ row)))
+      (scroll (scroll-needed (new Point 0 top) (new Point 0 bottom) (get-scroll-context)))))
   
   
-  (method public (remove-client client)
-    (set! clients (remove! client clients)))
+  (method public (ensure-row-range-displayed from to)
+    (let ((top (get-top~ (get-row from)))
+          (bottom (get-bottom~ (get-row to))))
+      (scroll (scroll-needed (new Point 0 top) (new Point 0 bottom) (get-scroll-context)))))
   
   
-  (method public (for-each-client proc)
-    (for-each proc clients))
+  (method public (ensure-at-end)
+    (ensure-row-displayed (- visible-count 1)))
   
   
-  ;; quick solution to stuff like wrapping that cannot work on multiple clients with the current paragraph / line structure
-  (method public (single-client) <Text-View+>
-    (when (= (length clients) 1)
-      (car clients)))
+  (method protected virtual (get-scroll-context)
+    (cons 0.15 0.20))
   
 
   ;;;
@@ -838,7 +1128,7 @@
   ;;;
   
   
-  ;; This method gets called before the row is layed out.
+  ;; This method gets called before the row is laid out.
   ;; This is why it cannot simply get the position of the row...
   (method protected (row-top line)
     (let ((row (first-visible-row))
@@ -851,15 +1141,31 @@
       v))
   
   
-  (method protected (get-row n)
-    (get-row-from root-row (+ n 1)))
+  (method protected virtual (line-rect line)
+    (let ((row   (get-row line))
+          (left  0)
+          (top   (row-top line))
+          (right (get-width)))
+      (new Rect left top right (+ top (get-height~ row)))))
   
   
-  (method protected (get-row-from row n)
-    (while (and row (> n 0))
-      (set! row (get-next~ row))
-      (decrease! n))
-    row)
+  (method (row-region line)
+    (new Region rect: (get-bounds~ (get-row line))))
+  
+  
+  (method protected (line->v l)
+    (get-top~ (get-row l)))
+
+
+  (method protected (v->line v)
+    (call-with-v->line v
+      (lambda (line v height)
+        line)))
+
+
+  (method protected (call-with-v->line v proc)
+    (call-with-v->line~ outline v (get-scrolled-v)
+      proc))
   
   
   ;;;
@@ -868,4 +1174,4 @@
   
   
   (method meta override (get-class-descriptor (context: context #f))
-    (new jazz.ui.designer:Outline-Model-Descriptor))))
+    (new jazz.ui.designer:Outline-View-Old-Descriptor))))

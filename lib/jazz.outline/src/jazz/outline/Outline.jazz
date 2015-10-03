@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Sparse Outlines
+;;;; Outlines
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,69 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.outline.Sparse-Outline jazz
+(module protected jazz.outline.Outline jazz
 
 
-(import (jazz.ui))
+(class undocumented Outline extends Object
+  
+  
+  (slot row-spacing <fx> accessors generate)
+  (slot root-row         getter    generate)
+  
+  
+  (method override (initialize row-spacing root-row)
+    (nextmethod)
+    (set! row-spacing~self row-spacing)
+    (set! root-row~self root-row))
+  
+  
+  (method public (first-row)
+    (first (get-sons~ root-row)))
+  
+  
+  (method public (first-visible-row)
+    (get-next~ root-row))
+  
+  
+  ;;;
+  ;;;; Outline
+  ;;;
+  
+  
+  (method public virtual (get-row n)
+    (get-row-from root-row (+ n 1)))
+  
+  
+  (method protected (get-row-from row n)
+    (while (and row (> n 0))
+      (set! row (get-next~ row))
+      (decrease! n))
+    row)
+  
+  
+  (method protected (position-in-row v row line top)
+    (if (not row)
+        (values #f #f #f)
+      (let* ((height (get-height~ row))
+             (bottom (+ top height)))
+        (if (< v bottom)
+            (values line (- v top) height)
+          (position-in-row v (get-next~ row) (+ line 1) (+ bottom row-spacing))))))
 
 
-(class undocumented Sparse-Outline extends Outline))
+  (method public virtual (call-with-v->line v scrolled proc)
+    (receive (line v height) (position-in-row v (first-visible-row) 0 0)
+      (proc line v height)))
+  
+  
+  ;;;
+  ;;;; Displayed
+  ;;;
+  
+  
+  (method protected virtual (update-displayed display-v)
+    )
+  
+  
+  (method protected virtual (follow display-v v)
+    )))

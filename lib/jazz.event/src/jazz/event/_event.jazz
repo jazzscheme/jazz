@@ -38,10 +38,8 @@
 (module jazz.event jazz
 
 
-(export
-  (jazz.event.Pulse (autoload Pulse)))
-
-(import (jazz.platform))
+(export (jazz.event.autoload))
+(import (jazz.event.autoload))
 
 
 ;;;
@@ -61,15 +59,18 @@
 ;;;; Event
 ;;;
 
+;; delay platform references to not introduce a compilation
+;; dependency for modules containing event or handler literals
+
 
 (definition package (construct-event kind . rest)
-  (parse-event-modifiers rest
+  (jazz.platform:parse-event-modifiers rest
     (lambda (modifiers properties)
       (apply new Event kind #f modifiers properties))))
 
 
 (definition public (make-event class kind sender . properties)
-  (apply new class kind sender (modifiers-mask) properties))
+  (apply new class kind sender (jazz.platform:modifiers-mask) properties))
 
 
 (definition public (clone-event evt . properties)
@@ -78,84 +79,6 @@
                          (set-property~ event keyword value))
                        properties)
     event))
-
-
-(class Event extends Object
-
-
-  (slot kind       getter generate)
-  (slot sender     getter generate)
-  (slot modifiers  getter generate)
-  (slot properties getter generate)
-
-
-  (method override (initialize kind sender modifiers . properties)
-    (nextmethod)
-    (set! kind~self kind)
-    (set! sender~self sender)
-    (set! modifiers~self modifiers)
-    (set! properties~self properties))
-  
-  
-  (method override (copy-object deep?)
-    (apply new (class-of self) kind sender modifiers properties))
-
-
-  (method override (print output readably)
-    (let ((keys (modifiers->keys modifiers)))
-      (format output "~{{a} {s}{?: {l}~}{?: {l}~}}"
-              (category-name (class-of self))
-              kind
-              (not-null? keys)
-              keys
-              (not-null? properties)
-              properties)))
-  
-  
-  ;;;
-  ;;;; Modifiers
-  ;;;
-  
-  
-  (method public (get-down)
-    (values (get-shift?)
-            (get-control?)
-            (get-alt?)
-            (get-meta?)))
-  
-  
-  (method public (get-shift?)
-    (shift-key? modifiers))
-  
-  
-  (method public (get-control?)
-    (control-key? modifiers))
-  
-  
-  (method public (get-alt?)
-    (alt-key? modifiers))
-  
-  
-  (method public (get-meta?)
-    (meta-key? modifiers))
-  
-  
-  ;;;
-  ;;;; Properties
-  ;;;
-  
-  
-  (method public (has-property? keyword)
-    (let ((not-found {Box}))
-      (neq? (getf properties keyword not-found: not-found) not-found)))
-  
-  
-  (method public (get-property keyword)
-    (getf properties keyword))
-  
-  
-  (method public (set-property keyword value)
-    (set! properties (addf properties keyword value))))
 
 
 ;;;

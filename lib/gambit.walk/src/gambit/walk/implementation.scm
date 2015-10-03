@@ -59,6 +59,7 @@ end-of-code
 ;;;; Register
 ;;;
 
+;; workaround tables not having enough entries on 32 bit machines
 (define-type register
   constructor: make-register
   count
@@ -67,7 +68,12 @@ end-of-code
   content
   )
 
-(define (##new-register #!optional (cardinality 4))
+(define default-register-cardinality
+  (cond-expand
+    (windows 4)
+    (else 1)))
+
+(define (##new-register #!optional (cardinality default-register-cardinality))
   (let ((content (##make-vector cardinality)))
     (let loop ((n 0))
          (if (##fx< n cardinality)
@@ -715,7 +721,7 @@ end-of-code
       (lambda (container i obj)
         walk-continue)
       (lambda (container i obj)
-        (or (table-ref (domain-copies domain) obj #f)
+        (or (register-ref (domain-copies domain) obj #f)
             obj)))
 
     ;; foobar now contains copies

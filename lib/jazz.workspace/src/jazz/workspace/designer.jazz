@@ -1,0 +1,326 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Workspace Designer Classes
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.workspace.designer jazz
+
+
+(import (jazz.action)
+        (jazz.application)
+        (jazz.component)
+        (jazz.designer.ui)
+        (jazz.descriptor)
+        (jazz.document.designer)
+        (jazz.domain)
+        (jazz.exemplar.designer)
+        (jazz.figure.designer)
+        (jazz.graphic)
+        (jazz.graphic.designer)
+        (jazz.jml)
+        (jazz.preferences.design)
+        (jazz.reference)
+        (jazz.resource)
+        (jazz.search)
+        (jazz.tree)
+        (jazz.ui)
+        (jazz.workspace))
+
+
+;;;
+;;;; Command-Text-Preferences
+;;;
+
+
+(class Command-Text-Preferences-Descriptor extends Document-Preferences-Descriptor
+
+
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: separator-style
+          (<Value-Domain>      name: domain))))))
+
+
+;;;
+;;;; Docked-Preferences
+;;;
+
+
+(class Docked-Preferences-Descriptor extends Figure-Preferences-Descriptor
+  
+  
+  (form
+    (<install>                                 image: {Image-Resource "Docked"}
+      (<properties~>
+        (<Property-Descriptor> name: model
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: caption?
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: zoomable?
+          (<Value-Domain>      name: domain)))))
+  
+  
+  ;;;
+  ;;;; Present
+  ;;;
+  
+  
+  (method override (component-get-component-image component)
+    (or (get-icon~ component) {Image-Resource "Docked"}))
+  
+  
+  (method override (component-presentation-property? component property)
+    (memq? (field-name property) '(title)))
+  
+  
+  (method override (component-get-presentation component)
+    (or (get-title~ component) "Docked"))
+  
+  
+  (method override (component-set-presentation component designer title)
+    (set-property~ designer component title: title)))
+
+
+;;;
+;;;; Pad-Preferences
+;;;
+
+
+(class Pad-Preferences-Descriptor extends Figure-Preferences-Descriptor
+  
+  
+  (form
+    (<install> image: {Image-Resource "Pad"}))
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    (list
+      (list
+        (reference Splitter-Preferences)
+        (reference Pad-Preferences))
+      #f
+      (list
+        (reference Docked-Preferences)
+        (reference Stage-Preferences)))))
+
+
+;;;
+;;;; Splitter-Preferences
+;;;
+
+
+(class Splitter-Preferences-Descriptor extends Figure-Preferences-Descriptor
+  
+  
+  (form
+    (<install>                                   image: {Image-Resource "Splitter"}
+      (<properties~>
+        (<Property-Descriptor> name: separator
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: state
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: target
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: orientation
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: mode
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: division
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: insets
+          (<Value-Domain>      name: domain)))))
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    (list
+      (list
+        (reference Splitter-Preferences)
+        (reference Pad-Preferences))
+      (list
+        (reference Docked-Preferences)
+        (reference Stage-Preferences)))))
+
+
+;;;
+;;;; Stage-Preferences
+;;;
+
+
+(class Stage-Preferences-Descriptor extends Figure-Preferences-Descriptor
+  
+  
+  (form
+    (<install>                                   image: {Image-Resource "Stage"}
+      (<properties~>
+        (<Property-Descriptor> name: maximized?
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: guest-model
+          (<Value-Domain>      name: domain))))))
+
+
+;;;
+;;;; Toolbar-Preferences
+;;;
+
+
+(class Toolbar-Preferences-Descriptor extends Figure-Preferences-Descriptor
+  
+  
+  (form
+    (<install>                              image: {Image-Resource "Docked"}
+      (<properties~>
+        (<Property-Descriptor> name: model
+          (<Value-Domain>      name: domain)))))
+  
+  
+  ;;;
+  ;;;; Present
+  ;;;
+  
+  
+  (method override (component-presentation-property? component property)
+    (memq? (field-name property) '(title)))
+  
+  
+  (method override (component-get-presentation component)
+    (or (get-title~ component) "Toolbar"))
+  
+  
+  (method override (component-set-presentation component designer title)
+    (set-property~ designer component title: title)))
+
+
+;;;
+;;;; Workspace-Preferences
+;;;
+
+
+(class Workspace-Preferences-Descriptor extends Figure-Preferences-Descriptor
+  
+  
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: shortcut
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: frame-model
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: fullscreen?
+          (<Boolean-Domain>    name: domain)))))
+  
+  
+  (method meta override (get-domain property)
+    (case (field-name property)
+      ((fullscreen?) (new Boolean-Domain))
+      (else (nextmethod property))))
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    (list
+      (list
+        (reference Splitter-Preferences)
+        (reference Pad-Preferences))
+      (list
+        (reference Docked-Preferences)
+        (reference Stage-Preferences)))))
+
+
+;;;
+;;;; Workspaces-Preferences
+;;;
+
+
+(class Workspaces-Preferences-Descriptor extends Preferences-Descriptor
+  
+  
+  (form
+    (<install>                                      can-rename?: #f can-delete?: #f can-relocate?: #f can-copy?: #f
+      (<properties~>
+        (<Property-Descriptor>   name: active
+          (<Value-Domain>        name: domain))
+        (<Property-Descriptor>   name: associations
+          (<Associations-Domain> name: domain)))))
+  
+  
+  (method override (component-get-categorized-addable-classes component)
+    (list
+      (list
+        (reference Workspace-Preferences))))
+  
+  
+  (method override (component-get-addable-details component)
+    '((name-info 150 #t) (shortcut 150 #f) (frame-model 150 #f) (fullscreen? 100 #f))))
+
+
+;;;
+;;;; Associations-Domain
+;;;
+
+
+(class Associations-Domain extends List-Domain
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+     @convert
+    (set! domain (new Association-Domain)))
+  
+  
+  @convert
+  (method override (add-value value class)
+    (add-row self (car value) (cdr value) class: class))
+  
+  
+  @convert
+  (method override (new-value)
+    #f))
+
+
+;;;
+;;;; Association-Domain
+;;;
+
+
+(class Association-Domain extends Value-Domain
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method override (present-value model)
+    (format "{s}" model))))

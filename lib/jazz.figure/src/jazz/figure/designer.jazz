@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Docked Preferences
+;;;; Figure Designer Classes
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,56 +35,42 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module protected jazz.ui.preference.Docked-Preferences jazz
+(module jazz.figure.designer jazz
 
 
-(import (jazz.ui)
-        (jazz.ui.view))
+(import (jazz.component)
+        (jazz.descriptor)
+        (jazz.domain)
+        (jazz.jml)
+        (jazz.preferences.design))
 
 
-(class undocumented Docked-Preferences extends Figure-Preferences
+;;;
+;;;; Figure-Preferences
+;;;
 
 
-  (property identifier initialize #f accessors generate)
-  (property model     initialize #f accessors generate)
-  (property caption?  initialize #t accessors generate)
-  (property zoomable? initialize #t accessors generate)
+(class Figure-Preferences-Descriptor extends Preferences-Descriptor
   
   
-  ;;;
-  ;;;; Applying
-  ;;;
+  (form
+    (<install>
+      (<properties~>
+        (<Property-Descriptor> name: location
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: position
+          (<Value-Domain>      name: domain))
+        (<Property-Descriptor> name: size
+          (<Value-Domain>      name: domain)))))
   
   
-  (method override (apply-preferences (parent #f))
-    (assert parent)
-    (let* ((class (resolve-reference~ model))
-           (host (create-host class)))
-      (set-parent~ host parent)
-      (setup-host host)
-      (client-activate~ (get-guest~ host))
-      (set-visible?~ host #t)))
+  (method override (component-presentation-property? component property)
+    (memq? (field-name property) '(title)))
   
   
-  (method protected virtual (create-host class)
-    (named-singleton-docked class name))
+  (method override (component-get-presentation component)
+    (or (get-title~ component) (->string (get-name~ component))))
   
   
-  (method protected virtual (setup-host host)
-    (when title
-      (set-title~ host title))
-    (when icon
-      (set-icon~ host icon))
-    (set-caption?~ host caption?)
-    (set-zoomable?~ host zoomable?)
-    (set-location~ host location)
-    (set-preferences~ host self))
-  
-  
-  ;;;
-  ;;;; Descriptor
-  ;;;
-  
-  
-  (method meta override (get-class-descriptor (context: context #f))
-    (new jazz.ui.designer:Docked-Preferences-Descriptor))))
+  (method override (component-set-presentation component designer title)
+    (set-property~ designer component title: title))))

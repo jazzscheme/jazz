@@ -35,15 +35,18 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.ui.view jazz
+(module jazz.view jazz
 
 
-(import (jazz.application)
+(export (jazz.view.autoload))
+(import (jazz.view.autoload)
+        (jazz.application)
         (jazz.debuggee)
         (jazz.document)
         (jazz.event)
         (jazz.feedback)
         (jazz.graphic)
+        (jazz.handler)
         (jazz.platform)
         (jazz.process)
         (jazz.reference)
@@ -52,6 +55,140 @@
         (jazz.text)
         (jazz.ui)
         (jazz.window))
+
+
+;;;
+;;;; Focus-Event
+;;;
+
+
+(class Focus-Event extends Event
+
+
+  (slot focus getter generate)
+
+
+  (method override (initialize kind sender modifiers focus)
+    (nextmethod kind sender modifiers)
+    (set! focus~self focus))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        ))))
+
+
+;;;
+;;;; Keyboard-Event
+;;;
+
+
+(class Keyboard-Event extends Event
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-key)
+    (get-property key:)))
+
+
+;;;
+;;;; Mouse-Event
+;;;
+
+
+(class Mouse-Event extends Event
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-position)
+    (hook-event-access self)
+    (get-property position:))
+  
+  
+  (method protected (get-position-value)
+    (get-property position:))
+  
+  
+  (method public (get-h)
+    (get-h~ (get-position)))
+  
+
+  (method public (get-v)
+    (get-v~ (get-position))))
+
+
+;;;
+;;;; Selection-Event
+;;;
+
+
+(class Selection-Event extends Event
+  
+  
+  (slot old           getter generate)
+  (slot selection     getter generate)
+  (slot origin        getter generate)
+  (slot force-parent? getter generate)
+  (slot force?        getter generate)
+  (slot user-origin   getter generate)
+
+
+  (method override (initialize kind sender modifiers old selection (origin: origin #f) (force-parent?: force-parent? #f) (force?: force? #f) (user-origin: user-origin #f))
+    (nextmethod kind sender modifiers)
+    (set! old~self old)
+    (set! selection~self selection)
+    (set! origin~self origin)
+    (set! force-parent?~self force-parent?)
+    (set! force?~self force?)
+    (set! user-origin~self user-origin))
+
+
+  (method override (print output readably)
+    (format output "~{{a} {s} {s} {s}{? {l}~}}"
+            (category-name (class-of self))
+            kind
+            old
+            selection
+            properties)))
+
+
+;;;
+;;;; Selection-Handler
+;;;
+
+
+(class Selection-Handler extends Event-Handler
+  
+  
+  (slot force? getter generate)
+  
+  
+  (method override (initialize . rest)
+    (bind-keywords ((force? #t) . others) rest
+      (apply nextmethod others)
+      (set! force?~self force?)))
+  
+  
+  (method override (print output readably)
+    (format output "~{{a} {a} {a}{a}{a}}"
+            (category-name (class-of self))
+            (or target target-name)
+            method-name
+            (if force?
+                ""
+              (format " force?: {a}" force?))
+            (if (null? properties)
+                ""
+              (format " {l detail: :reader}" properties)))))
 
 
 ;;;

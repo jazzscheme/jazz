@@ -85,10 +85,6 @@
       (jazz.platform.windows.WinPSAPI    cc-options: ,(string-append "-I" pdh-include-path " " base-windows-cc-options) ld-options: ,(string-append "-L" pdh-lib-path " -mwindows -lpsapi")))))
 
 
-(define jazz:com-units
-  '((jazz.platform.windows.com cc-options: "-DUNICODE -D___SINGLE_HOST" ld-options: "-mwindows -lole32 -loleaut32")))
-
-
 (cond-expand
   (x11
    (define jazz:x11-units
@@ -147,8 +143,7 @@
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
                           ,@jazz:types-units
-                          ,@jazz:windows-units
-                          ,@jazz:com-units)))
+                          ,@jazz:windows-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor)))))

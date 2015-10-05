@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Platform Install
+;;;; COM Product
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,15 +35,37 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(unit jazz.platform.install
+(unit jazz.platform.com.product
+
+
+;;;
+;;;; Build
+;;;
+
+
+(define jazz:com-units
+  '((jazz.platform.com cc-options: "-DUNICODE -D___SINGLE_HOST" ld-options: "-mwindows -lole32 -loleaut32")))
 
 
 (cond-expand
-  (windows
-    (jazz:register-foreign-libraries 'jazz.platform.windows.WinMM       'winmm)
-    (jazz:register-foreign-libraries 'jazz.platform.windows.WinPerf     'pdh)
-    (jazz:register-foreign-libraries 'jazz.platform.windows.WinPSAPI    'psapi))
   (cocoa
-    (jazz:register-foreign-libraries 'jazz.platform.cocoa               'Cocoa 'OpenGL 'IOKit))
+    (define (jazz:build-com descriptor #!key (unit #f) (force? #f))
+      (jazz:build-product-descriptor descriptor)))
+  (windows
+    (define (jazz:build-com descriptor #!key (unit #f) (force? #f))
+      (let ((unit-specs `(,@jazz:com-units)))
+        (jazz:custom-compile/build unit-specs unit: unit force?: force?)
+        (if (or (not unit) (not (assq unit unit-specs)))
+            (jazz:build-product-descriptor descriptor)))))
   (x11
-    (jazz:register-foreign-libraries 'jazz.platform.x11 'X11))))
+    (define (jazz:build-com descriptor #!key (unit #f) (force? #f))
+      (jazz:build-product-descriptor descriptor))))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(jazz:register-product 'jazz.platform.com
+  build: jazz:build-com))

@@ -49,42 +49,6 @@
 
 
 ;;;
-;;;; Initialize
-;;;
-
-
-(definition initialized? #f)
-
-
-(definition patch-thunks '())
-
-
-(definition public (initialize-com)
-  (unless initialized?
-    (LoadLibrary "ole32")
-    (CoInitializeEx #f COINIT_APARTMENTTHREADED)
-    (set! initialized? #t)
-    (for-each (lambda (th) (th)) patch-thunks)))
-
-
-(definition public (register-com-patch thunk)
-  (if initialized?
-      (thunk)
-    (set! patch-thunks (cons thunk patch-thunks))))
-
-
-(definition COINIT_APARTMENTTHREADED 2)
-
-
-(definition public CLSCTX_SERVER (+ 1 4 16))
-
-
-(definition (CoInitializeEx n/a flags)
-  (let ((proc (c-function CoInitializeEx (VOID* DWORD) HRESULT "CoInitializeEx")))
-    (validate-hresult (proc #f flags))))
-
-
-;;;
 ;;;; HRESULT
 ;;;
 
@@ -792,4 +756,43 @@
 (c-type coenum (native int))
 (c-type coenum* (pointer int int*))
 (c-type IDispatch* (pointer (native void)))
-(c-type IDispatch** (pointer IDispatch*)))
+(c-type IDispatch** (pointer IDispatch*))
+
+
+;;;
+;;;; Initialize
+;;;
+
+
+(definition initialized? #f)
+
+
+(definition patch-thunks '())
+
+
+(definition public (initialize-com)
+  (unless initialized?
+    (LoadLibrary "ole32")
+    (CoInitializeEx #f COINIT_APARTMENTTHREADED)
+    (set! initialized? #t)
+    (for-each (lambda (th) (th)) patch-thunks)))
+
+
+(definition public (register-com-patch thunk)
+  (if initialized?
+      (thunk)
+    (set! patch-thunks (cons thunk patch-thunks))))
+
+
+(definition COINIT_APARTMENTTHREADED 2)
+
+
+(definition public CLSCTX_SERVER (+ 1 4 16))
+
+
+(definition (CoInitializeEx n/a flags)
+  (let ((proc (c-function CoInitializeEx (VOID* DWORD) HRESULT "CoInitializeEx")))
+    (validate-hresult (proc #f flags))))
+
+
+(initialize-com))

@@ -38,10 +38,73 @@
 (module jazz.component.designer jazz
 
 
-(import (jazz.descriptor)
+(import (jazz.component)
+        (jazz.descriptor)
         (jazz.domain)
+        (jazz.integrity)
         (jazz.jml)
         (jazz.resource))
+
+
+;;;
+;;;; Integrity
+;;;
+
+
+(generic (validate-component (<Component> component) validation-context)
+  (for-each (lambda (symbol)
+              (let* ((property (property-field (class-of component) symbol))
+                     (validation-context (refine~ validation-context property: symbol)))
+                (map (lambda (violation)
+                       (add-property-violation~ validation-context "{a}" (get-message~ violation)))
+                     (collect-value-violations~ (property-domain~ component property) (read-property component property) validation-context))))
+            (get-filtered-properties~ component))
+  (validate-children component validation-context))
+
+
+(generic (validate-children (<Component> component) validation-context)
+  (define (validate-child addable-classes child)
+    (unless (some? (lambda (addable-class)
+                     (is? child addable-class))
+                   addable-classes)
+      (let ((violation (new Integrity-Violation
+                         message: (format "Class {a} cannot have children of type {a}"
+                                          (category-name (class-of component))
+                                          (category-name (class-of child))))))
+        (add-violation~ (get-manager~ validation-context) violation child (get-root~ validation-context) (get-editor~ validation-context)))))
+  
+  (define (validate-child-descriptor child child-descriptor)
+    (unless (some? (lambda (class-ref)
+                     (is? child (resolve-reference~ class-ref)))
+                   (get-classes~ child-descriptor))
+      (let ((violation (new Integrity-Violation
+                         message: (format "Child named {a} cannot be of type {a}"
+                                          (get-name~ child)
+                                          (category-name (class-of child))))))
+        (add-violation~ (get-manager~ validation-context) violation child (get-root~ validation-context) (get-editor~ validation-context)))))
+  
+  (let ((addable-classes (map resolve-runtime-reference (flatten (get-categorized-addable-classes~ component))))
+        (children-descriptor (get-children-descriptor~ (get-class-descriptor~ (class-of component)))))
+    (for-each (lambda (child)
+                (let ((name (get-name~ child)))
+                  (let ((child-descriptor (and name
+                                               (find-if (lambda (child-descriptor)
+                                                          (eq? (get-target~ child-descriptor)
+                                                               name))
+                                                        (get-children~ children-descriptor)))))
+                    (if child-descriptor
+                        (validate-child-descriptor child child-descriptor)
+                      (validate-child addable-classes child)))))
+              (get-children~ component))
+    (for-each (lambda (child-descriptor)
+                (when (get-mandatory?~ child-descriptor)
+                  (let ((child (find-child~ component (get-target~ child-descriptor))))
+                    (unless child
+                      (let ((violation (new Integrity-Violation
+                                         message: (format "Missing child named {a}"
+                                                          (get-target~ child-descriptor)))))
+                        (add-violation~ (get-manager~ validation-context) violation component (get-root~ validation-context) (get-editor~ validation-context)))))))
+              (get-children~ children-descriptor))))
 
 
 ;;;

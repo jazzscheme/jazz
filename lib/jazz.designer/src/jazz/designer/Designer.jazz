@@ -43,7 +43,6 @@
         (jazz.component)
         (jazz.component.runtime)
         (jazz.designer)
-        (jazz.editor.jazz)
         (jazz.event)
         (jazz.handler)
         (jazz.io)
@@ -114,14 +113,14 @@
         (let ((origin (get-origin~ form)))
           (if (not origin)
               (save-as default-extension: default-extension extensions: extensions)
-            (save-content origin))))))
+            (save-designer-content self origin))))))
   
   
   (method public (save-to file)
     (if (not file)
         (save-as)
       (set-origin~ form file)
-      (save-to-file file)
+      (save-designer-to-file self file)
       (set-modified? #f)))
   
   
@@ -134,102 +133,8 @@
   
   (method (save-as (default-extension: default-extension #f) (extensions: extensions '()))
     (let ((file (choose-new-file default-extension: (or default-extension Default-Extension) extensions: (or extensions Default-Extensions))))
-      (save-content file)
+      (save-designer-content self file)
       (set-origin~ form file)))
-  
-  
-  (method (save-content destination)
-    (assert (use-print?))
-    (typecase destination
-      ((File) (save-to-file destination))
-      ((Class) (save-to-class destination))
-      ((Runtime-Reference) (save-to-reference destination))
-      (else (error "unsupported destination")))
-    (set-modified? #f))
-  
-  
-  (method public (designing-trait?)
-    (let ((origin (get-origin~ form)))
-      (and (is? origin Runtime-Reference)
-           (let ((obj (resolve-runtime-reference origin)))
-             (is? obj Trait)))))
-  
-  
-  (method (save-to-trait unit symbol)
-    (let ((imports (imports-to-insert form '() (list unit)))
-          (trait-form (first (get-children~ form)))
-          (class-sym (get-model~ form)))
-      (call-with-saved-text (find-unit-source unit)
-        (lambda (text)
-          (insert-imports text imports)
-          (let ((trait-string (format "(define-trait {a} {a}{%}{a})" symbol class-sym (form->string trait-form 1 include-form?: #f))))
-            (insert-string~ (get-model~ text) (location-range~ text (list symbol)) trait-string)
-            (evaluate-range~ text (location-range~ text (list symbol))))))))
-  
-  
-  (method (save-to-reference reference)
-    (bind (_ unit symbol) (serialize-runtime-reference reference)
-      (typecase (module-ref unit symbol)
-        ((Trait)
-         (save-to-trait unit symbol))
-        (else
-         (error "Unknown save target")))))
-  
-  
-  (method (save-to-class class)
-    (let ((class-name (category-name class))
-          (module-name (category-unit class)))
-      (define (save-form text form)
-        (let ((form-exists? (class-has-form? text class-name)))
-          (let ((form-range (location-range~ text (list class-name (if form-exists? :form :new-form))))
-                (form-string (format (if form-exists? "{a}" "{%}{%}{%}{a}") (form->string form 2))))
-            (insert-string~ (get-model~ text) form-range form-string))))
-      
-      (call-with-saved-text (find-unit-source module-name)
-        (lambda (text)
-          (insert-imports text (imports-to-insert form '() (list module-name)))
-          (save-form text form)
-          (evaluate-range~ text (location-range~ text (list class-name :form)))))))
-  
-  
-  (method (save-to-file file)
-    (define (super-class-reference form)
-      (or (get-reference~ form (get-model~ form))
-          (runtime-class-reference (class-ascendant (get-origin~ form)))))
-    
-    (define (adjust-form form super-class-symbol)
-      (let ((adjusted-form (copy-object~ form #f)))
-        (set-action~ adjusted-form 'new)
-        (set-model~ adjusted-form super-class-symbol)
-        adjusted-form))
-    
-    (if (and (exists?~ file) (read-only?~ file))
-        (message-box (format "Unable to save to read-only file: {s}" file))
-      (call-with-output-file (path-settings file char-encoding: 'UTF-8)
-        (lambda (output)
-          (bind (super-class-unit super-class-symbol) (parse-runtime-reference (super-class-reference form))
-            (let ((data (get-data~ form))
-                  (adjusted-form (if (class? (get-origin~ form))
-                                     (adjust-form form super-class-symbol)
-                                   form)))
-              (output-header (get-model~ adjusted-form) output)
-              (format output "{%}{%}")
-              (format output "(data {a}{%}" (if data (get-dialect~ data) 'jazz))
-              (format output "{%}{%}")
-              (let ((version (and data (get-version~ data))))
-                (when version
-                  (format output "(version {a}){%}" (present-string~ version))))
-              (let ((imports (if data
-                                 (get-imports~ data)
-                               (imports-to-insert form (list super-class-unit) '()))))
-                (when (and imports (not-null? imports))
-                  (format output "(import {s}" (car imports))
-                  (for-each (lambda (import)
-                              (format output "{%}        {s}" import))
-                            (cdr imports))
-                  (format output  "){%}{%}{%}")))
-              (print-file-form adjusted-form 1 output)
-              (format output "){%}")))))))
 
 
   (method public (saved-form . rest)
@@ -1029,27 +934,6 @@
     (let* ((branch (target-branch trait))
            (form (if branch (get-client-form~ (get-trait~ branch)) form)))
       (get-property~ (follow-form~ path form) property)))
-  
-  
-  ;;;
-  ;;;; Edition
-  ;;;
-  
-  
-  (method public (edit-form (workspace: workspace #f))
-    (let ((appl (get-application))
-          (origin (get-origin~ form)))
-      (define (find-entry locator)
-        ((module-ref 'jazz.project 'locator->entry) locator))
-      
-      (cond ((not origin)
-             (bell))
-            ((file? origin)
-             (edit-document~ appl origin class: Jazz-Text-View workspace: workspace))
-            ((find-entry (get-name~ origin)) => (lambda (entry) (edit~ entry workspace: workspace)))
-            (else
-             (receive (module class) (break-reference (get-name~ origin))
-               (edit-document~ appl (find-unit-source module) class: Jazz-Text-View workspace: workspace))))))
   
   
   ;;;

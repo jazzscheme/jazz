@@ -40,6 +40,9 @@
 
 (export (jazz.designer.autoload))
 (import (jazz.application)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.runtime)
         (jazz.view))
 
 
@@ -149,4 +152,69 @@
 (definition public (serialize-origin origin)
   (if (class? origin)
       (serialize-class origin)
-    (serialize-runtime-reference origin))))
+    (serialize-runtime-reference origin)))
+
+
+;;;
+;;;; Save
+;;;
+
+
+(definition package (save-designer-to-file designer file)
+  (define (super-class-reference form)
+    (or (get-reference~ form (get-model~ form))
+        (runtime-class-reference (class-ascendant (get-origin~ form)))))
+  
+  (define (adjust-form form super-class-symbol)
+    (let ((adjusted-form (copy-object~ form #f)))
+      (set-action~ adjusted-form 'new)
+      (set-model~ adjusted-form super-class-symbol)
+      adjusted-form))
+  
+  (if (and (exists?~ file) (read-only?~ file))
+      (message-box (format "Unable to save to read-only file: {s}" file))
+    (call-with-output-file (path-settings file char-encoding: 'UTF-8)
+      (lambda (output)
+        (let ((form (get-form~ designer)))
+          (bind (super-class-unit super-class-symbol) (parse-runtime-reference (super-class-reference form))
+            (let ((data (get-data~ form))
+                  (adjusted-form (if (class? (get-origin~ form))
+                                     (adjust-form form super-class-symbol)
+                                   form)))
+              (output-header (get-model~ adjusted-form) output)
+              (format output "{%}{%}")
+              (format output "(data {a}{%}" (if data (get-dialect~ data) 'jazz))
+              (format output "{%}{%}")
+              (let ((version (and data (get-version~ data))))
+                (when version
+                  (format output "(version {a}){%}" (present-string~ version))))
+              (let ((imports (if data
+                                 (get-imports~ data)
+                               (imports-to-insert form (list super-class-unit) '()))))
+                (when (and imports (not-null? imports))
+                  (format output "(import {s}" (car imports))
+                  (for-each (lambda (import)
+                              (format output "{%}        {s}" import))
+                            (cdr imports))
+                  (format output  "){%}{%}{%}")))
+              (print-file-form adjusted-form 1 output)
+              (format output "){%}"))))))))
+
+
+(definition designer-saves
+  (list
+    (cons File save-designer-to-file)))
+
+
+(definition public (register-designer-save type save)
+  (set! designer-saves (append designer-saves (list (cons type save)))))
+
+
+(definition package (save-designer-content designer destination)
+  (assert (use-print?))
+  (let ((pair (associate destination designer-saves test: is?)))
+    (if (not pair)
+        (error "Unsupported destination")
+      (let ((save (cdr pair)))
+        (save designer destination)
+        (set-modified?~ designer #f))))))

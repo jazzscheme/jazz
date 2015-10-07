@@ -41,11 +41,17 @@
 (export (jazz.designer.ui.autoload)
         (jazz.designer.ui.syntax))
 
-(import (jazz.component.runtime)
-        (jazz.designer.ui.autoload)
+(import (jazz.application)
+        (jazz.component)
+        (jazz.component.runtime)
+        (jazz.designer)
+        (jazz.editor.jazz)
         (jazz.graphic)
+        (jazz.io)
+        (jazz.jml)
         (jazz.platform)
         (jazz.preferences)
+        (jazz.runtime)
         (jazz.ui.dialog))
 
 
@@ -237,6 +243,75 @@
 
 (definition public (open-form)
   (read-form (choose-file multiple-selection?: #f)))
+
+
+;;;
+;;;; Edit
+;;;
+
+
+(definition public (edit-designer-form designer (workspace: workspace #f))
+  (let ((appl (get-application))
+        (origin (get-origin~ (get-form~ designer))))
+    (define (find-entry locator)
+      ((module-ref 'jazz.project 'locator->entry) locator))
+    
+    (cond ((not origin)
+           (bell))
+          ((file? origin)
+           (edit-document~ appl origin class: Jazz-Text-View workspace: workspace))
+          ((find-entry (get-name~ origin)) => (lambda (entry) (edit~ entry workspace: workspace)))
+          (else
+           (receive (module class) (break-reference (get-name~ origin))
+             (edit-document~ appl (find-unit-source module) class: Jazz-Text-View workspace: workspace))))))
+
+
+;;;
+;;;; Save
+;;;
+
+
+(definition (save-designer-to-class designer class)
+  (let ((class-name (category-name class))
+        (module-name (category-unit class)))
+    (define (save-form text form)
+      (let ((form-exists? (class-has-form? text class-name)))
+        (let ((form-range (location-range~ text (list class-name (if form-exists? :form :new-form))))
+              (form-string (format (if form-exists? "{a}" "{%}{%}{%}{a}") (form->string form 2))))
+          (insert-string~ (get-model~ text) form-range form-string))))
+    
+    (call-with-saved-text (find-unit-source module-name)
+      (lambda (text)
+        (let ((form (get-form~ designer)))
+          (insert-imports text (imports-to-insert form '() (list module-name)))
+          (save-form text form)
+          (evaluate-range~ text (location-range~ text (list class-name :form))))))))
+
+
+(definition (save-designer-to-reference designer reference)
+  (bind (_ unit symbol) (serialize-runtime-reference reference)
+    (typecase (module-ref unit symbol)
+      ((Trait)
+       (save-designer-to-trait designer unit symbol))
+      (else
+       (error "Unknown save target")))))
+
+
+(definition (save-designer-to-trait designer unit symbol)
+  (let ((form (get-form~ designer)))
+    (let ((imports (imports-to-insert form '() (list unit)))
+          (trait-form (first (get-children~ form)))
+          (class-sym (get-model~ form)))
+      (call-with-saved-text (find-unit-source unit)
+        (lambda (text)
+          (insert-imports text imports)
+          (let ((trait-string (format "(define-trait {a} {a}{%}{a})" symbol class-sym (form->string trait-form 1 include-form?: #f))))
+            (insert-string~ (get-model~ text) (location-range~ text (list symbol)) trait-string)
+            (evaluate-range~ text (location-range~ text (list symbol)))))))))
+
+
+(register-designer-save Class save-designer-to-class)
+(register-designer-save Runtime-Reference save-designer-to-reference)
 
 
 ;;;

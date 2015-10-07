@@ -1252,8 +1252,7 @@
   (jazz:load-unit 'jazz.debuggee.jazz.Jazz-Debuggee-Restart)
   (jazz:load-unit 'jazz.debuggee.jazz.Jazz-Debuggee-Stop)
   (jazz:load-unit 'jazz.debuggee.jazz.Jazz-Debuggee-Thread)
-  (jazz:load-unit 'jazz.debugger.jazz.stub)
-  (jazz:load-unit 'jazz.debugger.jazz.stub-autoload))
+  (jazz:load-unit 'jazz.debugger.stub))
 
 
 ;;;

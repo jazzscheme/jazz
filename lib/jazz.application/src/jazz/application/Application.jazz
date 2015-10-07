@@ -66,6 +66,7 @@
         (jazz.runtime)
         (jazz.search)
         (jazz.settings)
+        (jazz.skin)
         (jazz.text)
         (jazz.tree)
         (jazz.ui)
@@ -93,6 +94,7 @@
   (slot guest-actions            initialize '()                       getter generate)
   (slot focus-actions            initialize '()                       getter generate)
   (slot bindings-designer        initialize #f                        getter generate)
+  @skin-convert
   (slot skins-designer           initialize #f                        getter generate)
   (slot workspaces-designer      initialize #f                        getter generate)
   (slot shortcut-table           initialize #f)
@@ -137,8 +139,7 @@
     (nextmethod)
     (set-application self)
     (setup-shortcuts)
-    (prepare-window-manager)
-    (prepare-skins))
+    (prepare-window-manager))
 
 
   (method override (prepare-environment)
@@ -209,7 +210,7 @@
   (method override (conclude-environment)
     (nextmethod)
     (initialize-actions)
-    (skin-update)
+    (look-update)
     (show-toplevel)
     (when (run-loop?)
       (select-foreground~ toplevel))
@@ -1222,6 +1223,7 @@
   
   
   (method (install-skins)
+    @skin-convert
     (with-safe-execution "loading the skins"
       (lambda ()
         (let ((skins (load-skins)))
@@ -1235,10 +1237,12 @@
   
   
   (method protected virtual (skins-file)
+    @skin-convert
     {File Profile "settings" "Skins.jml"})
   
   
   (method protected virtual (load-skins)
+    @skin-convert
     (let ((file (skins-file)))
       (if (and (is-alias? 'Profile) (exists?~ file))
           (instantiate~ (read-form file))
@@ -1246,10 +1250,12 @@
   
   
   (method protected (set-skins-designer skins)
+    @skin-convert
     (set! skins-designer (new Designer form: (get-form~ skins) reference: skins)))
   
   
   (method (save-skins)
+    @skin-convert
     (when (and skins-designer (get-modified?~ skins-designer) (file? (get-origin~ (get-form~ skins-designer))))
       (save~ skins-designer)))
 

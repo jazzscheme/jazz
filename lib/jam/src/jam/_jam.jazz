@@ -42,11 +42,6 @@
         (jazz.runtime))
 
 
-(definition package (product-package name)
-  (receive (package descriptor) (find-product-descriptor name)
-    package))
-
-
 (definition package (mode-argument arguments)
   (if (member? "-analysis" arguments)
       'analysis
@@ -59,31 +54,31 @@
       (string->number (cadr pair)))))
 
 
-(definition package (package-argument arguments)
+(definition package (product-argument arguments)
   (let ((target (string->symbol (last arguments)))
-        (packages '()))
+        (products '()))
     (for-each (lambda (repository)
                 (unless (repository-binary? repository)
                   (iterate-packages repository
                     (lambda (package)
-                      (when (or (eq? (package-name package) target)
-                                (some? (lambda (product)
-                                         (product-descriptor-named? product target))
-                                       (package-products package)))
-                        (set! packages (cons package packages)))))))
+                      (for-each (lambda (product)
+                                  (when (product-descriptor-named? product target)
+                                    (set! products (cons (cons package product) products))))
+                                (package-products package))))))
               (get-repositories))
-    (cond ((null? packages)
-           (format :console "Unable to find package {s}" target)
+    (cond ((null? products)
+           (format :console "Unable to find product {s}" target)
            (exit))
-          ((> (length packages) 1)
+          ((> (length products) 1)
            (format :console "Ambiguous name: {s}" target)
            (exit))
           (else
-           (car packages)))))
+           (bind (package . product) (car products)
+             (values package product))))))
 
 
-(definition package (package-product package)
-  (assq (package-name package) (package-products package)))
+(definition package (product-description package product)
+  (or (product-descriptor-description product) (package-description package)))
 
 
 (definition package (iterate-binding-references module-declaration proc)

@@ -1311,6 +1311,12 @@
         (%%cadr pair)
       #f)))
 
+(define (jazz:product-descriptor-description descriptor)
+  (let ((pair (%%assq 'description (%%cdr descriptor))))
+    (if pair
+        (%%cadr pair)
+      #f)))
+
 (define (jazz:product-descriptor-icon descriptor)
   (let ((pair (%%assq 'icon (%%cdr descriptor))))
     (if pair

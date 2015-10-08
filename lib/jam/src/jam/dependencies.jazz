@@ -98,40 +98,40 @@
 
 (definition package (jam-dependencies arguments)
   (let ((mode (mode-argument arguments))
-        (port (port-argument arguments))
-        (package (package-argument arguments)))
-    (let ((name (package-name package))
-          (description (package-description package))
-          (authors (package-authors package))
-          (stage (package-stage package))
-          (output (case mode
-                    ((interactive) (current-output-port))
-                    (else (open-tcp-client port)))))
-      (when (eq? mode 'interactive)
-        (if description
-            (format output "{a}{? ({a})~}{?, {a}~}{?, {l detail: :human separator: \", \"}~}{%}" name stage description authors)
-          (format output "{a}{%}" name)))
-      (let ((explicit (map package-name (map product-package (cond-expanded-product-descriptor-dependencies name (package-product package)))))
-            (implicit (collect-dependencies package)))
-        (define (present names (suffix #f))
-          (for-each (lambda (name)
-                      (format output "  {a}{? ({a})~}{%}" name suffix))
-                    (sort ci<? names)))
+        (port (port-argument arguments)))
+    (receive (package product) (product-argument arguments)
+      (let ((name (product-descriptor-name product))
+            (description (product-description package product))
+            (authors (package-authors package))
+            (stage (package-stage package))
+            (output (case mode
+                      ((interactive) (current-output-port))
+                      (else (open-tcp-client port)))))
+        (when (eq? mode 'interactive)
+          (if description
+              (format output "{a}{? ({a})~}{?, {a}~}{?, {l detail: :human separator: \", \"}~}{%}" name stage description authors)
+            (format output "{a}{%}" name)))
+        (let ((explicit (cond-expanded-product-descriptor-dependencies name product))
+              (implicit (collect-dependencies package)))
+          (define (present names (suffix #f))
+            (for-each (lambda (name)
+                        (format output "  {a}{? ({a})~}{%}" name suffix))
+                      (sort ci<? names)))
+          
+          (define (jazz=>scheme lst)
+            (if (memq? 'jazz lst)
+                (remove 'scheme lst)
+              lst))
+          
+          (case mode
+            ((interactive)
+             (let ((explicit (jazz=>scheme explicit))
+                   (implicit (jazz=>scheme (remove name (table-keys implicit)))))
+               (present (intersection explicit implicit))
+               (present (difference explicit implicit) "unneeded")
+               (present (difference implicit explicit) "missing")))
+            (else
+             (write-binary explicit output)
+             (write-binary implicit output))))
         
-        (define (jazz=>scheme lst)
-          (if (memq? 'jazz lst)
-              (remove 'scheme lst)
-            lst))
-        
-        (case mode
-          ((interactive)
-           (let ((explicit (jazz=>scheme explicit))
-                 (implicit (jazz=>scheme (remove name (table-keys implicit)))))
-             (present (intersection explicit implicit))
-             (present (difference explicit implicit) "unneeded")
-             (present (difference implicit explicit) "missing")))
-          (else
-           (write-binary explicit output)
-           (write-binary implicit output))))
-           
-      (force-output output)))))
+        (force-output output))))))

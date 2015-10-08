@@ -1,0 +1,196 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Catalog Browse
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.catalog.browse jazz
+
+
+(import (jazz.catalog)
+        (jazz.resource)
+        (jazz.tree))
+
+
+;;;
+;;;; Catalog-Entry
+;;;
+
+
+(generic (insert-definition (<Catalog-Entry> entry) tree father level sort?)
+  (let ((row (insert-self entry tree father level)))
+    (insert-self-definitions entry tree row level sort?)))
+
+
+(generic (insert-self (<Catalog-Entry> entry) tree father level)
+  (let* ((image (get-image~ entry))
+         (definitions (get-definitions~ entry))
+         (state (insert-state entry level definitions))
+         (title (present-name~ entry)))
+    (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: image)) user-data: entry)))
+
+
+(generic (insert-self-definitions (<Catalog-Entry> entry) tree father level sort?)
+  (insert-definitions entry tree father (get-definitions~ entry) level sort?))
+
+
+(generic (insert-state (<Catalog-Entry> entry) level definitions)
+  (let ((parent (get-parent~ entry)))
+    (cond ((and parent (= level 2) (= 1 (length (get-definitions~ parent))))
+           'expanded)
+          ((and (> level 1) (not-null? definitions))
+           'collapsed)
+          (else
+           'expanded))))
+
+
+(definition (insert-definitions entry <Catalog-Entry> tree father definitions level sort?)
+  (define (sort-definitions definitions)
+    (sort string<? definitions key: present-name~))
+  
+  (let ((ordered (if sort? (sort-definitions definitions) definitions)))
+    (for-each (lambda (definition)
+                (insert-definition definition tree father (+ level 1) sort?))
+              ordered)))
+
+
+;;;
+;;;; Category-Entry
+;;;
+
+
+(specific (insert-self-definitions (<Category-Entry> entry) tree father level sort?)
+  (insert-ascendants entry tree father)
+  (insert-interfaces entry tree father)
+  (insert-inherited entry tree father)
+  (nextmethod entry tree father level sort?))
+
+
+(definition (collect-ascendants entry <Category-Entry>)
+  (let ((catalog (get-catalog))
+        (fact (new List-Factory)))
+    (define (process qualified)
+      (when qualified
+        (let ((category (get-qualified-category catalog qualified)))
+          (when (and category (not (memq? category (get-list~ fact))))
+            (put~ fact category)
+            (for-each process (get-extends~ category))))))
+    
+    (for-each process (get-extends~ entry))
+    (get-output~ fact)))
+
+
+(generic (insert-ascendants (<Category-Entry> entry) tree father)
+  (let ((ascendants (collect-ascendants entry)))
+    (when ascendants
+      (let ((row (add-row~ tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: "Superclasses" image: {Image-Resource "OpenedFolder"})))))
+        (for-each (lambda (category)
+                    (add-row~ tree father: row state: 'collapsed row-height: 17 children: (list (new Tree-Node title: (present-name~ category) image: (get-image~ category))) user-data: category))
+                  ascendants)))))
+
+
+(generic (insert-interfaces (<Category-Entry> entry) tree father)
+  )
+
+
+(definition (insert-interfaces-list entry <Category-Entry> tree father title interfaces)
+  (when interfaces
+    (let ((catalog (get-catalog))
+          (row (add-row~ tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: title image: {Image-Resource "OpenedFolder"})))))
+      (define (insert row qualified)
+        (when qualified
+          (let ((interface (get-qualified-category catalog qualified)))
+            (when interface
+              (let ((row (add-row~ tree father: row state: 'collapsed row-height: 17 children: (list (new Tree-Node title: (present-name~ interface) image: (get-image~ interface))) user-data: interface)))
+                (for-each (lambda (interface)
+                            (insert row interface))
+                          (get-extends~ interface)))))))
+      
+      (for-each (lambda (interface)
+                  (insert row interface))
+                interfaces))))
+
+
+(definition (insert-inherited entry <Category-Entry> tree father)
+  (define (collect-inherited ascendants)
+    (apply append (map get-definitions~ ascendants)))
+  
+  (let* ((ascendants (collect-ascendants entry))
+         (inherited (collect-inherited ascendants)))
+    (when inherited
+      (let ((row (add-row~ tree father: father state: 'collapsed row-height: 17 children: (list (new Tree-Node title: "Inherited members" image: {Image-Resource "OpenedFolder"})))))
+        (insert-definitions entry tree row inherited 0 #t)))))
+
+
+(definition (get-qualified-category catalog qualified)
+  (define (get-category-package definition)
+    (find-if (lambda (definition)
+               (is? definition Package-Entry))
+             (get-definitions~ (get-file-definition~ definition))))
+  
+  (let ((name (last qualified))
+        (qualifier (butlast qualified)))
+    (find-if (lambda (definition)
+               (and (is? definition Category-Entry)
+                    (let ((package (get-category-package definition)))
+                      (and package
+                           (= (get-qualified~ package) qualifier)))))
+             (get-definitions~ catalog name))))
+
+
+;;;
+;;;; Class-Entry
+;;;
+
+
+(specific (insert-interfaces (<Class-Entry> entry) tree father)
+  (insert-interfaces-list entry tree father "Implemented interfaces" (get-implements~ entry)))
+
+
+;;;
+;;;; Interface-Entry
+;;;
+
+
+(specific (insert-ascendants (<Interface-Entry> entry) tree father)
+  (insert-interfaces-list entry tree father "Superinterfaces" (get-extends~ entry)))
+
+
+;;;
+;;;; File-Entry
+;;;
+
+
+(specific (insert-definition (<File-Entry> entry) tree father level sort?)
+  (insert-definitions entry tree father (get-definitions~ entry) level sort?)))

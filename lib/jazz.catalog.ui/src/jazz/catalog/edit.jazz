@@ -1,0 +1,87 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Catalog Edit
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.catalog.edit jazz
+
+
+(import (jazz.application)
+        (jazz.catalog)
+        (jazz.search))
+
+
+;;;
+;;;; Catalog-Entry
+;;;
+
+
+(generic (edit-entry (<Catalog-Entry> entry) . rest)
+  )
+
+
+(generic (edit-reference (<Catalog-Entry> entry) direction search-result . rest)
+  (apply edit-entry entry rest))
+
+
+(definition public (edit-textual-reference entry <Catalog-Entry> target . rest)
+  (define (make-reference-search-result target)
+    (define (reference-searcher target)
+      (let ((parser-class (get-parser-class (get-dialect~ (get-file-definition~ entry)))))
+        (let ((match-test (get-match-test~ parser-class))
+              (constituent-test (get-constituent-test~ parser-class)))
+          (->search-set (list (make-search-context target whole-words?: #t match-test: match-test constituent-test: constituent-test))))))
+    
+    (let ((search (new Projects-Search 'references (reference-searcher target) #f)))
+      (let ((resultset (new Search-Resultset search)))
+        (new Reference-Search-Result resultset entry))))
+  
+  (let ((search-result (make-reference-search-result target)))
+    (apply edit-reference entry 'forward search-result rest)))
+
+
+;;;
+;;;; Indexed-Entry
+;;;
+
+
+(specific (edit-entry (<Indexed-Entry> entry) (force-selection?: force-selection? #f) (generate-event?: generate-event? #t) (workspace: workspace #f) (activate-focus?: activate-focus? #t) (return-new?: return-new? #f))
+  (let ((appl (get-application))
+        (moniker (get-moniker~ entry)))
+    (if (not (exists?~ moniker))
+        (error "Unable to locate moniker: {t}" moniker)
+      (let ((char-encoding (get-char-encoding~ (get-catalog~ entry)))
+            (selection (get-range~ entry)))
+        (edit-document~ appl moniker force-selection?: force-selection? generate-event?: generate-event? char-encoding: char-encoding selection: selection workspace: workspace activate-focus?: activate-focus? return-new?: return-new?))))))

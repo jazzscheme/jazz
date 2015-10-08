@@ -689,6 +689,7 @@
 (native jazz:register-product-run)
 (native jazz:get-product-descriptor)
 (native jazz:find-product-descriptor)
+(native jazz:product-descriptor-named?)
 (native jazz:product-descriptor-name)
 (native jazz:product-descriptor-title)
 (native jazz:product-descriptor-icon)

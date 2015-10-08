@@ -1261,6 +1261,15 @@
 
 
 (define (jazz:find-product-descriptor name)
+  (define (find-descriptor products)
+    (let iter ((scan products))
+         (if (%%null? scan)
+             #f
+           (let ((product (%%car scan)))
+             (if (jazz:product-descriptor-named? product name)
+                 product
+               (iter (%%cdr scan)))))))
+  
   (let ((binary-package #f)
         (binary-descriptor #f))
     (let iter-repo ((repositories jazz:Repositories))
@@ -1271,18 +1280,20 @@
             (if (%%null? packages)
                 (iter-repo (%%cdr repositories))
               (let ((package (%%car packages)))
-                (let ((pair (%%assq name (%%get-package-products package))))
+                (let ((pair (find-descriptor (%%get-package-products package))))
                   (if pair
-                      (let ((alias (jazz:product-descriptor-alias pair)))
-                        (cond (alias
-                               (jazz:find-product-descriptor alias))
-                              ((%%get-repository-binary? repository)
-                               (set! binary-package package)
-                               (set! binary-descriptor pair)
-                               (iter (%%cdr packages)))
-                              (else
-                               (values package pair))))
+                      (cond ((%%get-repository-binary? repository)
+                             (set! binary-package package)
+                             (set! binary-descriptor pair)
+                             (iter (%%cdr packages)))
+                            (else
+                             (values package pair)))
                     (iter (%%cdr packages))))))))))))
+
+
+(define (jazz:product-descriptor-named? descriptor name)
+  (or (%%eq? (jazz:product-descriptor-name descriptor) name)
+      (%%eq? (jazz:product-descriptor-alias descriptor) name)))
 
 
 (define (jazz:product-descriptor-name descriptor)

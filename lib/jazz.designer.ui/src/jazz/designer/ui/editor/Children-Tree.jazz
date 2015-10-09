@@ -1,4 +1,4 @@
-;;;==============
+;;==============
 ;;;  JazzScheme
 ;;;==============
 ;;;
@@ -39,6 +39,7 @@
 
 
 (import (jazz.component)
+        (jazz.descriptor)
         (jazz.designer.ui)
         (jazz.handler)
         (jazz.jml)
@@ -80,7 +81,7 @@
   
   (method (setup-columns)
     (let ((header (get-header)))
-      (set! base (and client (get-addable-base~ client)))
+      (set! base (and client (get-addable-base client)))
       (set-filled-column #f)
       (remove-columns preserve-node-column?: #t)
       (if (or (not base) (null? details))
@@ -89,7 +90,7 @@
           (for-each (lambda (detail)
                       (bind (name width filled?) detail
                         (let* ((property (category-field base name))
-                               (title (detail-presentation~ base property)))
+                               (title (detail-presentation base property)))
                           (when filled?
                             (set-filled-column name))
                           (if first?
@@ -106,18 +107,18 @@
   (method (insert-rows expand-state selected-components)
     (remove-every-row)
     (when client
-      (let ((recursive? (get-recursive-details?~ client)))
+      (let ((recursive? (get-recursive-details? client)))
         (insert-components client #f recursive?)
         (update-selection expand-state selected-components))))
   
   
   (method (insert-components component father recursive?)
-    (let ((components (get-components~ component)))
+    (let ((components (get-components component)))
       (for-each (lambda (child)
                   (unless (is? child Group)
                     (insert-component child father recursive?)))
-                (if (sort-components?~ component)
-                    (sort < components key: get-presentation-property~)
+                (if (sort-component-components? component)
+                    (sort < components key: get-presentation-property)
                   components))))
     
   
@@ -131,8 +132,8 @@
             (let* ((nn (car first))
                    (np (category-field base nn))
                    (nv (read-property component np))
-                   (nt (present-property~ component np nv))
-                   (ni (get-component-image~ component))
+                   (nt (present-property component np nv))
+                   (ni (get-component-image component))
                    (node (new Tree-Node title: nt image: ni))
                    (labels (map (lambda (detail)
                                   (if (not based?)
@@ -140,7 +141,7 @@
                                     (bind (name width filled?) detail
                                       (let* ((property (category-field base name))
                                              (value (read-property component property))
-                                             (title (present-property~ component property value)))
+                                             (title (present-property component property value)))
                                         (new Tree-Label title: title)))))
                                 rest))
                    (children (cons node labels)))
@@ -153,7 +154,7 @@
     (let ((ascendants (cdr (collect-ascendants~ component))))
       (if (null? ascendants)
           ""
-        (join (map (lambda (ascendant) (localize (get-presentation-property~ ascendant))) ascendants) " / "))))
+        (join (map (lambda (ascendant) (localize (get-presentation-property ascendant))) ascendants) " / "))))
 
   
   ;;;
@@ -193,6 +194,6 @@
               (when (eq? (get-user-data~ row) component)
                 (let* ((cell (new Cell rank col))
                        (data (get-cell-data cell))
-                       (title (present-property~ component property value)))
+                       (title (present-property component property value)))
                   (set-title~ data title)
                   (invalidate-cell cell)))))))))))

@@ -41,6 +41,7 @@
 (import (jazz.action)
         (jazz.application)
         (jazz.clipboard)
+        (jazz.descriptor)
         (jazz.designer.ui)
         (jazz.entity)
         (jazz.locale)
@@ -128,7 +129,7 @@
            (extra-properties properties))
       (receive (presentation added-properties) (if presentation (values presentation '()) (add-entity-request factory parent))
         (let ((child (new class parent: parent))
-              (name (presentation->name~ factory presentation))
+              (name (presentation->name factory presentation))
               (controller (get-controller)))
           (when name
             (set-name~ child name))
@@ -146,10 +147,10 @@
   
   
   (method protected virtual (entity-presentation-request factory brothers (initial-value: initial-value #f))
-    (if (get-name-prohibited?~ factory)
+    (if (get-name-prohibited? factory)
         #f
-      (let* ((name-mandatory? (get-name-mandatory?~ factory))
-             (name-unicity? (get-name-unicity?~ factory))
+      (let* ((name-mandatory? (get-name-mandatory? factory))
+             (name-unicity? (get-name-unicity? factory))
              (unicity-domain (and name-unicity? (map get-presentation~ brothers)))
              (name-validator (entity-name-validator))
              (pres (localize (get-factory-presentation~ factory)))
@@ -300,8 +301,8 @@
            (before-last (row->line (last (get-sons~ dst-father))))
            (before-rank (and before? (if (memq? quarter '(1 2)) dst-line (if (eq? dst-line before-last) #f (+ dst-line 1)))))
            (before (and before-rank (if (< before-rank visible-count) (get-row before-rank) #f)))
-           (move? (and (not (memq? dst src)) (or (null? dst) (and (or (null? src-parent) (neq? src-parent dst)) (every? (lambda (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
-           (before? (and before? (not (memq? before-rank src-selection)) (or (null? src-range) (/= (or before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
+           (move? (and (not (memq? dst src)) (or (null? dst) (and (or (null? src-parent) (neq? src-parent dst)) (every? (lambda (src) (and (not (has-parent?~ dst src)) (addable-class? dst (class-of src)))) src)))))
+           (before? (and before? (not (memq? before-rank src-selection)) (or (null? src-range) (/= (or before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before? src-parent src-types dst-father before)))
            (part (cond ((and move? (or (memq? quarter '(2 3)) (and (not before?) (memq? quarter '(1 4))))) 'row)
                        ((and before? (or (= quarter 1) (and (not move?) (= quarter 2)))) 'before)
                        ((and before? (or (= quarter 4) (and (not move?) (= quarter 3)))) 'after)
@@ -377,7 +378,7 @@
   
   (method override (can-paste?)
     (let* ((entities (selected-entities))
-           (parents (map determine-paster~ entities)))
+           (parents (map determine-paster entities)))
       (and (not (memq? #f parents))
            (= 1 (length (remove-duplicates parents))))))
   
@@ -559,7 +560,7 @@
            (can-paste? (get-action-enabled? {Action view paste}))
            (can-delete? (get-action-enabled? {Action view delete}))
            (can-rename? (get-action-enabled? {Action entities-tree rename}))
-           (can-properties? (and entity (can-view-properties?~ entity) (get-standard-properties~ entity)))
+           (can-properties? (and entity (can-view-properties? entity) (get-standard-properties entity)))
            (empty-add? #f))
       (let ((add-menu (locate~ menu 'add-menu))
             (add-item (locate~ menu 'add-item)))

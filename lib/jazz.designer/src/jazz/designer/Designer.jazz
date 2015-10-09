@@ -42,6 +42,7 @@
         (jazz.clipboard)
         (jazz.component)
         (jazz.component.runtime)
+        (jazz.descriptor)
         (jazz.designer)
         (jazz.event)
         (jazz.handler)
@@ -157,7 +158,7 @@
   (method public virtual (set-default-traits component traits-references (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t) (imports: imports #f))
     (let* ((owner (find-owner component)))
       (if (neq? owner reference)
-          (designer-error "Default traits cannot be changed in non owner root {a}" (get-presentation-property~ reference))
+          (designer-error "Default traits cannot be changed in non owner root {a}" (get-presentation-property reference))
         (when imports
           (add-import imports))
         (for-each (lambda (ref)
@@ -176,10 +177,10 @@
            (effective (or branch reference))
            (effective-cpn (if (is? effective Branch) (get-trait~ effective) effective)))
       (if (and owner (neq? owner effective))
-          (designer-error "Component cannot be renamed in non owner {a} {a}" (if trait "trait" "root") (get-presentation-property~ effective-cpn))
+          (designer-error "Component cannot be renamed in non owner {a} {a}" (if trait "trait" "root") (get-presentation-property effective-cpn))
         (let ((form (find-form component branch))
               (old-name (get-name~ component))
-              (old-presentation (get-presentation-property~ component)))
+              (old-presentation (get-presentation-property component)))
           (for-each-trait~ effective-cpn
             (lambda (trait)
               (let ((form (get-client-form~ trait)))
@@ -192,7 +193,7 @@
           (set-name~ form name)
           (when (and design-events? (not-null? (get-designers~ component)))
             (fire-name-change component name old-name undoable?)
-            (let ((presentation (get-presentation-property~ component)))
+            (let ((presentation (get-presentation-property component)))
               (fire-presentation-change component presentation old-presentation undoable?))
             (let ((property (property-field (class-of component) 'name-info)))
               (fire-property-change branch component property name undoable?)))
@@ -240,12 +241,12 @@
                             (set-property~ restore property old-value))
                           (if (null? (get-designers~ component))
                               (write-property component property value)
-                            (let* ((fire-presentation? (and design-events? (presentation-property?~ component property)))
-                                   (old-presentation (and fire-presentation? (get-presentation-property~ component))))
+                            (let* ((fire-presentation? (and design-events? (presentation-property? component property)))
+                                   (old-presentation (and fire-presentation? (get-presentation-property component))))
                               (write-property component property value)
                               (when design-events?
                                 (when fire-presentation?
-                                  (let ((presentation (get-presentation-property~ component)))
+                                  (let ((presentation (get-presentation-property component)))
                                     (fire-presentation-change component presentation old-presentation undoable?)))
                                 (fire-property-change branch component property value undoable?)))))
                       (when (and restore (not (has-property?~ restore property)))
@@ -373,7 +374,7 @@
               (owner (find-owner child)))
           ;; the (and owner) part is a try
           (if (and owner (neq? owner effective))
-              (designer-error "Component cannot be removed from non owner {a} {a}" (if trait "trait" "root") (get-presentation-property~ effective))
+              (designer-error "Component cannot be removed from non owner {a} {a}" (if trait "trait" "root") (get-presentation-property effective))
             (let* ((name (get-name~ child))
                    (parent (get-parent~ child))
                    (parent-form (find-form parent branch))
@@ -436,7 +437,7 @@
   
   
   (method public (can-relocate-component? component destination)
-    (and (addable-class?~ destination (class-of component))
+    (and (addable-class? destination (class-of component))
          (component-owned-by-reference? component)))
   
   
@@ -530,7 +531,7 @@
   
   
   (method public virtual (paste-parcels parcels parent (trait: trait #t) (design-events?: design-events? #t) (reporter: reporter #f))
-    (let* ((parent (determine-paster~ parent))
+    (let* ((parent (determine-paster parent))
            (name-resolution (verify-name-conflicts parcels parent)))
       (prog1 (instantiate-parcels parcels parent trait: trait name-resolution: name-resolution design-events?: design-events? descendant?: #f reporter: reporter)
         (set-modified? #t))))

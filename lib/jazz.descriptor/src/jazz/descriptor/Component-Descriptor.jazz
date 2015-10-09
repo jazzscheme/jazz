@@ -1,4 +1,4 @@
-;;;==============
+;;==============
 ;;;  JazzScheme
 ;;;==============
 ;;;
@@ -133,7 +133,7 @@
 
   
   (method public virtual (component-property-domain component property)
-    (get-domain~ (class-of component) property))
+    (get-class-domain (class-of component) property))
   
   
   ;;;
@@ -188,7 +188,7 @@
       ((class-info) "Class")
       ((name-info) "Name")
       ((presentation-info) "Name")
-      (else (property-presentation~ class property))))
+      (else (property-presentation class property))))
   
   
   (method public virtual (class-persist-property? class property)
@@ -200,11 +200,11 @@
   
   
   (method public virtual (component-get-presentation component)
-    (name->presentation~ (class-of component) (get-name~ component)))
+    (name->presentation (class-of component) (get-name~ component)))
   
   
   (method public virtual (component-set-presentation component designer presentation)
-    (set-name~ designer component (presentation->name~ (class-of component) presentation)))
+    (set-name~ designer component (presentation->name (class-of component) presentation)))
   
   
   (method protected (component-get-string-presentation component)
@@ -218,7 +218,7 @@
   
   
   (method public virtual (component-present-property component property value)
-    (let ((domain (property-domain~ component property)))
+    (let ((domain (property-domain component property)))
       (present~ domain value)))
   
   
@@ -227,11 +227,11 @@
   
   
   (method public virtual (component-get-component-image component)
-    (get-class-image~ (class-of component)))
+    (get-class-image (class-of component)))
   
   
   (method public virtual (component-can-cut-component? component)
-    (either can-cut? (can-delete-component?~ component)))
+    (either can-cut? (can-delete-component? component)))
   
   
   (method public virtual (component-can-copy-component? component)
@@ -247,7 +247,7 @@
   
   
   (method public virtual (component-can-rename-component? component)
-    (either can-rename? (not (get-name-prohibited?~ (class-of component)))))
+    (either can-rename? (not (get-class-name-prohibited? (class-of component)))))
   
   
   (method public virtual (component-can-select-all-component? component)
@@ -267,29 +267,29 @@
   
   
   (method public (component-determine-can-paste component (try-parent? #t))
-    (boolean (determine-paster~ component try-parent?)))
+    (boolean (determine-paster component try-parent?)))
   
   
   (method public virtual (component-determine-paster component (try-parent? #t))
-    (when (and (can-paste-component?~ component) (clipboard-format-available? 'jazz-parcels))
+    (when (and (can-paste-component? component) (clipboard-format-available? 'jazz-parcels))
       (let* ((parcels (get-jazz-parcels))
              (models (remove-duplicates (map get-master-model~ parcels))))
         (cond ((memq? #f models)
                #f)
               ((every? (lambda (class)
-                         (addable-class?~ component class))
+                         (addable-class? component class))
                        models)
                component)
               (else
                (when try-parent?
                  (let ((parent (get-parent~ component)))
                    (when parent
-                     (determine-paster~ parent #f)))))))))
+                     (determine-paster parent #f)))))))))
   
   
   (method public virtual (component-can-send-before? component types father before)
-    (and (every? (lambda (type) (addable-class?~ component type)) types)
-         (not (sort-components?~ component))))
+    (and (every? (lambda (type) (addable-class? component type)) types)
+         (not (sort-component-components? component))))
   
   
   (method public virtual (component-sort-components? component)
@@ -297,7 +297,7 @@
   
   
   (method public virtual (component-sort-components component predicate components)
-    (sort predicate components key: get-presentation-property~))
+    (sort predicate components key: get-presentation-property))
   
   
   (method public virtual (component-indexable? component)
@@ -309,24 +309,24 @@
 
 
   (method public virtual (component-install-surrogate component editor)
-    (let ((surrogate (new (component-surrogate~ component) client: component editor: editor)))
+    (let ((surrogate (new (component-surrogate component) client: component editor: editor)))
       (set-surrogate~ component surrogate)
       (install-handlers~ surrogate)
-      (install-children-surrogates~ component editor)))
+      (install-children-surrogates component editor)))
   
   
   (method public virtual (component-install-children-surrogates component editor)
     (for-each (lambda (component)
-                (install-surrogate~ component editor))
-              (get-components~ component)))
+                (install-surrogate component editor))
+              (get-components component)))
 
 
   (method public (component-remove-surrogate component)
-    (remove-component-surrogate~ component))
+    (remove-component-surrogate component))
 
 
   (method public (component-remove-component-surrogate component)
-    (for-each remove-component-surrogate~ (get-components~ component))
+    (for-each remove-component-surrogate (get-components component))
     (let ((surrogate (get-surrogate~ component)))
       (when surrogate
         (remove-handlers~ surrogate)
@@ -348,7 +348,7 @@
   (method public virtual (component-addable-class? component class)
     (some? (lambda (addable-class)
              (subtype? class addable-class))
-           (map resolve-runtime-reference (get-addable-classes~ component))))
+           (map resolve-runtime-reference (get-addable-classes component))))
   
   
   (method public virtual (component-get-classes component)
@@ -364,14 +364,14 @@
   
   
   (method public virtual (component-get-addable-base component)
-    (let ((classes (get-addable-classes~ component)))
+    (let ((classes (get-addable-classes component)))
       (if (= 1 (length classes))
           (resolve-runtime-reference (car classes))
         Component)))
   
   
   (method public virtual (component-get-addable-details component)
-    (let ((base (get-addable-base~ component)))
+    (let ((base (get-addable-base component)))
       (when base
         '((name-info 100 #t)))))
   

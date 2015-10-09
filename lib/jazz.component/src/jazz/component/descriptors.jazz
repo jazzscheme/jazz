@@ -48,44 +48,6 @@
 
 
 ;;;
-;;;; Properties
-;;;
-
-
-(definition public (get-filtered-properties component (filter: filter 'standard))
-  (define (collect-properties filter)
-    (collect-if (lambda (property)
-                  (display-filtered-property? property filter))
-                (mop-instance-slots~ (class-of component) component)))
-  
-  (define (display-filtered-property? property filter)
-    (and (property? property)
-         (property-getter property)
-         (or (memq? filter '(all standard))
-             (let ((name (get-name~ (get-category~ (class-of component) property))))
-               (if (symbol? filter)
-                   (eq? name filter)
-                 (memq? name filter))))))
-  
-  (if (eq? filter 'standard)
-      (let ((properties (get-standard-properties component)))
-        (if (eq? properties #t)
-            (collect-properties '(infos properties handlers))
-          (let ((class (class-of component)))
-            (define (standardize object)
-              (cond ((string? object)
-                     object)
-                    ((symbol? object)
-                     (or (category-field class object)
-                         (error "Field {t} is undefined in {t}" object class)))
-                    (else
-                     (map standardize object))))
-            
-            (standardize properties))))
-    (collect-properties filter)))
-
-
-;;;
 ;;;; Traits
 ;;;
 
@@ -93,8 +55,8 @@
 (definition public (get-active-trait-presentation component)
   (let ((trait (get-active-trait~ component)))
     (if (not trait)
-        (get-presentation-property~ component)
-      (get-presentation-property~ trait))))
+        (get-presentation-property component)
+      (get-presentation-property trait))))
 
 
 ;;;
@@ -132,14 +94,14 @@
 (definition public (install-designer component designer)
   (set-designers~ component (cons designer (get-designers~ component)))
   (for-each (lambda (child)
-              (install-designer~ child designer))
+              (install-designer child designer))
             (get-components component)))
 
 
 (definition public (uninstall-designer component designer)
   (set-designers~ component (remove! designer (get-designers~ component)))
   (for-each (lambda (child)
-              (uninstall-designer~ child designer))
+              (uninstall-designer child designer))
             (get-components component)))
 
 
@@ -168,8 +130,8 @@
                      (validation-context (refine~ validation-context property: symbol)))
                 (map (lambda (violation)
                        (add-property-violation~ validation-context "{a}" (get-message~ violation)))
-                     (collect-value-violations~ (property-domain~ component property) (read-property component property) validation-context))))
-            (get-filtered-properties~ component))
+                     (collect-value-violations~ (property-domain component property) (read-property component property) validation-context))))
+            (get-filtered-properties component))
   (validate-children component validation-context))
 
 
@@ -194,7 +156,7 @@
                                           (category-name (class-of child))))))
         (add-violation~ (get-manager~ validation-context) violation child (get-root~ validation-context) (get-editor~ validation-context)))))
   
-  (let ((addable-classes (map resolve-runtime-reference (flatten (get-categorized-addable-classes~ component))))
+  (let ((addable-classes (map resolve-runtime-reference (flatten (get-categorized-addable-classes component))))
         (children-descriptor (get-children-descriptor~ (get-class-descriptor~ (class-of component)))))
     (for-each (lambda (child)
                 (let ((name (get-name~ child)))
@@ -326,13 +288,13 @@
     (map (lambda (model)
            (when model
              (resolve-reference~ model)))
-         (get-component-classes)))
+         (get-component-classes component)))
   
   
   (method override (component-get-classes component)
     (or (get-classes~ component)
         (when (get-parent~ component)
-          (get-component-classes~ (get-parent~ component))))))
+          (get-component-classes (get-parent~ component))))))
 
 
 ;;;

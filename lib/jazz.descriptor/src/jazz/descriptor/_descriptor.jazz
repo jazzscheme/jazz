@@ -52,15 +52,15 @@
 ;;;
 
 
-(generic (get-domain (<Component-Class> class) property)
+(generic (get-class-domain (<Component-Class> class) property)
   (class-get-domain~ (get-descriptor class) class property))
 
 
-(generic (get-category (<Component-Class> class) property)
+(generic (get-class-category (<Component-Class> class) property)
   (class-get-category~ (get-descriptor class) class property))
 
 
-(generic (get-standard? (<Component-Class> class) property)
+(generic (get-class-standard? (<Component-Class> class) property)
   (class-get-standard?~ (get-descriptor class) class property))
 
 
@@ -72,15 +72,15 @@
   (class-image~ (get-descriptor class) class))
 
 
-(definition public (get-name-prohibited? class)
+(definition public (get-class-name-prohibited? class)
   (class-name-prohibited?~ (get-descriptor class) class))
 
 
-(definition public (get-name-mandatory? class)
+(definition public (get-class-name-mandatory? class)
   (class-name-mandatory?~ (get-descriptor class) class))
 
 
-(definition public (get-name-unicity? class)
+(definition public (get-class-name-unicity? class)
   (class-name-unicity?~ (get-descriptor class) class))
 
 
@@ -184,11 +184,11 @@
   (component-can-send-before?~ (get-descriptor (class-of component)) component types father before))
 
 
-(definition public (sort-components? component)
+(definition public (sort-component-components? component)
   (component-sort-components?~ (get-descriptor (class-of component)) component))
 
 
-(definition public (sort-components component predicate components)
+(definition public (sort-component-components component predicate components)
   (component-sort-components~ (get-descriptor (class-of component)) component predicate components))
 
 
@@ -289,57 +289,41 @@
 
 
 ;;;
-;;;; Class
-;;;
-
-
-(definition public Component-Meta-Descriptor
-  (<form>
-    (<Component-Descriptor>                           title: "Component Descriptor" image: {Image-Resource "Info"} name-mandatory?: #t name-unicity?: #t categorized-classes: (({Reference Properties-Descriptor} {Reference Children-Descriptor}))
-      (<properties~>
-        (<Property-Descriptor> name: title
-          (<Value-Domain>      name: domain))
-        (<Property-Descriptor> name: image
-          (<Value-Domain>      name: domain))
-        (<Property-Descriptor> name: name-prohibited?
-          (<Value-Domain>      name: domain))
-        (<Property-Descriptor> name: name-mandatory?
-          (<Value-Domain>      name: domain))
-        (<Property-Descriptor> name: name-unicity?
-          (<Value-Domain>      name: domain))))))
-
-
-;;;
 ;;;; Properties
 ;;;
 
 
-(definition public Properties-Meta-Descriptor
-  (<form>
-    (<Component-Descriptor> title: "Properties Descriptor" image: {Image-Resource "OpenedFolder"} name-mandatory?: #t name-unicity?: #t)))
-
-
-;;;
-;;;; Property
-;;;
-
-
-(definition public Property-Meta-Descriptor
-  (<form>
-    (<Component-Descriptor>                title: "Property Descriptor" image: {Image-Resource "Slot"} name-mandatory?: #t name-unicity?: #t
-      (<properties~>
-        (<Property-Descriptor> name: title
-          (<Value-Domain>      name: domain))))))
-
-
-;;;
-;;;; Children
-;;;
-
-
-(definition public Children-Meta-Descriptor
-  (<form>
-    (<Component-Descriptor> title: "Children Descriptor")))
+(definition public (get-filtered-properties component (filter: filter 'standard))
+  (define (collect-properties filter)
+    (collect-if (lambda (property)
+                  (display-filtered-property? property filter))
+                (mop-instance-slots~ (class-of component) component)))
+  
+  (define (display-filtered-property? property filter)
+    (and (property? property)
+         (property-getter property)
+         (or (memq? filter '(all standard))
+             (let ((name (get-name~ (get-class-category (class-of component) property))))
+               (if (symbol? filter)
+                   (eq? name filter)
+                 (memq? name filter))))))
+  
+  (if (eq? filter 'standard)
+      (let ((properties (get-standard-properties component)))
+        (if (eq? properties #t)
+            (collect-properties '(infos properties handlers))
+          (let ((class (class-of component)))
+            (define (standardize object)
+              (cond ((string? object)
+                     object)
+                    ((symbol? object)
+                     (or (category-field class object)
+                         (error "Field {t} is undefined in {t}" object class)))
+                    (else
+                     (map standardize object))))
+            
+            (standardize properties))))
+    (collect-properties filter)))
 
 
 ;;;

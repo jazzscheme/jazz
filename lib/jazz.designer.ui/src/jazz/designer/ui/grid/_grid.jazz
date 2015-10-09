@@ -76,8 +76,8 @@
 (definition (class-properties class)
   (let ((standard (get-class-standard-properties class)))
     (define (keep-property? property)
-      (let ((standard? (get-standard?~ class property))
-            (category (get-category~ class property)))
+      (let ((standard? (get-class-standard? class property))
+            (category (get-class-category class property)))
         (and standard?
              (not (eq? (get-name~ category) 'infos))
              (if standard
@@ -90,7 +90,7 @@
 
 (definition (present-property-value component property)
   (let ((value (read-property component property)))
-    (present-property~ component property value)))
+    (present-property component property value)))
 
 
 (definition (column-data-component-property row-data column-data fail succeed)
@@ -112,8 +112,8 @@
     (append-map (lambda (class)
                   (map (lambda (property)
                          (list (get-name~ property)
-                               (property-presentation~ class property)
-                               (get-domain~ class property)))
+                               (property-presentation class property)
+                               (get-class-domain class property)))
                        (class-properties class)))
                 classes)
     key: second
@@ -125,7 +125,7 @@
 
 
 (definition public (get-sub-property-domain component property sub-identifier)
-  (let* ((domain (property-domain~ component property))
+  (let* ((domain (property-domain component property))
          (multi-domains (get-multi-domains~ domain component))
          (result (and multi-domains (assq-value sub-identifier multi-domains #f))))
     (and result (second result))))
@@ -247,7 +247,7 @@
              (lambda (component property)
                (get-sub-property-domain component property (get-sub-identifier~ column-data)))))
           (else
-           (column-data-component-property row-data column-data (const #f) property-domain~))))
+           (column-data-component-property row-data column-data (const #f) property-domain))))
   
   
   (method override (read-only? row-data column-data)
@@ -316,7 +316,7 @@
          (let ((view (get-view~ source)))
            (and (is? view Toolbox-Tree)
                 (let ((class (selected-class~ view)))
-                  (addable-class?~ client class))))))
+                  (addable-class? client class))))))
   
   
   (method override (receive-drop sender pos drag-drop)
@@ -495,8 +495,8 @@
   (method public (on-rename-component evt)
     (let* ((components (selected-components))
            (component (car components))
-           (presentation (request-component-presentation (class-of component) (get-brothers~ component) initial-value: (get-presentation-property~ component))))
-      (set-presentation-property~ component designer presentation)
+           (presentation (request-component-presentation (class-of component) (get-brothers~ component) initial-value: (get-presentation-property component))))
+      (set-presentation-property component designer presentation)
       (update-selection~ editor)))
   
   
@@ -560,7 +560,7 @@
   
   
   (method override (get-draggable?)
-    (can-modify-components? (selected-components) can-relocate-component?~))
+    (can-modify-components? (selected-components) can-relocate-component?))
   
   
   (method (child-add child parent)
@@ -600,7 +600,7 @@
   
   (method (new-selection-column selection-data)
     (let* ((common-class (apply classes-common-ancestor (map resolve-runtime-reference (get-class-references~ selection-data))))
-           (title (get-class-presentation~ common-class)))
+           (title (get-class-presentation common-class)))
       (let ((column (new Grid-Tree-Column title: title width: Default-Selection-Width)))
         (add-child~ column selection-data)
         column)))
@@ -638,8 +638,8 @@
           (if name
               (make-child-lists (find-child~ component name)
                                 (make-rows-components-lists component (cdr selection-datas)))
-            (let ((addable-children (collect-if (lambda (class) (addable-class?~ component class))
-                                                (get-components~ component)
+            (let ((addable-children (collect-if (lambda (class) (addable-class? component class))
+                                                (get-components component)
                                                 key: class-of)))
               (if (null? addable-children)
                   (list (make-list (length selection-datas) #f))

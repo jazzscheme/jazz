@@ -42,6 +42,7 @@
         (jazz.application)
         (jazz.clipboard)
         (jazz.component)
+        (jazz.descriptor)
         (jazz.designer.ui)
         (jazz.designer.ui.view)
         (jazz.feedback)
@@ -181,7 +182,7 @@
   
   
   (method protected virtual (component-presentation component)
-    (get-presentation-property~ component))
+    (get-presentation-property component))
   
   
   (method protected virtual (component-font component owned-form)
@@ -193,7 +194,7 @@
   
   
   (method protected virtual (component-image component)
-    (get-component-image~ component))
+    (get-component-image component))
   
   
   (method protected virtual (component-state component)
@@ -319,7 +320,7 @@
   (method override (add-component-class reference (parent: parent #f) (presentation: presentation #f) (properties: properties '()) (select?: select? #t))
     (define (create-new-component class parent import creation-info extra-properties)
       (receive (presentation added-properties) creation-info
-        (let ((name (and presentation (presentation->name~ class presentation))))
+        (let ((name (and presentation (presentation->name class presentation))))
           (let ((child (new class parent: parent name: name))
                 (designer (get-designer)))
             (with-update-locked
@@ -365,7 +366,7 @@
   (method protected virtual (install-new-component designer child parent presentation added-properties extra-properties (import: import #f) (descendant?: descendant? #f))
     (add-child~ designer child parent import: import descendant?: descendant?)
     (when presentation
-      (set-presentation-property~ child designer presentation))
+      (set-presentation-property child designer presentation))
     (install-new-properties designer child added-properties extra-properties))
   
   
@@ -393,7 +394,7 @@
     (let ((row (component-row component)))
       (when row
         (ensure-expanded row)
-        (let* ((presentation (component-presentation-request (class-of component) (get-brothers~ component) initial-value: (get-presentation-property~ component)))
+        (let* ((presentation (component-presentation-request (class-of component) (get-brothers~ component) initial-value: (get-presentation-property component)))
                (line (row->line row))
                (cell (new Cell line 0)))
           (end-rename component cell presentation)))))
@@ -403,9 +404,9 @@
     (with-update-locked
       (lambda ()
         (set-title~ (get-cell-data cell) presentation)
-        (set-presentation-property~ component designer presentation)
+        (set-presentation-property component designer presentation)
         (let ((parent (get-parent~ component)))
-          (when (and parent (sort-components?~ parent))
+          (when (and parent (sort-component-components? parent))
             (reorder-component component)))))
     (acquire-focus)
     (select-component component))
@@ -449,7 +450,7 @@
     (unless (and (eq? (get-father~ row) father) (= 1 (cardinality (get-sons~ father))))
       (let* ((source (get-user-data~ row))
              (destination (or (get-user-data~ father) client))
-             (sort? (sort-components?~ destination)))
+             (sort? (sort-component-components? destination)))
         (move-row row father
           position: (or position (lambda ()
                                    (if (not sort?)
@@ -464,7 +465,7 @@
   
   
   (method protected virtual (find-component-position component row father)
-    (find-ordered-position (get-presentation-property~ component) father))
+    (find-ordered-position (get-presentation-property component) father))
   
   
   (method protected virtual (find-component-insertion parent-row component target)
@@ -495,8 +496,8 @@
            (before-last (row->line (last (get-sons~ dst-father))))
            (before-rank (and before? (if (memq? quarter '(1 2)) dst-line (if (eq? dst-line before-last) #f (+ dst-line 1)))))
            (before (and before-rank (if (< before-rank visible-count) (get-row before-rank) #f)))
-           (move? (and (not (memq? dst src)) (or (not dst) (and (or (not src-parent) (neq? src-parent dst)) (every? (lambda (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
-           (before? (and before? (not (memq? before-rank src-selection)) (or (not src-range) (/= (or before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
+           (move? (and (not (memq? dst src)) (or (not dst) (and (or (not src-parent) (neq? src-parent dst)) (every? (lambda (src) (and (not (has-parent?~ dst src)) (addable-class? dst (class-of src)))) src)))))
+           (before? (and before? (not (memq? before-rank src-selection)) (or (not src-range) (/= (or before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before? src-parent src-types dst-father before)))
            (part (cond ((and move? (or (memq? quarter '(2 3)) (and (not before?) (memq? quarter '(1 4))))) 'row)
                        ((and before? (or (= quarter 1) (and (not move?) (= quarter 2)))) 'before)
                        ((and before? (not (expanded?~ row)) (or (= quarter 4) (and (not move?) (= quarter 3)))) 'after)
@@ -516,7 +517,7 @@
                 (missing-named-classes (map (lambda (element)
                                               (resolve-runtime-reference (cadr element)))
                                             (missing-named-children component))))
-           (when (and class (or (addable-class?~ component class)
+           (when (and class (or (addable-class? component class)
                                 (member? class missing-named-classes test: subclass?)))
              (new Tree-Drop-Target view: self row: row))))
         @wait

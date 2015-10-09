@@ -41,6 +41,7 @@
 (import (jazz.action)
         (jazz.application)
         (jazz.component)
+        (jazz.descriptor)
         (jazz.designer.ui)
         (jazz.handler)
         (jazz.jml)
@@ -86,7 +87,7 @@
         (lambda ()
           (let* ((menu (new Trait-Menu))
                  (item (locate~ menu 'add))
-                 (classes (and client (get-addable-traits~ client)))
+                 (classes (and client (get-addable-traits client)))
                  (trait (selected-trait)))
             (when trait
               (with-update-locked~ menu
@@ -99,8 +100,8 @@
                     (set-visible?~ (locate~ menu 'close) #f)
                     (set-visible?~ (locate~ menu 'rename) #f))))
               (if (eqv? classes #t)
-                  (let ((default (get-addable-default-trait~ client)))
-                    (set-title~ item (format "Add {a}..." (get-class-presentation~ default))))
+                  (let ((default (get-addable-default-trait client)))
+                    (set-title~ item (format "Add {a}..." (get-class-presentation default))))
                 (set-title~ item "Add")
                 (let ((submenu (new Context-Menu parent: item)))
                   (with-update-locked~ submenu
@@ -108,8 +109,8 @@
                       (for-each (lambda (class)
                                   (if (not class)
                                       (new Separator-Item parent: submenu)
-                                    (let ((icon (get-class-image~ class))
-                                          (title (format "{a}..." (get-class-presentation~ class)))
+                                    (let ((icon (get-class-image class))
+                                          (title (format "{a}..." (get-class-presentation class)))
                                           (handler (new Event-Handler target: self method-name: 'on-add-trait properties: (list class: class))))
                                       (new Label-Item parent: submenu icon: icon title: title action-handler: handler))))
                                 classes)))))
@@ -118,15 +119,15 @@
   
   
   (method (on-add-trait evt)
-    (let ((class (or (get-property~ evt class:) (get-addable-default-trait~ client)))
+    (let ((class (or (get-property~ evt class:) (get-addable-default-trait client)))
           (parent (selected-trait)))
       (add-trait class parent)))
   
   
   (method public (new-default-trait)
     (when client
-      (let* ((class (get-addable-default-trait~ client))
-             (add-here? (get-addable-traits~ client))
+      (let* ((class (get-addable-default-trait client))
+             (add-here? (get-addable-traits client))
              (parent (or (when add-here? (selected-trait))
                          client)))
         (add-trait class parent))))
@@ -146,11 +147,11 @@
   
   
   (method protected virtual (trait-presentation-request class brothers (initial-value: initial-value #f))
-    (let* ((name-mandatory? (get-name-mandatory?~ class))
-           (name-unicity? (get-name-unicity?~ class))
-           (unicity-domain (and name-unicity? (map get-presentation-property~ brothers)))
+    (let* ((name-mandatory? (get-class-name-mandatory? class))
+           (name-unicity? (get-class-name-unicity? class))
+           (unicity-domain (and name-unicity? (map get-presentation-property brothers)))
            (name-validator (trait-name-validator))
-           (presentation (request-string title: (format "Enter {a} Name" (get-class-presentation~ class)) initial-value: initial-value accepts-empty?: (not name-mandatory?) unicity-domain: unicity-domain validator: name-validator)))
+           (presentation (request-string title: (format "Enter {a} Name" (get-class-presentation class)) initial-value: initial-value accepts-empty?: (not name-mandatory?) unicity-domain: unicity-domain validator: name-validator)))
       presentation))
   
   
@@ -198,13 +199,13 @@
   
   (method (rename-selected-trait)
     (let* ((trait (selected-trait))
-           (presentation (trait-presentation-request (class-of trait) (get-brothers~ trait) initial-value: (get-presentation-property~ trait))))
+           (presentation (trait-presentation-request (class-of trait) (get-brothers~ trait) initial-value: (get-presentation-property trait))))
       (rename-trait trait presentation)))
   
   
   (method (rename-trait trait presentation)
     (let ((designer (get-designer~ editor)))
-      (set-presentation-property~ trait designer presentation)
+      (set-presentation-property trait designer presentation)
       (update-tree)
       (set-single-selection (trait-index trait))))
   
@@ -350,7 +351,7 @@
   
   
   (method (insert-client client)
-    (let ((title (get-presentation-property~ client))
+    (let ((title (get-presentation-property client))
           (image (component-image client)))
       (add-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: (and (is? client Trait) client))))
   
@@ -366,11 +367,11 @@
   
   
   (method protected virtual (component-presentation component)
-    (get-presentation-property~ component))
+    (get-presentation-property component))
   
   
   (method protected virtual (component-image component)
-    (get-component-image~ component))
+    (get-component-image component))
   
   
   ;;;

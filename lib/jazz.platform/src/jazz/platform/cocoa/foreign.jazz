@@ -787,7 +787,7 @@ void platformInputWindowVisibility(PlatformWindow* window, int visible);
 bool platformInputKey(PlatformWindow* window, int key, int action);
 void platformInputChar(PlatformWindow* window, int character);
 void platformInputScroll(PlatformWindow* window, double x, double y);
-void platformInputMouseClick(PlatformWindow* window, int button, int clickCount, int action);
+void platformInputMouseClick(PlatformWindow* window, int button, int clickCount, NSPoint location, int action);
 void platformInputCursorMotion(PlatformWindow* window, double x, double y);
 
 // Input handling
@@ -1755,7 +1755,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)mouseDown:(NSEvent *)event
 {
-    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_LEFT, [event clickCount], PLATFORM_PRESS);
+    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_LEFT, [event clickCount], [event locationInWindow], PLATFORM_PRESS);
 }
 
 - (void)mouseDragged:(NSEvent *)event
@@ -1765,7 +1765,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)mouseUp:(NSEvent *)event
 {
-    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_LEFT, [event clickCount], PLATFORM_RELEASE);
+    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_LEFT, [event clickCount], [event locationInWindow], PLATFORM_RELEASE);
 }
 
 - (void)mouseMoved:(NSEvent *)event
@@ -1787,7 +1787,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)rightMouseDown:(NSEvent *)event
 {
-    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_RIGHT, [event clickCount], PLATFORM_PRESS);
+    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_RIGHT, [event clickCount], [event locationInWindow], PLATFORM_PRESS);
 }
 
 - (void)rightMouseDragged:(NSEvent *)event
@@ -1797,12 +1797,12 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)rightMouseUp:(NSEvent *)event
 {
-    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_RIGHT, [event clickCount], PLATFORM_RELEASE);
+    platformInputMouseClick(window, PLATFORM_MOUSE_BUTTON_RIGHT, [event clickCount], [event locationInWindow], PLATFORM_RELEASE);
 }
 
 - (void)otherMouseDown:(NSEvent *)event
 {
-    platformInputMouseClick(window, [event buttonNumber], [event clickCount], PLATFORM_PRESS);
+    platformInputMouseClick(window, [event buttonNumber], [event clickCount], [event locationInWindow], PLATFORM_PRESS);
 }
 
 - (void)otherMouseDragged:(NSEvent *)event
@@ -1812,7 +1812,7 @@ static int convertMacKeyCode(unsigned int macKeyCode)
 
 - (void)otherMouseUp:(NSEvent *)event
 {
-    platformInputMouseClick(window, [event buttonNumber], [event clickCount], PLATFORM_RELEASE);
+    platformInputMouseClick(window, [event buttonNumber], [event clickCount], [event locationInWindow], PLATFORM_RELEASE);
 }
 
 - (void)mouseEntered:(NSEvent *)event
@@ -2739,7 +2739,7 @@ void platformInputScroll(PlatformWindow* window, double xoffset, double yoffset)
 }
 
 
-void platformInputMouseClick(PlatformWindow* window, int button, int clickCount, int action)
+void platformInputMouseClick(PlatformWindow* window, int button, int clickCount, NSPoint location, int action)
 {
     if (button < 0 || button > PLATFORM_MOUSE_BUTTON_LAST)
         return;
@@ -2748,8 +2748,10 @@ void platformInputMouseClick(PlatformWindow* window, int button, int clickCount,
     window->mouseButton[button] = (char) action;
 
     // Get cursor position
+    const NSRect contentRect = [window->view frame];
     double xpos, ypos;
-    platformGetCursorPos(window, &xpos, &ypos);
+    xpos = location.x;
+    ypos = contentRect.size.height - location.y - 1;
     
     button_callback(window, xpos, ypos, button, clickCount, action);
 }
@@ -2835,7 +2837,12 @@ void platformReleaseAllButtons(PlatformWindow* window)
     for (i = 0;  i <= PLATFORM_MOUSE_BUTTON_LAST;  i++)
     {
         if (window->mouseButton[i] == PLATFORM_PRESS)
-            platformInputMouseClick(window, i, 1, PLATFORM_RELEASE);
+        {
+            double xpos, ypos;
+            platformGetCursorPos(window, &xpos, &ypos);
+            NSPoint location = NSMakePoint(xpos, ypos);
+            platformInputMouseClick(window, i, 1, location, PLATFORM_RELEASE);
+        }
     }
 }
 

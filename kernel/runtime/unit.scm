@@ -1702,7 +1702,18 @@
         (jobs (or jazz:jobs (jazz:build-jobs) jazz:jobs-default))
         (stop-build? #f))
     (define (key-product? name)
-      (%%memq name '(core jazz)))
+      (%%memq name '(backend
+                     backend.scheme
+                     contrib.irregex
+                     core
+                     dialect
+                     foundation
+                     foundation.backend.scheme
+                     jazz
+                     jazz.backend.scheme
+                     scheme
+                     scheme.backend.scheme
+                     scheme.core)))
     
     (define (atomic-output line)
       (mutex-lock! output-mutex)

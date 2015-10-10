@@ -1451,5 +1451,6 @@
 (native jazz:find-declaration)
 (native jazz:find-declaration-child)
 (native jazz:remove-declaration-child)
+(native jazz:reset-module-imported)
 (native jazz:get-unit/module-container)
 (native jazz:get-unit/module-requires))

@@ -40,12 +40,18 @@
 
 (import (jazz.action)
         (jazz.application)
+        (jazz.clipboard)
+        (jazz.debuggee)
         (jazz.debugger)
         (jazz.editor)
         (jazz.editor.lisp)
+        (jazz.event)
         (jazz.feedback)
         (jazz.jml)
+        (jazz.jrm)
+        (jazz.network)
         (jazz.platform)
+        (jazz.process)
         (jazz.resource)
         (jazz.search)
         (jazz.settings)
@@ -361,6 +367,76 @@
                           (set! col (get-col~ (get-start~ (get-range~ (first-on-last-line expressions count)))))
                         (set! col (+ (get-col~ opening) (* (+ (- specials rank) 1) 2))))))))))))
       (- col (get-column line))))
+  
+  
+  ;;;
+  ;;;; Analysis
+  ;;;
+  
+  
+  (definition debug-analysis?
+    #f)
+  
+  
+  (method override (analyse-selection)
+    (with-safe-explore
+      (lambda ()
+        (let ((range (current-declaration-range)))
+          (if (not range)
+              (bell)
+            (analyse-range range))))))
+  
+  
+  (method override (analyse-buffer)
+    (analyse-range (buffer-selection)))
+  
+  
+  (method override (analyse-range range)
+    (define (determine-kernel)
+      (project-kernel~ (current-project~ (get-workbench-manager~ (get-application)))))
+    
+    (let ((moniker (get-moniker)))
+      (if (not moniker)
+          (bell)
+        (user-message "Analysing...")
+        (let ((info (prepare-expressions range)))
+          (thread-start!
+            (new-thread
+              (lambda ()
+                (let ((server-port (open-tcp-server 0)))
+                  (let ((port-args (list "-port" (number->string (socket-info-port-number (tcp-server-socket-info server-port))))))
+                    (if debug-analysis?
+                        (let ((command (format "{s} {l}"
+                                               (parse~ (determine-kernel))
+                                               `("-run" "builder" "analyse" ,@port-args))))
+                          (set-clipboard-text command)
+                          (user-message "Clipboard set to shell command"))
+                      (open-process
+                        (list
+                          path: (parse~ (determine-kernel))
+                          arguments: `("-:daqQ-" "-run" "builder" "analyse" ,@port-args)
+                          stdin-redirection: #f
+                          stdout-redirection: #f
+                          stderr-redirection: #f
+                          show-console: #f))))
+                  (let ((port (read server-port)))
+                    (write-binary info port)
+                    (let ((info (read-binary port)))
+                      (clear-user-message)
+                      (unless (eof-object? info)
+                        (bind (what expr detail) info
+                          (post-event
+                            (lambda ()
+                              (case what
+                                ((none)
+                                 (message-box "Found no problems"))
+                                ((walk)
+                                 (let ((walk-debugger (get-local-debugger~ (get-application)))
+                                       (walk-cookie #f))
+                                   (report-walk-problems~ walk-debugger (get-local-process) detail walk-cookie)))
+                                ((error)
+                                 (message-box expr type: 'problem)))))))))))
+              'analyse))))))
   
   
   ;;;

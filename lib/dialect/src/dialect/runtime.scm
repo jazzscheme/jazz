@@ -923,6 +923,20 @@
                (jazz:table-merge-reporting-conflicts! module-declaration "Import" private imported)))))))
 
 
+;; reset everything imported for code analysis
+(define (jazz:reset-module-imported module-declaration)
+  (let ((private (jazz:get-private-lookup module-declaration)))
+    (for-each (lambda (module-invoice)
+                (pp module-invoice)
+                (let ((invoice-module (jazz:get-module-invoice-module module-invoice)))
+                  (jazz:iterate-table private
+                    (lambda (name declaration)
+                      (%%when (%%eq? (jazz:get-declaration-toplevel declaration) invoice-module)
+                        (pp (list 'clear name))
+                        (%%table-clear private name))))))
+              (jazz:get-module-declaration-imports module-declaration))))
+
+
 (define (jazz:add-module-export module-declaration module-invoice)
   (define (merge-invoice actual new)
     (let ((actual-autoload (jazz:get-export-invoice-autoload actual))

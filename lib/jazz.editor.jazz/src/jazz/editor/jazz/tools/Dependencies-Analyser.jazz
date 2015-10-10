@@ -39,6 +39,7 @@
 
 
 (import (jazz.application)
+        (jazz.clipboard)
         (jazz.event)
         (jazz.feedback)
         (jazz.graphic)
@@ -49,7 +50,6 @@
         (jazz.jrm)
         (jazz.menu)
         (jazz.network)
-        (jazz.process)
         (jazz.resource)
         (jazz.tree)
         (jazz.ui)
@@ -215,10 +215,6 @@
     #f)
   
   
-  (method (determine-kernel)
-    (or kernel (project-kernel~ (current-project~ (get-workbench-manager~ (get-application))))))
-  
-  
   (method (analyse)
     (define (feedback . rest)
       (execute-event
@@ -229,6 +225,9 @@
       (if (memq? 'jazz lst)
           (remove 'scheme lst)
         lst))
+    
+    (define (determine-kernel)
+      (or kernel (project-kernel~ (current-project~ (get-workbench-manager~ (get-application))))))
     
     (define (present-all explicit implicit)
       (execute-event
@@ -267,25 +266,26 @@
                                       locators))))))
                   package-names)))
     
-    (when debug-analysis?
-      (let ((ide (get-process)))
-        (start-remote-server~ ide)
-        (start-debuggers~ ide)))
     (thread-start!
       (new-thread
         (lambda ()
           (let ((server-port (open-tcp-server 0)))
-            (let ((debugger-args (if debug-analysis? (list "-debugger" (encode-host/port (listening-host~ (get-remote-listener)) (listening-port~ (get-remote-listener)))) '()))
-                  (port-args (list "-port" (number->string (socket-info-port-number (tcp-server-socket-info server-port)))))
+            (let ((port-args (list "-port" (number->string (socket-info-port-number (tcp-server-socket-info server-port)))))
                   (package-arg (get-string-content~ (locate 'package))))
-              (open-process
-                (list
-                  path: (parse~ (determine-kernel))
-                  arguments: `("-:daqQ-" ,@debugger-args "-run" "jam" "dependencies" "-analysis" ,@port-args ,package-arg)
-                  stdin-redirection: #f
-                  stdout-redirection: #f
-                  stderr-redirection: #f
-                  show-console: #f)))
+              (if debug-analysis?
+                  (let ((command (format "{s} {l}"
+                                         (parse~ (determine-kernel))
+                                         `("-run" "jam" "dependencies" "-analysis" ,@port-args ,package-arg))))
+                    (set-clipboard-text command)
+                    (user-message "Clipboard set to shell command"))
+                (open-process
+                  (list
+                    path: (parse~ (determine-kernel))
+                    arguments: `("-:daqQ-" "-run" "jam" "dependencies" "-analysis" ,@port-args ,package-arg)
+                    stdin-redirection: #f
+                    stdout-redirection: #f
+                    stderr-redirection: #f
+                    show-console: #f))))
             (let ((port (read server-port)))
               (let ((explicit (read-binary port))
                     (implicit (read-binary port)))

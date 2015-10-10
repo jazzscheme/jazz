@@ -53,10 +53,33 @@
   ;;;
   
   
+  ;; cache for this critical operation
+  (definition *workbench-active-catalogs*
+    #f)
+  
+  
+  (method package (reset-workbench-active-catalogs)
+    (set! *workbench-active-catalogs* #f))
+  
+  
+  (method package (get-workbench-active-catalogs)
+    (or *workbench-active-catalogs*
+        (let ((queue (new-queue)))
+          (let ((project (get-workbench)))
+            (for-each-active-catalog~ project
+              (lambda (catalog)
+                (enqueue queue catalog))))
+          (let ((catalogs (queue-list queue)))
+            (set! *workbench-active-catalogs* catalogs)
+            catalogs))))
+  
+  
   (method override (for-each-active-catalog context proc)
-    (let ((project (or context (get-workbench))))
-      (for-each-active-catalog~ project
-        proc)))
+    (if (not context)
+        (for-each proc (get-workbench-active-catalogs))
+      (let ((project context))
+        (for-each-active-catalog~ project
+          proc))))
   
   
   (method override (add-catalog catalog)

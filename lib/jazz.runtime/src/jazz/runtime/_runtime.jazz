@@ -138,6 +138,12 @@
     (sort string<? (table-keys table) key: symbol->string)))
 
 
+(definition public (product-descriptor-units package product)
+  (let ((table (make-table test: eq?)))
+    (add-product-descriptor-units package product table)
+    (sort string<? (table-keys table) key: symbol->string)))
+
+
 (definition protected (add-repository-units repository table)
   (load-runtime)
   (iterate-packages repository
@@ -147,28 +153,32 @@
 
 (definition protected (add-package-units package table)
   (for-each (lambda (product)
-              (let ((pair (assq 'update (cdr product))))
-                (when pair
-                  (let ((updated-names (cdr pair)))
-                    (for-each (lambda (updated-name/cond)
-                                (define (process-updated-name updated-name)
-                                  (for-each-subunit updated-name
-                                    (lambda (unit-name declaration phase)
-                                      @debug
-                                      (let ((actual-package (table-ref table unit-name #f)))
-                                        (when actual-package
-                                          (debug 'duplicate (package-name actual-package) (package-name package) updated-name unit-name)))
-                                      (table-set! table unit-name package))))
-                                
-                                (if (symbol? updated-name/cond)
-                                    (process-updated-name updated-name/cond)
-                                  (for-each (lambda (clause)
-                                              (bind (feature . updated-names) clause
-                                                (when (feature-satisfied? feature)
-                                                  (for-each process-updated-name updated-names))))
-                                            (cdr updated-name/cond))))
-                              updated-names)))))
+              (add-product-descriptor-units package product table))
             (package-products package)))
+
+
+(definition protected (add-product-descriptor-units package product table)
+  (let ((pair (assq 'update (cdr product))))
+    (when pair
+      (let ((updated-names (cdr pair)))
+        (for-each (lambda (updated-name/cond)
+                    (define (process-updated-name updated-name)
+                      (for-each-subunit updated-name
+                        (lambda (unit-name declaration phase)
+                          @debug
+                          (let ((actual-package (table-ref table unit-name #f)))
+                            (when actual-package
+                              (debug 'duplicate (package-name actual-package) (package-name package) updated-name unit-name)))
+                          (table-set! table unit-name package))))
+                    
+                    (if (symbol? updated-name/cond)
+                        (process-updated-name updated-name/cond)
+                      (for-each (lambda (clause)
+                                  (bind (feature . updated-names) clause
+                                    (when (feature-satisfied? feature)
+                                      (for-each process-updated-name updated-names))))
+                                (cdr updated-name/cond))))
+                  updated-names)))))
 
 
 (definition public (iterate-repositories proc (repositories: repositories #f))

@@ -1,0 +1,504 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Former
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.component.Former jazz
+
+
+(import (jazz.component)
+        (jazz.component.runtime)
+        (jazz.designer)
+        (jazz.event)
+        (jazz.feedback)
+        (jazz.handler)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.reference)
+        (jazz.runtime))
+
+
+(class Former extends Object
+  
+  
+  (slot form      initialize #f accessors generate)
+  (slot reference initialize #f getter generate)
+  (slot modified? initialize #f accessors generate)
+
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method override (initialize (form: form #f) (reference: reference #f))
+    (nextmethod)
+    (set! reference~self reference)
+    (if (not form)
+        (begin
+          (set! form~self (new Form textual?: #f origin: (class-of reference) action: 'install))
+          (set-context~ form~self form~self)
+          (set-data~ form~self (new Data #f 'jazz '() #f)))
+      (set! form~self form)))
+  
+  
+  ;;;
+  ;;;; Save
+  ;;;
+  
+  
+  (method public virtual (save . rest)
+    (let ((origin (get-origin~ form)))
+      (if (not origin)
+          (apply save-as rest)
+        (save-content origin))))
+  
+  
+  (method public virtual (save-to file . rest)
+    (if (not file)
+        (apply save-as rest)
+      (set-origin~ form file)
+      (save-to-file file)
+      (set-modified? #f)))
+  
+  
+  (method protected virtual (save-as . rest)
+    (error "Use a designer to save as"))
+  
+  
+  (method (save-content destination)
+    (assert (use-print?))
+    (save-destination destination)
+    (set-modified? #f))
+  
+  
+  (method protected virtual (save-destination destination)
+    (typecase destination
+      ((File) (save-to-file destination))
+      (else (error "Unsupported destination"))))
+  
+  
+  (method (save-to-file file)
+    (define (super-class-reference form)
+      (or (get-reference~ form (get-model~ form))
+          (runtime-class-reference (class-ascendant (get-origin~ form)))))
+    
+    (define (adjust-form form super-class-symbol)
+      (let ((adjusted-form (copy-object~ form #f)))
+        (set-action~ adjusted-form 'new)
+        (set-model~ adjusted-form super-class-symbol)
+        adjusted-form))
+    
+    (if (and (exists?~ file) (read-only?~ file))
+        (modal-feedback (format "Unable to save to read-only file: {s}" file))
+      (call-with-output-file (path-settings file char-encoding: 'UTF-8)
+        (lambda (output)
+          (let ((form (get-form)))
+            (bind (super-class-unit super-class-symbol) (parse-runtime-reference (super-class-reference form))
+              (let ((data (get-data~ form))
+                    (adjusted-form (if (class? (get-origin~ form))
+                                       (adjust-form form super-class-symbol)
+                                     form)))
+                (output-header (get-model~ adjusted-form) output)
+                (format output "{%}{%}")
+                (format output "(data {a}{%}" (if data (get-dialect~ data) 'jazz))
+                (format output "{%}{%}")
+                (let ((version (and data (get-version~ data))))
+                  (when version
+                    (format output "(version {a}){%}" (present-string~ version))))
+                (let ((imports (if data
+                                   (get-imports~ data)
+                                 (imports-to-insert form (list super-class-unit) '()))))
+                  (when (and imports (not-null? imports))
+                    (format output "(import {s}" (car imports))
+                    (for-each (lambda (import)
+                                (format output "{%}        {s}" import))
+                              (cdr imports))
+                    (format output  "){%}{%}{%}")))
+                (print-file-form adjusted-form 1 output)
+                (format output "){%}"))))))))
+  
+  
+  (method protected virtual (imports-to-insert form include-modules exclude-modules)
+    (difference include-modules exclude-modules))
+  
+  
+  (method (reset-modified?)
+    (set-modified? #f))
+  
+  
+  ;;;
+  ;;;; Design
+  ;;;
+  
+  
+  (method public virtual (set-name component name (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t))
+    (let* ((branch (target-branch trait))
+           (owner (find-owner component))
+           (effective (or branch reference))
+           (effective-cpn (if (is? effective Branch) (get-trait~ effective) effective)))
+      (if (and owner (neq? owner effective))
+          (designer-error "Component cannot be renamed in non owner {a} {a}" (if trait "trait" "root") effective-cpn)
+        (let ((form (find-form component branch)))
+          (setting-name branch component name design-events? undoable?
+            (lambda ()
+              (for-each-trait~ effective-cpn
+                (lambda (trait)
+                  (let ((form (get-client-form~ trait)))
+                    (when form
+                      (let* ((ancestry (component-ancestry component reference))
+                             (component-form (owned-form form ancestry)))
+                        (when (and component-form (neq? (get-action~ component-form) 'install))
+                          (set-name~ component-form name)))))))
+              (set-name~ component name)
+              (set-name~ form name)))
+          (set-modified? #t)))))
+  
+  
+  (method protected virtual (setting-name branch component name design-events? undoable? thunk)
+    (thunk))
+  
+  
+  (method public virtual (set-property component/path property value (old-value: old-value #f) (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t) (import: import #f))
+    (let ((branch (target-branch trait)))
+      ;; Quick fix for the special case of setting a property of the active trait
+      (if (eq? component/path trait)
+          (set-property component/path property value trait: #f design-events?: design-events? undoable?: undoable?)
+        (let ((installed? (or (not branch) (is? branch Branch)))
+              (path? (is? component/path Path)))
+          (if (and path? (not installed?))
+              (let ((form (follow-form~ component/path (if branch (get-client-form~ (get-trait~ branch)) form))))
+                (set-property~ form property value))
+            (let* ((component (if path? (follow-component~ component/path reference) component/path))
+                   (property (if component (property-field (class-of component) property) property)))
+              (assert property)
+              ;; This validation should probably also be done in other operations...
+              (when (and component (not installed?))
+                (let ((creator-branch (get-creator-branch~ component)))
+                  ;; This test is not 100% correct as the creator-branch can be any parent branch of branch
+                  (when (and creator-branch (neq? branch (get-creator-branch~ component)))
+                    (designer-error "Unable to modify an explicit trait using a component having a different branch creator"))))
+              (receive (form restore) (find-form component branch restore?: #t)
+                (receive (next-form next-restore) (find-next-branch branch component property)
+                  (let ((old-value (or old-value (read-property component property)))
+                        (remove?   (not (has-property?~ form property))))
+                    (set-property~ form property value)
+                    (when undoable?
+                      (register-undo
+                        (lambda ()
+                          (if remove?
+                              (remove-property component/path property old-value)
+                            (set-property component/path property old-value))))))
+                  (when import
+                    (add-import import))
+                  (when (is? value Reference)
+                    (setup-context~ value (get-form)))
+                  (when installed?
+                    (if (not next-form)
+                        (let ((old-value (or old-value (read-property component property))))
+                          (when (and restore (not (has-property?~ restore property)))
+                            (set-property~ restore property old-value))
+                          (setting-property branch component property value design-events? undoable?))
+                      (when (and restore (not (has-property?~ restore property)))
+                        (set-property~ restore property (get-property~ next-restore property)))
+                      (set-property~ next-restore property value)))))))
+          (set-modified? #t)))))
+  
+  
+  (method protected virtual (setting-property branch component property value design-events? undoable?)
+    (write-property component property value))
+  
+  
+  (method (purge-form form)
+    (when (and (eq? (get-action~ form) 'modify)
+               (null? (get-properties~ form))
+               (null? (get-children~ form)))
+      (let ((parent (get-parent~ form)))
+        (when parent
+          (remove-child~ parent form)
+          (purge-form parent)))))
+  
+  
+  ;; This works well really only with branches because else we don't have restore information
+  (method public virtual (remove-property component/path property default-value (trait: trait #t) (design-events?: design-events? #t) (undoable?: undoable? #t))
+    (let* ((branch (target-branch trait))
+           (installed? (or (not branch) (is? branch Branch)))
+           (path? (is? component/path Path))
+           (component (if path? (follow-component~ component/path reference) component/path))
+           (property (property-field (class-of component) property)))
+      (assert property)
+      (receive (form restore) (find-form component branch restore?: #t)
+        (receive (next-form next-restore) (find-next-branch branch component property)
+          (when (has-property?~ form property)
+            (remove-property~ form property)
+            (purge-form form)
+            (let ((old-value (read-property component property)))
+              (when undoable?
+                (register-undo
+                  (lambda ()
+                    (set-property component/path property old-value)))))
+            (let ((value (if (not restore) default-value (get-property~ restore property))))
+              (when installed?
+                (if (not next-form)
+                    (begin
+                      (write-property component property value)
+                      (remove-property-event branch component property value design-events? undoable?))
+                  (set-property~ next-restore property value))))
+            (when restore
+              (remove-property~ restore property))
+            (set-modified? #t))))))
+  
+  
+  (method protected virtual (remove-property-event branch component property value design-events? undoable?)
+    )
+  
+  
+  (method public virtual (add-import import)
+    (let ((imports (map listify (listify import)))
+          (origin-form (get-context~ (get-form))))
+      (set-locator~ origin-form (locator-add-imports (get-locator~ origin-form) imports))
+      (let ((data (get-data~ origin-form)))
+        (when data
+          (for-each (lambda (import) (add-import~ data import)) imports)))))
+  
+  
+  (method public virtual (add-child child parent (undoable?: undoable? #t) (form: form #f) (trait: trait #t) (name: name #f) (properties: properties '()) (tag-reference: tag-reference #f) (import: import '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
+    (define (make-new-child-form parent-form)
+      (let* ((child-origin-form (get-form~ child))
+             (child-is-form? (and child-origin-form (is? (get-origin~ child-origin-form) File))))
+        (new Form
+          textual?: #f
+          context: (get-context~ parent-form)
+          action: (if tag-reference 'instantiate 'new)
+          model: (cond (tag-reference #f)
+                       (child-is-form? (get-name~ child-origin-form))
+                       (else (category-name (class-of child))))
+          tag-reference: tag-reference)))
+    
+    (let ((branch (target-branch trait)))
+      (unless (eq? (get-parent~ child) parent)
+        (set-parent~ child parent))
+      (receive (parent-form restore) (find-form parent branch restore?: #t)
+        (let ((child-form (or form (make-new-child-form parent-form))))
+          (set-form~ child child-form)
+          (add-form~ parent parent-form child-form)
+          (when undoable?
+            (register-undo
+              (lambda ()
+                (remove-child child)))))
+        (when restore
+          (remember-creation~ restore self child))
+        (when name
+          (set-name child name trait: trait design-events?: #f))
+        (set-creator~ child reference)
+        (add-to-index~ reference (get-name~ child) child)
+        (when properties
+          (for-each-property (lambda (property value)
+                               (set-property child property value trait: trait design-events?: design-events?))
+                             properties))
+        (when import
+          (add-import import))
+        (add-child-event child parent design-events? descendant?)
+        (set-modified? #t)))
+    child)
+  
+  
+  (method protected virtual (add-child-event child parent design-events? descendant?)
+    )
+
+  
+  (method public virtual (remove-child child (trait: trait #t) (design-events?: design-events? #t))
+    (let ((branch (target-branch trait)))
+      (if (eq? child reference)
+          (designer-error "The reference component cannot be removed")
+        (let ((effective (or branch reference))
+              (owner (find-owner child)))
+          ;; the (and owner) part is a try
+          (if (and owner (neq? owner effective))
+              (designer-error "Component cannot be removed from non owner {a} {a}" (if trait "trait" "root") effective)
+            (let* ((name (get-name~ child))
+                   (parent (get-parent~ child))
+                   (parent-form (find-form parent branch))
+                   (form (find-form child branch)))
+              (define (purge-references form)
+                (when form
+                  (let* ((parent-ancestry (component-ancestry parent reference))
+                         (parent-form (owned-form form parent-ancestry)))
+                    (when parent-form
+                      (let ((child-form (find-child~ parent-form name)))
+                        (when child-form
+                          (remove-child~ parent-form child-form)))))))
+              
+              ;; Remove component from branch restore-form
+              (when (is? effective Branch)
+                (let* ((restore-form (get-restore-form~ effective))
+                       (remove-form (find-by~ restore-form (lambda (form)
+                                                             (and (eq? (get-action~ form) 'remove)
+                                                                  (eq? (get-component~ form) child))))))
+                  (remove-child~ restore-form remove-form)))
+              
+              (for-each-trait~ (if (is? effective Branch) (get-trait~ effective) effective)
+                (lambda (trait)
+                  (purge-references (get-client-form~ trait))))
+              (register-undo
+                (lambda ()
+                  (add-child child parent form: form)))
+              (set-parent~ child #f)
+              (remove-child~ parent-form form)
+              (remove-child-event child parent design-events?)
+              (set-modified? #t)))))))
+  
+  
+  (method protected virtual (remove-child-event child parent design-events?)
+    )
+  
+  
+  (method public virtual (remove-components components)
+    (for-each remove-child components))
+  
+  
+  (method public (remove-children parent (trait: trait #t) (design-events?: design-events? #t))
+    (for-each (lambda (child)
+                (remove-child child trait: trait design-events?: design-events?))
+              (get-children~ parent)))
+  
+  
+  ;;;
+  ;;;; Undo
+  ;;;
+  
+  
+  (method public virtual (register-undo proc)
+    )
+  
+  
+  ;;;
+  ;;;; Find
+  ;;;
+  
+  
+  (method (find-form component branch (restore?: restore? #f) (error?: error? #t))
+    (define (embed-form form ancestry)
+      (for-each (lambda (cpn)
+                  (let ((children (get-children~ form))
+                        (cpn-form (get-form~ cpn)))
+                    (if (not cpn-form)
+                        (embed-new-form form #f)
+                      (if (memq? cpn-form children)
+                          (set! form cpn-form)
+                        (let ((restore-form (find-in children cpn key: (lambda (form) (and (is? form Restore-Form) (get-component~ form))))))
+                          (if restore-form
+                              (set! form restore-form)
+                            (let ((name (get-name~ cpn)))
+                              (if (not name)
+                                  (designer-error "Component {t} must be named to allow modification" cpn)
+                                (let ((subform (find-in children name key: get-name~ test: equal?)))
+                                  (if (not subform)
+                                      (set! form (embed-new-form form name))
+                                    (set! form subform)))))))))))
+                ancestry)
+      form)
+    
+    (define (embed-new-form form name)
+      (let ((subform (new Form action: 'modify context: (get-context~ form) name: name)))
+        (set-parent~ subform form)
+        subform))
+    
+    (let* ((ancestry (component-ancestry component reference))
+           (trait-form (if branch (get-client-form~ (get-trait~ branch)) form))
+           (restore-form (and restore? branch (get-restore-form~ branch)))
+           (form (embed-form trait-form ancestry))
+           (restore (and restore-form (embed-form restore-form ancestry))))
+      (if (and error? (not form))
+          (designer-error "Unable to locate target form")
+        (if restore?
+            (values form restore)
+          form))))
+  
+  
+  (method (target-branch trait)
+    (cond ((eq? trait #t) (get-active-branch~ reference))
+          ((is? trait Path) (follow-component~ trait reference))
+          (else (find-trait-branch~ reference trait))))
+  
+  
+  ;;;
+  ;;;; Owner
+  ;;;
+  
+  
+  (method public virtual (component-owned-by-reference? component)
+    (component-owned? component form reference))
+  
+  
+  (method public (component-in-descendants? component)
+    (component-in-reference-descendants? component reference))
+  
+  
+  (method public (descendant-owned-by-reference? component)
+    (and (component-in-descendants? component)
+         (component-owned-by-reference? component)))
+  
+  
+  (method public (find-owner component (property #f))
+    (let ((ancestry (component-ancestry component reference)))
+      (continuation-capture
+        (lambda (return)
+          (iterate-branch-spine~ reference
+            (lambda (owner form)
+              (when form
+                (let ((form (owned-form form ancestry)))
+                  (when (and form
+                             (or (and (not property) (eq? (get-action~ form) 'new))
+                                 (and property (has-property?~ form property))))
+                    (continuation-return return owner))))))
+          #f))))
+  
+  
+  (method (find-next-branch branch component property)
+    (if (not branch)
+        (values #f #f)
+      (let ((lower (get-branches~ (or branch reference)))
+            (ancestry (component-ancestry component reference)))
+        (continuation-capture
+          (lambda (return)
+            (for-each (lambda (branch)
+                        (let ((client-form (get-client-form~ branch)))
+                          (when client-form
+                            (let ((form (owned-form client-form ancestry)))
+                              (when (and form (has-property?~ form property))
+                                (continuation-return return (values form (owned-form (get-restore-form~ branch) ancestry))))))))
+                      lower)
+            (values #f #f))))))))

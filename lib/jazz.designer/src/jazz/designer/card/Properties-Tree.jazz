@@ -1,0 +1,787 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Properties Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.card.Properties-Tree jazz
+
+
+(import (jazz.application)
+        (jazz.component)
+        (jazz.component.runtime)
+        (jazz.descriptor)
+        (jazz.designer)
+        (jazz.feedback)
+        (jazz.graphic)
+        (jazz.handler)
+        (jazz.jml)
+        (jazz.locale)
+        (jazz.menu)
+        (jazz.resource)
+        (jazz.tree)
+        (jazz.view))
+
+
+(definition Filter-Width
+  20)
+
+
+(class undocumented Properties-Tree extends Tree-View
+
+
+  (property filter          initialize 'standard accessors explicit)
+  (property filter-visible? initialize #t        accessors generate)
+  
+
+  (form
+    (<install>                            filled-column: value draggable?: #t multiple-selection?: #f selection-mode: row focused-on-descendants?: #t portfolio: :images selection-handler: {Event-Handler :form on-selection-change} context-menu-handler: {Event-Handler :form on-context-menu}
+      (<Property-Column>   name: property title: "Property" width: 140 toplevel-controls?: #f)
+      (<Value-Column>      name: value    title: "Value" width: 192 justification: (2 2))
+      (<Tree-Image-Column> name: owner    title: "!" width: 25 justification: center)))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-card)
+    (find-ascendant Properties-Card))
+  
+  
+  (method public (get-editor)
+    (get-editor~ (get-card)))
+  
+  
+  (method public (get-client)
+    (get-client~ (get-card)))
+  
+  
+  (method public (get-designer)
+    (get-designer~ (get-card)))
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method override (can-undo?)
+    #t)
+  
+  
+  (method override (can-redo?)
+    #t)
+  
+  
+  (method override (undo)
+    (undo~ (get-undoer~ (get-designer))))
+  
+  
+  (method override (redo)
+    (redo~ (get-undoer~ (get-designer))))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method override (double-click evt)
+    (let ((row (selected-row)))
+      (when row
+        (double-click~ row (acquire~ row self (get-position~ evt))))))
+  
+  
+  (method (on-selection-change evt)
+    (let ((row (selected-row))
+          (focus? (contains-focus?)))
+      (when edited-site
+        (let ((row (get-row~ edited-site)))
+          (finish-edition~ row)))
+      (when focus?
+        (if (and row (editable?~ row))
+            (start-edition~ row focus?: focus?)
+          (acquire-focus)))))
+  
+  
+  (method (on-context-menu evt)
+    (let ((sender (get-sender~ evt))
+          (pos (get-position~ evt)))
+      (cond ((is? sender Tree-Header)
+             (when filter-visible?
+               (let ((header-height 16))
+                 (when (and (< (get-h~ pos) Filter-Width) (< (get-v~ pos) header-height))
+                   (track-popup-menu~ sender (new Filter-Menu client: self) (new Point 5 header-height))))))
+            (else
+             (with-context-click~ sender pos
+               (lambda ()
+                 (let ((row (get-selected-row)))
+                   (if (is? row Value-Row)
+                       (track-popup-menu (new-property-menu (get-client)) pos)
+                     (let ((info (get-single-selected-data)))
+                       (when (class? info)
+                         (track-popup-menu (new Class-Menu client: self) pos)))))))))))
+  
+  
+  (method (new-property-menu client)
+    (let* ((menu (new Property-Menu client: self))
+           (any (car client))
+           (creator (get-creator~ any)))
+      @wait
+      (if (branch-installed?~ creator)
+          (begin
+            (set-visible?~ (locate~ menu 'end-consolidate-group) #f)
+            (set-visible?~ (locate~ menu 'distribute) #f))
+        (set-visible?~ (locate~ menu 'consolidate) #f)
+        (set-visible?~ (locate~ menu 'end-consolidate-group) #f))
+      (layout-menu~ menu)
+      menu))
+  
+  
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method (finish-cell-edition)
+    (when edited-site
+      (let ((row (get-row~ edited-site)))
+        (when row
+          (finish-edition~ row)))))
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method override (focus-gained)
+    (nextmethod)
+    (focus-delegate))
+  
+  
+  (method override (focus-delegate)
+    (let ((row (selected-row)))
+      (when (and row (editable?~ row))
+        (editor-focus-delegate~ row))))
+  
+  
+  ;;;
+  ;;;; Save
+  ;;;
+  
+  
+  (method protected (save-edition)
+    (let ((row (selected-row)))
+      (when (and row (in-edition?~ row))
+        (save-edition~ row))))
+  
+  
+  ;;;
+  ;;;; Client
+  ;;;
+  
+  
+  (method public (client-update)
+    (define (empty-client?)
+      (let ((client (get-client)))
+        (or (not client) (null? client))))
+    
+    (define (get-client-default-property)
+      (let ((client (get-client)))
+        (when (= 1 (length client))
+          (let ((component (car client)))
+            (when (is? component Component)
+              (let ((name (get-default-property component)))
+                (when name
+                  (category-field (class-of component) name))))))))
+    
+    (if (empty-client?)
+        (remove-every-row)
+      (let ((selected (selected-property))
+            (default (get-client-default-property)))
+        (with-update-locked
+          (lambda ()
+            (finish-cell-edition)
+            (preserving-update)))
+        (let ((index (if selected (or (find-property-index selected) (find-property-index default)) (find-property-index default))))
+          (when index
+            (set-single-selection index))))))
+  
+  
+  (method (find-property-index target)
+    (continuation-capture
+      (lambda (return)
+        (for-each-visible-row
+          (lambda (row rank)
+            (when (is? row Value-Row)
+              (let ((property (get-property~ row)))
+                (when (if (symbol? target)
+                          (eq? (field-name property) target)
+                        (eq? property target))
+                  (continuation-return return rank))))))
+        #f)))
+
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (preserving-update)
+    (update))
+
+
+  (method (update)
+    (define (insert-partition client any editor designer father partition)
+      (for-each (lambda (partition)
+                  (bind (class . properties) partition
+                    (if (not class)
+                        (insert-properties client any editor designer father properties)
+                      (let ((title (->string (category-name class))))
+                        (let ((row (add-row father: father state: 'expanded children: (list (new Tree-Node title: title image: {Image-Resource "BlueRed"}) (new Tree-Label) (new Tree-Image)) user-data: class)))
+                          (insert-properties client any editor designer row properties))))))
+                partition))
+    
+    (define (insert-properties client any editor designer father properties)
+      (for-each (lambda (property)
+                  (if (pair? property)
+                      (for-each (lambda (property)
+                                  (insert-property client any editor designer father property 'collapsed #f))
+                                property)
+                    @wait-completed
+                    (bind (title . properties) property
+                      (let ((row (add-row father: father state: 'expanded children: (list (new Tree-Node title: title image: {Image-Resource "Info"}) (new Tree-Label) (new Tree-Image)))))
+                        (insert-properties client any editor designer row properties)))
+                    (insert-property client any editor designer father property 'collapsed #f)))
+                properties))
+    
+    (define (insert-property client any editor designer father property state position)
+      (let* ((domain (property-domain any property))
+             (category (get-class-category (class-of any) property))
+             (row (new Value-Row domain: domain))
+             (image (get-image~ category))
+             (values (map (lambda (component) (read-property component property)) client))
+             (presented (map (lambda (value) (present~ row value)) values))
+             (creator (get-creator~ any))
+             (trait (and creator (get-active-trait~ creator)))
+             ;; temp patch because the root object doesn't have a creator...
+             (changed? (if (or (not creator) (not editor)) #f (find-changed-property~ editor trait any property)))
+             (uniform? (or (<= (length values) 1) (apply string=? presented)))
+             (title (property-presentation (class-of any) property))
+             (node (new Tree-Node title: title image: image color: (if uniform? (if changed? {Color Dark-Red} #f) {Color Medium-Gray})))
+             (label (new Tree-Label))
+             (owner (new Tree-Image image: (owner-image designer client category property))))
+        (set-parent~ row self)
+        (set-row-height~ row 17)
+        (set-children~ row (list node label owner))
+        (set-property~ row property)
+        (set-value~ row (car values))
+        (set-title~ label (car presented))
+        (set-color~ label (if uniform? #f {Color Medium-Gray}))
+        (add-row father: father state: state row: row position: position)
+        row))
+    
+    (define (get-client-properties client editor)
+      (when client
+        (apply intersection (map (lambda (component)
+                                   (when (is? component Component)
+                                     (get-component-properties component editor)))
+                                 client))))
+    
+    (define (get-component-properties component editor)
+      (filter-by-rights component editor
+        (get-filtered-properties component filter: filter)))
+    
+    (define (partition-properties any properties)
+      (let ((info (new-queue))
+            (partition '()))
+        (loop (for category in-vector (get-ancestors~ (class-of any)))
+              (do (when (class? category)
+                    (let ((properties (intersection properties (get-slots~ category))))
+                      (let ((non-info (new-queue)))
+                        (for-each (lambda (property)
+                                    (let ((category (get-class-category (class-of any) property))
+                                          (standard? (get-class-standard? (class-of any) property)))
+                                      (when (or standard? (neq? filter 'standard))
+                                        (if (eq? (get-name~ category) 'infos)
+                                            (enqueue info property)
+                                          (enqueue non-info property)))))
+                                  properties)
+                        (let ((non-info (queue-list non-info)))
+                          (when (not-null? non-info)
+                            (set! partition (cons (cons category non-info) partition)))))))))
+        (let ((info (queue-list info)))
+          (if (null? info)
+              partition
+            (cons (cons #f info) partition)))))
+    
+    (let* ((client (get-client))
+           ;; temp fix. need to investigate. if I remember correctly
+           ;; client is actually a list of clients and so the problem
+           ;; would be a wrong default value of #f instead of '()
+           (any (if (or (not client) (null? client)) #f (car client)))
+           (editor (get-editor))
+           (designer (get-designer))
+           (properties (get-client-properties client editor))
+           (partition (and properties (partition-properties any properties))))
+      (remove-every-row)
+      (with-update-locked
+        (lambda ()
+          ;; see above comment for this test too
+          (when partition
+            (insert-partition client any editor designer #f partition))))))
+  
+  
+  (method (owner-image designer client category property)
+    (when (and designer (= 1 (length client)) (/= (get-rank~ category) 0))
+      (let* ((component (car client))
+             (owner (find-owner~ designer component property)))
+        (cond ((is? owner Trait) (trait-owner-image))
+              ((eq? owner (get-reference~ designer)) (root-owner-image))
+              (else (default-owner-image))))))
+  
+  
+  (method protected virtual (default-owner-image)
+    #f)
+  
+  
+  (method protected virtual (root-owner-image)
+    {Image-Resource "OwnerRoot"})
+  
+  
+  (method protected virtual (trait-owner-image)
+    {Image-Resource "OwnerTrait"})
+  
+  
+  (method protected (reset-modified-properties)
+    (for-each-visible-row
+      (lambda (row rank)
+        (when (is? row Value-Row)
+          (let ((node (car (get-children~ row))))
+            (when (get-color~ node)
+              (set-color~ node #f)
+              (invalidate-cell (new Cell rank 0))))))))
+  
+  
+  ;;;
+  ;;;; Rights
+  ;;;
+  
+  
+  (definition (filter-by-rights component editor properties)
+    (let ((rights (and editor (get-rights~ editor))))
+      (if (not rights)
+          properties
+        (let* ((reference (get-client~ editor))
+               (component-rights (find-component-rights~ rights reference component)))
+          (when component-rights
+            (filter-properties~ component-rights properties))))))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method (selected-row)
+    (let ((row (get-selected-row)))
+      (when (is? row Value-Row)
+        row)))
+  
+  
+  (method (selected-class)
+    (let ((row (get-selected-row)))
+      (let ((user-data (get-user-data~ row)))
+        (when (class? user-data)
+          user-data))))
+  
+  
+  (method (selected-property)
+    (let ((row (selected-row)))
+      (when row
+        (get-property~ row))))
+  
+  
+  (method public (select-property property)
+    (let ((rank (find-property-index property)))
+      (if (not rank)
+          (set-selection '() generate-event?: #f)
+        (set-single-selection rank generate-event?: #f))))
+
+  
+  ;;;
+  ;;;; Class
+  ;;;
+  
+  
+  (method (edit-descriptor)
+    (let ((class (selected-class)))
+      (let ((descriptor (get-descriptor class)))
+        (if descriptor
+            (edit-definitions~ (get-application) (category-name (class-of descriptor)) workspace: (designer-source-workspace))
+          (bell)
+          (user-message "Unable to find descriptor for {s}" class)))))
+  
+  
+  (method (refresh-descriptors)
+    (reset-descriptors)
+    (preserving-update))
+
+  
+  ;;;
+  ;;;; Property
+  ;;;
+  
+  
+  (method (reset-property)
+    (let ((client (get-client))
+          (designer (get-designer))
+          (row (selected-row)))
+      (let ((property (get-property~ row)))
+        (let ((property-name (get-name~ property))
+              (not-found (list 'not-found))
+              (first? #t))
+          (for-each (lambda (component)
+                      (let ((ascendant-forms (reverse (component-forms component)))
+                            (class-forms (get-class-forms~ component)))
+                        (let* ((containing-form (find-if (lambda (form)
+                                                           (not (eq? (get-property~ form property-name not-found)
+                                                                     not-found)))
+                                                         (append (if (null? ascendant-forms)
+                                                                     ascendant-forms
+                                                                   (cdr ascendant-forms))
+                                                                 (if (or (null? class-forms)
+                                                                         (not-null? ascendant-forms))
+                                                                     class-forms
+                                                                   (cdr class-forms)))
+                                                         return: 'item))
+                               (value (if containing-form
+                                          (get-property~ containing-form property-name)
+                                        (initialized-value-heuristic component property))))
+                          (remove-property~ designer component property value)
+                          (when first?
+                            (set-value~ row value)
+                            (set-edited-value~ row value)
+                            (set-modified?~ row #f)
+                            (set-edited-modified?~ row #f)
+                            (set! first? #f)))))
+                    client)))))
+  
+  
+  (method (consolidate-property)
+    (let* ((client (get-client))
+           (code (message-box (format "Consolidate value{a} to root and lose values in other traits?" (format-plural (length client))) type: 'confirmation)))
+      (when (eq? code 'yes)
+        (let ((row (selected-row)))
+          (save-edition~ row)
+          (let ((property (get-property~ row))
+                (designer (get-designer)))
+            (for-each (lambda (component)
+                        (let ((creator (get-creator~ component))
+                              (value (read-property component property)))
+                          (for-each-trait~ creator
+                            (lambda (trait)
+                              (remove-property~ designer component property #f trait: trait)))
+                          (set-property~ designer component property value trait: #f)))
+                      client))
+          (set-edited-modified?~ row #f)))))
+  
+  
+  (method (distribute-property)
+    (let* ((client (get-client))
+           (code (message-box (format "Distribute value{a} onto traits and lose their current values?" (format-plural (length client))) type: 'confirmation)))
+      (when (eq? code 'yes)
+        (let ((row (selected-row)))
+          (save-edition~ row)
+          (let ((property (get-property~ row))
+                (designer (get-designer)))
+            (for-each (lambda (component)
+                        (let ((creator (get-creator~ component))
+                              (value (read-property component property)))
+                          (for-each-trait~ creator
+                            (lambda (trait)
+                              (set-property~ designer component property value trait: trait)))))
+                      client))
+          (set-edited-modified?~ row #f)))))
+  
+
+  ;;;
+  ;;;; Sort
+  ;;;
+
+  
+  (method override (header-click column)
+    (finish-cell-edition)
+    (nextmethod column))
+
+  
+  ;;;
+  ;;;; Filter
+  ;;;
+
+
+  (method public (get-filter)
+    filter)
+
+
+  (method public (set-filter flt)
+    (when (neq? flt filter)
+      (set! filter flt)
+      (invalidate-column-header~ (get-header) node-column)
+      (update)))
+
+
+  (method public (toggle-filter)
+    (case filter
+      ((standard)   (set-filter 'infos))
+      ((infos)      (set-filter 'properties))
+      ((properties) (set-filter 'handlers))
+      ((handlers)   (set-filter 'all))
+      ((all)        (set-filter 'standard))))
+
+  
+  ;;;
+  ;;;; Design
+  ;;;
+  
+  
+  (method public (property-change component property value)
+    (let ((rank (find-property-index property)))
+      (when rank
+        (let ((row (get-row rank)))
+          (update~ row value)
+          (let* ((cell (new Cell rank 2))
+                 (data (get-cell-data cell)))
+            (set-image~ data (owner-image (get-designer) (get-client) (get-class-category (class-of component) property) property))
+            (invalidate-cell cell)))))))
+
+
+;;;
+;;;; Development
+;;;
+
+
+(import (jazz.ui.development))
+
+
+(specific (view-debug (<Properties-Tree> view) pos)
+  (nextmethod view pos)
+  (let ((cell (view->tree~ view pos)))
+    (when cell
+      (let ((row (get-row~ view (get-line~ cell))))
+        (when (is? row Value-Row)
+          (set-?r row)
+          (set-?d (get-domain~ row))
+          (set-?p (get-property~ row))
+          (set-?v (get-value~ row))
+          (set-?x (get-violation~ row)))))))
+
+
+(specific (view-describe (<Properties-Tree> view) pos)
+  (append (nextmethod view pos)
+          (let ((cell (view->tree~ view pos)))
+            (if (not cell)
+                '()
+              (let ((row (get-row~ view (get-line~ cell))))
+                (if (is-not? row Value-Row)
+                    '()
+                  (list
+                    (list "Domain" (get-domain~ row)))))))))
+
+
+;;;
+;;;; Property-Column
+;;;
+
+
+(class Property-Column extends Tree-Node-Column
+  
+  
+  (slot filter-down? initialize #f)
+  
+  
+  (method override (draw-header surface context h v width height look sorted spaced? flat? enabled?)
+    (if (not (get-filter-visible?~ parent))
+        (nextmethod surface context h v width height look sorted spaced? flat? enabled?)
+      (draw-header-at surface h v Filter-Width height look "" filter-down? #f spaced? flat? enabled?)
+      (with-clip~ surface {Rect 1 1 17 14}
+        (lambda ()
+          (draw-image-at surface context (+ h 1) v (get-filter-image))))
+      (draw-header-at surface (+ h Filter-Width) v (- width Filter-Width) height look (localize (get-column-title)) down? sorted spaced? flat? enabled?)))
+  
+  
+  (method (draw-image-at surface context h v image)
+    (let ((offset (if filter-down? 1 0)))
+      (draw-opaque-image~ (get-images-portfolio~ (get-application)) surface context image {Color Medium} (+ h offset) (+ v offset))))
+  
+  
+  (method override (header-down pos)
+    (if (not (get-filter-visible?~ parent))
+        (nextmethod pos)
+      (let ((in-filter? (< (get-h~ pos) Filter-Width)))
+        (if in-filter?
+            (set! filter-down? #t)
+          (set! down? #t))
+        (invalidate-column-header~ (get-header~ parent) self))))
+  
+  
+  (method override (header-up pos)
+    (if (not (get-filter-visible?~ parent))
+        (nextmethod pos)
+      (let ((filter? filter-down?))
+        (set! down? #f)
+        (set! filter-down? #f)
+        (when filter?
+          (toggle-filter~ parent))
+        (invalidate-column-header~ (get-header~ parent) self)
+        (when (not filter?)
+          (header-click~ parent self)))))
+  
+  
+  (method (get-filter-image)
+    (case (get-filter~ parent)
+      ((standard) {Image-Resource "UpdateCatalog"})
+      ((infos) {Image-Resource "Info"})
+      ((properties) {Image-Resource "Property"})
+      ((handlers) {Image-Resource "Handler"})
+      ((all) {Image-Resource "All"})))
+  
+  
+  (method (get-column-title)
+    (case (get-filter~ parent)
+      ((standard) "Property")
+      ((infos) "Info")
+      ((properties) "Property")
+      ((handlers) "Handler")
+      ((all) "Property"))))
+
+
+;;;
+;;;; Value-Column
+;;;
+
+
+(class Value-Column extends Tree-Label-Column
+  
+  
+  (method override (draw-data surface context row data width height)
+    (if (is-not? row Value-Row)
+        (nextmethod surface context row data width height)
+      (let ((value (get-value~ row)))
+        (draw-data~ row surface context value self row data width height)))))
+
+
+;;;
+;;;; Filter-Menu
+;;;
+
+
+(class Filter-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Radio-Item>     name: standard   title: "Standard" icon: {Image-Resource "UpdateCatalog"} action-handler: {Event-Handler :form on-action})
+      (<Separator-Item>)
+      (<Radio-Item>     name: infos      title: "Infos" icon: {Image-Resource "Info"} action-handler: {Event-Handler :form on-action})
+      (<Radio-Item>     name: properties title: "Properties" icon: {Image-Resource "Property"} action-handler: {Event-Handler :form on-action})
+      (<Radio-Item>     name: handlers   title: "Handlers" icon: {Image-Resource "Handler"} action-handler: {Event-Handler :form on-action})
+      (<Separator-Item>)
+      (<Radio-Item>     name: all        title: "All" icon: {Image-Resource "All"} action-handler: {Event-Handler :form on-action})))
+  
+  
+  (method override (finish rest)
+    (nextmethod rest)
+    (set-selected?~ (locate (get-filter~ client)) #t))
+  
+  
+  (method (on-action evt)
+    (let ((filter (get-name~ (get-sender~ evt))))
+      (set-filter~ client filter))))
+
+
+;;;
+;;;; Class-Menu
+;;;
+
+
+(class Class-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: edit-descriptor     title: "Edit Descriptor" icon: {Image-Resource "Edit"} action-handler: {Event-Handler :form on-edit-descriptor})
+      (<Separator-Item>)
+      (<Label-Item>     name: refresh-descriptors title: "Refresh Descriptors" icon: {Image-Resource "Refresh"} action-handler: {Event-Handler :form on-refresh-descriptors})))
+  
+  
+  (method (on-edit-descriptor evt)
+    (edit-descriptor~ client))
+  
+  
+  (method (on-refresh-descriptors evt)
+    (refresh-descriptors~ client)))
+
+
+;;;
+;;;; Property-Menu
+;;;
+
+
+(class Property-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: reset-property        title: "Reset Property" icon: {Image-Resource "Cancel"} action-handler: {Event-Handler :form on-reset-property})
+      @wait
+      (<Radio-Item>     name: consolidate           title: "Consolidate To Root" icon: {Image-Resource "ConsolidateProperty"} action-handler: {Event-Handler :form on-consolidate})
+      @wait
+      (<Separator-Item> name: end-consolidate-group)
+      @wait
+      (<Radio-Item>     name: distribute            title: "Distribute Onto Traits" icon: {Image-Resource "DistributeProperty"} action-handler: {Event-Handler :form on-distribute})))
+  
+  
+  (method (on-reset-property evt)
+    (reset-property~ client))
+  
+  
+  (method (on-consolidate evt)
+    (consolidate-property~ client))
+  
+  
+  (method (on-distribute evt)
+    (distribute-property~ client))))

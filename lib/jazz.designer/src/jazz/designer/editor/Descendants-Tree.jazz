@@ -1,0 +1,408 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Descendants Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.editor.Descendants-Tree jazz
+
+
+(import (jazz.component)
+        (jazz.component.runtime)
+        (jazz.descriptor)
+        (jazz.designer)
+        (jazz.graphic)
+        (jazz.handler)
+        (jazz.jml)
+        (jazz.preferences)
+        (jazz.tree))
+
+
+(class undocumented Descendants-Tree extends Components-Tree
+
+
+  (property group?            initialize #f accessors generate)
+  (property editable?         initialize #f accessors generate)
+  (property highlight-edited? initialize #t accessors generate)
+  (property show-traits?      initialize #f accessors explicit)
+  
+
+  (form
+    (<install>                             draggable?: #t reorderable?: #t portfolio: :images multiple-selection?: #t selection-handler: {Event-Handler :form on-selection-change}
+      (<Component-Column> name: descendant title: "Component" width: 187)))
+  
+
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-show-traits?)
+    show-traits?)
+
+
+  (method public (set-show-traits? value)
+    (set! show-traits? value)
+    (preserving-update))
+
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method override (mouse-down evt)
+    (nextmethod evt)
+    (when (and (get-alt?~ evt) editable?)
+      (let ((component (selected-component)))
+        (if (not component)
+            (bell)
+          (edit-component~ editor component)))))
+  
+  
+  (method override (double-click evt)
+    (if (or (not highlight-edited?) (not editable?))
+        (nextmethod evt)
+      (let ((component (selected-component)))
+        (if (not component)
+            (bell)
+          (edit-component~ editor component)))))
+
+
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method override (branch-changed)
+    (preserving-update))
+  
+  
+  (method override (selection-changed selection old origin force-parent? focus?)
+    (define (groupify-selection selection)
+      (map (lambda (component)
+             (if (is? component Group)
+                 component
+               (find-ascendant~ component Group)))
+           selection))
+    
+    (unless (or group? (not origin) (eq? self origin) (is? origin Details-Tree))
+      (let ((rows (remove-false (map component-row (if group? (groupify-selection selection) selection)))))
+        (for-each ensure-expanded rows)
+        (set-selection (map row->line rows) generate-event?: #f))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+
+
+  (method override (update (expand-state: expand-state (get-expand-state)) (selected-components: selected-components '()))
+    (remove-every-row)
+    (with-update-locked
+      (lambda ()
+        (when client
+          (insert-toplevel (get-rights))
+          (update-selection expand-state selected-components)))))
+  
+  
+  (method protected virtual (insert-toplevel rights)
+    (insert-component #f client rights #t 0))
+  
+  
+  (method protected virtual (insert-component? component level)
+    #t)
+  
+  
+  (method protected virtual (insert-component row component rights update? level (image: image #f) (state: state #f))
+    (when (insert-component? component level)
+      (let* ((components (get-components component))
+             (title      (component-presentation component))
+             (owned      (component-owned component))
+             (font       (component-font component owned))
+             (color      (component-color component owned))
+             (image      (or image (component-image component)))
+             (state      (or state (component-state component) (if (null? components) 'collapsed (row-state component update? level))))
+             (subrow     (add-row father: row state: state children: (list (new Component-Node title: title font: font color: color image: image)) user-data: component)))
+        (insert-components subrow component rights update? level)
+        subrow)))
+  
+  
+  (method protected virtual (insert-components row component rights update? level)
+    (insert-component-list row component (get-components component) rights update? level))
+  
+  
+  (method protected virtual (insert-component-list row component components rights update? level)
+    (when group?
+      (set! components (collect-if (lambda (component) (is? component Group)) components)))
+    (when (not show-traits?)
+      (set! components (collect-if (lambda (component) (is-not? component Trait)) components)))
+    (for-each (lambda (child)
+                (receive (access-granted? child-rights) (access-rights rights child)
+                  (when access-granted?
+                    (insert-component row child child-rights update? (and level (+ level 1))))))
+              (if (sort-component-components? component)
+                  (sort-component-components component (sort-predicate 'smaller) components)
+                components)))
+  
+  
+  (method protected virtual (row-state component update? level)
+    (if update?
+        'expanded
+      'collapsed))
+  
+  
+  ;;;
+  ;;;; Refresh
+  ;;;
+  
+  
+  (method (refresh-component component)
+    (let* ((row (component-row component))
+           (line (row->line row)))
+      ;; rank will be #f if row is not visible for instance inside a collapsed row
+      (when line
+        (let ((cell (new Cell line 0)))
+          (let ((data (get-cell-data cell))
+                (owned (component-owned component)))
+            (let ((font (component-font component owned))
+                  (color (component-color component owned))
+                  (title (get-presentation-property component)))
+              (set-font~ data font)
+              (set-color~ data color)
+              (set-title~ data title)
+              (invalidate-cell cell)))))))
+  
+  
+  (method (refresh-descendants component)
+    (let ((row (component-row component)))
+      (when row
+        (with-update-locked
+          (lambda ()
+            (let ((state (get-state~ row))
+                  (level (+ (get-level~ row) 1)))
+              (remove-every-son~ row)
+              (insert-components row component #f #t level)
+              (when (eq? state 'expanded)
+                (expand row))))))))
+  
+  
+  ;;;
+  ;;;; Rights
+  ;;;
+  
+  
+  (method (get-rights)
+    ;; the essay is probably not necessary but because this
+    ;; is for the MetaModeler I am not taking any chances...
+    (and editor (get-rights~ editor)))
+  
+  
+  (definition (access-rights rights child)
+    (if (not rights)
+        (values #t #f)
+      (let ((child-rights (find-child-rights~ rights child)))
+        (if (not child-rights)
+            (values #f #f)
+          (values (can-access?~ child-rights) child-rights)))))
+  
+  
+  ;;;
+  ;;;; Highlight
+  ;;;
+  
+  
+  (method public (highlight-component component)
+    (set-component-highlighted? component #t))
+  
+  
+  (method public (unhighlight-component component)
+    (set-component-highlighted? component #f))
+  
+  
+  (method override (highlight-edited component)
+    (when highlight-edited?
+      (set-component-highlighted? component #t)))
+  
+  
+  (method override (unhighlight-edited component)
+    (when highlight-edited?
+      (set-component-highlighted? component #f)))
+  
+  
+  (method (set-component-highlighted? component flag)
+    (let ((row (component-row component)))
+      (when row
+        (set-highlighted?~ (get-child~ row 0) flag)
+        (let ((line (row->line row)))
+          (when (and line (> (get-columns-count) 0))
+            (let ((cell (new Cell line 0)))
+              (invalidate-cell cell)))))))
+  
+
+  ;;;
+  ;;;; Drag
+  ;;;
+  
+  
+  (method override (get-draggable?)
+    (let ((component (selected-component)))
+      (and component (is? component Component) (can-relocate-component? component))))
+
+  
+  ;;;
+  ;;;; Drop
+  ;;;
+  
+  
+  (method override (get-row-reorder-target drag-drop row quarter)
+    (let* ((selection (get-selection~ (get-view~ (get-source~ drag-drop))))
+           (components (map get-user-data~ (selection->rows selection))))
+      (and (every? client-owned? components)
+           (nextmethod drag-drop row quarter))))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+
+  
+  (method (client-owned? component)
+    (and client (component-owned? component (get-form~ designer) client)))
+  
+  
+  (method (component-owned component)
+    (and client (component-owned-form component (get-form~ designer) client)))
+  
+  
+  (method override (on-designer evt)
+    (case (get-kind~ evt)
+      ((:presentation-change) (presentation-change (get-property~ evt component:) (get-property~ evt presentation:)))
+      ((:child-add) (child-add (get-property~ evt child:) (get-property~ evt parent:) (get-property~ evt descendant?:)))
+      ((:child-remove) (child-remove (get-property~ evt child:)))
+      ((:child-relocate) (child-relocate (get-property~ evt child:) (get-property~ evt parent:) (get-property~ evt target:)))
+      ((:send-before) (send-before-target (get-property~ evt child:) (get-property~ evt parent:) (get-property~ evt target:)))
+      ((:refresh)
+       (let ((component (get-property~ evt component:)))
+         (case (get-property~ evt what:)
+           ((component) (refresh-component component))
+           ((descendants) (refresh-descendants component))
+           ((all)
+            (refresh-component component)
+            (refresh-descendants component)))))))
+  
+  
+  (method (presentation-change component presentation)
+    (unless (or (and group? (is-not? component Group))
+                (and (not show-traits?) (is? component Trait)))
+      (let ((row (find-row component)))
+        (when row
+          (let ((line (row->line row))
+                (node (first-child~ row)))
+            (when node
+              (set-title~ node presentation)
+              (when line
+                (let ((cell (new Cell line 0)))
+                  (invalidate-cell cell)))))))))
+  
+  
+  (method (child-add child parent descendant?)
+    (unless (or (and group? (is-not? child Group))
+                (and (not show-traits?) (is? child Trait)))
+      (let ((row (find-row (parent-relocation parent))))
+        (when row
+          (let ((level (get-level~ row))
+                (state (if (not descendant?) 'expanded 'collapsed)))
+            (with-update-locked
+              (lambda ()
+                (insert-component row child #f #f level state: state)
+                (when (not descendant?)
+                  (reorder-component child)
+                  (expand row)))))))))
+  
+  
+  (method (child-remove child)
+    (unless (or (and group? (is-not? child Group))
+                (and (not show-traits?) (is? child Trait)))
+      (let ((row (find-row child)))
+        (when row
+          (with-update-locked
+            (lambda ()
+              (remove-row row)))))))
+  
+  
+  (method (child-relocate child parent destination)
+    (let ((child-row (find-row child))
+          (destination-row (find-row (parent-relocation destination))))
+      (with-update-locked
+        (lambda ()
+          (relocate-component-row child-row destination-row)))))
+  
+  
+  (method (send-before-target child parent target)
+    (let ((child-row (find-row child))
+          (parent-row (find-row (parent-relocation parent))))
+      (with-update-locked
+        (lambda ()
+          (relocate-component-row child-row parent-row
+            position: (lambda ()
+                        (find-component-insertion parent-row child target))))))))
+
+
+;;;
+;;;; Component-Column
+;;;
+
+
+(class Component-Column extends Tree-Node-Column
+  
+  
+  (property highlight-color initialize {Color Dark-Red} accessors generate)
+  
+  
+  (method override (draw-data surface context row data width height)
+    (nextmethod surface context row data width height)
+    (when (and (is? data Component-Node) (get-highlighted?~ data))
+      (frame-rect~ surface (text-rect row data width height #f) highlight-color))))
+
+
+;;;
+;;;; Component-Node
+;;;
+
+
+(class Component-Node extends Tree-Node
+  
+  
+  (slot protected highlighted? initialize #f accessors generate)))

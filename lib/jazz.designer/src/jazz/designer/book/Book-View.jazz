@@ -1,0 +1,360 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Books View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.designer.book.Book-View jazz
+
+
+(import (jazz.designer)
+        (jazz.document)
+        (jazz.io)
+        (jazz.ui)
+        (jazz.view))
+
+
+(class undocumented Book-View extends Layout-View implements Document
+  
+
+  (slot sections            initialize (make-table test: eq?))
+  (slot book                initialize #f accessors generate)
+  (slot document-controller initialize #f)
+  
+  
+  (method override (default-extension));;abstract
+  (method override (extensions));;abstract
+  (method override (focus-document));;abstract
+  (method override (current-history-item));;abstract
+  (method override (compare-moniker moniker));;abstract
+  
+  
+  ;;;
+  ;;;; Book-View
+  ;;;
+  
+  
+  (method public (get-version)
+    (get-version~ book))
+  
+  
+  (method public (get-properties)
+    (get-properties~ book))
+  
+  
+  (method public (get-description)
+    (get-description~ book))
+  
+  
+  (method public (get-book-name)
+    (get-book-name~ book))
+
+  
+  ;;;
+  ;;;; Sections
+  ;;;
+  
+  
+  (method public (add-section name section)
+    (when (get-client~ book name)
+      (table-set! sections name section)))
+  
+  
+  (method public (remove-section name)
+    (when (get-client~ book name)
+      (table-set! sections name #f)))
+  
+  
+  (method public (get-section name)
+    (or (table-ref sections name #f)
+        (error "Unable to find section: {t}" name)))
+  
+  
+  (method public (get-client name)
+    (get-client~ (get-section name)))
+  
+  
+  (method public (get-designer name)
+    (get-designer~ (get-section name)))
+  
+  
+  (method public (get-editor name)
+    (get-editor~ (get-section name)))
+  
+  
+  (method public (for-each-section proc)
+    (for-each (lambda (name)
+                (proc name (get-section name)))
+              (get-names~ book)))
+
+  
+  ;;;
+  ;;;; Client Forms
+  ;;;
+  
+  
+  (method public (set-client-from-forms client-forms)
+    (for-each-property (lambda (name form)
+                         (let ((client (instantiate~ form book: book)))
+                           (set-client~ book name client)))
+                       client-forms)
+    (clients-update))
+ 
+  
+  (method public virtual (clients-update)
+    (for-each-client~ book
+      (lambda (name client)
+        (let ((section (get-section name)))
+          (set-client~ section client)))))
+  
+  
+  (method (update-names book-name)
+    (for-each-section
+      (lambda (name section)
+        (let ((client (get-client~ section))
+              (designer (get-designer~ section)))
+          (set-name~ designer client book-name trait: #f)))))
+
+  
+  ;;;
+  ;;;; New
+  ;;;
+  
+  
+  @convert-guest
+  (method meta override (new-event (host-visible?: host-visible? #t))
+    (let* ((frame (apply new-frame host-visible?: #f rest))
+           (book-view (get-guest~ frame))
+           (book-name (unique-domain-name "New" (collect-names book-view)))
+           (controller (get-document-controller~ book-view))
+           (fact (new List-Factory)))
+      (set-newname~ controller book-name)
+      (update-status~ controller)
+      (clients-update~ book-view)
+      (update-names~ book-view book-name)
+      (bring-to-front~ frame)
+      (set-visible?~ frame host-visible?)
+      frame))
+  
+  
+  @convert-guest
+  (method meta (collect-names book)
+    (let ((model (class-of book)))
+      (collect (lambda (frame)
+                 (when (is? frame Internal-Frame-Host)
+                   (let ((guest (get-guest~ frame)))
+                     (when (and guest (neq? guest book) (is? guest model))
+                       (get-book-name~ guest)))))
+               (all-frames))))
+
+  
+  ;;;
+  ;;;; Empty
+  ;;;
+  
+  @not-used?
+  (method public (empty-sections sections)
+    (for-each (lambda (name)
+                (let* ((section (get-section name))
+                       (old-client (get-client~ section))
+                       (old-name (get-name~ old-client))
+                       (form (new Form textual?: #t action: 'new model: (get-model~ section)))
+                       (client (instantiate~ form book: self)))
+                  (set-client~ section client)
+                  (let ((designer (get-designer~ section)))
+                    (set-name~ designer client old-name)
+                    (clients-update))))
+              sections))
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method override (install-in-host host)
+    (nextmethod host)
+    (install-in-host~ (get-document-controller) host))
+
+  
+  ;;;
+  ;;;; Controller
+  ;;;
+
+
+  (method override (get-document-controller)
+    (unless document-controller
+      (set! document-controller (new-document-controller)))
+    document-controller)
+
+
+  (method override (new-document-controller)
+    (new Book-Controller self))
+  
+  
+  (method override (save)
+    (save~ (get-document-controller)))
+  
+  
+  (method override (save-as)
+    (save-as~ (get-document-controller)))
+  
+  
+  (method override (save-to moniker)
+    (save-to~ (get-document-controller) moniker))
+  
+  
+  (method public virtual (save-all)
+    (save-all~ (get-document-controller)))
+  
+  
+  (method override (install-scroller?)
+    #f)
+
+
+  (method (get-moniker)
+    (get-moniker~ (get-document-controller)))
+
+
+  (method (set-moniker moniker)
+    (set-moniker~ (get-document-controller) moniker))
+  
+  
+  (method override (verify-reload)
+    )
+  
+  
+  (method override (reload-moniker moniker)
+    (when moniker
+      (reload-content moniker)
+      (update-moniker-time moniker)))
+  
+  
+  (method (reload-content moniker)
+    (empty-content)
+    (load-content moniker)
+    (set-modified? #f)
+    (update-status))
+  
+  
+  (method protected virtual (empty-content)
+    )
+
+
+  (method override (get-modified?)
+    (get-modified?~ (get-document-controller)))
+
+
+  (method override (set-modified? state)
+    (set-modified?~ (get-document-controller) state))
+  
+  
+  (method (update-status)
+    (update-status~ (get-document-controller)))
+  
+  
+  (method (update-moniker-time moniker)
+    (update-moniker-time~ (get-document-controller) moniker))
+  
+  
+  (method override (confirm-close . rest)
+    (confirm-close~ (get-document-controller)))
+
+
+  (method override (tool-update tool?)
+    )
+
+
+  (method override (console-update console?)
+    )
+
+  
+  ;;;
+  ;;;; Load
+  ;;;
+
+
+  (method override (load-content moniker)
+    (load-content~ book moniker)
+    (clients-update)
+    (update-status))
+
+  
+  ;;;
+  ;;;; Save
+  ;;;
+  
+  
+  (method override (save-content moniker)
+    (with-cursor :wait
+      (lambda ()
+        (let ((base (get-base~ moniker)))
+          (for-each-section
+            (lambda (name section)
+              (let ((designer (get-designer~ section)))
+                (set-origin~ (get-form~ designer) moniker)
+                (set-name~ designer (get-client~ section) base trait: #f)
+                (process-saving~ (get-editor~ section)))))
+          (call-with-output-file (path-settings moniker char-encoding: 'UTF-8)
+            (lambda (output)
+              (let ((first? #t))
+                (for-each-section
+                  (lambda (name section)
+                    (let ((designer (get-designer~ section)))
+                      (when first?
+                        (output-header (get-description) output)
+                        (output-version output)
+                        (output-properties output)
+                        (set! first? #f))
+                      (output-section (get-title~ section) output)
+                      (format output "{a}{%}{%}" name)
+                      (print-to~ designer -1 output))))))))
+        (update-moniker-time moniker)
+        (set-modified? #f)
+        (update-status)
+        (for-each-section
+          (lambda (name section)
+            (process-saved~ (get-editor~ section)))))))
+  
+  
+  (method (output-version output)
+    (format output "{%}{%}version: {s}{%}" (get-version)))
+  
+  
+  (method override (output-properties output)
+    (let ((properties (get-properties)))
+      (format output "{%}{%}properties: {a}{%}"
+              (if (null? properties)
+                  "()"
+                (format "{s}" properties)))))))

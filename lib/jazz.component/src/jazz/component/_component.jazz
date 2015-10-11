@@ -41,7 +41,46 @@
 (export (jazz.component.autoload)
         (jazz.component.syntax))
 
-(import (jazz.component.autoload))
+(import (jazz.component.autoload)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.version))
+
+
+;;;
+;;;; Parameter
+;;;
+
+
+(definition public current-tag-reference-chain
+  (make-parameter '()))
+
+
+(definition public tag-reference-not-found-handler
+  (make-parameter #f))
+
+
+;;;
+;;;; File
+;;;
+
+
+(definition *file-forms*
+  (make-table test: pathname=? hash: pathname-hash))
+
+
+(definition public (register-file-form file form)
+  (table-set! *file-forms* file form))
+
+(definition public (registered-file-form file)
+  (table-ref *file-forms* file #f))
+
+
+(definition public (instantiate-file file . rest)
+  (let ((form (let ((form (read-form file)))
+                (register-file-form file form)
+                form)))
+    (apply instantiate~ form rest)))
 
 
 ;;;
@@ -67,6 +106,64 @@
       (error "Unable to find form: {s}" name)))
 
 
+(definition public (read-form file)
+  (parameterize ((walk-for #f))
+    (call-with-input-file (path-settings file char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
+      (lambda (input)
+        (let ((expr (read input)))
+          (if (eof-object? expr)
+              (error "No expression found in form file: {a}" (parse~ file))
+            (let ((form (parse-form expr file)))
+              (set-origin~ form file)
+              form)))))))
+
+
+(definition public (parse-form expr (file #f))
+  (define (parse expr proc)
+    (if (and (pair? expr)
+             (eq? (car expr) 'data))
+        (parse-data expr proc)
+      (error "Ill-formed data{a}" (if file (format " in: {a}" (parse~ file)) ""))))
+  
+  (define (parse-data expr proc)
+    (bind (data dialect . info) expr
+      (let ((version (assq 'version info))
+            (import (assq 'import info))
+            (form (assq 'form info)))
+        (assert form)
+        (proc (new Data
+                (if version (apply new Version (cdr version)) #f)
+                dialect
+                (if import (cdr import) #f)
+                (if file (new Alias (get-list~ (get-parent~ file))) #f))
+              (cadr form)))))
+  
+  (parse expr
+         (lambda (data form)
+           (construct-form form (imports-locator (effective-imports~ data)) data))))
+
+
+(definition public (imports-locator imports)
+  (let ((imports (map (lambda (import)
+                        (if (pair? import) (car import) import))
+                      imports)))
+    (lambda (symbol)
+      (let ((module-name (find-if (lambda (module-name)
+                                    (boolean (module-get module-name symbol)))
+                                  imports)))
+        (and module-name
+             (deserialize-runtime-reference (list 'module-public module-name symbol)))))))
+
+
+(definition public (locator-add-imports locator imports)
+  (if (null? imports)
+      locator
+    (let ((new-locator (imports-locator imports)))
+      (lambda (symbol)
+        (or (new-locator symbol)
+            (locator symbol))))))
+
+
 ;;;
 ;;;; Former
 ;;;
@@ -77,6 +174,147 @@
 
 (definition public (designer-error . rest)
   (signal (new Designer-Error message: (apply format rest))))
+
+
+;;;
+;;;; Components
+;;;
+
+
+(definition public (common-ancestor components)
+  (cond ((null? components) #f)
+        ((= 1 (length components))
+         (first components))
+        (else
+         (common-ancestor (remove-false (remove-duplicates (map get-parent~ components)))))))
+
+
+(definition public (collect-oldest-ancestors components common-ancestor)
+  (collect-if (lambda (component)
+                (or (eq? component common-ancestor)
+                    (let ((ancestry (component-ancestry (get-parent~ component) common-ancestor)))
+                      (every? (lambda (ancestor)
+                                (not (memq? ancestor components)))
+                              ancestry))))
+              components))
+
+
+(definition public (component-owned? component form ancestor)
+  (let ((form (component-owned-form component form ancestor)))
+    (and form (eq? (get-action~ form) 'new))))
+
+
+(definition public (component-ancestry component ancestor)
+  (define (end? scan)
+    (if scan
+        (eq? scan ancestor)
+      (error "{t} is not a descendant of the reference component {t}" component ancestor)))
+  
+  (unfold-right end? identity get-parent~ component))
+
+
+(definition public (component-in-reference-descendants? component ancestor)
+  (continuation-capture
+    (lambda (exit)
+      (define (end? scan)
+        (if scan
+            (eq? scan ancestor)
+          (continuation-return exit #f)))
+      
+      (unfold-right end? identity get-parent-component~ component))))
+
+
+(definition public (component-owned-form component form ancestor)
+  (owned-form form (component-ancestry component ancestor)))
+
+
+(definition public (owned-form form ancestry)
+  (if (null? ancestry)
+      form
+    (let ((cpn (car ancestry)))
+      (let ((subforms (get-children~ form))
+            (cpn-form (get-form~ cpn))
+            (name (get-name~ cpn)))
+        (cond ((not cpn-form)
+               #f)
+              ((memq? cpn-form subforms)
+               (owned-form cpn-form (cdr ancestry)))
+              ((not name)
+               #f)
+              (else
+               (let ((subform (find-in subforms name key: get-name~ test: equal?)))
+                 (and subform (owned-form subform (cdr ancestry))))))))))
+
+
+(definition public (ownership-level owned-form)
+  (and owned-form
+       (case (get-action~ owned-form)
+          ((new install) 'create)
+          (else (if (null? (get-properties~ owned-form))
+                    'traverse
+                  'modify)))))
+
+
+(definition public (first-ancestry-owned-form component ascendant form)
+  (let (loop (cur component))
+    (if (eq? component ascendant)
+        form
+      (let ((owned-form (owned-form form (component-ancestry cur ascendant))))
+        (or owned-form (loop (get-parent~ cur)))))))
+
+
+(definition public (ancestry-traits-owned-forms component ascendant form)
+  (let (loop (current-form (first-ancestry-owned-form (get-parent~ component) ascendant form))
+             (traits-owned-forms '()))
+    (if current-form
+        (let ((traits (get-traits~ current-form component)))
+          (loop (get-parent~ current-form)
+                (append traits-owned-forms
+                        (collect (lambda (trait)
+                                   (let ((trait-form (get-client-form~ trait)))
+                                     (owned-form trait-form (component-ancestry component ascendant))))
+                                 traits))))
+      traits-owned-forms)))
+
+
+(definition public (component-ascendant-owned-forms component ascendant)
+  (let* ((ancestry (component-ancestry component ascendant))
+         (class-forms (reverse (get-class-forms~ ascendant))))
+    (append-map (lambda (class-form)
+                  (let ((owned-form (owned-form class-form ancestry)))
+                    (append (ancestry-traits-owned-forms component ascendant class-form)
+                            (if owned-form
+                                (append (map get-client-form~ (get-traits~ owned-form component))
+                                        (list owned-form))
+                              '()))))
+                class-forms)))
+
+
+(definition public (component-forms component)
+  (let (loop (ascendant (get-parent~ component))
+             (forms '()))
+    (if ascendant
+        (loop (get-parent~ ascendant)
+              (append forms (component-ascendant-owned-forms component ascendant)))
+        forms)))
+
+
+
+(definition public (common-root-component component-list)
+  (let ((roots (remove-duplicates (map get-root-parent~ component-list))))
+    (when (pair? roots)
+      (car roots))))
+
+
+(definition public (component-descendant-value-list component (filter-proc: filter-proc identity) (map-proc: map-proc get-name~)) 
+  (remove-duplicates (map map-proc (collect-if filter-proc (collect-descendants~ component)))))
+
+
+(definition public (root-creator component)
+  (let ((creator (get-creator~ component)))
+    (if (and creator (not (eq? creator component)))
+        (root-creator creator)
+      component)))
 
 
 ;;;

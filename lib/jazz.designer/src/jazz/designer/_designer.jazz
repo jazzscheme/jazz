@@ -43,13 +43,13 @@
 
 (import (jazz.application)
         (jazz.component)
-        (jazz.component.runtime)
         (jazz.editor.jazz)
         (jazz.graphic)
         (jazz.io)
         (jazz.jml)
         (jazz.platform)
         (jazz.preferences)
+        (jazz.reference)
         (jazz.runtime)
         (jazz.ui.dialog)
         (jazz.view))
@@ -319,6 +319,92 @@
   (if (class? origin)
       (serialize-class origin)
     (serialize-runtime-reference origin)))
+
+
+(definition public (safe-read-form file)
+  ;; quick solution we should only catch reading and parsing errors
+  (call-with-catch (lambda (obj)
+                     (or (datum-parsing-exception? obj)
+                         (error? obj)))
+      (lambda (exc)
+        (wrap-exception exc))
+    (lambda ()
+      (read-form file))))
+
+
+(definition public (save-form form file)
+  (with-jazz-readtable
+    (lambda ()
+      (call-with-output-file (path-settings file)
+        (lambda (output)
+          (print-form-data form output))))))
+
+
+(definition public (print-form-data form output)
+  (let ((data (get-data~ form)))
+    (output-header (get-model~ form) output)
+    (format output "{%}{%}")
+    (format output "(data {a}{%}" (get-dialect~ data))
+    (format output "{%}{%}")
+    (let ((imports (get-imports~ data)))
+      (when imports
+        (format output "(import ")
+        (let ((first? #t))
+          (for-each (lambda (import)
+                      (if first?
+                          (set! first? #f)
+                        (format output "{%}        "))
+                      (format output "{s}" import))
+                    imports)
+          (format output "){%}"))
+        (format output "{%}{%}")))
+    (format output "(form{%}")
+    (pretty-print~ (form->node form) output base: 1 space-name?: #t)
+    (format output ")")
+    (format output "){%}")))
+
+
+(definition public (locator-add-reference locator reference-symbol reference)
+  (lambda (symbol)
+    (if (eq? symbol reference-symbol)
+        reference
+      (locator symbol))))
+
+
+;;;
+;;;; Imports
+;;;
+
+
+(definition public (form-imports form)
+  (define (collect-nodes form)
+    (let ((factory (new List-Factory)))
+      (iterate-nodes form (~ put factory))
+      (get-output~ factory)))
+  
+  (define (collect-symbols form)
+    (let* ((nodes (collect-nodes form))
+           (client-forms (collect (lambda (node)
+                                    (get-property~ node client-form:))
+                                  nodes))
+           (nodes (append nodes (append-map collect-nodes client-forms)))
+           (properties (append-map get-properties~ nodes))
+           (new-nodes (collect-if (lambda (action) (eq? action 'new))
+                                  nodes
+                                  key: get-action~)))
+      (append
+        (collect (lambda (val)
+                   (and (is? val Reference)
+                        (get-symbol~ val)))
+                 (map-property (lambda (_ value) value) properties))
+        (map get-model~ new-nodes))))
+  
+  (define (symbol-import symbol)
+    (let ((context (get-context~ form)))
+      (first (parse-runtime-reference (get-reference~ context symbol)))))
+  
+  (let ((symbols (collect-symbols form)))
+    (remove-duplicates (collect symbol-import symbols))))
 
 
 ;;;

@@ -39,10 +39,12 @@
 
 
 ;;;
-;;;; Walker
+;;;; Declaration
 ;;;
 
 
+;; registering globally is not correct and should be replaced
+;; by clean exported bindings just like we do for special forms
 (macro public (define-walker-declaration name dialect-name declaration-method binding-method)
   `(begin
      (register-declaration ',dialect-name (new-declaration-form ',name ,declaration-method))

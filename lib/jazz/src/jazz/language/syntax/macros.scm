@@ -53,7 +53,6 @@
         expand-body)
 
 (import (jazz.language.runtime.kernel)
-        (scheme.core.kernel)
         (scheme.syntax-rules (phase syntax)))
 
 

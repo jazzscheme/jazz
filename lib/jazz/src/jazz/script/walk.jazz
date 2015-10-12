@@ -96,11 +96,14 @@
                             (set! unreferenced (cons (cons unit-name unreferenced-imports) unreferenced))
                             (increase! unreferenced-count)))))))
                 ;; unresolved
-                (iterate-table unresolved
-                  (lambda (symbol units)
-                    (pretty-print (cons symbol (remove-duplicates units)) unresolved-port)))
+                (for-each (lambda (info)
+                            (bind (symbol . units) info
+                              (pretty-print (cons symbol (remove-duplicates units)) unresolved-port)))
+                          (sort string<? (table->list unresolved) key: (lambda (info) (symbol->string (car info)))))
                 ;; unreferenced
-                (pretty-print (sort string<? unreferenced key: (lambda (info) (symbol->string (car info)))) unreferenced-port)
+                (for-each (lambda (info)
+                            (pretty-print info unreferenced-port))
+                          (sort string<? unreferenced key: (lambda (info) (symbol->string (car info)))))
                 ;; summary
                 (format :console "Found {a} problem{a}, {a} unresolved and {a} unreferenced"
                   (format-cardinality problems-count)

@@ -40,8 +40,7 @@
 
 (export expand-marshalling)
 
-(import (scheme.syntax)
-        (jazz.language.runtime.kernel))
+(import (jazz.language.runtime.kernel))
 
 
 (native private jazz:naturals)

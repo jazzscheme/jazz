@@ -193,21 +193,51 @@
     new-declaration))
 
 
-(jazz:define-method (jazz:walk-binding-expandable? (jazz:Define-Special-Form-Declaration declaration))
+(jazz:define-method (jazz:walk-binding-walkable? (jazz:Define-Special-Form-Declaration declaration))
   #t)
 
 
-(jazz:define-method (jazz:walk-binding-expand-form (jazz:Define-Special-Form-Declaration binding) walker resume declaration environment form-src)
+(jazz:define-method (jazz:walk-binding-walk-form (jazz:Define-Special-Form-Declaration binding) walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (let ((locator (jazz:get-declaration-locator binding)))
       (if (%%eq? (jazz:get-declaration-toplevel binding) (jazz:get-declaration-toplevel declaration))
           (jazz:walk-error walker resume declaration form-src "Special forms cannot be used from within the same file: {s}" locator)
         (let ((parent-declaration (jazz:get-declaration-parent binding)))
           (jazz:load-unit (jazz:get-declaration-locator (jazz:get-declaration-toplevel parent-declaration)))
-          (let ((expander (jazz:need-macro locator)))
-            (jazz:with-walker-context walker resume declaration form-src
-              (lambda ()
-                (%%apply expander (%%cdr form))))))))))
+          (let ((special-form (jazz:need-special-form locator)))
+            (special-form walker resume declaration environment form-src)))))))
+
+
+(jazz:define-method (jazz:outline-extract (jazz:Define-Special-Form-Declaration declaration) meta)
+  `(special-form ,(jazz:get-declaration-access declaration)
+     (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-define-special-form-declaration-signature declaration)))))
+
+
+(define jazz:Special-Forms
+  (make-table test: eq?))
+
+
+(define (jazz:register-special-form name proc)
+  (table-set! jazz:Special-Forms name proc))
+
+
+(define (jazz:get-special-form name)
+  (table-ref jazz:Special-Forms name #f))
+
+
+(define (jazz:need-special-form name)
+  (or (jazz:get-special-form name)
+      (jazz:error "Unable to find special-form: {s}" name)))
+
+
+(jazz:define-macro (jazz:define-special-form signature . body)
+  (let ((name (car signature))
+        (parameters (cdr signature)))
+    (let ((src `(lambda ,parameters ,@body)))
+      `(begin
+         (define ,name
+           ,src)
+         (jazz:register-special-form ',name ,name)))))
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Special-Form-Declaration declaration) environment backend)
@@ -1066,6 +1096,8 @@
 (jazz:define-walker-declaration define              scheme jazz:walk-define-declaration jazz:walk-define)
 (jazz:define-walker-declaration define-macro        scheme jazz:walk-define-macro-declaration jazz:walk-define-macro)
 (jazz:define-walker-declaration define-special-form scheme jazz:walk-define-special-form-declaration jazz:walk-define-special-form)
+;; quicky to put this here
+(jazz:define-walker-declaration special-form        scheme jazz:walk-define-special-form-declaration jazz:walk-define-special-form)
 (jazz:define-walker-special     cond-expand         scheme jazz:walk-cond-expand)
 (jazz:define-walker-special     quote               scheme jazz:walk-quote)
 (jazz:define-walker-special     begin               scheme jazz:walk-begin)

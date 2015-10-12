@@ -65,13 +65,10 @@
       #f)))
 
 
-(define (walk-c-include walker resume declaration environment form-src)
+(special-form (c-include walker resume declaration environment form-src)
   (let ((form (strip-syntactic-closures form-src)))
     (bind (name) (cdr form)
       (new C-Include name))))
-
-
-(define-walker-special c-include jazz walk-c-include)
 
 
 ;;;
@@ -99,13 +96,10 @@
       #f)))
 
 
-(define (walk-c-initialize walker resume declaration environment form-src)
+(special-form (c-initialize walker resume declaration environment form-src)
   (let ((form (strip-syntactic-closures form-src)))
     (bind (name code) (cdr form)
       (new C-Initialize name code))))
-
-
-(define-walker-special c-initialize jazz walk-c-initialize)
 
 
 ;;;
@@ -133,15 +127,12 @@
       #f)))
 
 
-(define (walk-c-declare walker resume declaration environment form-src)
+(special-form (c-declare walker resume declaration environment form-src)
   (let ((form (cdr (strip-syntactic-closures form-src))))
     (assert (>= (length form) 2)
       (bind (name code) form
         (assert (symbol? name)
           (new C-Declare name code))))))
-
-
-(define-walker-special c-declare jazz walk-c-declare)
 
 
 ;;;
@@ -536,15 +527,12 @@
       #f)))
 
 
-(define (walk-c-code walker resume declaration environment form-src)
+(special-form (c-code walker resume declaration environment form-src)
   (let ((form (strip-syntactic-closures form-src)))
     (assertion (and (list? form) (= 2 (length form))) (walk-error walker resume declaration form-src "Ill-formed c-code")
       (bind (code) (cdr form)
         (new C-Code
           `(##c-code ,code))))))
-
-
-(define-walker-special c-code jazz walk-c-code)
 
 
 ;;;
@@ -570,7 +558,7 @@
       #f)))
 
 
-(define (walk-c-function walker resume declaration environment form-src)
+(define (c-function-special-form walker resume declaration environment form-src)
   (let ((form (strip-syntactic-closures form-src)))
     (assertion (and (list? form) (= 5 (length form))) (walk-error walker resume declaration form-src "Ill-formed c-function")
       (bind (name types result-type c-name-or-code) (cdr form)
@@ -579,8 +567,11 @@
             `(c-function ,name ,(map resolve-access types) ,(resolve-access result-type) ,c-name-or-code)))))))
 
 
-(define-walker-special c-function jazz walk-c-function)
-(define-walker-special c-lambda jazz walk-c-function)
+(special-form (c-function walker resume declaration environment form-src)
+  (c-function-special-form walker resume declaration environment form-src))
+
+(special-form (c-lambda walker resume declaration environment form-src)
+  (c-function-special-form walker resume declaration environment form-src))
 
 
 ;;;

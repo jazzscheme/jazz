@@ -46,8 +46,4 @@
 (macro public (define-walker-declaration name dialect-name declaration-method binding-method)
   `(begin
      (register-declaration ',dialect-name (new-declaration-form ',name ,declaration-method))
-     (register-binding ',dialect-name (new-special-form ',name ,binding-method))))
-
-
-(macro public (define-walker-special name dialect-name method)
-  `(register-binding ',dialect-name (new-special-form ',name ,method))))
+     (register-binding ',dialect-name (new-special-form ',name ,binding-method)))))

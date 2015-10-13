@@ -48,7 +48,7 @@
     (define jazz:freetype-units
       (let ((freetype-include-path (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/include"))
             (freetype-lib-path     (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
-            (png-lib-path          (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/png/lib")))
+            (png-lib-path          (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" freetype-include-path))
               (ld-flags (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype.6")))
           `((jazz.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))

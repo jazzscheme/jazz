@@ -40,9 +40,11 @@
 
 (export (jazz.search.autoload))
 (import (jazz.search.autoload)
+        (jazz.action)
         (jazz.application)
         (jazz.graphic)
-        (jazz.text))
+        (jazz.text)
+        (jazz.workspace))
 
 
 ;;;
@@ -69,7 +71,7 @@
         (set-search-result~ appl (get-icon~ search-result) (present~ search-result))
       (set-search-result~ appl #f #f))
     (update-source-actions~ appl)
-    (update-search-actions~ appl)))
+    (update-search-actions)))
 
 
 (definition *beginning-indicator*
@@ -77,6 +79,45 @@
 
 (definition *ending-indicator*
   (new Indicator {Color Boundary}))
+
+
+;;;
+;;;; Search
+;;;
+
+
+(definition public (get-search-manager)
+  (resolve-nickname :search-manager))
+
+
+(definition public (get-search-results)
+  (resolve-nickname :search-results))
+
+
+(definition public (active-search-view)
+  (let ((manager (get-search-manager)))
+    (when manager
+      (get-search~ manager))))
+
+
+;;;
+;;;; Actions
+;;;
+
+
+(definition public (update-search-actions)
+  (let* ((document (current-document))
+         (result (active-search-result))
+         (results (get-search-results))
+         (resultset (get-current-resultset~ results))
+         (results-count (get-visible-count~ (get-tree~ results))))
+    (set-action-enabled? {Action search find-forward} (and result document))
+    (set-action-enabled? {Action search find-backward} (and result document))
+    (set-action-enabled? {Action search replace} (and result document))
+    (set-action-enabled? {Action search replace&find-forward} (and result document))
+    (set-action-enabled? {Action search replace-all} (and result document))
+    (set-action-enabled? {Action search replace-selected} (>= results-count 1))
+    (set-action-enabled? {Action search previous-search} (and result resultset))))
 
 
 ;;;
@@ -112,4 +153,12 @@
 
 
 (definition package (default-search-extensions)
-  :lisp))
+  :lisp)
+
+
+;;;
+;;;; Actor
+;;;
+
+
+(register-nickname :search (lambda () (new Search-Actor))))

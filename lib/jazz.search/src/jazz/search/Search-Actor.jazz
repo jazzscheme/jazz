@@ -1,0 +1,158 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Search Actor
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.search.Search-Actor jazz
+
+
+(import (jazz.search)
+        (jazz.text)
+        (jazz.tree)
+        (jazz.view)
+        (jazz.window))
+
+
+(class undocumented Search-Actor extends Object
+  
+  
+  (method package (on-find evt)
+    (update-search 'text domain: 'window))
+  
+  
+  (method package (on-find-in-text evt)
+    (update-search 'text))
+  
+  
+  (method package (on-find-in-projects evt)
+    (update-search 'projects))
+  
+  
+  (method package (on-find-in-directories evt)
+    (update-search 'directories))
+  
+  
+  (method package (on-find-in-user evt)
+    (update-search 'user))
+  
+  
+  (method (update-search tab (domain: domain #f) (selector: selector #f))
+    (let* ((focus (get-focus))
+           (internal? (is? focus Tree-Embedded-Search-Text-View))
+           (strings (and (not internal?) (is? focus Text-View) (get-selected-strings~ focus)))
+           (string (and strings (= (length strings) 1) (car strings)))
+           (manager (get-search-manager))
+           (palette (get-host~ manager))
+           (player (get-player~ palette))
+           (tab-view (locate~ manager 'tab))
+           (same-tab? (eq? tab (get-selection-name~ tab-view))))
+      (if (and (not domain)
+               (eq? (get-focused-window) player)
+               same-tab?)
+          (next-radio~ (get-search~ manager))
+        (when tab
+          (set-selection-name~ tab-view tab)
+          (when domain
+            (set-search-domain~ (get-search~ manager) domain))))
+      (for-each (lambda (search)
+                  (let ((targets (get-search-targets~ search)))
+                    (unless (or (not string)
+                                (and (not-null? targets)
+                                     (equal? string (first (first targets)))))
+                      (set-search-targets~ search (list (list string ""))))))
+                (get-searches~ manager))
+      (when (or (not internal?) (not same-tab?))
+        (select-search~ (get-search~ manager)))
+      (when selector
+        (selector (get-search~ manager)))
+      (bring-to-front~ player)
+      (set-visible?~ player #t)))
+  
+  
+  (method public (end-search-edition)
+    (let ((tree (get-targets~ (get-search~ (get-search-manager)))))
+      (end-edition~ tree)))
+
+
+  (method package (on-find-forward evt)
+    (let ((result (active-search-result)))
+      (if result
+          (if (find-forward~ result follow?: #f)
+              (acquire-focus~ (effective-client~ result))
+            (unless (follow-forward~ result)
+              (bell)))
+        (bell))))
+
+
+  (method package (on-find-backward evt)
+    (let ((result (active-search-result)))
+      (if result
+          (if (find-backward~ result follow?: #f)
+              (acquire-focus~ (effective-client~ result))
+            (unless (follow-backward~ result)
+              (bell)))
+        (bell))))
+
+
+  (method package (on-replace evt)
+    (let ((result (active-search-result)))
+      (unless (and result (replace-selection~ result))
+        (bell))))
+
+
+  (method package (on-replace&find-forward evt)
+    (let ((result (active-search-result)))
+      (unless (and result (replace-selection&find-forward~ result))
+        (bell))))
+
+
+  (method package (on-replace-all evt)
+    (let ((result (active-search-result)))
+      (if (not result)
+          (bell)
+        (replace-all~ result))))
+  
+  
+  (method package (on-replace-selected evt)
+    (replace-selected~ (get-search-results)))
+
+
+  (method package (on-previous-search evt)
+    (let ((result (active-search-result))
+          (results (get-search-results)))
+      (let ((resultset (get-current-resultset~ results)))
+        (if (eq? (get-current-resultset~ results) (get-resultset~ result))
+            (pop-resultset~ results)
+          (set-active-search-result (new Search-Result resultset))))))))

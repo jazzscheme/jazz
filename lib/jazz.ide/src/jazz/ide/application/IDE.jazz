@@ -51,6 +51,7 @@
         (jazz.debugger.jazz)
         (jazz.debugger.stub)
         (jazz.designer)
+        (jazz.designer.view)
         (jazz.document)
         (jazz.editor)
         (jazz.editor.jazz)
@@ -317,6 +318,44 @@
           (set-title~ label (cond ((not msg) "")
                                   ((is? msg Locales) msg)
                                   (else (->string msg))))))))
+
+
+  ;;;
+  ;;;; Nicknames
+  ;;;
+  
+  
+  (method override (setup-nicknames)
+    (define (focus-editor)
+      (let ((focus (get-focus)))
+        (when focus
+          (get-view-editor (get-guest~ focus)))))
+    
+    (define (search-manager)
+      (get-guest~ (singleton-palette
+                    (lambda ()
+                      (new-palette (search-manager-class)
+                                   host-title: "Search"
+                                   host-visible?: #f
+                                   host-size: {Dimension 857 169}))
+                    'search)))
+    
+    (define (search-results)
+      (get-guest~ (singleton-docked Search-Results)))
+    
+    (nextmethod)
+    (register-nickname :focus-editor         focus-editor)
+    (register-nickname :search-manager       search-manager)
+    (register-nickname :search-results       search-results)
+    (register-nickname :debugger             (lambda () (current-debugger)))
+    (register-nickname :view-debugger        (lambda () (current-view-debugger)))
+    (register-nickname :recorder             (lambda () recorder))
+    (register-nickname :workbench-manager    (lambda () (get-workbench-manager)))
+    (register-nickname :repositories-manager (lambda () (get-repositories-manager))))
+  
+  
+  (method protected virtual (search-manager-class)
+    )
 
 
   ;;;
@@ -657,21 +696,6 @@
   
   (method override (former-class)
     Designer)
-
-
-  ;;;
-  ;;;; Alias
-  ;;;
-  
-  
-  (method override (process-alias name)
-    (case name
-      ((:debugger) (current-debugger))
-      ((:view-debugger) (current-view-debugger))
-      ((:recorder) recorder)
-      ((:workbench-manager) (get-workbench-manager))
-      ((:repositories-manager) (get-repositories-manager))
-      (else (nextmethod name))))
   
 
   ;;;

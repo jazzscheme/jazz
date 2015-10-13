@@ -64,11 +64,9 @@
         (jazz.process)
         (jazz.profile)
         (jazz.runtime)
-        (jazz.search)
         (jazz.settings)
         (jazz.skin)
         (jazz.text)
-        (jazz.tree)
         (jazz.ui)
         (jazz.ui.dialog)
         (jazz.view)
@@ -1039,18 +1037,6 @@
     (setup-stage)
     (set-visible?~ toplevel #t)
     (acquire-focus~ toplevel))
-  
-  
-  (method (initialize-actions)
-    (set-application-actions (get-class-actions self)))
-  
-  
-  (method (update-actions update)
-    (unregister-actions-shortcuts application-actions)
-    (update)
-    (let ((actions (get-class-actions self)))
-      (register-actions-shortcuts actions)
-      (set-application-actions actions)))
 
   
   ;;;
@@ -1321,6 +1307,22 @@
   (method public (set-focus-actions actions-list)
     (update-actions-shortcuts focus-actions actions-list)
     (set! focus-actions actions-list))
+  
+  
+  (method (gather-application-actions)
+    (append (global-actions) (get-class-actions self)))
+  
+  
+  (method (initialize-actions)
+    (set-application-actions (gather-application-actions)))
+  
+  
+  (method (updating-actions update)
+    (unregister-actions-shortcuts application-actions)
+    (update)
+    (let ((actions (gather-application-actions)))
+      (register-actions-shortcuts actions)
+      (set-application-actions actions)))
 
   
   ;;;
@@ -1395,34 +1397,36 @@
   ;;;
   
   
+  (method protected virtual (global-actions)
+    '())
+  
+  
   (method override (class-actions)
     (cons (find-actions 'application)
           (nextmethod)))
 
 
   ;;;
-  ;;;; Alias
+  ;;;; Nicknames
   ;;;
   
   
-  (method override (process-alias name)
-    (case name
-      ((:application) self)
-      ((:toplevel)    (get-toplevel))
-      ((:modal)       (current-modal))
-      ((:menubar)     (find-menubar))
-      ((:toolbar)     (find-toolbar))
-      ((:status-bar)  (find-status-bar))
-      ((:stage)       (current-stage))
-      ((:frame)       (current-frame))
-      ((:document)    (current-document))
-      ((:focus)       (get-focus))
-      ((:focus-host)  (focused-host))
-      ((:focus-guest) (focused-guest))
-      ((:images)      (get-images-portfolio))
-      ((:bindings)    (get-bindings))
-      (else (cond ((and (pair? name) (eq? (car name) :menu)) (find-menu (cadr name)))
-                  (else (nextmethod name))))))
+  (method override (setup-nicknames)
+    (nextmethod)
+    (register-nickname :application (lambda () self))
+    (register-nickname :toplevel    (lambda () (get-toplevel)))
+    (register-nickname :modal       (lambda () (current-modal)))
+    (register-nickname :menubar     (lambda () (find-menubar)))
+    (register-nickname :toolbar     (lambda () (find-toolbar)))
+    (register-nickname :status-bar  (lambda () (find-status-bar)))
+    (register-nickname :stage       (lambda () (current-stage)))
+    (register-nickname :frame       (lambda () (current-frame)))
+    (register-nickname :document    (lambda () (current-document)))
+    (register-nickname :focus       (lambda () (get-focus)))
+    (register-nickname :focus-host  (lambda () (focused-host)))
+    (register-nickname :focus-guest (lambda () (focused-guest)))
+    (register-nickname :images      (lambda () (get-images-portfolio)))
+    (register-nickname :bindings    (lambda () (get-bindings))))
   
   
   ;;;
@@ -1886,112 +1890,6 @@
   ;;;
   ;;;; Source
   ;;;
-  
-  
-  (method public (update-source-actions)
-    (let* ((results (get-active-results))
-           (results-count (and results (get-visible-count~ (get-tree~ results)))))
-      (set-action-enabled? {Action application edit-next} (and results (>= results-count 1)))
-      (set-action-enabled? {Action application edit-previous} (and results (>= results-count 1)))
-      (set-action-enabled? {Action application edit-current} (and results (>= results-count 1)))))
-
-  
-  ;;;
-  ;;;; Search
-  ;;;
-  
-  
-  (method public virtual undocumented (get-search-manager)
-    #f)
-  
-  
-  (method public virtual undocumented (get-search-results)
-    (get-guest~ (singleton-docked Search-Results)))
-  
-  
-  (method public (active-search-view)
-    (let ((manager (get-search-manager)))
-      (when manager
-        (get-search~ manager))))
-  
-  
-  ;; This needs cleanup as it cannot be done for every application
-  (method public (update-search-actions)
-    (let* ((document (current-document))
-           (result (active-search-result))
-           (results (get-search-results))
-           (resultset (get-current-resultset~ results))
-           (results-count (get-visible-count~ (get-tree~ results))))
-      (set-action-enabled? {Action application find-forward} (and result document))
-      (set-action-enabled? {Action application find-backward} (and result document))
-      (set-action-enabled? {Action application replace} (and result document))
-      (set-action-enabled? {Action application replace&find-forward} (and result document))
-      (set-action-enabled? {Action application replace-all} (and result document))
-      (set-action-enabled? {Action application replace-selected} (>= results-count 1))
-      (set-action-enabled? {Action application previous-search} (and result resultset))))
-
-
-  ;;;
-  ;;;; Search Menu
-  ;;;
-  
-  
-  (method package (on-find evt)
-    (update-search 'text domain: 'window))
-  
-  
-  (method package (on-find-in-text evt)
-    (update-search 'text))
-  
-  
-  (method package (on-find-in-projects evt)
-    (update-search 'projects))
-  
-  
-  (method package (on-find-in-directories evt)
-    (update-search 'directories))
-  
-  
-  (method package (on-find-in-user evt)
-    (update-search 'user))
-  
-  
-  (method (update-search tab (domain: domain #f) (selector: selector #f))
-    (let* ((focus (get-focus))
-           (internal? (is? focus Tree-Embedded-Search-Text-View))
-           (strings (and (not internal?) (is? focus Text-View) (get-selected-strings~ focus)))
-           (string (and strings (= (length strings) 1) (car strings)))
-           (manager (get-search-manager))
-           (palette (get-host~ manager))
-           (player (get-player~ palette))
-           (tab-view (locate~ manager 'tab))
-           (same-tab? (eq? tab (get-selection-name~ tab-view))))
-      (if (and (not domain)
-               (eq? (get-focused-window) player)
-               same-tab?)
-          (next-radio~ (get-search~ manager))
-        (when tab
-          (set-selection-name~ tab-view tab)
-          (when domain
-            (set-search-domain~ (get-search~ manager) domain))))
-      (for-each (lambda (search)
-                  (let ((targets (get-search-targets~ search)))
-                    (unless (or (not string)
-                                (and (not-null? targets)
-                                     (equal? string (first (first targets)))))
-                      (set-search-targets~ search (list (list string ""))))))
-                (get-searches~ manager))
-      (when (or (not internal?) (not same-tab?))
-        (select-search~ (get-search~ manager)))
-      (when selector
-        (selector (get-search~ manager)))
-      (bring-to-front~ player)
-      (set-visible?~ player #t)))
-  
-  
-  (method public (end-search-edition)
-    (let ((tree (get-targets~ (get-search~ (get-search-manager)))))
-      (end-edition~ tree)))
 
 
   (method package (on-edit-next evt)
@@ -2004,58 +1902,14 @@
 
   (method package (on-edit-current evt)
     (edit-current~ (get-active-results)))
-
-
-  (method package (on-find-forward evt)
-    (let ((result (active-search-result)))
-      (if result
-          (if (find-forward~ result follow?: #f)
-              (acquire-focus~ (effective-client~ result))
-            (unless (follow-forward~ result)
-              (bell)))
-        (bell))))
-
-
-  (method package (on-find-backward evt)
-    (let ((result (active-search-result)))
-      (if result
-          (if (find-backward~ result follow?: #f)
-              (acquire-focus~ (effective-client~ result))
-            (unless (follow-backward~ result)
-              (bell)))
-        (bell))))
-
-
-  (method package (on-replace evt)
-    (let ((result (active-search-result)))
-      (unless (and result (replace-selection~ result))
-        (bell))))
-
-
-  (method package (on-replace&find-forward evt)
-    (let ((result (active-search-result)))
-      (unless (and result (replace-selection&find-forward~ result))
-        (bell))))
-
-
-  (method package (on-replace-all evt)
-    (let ((result (active-search-result)))
-      (if (not result)
-          (bell)
-        (replace-all~ result))))
   
   
-  (method package (on-replace-selected evt)
-    (replace-selected~ (get-search-results)))
-
-
-  (method package (on-previous-search evt)
-    (let ((result (active-search-result))
-          (results (get-search-results)))
-      (let ((resultset (get-current-resultset~ results)))
-        (if (eq? (get-current-resultset~ results) (get-resultset~ result))
-            (pop-resultset~ results)
-          (set-active-search-result (new Search-Result resultset))))))
+  (method public (update-source-actions)
+    (let* ((results (get-active-results))
+           (results-count (and results (get-visible-count~ (get-tree~ results)))))
+      (set-action-enabled? {Action application edit-next} (and results (>= results-count 1)))
+      (set-action-enabled? {Action application edit-previous} (and results (>= results-count 1)))
+      (set-action-enabled? {Action application edit-current} (and results (>= results-count 1)))))
 
   
   ;;;

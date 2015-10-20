@@ -1747,6 +1747,7 @@
                                                "-link" ,(%%symbol->string jazz:link)
                                                ,@(if (%%memq 'keep-c jazz:compile-options) `("-keep-c" "-track-scheme") '())
                                                ,@(if (%%memq 'expansion jazz:compile-options) `("-expansion") '())
+                                               ,@(if (jazz:build-target) `("-target" ,(symbol->string (jazz:build-target))) '())
                                                ,@(if (jazz:save-emit?) `("-emit") '())
                                                ,@(if (jazz:build-repository) `("-build-repository" ,(jazz:build-repository)) '())
                                                ,@(if (jazz:jazz-repository) `("-jazz-repository" ,(jazz:jazz-repository)) '())

@@ -148,6 +148,12 @@
 (jazz:define-setting jazz:build-jobs
   #f)
 
+(jazz:define-setting jazz:build-target
+  #f)
+
+(jazz:define-setting jazz:build-configuration
+  #f)
+
 (jazz:define-setting jazz:force-outlines?
   #f)
 

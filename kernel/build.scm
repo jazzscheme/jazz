@@ -824,19 +824,6 @@
     (jazz:error "Invalid destination: {s}" destination)))
 
 
-(define (jazz:configuration-directory configuration)
-  ;; dynamic repositories - build location mirrors the source location
-  ;; we will build kernel in $BINARY/$REPO/$BRANCH/kernel
-  ;; where: $BINARY is destination in the configuration file
-  ;; where: jazz:source is in $SOURCE/$REPO/$BRANCH
-  (if (jazz:getf (jazz:get-configuration-properties configuration) dynamic?:)
-      (jazz:build-dynamic-path (jazz:get-configuration-destination configuration) jazz:source)
-    (jazz:destination-directory
-      (jazz:get-configuration-name configuration)
-      (jazz:get-configuration-destination configuration)
-      "./")))
-
-
 (define (jazz:configuration-file configuration)
   (let ((dir (jazz:configuration-directory configuration)))
     (string-append dir ".configuration")))
@@ -1875,7 +1862,7 @@
 
 
 (define (jazz:process-jazini)
-  (jazz:load-global/local-configurations ".jazini"))
+  (jazz:load-global/local ".jazini"))
 
 
 ;;;

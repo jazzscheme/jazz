@@ -423,7 +423,7 @@
       (iter (cddr scan) (append result (converter (car scan) (cadr scan)))))))
 
 
-(define (jazz:load-global/local-configurations filename)
+(define (jazz:load-global/local filename)
   (define (load-if-exists file)
     (if (file-exists? file)
         (load file)))
@@ -432,6 +432,82 @@
         (local filename))
     (load-if-exists global)
     (load-if-exists local)))
+
+
+;;;
+;;;; Configurations
+;;;
+
+;; to test cross compiling
+
+
+(define jazz:named-configurations
+  #f)
+
+
+(define (jazz:get-named-configurations)
+  (or jazz:named-configurations
+      (let ((configurations
+              (if (file-exists? jazz:named-configurations-file)
+                  (call-with-input-file (list path: jazz:named-configurations-file eol-encoding: 'cr-lf)
+                    (lambda (input)
+                      (define (read-configuration input)
+                        (let ((list (read input)))
+                          (if (eof-object? list)
+                              list
+                            (apply jazz:new-named-configuration list))))
+                
+                      (read-all input read-configuration)))
+                '())))
+        (set! jazz:named-configurations configurations)
+        configurations)))
+
+
+(define (jazz:find-named-configuration name)
+  (let iter ((configurations (jazz:get-named-configurations)))
+    (if (null? configurations)
+        #f
+      (let ((configuration (car configurations)))
+        (if (eq? (jazz:get-configuration-name configuration) name)
+            configuration
+          (iter (cdr configurations)))))))
+
+
+(define (jazz:new-named-configuration
+          #!key
+          (name (%%unspecified))
+          (system (%%unspecified))
+          (platform (%%unspecified))
+          (windowing (%%unspecified))
+          (safety (%%unspecified))
+          (optimize? (%%unspecified))
+          (debug-environments? (%%unspecified))
+          (debug-location? (%%unspecified))
+          (debug-source? (%%unspecified))
+          (debug-foreign? (%%unspecified))
+          (mutable-bindings? (%%unspecified))
+          (kernel-interpret? (%%unspecified))
+          (destination (%%unspecified))
+          (features (%%unspecified))
+          (properties (%%unspecified))
+          (local? #f))
+  (jazz:make-configuration
+    name
+    system
+    platform
+    windowing
+    safety
+    optimize?
+    debug-environments?
+    debug-location?
+    debug-source?
+    debug-foreign?
+    mutable-bindings?
+    kernel-interpret?
+    destination
+    features
+    properties
+    local?))
 
 
 ;;;

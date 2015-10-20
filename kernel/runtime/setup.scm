@@ -300,7 +300,7 @@
   ;; x -> expand
   ;; commented out to get proper tail call into the repl
   ;; (let ((exit-code ...)))
-  (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "debugger" "link" "j" "jobs" "port" "dialect") missing-argument-for-option
+  (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "target" "debugger" "link" "j" "jobs" "port" "dialect") missing-argument-for-option
     (lambda (commands options remaining)
       (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
             (nosource? (jazz:get-option "nosource" options))
@@ -328,8 +328,9 @@
             (build (jazz:get-option "build" options))
             (install (jazz:get-option "install" options))
             (deploy (jazz:get-option "deploy" options))
-            (expand (or (jazz:get-option "x" options)(jazz:get-option "expand" options)))
-            (compile (or (jazz:get-option "c" options)(jazz:get-option "compile" options)))
+            (expand (or (jazz:get-option "x" options) (jazz:get-option "expand" options)))
+            (compile (or (jazz:get-option "c" options) (jazz:get-option "compile" options)))
+            (target (symbol-argument (jazz:get-option "target" options)))
             (debugger (jazz:get-option "debugger" options))
             (link (symbol-argument (jazz:get-option "link" options)))
             (jobs (number-argument (or (jazz:get-option "j" options) (jazz:get-option "jobs" options))))
@@ -377,7 +378,9 @@
         (define (setup-runtime)
           (setup-kernel)
           (setup-repositories #f)
-          (jazz:load-libraries))
+          (jazz:load-libraries)
+          ;; to test cross compiling REMOVE CODE WHEN DONE
+          (setup-target))
         
         (define (setup-build #!optional (make? #f))
           (setup-kernel)
@@ -401,7 +404,29 @@
           (if emit?
               (jazz:save-emit? #t))
           (if dry?
-              (jazz:dry-run? #t)))
+              (jazz:dry-run? #t))
+          (setup-target))
+        
+        (define (setup-target)
+          (if target
+              (let ((configuration (jazz:find-named-configuration target)))
+                (if (%%not configuration)
+                    (jazz:error "Unknown configuration: {s}" target)
+                  (begin
+                    (jazz:build-target target)
+                    (jazz:build-configuration configuration)
+                    ;; quick hack load everything needed for compilation before changing repositories
+                    ;; this will clearly be missing user-defined syntax
+                    (jazz:load-unit 'foundation)
+                    (jazz:load-unit 'jazz)
+                    (jazz:load-unit 'jazz.language.syntax)
+                    (jazz:load-unit 'core.unit.runtime)
+                    (jazz:load-unit 'core.unit.build)
+                    (jazz:load-unit 'scheme.syntax-rules)
+                    (let ((old jazz:Build-Repository))
+                      (set! jazz:Build-Repository (jazz:make-repository 'Build "lib" (%%string-append jazz:kernel-source (jazz:get-configuration-destination configuration)) binary?: #t dynamic?: #t))
+                      (set! jazz:Repositories (%%append (jazz:remove old jazz:Repositories) (%%list jazz:Build-Repository))))
+                    (set! jazz:*binary-packages-cache* (%%make-table test: eq?)))))))
         
         (define (setup-install)
           (setup-build))
@@ -472,7 +497,20 @@
                (jazz:worker-process port))
               (build
                (setup-build)
-               (jazz:build-product (%%string->symbol build)))
+               (let ((name (%%string->symbol build)))
+                 (define (assert-build-configuration)
+                   (if (%%not (jazz:build-configuration))
+                       (jazz:error "Building a kernel requires an explicit target")))
+                 
+                 (case name
+                   ((kernel)
+                    (assert-build-configuration)
+                    (jazz:build-kernel))
+                   ((kernellib)
+                    (assert-build-configuration)
+                    (jazz:build-kernel image: 'library))
+                   (else
+                    (jazz:build-product name)))))
               (install
                (setup-install)
                (jazz:install-product (%%string->symbol install)))

@@ -178,6 +178,53 @@
 
 
 ;;;
+;;;; Kernel
+;;;
+
+
+(define (jazz:build-kernel #!key (image #f))
+  (let ((configuration (jazz:build-configuration))
+        (image (or image 'executable)))
+    (let ((name (jazz:get-configuration-name configuration))
+          (system (jazz:get-configuration-system configuration))
+          (platform (jazz:get-configuration-platform configuration))
+          (windowing (jazz:get-configuration-windowing configuration))
+          (safety (jazz:get-configuration-safety configuration))
+          (optimize? (jazz:get-configuration-optimize? configuration))
+          (debug-environments? (jazz:get-configuration-debug-environments? configuration))
+          (debug-location? (jazz:get-configuration-debug-location? configuration))
+          (debug-source? (jazz:get-configuration-debug-source? configuration))
+          (debug-foreign? (jazz:get-configuration-debug-foreign? configuration))
+          (mutable-bindings? (jazz:get-configuration-mutable-bindings? configuration))
+          (include-compiler? (not (eq? image 'library)))
+          (kernel-interpret? (jazz:get-configuration-kernel-interpret? configuration))
+          (destination (jazz:get-configuration-destination configuration))
+          (destination-directory (jazz:configuration-directory configuration))
+          (features (jazz:get-configuration-features configuration))
+          (properties (jazz:get-configuration-properties configuration)))
+      (jazz:build-image #f
+                        system:                system
+                        platform:              platform
+                        windowing:             windowing
+                        safety:                safety
+                        optimize?:             optimize?
+                        debug-environments?:   debug-environments?
+                        debug-location?:       debug-location?
+                        debug-source?:         debug-source?
+                        debug-foreign?:        debug-foreign?
+                        mutable-bindings?:     mutable-bindings?
+                        include-compiler?:     include-compiler?
+                        kernel-interpret?:     kernel-interpret?
+                        destination:           destination
+                        destination-directory: destination-directory
+                        features:              features
+                        properties:            properties
+                        image:                 image
+                        kernel?:               #t
+                        console?:              #t))))
+
+
+;;;
 ;;;; Image
 ;;;
 
@@ -376,6 +423,8 @@
           (compile-source-file "runtime/" "record")
           (compile-source-file "syntax/" "repository")
           (compile-source-file "runtime/" "crash")
+          ;; to test cross compiling
+          (compile-source-file "runtime/" "configuration")
           (compile-source-file "runtime/" "version")
           (compile-source-file "runtime/" "common")
           (compile-source-file "runtime/" "settings")
@@ -469,6 +518,8 @@
                                ,(kernel-file "runtime/record")
                                ,(kernel-file "syntax/repository")
                                ,(kernel-file "runtime/crash")
+                               ;; to test cross compiling
+                               ,(kernel-file "runtime/configuration")
                                ,(kernel-file "runtime/version")
                                ,(kernel-file "runtime/common")
                                ,(kernel-file "runtime/settings")
@@ -683,6 +734,8 @@
                          ,(kernel-file "runtime/record.o")
                          ,(kernel-file "syntax/repository.o")
                          ,(kernel-file "runtime/crash.o")
+                         ;; to test cross compiling
+                         ,(kernel-file "runtime/configuration.o")
                          ,(kernel-file "runtime/version.o")
                          ,(kernel-file "runtime/common.o")
                          ,(kernel-file "runtime/settings.o")

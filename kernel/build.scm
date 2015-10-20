@@ -596,6 +596,7 @@
 
 (define jazz:valid-platforms
   '(mac
+    ios
     windows
     unix))
 

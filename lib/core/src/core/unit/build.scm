@@ -229,7 +229,7 @@
       "-fno-common" "-Wno-missing-field-initializers" "-Wno-missing-prototypes" "-Werror=return-type" "-Wunreachable-code"
       "-Werror=deprecated-objc-isa-usage" "-Werror=objc-root-class" "-Wno-missing-braces" "-Wparentheses" "-Wswitch" "-Wempty-body"
       "-Wconditional-uninitialized" "-Wno-unknown-pragmas" "-Wno-shadow" "-Wno-four-char-constants" "-Wno-conversion" "-Wconstant-conversion"
-      "-Wint-conversion" "-Wbool-conversion" "-Wenum-conversion" "-Wshorten-64-to-32" "-Wpointer-sign" "-Wno-newline-eof"
+      "-Wint-conversion" "-Wbool-conversion" "-Wenum-conversion" "-Wpointer-sign" "-Wno-newline-eof"
       "-isysroot" ios-sysroot "-fasm-blocks" "-fstrict-aliasing" "-Wdeprecated-declarations" "-mios-simulator-version-min=9.0" "-Wno-sign-conversion")))
   
   (define gambit-include-dir

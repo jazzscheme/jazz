@@ -283,6 +283,30 @@
           (image-dir (if (and bundle (eq? windowing 'cocoa) (not library-image?))
                          (%%string-append destination-directory bundle ".app" "/Contents/MacOS/")
                        destination-directory)))
+      (define ios?
+        (and (jazz:build-configuration) (eq? (jazz:get-configuration-platform (jazz:build-configuration)) 'ios)))
+      
+      (define ios-architecture
+        (and ios? "arm64"))
+      
+      (define ios-sysroot
+        (and ios? "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.sdk"))
+      
+      (define ios-custom-cc
+        (and ios? "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang"))
+      
+      (define ios-custom-cc-options
+        (and ios? (list "-arch" ios-architecture "-fmessage-length=0" "-fdiagnostics-show-note-include-stack" "-fmacro-backtrace-limit=0" "-std=gnu99" "-fmodules" "-gmodules"
+                    "-Wnon-modular-include-in-framework-module" "-Werror=non-modular-include-in-framework-module" "-Wno-trigraphs" "-fpascal-strings" "-O0"
+                    "-fno-common" "-Wno-missing-field-initializers" "-Wno-missing-prototypes" "-Werror=return-type" "-Wunreachable-code"
+                    "-Werror=deprecated-objc-isa-usage" "-Werror=objc-root-class" "-Wno-missing-braces" "-Wparentheses" "-Wswitch" "-Wempty-body"
+                    "-Wconditional-uninitialized" "-Wno-unknown-pragmas" "-Wno-shadow" "-Wno-four-char-constants" "-Wno-conversion" "-Wconstant-conversion"
+                    "-Wint-conversion" "-Wbool-conversion" "-Wenum-conversion" "-Wpointer-sign" "-Wno-newline-eof"
+                    "-isysroot" ios-sysroot "-fasm-blocks" "-fstrict-aliasing" "-Wdeprecated-declarations" "-mios-simulator-version-min=9.0" "-Wno-sign-conversion")))
+      
+      (define gambit-include-dir
+        (path-expand "~~include"))
+      
       (define (source-file path)
         (%%string-append source-dir path))
       
@@ -324,7 +348,13 @@
                     (if (not (jazz:dry-run?))
                         (begin
                           (compile-file-to-target standardized-path options: options output: output)
-                          (compile-file dst options: (%%cons 'obj options) cc-options: "-D___DYNAMIC")
+                          (if ios?
+                              (let ((custom-cc-options ios-custom-cc-options))
+                                (jazz:call-process
+                                  (list
+                                    path: ios-custom-cc
+                                    arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) "-D___DYNAMIC" "-c" "-o" ,(string-append output name ".o") ,dst))))
+                            (compile-file dst options: (%%cons 'obj options) cc-options: "-D___DYNAMIC"))
                           (jazz:update-manifest-compile-time name digest mnf src #f))))
                   #t)
               #f))))
@@ -752,20 +782,26 @@
                          ,(link-file))))
           (feedback-message "; linking {a}..." (if library-image? "library" "executable"))
           (jazz:create-directories kernel-dir)
-          (jazz:gambitcomp
-            'exe
-            (jazz:pathname-normalize build-dir)
-            c-files
-            (string-append kernel-dir "/" kernel-name)
-            (string-append "-I" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
-            ""
-            (jazz:join-strings `(,(string-append "-L" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
-                                 ,@(gambit-link-libraries)
-                                 ,@(link-libraries)
-                                 ,@(resource-files)
-                                 ,@(link-options))
-                               " ")
-            #f)
+          (if ios?
+              (let ((custom-cc-options (cons "-bundle" ios-custom-cc-options)))
+                (jazz:invoke-process
+                  (list
+                    path: ios-custom-cc
+                    arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) ,@c-files "-o" ,(string-append kernel-dir "/" kernel-name)))))
+            (jazz:gambitcomp
+              'exe
+              (jazz:pathname-normalize build-dir)
+              c-files
+              (string-append kernel-dir "/" kernel-name)
+              (string-append "-I" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
+              ""
+              (jazz:join-strings `(,(string-append "-L" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
+                                   ,@(gambit-link-libraries)
+                                   ,@(link-libraries)
+                                   ,@(resource-files)
+                                   ,@(link-options))
+                                 " ")
+              #f))
           (case windowing
             ((cocoa)
              (jazz:call-process

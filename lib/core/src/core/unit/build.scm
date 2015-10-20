@@ -234,8 +234,8 @@
       "-Wint-conversion" "-Wbool-conversion" "-Wenum-conversion" "-Wpointer-sign" "-Wno-newline-eof"
       "-isysroot" ios-sysroot "-fasm-blocks" "-fstrict-aliasing" "-Wdeprecated-declarations" "-mios-simulator-version-min=9.0" "-Wno-sign-conversion")))
   
-  (define gambit-include-dir
-    (path-expand "~~include"))
+  (define ios-gambit-include-dir
+    (path-expand "~~ios/include"))
   
   (define (compile)
     (let ((unique-module-name (%%string-append jazz:bin-uniqueness-prefix (%%symbol->string unit-name)))
@@ -253,12 +253,13 @@
                             (jazz:call-process
                               (list
                                 path: ios-custom-cc
-                                arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) "-D___DYNAMIC" ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output))))
+                                arguments: `(,@custom-cc-options ,(%%string-append "-I" ios-gambit-include-dir) "-D___DYNAMIC" ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output))))
                         (if custom-cc
-                            (jazz:call-process
-                              (list
-                                path: custom-cc
-                                arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) "-D___DYNAMIC" ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output)))
+                            (let ((gambit-include-dir (path-expand "~~include")))
+                              (jazz:call-process
+                                (list
+                                  path: custom-cc
+                                  arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) "-D___DYNAMIC" ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output))))
                           (compile-file bin-output options: (%%cons 'obj options) cc-options: (string-append "-D___DYNAMIC " cc-options))))))
             (jazz:error "compilation failed")))))
   
@@ -303,7 +304,7 @@
                       (jazz:invoke-process
                         (list
                           path: ios-custom-cc
-                          arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) ,@(jazz:split-string cc-options #\space) ,linkfile ,(string-append bin-pathname-base ".o") "-o" ,bin-o1))))
+                          arguments: `(,@custom-cc-options ,(%%string-append "-I" ios-gambit-include-dir) ,@(jazz:split-string cc-options #\space) ,linkfile ,(string-append bin-pathname-base ".o") "-o" ,bin-o1))))
                   (jazz:gambitcomp
                     'dyn
                     (jazz:resource-build-dir src)

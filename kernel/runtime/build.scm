@@ -309,8 +309,11 @@
                     "-Wint-conversion" "-Wbool-conversion" "-Wenum-conversion" "-Wpointer-sign" "-Wno-newline-eof"
                     "-isysroot" ios-sysroot "-fasm-blocks" "-fstrict-aliasing" "-Wdeprecated-declarations" "-mios-simulator-version-min=9.0" "-Wno-sign-conversion")))
       
-      (define gambit-include-dir
-        (path-expand "~~include"))
+      (define ios-gambit-include-dir
+        (path-expand "~~ios/include"))
+      
+      (define ios-gambit-lib-dir
+        (path-expand "~~ios/lib"))
       
       (define (source-file path)
         (%%string-append source-dir path))
@@ -358,7 +361,7 @@
                                 (jazz:call-process
                                   (list
                                     path: ios-custom-cc
-                                    arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) "-D___DYNAMIC" "-c" "-o" ,(string-append output name ".o") ,dst))))
+                                    arguments: `(,@custom-cc-options ,(%%string-append "-I" ios-gambit-include-dir) "-D___DYNAMIC" "-c" "-o" ,(string-append output name ".o") ,dst))))
                             (compile-file dst options: (%%cons 'obj options) cc-options: "-D___DYNAMIC"))
                           (jazz:update-manifest-compile-time name digest mnf src #f))))
                   #t)
@@ -792,7 +795,7 @@
                 (jazz:invoke-process
                   (list
                     path: ios-custom-cc
-                    arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) ,@c-files "-o" ,(string-append kernel-dir "/" kernel-name)))))
+                    arguments: `(,@custom-cc-options ,(%%string-append "-I" ios-gambit-include-dir) ,(%%string-append "-L" ios-gambit-lib-dir) ,@c-files "-o" ,(string-append kernel-dir "/" kernel-name)))))
             (jazz:gambitcomp
               'exe
               (jazz:pathname-normalize build-dir)

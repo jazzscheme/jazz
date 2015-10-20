@@ -215,16 +215,18 @@
     (and (jazz:build-configuration) (eq? (jazz:get-configuration-platform (jazz:build-configuration)) 'ios)))
   
   (define ios-architecture
-    (and ios? "arm64"))
+    (and ios? (or (jazz:get-configuration-processor (jazz:build-configuration)) 'x86_64)))
   
   (define ios-sysroot
-    (and ios? "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.sdk"))
+    (and ios? (case ios-architecture
+                ((x86_64) "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator9.0.sdk")
+                (else "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.0.sdk"))))
   
   (define ios-custom-cc
     (and ios? "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang"))
   
   (define ios-custom-cc-options
-    (and ios? (list "-arch" ios-architecture "-fmessage-length=0" "-fdiagnostics-show-note-include-stack" "-fmacro-backtrace-limit=0" "-std=gnu99" "-fmodules" "-gmodules"
+    (and ios? (list "-arch" (symbol->string ios-architecture) "-fmessage-length=0" "-fdiagnostics-show-note-include-stack" "-fmacro-backtrace-limit=0" "-std=gnu99" "-fmodules" "-gmodules"
       "-Wnon-modular-include-in-framework-module" "-Werror=non-modular-include-in-framework-module" "-Wno-trigraphs" "-fpascal-strings" "-O0"
       "-fno-common" "-Wno-missing-field-initializers" "-Wno-missing-prototypes" "-Werror=return-type" "-Wunreachable-code"
       "-Werror=deprecated-objc-isa-usage" "-Werror=objc-root-class" "-Wno-missing-braces" "-Wparentheses" "-Wswitch" "-Wempty-body"

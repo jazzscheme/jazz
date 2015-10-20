@@ -642,7 +642,9 @@
 
 
 (define jazz:valid-processors
-  '(#f))
+  '(#f
+    x86_64
+    arm64))
 
 
 (define (jazz:guess-processor)

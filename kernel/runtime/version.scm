@@ -478,6 +478,7 @@
           (name (%%unspecified))
           (system (%%unspecified))
           (platform (%%unspecified))
+          (processor (%%unspecified))
           (windowing (%%unspecified))
           (safety (%%unspecified))
           (optimize? (%%unspecified))
@@ -495,6 +496,7 @@
     name
     system
     platform
+    processor
     windowing
     safety
     optimize?
@@ -515,7 +517,7 @@
 ;;;
 
 
-(define (jazz:save-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties file system-platform)
+(define (jazz:save-configuration name system platform processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties file system-platform)
   (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding system-platform))
     (lambda (output)
       (display "(configuration " output)
@@ -523,12 +525,12 @@
       (newline output)
       (newline output)
       (display "  " output)
-      (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties output)
+      (jazz:print-configuration name system platform processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties output)
       (display ")" output)
       (newline output))))
 
 
-(define (jazz:print-configuration name system platform windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties output)
+(define (jazz:print-configuration name system platform processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties output)
   (define first?
     #t)
   
@@ -544,6 +546,7 @@
   (print-property name: name)
   (print-property system: system)
   (print-property platform: platform)
+  (print-property processor: processor)
   (print-property windowing: windowing)
   (print-property safety: safety)
   (print-property optimize?: optimize?)

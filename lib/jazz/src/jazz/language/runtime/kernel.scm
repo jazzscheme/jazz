@@ -594,6 +594,7 @@
 (native jazz:boot-directory)
 (native jazz:kernel-system)
 (native jazz:kernel-platform)
+(native jazz:kernel-processor)
 (native jazz:kernel-windowing)
 (native jazz:kernel-safety)
 (native jazz:kernel-optimize?)

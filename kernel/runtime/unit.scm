@@ -2063,9 +2063,27 @@
   (set! jazz:load-interpreted-hook hook))
 
 
+;; quick hack so that once we switch repositories to target
+;; we don't load any binary code anymore as it will be ios!
+(define jazz:TARGET-HACK?
+  #f)
+
+(define (jazz:TARGET-HACK?-set! flag)
+  (set! jazz:TARGET-HACK? flag))
+
+
 (define (jazz:load-unit-src/bin unit-name #!key (force-source? #f))
   (jazz:with-unit-resources unit-name #f
     (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+      (if jazz:TARGET-HACK?
+          (begin
+            (set! obj #f)
+            (set! bin #f)
+            (set! load-proc #f)
+            (set! obj-uptodate? #f)
+            (set! bin-uptodate? #f)
+            (set! lib-uptodate? #f)
+            (set! manifest #f)))
       (parameterize ((jazz:requested-unit-name unit-name)
                      (jazz:requested-unit-resource (if bin-uptodate? bin src)))
         (cond ((and lib-uptodate? (not force-source?))

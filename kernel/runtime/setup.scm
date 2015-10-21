@@ -430,6 +430,7 @@
                     (if (%%eq? target 'ios)
                         (##cond-expand-features (jazz:remove 'cocoa (##cond-expand-features))))
                     (##cond-expand-features (append (##cond-expand-features) (list target)))
+                    (jazz:TARGET-HACK?-set! #t)
                     (let ((old jazz:Build-Repository))
                       (set! jazz:Build-Repository (jazz:make-repository 'Build "lib" (%%string-append jazz:kernel-source (jazz:get-configuration-destination configuration)) binary?: #t dynamic?: #t))
                       (set! jazz:Repositories (%%append (jazz:remove old jazz:Repositories) (%%list jazz:Build-Repository))))

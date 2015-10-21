@@ -46,4 +46,5 @@
   (cocoa
     (jazz:register-foreign-libraries 'jazz.platform.cocoa               'Cocoa 'OpenGL 'IOKit))
   (x11
-    (jazz:register-foreign-libraries 'jazz.platform.x11 'X11))))
+    (jazz:register-foreign-libraries 'jazz.platform.x11 'X11))
+  (else)))

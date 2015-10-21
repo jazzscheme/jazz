@@ -131,6 +131,13 @@
 
 
 (cond-expand
+  (ios
+    (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
+      (let ((unit-specs `((jazz.platform)
+                          ,@jazz:types-units)))
+        (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
+        (if (or (not unit) (not (assq unit unit-specs)))
+            (jazz:build-product-descriptor descriptor)))))
   (cocoa
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)

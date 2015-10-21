@@ -39,7 +39,7 @@
 
 
 (export (jazz.cairo.cairo-base)
-        (jazz.cairo.cairo-freetype)
+        (jazz.cairo.cairo-freetype (cond (not ios)))
         (jazz.cairo.cairo-quartz   (cond cocoa))
         (jazz.cairo.cairo-windows  (cond windows))
         (jazz.cairo.cairo-x11      (cond x11))
@@ -56,6 +56,7 @@
 
 
 (cond-expand
+  (ios     (c-include "<cairo.h>"))
   (cocoa   (c-include "<cairo.h>"))
   (windows (c-include "<cairo-win32.h>"))
   (x11     (c-include "<cairo-xlib.h>"))
@@ -284,6 +285,9 @@
 ;;;
 
 
+(cond-expand
+  (ios)
+  (else
 (c-external (___cairo_surface_get_device_scale cairo_surface_t* F64PTR) void
   #/C/
     cairo_surface_get_device_scale(___arg1, ___arg2, ___arg2+1);
@@ -296,7 +300,7 @@
     (new Point$fl$ (f64vector-ref pt 0) (f64vector-ref pt 1))))
 
 
-(c-external (cairo_surface_set_device_scale cairo_surface_t* double double) void)
+(c-external (cairo_surface_set_device_scale cairo_surface_t* double double) void)))
 
 
 ;;;
@@ -607,7 +611,10 @@
 ;;;
 
 
-(c-external (cairo_pdf_surface_create char-string double double) cairo_surface_t*)
+(cond-expand
+  (ios)
+  (else
+(c-external (cairo_pdf_surface_create char-string double double) cairo_surface_t*)))
 
 
 (definition public (get-cairo-image-surface-size surface) <Dimension>

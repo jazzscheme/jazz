@@ -68,6 +68,21 @@
 
 
 (cond-expand
+  (ios
+    (define jazz:cairo-units
+      (let (;; use those include as they where tailored for ios
+            (cairo-include-path      (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/ios/cairo/include/cairo"))
+            (pixman-include-path     (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/pixman/include"))
+            (png-include-path        (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/png/include"))
+            (cairo-lib-path          (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/ios/cairo/lib"))
+            (pixman-lib-path         (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/ios/pixman/lib"))
+            (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/ios/png/lib"))
+            (zlib-lib-path           (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/ios/lib")))
+        (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" png-include-path))
+              (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" png-lib-path " -L" zlib-lib-path " -framework CoreFoundation -framework CoreGraphics -lcairo -lpixman-1 -lpng16 -lz")))
+          `((jazz.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
+            (jazz.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
+            (jazz.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (cocoa
     (define jazz:cairo-units
       (let ((cairo-include-path      (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/cairo/include/cairo"))
@@ -124,6 +139,9 @@
 
 
 (cond-expand
+  (ios
+    (define jazz:platform-files
+     '()))
   (cocoa
    (define jazz:platform-files
      (list (cons "lib/jazz.cairo/foreign/mac/cairo/lib/libcairo.2.dylib" "libcairo.2.dylib")

@@ -304,7 +304,7 @@
                       (jazz:invoke-process
                         (list
                           path: ios-custom-cc
-                          arguments: `(,@custom-cc-options ,(%%string-append "-I" ios-gambit-include-dir) ,@(jazz:split-string cc-options #\space) ,linkfile ,(string-append bin-pathname-base ".o") "-o" ,bin-o1))))
+                          arguments: `(,@custom-cc-options ,(%%string-append "-I" ios-gambit-include-dir) ,@(jazz:split-string cc-options #\space) ,@(jazz:split-string ld-options #\space) ,@ld-options ,linkfile ,(string-append bin-pathname-base ".o") "-o" ,bin-o1))))
                   (jazz:gambitcomp
                     'dyn
                     (jazz:resource-build-dir src)

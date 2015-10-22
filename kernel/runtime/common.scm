@@ -159,6 +159,7 @@
 (jazz:define-variable jazz:get-changed-units #f)
 (jazz:define-variable jazz:push-changed-units #f)
 (jazz:define-variable jazz:reset-changed-units #f)
+(jazz:define-variable jazz:build-kernel #f)
 (jazz:define-variable jazz:build-image #f)
 (jazz:define-variable jazz:build-library #f)
 

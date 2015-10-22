@@ -182,7 +182,7 @@
 ;;;
 
 
-(define (jazz:build-kernel #!key (image #f))
+(define (jazz:build-kernel-impl #!key (image #f))
   (let ((configuration (jazz:build-configuration))
         (image (or image 'executable)))
     (let ((name (jazz:get-configuration-name configuration))
@@ -1302,5 +1302,6 @@
 (jazz:define-variable-override jazz:get-changed-units jazz:get-changed-units-impl)
 (jazz:define-variable-override jazz:push-changed-units jazz:push-changed-units-impl)
 (jazz:define-variable-override jazz:reset-changed-units jazz:reset-changed-units-impl)
+(jazz:define-variable-override jazz:build-kernel jazz:build-kernel-impl)
 (jazz:define-variable-override jazz:build-image jazz:build-image-impl)
 (jazz:define-variable-override jazz:build-library jazz:build-library-impl))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Fonts Definitions
+;;;; CGfont Definitions
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,9 +35,53 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.graphic.font jazz
+(module protected jazz.graphic.font.platform.cgfont jazz
 
 
-(export (jazz.graphic.font.platform.freetype (cond (not ios)))
-        (jazz.graphic.font.platform.cgfont (cond ios))
-        (jazz.graphic.font.platform.logfont (cond windows))))
+(import (jazz.cairo)
+        (jazz.platform))
+
+
+;;;
+;;;; Font
+;;;
+
+
+(definition public (create-cgfont-font local?
+                                       (font-name: font-name #f)
+                                       (point-size: point-size #f)
+                                       (bold?: bold? #f)
+                                       (italic?: italic? #f)
+                                       (underline?: underline? #f))
+  (if local?
+      (error "Local fonts are not supported")
+    (platformCreateFont)))
+
+
+(definition public (destroy-cgfont-font local? handle)
+  )
+
+
+;;;
+;;;; Cairo
+;;;
+
+
+(definition public (create-cairo-cgfont-font-face local? handle)
+  (cairo_quartz_font_face_create_for_cgfont handle))
+
+
+(definition public (destroy-cairo-cgfont-font-face handle)
+  (cairo_font_face_destroy handle))
+
+
+;;;
+;;;; Windows
+;;;
+
+
+(definition public (get-cgfont handle)
+  @w
+  (let ((info (LOGFONTW-make)))
+    (GetObject handle (LOGFONTW-sizeof) (LOGFONTW*->PVOID info))
+    info)))

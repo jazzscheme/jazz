@@ -289,8 +289,13 @@
       (define ios?
         (and (jazz:build-configuration) (eq? (jazz:get-configuration-platform (jazz:build-configuration)) 'ios)))
       
+      (define ios-processor
+        (and ios? (or (jazz:get-configuration-processor (jazz:build-configuration)) 'x86)))
+      
       (define ios-architecture
-        (and ios? (or (jazz:get-configuration-processor (jazz:build-configuration)) 'x86_64)))
+        (and ios? (case ios-processor
+                    ((x86) 'x86_64)
+                    (else 'arm64))))
       
       (define ios-sysroot
         (and ios? (case ios-architecture

@@ -38,17 +38,14 @@
 (module protected jazz.debuggee.jazz.Jazz-Debuggee-Process jazz
 
 
-(import @ios-convert
-        (jazz.component)
+(import (jazz.component (cond (not ios)))
         (jazz.debuggee)
         (jazz.debuggee.autoload)
         (jazz.debuggee.stub)
         (jazz.debuggee.jazz.autoload)
         (jazz.debuggee.jazz.autoload-external)
-        @ios-convert
-        (jazz.evaluate)
-        @ios-convert
-        (jazz.event)
+        (jazz.evaluate (cond (not ios)))
+        (jazz.event (cond (not ios)))
         (jazz.inspector)
         (jazz.jrm)
         (jazz.runtime)
@@ -287,7 +284,9 @@
   
   
   (method override (evaluate-expressions forms syntax str container line col evaluation-mode walk-debugger walk-cookie)
-    @ios-convert
+    (cond-expand
+      (ios)
+      (else
     (thread-call (primordial-thread) 'evaluate-expressions
       (lambda ()
         (let ((evaluate-hook (get-evaluate-forms-hook)))
@@ -298,7 +297,7 @@
                      (unless (delay-reporting?)
                        (throw exc)))
               (evaluate-forms syntax str container line col evaluation-mode)
-              (hook-evaluate forms syntax str container line col)))))))
+              (hook-evaluate forms syntax str container line col)))))))))
   
   
   ;;;
@@ -418,9 +417,11 @@
   
   
   (method override (try-out class)
-    @ios-convert
+    (cond-expand
+      (ios)
+      (else
     (let ((class (resolve-runtime-reference (deserialize-runtime-reference class))))
       (when (subtype? class Component)
         (delay-event
           (lambda ()
-            (try-out~ class))))))))
+            (try-out~ class))))))))))

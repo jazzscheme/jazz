@@ -321,6 +321,14 @@
                     #f))))
           (if (not (= exit-status 0))
               (jazz:error "C compilation failed while linking module"))
+          (if ios?
+              (let ((id (and (jazz:global-bound? 'apple-developer-id)
+                             (jazz:global-ref 'apple-developer-id))))
+                (if id
+                    (jazz:call-process
+                      (list
+                        path: "/usr/bin/codesign"
+                        arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,bin-o1))))))
           (case platform
             ((windows)
              (if jazz:single-objects?

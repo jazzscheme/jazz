@@ -228,7 +228,7 @@
 
 
 (define jazz:kernel-install
-  (or (and (%%eq? jazz:image 'executable) jazz:executable-directory (jazz:executable-directory))
+  (or (and (cond-expand (ios #t) (else (%%eq? jazz:image 'executable))) jazz:executable-directory (jazz:executable-directory))
       (and (jazz:global-bound? '*kernel-install*)
            (jazz:pathname-normalize (jazz:global-ref '*kernel-install*)))
       (if (file-exists? jazz:built)

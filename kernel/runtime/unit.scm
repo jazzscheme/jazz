@@ -2017,8 +2017,18 @@
                         quiet?)))))
 
 
+(define *jazz:verbose-port*
+  (console-port))
+
+(define (jazz:verbose-port)
+  *jazz:verbose-port*)
+
+(define (jazz:verbose-port-set! port)
+  (set! *jazz:verbose-port* port))
+
+
 (define (jazz:with-verbose flag action path proc)
-  (let ((port (console-port)))
+  (let ((port *jazz:verbose-port*))
     (define (verbose-load)
       (display (make-string (jazz:load-indent) #\space) port)
       (display "; " port)

@@ -96,6 +96,13 @@
 
 
 (cond-expand
+  (ios
+   (define jazz:ios-units
+     `((jazz.platform.ios.foreign ld-options: "-framework CoreFoundation -framework CoreGraphics" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc))))
+  (else))
+
+
+(cond-expand
   (cocoa
    (define jazz:cocoa-units
      `((jazz.platform.cocoa.foreign ld-options: "-framework Cocoa -framework OpenGL -framework IOKit" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc))))
@@ -134,7 +141,8 @@
   (ios
     (define (jazz:build-platform descriptor #!key (unit #f) (force? #f))
       (let ((unit-specs `((jazz.platform)
-                          ,@jazz:types-units)))
+                          ,@jazz:types-units
+                          ,@jazz:ios-units)))
         (jazz:custom-compile/build unit-specs unit: unit pre-build: jazz:copy-platform-files force?: force?)
         (if (or (not unit) (not (assq unit unit-specs)))
             (jazz:build-product-descriptor descriptor)))))

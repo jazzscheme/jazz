@@ -374,6 +374,7 @@
 
 (native jazz:debug-core?)
 (native jazz:debug-user?)
+(native jazz:cond-expand-features)
 (native jazz:feature-satisfied?)
 (native jazz:generate-symbol)
 (native jazz:simplify-begin)

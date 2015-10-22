@@ -43,6 +43,10 @@
 ;;;
 
 
+(define (jazz:cond-expand-features)
+  (##cond-expand-features))
+
+
 (define-macro (jazz:install-features)
   (let ((features `(jazz Jazz JAZZ jazzscheme JazzScheme JAZZSCHEME ,jazz:kernel-system ,jazz:kernel-platform ,jazz:kernel-processor ,jazz:kernel-windowing ,jazz:kernel-safety ,@jazz:kernel-features)))
     (for-each (lambda (feature)

@@ -43,6 +43,14 @@
 
 
 ;;;
+;;;; CG Types
+;;;
+
+
+(c-type CGContextRef (pointer (struct "CGContext")))
+
+
+;;;
 ;;;; Platform Header
 ;;;
 
@@ -84,6 +92,18 @@ struct PlatformWindow
     id        delegate;
     id        view;
 };
+
+//#)
+
+
+;;;
+;;;; Platform Callbacks
+;;;
+
+
+(c-declare cocoa #/Objective-C/
+
+void paint_callback(CGContextRef context, int width, int height);
 
 //#)
 
@@ -170,15 +190,22 @@ struct PlatformWindow
 {
     return YES;
 }
-
-/*
-- (void)drawRect:(NSRect)dirtyRect
+ 
+- (void)drawRect:(CGRect)rect
 {
-    // [[NSColor blackColor] set];
-    // NSRectFill(dirtyRect);
-   
-    // paint_callback(window, &dirtyRect);
-}*/
+    int width, height;
+    CGContextRef context;
+    
+    width = [self bounds].size.width;
+    height = [self bounds].size.height;
+    
+    context = UIGraphicsGetCurrentContext();
+    CGContextTranslateCTM (context, 0.0, height);
+    CGContextScaleCTM (context, 1.0, -1.0);
+    
+    paint_callback(context,width,height);
+}
+
 
 @end
 
@@ -192,13 +219,21 @@ struct PlatformWindow
 
 (c-declare ios #/Objective-C/
 
+@interface AppDelegate : UIResponder <UIApplicationDelegate>
+
+@property (strong, nonatomic) UIWindow *window;
+
+
+@end
 
 static void createWindow(PlatformWindow* window,
                               int kind)
 {
     window->kind = kind;
     
-    window->object = [[ JazzWindow alloc ] initWithFrame:[[UIScreen mainScreen] bounds]];
+    // window->delegate = [[JazzWindowDelegate alloc] initWithPlatformWindow:window];
+    
+    window->object = [[JazzWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
     ((JazzWindow*) window->object).rootViewController=[[UIViewController alloc] init];
     
     /*
@@ -210,14 +245,22 @@ static void createWindow(PlatformWindow* window,
     */
     
     [window->object setPlatformWindow:window];
-    window->view = [[JazzContentView alloc] initWithPlatformWindow:window];
-
+    window->view = [[JazzContentView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+    // window->view = [[JazzContentView alloc] initWithPlatformWindow:window];
+    ((JazzWindow*) window->object).backgroundColor = [UIColor blackColor];
     [window->object addSubview:window->view];
     [window->object setDelegate:window->delegate];
-    [window->object center];
     
     // TEST
     [window->object makeKeyAndVisible];
+    
+    AppDelegate *appDelegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
+    appDelegate.window=window->object;
+    
+    NSLog(@"Window: %@",window->object);
+    NSLog(@"View: %@",window->view);
+    NSLog(@"Hidden: %d",((JazzWindow*) window->object).hidden);
+    
 }
 
 //#)
@@ -252,4 +295,39 @@ PlatformWindow* platformCreateWindow()
 (c-type platformwindow (pointer (struct "PlatformWindow")))
 
 
-(c-external (platformCreateWindow) platformwindow))
+(c-external (platformCreateWindow) platformwindow)
+
+
+;;;
+;;;; Callbacks
+;;;
+
+
+(definition log-callbacks?
+  #f)
+
+
+(c-definition (paint-callback context width height) (CGContextRef int int) void "paint_callback" ""
+  (when *paint-callback*
+    (*paint-callback* context width height)))
+
+
+(definition *paint-callback*
+  #f)
+
+(definition public (set-paint-callback proc)
+  (set! *paint-callback* proc))
+
+
+@wait
+(c-definition (paint-callback handle rect) (platformwindow NSRect*) void "paint_callback" ""
+  (thread-execute (primordial-thread) 'execute-event
+    (lambda ()
+      (when log-callbacks?
+        (system-log (list 'paint)))
+      (when get-window
+        (let ((window (get-window handle))
+              (context (platformCurrentGraphics)))
+          ;; the mac can call this before the window is registered
+          (when window
+            (paint-cocoa~ window context rect))))))))

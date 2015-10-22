@@ -38,10 +38,19 @@
 (module angry.jazz jazz
 
 
+(import (jazz.cairo)
+        (jazz.debuggee)
+        (jazz.graphic)
+        (jazz.platform))
+
+
 ;(load-verbose? #t)
 
 
-(import (jazz.debuggee))
+(definition (ddd . rest)
+  (display rest)
+  (newline)
+  (force-output))
 
 
 (thread-start!
@@ -49,16 +58,25 @@
     (lambda ()
       (current-process-title-set! "AngryJazz")
       (set-default-context 'angry.jazz)
-      (setup-debuggee debugger: "127.0.0.1:9000")
+      (setup-debuggee debugger: "192.168.1.100:9000")
+      (ddd 'connected 'in (- (current-seconds) kernel-boot))
       (start-repl))))
 
 
-(import (jazz.cairo)
-        (jazz.platform))
+(definition (paint context width height)
+  (let ((surface (new Surface (cairo_quartz_surface_create_for_cg_context context width height))))
+    ;(set-font~ surface {Font Heading1})
+    ;(draw-text~ surface 50 200 "Angry World!" {Color White})
+    (fill-rect~ surface {Rect 0 0 100 100} {Color Red})
+    (gradient-fill-rect~ surface {Rect 0 200 400 400} (list (list 0 {Color Red}) (list 1 {Color Blue})))
+    (frame-round-rect~ surface {Rect 200 50 400 100} {Color Dark-Green})
+    (ellipse~ surface {Rect 50 450 150 550} {Color Ochre} {Color Yellow})))
+
+
+(set-paint-callback paint)
 
 
 (platformCreateWindow)
 
 
-(display 'ready)
-(newline))
+(ddd 'ready 'in (- (current-seconds) kernel-boot)))

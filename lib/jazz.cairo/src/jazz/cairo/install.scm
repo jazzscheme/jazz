@@ -40,17 +40,8 @@
 
 (cond-expand
   (cocoa
-    (jazz:register-foreign-libraries 'jazz.cairo                'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.cairo.cairo-base     'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.cairo.cairo-freetype 'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.cairo.cairo-quartz   'cairo-ft))
+    (jazz:register-foreign-libraries 'jazz.cairo 'cairo-ft))
   (windows
-    (jazz:register-foreign-libraries 'jazz.cairo                'cairo)
-    (jazz:register-foreign-libraries 'jazz.cairo.cairo-base     'cairo)
-    (jazz:register-foreign-libraries 'jazz.cairo.cairo-logfont  'cairo)
-    (jazz:register-foreign-libraries 'jazz.cairo.cairo-windows  'cairo))
+    (jazz:register-foreign-libraries 'jazz.cairo 'cairo))
   (x11
-    (jazz:register-foreign-libraries 'jazz.cairo                'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.cairo.cairo-base     'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.cairo.cairo-freetype 'cairo-ft)
-    (jazz:register-foreign-libraries 'jazz.cairo.cairo-x11      'cairo-ft))))
+    (jazz:register-foreign-libraries 'jazz.cairo 'cairo-ft))))

@@ -82,9 +82,7 @@
                                                                  (arm "lib/jazz.zlib/foreign/ios/lib/arm")))))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" png-lib-path " -L" zlib-lib-path " -framework CoreFoundation -framework CoreGraphics -lcairo -lpixman-1 -lpng16 -lz")))
-          `((jazz.cairo                cc-options: ,cc-flags ld-options: ,ld-flags output-language: objc)
-            (jazz.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags output-language: objc)
-            (jazz.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags output-language: objc))))))
+          `((jazz.cairo cc-options: ,cc-flags ld-options: ,ld-flags output-language: objc))))))
   (cocoa
     (define jazz:cairo-units
       (let ((cairo-include-path      (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/cairo/include/cairo"))
@@ -99,10 +97,7 @@
             (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lcairo.2")))
-          `((jazz.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
-            (jazz.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
-            (jazz.cairo.cairo-quartz   cc-options: ,cc-flags ld-options: ,ld-flags custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options)
-            (jazz.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
+          `((jazz.cairo cc-options: ,cc-flags ld-options: ,ld-flags custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options))))))
   (windows
     (define jazz:cairo-units
       (let ((cairo-include-path      (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/windows/cairo/include"))
@@ -121,11 +116,7 @@
             (zlib-lib-path           (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" expat-include-path " -I" png-include-path " -I" zlib-include-path))
               (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -mwindows -lcairo -lfreetype")))
-          `((jazz.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
-            (jazz.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
-            (jazz.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)
-            (jazz.cairo.cairo-logfont  cc-options: ,cc-flags ld-options: ,ld-flags)
-            (jazz.cairo.cairo-windows  cc-options: ,cc-flags ld-options: ,(string-append ld-flags " -lMsimg32")))))))
+          `((jazz.cairo cc-options: ,cc-flags ld-options: ,(string-append ld-flags " -lMsimg32")))))))
   (x11
     (define jazz:cairo-units
       (let ((cairo-name (jazz:guess-cairo-name)))
@@ -134,10 +125,7 @@
               (jazz:error "Cairo 1.4 or higher needed")
             (let ((cc-flags (jazz:pkg-config-cflags cairo-name))
                   (ld-flags (jazz:pkg-config-libs cairo-name)))
-              `((jazz.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)
-                (jazz.cairo.cairo-base     cc-options: ,cc-flags ld-options: ,ld-flags)
-                (jazz.cairo.cairo-x11      cc-options: ,cc-flags ld-options: ,ld-flags)
-                (jazz.cairo.cairo-freetype cc-options: ,cc-flags ld-options: ,ld-flags)))))))))
+              `((jazz.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)))))))))
 
 
 (cond-expand

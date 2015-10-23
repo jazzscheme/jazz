@@ -38,18 +38,9 @@
 (module jazz.cairo jazz
 
 
-(export (jazz.cairo.cairo-base)
-        (jazz.cairo.cairo-freetype (cond (not ios)))
-        (jazz.cairo.cairo-quartz   (cond (or cocoa ios)))
-        (jazz.cairo.cairo-windows  (cond windows))
-        (jazz.cairo.cairo-x11      (cond x11))
-        (jazz.cairo.cairo-logfont  (cond windows)))
-
-
 (import (jazz.foreign (phase syntax))
-        (jazz.platform.types)
-        (jazz.cairo.cairo-base)
-        (jazz.cairo.cairo-x11      (cond x11)))
+        (jazz.platform)
+        (jazz.platform.types))
 
 
 (c-include "<stdlib.h>")
@@ -64,12 +55,19 @@
 
 (cond-expand
   (ios)
-  (else
-(c-include "<cairo-pdf.h>")))
+  (else    (c-include "<cairo-pdf.h>")))
 
 
 (c-type cairo_t                (native "cairo_t"))
 (c-type cairo_t*               (pointer cairo_t cairo_t*))
+(c-type cairo_surface_t        (native "cairo_surface_t"))
+(c-type cairo_surface_t*       (pointer cairo_surface_t cairo_surface_t*))
+(c-type cairo_font_face_t      (native "cairo_font_face_t"))
+(c-type cairo_font_face_t*     (pointer cairo_font_face_t cairo_font_face_t*))
+(c-type cairo_scaled_font_t    (native "cairo_scaled_font_t"))
+(c-type cairo_scaled_font_t*   (pointer cairo_scaled_font_t cairo_scaled_font_t*))
+
+
 (c-type cairo_pattern_t        (native "cairo_pattern_t"))
 (c-type cairo_pattern_t*       (pointer cairo_pattern_t cairo_pattern_t*))
 
@@ -78,6 +76,15 @@
 (c-type cairo_rectangle_int_t* (pointer cairo_rectangle_int_t cairo_rectangle_int_t*))
 (c-type cairo_region_t         (native "cairo_region_t"))
 (c-type cairo_region_t*        (pointer cairo_region_t cairo_region_t*))
+
+
+(c-enumeration cairo_format_t
+  (CAIRO_FORMAT_ARGB32 0)
+  (CAIRO_FORMAT_RGB24  1)
+  (CAIRO_FORMAT_A8     2)
+  (CAIRO_FORMAT_A1     3))
+
+(c-type cairo_format_t int)
 
 
 (c-enumeration cairo_content_t
@@ -610,6 +617,17 @@
 
 
 ;;;
+;;;; Image Surface
+;;;
+
+
+(cond-expand
+  (ios)
+  (else
+(c-external (cairo_image_surface_create cairo_format_t int int) cairo_surface_t*)))
+
+
+;;;
 ;;;; PDF Surface
 ;;;
 
@@ -730,4 +748,128 @@ cairo_status_t u8vector_readfunc (void* closure,
 //#)
 
 (definition public (load-png-image-from-u8vector u8vector)
-  (___cairo_image_surface_create_from_png_stream u8vector)))
+  (___cairo_image_surface_create_from_png_stream u8vector))
+
+
+;;;
+;;;; Freetype
+;;;
+
+
+(cond-expand
+  (ios)
+  (else
+(import (jazz.fontconfig)
+        (jazz.freetype))
+
+
+(c-include "<cairo-ft.h>")
+
+
+(c-external (cairo_ft_scaled_font_lock_face cairo_scaled_font_t*) FT_Face)
+(c-external (cairo_ft_scaled_font_unlock_face cairo_scaled_font_t*) void)
+
+
+(c-external (cairo_ft_font_face_create_for_ft_face FT_Face* int) cairo_font_face_t*
+  #/C/
+    ___result_voidstar = cairo_ft_font_face_create_for_ft_face(*___arg1,___arg2);
+//#)
+
+
+(c-external (cairo_ft_font_face_create_for_pattern FcPattern*) cairo_font_face_t*
+  #/C/
+    ___result_voidstar = cairo_ft_font_face_create_for_pattern(___arg1);
+//#)
+
+
+(definition package (cairo_ft_glyph_index font char)
+  (let ((face (cairo_ft_scaled_font_lock_face (get-scaled-font~ font))))
+    (prog1 ((c-function FT_Get_Char_Index (FT_Face ulong) uint
+              "___result = FT_Get_Char_Index(___arg1, ___arg2);")
+            face char)
+      (cairo_ft_scaled_font_unlock_face (get-scaled-font~ font)))))))
+
+
+;;;
+;;;; Quartz
+;;;
+
+
+(cond-expand
+  ((or cocoa ios)
+(c-include "<cairo-quartz.h>")
+
+
+(c-external (cairo_quartz_surface_create cairo_format_t uint uint) cairo_surface_t*)
+(c-external (cairo_quartz_surface_create_for_cg_context CGContextRef uint uint) cairo_surface_t*)
+
+
+(cond-expand
+  (ios)
+  (else
+(definition public (create-cairo-memory-surface compatibility width height)
+  (cairo_image_surface_create CAIRO_FORMAT_ARGB32 width height))))
+
+
+(c-external (cairo_quartz_font_face_create_for_cgfont CGFontRef) cairo_font_face_t*))
+  (else))
+
+
+;;;
+;;;; Win32
+;;;
+
+
+(cond-expand
+  (windows
+(c-include "<cairo-win32.h>")
+
+
+(c-external (cairo_win32_surface_create HDC) cairo_surface_t*)
+(c-external (cairo_win32_surface_create_with_dib cairo_format_t int int) cairo_surface_t*)
+(c-external (cairo_win32_surface_create_with_ddb HDC cairo_format_t int int) cairo_surface_t*)
+(c-external (cairo_win32_surface_get_dc cairo_surface_t*) HDC)
+(c-external (cairo_win32_printing_surface_create HDC) cairo_surface_t*)
+
+
+(definition public (create-cairo-memory-surface compatibility width height)
+  (cairo_win32_surface_create_with_ddb (and compatibility (cairo_win32_surface_get_dc (get-handle~ compatibility))) CAIRO_FORMAT_RGB24 width height))
+
+
+(definition DC
+  #f)
+
+
+(definition package (cairo_logfont_glyph_index font char)
+  (unless DC
+    (set! DC (CreateCompatibleDC NULL)))
+  (SelectObject DC (get-handle~ font))
+  ;; GetGlyphIndex only supports WORD chars and Unicode chars can go to 1114111
+  (if (> char 65535)
+      128
+    (GetGlyphIndex DC char)))
+
+
+(c-external (cairo_win32_font_face_create_for_logfontw LOGFONTW*) cairo_font_face_t*))
+  (else))
+
+
+;;;
+;;;; Xlib
+;;;
+
+
+(cond-expand
+  (x11
+(import (jazz.platform.x11.x11-types))
+
+
+(c-include "<cairo-xlib.h>")
+
+
+(c-external (cairo_xlib_surface_create Display* Drawable Visual* int int) cairo_surface_t*)
+
+
+(definition public (create-cairo-memory-surface compatibility width height)
+  (cairo_image_surface_create CAIRO_FORMAT_RGB24 width height)))
+  (else)))

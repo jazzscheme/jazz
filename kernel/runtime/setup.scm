@@ -184,7 +184,7 @@ c-end
   (lambda ()
     (with-exception-catcher
       (lambda (exc)
-        (let ((dir (or jazz:jazz-settings-directory "~/.jazz/")))
+        (let ((dir (or jazz:jazz-settings-directory (%%string-append (jazz:home-directory) "/.jazz/"))))
           (jazz:create-directory dir)
           (call-with-output-file (%%string-append dir "exit.exception")
             (lambda (port)

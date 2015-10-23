@@ -2018,7 +2018,7 @@
 
 
 (define (jazz:with-verbose flag action path proc)
-  (let ((port (console-port)))
+  (let ((port (repl-output-port)))
     (define (verbose-load)
       (display (make-string (jazz:load-indent) #\space) port)
       (display "; " port)

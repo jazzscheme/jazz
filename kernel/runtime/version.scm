@@ -339,7 +339,7 @@
 
 
 (define (jazz:setup-settings)
-  (let ((settings-root "~/.jazz/"))
+  (let ((settings-root (%%string-append (jazz:home-directory) "/.jazz/")))
     (cond ((not (file-exists? settings-root))
            (let ((version (jazz:versioned-version 'settings (jazz:get-jazz-updates))))
              (if version

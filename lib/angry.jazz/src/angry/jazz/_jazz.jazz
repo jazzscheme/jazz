@@ -50,6 +50,8 @@
   (force-output))
 
 
+(cond-expand
+  (x86
 (thread-start!
   (make-thread
     (lambda ()
@@ -58,26 +60,37 @@
       (setup-debuggee debugger: "localhost:9000")
       (transmit-product-runtime-information~ (get-local-process) 'all 'angry.jazz)
       (ddd 'connected 'in (- (current-seconds) kernel-boot))
-      (start-repl))))
+      (start-repl)))))
+  (else))
 
 
 @w
 (definition (paint context width height)
   (let ((surface (new Surface (cairo_quartz_surface_create_for_cg_context context width height))))
-    (fill-rect~ surface {Rect 0 0 100 100} {Color Green})
+    (fill-rect~ surface {Rect 0 0 100 100} {Color Red})
     (gradient-fill-rect~ surface {Rect 0 200 400 400} (list (list 0 {Color Red}) (list 1 {Color Blue})))
     (frame-round-rect~ surface {Rect 200 50 400 100} {Color Dark-Green})
     (ellipse~ surface {Rect 50 450 150 550} {Color Ochre} {Color Yellow})
-    (set-font~ surface {Font Label})
-    (draw-text~ surface 50 50 "Angry World!" {Color White})))
+    ;; crashes on the device
+    (cond-expand
+      (x86
+        (set-font~ surface {Font Heading1})
+        (draw-text~ surface 185 425 "Angry Jazz!" {Color White}))
+      (else))))
+
+@comment
+(platformInvalidate window)
 
 
-@w
-(set-paint-callback paint)
+(set-paint-callback
+  ;; indirect lambda for evaluation but
+  ;; still need a way to invalidate window
+  (lambda (context width height)
+    (paint context width height)))
 
 
-@w
-(platformCreateWindow)
+(definition window
+  (platformCreateWindow))
 
 
 (ddd 'ready 'in (- (current-seconds) kernel-boot)))

@@ -38,7 +38,7 @@
 (module protected jazz.language.syntax.marshall scheme
 
 
-(export expand-marshalling)
+(export expand-state-marshalling)
 
 (import (jazz.language.runtime.kernel))
 
@@ -48,7 +48,7 @@
 (native private jazz:current-declaration-name)
 
 
-(define (expand-marshalling form)
+(define (expand-state-marshalling form)
   (define (call-getter attribute)
     (string->symbol (string-append "get-" (symbol->string (cadr attribute)) "~")))
   

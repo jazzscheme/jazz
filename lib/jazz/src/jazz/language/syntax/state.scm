@@ -64,5 +64,5 @@
 (define-macro (state . form)
   (let ((attributes (cdr form)))
     `(begin
-       ,@(expand-marshalling form)
+       ,@(expand-state-marshalling form)
        ,@attributes))))

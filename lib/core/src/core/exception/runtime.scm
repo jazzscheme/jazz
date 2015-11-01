@@ -79,7 +79,11 @@
 ;;;
 
 
-(jazz:define-class jazz:Exception-Detail jazz:Object (constructor: jazz:allocate-exception-detail)
+(jazz:define-class jazz:Exception-Detail-Class jazz:Class ()
+  ())
+
+
+(jazz:define-class jazz:Exception-Detail jazz:Object (metaclass: jazz:Exception-Detail-Class constructor: jazz:allocate-exception-detail)
   ((icon     getter: generate)
    (title    getter: generate)
    (location getter: generate)

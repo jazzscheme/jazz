@@ -3159,7 +3159,11 @@
 ;;;
 
 
-(jazz:define-class jazz:Walk-Location jazz:Object (constructor: jazz:allocate-walk-location)
+(jazz:define-class jazz:Walk-Location-Class jazz:Class ()
+  ())
+
+
+(jazz:define-class jazz:Walk-Location jazz:Object (metaclass: jazz:Walk-Location-Class constructor: jazz:allocate-walk-location)
   ((unit-locator        getter: generate)
    (declaration-locator getter: generate)
    (locat               getter: generate)

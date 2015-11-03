@@ -61,53 +61,88 @@
 #import <UIKit/UIKit.h>
 #import <CoreText/CoreText.h>
 
-typedef struct PlatformWindow            PlatformWindow;
-
 //#)
 
 
-;;;
-;;;; Platform Constants
-;;;
-
-
-(c-declare ios #/Objective-C/
-
-/* platformCreateWindow kinds */
-#define PLATFORM_WINDOW                 0x00010011
-
-//#)
-
 
 ;;;
-;;;; Platform Structures
+;;;; id
 ;;;
 
 
-(c-declare ios #/Objective-C/
-
-struct PlatformWindow
-{
-    // OS stuff
-    int       kind;
-    id        object;
-    id        delegate;
-    id        view;
-};
-
-//#)
+(c-type id (pointer (struct "objc_object")))
 
 
 ;;;
-;;;; Platform Callbacks
+;;;; Cocoa NSArray
 ;;;
 
 
-(c-declare ios #/Objective-C/
+(c-type NSArray "NSArray")
+(c-type NSArray* (pointer NSArray))
 
-void paint_callback(CGContextRef context, int width, int height);
 
-//#)
+
+(definition public NSArray-length
+  (c-function NSArray-length (NSArray*) int "___result = [___arg1 count];"))
+
+(definition public NSArray-ref
+  (c-function NSArray-ref (NSArray* int) id "___result_voidstar = [___arg1 objectAtIndex:___arg2];"))
+
+
+(definition public (nsarray->list array)
+  (let ((count (NSArray-length array)))
+    (map (lambda (n)
+           (NSArray-ref array n))
+         (naturals 0 count))))
+
+
+(definition public NSArray-make
+  (c-function NSArray-make () NSArray* 
+    "___result = [NSArray array];"))
+
+
+(definition public NSArray-addObjectAtEnd
+  (c-function NSArray-addObjectAtEnd (NSArray* id) NSArray* 
+    "___result = [___arg1 arrayByAddingObject:___arg2];"))
+
+
+(definition public (list->nsarray l)
+  (let ((a (NSArray-make)))
+    (for-each (lambda (e)
+                (set! a (NSArray-addObjectAtEnd a e)))
+              l)
+    a))
+
+
+;;;
+;;;; Screen dimensions
+;;;
+
+
+(c-external (platformGetScreenWidth) float
+  #/Objective-C/
+  ___result=([[UIScreen mainScreen] bounds].size.width);
+  //#)
+
+
+(c-external (platformGetScreenHeight) float
+  #/Objective-C/
+  ___result=([[UIScreen mainScreen] bounds].size.height);
+  //#)
+
+
+;;;
+;;;; Library path
+;;;
+
+
+(c-external (platformGetLibraryPath) char-string
+  #/Objective-C/
+  NSArray *paths = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES);
+  NSString *libraryDirectory = [paths objectAtIndex:0];
+  ___result=[libraryDirectory cStringUsingEncoding:NSUTF8StringEncoding];
+  //#)
 
 
 ;;;
@@ -136,88 +171,131 @@ void paint_callback(CGContextRef context, int width, int height);
 
 
 ;;;
-;;;; Platform Jazz Window
+;;;; Platform Window
+;;;
+
+
+
+(c-type uiwindow (pointer "UIWindow"))
+
+(c-external (platformMakeUIWindow) uiwindow
+  #/Objective-C/
+  
+  ___result=[[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
+  NSLog(@"Screen: %@",[UIScreen mainScreen]);
+  ___result.userInteractionEnabled=YES;
+  //#)
+
+
+(c-external (UIWindowAddSubview uiwindow uiview) void
+  #/Objective-C/
+  UIView *topView=___arg1.rootViewController.view;
+  [___arg1 addSubview: ___arg2];
+  //#)
+
+
+(c-external (UIWindowMakeKeyAndVisible uiwindow) void
+  #/Objective-C/
+  [___arg1 makeKeyAndVisible];
+  //#)
+
+
+(c-external (UIWindowSetRootViewController uiwindow uiviewcontroller) void
+  #/Objective-C/
+  [___arg1 setRootViewController:___arg2];
+  //#)
+
+
+
+;;;
+;;;; UIColor
+;;;
+
+
+(c-type uicolor (pointer "UIColor"))
+
+(c-external (platformMakeUIColor float float float float) uicolor
+  #/Objective-C/
+  ___result=[UIColor colorWithRed: ___arg1 green: ___arg2 blue: ___arg3 alpha: ___arg4];
+           
+  //#)
+
+
+;;;
+;;;; JazzUIViewController
 ;;;
 
 
 (c-declare ios #/Objective-C/
-
-@interface JazzWindow : UIWindow
-{
-    PlatformWindow* window;
-    
-}
-
-- (void)setPlatformWindow:(PlatformWindow*)win;
-
+@interface JazzUIViewController : UIViewController {}
 @end
-
-@implementation JazzWindow
-
-- (void)setPlatformWindow:(PlatformWindow*)win
+@implementation JazzUIViewController
+                
+                
+- (void)touchesBegan:(NSSet<UITouch *> *)touches
+           withEvent:(UIEvent *)event  
 {
-    window = win;
-}
-
-- (BOOL)canBecomeKeyWindow
-{
-    return window->kind == PLATFORM_WINDOW;
-}
-
+    NSLog(@"TouchC");
+    NSLog(@"Event: %@",event);
+    [self.view removeFromSuperview];
+ 
+     [super touchesBegan:touches withEvent:event];
+}  
+               
 @end
 
 //#)
 
 
 ;;;
-;;;; Platform Jazz Content View
+;;;; UIView
 ;;;
 
 
 (c-declare ios #/Objective-C/
 
-@interface JazzContentView : UIView
-{
-    PlatformWindow* window;
-}
-
-- (id)initWithPlatformWindow:(PlatformWindow*)initWindow;
-
+@interface JazzUIView : UIView {}
 @end
+@implementation JazzUIView
+                
+extern void jazz_call_touchdown(UIView*,float,float);
+extern void jazz_call_touchmove(UIView*,float,float);
+extern void jazz_call_touchup(UIView*,float,float);
+extern void paint_callback(UIView*,CGContextRef context, int width, int height);
 
-@implementation JazzContentView
-
-- (BOOL)isFlipped
+                
+- (void)touchesBegan:(NSSet<UITouch *> *)touches
+           withEvent:(UIEvent *)event  
 {
-    return YES;
+    UITouch *touch = [[event allTouches] anyObject];
+    CGPoint touchLocation = [touch locationInView:self];   
+    jazz_call_touchdown(self,touchLocation.x,touchLocation.y);
+    [super touchesBegan:touches withEvent:event];
+}  
+
+- (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event
+{
+   UITouch *touch = [[event allTouches] anyObject];
+   CGPoint touchLocation = [touch locationInView:self];   
+   jazz_call_touchmove(self,touchLocation.x,touchLocation.y);
+   [super touchesMoved:touches withEvent:event];
 }
 
-- (id)initWithPlatformWindow:(PlatformWindow*)initWindow
-{
-    self = [super init];
-    if (self != nil)
-    {
-        window = initWindow;
-    }
 
-    return self;
+- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
+{
+   UITouch *touch = [[event allTouches] anyObject];
+   CGPoint touchLocation = [touch locationInView:self];   
+   jazz_call_touchup(self,touchLocation.x,touchLocation.y);
+   [super touchesEnded:touches withEvent:event];
 }
 
-- (BOOL)isOpaque
+- (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event
 {
-    return YES;
+   [super touchesCancelled:touches withEvent:event];
 }
 
-- (BOOL)canBecomeKeyView
-{
-    return YES;
-}
 
-- (BOOL)acceptsFirstResponder
-{
-    return YES;
-}
- 
 - (void)drawRect:(CGRect)rect
 {
     int width, height;
@@ -230,124 +308,61 @@ void paint_callback(CGContextRef context, int width, int height);
     CGContextTranslateCTM (context, 0.0, height);
     CGContextScaleCTM (context, 1.0, -1.0);
     
-    paint_callback(context,width,height);
+    paint_callback(self,context,width,height);
 }
 
-
+                
 @end
 
 //#)
 
 
-;;;
-;;;; Platform Window Creation
-;;;
+(c-type jazzuiview (pointer "JazzUIView"))
+(c-type uiview (pointer "UIView"))
 
 
-(c-declare ios #/Objective-C/
+(c-external (platformCreateUIView float float float float) uiview
+  #/Objective-C/
+  CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
+  ___result=[[JazzUIView alloc] initWithFrame:viewRect];
+  ___result.userInteractionEnabled=YES;
+  //#)
 
-@interface AppDelegate : UIResponder <UIApplicationDelegate>
-
-@property (strong, nonatomic) UIWindow *window;
-
-
-@end
-
-static void createWindow(PlatformWindow* window,
-                              int kind)
-{
-    window->kind = kind;
-    
-    // window->delegate = [[JazzWindowDelegate alloc] initWithPlatformWindow:window];
-    
-    window->object = [[JazzWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-    ((JazzWindow*) window->object).rootViewController=[[UIViewController alloc] init];
-    
-    /*
-    window->object = [[JazzWindow alloc]
-        initWithContentRect:NSMakeRect(0, 0, window->width, window->height)
-                  styleMask:styleMask
-                    backing:NSBackingStoreBuffered
-                      defer:NO];
-    */
-    
-    [window->object setPlatformWindow:window];
-    window->view = [[JazzContentView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-    // window->view = [[JazzContentView alloc] initWithPlatformWindow:window];
-    ((JazzWindow*) window->object).backgroundColor = [UIColor blackColor];
-    [window->object addSubview:window->view];
-    [window->object setDelegate:window->delegate];
-    
-    // TEST
-    [window->object makeKeyAndVisible];
-    
-    AppDelegate *appDelegate = (AppDelegate *)[[UIApplication sharedApplication] delegate];
-    appDelegate.window=window->object;
-}
-
-//#)
+(c-external (UIViewSetBackgroundColor uiview uicolor) void
+  #/Objective-C/
+  [___arg1 setBackgroundColor: ___arg2];
+  //#)
 
 
-;;;
-;;;; Platform Window
-;;;
+(c-external (UIViewAddSubview uiview uiview) void
+  #/Objective-C/
+  [___arg1 addSubview: ___arg2];
+  //#)
+
+(c-external (UIViewSetUserInteractionEnabled uiview int) void
+  #/Objective-C/
+  ___arg1.userInteractionEnabled=___arg2;
+  //#)
 
 
-(c-declare ios #/Objective-C/
-
-void platformInvalidate(PlatformWindow* window)
-{
-    [window->view setNeedsDisplay];
-}
-
-//#)
-
-
-;;;
-;;;; Platform Window Input
-;;;
-
-
-(c-declare ios #/Objective-C/
-
-PlatformWindow* platformCreateWindow()
-{
-    PlatformWindow* window;
-
-    window = (PlatformWindow*) calloc(1, sizeof(PlatformWindow));
-    
-    createWindow(window, PLATFORM_WINDOW);
-    
-    return window;
-}
-
-//#)
-
-
-;;;
-;;;; Platform
-;;;
-
-
-(c-type platformwindow (pointer (struct "PlatformWindow")))
-
-
-(c-external (platformCreateWindow) platformwindow)
-(c-external (platformInvalidate platformwindow) void)
-
+(c-external (UIViewSetCornerRadius uiview float) void
+  #/Objective-C/
+  ___arg1.layer.cornerRadius=___arg2;
+  //#)
 
 ;;;
 ;;;; Callbacks
 ;;;
 
 
-(definition log-callbacks?
-  #f)
+;;;
+;;;; paint
+;;;
 
 
-(c-definition (paint-callback context width height) (CGContextRef int int) void "paint_callback" ""
+(c-definition (paint-callback view context width height) (uiview CGContextRef int int) void "paint_callback" ""
   (when *paint-callback*
-    (*paint-callback* context width height)))
+    (*paint-callback* view context width height)))
 
 
 (definition *paint-callback*
@@ -357,15 +372,697 @@ PlatformWindow* platformCreateWindow()
   (set! *paint-callback* proc))
 
 
-@wait
-(c-definition (paint-callback handle rect) (platformwindow NSRect*) void "paint_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when log-callbacks?
-        (system-log (list 'paint)))
-      (when get-window
-        (let ((window (get-window handle))
-              (context (platformCurrentGraphics)))
-          ;; the mac can call this before the window is registered
-          (when window
-            (paint-cocoa~ window context rect))))))))
+;;;
+;;;; touches
+;;;
+
+
+(c-definition (jazz-call-touchdown view x y) (uiview float float) void "jazz_call_touchdown" ""
+  (when *touch-began-callback*
+    (*touch-began-callback* view x y)))
+
+
+(definition *touch-began-callback*
+  #f)
+
+
+(definition public (set-touch-began-callback proc)
+  (set! *touch-began-callback* proc))
+
+
+(c-definition (jazz-call-touchmove view x y) (uiview float float) void "jazz_call_touchmove" ""
+  (when *touch-move-callback*
+    (*touch-move-callback* view x y)))
+
+
+(definition *touch-move-callback*
+  #f)
+
+
+(definition public (set-touch-move-callback proc)
+  (set! *touch-move-callback* proc))
+
+
+(c-definition (jazz-call-touchup view x y) (uiview float float) void "jazz_call_touchup" ""
+  (when *touch-up-callback*
+    (*touch-up-callback* view x y)))
+
+
+(definition *touch-up-callback*
+  #f)
+
+
+(definition public (set-touch-up-callback proc)
+  (set! *touch-up-callback* proc))
+
+
+;;;
+;;;; JazzUITableView
+;;;
+
+
+(c-declare ios #/Objective-C/
+
+@interface JazzUITableView : UITableView <UITableViewDataSource,UITableViewDelegate> {}
+@end
+@implementation JazzUITableView
+                
+- (id)init
+{
+  [super init];
+  self.dataSource=self;
+  [self setDelegate:self];
+  [self setAllowsSelection:YES];
+  return self;
+}
+
+extern UITableViewCell *jazz_call_cell_for_row(JazzUITableView*,int,int);
+extern int jazz_call_editing_style_for_row (JazzUITableView*,int,int);
+extern void jazz_call_edit_action_for_row(JazzUITableView*,int,int);
+extern int jazz_call_number_of_sections(JazzUITableView*);
+extern int jazz_call_number_of_rows(JazzUITableView*,int);
+extern void jazz_call_did_select(JazzUITableView*,int,int);
+
+- (UITableViewCell *)tableView:(UITableView *)tableView
+         cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+   return jazz_call_cell_for_row(self,(int)[indexPath indexAtPosition:0],(int)[indexPath indexAtPosition:1]);
+} 
+
+- (UITableViewCellEditingStyle)tableView:(UITableView *)tableView
+           editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+ return jazz_call_editing_style_for_row(self,(int)[indexPath indexAtPosition:0],(int)[indexPath indexAtPosition:1]);
+}
+
+
+- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath
+{
+   jazz_call_edit_action_for_row(self,(int)[indexPath indexAtPosition:0],(int)[indexPath indexAtPosition:1]);
+}
+
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
+{
+   return (NSInteger)jazz_call_number_of_sections(self);
+}
+ 
+- (NSInteger)tableView:(UITableView *)tableView
+ numberOfRowsInSection:(NSInteger)section
+{
+ return (NSInteger)jazz_call_number_of_rows(self,(int)section);
+}
+
+- (NSArray<NSString *> *)sectionIndexTitlesForTableView:(UITableView *)tableView
+{
+ return nil;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+  jazz_call_did_select(self,(int)[indexPath indexAtPosition:0],(int)[indexPath indexAtPosition:1]);
+}
+
+
+
+                
+@end
+
+//#)
+
+
+(c-type uitableview (pointer "JazzUITableView"))
+(c-type uitableviewcell (pointer "UITableViewCell"))
+
+(c-definition (jazz-call-cell-for-row table i j) (uitableview int int) uitableviewcell "jazz_call_cell_for_row" ""
+  (when *cell-for-row-callback*
+    (*cell-for-row-callback* table i j)))
+
+
+(c-definition (jazz-call-editing-style-for-row table i j) (uitableview int int) int "jazz_call_editing_style_for_row" ""
+  (when *cell-edit-style-for-row-callback*
+    (*cell-edit-style-for-row-callback* table i j)))
+
+(c-definition (jazz-call-edit-action-for-row table i j) (uitableview int int) void "jazz_call_edit_action_for_row" ""
+  (when *cell-call-action-for-row-callback*
+    (*cell-call-action-for-row-callback* table i j)))
+
+
+(c-definition (jazz-call-number-of-sections table) (uitableview) int "jazz_call_number_of_sections" ""
+  (when *number-of-sections-callback*
+    (*number-of-sections-callback* table)))
+
+
+(c-definition (jazz-call-number-of-rows table section) (uitableview int) int "jazz_call_number_of_rows" ""
+  (when *number-of-rows-callback*
+    (*number-of-rows-callback* table section)))
+
+
+(c-definition (jazz-call-did-select table i j) (uitableview int int) void "jazz_call_did_select" ""
+  (when *did-select-callback*
+    (*did-select-callback* table i j)))
+
+
+(definition *did-select-callback*
+  #f)
+
+
+(definition public (set-did-select-callback proc)
+  (set! *did-select-callback* proc))
+  
+
+(definition *cell-for-row-callback*
+  #f)
+
+
+(definition public (set-edit-style-callback proc)
+  (set! *cell-edit-style-for-row-callback* proc))
+
+
+(definition *cell-edit-style-for-row-callback*
+  #f)
+
+
+(definition public (set-edit-action-callback proc)
+  (set! *cell-call-action-for-row-callback* proc))
+
+
+(definition *cell-call-action-for-row-callback*
+  #f)
+
+
+(definition public (set-cell-for-row-callback proc)
+  (set! *cell-for-row-callback* proc))
+
+
+(definition *number-of-sections-callback*
+  #f)
+
+(definition public (set-number-of-sections-callback proc)
+  (set! *number-of-sections-callback* proc))
+
+
+(definition *number-of-rows-callback*
+  #f)
+
+(definition public (set-number-of-rows-callback proc)
+  (set! *number-of-rows-callback* proc))
+
+
+(c-external (platformCreateUITableView float float float float int) uiview
+  #/Objective-C/
+  CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
+  ___result=[[JazzUITableView alloc] initWithFrame:viewRect style:___arg5];
+  ((UITableView *)___result).dataSource=___result;
+  //#)
+
+(c-external (platformSetDelegate uiview uiview) void
+  "[___arg1 setDelegate:___arg2];")
+
+
+(c-external (platformSetEditableMode uiview int) void
+  #/Objective-C/
+  [(UITableView *)___arg1 setEditing:___arg2 animated: YES];
+  //#)
+
+(c-external (platformTableDeleteRow uiview int int) void
+  #/Objective-C/
+  NSIndexPath *path=[[NSIndexPath alloc] initWithIndex:___arg2];
+  NSIndexPath *path2=[path indexPathByAddingIndex:___arg3];
+  [(UITableView *)___arg1 deleteRowsAtIndexPaths:[NSArray arrayWithObject:path2]
+                       withRowAnimation:UITableViewRowAnimationFade];
+  //#)
+
+
+(c-external (platformTableReload uiview) void
+  #/Objective-C/
+  
+  [(UITableView *)___arg1 reloadData];
+  //#)
+
+
+(c-external (platformSetAllowSelectionInEditMode uiview int) void
+  #/Objective-C/
+  ((UITableView *)___arg1).allowsSelectionDuringEditing=___arg2;
+  //#)
+
+;;;
+;;;; UITableViewCell
+;;;
+
+
+(c-external (platformCreateUITableViewCell) uitableviewcell
+  "___result=[[UITableViewCell alloc] initWithStyle:3 reuseIdentifier:nil];")
+
+
+(c-external (UITableViewCellsetTitle uitableviewcell char-string) void
+  "___arg1.textLabel.text=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];")
+
+
+(c-external (UITableViewCellsetSubTitle uitableviewcell char-string) void
+  "___arg1.detailTextLabel.text=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];")
+  
+
+(c-external (UITableViewCellsetImage uitableviewcell uiimage) void
+  "___arg1.imageView.image=___arg2;")
+
+
+;;;
+;;;; UIViewController
+;;;
+
+
+(c-type uiviewcontroller (pointer "UIViewController"))
+
+
+(c-external (platformCreateUIViewController) uiviewcontroller
+  "___result=[[UIViewController alloc] init];")
+  
+
+(c-external (UIViewControllerSetView uiviewcontroller uiview) void
+  "___arg1.view=___arg2;")
+
+
+(c-external (UIViewControllerSetTitle uiviewcontroller char-string) void
+  "___arg1.title=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];")
+
+
+;;;
+;;;; UINavigationController
+;;;
+
+
+(c-type uinavigationcontroller (pointer "UINavigationController"))
+
+
+(c-external (platformCreateUINavigationController uiviewcontroller) uiviewcontroller
+  "___result=[[UINavigationController alloc] initWithRootViewController:___arg1];")
+
+
+(c-external (UINavigationControllerSetRootController uiviewcontroller uiviewcontroller) void
+  "[___arg1 setViewControllers:[NSArray arrayWithObject:___arg2]];")
+
+
+(c-external (UINavigationControllerPushController uiviewcontroller uiviewcontroller) void
+  "[___arg1 pushViewController:___arg2 animated:YES];")
+
+
+(c-external (UINavigationControllerPopController uiviewcontroller) void
+  "[___arg1 popViewControllerAnimated:YES];")
+
+;;;
+;;;; UIScrollView
+;;;
+
+
+(c-type uiscrollview (pointer "UIScrollView"))
+
+
+(c-declare ios #/Objective-C/
+
+@interface JazzUIScrollView : UIScrollView <UIScrollViewDelegate> {}
+@end
+@implementation JazzUIScrollView
+
+- (UIView *)viewForZoomingInScrollView:(UIScrollView *)scrollView
+{
+    return [[self subviews] objectAtIndex:0];
+}
+
+
+- (void)scrollViewDidEndZooming:(UIScrollView *)scrollView
+                       withView:(UIView *)view
+                        atScale:(CGFloat)scale
+{
+}
+
+
+@end
+
+//#)
+
+(c-external (platformCreateUIScrollView float float float float) uiview
+  #/Objective-C/
+  CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
+  ___result=[[JazzUIScrollView alloc] initWithFrame:viewRect];
+  //#)
+
+
+(c-external (UIScrollViewAddSubview uiview uiview) void
+  #/Objective-C/
+  [___arg1 addSubview: ___arg2];
+  //#)
+
+
+(c-external (UIScrollViewSetScrollDimensions uiview float float) void
+  #/Objective-C/
+  CGSize size=CGSizeMake(___arg2,___arg3);
+  ((UIScrollView *)___arg1).contentSize=size;
+  //#)
+
+(c-external (UIScrollViewSetMinZoom uiview float) void
+  #/Objective-C/
+  
+  ((UIScrollView *)___arg1).minimumZoomScale=___arg2;
+  //#)
+
+
+(c-external (UIScrollViewSetMaxZoom uiview float) void
+  #/Objective-C/
+  
+  ((UIScrollView *)___arg1).maximumZoomScale=___arg2;
+  //#)
+
+
+(c-external (UIScrollViewSetDelegate uiview uiview) void
+  #/Objective-C/
+  
+  [((UIScrollView *)___arg1) setDelegate:___arg2];
+  //#) 
+
+
+(c-external (UIScrollViewGetDelegate uiview) uiview
+         #/Objective-C/
+         
+   ___result=((UIScrollView *)___arg1).delegate;
+         //#)
+         
+        
+;;;
+;;;; JazzUITextField
+;;;
+
+
+(c-type uitextfield (pointer "JazzUITextField"))
+
+
+(c-declare ios #/Objective-C/
+
+@interface JazzUITextField : UITextField <UITextFieldDelegate> {}
+@end
+@implementation JazzUITextField
+
+extern void jazz_call_textfield_end_edit(UIView *);
+
+- (void)textFieldDidEndEditing:(UITextField *)textField
+{
+    jazz_call_textfield_end_edit(self);
+}
+
+@end
+
+//#)
+
+
+(c-external (platformCreateUITextField float float float float) uiview
+  #/Objective-C/
+  CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
+  ___result=[[JazzUITextField alloc] initWithFrame:viewRect];
+  //#)
+
+
+(c-external (UITextFieldSetFontSize uiview float) void
+  #/Objective-C/
+  ((UITextField *)___arg1).font=[UIFont systemFontOfSize:___arg2];
+  //#)
+
+
+(c-external (UITextFieldSetPlaceholder uiview char-string) void
+  #/Objective-C/
+  ((UITextField *)___arg1).placeholder=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];
+  //#)
+
+(c-external (UITextFieldSetContent uiview char-string) void
+  #/Objective-C/
+  ((UITextField *)___arg1).text=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];
+  //#)
+
+
+(c-external (UITextFieldGetContent uiview) char-string
+  #/Objective-C/
+  ___result=[((UITextField *)___arg1).text cStringUsingEncoding:NSUTF8StringEncoding];
+  //#)
+
+
+(c-definition (jazz-call-textfield-end-edit field) (uiview) void "jazz_call_textfield_end_edit" ""
+  (when *textfield-end-edit-callback*
+    (*textfield-end-edit-callback* field)))
+
+
+(definition *textfield-end-edit-callback*
+  #f)
+
+
+(definition public (set-textfield-endedit-callback proc)
+  (set! *textfield-end-edit-callback* proc))
+
+
+;;;
+;;;; JazzUITextView
+;;;
+
+
+(c-type uitextview (pointer "JazzUITextView"))
+
+
+(c-declare ios #/Objective-C/
+  
+@interface JazzUITextView : UITextView <UITextViewDelegate> {}
+@end
+@implementation JazzUITextView
+                                             
+- (void)textViewDidEndEditing:(UITextField *)textField
+{
+    NSLog(@"Text end edit");
+}
+                                             
+@end
+                                             
+//#)
+
+
+(c-external (platformCreateUITextView float float float float) uiview
+  #/Objective-C/
+  CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
+  ___result=[[JazzUITextView alloc] initWithFrame:viewRect];
+  //#)
+
+
+(c-external (UITextViewSetFontSize uiview float) void
+  #/Objective-C/
+  ((UITextView *)___arg1).font=[UIFont systemFontOfSize:___arg2];
+  //#)
+
+
+;;;
+;;;; UIImage
+;;;
+
+
+(c-type uiimage (pointer "UIImage"))
+
+(c-external (platformCreateUIImage) uiimage
+  #/Objective-C/
+   ___result=[[UIImage alloc] init];
+  //#)
+
+(c-type uiimageview (pointer "UIImageView"))
+
+
+(c-external (platformCreateUIImageView float float float float) uiview
+  #/Objective-C/
+  CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
+  ___result=[[UIImageView alloc] initWithFrame:viewRect];
+  //#)
+  
+  
+(c-external (UIImageViewSetImage uiview uiimage) void
+  #/Objective-C/
+  ((UIImageView *)___arg1).image=___arg2;
+  //#)
+
+
+(c-external (UIImageMaskedCircle uiimage) uiimage
+  #/Objective-C/
+  CGImageRef orig=___arg1.CGImage;
+  UIImage *umask=[UIImage imageNamed:@"cmask"];
+  CGImageRef mask=umask.CGImage;
+  CGImageRef masked=CGImageCreateWithMask(orig,mask);
+  ___result=[UIImage imageWithCGImage:masked];
+  //#)
+
+
+(c-external (UIImageNamed char-string) uiimage
+  #/Objective-C/
+  ___result=[UIImage imageNamed:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
+  //#)
+
+(c-external (UISaveToPNG uiimage char-string) void
+  #/Objective-C/
+  [UIImagePNGRepresentation(___arg1) writeToFile:[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding] atomically:YES];
+  //#)
+
+
+(c-external (UIImageLoadFromPNG char-string) uiimage
+  #/Objective-C/
+  ___result=[[UIImage alloc] initWithContentsOfFile:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
+  //#)
+
+
+;;;
+;;;; Camera
+;;;
+
+(c-declare ios #/Objective-C/
+  
+  extern void jazz_call_media_captured(UIImagePickerController *,UIImage *);
+  
+  @interface JazzMediaCaptureController : UIViewController <UIImagePickerControllerDelegate> {}
+  @end
+  @implementation JazzMediaCaptureController
+                                          
+  - (void)imagePickerController:(UIImagePickerController *)picker
+        didFinishPickingImage:(UIImage *)image
+                  editingInfo:(NSDictionary<NSString *,
+                               id> *)editingInfo
+  {
+    [picker dismissViewControllerAnimated:YES completion:nil];
+    NSLog(@"Picked image");
+    jazz_call_media_captured(picker,image);
+  }                                        
+                                                                                    
+  @end
+                                          
+//#)
+
+(c-type uiimagepickercontroller (pointer "UIImagePickerController"))
+
+
+(c-external (platformCaptureMedia uiviewcontroller int) uiimagepickercontroller
+  #/Objective-C/
+  UIImagePickerController *cameraUI = [[UIImagePickerController alloc] init];
+    cameraUI.sourceType = ___arg2;
+ 
+    // Displays a control that allows the user to choose picture or
+    // movie capture, if both are available:
+    cameraUI.mediaTypes =
+        [UIImagePickerController availableMediaTypesForSourceType:
+            ___arg2];
+ 
+    // Hides the controls for moving & scaling pictures, or for
+    // trimming movies. To instead show the controls, use YES.
+    cameraUI.allowsEditing = YES;
+ 
+    cameraUI.delegate = [[JazzMediaCaptureController alloc] init];
+ 
+    [___arg1 presentModalViewController: cameraUI animated: YES];
+    
+    ___result=cameraUI;
+  //#)
+
+
+(c-definition (jazz-call-media-captured ctrl image) (uiimagepickercontroller uiimage) void "jazz_call_media_captured" ""
+  (when *media-captured-callback*
+    (*media-captured-callback* ctrl image)))
+
+
+(definition *media-captured-callback*
+  #f)
+
+
+(definition public (set-media-captured-callback proc)
+  (set! *media-captured-callback* proc))
+
+
+
+;;;
+;;;; UIButton
+;;;
+
+
+
+(c-definition (jazz-call-button-pushed view) (uiview) void "jazz_call_button_pushed" ""
+  (when *button-push-callback*
+    (*button-push-callback* view)))
+
+
+(definition *button-push-callback*
+  #f)
+
+
+(definition public (set-button-push-callback proc)
+  (set! *button-push-callback* proc))
+
+
+
+(c-declare ios #/Objective-C/
+  
+  @interface JazzUIButton : UIButton {}
+  @end
+  @implementation JazzUIButton
+                                                                             
+                                                
+  -(void)buttonClicked:(UIButton *)sender
+  {
+     jazz_call_button_pushed(self);
+  }                                           
+  @end
+                                            
+//#)
+
+
+
+(c-external (platformCreateUIButton float float float float) uiview
+  #/Objective-C/
+  CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
+  UIButton *but= [JazzUIButton buttonWithType:UIButtonTypeRoundedRect];
+  [but addTarget:but action:@selector(buttonClicked:) forControlEvents:UIControlEventTouchUpInside];
+  [but setFrame:viewRect];
+  [but setBackgroundColor:[UIColor whiteColor]];
+  [but setExclusiveTouch:YES];
+  but.layer.cornerRadius = 10;
+  ___result=but;
+  //#)
+
+
+(c-external (UIButtonSetTitle uiview char-string) void
+  #/Objective-C/
+  [___arg1 setTitle:[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding] forState:UIControlStateNormal];
+
+  //#)
+
+
+;;;
+;;;; UILabel
+;;;
+
+
+(c-external (platformCreateUILabel float float float float) uiview
+  #/Objective-C/
+  CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
+  ___result=[[UILabel alloc] initWithFrame:viewRect];
+  //#)
+
+
+(c-external (UILabelSetFontSize uiview float) void
+  #/Objective-C/
+  ((UILabel *)___arg1).font=[UIFont systemFontOfSize:___arg2];
+  //#)
+
+
+(c-external (UILabelSetText uiview char-string) void
+  #/Objective-C/
+  ((UILabel *)___arg1).text=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];
+  //#)
+
+
+(c-external (UILabelSetTextAlignment uiview int) void
+  #/Objective-C/
+  ((UILabel *)___arg1).textAlignment=___arg2;
+  //#)
+
+
+
+
+
+)

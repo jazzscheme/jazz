@@ -1,0 +1,478 @@
+(module angry.objcproxy jazz
+
+(import (jazz.platform))
+
+
+;;;
+;;;; widgets
+;;;
+
+
+(definition widgets (make-table test: eqv?))
+
+
+(definition public (register-widget handle widget)
+  (table-set! widgets (foreign-address handle) widget))
+
+
+(definition public (get-widget foreign)
+  (table-ref widgets (foreign-address foreign)))
+
+
+
+;;;
+;;;; IOS-Class-Proxy
+;;;
+
+
+(class IOS-Class-Proxy extends Object
+  
+  (slot handle getter generate)
+ 
+  (method override (initialize handle)
+    (set! handle~self handle))
+  
+  )
+
+
+;;;
+;;;; IOS-UIWindow
+;;;
+
+
+(class IOS-UIWindow extends IOS-Class-Proxy)
+
+
+(definition public (UIWindow . children)
+  (let ((handle (platformMakeUIWindow)))
+    (let ((window (new IOS-UIWindow handle)))
+      (register-widget handle window)
+      (for-each (lambda (child)
+                  (uiwindow-addSubview window child))
+                children)
+      window)))
+
+
+(definition public (uiwindow-addSubview window view)
+  (UIWindowAddSubview (get-handle~ window) (get-handle~ view)))
+
+
+(definition public (uiwindow-makeKeyAndVisible window)
+  (UIWindowMakeKeyAndVisible (get-handle~ window)))
+
+
+(definition public (uiwindow-setRootViewController window ctrl)
+  (UIWindowSetRootViewController (get-handle~ window) (get-handle~ ctrl)))
+
+
+;;;
+;;;; IOS-UIColor
+;;;
+
+
+(class IOS-UIColor extends IOS-Class-Proxy
+  
+  (slot red accessors generate)
+  (slot green accessors generate)
+  (slot blue accessors generate)
+  (slot alpha accessors generate)
+ 
+)
+
+
+(definition public (UIColor #!key (red 1.0) (green 1.0) (blue 1.0) (alpha 1.0))
+  (let ((handle (platformMakeUIColor red green blue alpha)))
+    (let ((color (new IOS-UIColor handle)))
+      (register-widget handle color)
+      color)))
+
+
+;(set-mouse-down-callback 
+;  (lambda (foreign)
+;    (mouse-down~ (get-widget foreign))))
+
+
+;;;
+;;;; IOS-View
+;;;
+
+
+(class IOS-View extends IOS-Class-Proxy
+  
+  (slot background-color accessors explicit)
+  (slot on-touch-down accessors generate)
+  (slot on-touch-move accessors generate)
+  (slot on-touch-up accessors generate)
+  (slot paint-callback accessors generate)
+  
+  (method public virtual (get-background-color)
+    background-color)
+  
+  (method public virtual (set-background-color color)
+    (set! background-color color)
+    (UIViewSetBackgroundColor handle~self (get-handle~ color))
+    #t)
+  
+  (method public virtual (touch-down x y)
+    (and on-touch-down 
+         (on-touch-down x y)))
+  
+  (method public virtual (touch-up x y)
+    (and on-touch-up 
+         (on-touch-up x y)))
+  
+  )
+
+
+(definition public (UIView #!key (x 0.) (y 0.) (width 100.) (height 100.) (corner-radius 0.) (background-color (UIColor alpha: 0.))
+                     (on-touch-down #f) (on-touch-up #f) (on-touch-move #f) (paint-callback #f) #!rest children)
+  (let ((handle (platformCreateUIView x y width height)))
+    (let ((view (new IOS-View handle)))
+      (set-on-touch-down~ view on-touch-down)
+      (set-on-touch-move~ view on-touch-move)
+      (set-on-touch-up~ view on-touch-up)
+      (set-paint-callback~ view paint-callback)
+      (UIViewSetCornerRadius handle corner-radius)
+      ;(UIViewSetUserInteractionEnabled handle 1)
+      (register-widget handle view)
+      (UIViewSetBackgroundColor handle (get-handle~ background-color))
+      (for-each (lambda (child)
+                  (UIViewAddSubview handle (get-handle~ child)))
+                children) 
+      ;(UIViewSetCornerRadius handle corner-radius)
+      view)))
+
+
+(set-paint-callback
+  (lambda (view context width height)
+    (let* ((sview (get-widget view))
+           (pcb (and sview 
+                     (get-paint-callback~ sview))))
+      (and pcb
+           (pcb sview context width height)))))
+
+
+(set-touch-began-callback 
+  (lambda (view x y)
+    (let* ((sview (get-widget view))
+           (pcb (and sview 
+                     (get-on-touch-down~ sview))))
+      (and pcb
+           (pcb sview x y)))))
+
+
+(set-touch-up-callback 
+  (lambda (view x y)
+    (let* ((sview (get-widget view))
+           (pcb (and sview 
+                     (get-on-touch-up~ sview))))
+      (and pcb
+           (pcb sview x y)))))
+
+
+
+(set-touch-move-callback 
+  (lambda (view x y)
+    (let* ((sview (get-widget view))
+           (pcb (and sview 
+                     (get-on-touch-move~ sview))))
+      (and pcb
+           (pcb sview x y)))))
+
+;;;
+;;;; IOS-TableView
+;;;
+
+
+(class IOS-TableView extends IOS-Class-Proxy
+  
+  (slot number-of-sections accessors generate)
+  (slot number-of-rows-in-section accessors generate)
+  (slot cell-for-section-row accessors generate)
+  (slot cell-edit-style-for-section-row accessors generate)
+  (slot edit-action-for-section-row accessors generate)
+  (slot on-row-select accessors generate)
+  )
+
+
+(definition public (UITableView #!key (x 0.) (y 0.) (width 100.) (height 100.) (cell-constructor #f) (number-of-sections (lambda () 1)) (number-of-rows-in-section (lambda (i) 1)) (on-row-select #f) (cell-edit-style #f) (cell-edit-action #f))
+  (let ((handle (platformCreateUITableView x y width height 1)))
+    (let ((view (new IOS-TableView handle)))
+      (set-cell-for-section-row~ view cell-constructor)
+      (set-number-of-sections~ view number-of-sections)
+      (set-number-of-rows-in-section~ view number-of-rows-in-section)
+      (set-on-row-select~ view on-row-select)
+      (set-cell-edit-style-for-section-row~ view cell-edit-style)
+      (set-edit-action-for-section-row~ view cell-edit-action)
+      (register-widget handle view)
+      view)))
+
+
+(set-cell-for-row-callback 
+  (lambda (table i j)
+    (let* ((sview (get-widget table))
+           (pcb (and sview 
+                     (get-cell-for-section-row~ sview))))
+      (and pcb
+           (pcb i j)))))
+
+(set-edit-style-callback
+  (lambda (table i j)
+    (let* ((sview (get-widget table))
+           (pcb (and sview 
+                     (get-cell-edit-style-for-section-row~ sview))))
+      (and pcb
+           (pcb i j)))))
+
+
+(set-edit-action-callback
+  (lambda (table i j)
+    
+    (let* ((sview (get-widget table))
+           (pcb (and sview 
+                     (get-edit-action-for-section-row~ sview))))
+      (debug table i j pcb)
+      (and pcb
+           (pcb i j)))))
+      
+(set-number-of-sections-callback
+  (lambda (table)
+    (let* ((sview (get-widget table))
+           (pcb (and sview 
+                     (get-number-of-sections~ sview))))
+      (and pcb
+           (pcb)))))
+
+
+(set-number-of-rows-callback
+  (lambda (table i)
+    (let* ((sview (get-widget table))
+           (pcb (and sview 
+                     (get-number-of-rows-in-section~ sview))))
+      (and pcb
+           (pcb i)))))
+
+
+(set-did-select-callback
+  (lambda (table i j)
+    (let* ((sview (get-widget table))
+           (pcb (and sview 
+                     (get-on-row-select~ sview))))
+      (and pcb
+           (pcb i j)))))
+
+
+;;;
+;;;; IOS-ViewController
+;;;
+
+
+(class IOS-ViewController extends IOS-Class-Proxy
+  
+  (slot view accessors explicit)
+  
+  (method public virtual (set-view sview)
+    (set! view sview)
+    (UIViewControllerSetView handle (get-handle~ sview)))
+  )
+
+(definition public (UIViewController view #!key (title "Title"))
+  (let ((handle (platformCreateUIViewController)))
+    (let ((ctrl (new IOS-ViewController handle)))
+      (set-view~ ctrl view)
+      (UIViewControllerSetTitle handle title)
+      (register-widget handle ctrl)
+      ctrl)))
+
+
+;;;
+;;;; IOS-NavigationController
+;;;
+
+
+(class IOS-NavigationController extends IOS-Class-Proxy
+  (slot root-view-controller accessors explicit)
+  
+  (method public virtual (set-root-view-controller sctrl)
+    (set! root-view-controller sctrl)
+    (UINavigationControllerSetRootController handle (get-handle~ sctrl)))
+  
+  
+  (method public virtual (push-view-controller sctrl)
+    (UINavigationControllerPushController handle (get-handle~ sctrl)))
+  
+  
+  (method public virtual (pop-view-controller)
+    (UINavigationControllerPopController handle))
+  
+  )
+
+
+(definition public (UINavigationController rctrl)
+  (let ((handle (platformCreateUINavigationController (get-handle~ rctrl))))
+    (let ((nctrl (new IOS-NavigationController handle)))
+      (set-root-view-controller~ nctrl rctrl)
+      (register-widget handle nctrl)
+      nctrl)))
+
+
+;;;
+;;;; IOS-ScrollView
+;;;
+  
+
+(class IOS-ScrollView extends IOS-Class-Proxy)
+
+(definition public (UIScrollView #!key (x 0.) (y 0.) (width 100.) (height 100.) (min-zoom 1.) (max-zoom 1.) (scroll-width 1000.) (scroll-height 1000.) #!rest children)
+  (let ((handle (platformCreateUIScrollView x y width height)))
+    (let ((view (new IOS-ScrollView handle)))
+      (UIScrollViewSetScrollDimensions handle scroll-width scroll-height)
+      (UIScrollViewSetMinZoom handle min-zoom)
+      (UIScrollViewSetMaxZoom handle max-zoom)
+      (UIScrollViewSetDelegate handle handle)
+      (register-widget handle view)
+      (for-each (lambda (child)
+                  (UIScrollViewAddSubview handle (get-handle~ child)))
+                children) 
+      view)))
+
+
+;;;
+;;;; IOS-TextField
+;;;
+
+
+(class IOS-TextField extends IOS-Class-Proxy
+  
+  (slot on-end-edit accessors generate))
+
+
+(definition public (UITextField #!key (id #f) (x 0.) (y 0.) (width 100.) (height 100.) (font-size 12.) (placeholder #f) (content "") (on-end-edit #f))
+  (let ((handle (platformCreateUITextField x y width height)))
+    (let ((view (new IOS-TextField handle)))
+      (UIScrollViewSetDelegate handle handle)
+      (UITextFieldSetFontSize handle font-size)
+      (UITextFieldSetContent handle content)
+      (if id
+          (register-view-by-id id view))
+      (set-on-end-edit~ view on-end-edit)
+      (and placeholder (UITextFieldSetPlaceholder handle placeholder))
+      (register-widget handle view) 
+      view)))
+
+
+(set-textfield-endedit-callback 
+  (lambda (view)
+    (let* ((sview (get-widget view))
+           (pcb (and sview 
+                     (get-on-end-edit~ sview))))
+      (and pcb
+           (pcb)))))
+  
+  
+
+;;;
+;;;; IOS-TextView
+;;;
+
+
+(class IOS-TextView extends IOS-Class-Proxy)
+
+(definition public (UITextView #!key (x 0.) (y 0.) (width 100.) (height 100.) (font-size 12.))
+  (let ((handle (platformCreateUITextView x y width height)))
+    (let ((view (new IOS-TextView handle)))
+      (UIScrollViewSetDelegate handle handle)
+      (UITextViewSetFontSize handle font-size)
+      (register-widget handle view) 
+      view)))
+
+;;;
+;;;; IOS-Button
+;;;
+
+
+(class IOS-Button extends IOS-Class-Proxy
+  
+  (slot on-push-button accessors generate)
+  
+  )
+
+
+(definition public (UIButton #!key (x 0.) (y 0.) (width 100.) (height 100.) (font-size 12.) (on-push #f) (title "Title"))
+  (let ((handle (platformCreateUIButton x y width height)))
+    (let ((view (new IOS-Button handle)))
+      (set-on-push-button~ view on-push)
+      (UIButtonSetTitle handle title)
+      (register-widget handle view) 
+      view)))
+
+
+(set-button-push-callback 
+  (lambda (view)
+    (let* ((sview (get-widget view))
+           (pcb (and sview 
+                     (get-on-push-button~ sview))))
+      (and pcb
+           (pcb sview)))))
+
+
+;;;
+;;;; IOS-ImageView
+;;;
+
+
+(class IOS-ImageView extends IOS-Class-Proxy)
+
+(definition public (UIImageView #!key (id #f) (x 0.) (y 0.) (width 100.) (height 100.) (image #f))
+  (let ((handle (platformCreateUIImageView x y width height)))
+    (let ((view (new IOS-ImageView handle)))
+      (if id
+          (register-view-by-id id view))
+      (UIImageViewSetImage handle (or image (platformCreateUIImage)))
+      (register-widget handle view) 
+      view)))
+
+
+;;;
+;;;; IOS-Label
+;;;
+
+
+(class IOS-Label extends IOS-Class-Proxy)
+
+
+(definition public NSTextAlignmentLeft 0)
+(definition public NSTextAlignmentCenter 1)
+(definition public NSTextAlignmentRight 2)
+(definition public NSTextAlignmentJustified 3)
+(definition public NSTextAlignmentNatural 4)
+
+
+(definition public (UILabel #!key (x 0.) (y 0.) (width 100.) (height 100.) (text "Label") (font-size 14.) (alignment NSTextAlignmentLeft))
+  (let ((handle (platformCreateUILabel x y width height)))
+    (let ((view (new IOS-Label handle)))
+      (UILabelSetFontSize handle font-size)
+      (UILabelSetText handle text)
+      (UILabelSetTextAlignment handle alignment)
+      (register-widget handle view) 
+      view)))
+
+
+;;;
+;;;; register-view-by-id
+;;;
+
+
+(define ViewsByID (make-table))
+
+
+(definition public (register-view-by-id id view)
+  (table-set! ViewsByID id view))
+
+
+(definition public (get-view-by-id id)
+  (table-ref ViewsByID id #f))
+  
+
+
+)

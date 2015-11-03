@@ -394,6 +394,7 @@
 (native fxwrap+)
 (native fxwrap-)
 (native object->string)
+(native err-code->string)
 (native os-exception-arguments)
 (native os-exception-code)
 (native os-exception-message)

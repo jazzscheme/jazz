@@ -48,6 +48,7 @@
   (slot name                                   getter generate)
   (slot host                                   getter generate)
   (slot service                                getter generate)
+  (slot alternate-service                      getter generate)
   (slot socket-info                            getter generate)
   (slot server-port        initialize #f       accessors generate)
   (slot server-thread)
@@ -60,11 +61,12 @@
   
   
   (method override (initialize . rest)
-    (bind-keywords ((name #f) (host #f) (service #f) (debug? #f) (reuse-address? #t) (connection-handler #f)) rest
+    (bind-keywords ((name #f) (host #f) (service #f) (alternate-service #f) (debug? #f) (reuse-address? #t) (connection-handler #f)) rest
       (nextmethod)
       (set! name~self name)
       (set! host~self host)
       (set! service~self service)
+      (set! alternate-service~self alternate-service)
       (set! socket-info~self #f)
       (set! server-thread~self #f)
       (set! started-condition~self (make-condition))
@@ -164,6 +166,10 @@
     (get-service))
   
   
+  (method override (server-alternate-service)
+    (get-alternate-service))
+  
+  
   (method override (server-hits)
     hits)
   
@@ -186,18 +192,36 @@
   
   (method (start-listener)
     (let ((address (resolve-host (server-host)))
-          (number (resolve-service (server-service))))
-      (with-exception-filter
-        (lambda (exc)
-          #t)
-        (lambda (exc)
-          (when server-port
-            (close-port server-port))
-          (set-state 'stopped)
-          (set! socket-info #f)
-          (throw exc))
-        (lambda ()
-          (set! server-port (open-tcp-server (list server-address: address port-number: number eol-encoding: 'cr-lf reuse-address: reuse-address? readtable: (connection-readtable))))
+          (service (server-service))
+          (alternate-service (server-alternate-service)))
+      (define (open-server)
+        (with-exception-filter
+          (lambda (exc)
+            #t)
+          (lambda (exc)
+            (if (and alternate-service
+                     (os-exception? exc)
+                     (equal? (err-code->string (os-exception-code exc)) "Address already in use"))
+                (with-exception-filter
+                  (lambda (exc)
+                    #t)
+                  (lambda (exc)
+                    (values #f exc))
+                  (lambda ()
+                    (values (open-tcp-server (list server-address: address port-number: (resolve-service alternate-service) eol-encoding: 'cr-lf reuse-address: reuse-address? readtable: (connection-readtable))) #f)))
+              (values #f exc)))
+          (lambda ()
+            (values (open-tcp-server (list server-address: address port-number: (resolve-service service) eol-encoding: 'cr-lf reuse-address: reuse-address? readtable: (connection-readtable))) #f))))
+      
+      (receive (port exception) (open-server)
+        (if exception
+            (begin
+              (when server-port
+                (close-port server-port))
+              (set-state 'stopped)
+              (set! socket-info #f)
+              (throw exception))
+          (set! server-port port)
           (set! socket-info (tcp-server-socket-info server-port))
           (set-state 'started)
           ;;(condition-broadcast! started-condition)

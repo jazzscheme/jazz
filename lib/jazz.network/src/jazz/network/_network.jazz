@@ -80,13 +80,20 @@
   (let ((pos (find str #\:))
         (len (cardinality str)))
     (if (not pos)
-        (values (string->host str) #f)
-      (values (if (= pos 0)
-                  #f
-                (string->host (subseq str 0 pos)))
-              (if (= pos (- len 1))
-                  #f
-                (string->port (subseq str (+ pos 1) len)))))))
+        (values (string->host str) #f #f)
+      (let ((host (if (= pos 0)
+                      #f
+                    (string->host (subseq str 0 pos)))))
+        (if (= pos (- len 1))
+            (values host #f #f)
+          (let ((str (subseq str (+ pos 1) len)))
+            (let ((pos (find str #\/))
+                  (len (cardinality str)))
+              (if (not pos)
+                  (values host (string->port str) #f)
+                (let ((service (string->port (subseq str 0 pos)))
+                      (alternate-service (string->port (subseq str (+ pos 1) len))))
+                  (values host service alternate-service))))))))))
 
 
 (definition public (encode-host/port host port)
@@ -99,7 +106,7 @@
   (let ((arg (command-argument name)))
     (if arg
         (parse-host/service arg)
-      (values #f #f))))
+      (values #f #f #f))))
 
 
 ;;;

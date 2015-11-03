@@ -457,7 +457,14 @@ c-end
                           (##cond-expand-features (append (##cond-expand-features) (list target-processor)))))
                     (jazz:TARGET-HACK?-set! #t)
                     (let ((old jazz:Build-Repository))
-                      (set! jazz:Build-Repository (jazz:make-repository 'Build "lib" (%%string-append jazz:kernel-source (jazz:get-configuration-destination configuration)) binary?: #t dynamic?: #t))
+                      ;; quick hack around the fact that the kernel doesn't know the directory from which it was built
+                      ;; this directory would be the project or solution or ... when I do a complete overhaul to all this
+                      (define (determine-root)
+                        (if (jazz:string-ends-with? jazz:kernel-source "/jazz/")
+                            (substring jazz:kernel-source 0 (- (string-length jazz:kernel-source) (string-length "jazz/")))
+                          jazz:kernel-source))
+                      
+                      (set! jazz:Build-Repository (jazz:make-repository 'Build "lib" (%%string-append (determine-root) (jazz:get-configuration-destination configuration)) binary?: #t dynamic?: #t))
                       (set! jazz:Repositories (%%append (jazz:remove old jazz:Repositories) (%%list jazz:Build-Repository))))
                     (set! jazz:*binary-packages-cache* (%%make-table test: eq?)))))))
         

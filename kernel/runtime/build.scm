@@ -645,9 +645,9 @@
                     (newline output)
                     (jazz:print-variable 'jazz:source (if library-image? (jazz:pathname-normalize source) (jazz:determine-source-repository image-dir source)) output)
                     (newline output)
-                    (jazz:print-variable 'jazz:binary-repositories (if library-image? #f (jazz:determine-binary-repositories image-dir)) output)
+                    (jazz:print-variable 'jazz:binary-repositories (jazz:determine-binary-repositories image-dir library-image?) output)
                     (newline output)
-                    (jazz:print-variable 'jazz:source-repositories (if library-image? #f (jazz:determine-source-repositories image-dir)) output)
+                    (jazz:print-variable 'jazz:source-repositories (jazz:determine-source-repositories image-dir library-image?) output)
                     (newline output)
                     (jazz:print-variable 'jazz:source-access? (jazz:build-source-access?) output)
                     (newline output)
@@ -998,26 +998,28 @@
         (jazz:build-single-objects? (jazz:getf properties single-objects?: #f))))))
 
 
-(define (jazz:determine-binary-repositories destination-directory)
+(define (jazz:determine-binary-repositories destination-directory #!optional (absolutize? #f))
   (jazz:determine-repositories destination-directory
-    (jazz:build-binary-repositories)))
+    (jazz:build-binary-repositories)
+    absolutize?))
 
 
-(define (jazz:determine-source-repositories destination-directory)
+(define (jazz:determine-source-repositories destination-directory #!optional (absolutize? #f))
   (jazz:determine-repositories destination-directory
-    (jazz:repositories)))
+    (jazz:repositories)
+    absolutize?))
 
 
-(define (jazz:determine-repositories destination-directory repositories)
+(define (jazz:determine-repositories destination-directory repositories #!optional (absolutize? #f))
   (if repositories
       (jazz:collect (lambda (path)
-                      (jazz:determine-source-repository destination-directory path))
+                      (jazz:determine-source-repository destination-directory path absolutize?))
                     (jazz:split-string repositories #\;))
     '()))
 
 
-(define (jazz:determine-source-repository destination-directory path)
-  (if (jazz:absolutize-sources?)
+(define (jazz:determine-source-repository destination-directory path #!optional (absolutize? #f))
+  (if (or absolutize? (jazz:absolutize-sources?))
       (jazz:absolutize-directory "./" path)
     (jazz:relativise-directory destination-directory "./" path)))
 

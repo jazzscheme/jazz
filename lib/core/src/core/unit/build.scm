@@ -209,6 +209,7 @@
   (define bin-extension
     (case (or output-language 'c)
       ((objc) ".m")
+      ((c++) ".cpp")
       (else ".c")))
   
   (define ios?

@@ -1,0 +1,252 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Audio Foreign (Cricket)
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.audio.foreign jazz
+
+
+(import (jazz.foreign (phase syntax))
+        (jazz.platform.types))
+
+
+;; TODO
+;; - can we disable the cricket welcome message
+;;   - kCkLog_None doesnt seem to work
+;;   - maybe define a custom CkLogFunc
+
+
+(c-include "<stdbool.h>")
+(c-include "<ck/ck.h>")
+(c-include "<ck/config.h>")
+(c-include "<ck/bank.h>")
+(c-include "<ck/sound.h>")
+
+
+(c-declare audio #/Objective-C/
+
+CkConfig config;
+
+//#)
+
+
+(c-type CkSound (pointer "CkSound"))
+
+
+(c-external (CkInit) void
+  #/C/
+    config.logMask = kCkLog_Warning | kCkLog_Error;
+    CkInit(&config);
+//#)
+
+
+(c-external (CkShutdown) void
+  #/C/
+    CkShutdown();
+//#)
+
+
+(c-external (CkUpdate) void
+  #/C/
+    CkUpdate();
+//#)
+
+
+(c-external (CkNewBankSound char-string) CkSound
+  #/C/
+    CkBank* bank = CkBank::newBank(___arg1);
+    CkSound* sound = CkSound::newBankSound(bank, 0);
+    ___result_voidstar = sound;
+//#)
+
+
+(c-external (CkNewStreamSound char-string) CkSound
+  #/C/
+    ___result_voidstar = NULL;
+//#)
+
+
+(c-external (CkPlay CkSound) void
+  #/C/
+    ___arg1->play();
+//#)
+
+
+(c-external (CkStop CkSound) void
+  #/C/
+//#)
+
+
+(c-external (CkPlaying CkSound) bool
+  #/C/
+    ___result = false;
+//#)
+
+
+(c-external (CkSetPaused CkSound bool) void
+  #/C/
+//#)
+
+
+(c-external (CkPaused CkSound) bool
+  #/C/
+    ___result = false;
+//#)
+
+
+(c-external (CkSetLoop CkSound int int) void
+  #/C/
+//#)
+
+
+(c-external (CkReleaseLoop CkSound) void
+  #/C/
+//#)
+
+
+(c-external (CkSetLoopCount CkSound int) void
+  #/C/
+//#)
+
+
+(c-external (CkSetVolume CkSound float) void
+  #/C/
+//#)
+
+
+@objc (
+(c-include "<stdbool.h>")
+(c-declare audio #/Objective-C/
+
+#import "ck/objc/ck.h"
+#import "ck/objc/config.h"
+#import "ck/objc/bank.h"
+#import "ck/objc/sound.h"
+
+CkConfig config;
+
+//#)
+
+
+(c-type CkoSound (pointer "CkoSound"))
+
+
+(c-external (CkInit) void
+  #/C/
+    CkConfigInit(&config);
+    config.logMask = kCkLog_Warning | kCkLog_Error;
+    CkInit(&config);
+//#)
+
+
+(c-external (CkShutdown) void
+  #/C/
+    CkShutdown();
+//#)
+
+
+(c-external (CkUpdate) void
+  #/C/
+    CkUpdate();
+//#)
+
+
+(c-external (CkNewBankSound char-string) CkoSound
+  #/C/
+    CkoBank* bank = [CkoBank newBank:[NSString stringWithUTF8String:___arg1]];
+    CkoSound* sound = [CkoSound newBankSound:bank index:0];
+    ___result_voidstar = sound;
+//#)
+
+
+(c-external (CkNewStreamSound char-string) CkoSound
+  #/C/
+    CkoSound* sound = [CkoSound newStreamSound:[NSString stringWithUTF8String:___arg1]];
+    ___result_voidstar = sound;
+//#)
+
+
+(c-external (CkPlay CkoSound) void
+  #/C/
+    [___arg1 play];
+//#)
+
+
+(c-external (CkStop CkoSound) void
+  #/C/
+    [___arg1 stop];
+//#)
+
+
+(c-external (CkPlaying CkoSound) bool
+  #/C/
+    ___result = [___arg1 playing];
+//#)
+
+
+(c-external (CkSetPaused CkoSound bool) void
+  #/C/
+    [___arg1 setPaused:___arg2];
+//#)
+
+
+(c-external (CkPaused CkoSound) bool
+  #/C/
+    ___result = [___arg1 paused];
+//#)
+
+
+(c-external (CkSetLoop CkoSound int int) void
+  #/C/
+    [___arg1 setLoop:___arg2 endFrame:___arg3];
+//#)
+
+
+(c-external (CkReleaseLoop CkoSound) void
+  #/C/
+    [___arg1 releaseLoop];
+//#)
+
+
+(c-external (CkSetLoopCount CkoSound int) void
+  #/C/
+    [___arg1 setLoopCount:___arg2];
+//#)
+
+
+(c-external (CkSetVolume CkoSound float) void
+  #/C/
+    [___arg1 setVolume:___arg2];
+//#)))

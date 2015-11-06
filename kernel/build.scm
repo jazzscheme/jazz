@@ -1139,6 +1139,7 @@
   (define (object-file? file level)
     (let ((ext (jazz:pathname-extension file)))
       (or (jazz:extension? ext "c")
+          (jazz:extension? ext "cpp")
           (jazz:extension? ext "dgs")
           (jazz:extension? ext "mnf")
           (jazz:extension? ext "otl")

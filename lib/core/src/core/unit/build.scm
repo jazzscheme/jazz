@@ -208,9 +208,9 @@
   
   (define bin-extension
     (case (or output-language 'c)
-      ((objc) ".m")
+      ((objc) ".mm")
       ((c++) ".cpp")
-      (else ".c")))
+      (else ".cpp")))
   
   (define ios?
     (and (jazz:build-configuration) (eq? (jazz:get-configuration-platform (jazz:build-configuration)) 'ios)))

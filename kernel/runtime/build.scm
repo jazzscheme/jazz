@@ -66,6 +66,17 @@
 
 
 ;;;
+;;;; Compiler
+;;;
+
+
+(define (jazz:compiler-extension)
+  (if (eq? jazz:kernel-compiler 'c++)
+      "cpp"
+    "c"))
+
+
+;;;
 ;;;; Version
 ;;;
 
@@ -348,7 +359,7 @@
       
       (define (compile-unit rebuild? name dir output)
         (let ((src (string-append dir name ".scm"))
-              (dst (string-append output name ".cpp"))
+              (dst (string-append output name "." (jazz:compiler-extension)))
               (digest (string-append output name "." jazz:Digest-Extension))
               (mnf (string-append output name "." jazz:Manifest-Extension)))
           (let ((hash-changed? (%%not (jazz:manifest-uptodate? src (jazz:load-updated-manifest name digest mnf src)))))
@@ -596,8 +607,8 @@
       
       (define (link-file)
         (if library-image?
-            (product-file (%%string-append "jazz" ".o1.cpp"))
-          (product-file (%%string-append "jazz" ".cpp"))))
+            (product-file (%%string-append "jazz" ".o1." (jazz:compiler-extension)))
+          (product-file (%%string-append "jazz" "." (jazz:compiler-extension)))))
       
       (define (generate-product rebuild?)
         (let ((file (product-file (%%string-append (product-filename) ".scm"))))
@@ -1192,11 +1203,11 @@
          (library-dir (jazz:pathname-dir library-base)))
     (jazz:with-numbered-pathname (string-append library-base "." jazz:Library-Extension) #t 1
       (lambda (library-o1 o1-exists?)
-        (let* ((linkfile (string-append library-o1 ".cpp"))
+        (let* ((linkfile (string-append library-o1 "." (jazz:compiler-extension)))
                (header (string-append library-base jazz:Library-Manifest-Suffix))
                (header-name (string-append jazz:product-uniqueness-prefix (%%symbol->string product-name)))
                (header-s (string-append header ".scm"))
-               (header-c (string-append header ".cpp"))
+               (header-c (string-append header "." (jazz:compiler-extension)))
                (header-o (string-append header ".o"))
                (sub-units (remove-duplicates (%%apply append (map jazz:get-subunit-names update)))))
           (define (build-library)
@@ -1212,7 +1223,7 @@
                                     (map (lambda (subunit-name)
                                            (jazz:with-unit-resources subunit-name #f
                                              (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                               (string-append (jazz:resource-pathname obj) ".cpp"))))
+                                               (string-append (jazz:resource-pathname obj) "." (jazz:compiler-extension)))))
                                          sub-units)))
                        output: linkfile
                        warnings?: #f)

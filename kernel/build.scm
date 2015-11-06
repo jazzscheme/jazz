@@ -146,6 +146,9 @@
 (jazz:define-option jazz:default-platform
   (jazz:unspecified-option))
 
+(jazz:define-option jazz:default-compiler
+  'c++)
+
 (jazz:define-option jazz:default-processor
   (jazz:unspecified-option))
 
@@ -200,6 +203,7 @@
           (name (jazz:unspecified-option))
           (system (jazz:unspecified-option))
           (platform (jazz:unspecified-option))
+          (compiler (jazz:unspecified-option))
           (processor (jazz:unspecified-option))
           (windowing (jazz:unspecified-option))
           (safety (jazz:unspecified-option))
@@ -218,6 +222,7 @@
     name
     system
     platform
+    compiler
     processor
     windowing
     safety
@@ -240,6 +245,7 @@
           (name (jazz:unspecified-option))
           (system (jazz:unspecified-option))
           (platform (jazz:unspecified-option))
+          (compiler (jazz:unspecified-option))
           (processor (jazz:unspecified-option))
           (windowing (jazz:unspecified-option))
           (safety (jazz:unspecified-option))
@@ -257,6 +263,7 @@
   (let* ((name (jazz:validate-name (jazz:require-name name template)))
          (system (jazz:validate-system (jazz:require-system system template)))
          (platform (jazz:validate-platform (jazz:require-platform platform template)))
+         (compiler (jazz:validate-compiler (jazz:require-compiler compiler template)))
          (processor (jazz:validate-processor (jazz:require-processor processor template)))
          (windowing (jazz:validate-windowing (jazz:require-windowing platform windowing template)))
          (safety (jazz:validate-safety (jazz:require-safety safety template)))
@@ -274,6 +281,7 @@
       name
       system
       platform
+      compiler
       processor
       windowing
       safety
@@ -434,6 +442,7 @@
       (jazz:get-configuration-name configuration)
       (jazz:get-configuration-system configuration)
       (jazz:get-configuration-platform configuration)
+      (jazz:get-configuration-compiler configuration)
       (jazz:get-configuration-processor configuration)
       (jazz:get-configuration-windowing configuration)
       (jazz:get-configuration-safety configuration)
@@ -455,6 +464,7 @@
       (jazz:get-configuration-name configuration)
       (jazz:get-configuration-system configuration)
       (jazz:get-configuration-platform configuration)
+      (jazz:get-configuration-compiler configuration)
       (jazz:get-configuration-processor configuration)
       (jazz:get-configuration-windowing configuration)
       (jazz:get-configuration-safety configuration)
@@ -491,6 +501,7 @@
   (let ((name (jazz:get-configuration-name configuration))
         (system (jazz:get-configuration-system configuration))
         (platform (jazz:get-configuration-platform configuration))
+        (compiler (jazz:get-configuration-compiler configuration))
         (processor (jazz:get-configuration-processor configuration))
         (windowing (jazz:get-configuration-windowing configuration))
         (safety (jazz:get-configuration-safety configuration))
@@ -507,6 +518,7 @@
     (jazz:feedback "{a}" (or name "<default>"))
     (jazz:feedback "  system: {s}" system)
     (jazz:feedback "  platform: {s}" platform)
+    (jazz:feedback "  compiler: {s}" compiler)
     (jazz:feedback "  processor: {s}" processor)
     (jazz:feedback "  windowing: {s}" windowing)
     (jazz:feedback "  safety: {s}" safety)
@@ -533,6 +545,7 @@
           (name (jazz:unspecified-option))
           (system (jazz:unspecified-option))
           (platform (jazz:unspecified-option))
+          (compiler (jazz:unspecified-option))
           (processor (jazz:unspecified-option))
           (windowing (jazz:unspecified-option))
           (safety (jazz:unspecified-option))
@@ -552,6 +565,7 @@
             name: name
             system: system
             platform: platform
+            compiler: compiler
             processor: processor
             windowing: windowing
             safety: safety
@@ -634,6 +648,30 @@
   (if (memq platform jazz:valid-platforms)
       platform
     (jazz:error "Invalid platform: {s}" platform)))
+
+
+;;;
+;;;; Compiler
+;;;
+
+
+(define jazz:valid-compilers
+  '(c
+    c++))
+
+
+(define (jazz:guess-compiler)
+  'c++)
+
+
+(define (jazz:require-compiler compiler template)
+  (jazz:or-option compiler (jazz:get-configuration-compiler template) (jazz:default-compiler) (jazz:guess-compiler)))
+
+
+(define (jazz:validate-compiler compiler)
+  (if (memq compiler jazz:valid-compilers)
+      compiler
+    (jazz:error "Invalid compiler: {s}" compiler)))
 
 
 ;;;
@@ -1253,6 +1291,7 @@
         (let ((name (jazz:get-configuration-name configuration))
               (system (jazz:get-configuration-system configuration))
               (platform (jazz:get-configuration-platform configuration))
+              (compiler (jazz:get-configuration-compiler configuration))
               (processor (jazz:get-configuration-processor configuration))
               (windowing (jazz:get-configuration-windowing configuration))
               (safety (jazz:get-configuration-safety configuration))
@@ -1272,6 +1311,7 @@
           (jazz:build-image #f
                             system:                system
                             platform:              platform
+                            compiler:              compiler
                             processor:             processor
                             windowing:             windowing
                             safety:                safety
@@ -1300,6 +1340,7 @@
       
       (or (compare-parameter system:              jazz:get-configuration-system)
           (compare-parameter platform:            jazz:get-configuration-platform)
+          (compare-parameter compiler:            jazz:get-configuration-compiler)
           (compare-parameter processor:           jazz:get-configuration-processor)
           (compare-parameter windowing:           jazz:get-configuration-windowing)
           (compare-parameter safety:              jazz:get-configuration-safety)
@@ -1660,7 +1701,7 @@
   
   (define (help-command arguments output)
     (jazz:print "Commands:" output)
-    (jazz:print "  configure [name:] [system:] [platform:] [processor:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [debug-foreign?:] [mutable-bindings?:] [kernel-interpret?:] [destination:] [features:] [properties:]" output)
+    (jazz:print "  configure [name:] [system:] [platform:] [compiler:] [processor:] [windowing:] [safety:] [optimize?:] [debug-environments?:] [debug-location?:] [debug-source?:] [debug-foreign?:] [mutable-bindings?:] [kernel-interpret?:] [destination:] [features:] [properties:]" output)
     (jazz:print "  make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" output)
     (jazz:print "  install [target]" output)
     (jazz:print "  deploy [target]" output)
@@ -1779,12 +1820,13 @@
               ((equal? action "configure")
                (let ()
                  (define (configure template arguments)
-                   (jazz:split-command-line arguments '() '("name" "system" "platform" "processor" "windowing" "safety" "optimize" "debug-environments" "debug-location" "debug-source" "debug-foreign" "mutable-bindings" "kernel-interpret" "destination" "features" "properties") missing-argument-for-option
+                   (jazz:split-command-line arguments '() '("name" "system" "platform" "compiler" "processor" "windowing" "safety" "optimize" "debug-environments" "debug-location" "debug-source" "debug-foreign" "mutable-bindings" "kernel-interpret" "destination" "features" "properties") missing-argument-for-option
                      (lambda (commands options remaining)
                        (if (null? remaining)
                            (let ((name (symbol-option "name" options))
                                  (system (symbol-option "system" options))
                                  (platform (symbol-option "platform" options))
+                                 (compiler (symbol-option "compiler" options))
                                  (processor (symbol-option "processor" options))
                                  (windowing (symbol-option "windowing" options))
                                  (safety (symbol-option "safety" options))
@@ -1798,7 +1840,7 @@
                                  (destination (string-option "destination" options))
                                  (features (list-option "features" options))
                                  (properties (list-option "properties" options)))
-                             (jazz:configure template name: name system: system platform: platform processor: processor windowing: windowing safety: safety optimize?: optimize debug-environments?: debug-environments debug-location?: debug-location debug-source?: debug-source debug-foreign?: debug-foreign mutable-bindings?: mutable-bindings kernel-interpret?: kernel-interpret destination: destination features: features properties: properties)
+                             (jazz:configure template name: name system: system platform: platform compiler: compiler processor: processor windowing: windowing safety: safety optimize?: optimize debug-environments?: debug-environments debug-location?: debug-location debug-source?: debug-source debug-foreign?: debug-foreign mutable-bindings?: mutable-bindings kernel-interpret?: kernel-interpret destination: destination features: features properties: properties)
                              (exit))
                          (unknown-option (car remaining))))))
                  
@@ -1830,7 +1872,7 @@
               ((or (equal? action "help") (equal? action "?"))
                (let ((console (console-port)))
                  (jazz:print "Usage:" console)
-                 (jazz:print "  jaz configure [-name] [-system] [-platform] [-processor] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-kernel-interpret] [-destination] [-features] [-properties]" console)
+                 (jazz:print "  jaz configure [-name] [-system] [-platform] [-compiler] [-processor] [-windowing] [-safety] [-optimize] [-debug-environments] [-debug-location] [-debug-source] [-kernel-interpret] [-destination] [-features] [-properties]" console)
                  (jazz:print "  jaz make [target | clean | cleankernel | cleanproducts | cleanobject | cleanlibrary]@[configuration]:[image]" console)
                  (jazz:print "  jaz install" console)
                  (jazz:print "  jaz deploy" console)
@@ -1858,6 +1900,9 @@
 
 (define jazz:kernel-platform
   #f)
+
+(define jazz:kernel-compiler
+  'c++)
 
 (define jazz:kernel-processor
   #f)
@@ -1932,6 +1977,7 @@
     name: (jazz:unspecified-option)
     system: (jazz:unspecified-option)
     platform: (jazz:unspecified-option)
+    compiler: (jazz:unspecified-option)
     processor: (jazz:unspecified-option)
     windowing: (jazz:unspecified-option)
     safety: (jazz:unspecified-option)
@@ -1951,6 +1997,7 @@
     name: 'c
     system: (jazz:unspecified-option)
     platform: (jazz:unspecified-option)
+    compiler: (jazz:unspecified-option)
     processor: (jazz:unspecified-option)
     windowing: (jazz:unspecified-option)
     safety: 'core
@@ -1970,6 +2017,7 @@
     name: 'd
     system: (jazz:unspecified-option)
     platform: (jazz:unspecified-option)
+    compiler: (jazz:unspecified-option)
     processor: (jazz:unspecified-option)
     windowing: (jazz:unspecified-option)
     safety: 'debug
@@ -1989,6 +2037,7 @@
     name: 'r
     system: (jazz:unspecified-option)
     platform: (jazz:unspecified-option)
+    compiler: (jazz:unspecified-option)
     processor: (jazz:unspecified-option)
     windowing: (jazz:unspecified-option)
     safety: 'release
@@ -2008,6 +2057,7 @@
     name: 's
     system: (jazz:unspecified-option)
     platform: (jazz:unspecified-option)
+    compiler: (jazz:unspecified-option)
     processor: (jazz:unspecified-option)
     windowing: (jazz:unspecified-option)
     safety: 'release

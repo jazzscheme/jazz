@@ -188,6 +188,7 @@
     (let ((name (jazz:get-configuration-name configuration))
           (system (jazz:get-configuration-system configuration))
           (platform (jazz:get-configuration-platform configuration))
+          (compiler (jazz:get-configuration-compiler configuration))
           (processor (jazz:get-configuration-processor configuration))
           (windowing (jazz:get-configuration-windowing configuration))
           (safety (jazz:get-configuration-safety configuration))
@@ -206,6 +207,7 @@
       (jazz:build-image #f
                         system:                system
                         platform:              platform
+                        compiler:              compiler
                         processor:             processor
                         windowing:             windowing
                         safety:                safety
@@ -249,6 +251,7 @@
           #!key
           (system jazz:kernel-system)
           (platform jazz:kernel-platform)
+          (compiler jazz:kernel-compiler)
           (processor jazz:kernel-processor)
           (windowing jazz:kernel-windowing)
           (safety jazz:kernel-safety)
@@ -487,7 +490,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
                   (lambda (output)
-                    (jazz:print-architecture #f system platform processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination features properties output)))
+                    (jazz:print-architecture #f system platform compiler processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination features properties output)))
                 #t)
             #f)))
       
@@ -858,7 +861,7 @@
           (if (%%not (file-exists? file))
               (begin
                 (jazz:feedback "; generating {a}..." file)
-                (jazz:save-configuration #f system platform processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties file jazz:kernel-platform)))))
+                (jazz:save-configuration #f system platform compiler processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties file jazz:kernel-platform)))))
       
       ;;;
       ;;;; Kernel Interpret
@@ -901,7 +904,7 @@
                     (print "  (path-directory (path-normalize (car (command-line)))))" output)
                     (newline output)
                     (newline output)
-                    (jazz:print-architecture #t system platform processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination features properties output)
+                    (jazz:print-architecture #t system platform compiler processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination features properties output)
                     (newline output)
                     (jazz:print-variable 'jazz:kernel-interpreted? #t output)
                     (newline output)
@@ -1245,7 +1248,7 @@
               (build-library)))))))
 
 
-(define (jazz:print-architecture for-kernel-interpret? system platform processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination features properties output)
+(define (jazz:print-architecture for-kernel-interpret? system platform compiler processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? destination features properties output)
   (if (not for-kernel-interpret?)
       (begin
         (display "(jazz:verbose-kernel 'kernel.architecture)" output)
@@ -1256,6 +1259,8 @@
   (jazz:print-variable 'jazz:kernel-system system output)
   (newline output)
   (jazz:print-variable 'jazz:kernel-platform platform output)
+  (newline output)
+  (jazz:print-variable 'jazz:kernel-compiler compiler output)
   (newline output)
   (jazz:print-variable 'jazz:kernel-processor processor output)
   (newline output)

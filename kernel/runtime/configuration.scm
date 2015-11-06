@@ -59,6 +59,7 @@
   ((name                getter: generate)
    (system              getter: generate)
    (platform            getter: generate)
+   (compiler            getter: generate)
    (processor           getter: generate)
    (windowing           getter: generate)
    (safety              getter: generate)

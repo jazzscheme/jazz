@@ -593,6 +593,7 @@
 
 (native jazz:build-feedback)
 (native jazz:boot-directory)
+(native jazz:kernel-compiler)
 (native jazz:kernel-system)
 (native jazz:kernel-platform)
 (native jazz:kernel-processor)

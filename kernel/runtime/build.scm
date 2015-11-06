@@ -70,6 +70,12 @@
 ;;;
 
 
+(define (jazz:compiler-name)
+  (if (eq? jazz:kernel-compiler 'c++)
+      "g++"
+    "gcc"))
+
+
 (define (jazz:compiler-extension)
   (if (eq? jazz:kernel-compiler 'c++)
       "cpp"
@@ -1231,7 +1237,7 @@
             (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))
             (jazz:call-process
               (list
-                path: "gcc"
+                path: (jazz:compiler-name)
                 arguments: `(,@(case platform
                                  ((windows) '("-Wl,--large-address-aware" "-shared" "-D___DYNAMIC"))
                                  (else '("-bundle" "-D___DYNAMIC")))

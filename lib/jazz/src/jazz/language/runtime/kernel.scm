@@ -794,6 +794,7 @@
 (native jazz:object-load-counter)
 (native jazz:interpreted-load-counter)
 (native jazz:compiler-present?)
+(native jazz:compiler-name)
 (native jazz:compiler-extension)
 (native jazz:add-exit-job!)
 (native jazz:log-backtrace)

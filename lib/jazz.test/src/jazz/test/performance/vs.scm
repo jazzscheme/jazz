@@ -7,7 +7,7 @@
 
 (define (inc cnt)
   (let iter ((n cnt))
-    (if (##fixnum.> n 0)
+    (if (##fx> n 0)
         (begin
-          (set! VAR (##fixnum.+ VAR 1))
-          (iter (##fixnum.- n 1))))))
+          (set! VAR (##fx+ VAR 1))
+          (iter (##fx- n 1))))))

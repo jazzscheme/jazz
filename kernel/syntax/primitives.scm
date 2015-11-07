@@ -337,42 +337,42 @@
    (jazz:define-macro (%%fx= x y)
      (if jazz:debug-core?
          `(= ,x ,y)
-       `(##fixnum.= ,x ,y)))
+       `(##fx= ,x ,y)))
    
    (jazz:define-macro (%%fx< x y)
      (if jazz:debug-core?
          `(< ,x ,y)
-       `(##fixnum.< ,x ,y)))
+       `(##fx< ,x ,y)))
    
    (jazz:define-macro (%%fx<= x y)
      (if jazz:debug-core?
          `(<= ,x ,y)
-       `(##fixnum.<= ,x ,y)))
+       `(##fx<= ,x ,y)))
    
    (jazz:define-macro (%%fx> x y)
      (if jazz:debug-core?
          `(> ,x ,y)
-       `(##fixnum.> ,x ,y)))
+       `(##fx> ,x ,y)))
    
    (jazz:define-macro (%%fx>= x y)
      (if jazz:debug-core?
          `(>= ,x ,y)
-       `(##fixnum.>= ,x ,y)))
+       `(##fx>= ,x ,y)))
    
    (jazz:define-macro (%%fx+ x y)
      (if jazz:debug-core?
          `(+ ,x ,y)
-       `(##fixnum.+ ,x ,y)))
+       `(##fx+ ,x ,y)))
    
    (jazz:define-macro (%%fx- x y)
      (if jazz:debug-core?
          `(- ,x ,y)
-       `(##fixnum.- ,x ,y)))
+       `(##fx- ,x ,y)))
    
    (jazz:define-macro (%%fx* x y)
      (if jazz:debug-core?
          `(* ,x ,y)
-       `(##fixnum.* ,x ,y)))
+       `(##fx* ,x ,y)))
    
    (jazz:define-macro (%%fxquotient x y)
      (if jazz:debug-core?
@@ -398,47 +398,47 @@
    (jazz:define-macro (%%fl= x y)
      (if jazz:debug-core?
          `(= ,x ,y)
-       `(##flonum.= ,x ,y)))
+       `(##fl= ,x ,y)))
    
    (jazz:define-macro (%%fl< x y)
      (if jazz:debug-core?
          `(< ,x ,y)
-       `(##flonum.< ,x ,y)))
+       `(##fl< ,x ,y)))
    
    (jazz:define-macro (%%fl<= x y)
      (if jazz:debug-core?
          `(<= ,x ,y)
-       `(##flonum.<= ,x ,y)))
+       `(##fl<= ,x ,y)))
    
    (jazz:define-macro (%%fl> x y)
      (if jazz:debug-core?
          `(> ,x ,y)
-       `(##flonum.> ,x ,y)))
+       `(##fl> ,x ,y)))
    
    (jazz:define-macro (%%fl>= x y)
      (if jazz:debug-core?
          `(>= ,x ,y)
-       `(##flonum.>= ,x ,y)))
+       `(##fl>= ,x ,y)))
    
    (jazz:define-macro (%%fl+ x y)
      (if jazz:debug-core?
          `(+ ,x ,y)
-       `(##flonum.+ ,x ,y)))
+       `(##fl+ ,x ,y)))
    
    (jazz:define-macro (%%fl- x y)
      (if jazz:debug-core?
          `(- ,x ,y)
-       `(##flonum.- ,x ,y)))
+       `(##fl- ,x ,y)))
    
    (jazz:define-macro (%%fl* x y)
      (if jazz:debug-core?
          `(* ,x ,y)
-       `(##flonum.* ,x ,y)))
+       `(##fl* ,x ,y)))
    
    (jazz:define-macro (%%fl/ x y)
      (if jazz:debug-core?
          `(/ ,x ,y)
-       `(##flonum./ ,x ,y))))
+       `(##fl/ ,x ,y))))
 
   (else
    (jazz:define-macro (%%fl> x y)

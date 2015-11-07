@@ -347,10 +347,10 @@
 ; correct, but more portable (and less efficient)
 
 ; Read-only increment
-(define-macro (++ x) `(##fixnum.+ 1 ,x))
+(define-macro (++ x) `(##fx+ 1 ,x))
 
 ; Read-only decrement
-(define-macro (-- x) `(##fixnum.- ,x 1))
+(define-macro (-- x) `(##fx- ,x 1))
 
 ;==============================================================================
 ; Some useful control operators

@@ -75,6 +75,7 @@
     (c-declaration crash #<<end-of-c-code
       static LONG WINAPI unhandled_exception_filter(LPEXCEPTION_POINTERS info)
       {
+        SetUnhandledExceptionFilter(NULL);
         jazz_call_crash_reporter(info);
         return EXCEPTION_CONTINUE_SEARCH;
       }
@@ -108,9 +109,22 @@ end-of-c-code
       #include <unistd.h>
       #include <sys/types.h>
       #include <signal.h>
+      
+      static void restore_low_level_unix_signals()
+      {
+       // core dumping signals
+        signal(SIGQUIT, SIG_DFL);
+        signal(SIGILL,  SIG_DFL);
+        signal(SIGABRT, SIG_DFL);
+        signal(SIGFPE,  SIG_DFL);
+        signal(SIGBUS,  SIG_DFL);
+        signal(SIGSEGV, SIG_DFL);
+        signal(SIGSYS,  SIG_DFL);
+        }
 
       static void error_signal_handler(int sig_num)
       {
+        restore_low_level_unix_signals();
         jazz_call_crash_reporter(sig_num);
         fflush(stdout);
         jazz_call_crash_exit();

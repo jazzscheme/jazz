@@ -46,7 +46,7 @@
 (cond-expand
   (cocoa
    (define jazz:zlib-units
-     '((jazz.zlib.foreign ld-options: "-lz.1"))))
+     '((jazz.zlib.foreign cc-options: "-fpermissive" ld-options: "-lz.1"))))
   (windows
    (define jazz:zlib-units
      (let ((zlib-include-path  (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/include"))

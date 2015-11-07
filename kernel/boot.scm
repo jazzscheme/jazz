@@ -90,11 +90,12 @@
             (o1 (string-append jazz:source "kernel/syntax/header.o1")))
         (if (not (file-exists? o1))
             (compile-file path)
-          (if (> (time->seconds (file-last-modification-time src))
-                 (time->seconds (file-last-modification-time o1)))
+          (if (not (= (time->seconds (file-last-modification-time src))
+                      (time->seconds (file-last-modification-time o1))))
               (begin
                 (delete-file o1)
-                (compile-file path)))))
+                (compile-file path)
+                (file-last-access-and-modification-times-set! o1 (file-last-access-time o1) (file-last-modification-time src))))))
       
       (if (not loaded?)
           (begin

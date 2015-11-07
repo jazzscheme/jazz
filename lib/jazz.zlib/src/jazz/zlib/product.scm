@@ -52,7 +52,7 @@
      (let ((zlib-include-path  (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/include"))
            (zlib-lib-path      (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
        `((jazz.zlib.foreign
-           cc-options: ,(string-append "-I" zlib-include-path)
+           cc-options: ,(string-append "-I" zlib-include-path " -fpermissive")
            ld-options: ,(string-append "-L" zlib-lib-path " -lz"))))))
   (else
    (define jazz:zlib-units

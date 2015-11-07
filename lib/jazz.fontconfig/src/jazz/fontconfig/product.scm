@@ -64,7 +64,7 @@
             (expat-lib-path          (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/windows/expat/lib"))
             (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/windows/png/lib"))
             (zlib-lib-path           (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
-        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path))
+        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -fpermissive"))
               (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
           `((jazz.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (else

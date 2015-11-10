@@ -42,6 +42,12 @@ void* CricketNewStreamSound(char* path)
 }
 
 
+void CricketDestroy(void* sound)
+{
+	((CkSound*) sound)->destroy();
+}
+
+
 void CricketPlay(void* sound)
 {
 	((CkSound*) sound)->play();

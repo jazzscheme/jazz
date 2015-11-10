@@ -771,11 +771,16 @@
       (let ((output (open-output-string))
             (first? #t))
         (format output "{a}" (let ((result (and (pair? rest) (car rest))))
-                               (case result
-                                 ((void) "")
-                                 ((value) "___result = ")
-                                 ((pointer) "___result_voidstar = ")
-                                 (else (error "Unknown result kind: {s}" result)))))
+                               (let ((effective-result (if (and (eq? result-type 'void)
+                                                                (or (not result)
+                                                                    (eq? result 'void)))
+                                                           'void
+                                                         result)))
+                                 (case effective-result
+                                   ((void) "")
+                                   ((value) "___result = ")
+                                   ((pointer) "___result_voidstar = ")
+                                   (else (error "Unknown result kind: {s}" result))))))
         (format output "{a}(" name)
         (for-each (lambda (type n)
                     (let ((rank (+ n 1)))

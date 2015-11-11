@@ -360,6 +360,21 @@
                          (list 'Build)))))
 
 
+(definition public (find-kernel-file filename)
+  (let ((bundle-path (and kernel-bundle-install (string-append kernel-bundle-install filename))))
+    (if (and bundle-path (file-exists? bundle-path))
+        bundle-path
+      (let ((install-path (string-append kernel-install filename)))
+        (if (file-exists? install-path)
+            install-path
+          #f)))))
+
+
+(definition public (require-kernel-file filename)
+  (or (find-kernel-file filename)
+      (error "Unable to find kernel file: {s}" filename)))
+
+
 (definition (validate-alias name path)
   (if (exists?~ (new Directory path))
       path
@@ -583,6 +598,10 @@
   
   
   (method public virtual (writable?)
+    )
+
+
+  (method public virtual (get-modification-seconds)
     )
 
 
@@ -1126,6 +1145,10 @@
     @windows-specific
     (with ((input (new File-Reader self readable?: #f)))
       (get-size~ input)))
+
+
+  (method override (get-modification-seconds)
+    (file-modification-seconds (parse)))
 
 
   (method override (get-modification-time)

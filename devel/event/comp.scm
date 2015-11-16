@@ -1,4 +1,4 @@
-(define (comp name lang cc)
+(define (comp name lang cc #!key (cc-options '()) (ld-options ""))
   (let ((src (string-append name "." "scm"))
         (c (string-append name "." lang))
         (o (string-append name "." "o"))
@@ -9,18 +9,34 @@
       (let ((port (open-process
                     (list
                       path: cc
-                      arguments: `("-I" ,gambit-include-dir "-D___DYNAMIC" "-Wno-write-strings" "-c" "-o" ,o ,c)))))
+                      arguments: `("-I" ,gambit-include-dir "-D___DYNAMIC" "-Wno-write-strings" ,@cc-options "-c" "-o" ,o ,c)))))
         (process-status port)))
     (link-flat (list c) output: o1c warnings?: #f)
-    (##gambcomp 'C
-                'dyn
-                "."
-                (list o1c o)
-                o1
-                #f
-                (list (cons "CC_OPTIONS" "")
-                      (cons "LD_OPTIONS" "-framework Cocoa")))
+    (if (equal? lang "c")
+        (##gambc-cc
+          'dyn
+          "."
+          (list o1c o)
+          o1
+          ""
+          ""
+          ld-options
+          #f)
+      (##gambcomp 'C
+                  'dyn
+                  "."
+                  (list o1c o)
+                  o1
+                  #f
+                  (list (cons "CC_OPTIONS" "")
+                        (cons "LD_OPTIONS" ld-options))))
     (pp (list 'compiled name))))
 
-(define (cmac)
-  (comp "mac" "mm" "/usr/bin/g++"))
+(define (ccmac)
+  (comp "mac" "mm" "/usr/bin/g++" ld-options: "-framework Cocoa"))
+
+(define (cwindows)
+  (comp "windows" "c" "gcc"))
+
+(define (ccwindows)
+  (comp "windows" "cpp" "gcc" cc-options: '("-fpermissive")))

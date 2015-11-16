@@ -108,3 +108,27 @@ void CricketSetVolume(void* sound, float vol)
 {
 	((CkSound*) sound)->setVolume(vol);
 }
+
+
+void CricketSet3dEnabled(void* sound, bool flag)
+{
+	((CkSound*) sound)->set3dEnabled(flag);
+}
+
+
+void CricketSet3dPosition(void* sound, float x, float y, float z)
+{
+	((CkSound*) sound)->set3dPosition(x, y, z);
+}
+
+
+void CricketSet3dAttenuation(float nearDist, float farDist)
+{
+	CkSound::set3dAttenuation(kCkAttenuationMode_Linear, nearDist, farDist, 0);
+}
+
+
+void CricketSet3dListenerPosition(float eyeX, float eyeY, float eyeZ, float lookAtX, float lookAtY, float lookAtZ, float upX, float upY, float upZ)
+{
+	CkSound::set3dListenerPosition(eyeX, eyeY, eyeZ, lookAtX, lookAtY, lookAtZ, upX, upY, upZ);
+}

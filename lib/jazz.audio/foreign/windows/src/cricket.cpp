@@ -29,7 +29,7 @@ void CricketUpdate()
 
 void* CricketNewBankSound(char* path)
 {
-    CkBank* bank = CkBank::newBank(path);
+    CkBank* bank = CkBank::newBank(path, kCkPathType_FileSystem);
     CkSound* sound = CkSound::newBankSound(bank, 0);
     return (void*) sound;
 }
@@ -37,7 +37,7 @@ void* CricketNewBankSound(char* path)
 
 void* CricketNewStreamSound(char* path)
 {
-    CkSound* sound = CkSound::newStreamSound(path);
+    CkSound* sound = CkSound::newStreamSound(path, kCkPathType_FileSystem);
     return (void*) sound;
 }
 

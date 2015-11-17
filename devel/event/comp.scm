@@ -12,24 +12,14 @@
                       arguments: `("-I" ,gambit-include-dir "-D___DYNAMIC" "-Wno-write-strings" ,@cc-options "-c" "-o" ,o ,c)))))
         (process-status port)))
     (link-flat (list c) output: o1c warnings?: #f)
-    (if (equal? lang "c")
-        (##gambc-cc
-          'dyn
-          "."
-          (list o1c o)
-          o1
-          ""
-          ""
-          ld-options
-          #f)
-      (##gambcomp 'C
-                  'dyn
-                  "."
-                  (list o1c o)
-                  o1
-                  #f
-                  (list (cons "CC_OPTIONS" "")
-                        (cons "LD_OPTIONS" ld-options))))
+    (##gambcomp 'C
+                'dyn
+                "."
+                (list o1c o)
+                o1
+                #f
+                (list (cons "CC_OPTIONS" "")
+                      (cons "LD_OPTIONS" ld-options)))
     (pp (list 'compiled name))))
 
 (define (ccmac)

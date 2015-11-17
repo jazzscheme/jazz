@@ -58,6 +58,7 @@ c-end
   #<<c-end
     LRESULT wndproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
     {
+     ___PSGET
       LRESULT result;
       ___SCMOBJ ___err;
       ___BEGIN_TRY
@@ -155,6 +156,7 @@ c-end
       (setup-app)
       (create-window)
       (process-messages)
-      (process-events))))
+      (process-events)))
+  (pp 'exit))
 
 (main)

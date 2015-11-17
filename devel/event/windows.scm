@@ -18,12 +18,59 @@
 (define WM_LBUTTONDOWN
   #x0201)
 
+(c-declare
+  #<<c-end
+    ___SCMOBJ propagate;
+c-end
+)
+
+(c-define-type MSG (type "MSG"))
+(c-define-type MSG* (pointer MSG))
+
+(define MSG-message
+  (c-lambda (MSG*) unsigned-int
+    #<<c-end
+    ___result = ___arg1->message;
+c-end
+))
+
+(define TranslateMessage
+  (c-lambda (MSG*) void
+    "TranslateMessage"))
+
+(define DispatchMessage
+  (c-lambda (MSG*) void
+    #<<c-end
+    propagate = ___FIX(___NO_ERR);
+    DispatchMessage(___arg1);
+    ___EXT(___propagate_error)(propagate);
+c-end
+))
+
 (c-define (call-process-hwnd-message hwnd umsg wparam lparam) (HWND UINT WPARAM LPARAM) LRESULT "windowproc" "static"
   (cond ((= umsg WM_LBUTTONDOWN)
          (continuation-return exit-continuation #f)
          0)
         (else
          (DefWindowProc hwnd umsg wparam lparam))))
+
+(c-declare
+  #<<c-end
+    LRESULT wndproc(HWND hwnd, UINT umsg, WPARAM wparam, LPARAM lparam)
+    {
+      LRESULT result;
+      ___SCMOBJ ___err;
+      ___BEGIN_TRY
+        result = windowproc(hwnd, umsg, wparam, lparam);
+      ___END_TRY
+      if (___err != ___FIX(___NO_ERR))
+      {
+        propagate = ___err;
+      }
+        return result;
+    }
+c-end
+)
 
 (define create-window
   (c-lambda () void
@@ -35,7 +82,7 @@
     instance = ___EXT(___get_program_startup_info)()->hInstance;
     wc.cbSize =         sizeof(WNDCLASSEX);
     wc.style =          CS_DBLCLKS;
-    wc.lpfnWndProc =    windowproc;
+    wc.lpfnWndProc =    wndproc;
     wc.cbClsExtra =     0;
     wc.cbWndExtra =     0;
     wc.hInstance =      instance;
@@ -58,24 +105,6 @@
       NULL);
 c-end
 ))
-
-(c-define-type MSG (type "MSG"))
-(c-define-type MSG* (pointer MSG))
-
-(define MSG-message
-  (c-lambda (MSG*) unsigned-int
-    #<<c-end
-    ___result = ___arg1->message;
-c-end
-))
-
-(define TranslateMessage
-  (c-lambda (MSG*) void
-    "TranslateMessage"))
-
-(define DispatchMessage
-  (c-lambda (MSG*) void
-    "DispatchMessageW"))
 
 (define event-thread
   (current-thread))

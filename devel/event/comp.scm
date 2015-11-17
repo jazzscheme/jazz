@@ -35,8 +35,8 @@
 (define (ccmac)
   (comp "mac" "mm" "/usr/bin/g++" ld-options: "-framework Cocoa"))
 
+(define (ccwindows)
+  (comp "windows" "cpp" "g++" cc-options: '("-fpermissive")))
+
 (define (cwindows)
   (comp "windows" "c" "gcc"))
-
-(define (ccwindows)
-  (comp "windows" "cpp" "gcc" cc-options: '("-fpermissive")))

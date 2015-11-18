@@ -38,4 +38,28 @@
 (module jazz.foreign jazz
 
 
-(export (jazz.foreign.syntax (phase syntax))))
+(export (jazz.foreign.syntax (phase syntax)))
+(import (jazz.syntax))
+
+
+;;;
+;;;; Callback
+;;;
+
+
+(define-setting log-callbacks?
+  #f)
+
+(define-setting log-callback-unwinds?
+  #f)
+
+
+(definition public (with-callback callback thunk)
+  (when (log-callbacks?)
+    (terminal callback))
+  (let ((returned? #f))
+    (unwind-protect
+        (prog1 (thunk)
+          (set! returned? #t))
+      (when (and (not returned?) (log-callback-unwinds?))
+        (terminal 'unwinding callback))))))

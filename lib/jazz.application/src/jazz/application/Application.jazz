@@ -623,10 +623,15 @@
     (for-each prepare-exit~ exit-listeners))
   
   
-  (method override (stop-message-thread)
+  (method override (stop-message-thread thunk)
     (let ((thread (message-thread)))
       (thread-stop-loop thread)
-      (thread-join! thread)))
+      ;; do not deadlock the event and message threads
+      (thread-start!
+        (new-thread
+          (lambda ()
+            (thread-join! thread)
+            (delay-event thunk))))))
 
 
   ;;;

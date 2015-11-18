@@ -64,23 +64,13 @@
   
   
   ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  (method public (processing-modal?)
-    (not modal-done?))
-  
-  
-  ;;;
   ;;;; Close
   ;;;
   
   
   (method (destroy-modal)
     (set! modal-closed? #t)
-    (set! modal-result #f)
-    (set! modal-done? #t))
+    (set! modal-result #f))
 
 
   ;;;
@@ -139,16 +129,16 @@
                    (show~ player)
                    (execute-event
                      (lambda ()
-                       (catch Modal-Done
-                         (catch Cancel-Signal
-                           (with-current-loop
-                             (lambda ()
-                               (run-modal~ player)))))))
+                       (catch Cancel-Signal
+                         (with-current-loop
+                           (lambda ()
+                             (run-modal~ player
+                               (lambda ()
+                                 modal-done?)))))))
                    (cond (modal-closed? (signal-cancel))
                          (modal-signal (signal modal-signal))
                          (else modal-result)))
                (exit-modal~ player overlapped)
-               (set! modal-done? #t)
                (set-current-modal preserved)
                (when toplevel
                  (update-modal-actions~ application))
@@ -163,31 +153,18 @@
   
   
   (method public (end-modal result)
+    (set! modal-done? #t)
     (set! modal-closed? #f)
-    (set! modal-result result)
-    (modal-done))
-  
-  
-  (method public (signal-modal signal)
-    (set! modal-signal signal)
-    (modal-done))
+    (set! modal-result result))
   
   
   (method public (cancel-modal)
-    (signal-modal (new Cancel-Signal)))
+    (set! modal-done? #t)
+    (set! modal-signal (new Cancel-Signal)))
   
   
   (method public (close-modal action)
+    (set! modal-done? #t)
     (set! modal-closed? #f)
     (set! modal-result #f)
-    (set! modal-action action)
-    (modal-done)))
-
-
-(class Modal-Done extends Signal)
-
-
-(definition (modal-done)
-  (delay-event
-    (lambda ()
-      (signal (new Modal-Done))))))
+    (set! modal-action action))))

@@ -3991,22 +3991,18 @@ void platformPlaySound(char* filename, double volume)
 
 
 (c-callback (paint-callback handle rect) (platformwindow NSRect*) void "paint_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when get-window
-        (let ((window (get-window handle))
-              (context (platformCurrentGraphics)))
-          ;; the mac can call this before the window is registered
-          (when window
-            (paint-cocoa~ window context rect)))))))
+  (when get-window
+    (let ((window (get-window handle))
+          (context (platformCurrentGraphics)))
+      ;; the mac can call this before the window is registered
+      (when window
+        (paint-cocoa~ window context rect)))))
 
 
 (c-callback (reshape-callback handle width height) (platformwindow int int) void "reshape_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when get-window
-        (let ((window (get-window handle)))
-          (call-size-change~ window 'restored width height))))))
+  (when get-window
+    (let ((window (get-window handle)))
+      (call-size-change~ window 'restored width height))))
 
 
 (c-callback (close-callback handle) (platformwindow) void "close_callback" ""
@@ -4053,99 +4049,79 @@ void platformPlaySound(char* filename, double volume)
 
 
 (c-callback (char-callback handle c) (platformwindow int) void "char_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when get-window
-        (catch (Cancel-Signal exc)
-          (let ((window (get-window handle))
-                (c (integer->char c)))
-            (call-key-press~ window c)))))))
+  (when get-window
+    (catch (Cancel-Signal exc)
+      (let ((window (get-window handle))
+            (c (integer->char c)))
+        (call-key-press~ window c)))))
 
 
 (c-callback (button-callback handle x y button click-count action) (platformwindow int int int int int) void "button_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when get-window
-        (catch (Cancel-Signal exc)
-          (let ((window (get-window handle)))
-            (ecase button
-              ((PLATFORM_MOUSE_BUTTON_LEFT)
-               (ecase action
-                 ((PLATFORM_PRESS) (if (= click-count 2) (double-click~ window x y) (mouse-down~ window x y)))
-                 ((PLATFORM_RELEASE) (mouse-up~ window x y))))
-              ((PLATFORM_MOUSE_BUTTON_RIGHT)
-               (ecase action
-                 ((PLATFORM_PRESS) (right-mouse-down~ window x y) (context-menu~ window x y))
-                 ((PLATFORM_RELEASE) (right-mouse-up~ window x y)))))))))))
+  (when get-window
+    (catch (Cancel-Signal exc)
+      (let ((window (get-window handle)))
+        (ecase button
+          ((PLATFORM_MOUSE_BUTTON_LEFT)
+           (ecase action
+             ((PLATFORM_PRESS) (if (= click-count 2) (double-click~ window x y) (mouse-down~ window x y)))
+             ((PLATFORM_RELEASE) (mouse-up~ window x y))))
+          ((PLATFORM_MOUSE_BUTTON_RIGHT)
+           (ecase action
+             ((PLATFORM_PRESS) (right-mouse-down~ window x y) (context-menu~ window x y))
+             ((PLATFORM_RELEASE) (right-mouse-up~ window x y)))))))))
 
 
 (c-callback (moved-callback handle x y) (platformwindow double double) void "moved_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when get-window
-        (let ((window (get-window handle)))
-          (call-mouse-moved~ window x y))))))
+  (when get-window
+    (let ((window (get-window handle)))
+      (call-mouse-moved~ window x y))))
 
 
 (c-callback (wheel-callback handle x y) (platformwindow double double) void "wheel_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when get-window
-        (let ((window (get-window handle)))
-          (mouse-wheel~ window #f #f (new Point (fxround (* 30. x)) (fxround (* 30. y)))))))))
+  (when get-window
+    (let ((window (get-window handle)))
+      (mouse-wheel~ window #f #f (new Point (fxround (* 30. x)) (fxround (* 30. y)))))))
 
 
 (c-callback (file-callback filename) (NSString*) void "file_callback" ""
   ;; quick hack around a problem where launching a worker process from
   ;; another process receives a file callback with a string like "63442"
   (when (file-exists? filename)
-    (thread-execute (primordial-thread) 'execute-event
-      (lambda ()
-        (drop-file-callback filename)))))
+    (drop-file-callback filename)))
 
 
 (c-callback (drop-callback handle filenames) (platformwindow NSArray*) void "drop_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when get-window
-        (let ((window (get-window handle)))
-          (drop-files~ window filenames))))))
+  (when get-window
+    (let ((window (get-window handle)))
+      (drop-files~ window filenames))))
 
 
 (c-callback (entered-callback handle) (platformwindow) void "entered_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when get-window
-        (let ((window (get-window handle)))
-          (mouse-enter~ window))))))
+  (when get-window
+    (let ((window (get-window handle)))
+      (mouse-enter~ window))))
 
 
 (c-callback (exited-callback handle) (platformwindow) void "exited_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when get-window
-        (let ((window (get-window handle)))
-          (mouse-leave~ window))))))
+  (when get-window
+    (let ((window (get-window handle)))
+      (mouse-leave~ window))))
 
 
 (c-callback (activate-callback handle) (platformwindow) void "activate_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when get-window
-        (let ((window (get-window handle)))
-          (when window
-            (focus-gain~ window)
-            (activate-application~ window)))))))
+  (when get-window
+    (let ((window (get-window handle)))
+      (when window
+        (focus-gain~ window)
+        (activate-application~ window)))))
 
 
 (c-callback (deactivate-callback handle) (platformwindow) void "deactivate_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (when get-window
-        (let ((window (get-window handle)))
-          (when window
-            (deactivate-application~ window)
-            (focus-lose~ window)))))))
+  (when get-window
+    (let ((window (get-window handle)))
+      (when window
+        (deactivate-application~ window)
+        (focus-lose~ window)))))
 
 
 (c-callback (terminate-callback) () void "terminate_callback" ""
@@ -4155,9 +4131,7 @@ void platformPlaySound(char* filename, double volume)
 
 
 (c-callback (finished-playing-callback alias) (NSString*) void "finished_playing_callback" ""
-  (thread-execute (primordial-thread) 'execute-event
-    (lambda ()
-      (music-played-callback alias))))
+  (music-played-callback alias))
 
 
 (c-callback (user-callback data1 data2) (int int) void "user_callback" ""

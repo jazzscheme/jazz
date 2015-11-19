@@ -4465,11 +4465,8 @@
 
 
 (definition package (write-delayed-event thunk)
-  (continuation-capture
-    (lambda (cont)
-      (let ((msg (cons thunk (cons cont (current-continuation-chain)))))
-        (write msg delayed-events)
-        (force-output delayed-events)))))
+  (write thunk delayed-events)
+  (force-output delayed-events))
 
 
 (definition package (read-delayed-event)
@@ -4484,10 +4481,6 @@
       (let ((thunk (car msg)))
         (thunk)
         (process-delayed-events)))))
-
-
-(definition public current-continuation-chain
-  (make-parameter '()))
 
 
 (definition package (thread-loop? thread)
@@ -4545,11 +4538,8 @@
     (pop~ thread-queue timeout)))
 
 
-(definition package (thread-write thread value (priority 0))
-  (continuation-capture
-    (lambda (cont)
-      (let ((msg (cons value (cons cont (current-continuation-chain)))))
-        (thread-write-message thread msg priority)))))
+(definition package (thread-write thread thunk (priority 0))
+  (thread-write-message thread thunk priority))
 
 
 (definition package (thread-read (timeout: timeout +infinity))
@@ -4560,20 +4550,15 @@
 
 
 (definition public (thread-process (timeout: timeout +infinity))
-  (let ((msg (thread-read-message timeout: timeout)))
+  (let ((thunk (thread-read-message timeout: timeout)))
     (process-delayed-events)
-    (when (not (eof-object? msg))
-      (bind (thunk . chain) msg
-        (parameterize ((current-continuation-chain chain))
-          (thunk))))))
+    (when (not (eof-object? thunk))
+      (thunk))))
 
 
 (definition public (thread-post thread name thunk (priority 0))
-  (thread-write thread thunk priority)
-  @posts-are-never-synchronous
-  (if (eq? thread (current-thread))
-      (thunk)
-    (thread-write thread thunk priority)))
+  ;; posts are never synchronous
+  (thread-write thread thunk priority))
 
 
 (definition public (thread-block thread name thunk (priority 0))

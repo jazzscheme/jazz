@@ -417,7 +417,6 @@
 ;;;
 
 
-;; need to implement this
 (definition message-rate <fl>
   .01)
 
@@ -441,9 +440,14 @@
     (let ((port (open-event-queue QS_ALLINPUT))
           (thread (current-thread)))
       (let (loop)
-        (let ((msg (read port)))
-          (process-message msg)
-          (foreign-release! msg))
+        (let ((msg (call-event
+                     (lambda ()
+                       (input-port-timeout-set! port 0)
+                       (read port)))))
+          (when (not (eof-object? msg))
+            (process-message msg)
+            (foreign-release! msg)))
+        (thread-sleep! message-rate)
         (when (thread-loop? thread)
           (loop)))))
   
@@ -459,60 +463,21 @@
 
 
 ;;;
-;;;; Dispatch
+;;;; Callback
 ;;;
 
 
-@debug-interleaved-problem
-(definition callback-level
-  0)
-
-@debug-interleaved-problem
-(definition callback-thread-mutex
-  (make-mutex 'callback-thread-mutex))
-
-@debug-interleaved-problem
-(definition callback-thread-condition
-  (make-condition 'callback-thread-condition))
-
-
 (definition (message-callback hwnd <foreign> msg <int> wparam <int> lparam <int>)
-  (define (process)
-    (let ((window (get-window hwnd)))
-      (when (and (not window) (get-in-creation))
-        (set! window (get-in-creation))
-        (set-handle~ window hwnd)
-        (set-window hwnd window)
-        (set-in-creation #f))
-      (if (not window)
-          (DefWindowProc hwnd msg wparam lparam)
-        (dispatch-message window msg wparam lparam))))
-  
   (declare (proper-tail-calls))
-  (call-event process)
-  
-  @debug-interleaved-problem
-  (with-c-stack-unwinding-exit
-    (lambda ()
-      (let ((level (begin
-                     (mutex-lock! callback-thread-mutex)
-                     (increase! callback-level)
-                     (prog1 callback-level
-                       (mutex-unlock! callback-thread-mutex)))))
-        (unwind-protect
-            (call-event process)
-          (let (iterate)
-            (mutex-lock! callback-thread-mutex)
-            (if (= level callback-level)
-                (begin
-                  (decrease! callback-level)
-                  (mutex-unlock! callback-thread-mutex))
-              @debug
-              (terminal 'interleaved-problem-detected (current-thread) level callback-level hwnd msg wparam lparam)
-              (mutex-unlock! callback-thread-mutex callback-thread-condition)
-              (iterate))))))
-    (lambda ()
-      (DefWindowProc hwnd msg wparam lparam))))
+  (let ((window (get-window hwnd)))
+    (when (and (not window) (get-in-creation))
+      (set! window (get-in-creation))
+      (set-handle~ window hwnd)
+      (set-window hwnd window)
+      (set-in-creation #f))
+    (if (not window)
+        (DefWindowProc hwnd msg wparam lparam)
+      (dispatch-message window msg wparam lparam))))
 
 
 (set-process-hwnd-message message-callback)

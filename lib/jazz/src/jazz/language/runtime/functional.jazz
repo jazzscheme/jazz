@@ -4476,11 +4476,10 @@
 
 (definition public (process-delayed-events)
   (declare (proper-tail-calls))
-  (let ((msg (read-delayed-event)))
-    (when (not (eof-object? msg))
-      (let ((thunk (car msg)))
-        (thunk)
-        (process-delayed-events)))))
+  (let ((thunk (read-delayed-event)))
+    (when (not (eof-object? thunk))
+      (thunk)
+      (process-delayed-events))))
 
 
 (definition package (thread-loop? thread)
@@ -4528,9 +4527,9 @@
     (mutex-unlock! thread-queues-mutex)))
 
 
-(definition package (thread-write-message thread msg priority)
+(definition package (thread-write-message thread thunk priority)
   (let ((thread-queue (get-thread-queue thread)))
-    (push~ thread-queue msg priority)))
+    (push~ thread-queue thunk priority)))
 
 
 (definition package (thread-read-message (timeout: timeout +infinity))
@@ -4543,10 +4542,7 @@
 
 
 (definition package (thread-read (timeout: timeout +infinity))
-  (let ((msg (thread-read-message timeout: timeout)))
-    (if (eof-object? msg)
-        msg
-      (car msg))))
+  (thread-read-message timeout: timeout))
 
 
 (definition public (thread-process (timeout: timeout +infinity))

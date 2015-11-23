@@ -42,6 +42,27 @@
 
 
 ;;;
+;;;; C
+;;;
+
+
+(c-declare #<<c-end
+#include <stdbool.h>
+
+bool exitProcessing = false;
+c-end
+)
+
+
+(define jazz:set-exit-processing
+  (c-lambda (bool) void
+    #<<c-end
+    exitProcessing = ___arg1;
+c-end
+))
+
+
+;;;
 ;;;; Forward
 ;;;
 

@@ -2,11 +2,23 @@
 ;;;; Minimal event
 ;;;
 
+(include "common.scm")
+
+;;;
+;;;; Platform
+;;;
+
 (c-declare #<<c-end
 
 #import <Cocoa/Cocoa.h>
 
-void mouse_callback();
+void mouse_down();
+
+@interface MyException : NSException
+@end
+
+@implementation MyException
+@end
 
 @interface MyApplication : NSApplication
 {
@@ -32,7 +44,7 @@ void mouse_callback();
 @implementation MyView
 - (void)mouseDown:(NSEvent *)event
 {
-    mouse_callback();
+    mouse_down();
 }
 @end
 
@@ -80,11 +92,10 @@ c-end
 c-end
 ))
 
-(define poll-events
-  (c-lambda () void
-    #<<c-end
+(c-processing (poll-events) void
+  #<<c-end
     NSEvent* event;
-  
+ 
     do
     {
         event = [NSApp nextEventMatchingMask:NSAnyEventMask
@@ -95,18 +106,21 @@ c-end
         if (event)
             [NSApp sendEvent:event];
     }
-    while (event);
+    while (event && !exit_processing);
 c-end
-))
+)
 
-(c-define (mouse-callback) () void "mouse_callback" ""
-  (continuation-return exit-continuation #f))
+(c-callback (mouse-down) () void "mouse_down" ""
+  #;
+  (append 1 2)
+  (exit-main))
+
+;;;
+;;;; Events
+;;;
 
 (define event-thread
   (current-thread))
-
-(define exit-continuation
-  #f)
 
 (define (execute-event thread thunk)
   (let ((mutex (make-mutex)))
@@ -123,6 +137,10 @@ c-end
       (thunk))
     (loop)))
 
+;;;
+;;;; Messages
+;;;
+
 (define (process-messages)
   (thread-start!
     (make-thread
@@ -134,13 +152,25 @@ c-end
           (thread-sleep! .01)
           (loop))))))
 
+;;;
+;;;; Main
+;;;
+
+(define main-exit
+  (make-exception))
+
+(define (main-exception? exc)
+  (eq? exc main-exit))
+
 (define (main)
-  (continuation-capture
-    (lambda (cont)
-      (set! exit-continuation cont)
-      (setup-app)
-      (create-window)
-      (process-messages)
-      (process-events))))
+  (catch (main-exception? exc
+           #f)
+    (setup-app)
+    (create-window)
+    (process-messages)
+    (process-events)))
+
+(define (exit-main)
+  (throw main-exit))
 
 (main)

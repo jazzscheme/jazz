@@ -812,4 +812,21 @@
       (let ((converted-types (convert-types has-special? types))
             (c-name-or-code (if (or (null? rest) (symbol? (car rest))) (convert-code has-special? types (symbol->string name)) (car rest))))
         `(definition public ,name
-           (c-function ,name ,converted-types ,result-type ,c-name-or-code)))))))
+           (c-function ,name ,converted-types ,result-type ,c-name-or-code))))))
+
+
+;;;
+;;;; C-Processing
+;;;
+
+
+(macro public (c-processing signature result-type (c-name-or-code #f))
+  (let ((name (car signature))
+        (parameters (cdr signature)))
+    (let ((c-name (string->symbol (string-append (symbol->string name) "$c"))))
+      `(begin
+         (c-external ,(cons c-name parameters) ,result-type ,(or c-name-or-code (symbol->string name)))
+         (definition public (,name . rest)
+           (with-processing ',name
+             (lambda ()
+               (apply ,c-name rest)))))))))

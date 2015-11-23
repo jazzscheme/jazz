@@ -43,6 +43,34 @@
 
 
 ;;;
+;;;; Processing
+;;;
+
+
+(definition exit-processing
+  #f)
+
+(definition public (set-exit-processing proc)
+  (set! exit-processing proc))
+
+
+(definition inside-processing
+  (make-parameter #f))
+
+
+(definition processing-exception
+  #f)
+
+
+(definition public (with-processing name thunk)
+  (let ((result (parameterize ((inside-processing name))
+                  (thunk))))
+    (if processing-exception
+        (throw processing-exception)
+      result)))
+
+
+;;;
 ;;;; Callback
 ;;;
 
@@ -54,12 +82,21 @@
   #f)
 
 
-(definition public (with-callback callback thunk)
-  (when (log-callbacks?)
-    (terminal callback))
-  (let ((returned? #f))
-    (unwind-protect
-        (prog1 (thunk)
-          (set! returned? #t))
-      (when (and (not returned?) (log-callback-unwinds?))
-        (terminal 'unwinding callback))))))
+(definition public (with-callback name thunk)
+  (cond ((inside-processing)
+         (when (log-callbacks?)
+           (terminal name))
+         (let ((returned? #f))
+           (set! processing-exception #f)
+           (exit-processing #f)
+           (unwind-protect
+               (prog1 (catch (Exception exc
+                               (set! processing-exception exc)
+                               (exit-processing #t))
+                        (parameterize ((inside-processing #f))
+                          (thunk)))
+                 (set! returned? #t))
+             (when (and (not returned?) (log-callback-unwinds?))
+               (terminal name 'did 'not 'return)))))
+        (else
+         (error "Callback called outside processing: {s}" name)))))

@@ -307,11 +307,12 @@
         (link-flat (%%list bin-output) output: linkfile warnings?: #f)
         (let ((exit-status
                 (if ios?
-                    (let ((custom-cc-options (cons "-bundle" ios-custom-cc-options)))
+                    (let ((custom-cc-options (cons "-bundle" ios-custom-cc-options))
+                          (link-options (case jazz:kernel-compiler ((c++) '("-lstdc++")) (else '()))))
                       (jazz:invoke-process
                         (list
                           path: ios-custom-cc
-                          arguments: `(,@custom-cc-options ,(%%string-append "-I" ios-gambit-include-dir) ,@(jazz:split-string cc-options #\space) ,@(jazz:split-string ld-options #\space) ,@ld-options ,linkfile ,(string-append bin-pathname-base ".o") "-o" ,bin-o1))))
+                          arguments: `(,@custom-cc-options ,@link-options ,(%%string-append "-I" ios-gambit-include-dir) ,@(jazz:split-string cc-options #\space) ,@(jazz:split-string ld-options #\space) ,@ld-options ,linkfile ,(string-append bin-pathname-base ".o") "-o" ,bin-o1))))
                   (jazz:gambitcomp
                     'dyn
                     (jazz:resource-build-dir src)

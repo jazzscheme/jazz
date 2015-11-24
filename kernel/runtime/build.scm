@@ -825,11 +825,12 @@
           (feedback-message "; linking {a}..." (if library-image? "library" "executable"))
           (jazz:create-directories kernel-dir)
           (if ios?
-              (let ((custom-cc-options (cons "-bundle" ios-custom-cc-options)))
+              (let ((custom-cc-options (cons "-bundle" ios-custom-cc-options))
+                    (link-options (case compiler ((c++) '("-lstdc++")) (else '()))))
                 (jazz:invoke-process
                   (list
                     path: ios-custom-cc
-                    arguments: `(,@custom-cc-options ,(%%string-append "-I" ios-gambit-include-dir) ,(%%string-append "-L" ios-gambit-lib-dir) ,@c-files "-o" ,(string-append kernel-dir "/" kernel-name)))))
+                    arguments: `(,@custom-cc-options ,@link-options ,(%%string-append "-I" ios-gambit-include-dir) ,(%%string-append "-L" ios-gambit-lib-dir) ,@c-files "-o" ,(string-append kernel-dir "/" kernel-name)))))
             (jazz:gambitcomp
               'exe
               (jazz:pathname-normalize build-dir)

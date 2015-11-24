@@ -233,7 +233,7 @@
     (and ios? "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang"))
   
   (define ios-custom-cc-options
-    (and ios? (list "-arch" (symbol->string ios-architecture) "-I/Users/magnan/CDSCode/CDSProducts/TestCairo2/CouchbaseLite.framework/Headers" "-fmessage-length=0" "-fdiagnostics-show-note-include-stack" "-fmacro-backtrace-limit=0" "-Wno-c++11-compat-deprecated-writable-strings" "-fmodules" "-gmodules"
+    (and ios? (list "-arch" (symbol->string ios-architecture) "-fmessage-length=0" "-fdiagnostics-show-note-include-stack" "-fmacro-backtrace-limit=0" "-Wno-c++11-compat-deprecated-writable-strings" "-fmodules" "-gmodules"
       "-Wnon-modular-include-in-framework-module" "-Werror=non-modular-include-in-framework-module" "-Wno-trigraphs" "-fpascal-strings" "-O0"
       "-fno-common" "-Wno-missing-field-initializers" "-Wno-missing-prototypes" "-Werror=return-type" "-Wunreachable-code"
       "-Werror=deprecated-objc-isa-usage" "-Werror=objc-root-class" "-Wno-missing-braces" "-Wparentheses" "-Wswitch" "-Wempty-body"
@@ -310,11 +310,11 @@
         (let ((exit-status
                 (if ios?
                     (let ((custom-cc-options (cons "-bundle" ios-custom-cc-options))
-                          (link-options (case jazz:kernel-compiler ((c++) '("-lstdc++")) (else '()))))
+                          (link-options (case jazz:kernel-compiler ((c++) '("-lc++" "-framework" "Foundation" "-framework" "UIKit" "-framework" "CoreText")) (else '()))))
                       (jazz:invoke-process
                         (list
                           path: ios-custom-cc
-                          arguments: `(,@custom-cc-options ,@link-options ,(%%string-append "-I" ios-gambit-include-dir) ,@(jazz:split-string cc-options #\space) ,@(jazz:split-string ld-options #\space) ,@ld-options ,linkfile ,(string-append bin-pathname-base ".o") "-o" ,bin-o1)
+                          arguments: `(,@custom-cc-options ,@link-options ,(%%string-append "-I" ios-gambit-include-dir) ,@(jazz:split-string cc-options #\space) ,@(jazz:split-string ld-options #\space) ,linkfile ,(string-append bin-pathname-base ".o") "-o" ,bin-o1)
                           show-console: #f)))
                   (jazz:gambitcomp
                     'dyn

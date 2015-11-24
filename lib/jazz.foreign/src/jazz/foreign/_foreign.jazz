@@ -56,11 +56,8 @@
 
 
 (definition public (with-callable name thunk)
-  ;(terminal 'CALLABLE name)
   (let ((result (parameterize ((current-callable name))
                   (thunk))))
-    (when callable-exception
-      (terminal 'RETHROW callable-exception))
     (if callable-exception
         (throw callable-exception)
       result)))
@@ -71,38 +68,15 @@
 ;;;
 
 
-(define-setting log-callbacks?
-  #f)
-
-(define-setting log-callback-unwinds?
-  #f)
-
-
-(definition public (with-callback name thunk)
-  ;(terminal 'CALLBACK name)
+(definition public (with-callback name exit-value thunk)
   (cond ((current-callable)
-         (when (log-callbacks?)
-           (terminal name))
-         (let ((returned? #f))
-           (set! callable-exception #f)
-           (set-exit-callable #f)
-           (unwind-protect
-               (prog1 (catch (Exception exc
-                               (set! callable-exception exc)
-                               (set-exit-callable #t)
-                               ;; quick try
-                               0)
-                        (parameterize ((current-callable #f))
-                          (thunk)))
-                 (set! returned? #t))
-             (when (and (not returned?) (log-callback-unwinds?))
-               (terminal name 'did 'not 'return)))))
+         (set! callable-exception #f)
+         (set-exit-callable #f)
+         (catch (Exception exc
+                  (set! callable-exception exc)
+                  (set-exit-callable #t)
+                  exit-value)
+           (parameterize ((current-callable #f))
+             (thunk))))
         (else
-         (call-with-output-file "~/foo"
-           (lambda (output)
-             (continuation-capture
-               (lambda (cont)
-                 (display-continuation-backtrace cont output #t #f 0 1000)))
-             (force-output output)
-             (exit)))
          (error "Callback called outside callable: {s}" name)))))

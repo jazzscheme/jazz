@@ -429,28 +429,14 @@
 
 
 (definition package (process-messages)
-  (define (process-message msg)
-    (execute-event
-      (lambda ()
-        (unless (translate-shortcut msg)
-          (TranslateMessage msg)
-          ;(terminal 'DISPATCH (current-processing))
-          (DispatchMessage msg)))))
-  
   (define (process)
     (declare (proper-tail-calls))
     (let ((port (open-event-queue QS_ALLINPUT))
           (thread (current-thread)))
       (let (loop)
-        (let ((msg (call-event
-                     (lambda ()
-                       (input-port-timeout-set! port 0)
-                       (with-callable 'read
-                         (lambda ()
-                           (read port)))))))
-          (when (not (eof-object? msg))
-            (process-message msg)
-            (foreign-release! msg)))
+        (execute-event
+          (lambda ()
+            (poll-events port translate-shortcut)))
         (thread-sleep! message-rate)
         (when (thread-loop? thread)
           (loop)))))

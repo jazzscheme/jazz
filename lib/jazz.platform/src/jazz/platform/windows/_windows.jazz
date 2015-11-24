@@ -166,8 +166,22 @@
 ;;;
 
 
-(definition package (poll-events)
-  )
+(definition package (poll-events port translate-shortcut)
+  (define (process-message msg)
+    (unless (translate-shortcut msg)
+      (TranslateMessage msg)
+      (DispatchMessage msg)))
+  
+  (declare (proper-tail-calls))
+  (let (loop)
+    (let ((msg (with-callable 'read
+                 (lambda ()
+                   (input-port-timeout-set! port 0)
+                   (read port)))))
+      (unless (eof-object? msg)
+        (process-message msg)
+        (foreign-release! msg)
+        (loop)))))
 
 
 ;;;

@@ -69,8 +69,8 @@
 ;;;; id
 ;;;
 
-
-(c-type id (pointer (struct "objc_object")))
+;(c-type id (pointer (struct "objc_object") (id Class) "release_id"))
+(c-type id (pointer (struct "objc_object") #f))
 
 
 ;;;
@@ -114,6 +114,22 @@
               l)
     a))
 
+;;;
+;;;; defaults
+;;;
+
+(c-external (platformDefaultsSetIntegerForKey char-string int) void
+  #/Objective-C/
+  NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+  [userDefaults setInteger:___arg2 forKey:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
+    //#)
+
+
+(c-external (platformDefaultsGetIntegerForKey char-string) int
+  #/Objective-C/
+  NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+  ___result=[userDefaults integerForKey:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
+  //#)
 
 ;;;
 ;;;; Screen dimensions
@@ -222,32 +238,6 @@
 
 
 ;;;
-;;;; JazzUIViewController
-;;;
-
-
-(c-declare ios #/Objective-C/
-@interface JazzUIViewController : UIViewController {}
-@end
-@implementation JazzUIViewController
-                
-                
-- (void)touchesBegan:(NSSet<UITouch *> *)touches
-           withEvent:(UIEvent *)event  
-{
-    NSLog(@"TouchC");
-    NSLog(@"Event: %@",event);
-    [self.view removeFromSuperview];
- 
-     [super touchesBegan:touches withEvent:event];
-}  
-               
-@end
-
-//#)
-
-
-;;;
 ;;;; UIView
 ;;;
 
@@ -348,6 +338,12 @@ extern void paint_callback(UIView*,CGContextRef context, int width, int height);
 (c-external (UIViewSetCornerRadius uiview float) void
   #/Objective-C/
   ___arg1.layer.cornerRadius=___arg2;
+  //#)
+
+
+(c-external (UIViewSizeToFit uiview) void
+  #/Objective-C/
+  [___arg1 sizeToFit];
   //#)
 
 ;;;
@@ -645,6 +641,7 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
 
 
 (c-type uiviewcontroller (pointer "UIViewController"))
+(c-type uinavigationitem (pointer "UINavigationItem"))
 
 
 (c-external (platformCreateUIViewController) uiviewcontroller
@@ -657,6 +654,39 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
 
 (c-external (UIViewControllerSetTitle uiviewcontroller char-string) void
   "___arg1.title=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];")
+
+
+(c-external (platformUIViewControllerNavItem uiviewcontroller) uinavigationitem
+  #/Objective-C/
+  ___result=___arg1.navigationItem;
+  //#)
+
+
+;;;
+;;;; UINavigationItem
+;;;
+
+
+(c-external (platformUINavItemSetRightItem uinavigationitem uibarbuttonitem) void
+  #/Objective-C/
+  ___arg1.rightBarButtonItem=___arg2;
+  //#)
+
+
+(c-type uibarbuttonitem (pointer "UIBarButtonItem"))
+
+(c-external (platformUIBarButtonItemCreateWithView id) uibarbuttonitem
+  #/Objective-C/
+  ___result=[[UIBarButtonItem alloc] initWithCustomView:(UIView *)___arg1];
+  //#)
+
+(c-external (platformUIBarButtonItemCreateSystemItem int) uibarbuttonitem
+  #/Objective-C/
+  ___result=[[UIBarButtonItem alloc] initWithBarButtonSystemItem:___arg1
+                                     target:nil
+                                     action:nil];
+  //#)
+
 
 
 ;;;
@@ -921,6 +951,16 @@ extern void jazz_call_textfield_end_edit(UIView *);
   //#)
 
 
+(c-external (UIImageLoadFromPNG char-string) uiimage
+  #/Objective-C/
+  ___result=[[UIImage alloc] initWithContentsOfFile:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
+  //#)
+
+
+
+
+
+
 ;;;
 ;;;; Camera
 ;;;
@@ -1092,6 +1132,11 @@ extern void jazz_call_textfield_end_edit(UIView *);
 (c-external (UIButtonSetCornerRadius uiview float) void
   #/Objective-C/
   ___arg1.layer.cornerRadius=___arg2;
+  //#)
+
+(c-external (UIButtonSetFontSize uiview float) void
+  #/Objective-C/
+  ((UIButton *)___arg1).titleLabel.font=[UIFont systemFontOfSize:___arg2];
   //#)
 
 

@@ -69,14 +69,19 @@
 
 
 (definition public (with-callback name exit-value thunk)
-  (cond ((current-callable)
-         (set! callable-exception #f)
-         (set-exit-callable #f)
-         (catch (Exception exc
-                  (set! callable-exception exc)
-                  (set-exit-callable #t)
-                  exit-value)
-           (parameterize ((current-callable #f))
-             (thunk))))
-        (else
-         (error "Callback called outside callable: {s}" name)))))
+  @debug
+  (unless (current-callable)
+    (call-with-output-file "~/callback"
+      (lambda (port)
+        (continuation-capture
+          (lambda (cont)
+            (display-continuation-backtrace cont port #t #f 0 1000)))))
+    (exit))
+  (set! callable-exception #f)
+  (set-exit-callable #f)
+  (catch (Exception exc
+           (set! callable-exception exc)
+           (set-exit-callable #t)
+           exit-value)
+    (parameterize ((current-callable #f))
+      (thunk)))))

@@ -42,22 +42,22 @@
 
 
 ;;;
-;;;; C
+;;;; Callable
 ;;;
 
 
 (c-declare #<<c-end
 #include <stdbool.h>
 
-bool exitProcessing = false;
+bool exitCallable = false;
 c-end
 )
 
 
-(define jazz:set-exit-processing
+(define jazz:set-exit-callable
   (c-lambda (bool) void
     #<<c-end
-    exitProcessing = ___arg1;
+    exitCallable = ___arg1;
 c-end
 ))
 

@@ -43,23 +43,26 @@
 
 
 ;;;
-;;;; Processing
+;;;; Callable
 ;;;
 
 
-(definition inside-processing
+(definition current-callable
   (make-parameter #f))
 
 
-(definition processing-exception
+(definition callable-exception
   #f)
 
 
-(definition public (with-processing name thunk)
-  (let ((result (parameterize ((inside-processing name))
+(definition public (with-callable name thunk)
+  ;(terminal 'CALLABLE name)
+  (let ((result (parameterize ((current-callable name))
                   (thunk))))
-    (if processing-exception
-        (throw processing-exception)
+    (when callable-exception
+      (terminal 'RETHROW callable-exception))
+    (if callable-exception
+        (throw callable-exception)
       result)))
 
 
@@ -75,21 +78,31 @@
   #f)
 
 
-(definition public (with-callback name thunk)
-  (cond ((inside-processing)
+(definition public (with-callback name debugging thunk)
+  ;(terminal 'CALLBACK (cons name debugging))
+  (cond ((current-callable)
          (when (log-callbacks?)
            (terminal name))
          (let ((returned? #f))
-           (set! processing-exception #f)
-           (set-exit-processing #f)
+           (set! callable-exception #f)
+           (set-exit-callable #f)
            (unwind-protect
                (prog1 (catch (Exception exc
-                               (set! processing-exception exc)
-                               (set-exit-processing #t))
-                        (parameterize ((inside-processing #f))
+                               (set! callable-exception exc)
+                               (set-exit-callable #t)
+                               ;; quick try
+                               0)
+                        (parameterize ((current-callable #f))
                           (thunk)))
                  (set! returned? #t))
              (when (and (not returned?) (log-callback-unwinds?))
                (terminal name 'did 'not 'return)))))
         (else
-         (error "Callback called outside processing: {s}" name)))))
+         (call-with-output-file "~/foo"
+           (lambda (output)
+             (continuation-capture
+               (lambda (cont)
+                 (display-continuation-backtrace cont output #t #f 0 1000)))
+             (force-output output)
+             (exit)))
+         (error "Callback called outside callable: {s}" name)))))

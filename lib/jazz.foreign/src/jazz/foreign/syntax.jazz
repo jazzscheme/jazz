@@ -683,9 +683,9 @@
 ;;;
 
 
-(macro public (c-callback signature parameter-types result-type c-name scope . body)
+(macro public (c-callback signature parameter-types result-type c-name scope debugging . body)
   `(c-definition ,signature ,parameter-types ,result-type ,c-name ,scope
-     (with-callback ',(car signature)
+     (with-callback ',(car signature) (list ,@debugging)
        (lambda ()
          ,@body))))
 
@@ -816,17 +816,17 @@
 
 
 ;;;
-;;;; C-Processing
+;;;; C-Callable
 ;;;
 
 
-(macro public (c-processing signature result-type (c-name-or-code #f))
+(macro public (c-callable signature result-type (c-name-or-code #f))
   (let ((name (car signature))
         (parameters (cdr signature)))
     (let ((c-name (string->symbol (string-append (symbol->string name) "$c"))))
       `(begin
          (c-external ,(cons c-name parameters) ,result-type ,(or c-name-or-code (symbol->string name)))
          (definition public (,name . rest)
-           (with-processing ',name
+           (with-callable ',name
              (lambda ()
                (apply ,c-name rest)))))))))

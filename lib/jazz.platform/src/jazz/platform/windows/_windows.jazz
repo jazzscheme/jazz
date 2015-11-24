@@ -166,6 +166,10 @@
 ;;;
 
 
+(definition poll-msg
+  (MSG-make))
+
+
 (definition package (poll-events port translate-shortcut)
   (define (process-message msg)
     (unless (translate-shortcut msg)
@@ -174,14 +178,11 @@
   
   (declare (proper-tail-calls))
   (let (loop)
-    (let ((msg (with-callable 'read
-                 (lambda ()
-                   (input-port-timeout-set! port 0)
-                   (read port)))))
-      (unless (eof-object? msg)
-        (process-message msg)
-        (foreign-release! msg)
-        (loop)))))
+    (when (with-callable 'PeekMessage
+            (lambda ()
+              (PeekMessage poll-msg NULL 0 0 PM_REMOVE)))
+      (process-message poll-msg)
+      (loop))))
 
 
 ;;;

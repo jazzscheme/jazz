@@ -817,7 +817,7 @@
           (jazz:create-directories kernel-dir)
           (if ios?
               (let ((custom-cc-options (cons "-bundle" ios-custom-cc-options))
-                    (link-options (case compiler ((c++) '("-lstdc++")) (else '()))))
+                    (link-options (case compiler ((c++) '("-lc++")) (else '()))))
                 (jazz:invoke-process
                   (list
                     path: ios-custom-cc

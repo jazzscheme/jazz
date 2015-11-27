@@ -170,7 +170,7 @@
   (MSG-make))
 
 
-(definition package (poll-events translate-shortcut)
+(definition package (poll-events hwnd translate-shortcut)
   (define (process-message msg)
     (unless (translate-shortcut msg)
       (TranslateMessage msg)
@@ -180,7 +180,12 @@
   (let (loop)
     (when (with-callable 'PeekMessage
             (lambda ()
-              (PeekMessage poll-msg NULL 0 0 PM_REMOVE)))
+              ;; workaround what appears to be a windows bug
+              ;; the documentation says passing NULL should work
+              ;; and it does seems to be working but after a while
+              ;; windows flags the application as not responding
+              (or (PeekMessage poll-msg hwnd 0 0 PM_REMOVE)
+                  (PeekMessage poll-msg NULL 0 0 PM_REMOVE))))
       (process-message poll-msg)
       (loop))))
 

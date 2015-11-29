@@ -445,6 +445,8 @@
 
 
 (define (jazz:open-process path-or-settings)
+  (open-process path-or-settings)
+  #; ;; wait this seems to uncover a gambit bug
   (open-process `(,@(jazz:->open-process-settings path-or-settings)
                   ;; make #f the default
                   show-console: #f)))

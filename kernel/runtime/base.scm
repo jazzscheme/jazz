@@ -438,11 +438,23 @@
 ;;;
 
 
+(define (jazz:->open-process-settings path-or-settings)
+  (if (%%string? path-or-settings)
+      (%%list 'path: path-or-settings)
+    path-or-settings))
+
+
+(define (jazz:open-process path-or-settings)
+  (open-process `(,@(jazz:->open-process-settings path-or-settings)
+                  ;; make #f the default
+                  show-console: #f)))
+
+
 (define (jazz:invoke-process path-or-settings)
-  (let ((port (open-process `(,@path-or-settings
-                              stdin-redirection: #f
-                              stdout-redirection: #f
-                              stderr-redirection: #f))))
+  (let ((port (jazz:open-process `(,@(jazz:->open-process-settings path-or-settings)
+                                   stdin-redirection: #f
+                                   stdout-redirection: #f
+                                   stderr-redirection: #f))))
     (process-status port)))
 
 

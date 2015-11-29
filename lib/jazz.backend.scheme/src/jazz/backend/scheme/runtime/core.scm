@@ -1231,7 +1231,6 @@
 
 (cond-expand
   (gambit
-    (define jazz:open-process open-process)
     (define jazz:process-status process-status)
     (define jazz:exit exit))
   

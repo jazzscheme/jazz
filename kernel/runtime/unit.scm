@@ -1739,7 +1739,7 @@
                  (mutex-unlock! process-mutex)
                  port/echo))
               ((%%fx< active-count jobs)
-               (let ((process (open-process
+               (let ((process (jazz:open-process
                                 (list
                                   path: (jazz:install-path "jazz")
                                   arguments: `("-:daqQ-"

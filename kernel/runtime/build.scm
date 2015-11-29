@@ -1060,7 +1060,7 @@
 
 (define (jazz:pkg-config what libname #!key (return-status? #f))
   (let ((string-port (open-output-string))
-        (process-port (open-process (%%list path: "pkg-config" arguments: (%%list what libname)))))
+        (process-port (jazz:open-process (%%list path: "pkg-config" arguments: (%%list what libname)))))
     (let ((status (process-status process-port)))
       (if return-status?
           status

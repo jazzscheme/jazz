@@ -68,6 +68,15 @@
 ;;;
 
 
+;; for debugging purposes
+(definition protected callback-exception
+  #f)
+
+;; for debugging purposes
+(definition protected callback-continuation
+  #f)
+
+
 (definition public (with-callback name exit-value thunk)
   @debug
   (unless (current-callable)
@@ -79,9 +88,18 @@
     (exit))
   (set! callable-exception #f)
   (set-exit-callable #f)
-  (catch (Exception exc
-           (set! callable-exception exc)
-           (set-exit-callable #t)
-           exit-value)
-    (parameterize ((current-callable #f))
-      (thunk)))))
+  (with-exception-filter
+    (lambda (exc)
+      ;; for debugging purposes
+      (continuation-capture
+        (lambda (cont)
+          (set! callback-exception exc)
+          (set! callback-continuation cont)))
+      #t)
+    (lambda (exc)
+      (set! callable-exception exc)
+      (set-exit-callable #t)
+      exit-value)
+    (lambda ()
+      (parameterize ((current-callable #f))
+        (thunk))))))

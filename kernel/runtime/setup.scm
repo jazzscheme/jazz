@@ -319,8 +319,6 @@ c-end
   ;; t -> test
   ;; v -> version
   ;; x -> expand
-  ;; commented out to get proper tail call into the repl
-  ;; (let ((exit-code ...)))
   (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "target" "debugger" "link" "j" "jobs" "port" "dialect") missing-argument-for-option
     (lambda (commands options remaining)
       (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
@@ -558,9 +556,7 @@ c-end
                (if debug?
                    (setup-build)
                  (setup-runtime))
-               (jazz:repl-main gambit? dialect))))))
-  #; ;; see above commentary about proper tail call
-  (exit (if (integer? exit-code) exit-code 0)))
+               (jazz:repl-main gambit? dialect)))))))
 
 
 ;;;

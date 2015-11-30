@@ -176,42 +176,6 @@
 
 
 ;;;
-;;;; Propagater
-;;;
-
-
-(define (jazz:with-exception-propagater handler thunk)
-  ;; Calls thunk and returns whatever thunk returns, unless
-  ;; it raises an exception. In that case handler is called
-  ;; with 2 arguments:
-  ;; 1 - the exception that was raised
-  ;; 2 - the propagation procedure
-  ;; Note that the implementation will execute the handler
-  ;; in the initial continuation in case the handler itself
-  ;; generates an exception. If the propagation is not called
-  ;; it will 'rewind to the future' before invoking the current
-  ;; exception handler. This means that this mecanism can only
-  ;; be used with purely functional code or with code that
-  ;; properly obeys the dynamic wind / unwind semantics.
-  (%%continuation-capture
-    (lambda (catcher-cont)
-      (with-exception-handler
-        (lambda (exc)
-          (%%continuation-capture
-            (lambda (raise-cont)
-              (%%continuation-graft
-                catcher-cont
-                (lambda ()
-                  (handler exc
-                           (lambda ()
-                             (let ((handler (current-exception-handler)))
-                               (%%continuation-graft
-                                 raise-cont
-                                 (lambda () (handler exc)))))))))))
-        thunk))))
-
-
-;;;
 ;;;; Error
 ;;;
 

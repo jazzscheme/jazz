@@ -287,7 +287,6 @@
 (native jazz:with-exception-handler)
 (native jazz:with-exception-catcher)
 (native jazz:with-exception-filter)
-(native jazz:with-exception-propagater)
 (native jazz:dump-exception)
 (native jazz:raise)
 

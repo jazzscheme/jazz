@@ -64,7 +64,6 @@
   (slot settings             initialize #f accessors generate)
   (slot preferences-designer initialize #f getter generate)
   (slot context              initialize #f)
-  (slot exit-continuation    initialize #f)
   (slot monitor-memory?      initialize #f)
 
   
@@ -511,9 +510,7 @@
 
   (method public virtual (exit-process (status 0))
     (unload-process)
-    (if exit-continuation
-        (continuation-return exit-continuation status)
-      (exit status)))
+    (quit))
   
   
   (method public virtual (reboot-process (status 0))
@@ -525,6 +522,7 @@
       (lambda ()
         (parameterize ((*reloading-process?* #t))
           (unload-process))
+        @convert
         (continuation-graft exit-continuation boot-environment))))
   
   
@@ -717,7 +715,6 @@
   (method public virtual (run-loop)
     (continuation-capture
       (lambda (cont)
-        (set! exit-continuation cont)
         (with-repl-context cont
           (lambda ()
             (with-current-loop

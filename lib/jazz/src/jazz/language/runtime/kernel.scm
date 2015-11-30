@@ -808,6 +808,7 @@
 (native jazz:load-build)
 (native jazz:split-command-line)
 (native jazz:get-option)
+(native jazz:quit)
 (native main)
 
 

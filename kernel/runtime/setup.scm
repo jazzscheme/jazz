@@ -578,11 +578,13 @@ c-end
   (%%continuation-capture
     (lambda (cont)
       (set! jazz:quit-continuation cont)
-      (with-exception-handler
-        (lambda (exc)
-          (if (%%eq? exc jazz:quit-exception)
-              (%%continuation-return jazz:quit-continuation #f)))
-        thunk))))
+      (let ((previous-handler (current-exception-handler)))
+        (with-exception-handler
+          (lambda (exc)
+            (if (%%eq? exc jazz:quit-exception)
+                (%%continuation-return jazz:quit-continuation #f)
+              (previous-handler exc)))
+          thunk)))))
 
 
 (define (jazz:quit)

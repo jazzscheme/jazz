@@ -77,6 +77,14 @@
   ___result=[___arg1 createAllDocumentsQuery];
 //#)
 
+
+(c-external (cblDatabaseDelete cbldatabase) void
+  #/Objective-C/
+  NSError *error;
+  [___arg1 deleteDatabase:&error];
+  //#)
+
+
 (c-external (cblDatabaseCreateDocument cbldatabase) cbldocument
   #/Objective-C/
   ___result=[___arg1 createDocument];
@@ -100,9 +108,9 @@
   //#)
 
 
-(c-external (cblDatabaseMonitorChanges cbldatabase) void
+(c-external (cblDatabaseMonitorChanges cbldatabase) id
   #/Objective-C/
-  [[NSNotificationCenter defaultCenter] addObserverForName: kCBLDatabaseChangeNotification
+  ___result=(struct objc_object *)[[NSNotificationCenter defaultCenter] addObserverForName: kCBLDatabaseChangeNotification
             object: ___arg1
              queue: nil
         usingBlock: ^(NSNotification *n) {
@@ -110,10 +118,17 @@
         }
   ];
   //#)
+
+
+(c-external (cblDatabaseStopMonitorChanges id) void
+  #/Objective-C/
+ [[NSNotificationCenter defaultCenter] removeObserver:(id)___arg1];
+  //#)
+
   
   
 (c-definition (jazz-call-db-changed db) (cbldatabase) void "jazz_call_db_changed" ""
-   (let ((t (table-ref db-changes-listeners db #f)))
+  (let ((t (table-ref db-changes-listeners (foreign-address db) #f)))
      (and t (t))))
    
 
@@ -121,7 +136,7 @@
    
    
 (definition public (register-db-change-listener db thunk)
-  (table-set! db-changes-listeners db thunk))
+  (table-set! db-changes-listeners (foreign-address db) thunk))
 
 
 (c-external (cblReplicationSetContinuous cblreplication int) void
@@ -135,6 +150,12 @@
   ___arg1.createTarget=___arg2;
   //#)
 
+
+(c-external (cblReplicationSetFilter cblreplication char-string nsmutabledictionary) void
+  #/Objective-C/
+  ___arg1.filter=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];
+  ___arg1.filterParams=___arg3;
+  //#)
 
 
 (c-external (cblReplicationSetAuthenticator cblreplication cblauthenticator) void
@@ -491,6 +512,20 @@
   ___result=view;
   //#)
       
+
+;;;
+;;;; filter
+;;;
+
+
+(c-external (setFamilyFilter cbldatabase) void 
+  #/Objective-C/
+  [___arg1 setFilterNamed:@"familyApp/familyFilter" asBlock:FILTERBLOCK({
+                      
+    NSString* fID = params[@"familyID"];
+    return fID && [revision[@"familyID"] isEqualToString: fID];
+})];
+  //#)
 
 
 ;;;

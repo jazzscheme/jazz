@@ -444,6 +444,12 @@ extern void paint_callback(UIView*,CGContextRef context, int width, int height);
   [___arg1 sizeToFit];
   //#)
 
+
+(c-external (UIViewSetHidden uiview int) void
+  #/Objective-C/
+  [___arg1 setHidden:___arg2];
+  //#)
+
 ;;;
 ;;;; Callbacks
 ;;;
@@ -509,6 +515,57 @@ extern void paint_callback(UIView*,CGContextRef context, int width, int height);
 (definition public (set-touch-up-callback proc)
   (set! *touch-up-callback* proc))
 
+
+;;;
+;;;; UISwitch
+;;;
+
+
+(c-external (platformUISwitchSetState uiview int) void
+  #/Objective-C/
+  [___arg1 setOn:___arg2 animated:YES];
+  //#)
+
+(c-definition (jazz-call-switch-changed switch) (uiview) void "jazz_call_switch_changed" ""
+  (when *switch-changed-callback*
+    (*switch-changed-callback* switch)))
+
+
+(c-declare ios #/Objective-C/
+  
+@interface JazzSwitchController : UIViewController {}
+@end
+@implementation JazzSwitchController
+
+- (void)switchChanged:(id)from
+{
+    jazz_call_switch_changed(from);
+}
+
+@end
+//#)
+
+
+(c-external (platformCreateUISwitch float float float float) uiview
+  #/Objective-C/
+  CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
+  ___result=[[UISwitch alloc] initWithFrame:viewRect];
+  JazzSwitchController *ctrl=[[JazzSwitchController alloc] init];
+  [___result addTarget:ctrl
+             action:@selector(switchChanged:)
+   forControlEvents:UIControlEventValueChanged];
+  //#)
+
+
+(definition *switch-changed-callback*
+  #f)
+
+
+(definition public (set-switch-changed-callback proc)
+  (set! *switch-changed-callback* proc))
+
+                                             
+                                             
 
 ;;;
 ;;;; JazzUITableView
@@ -1253,6 +1310,12 @@ extern void jazz_call_textfield_end_edit(UIView *);
 (c-external (UILabelSetFontSize uiview float) void
   #/Objective-C/
   ((UILabel *)___arg1).font=[UIFont systemFontOfSize:___arg2];
+  //#)
+
+
+(c-external (UILabelSetMaxLines uiview int) void
+  #/Objective-C/
+  [(UILabel *)___arg1 setNumberOfLines:___arg2];
   //#)
 
 

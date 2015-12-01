@@ -91,6 +91,35 @@
 ;  (lambda (foreign)
 ;    (mouse-down~ (get-widget foreign))))
 
+;;;
+;;;; IOS-Switch
+;;;
+
+
+(class IOS-Switch extends IOS-Class-Proxy
+  (slot on-change accessors generate))
+
+
+(definition public (UISwitch #!key (id #f) (x 0.) (y 0.) (on-change #f) (state #f))
+  (let* ((handle (platformCreateUISwitch x y 0. 0.))
+         (view (new IOS-Switch handle)))
+    (if id
+        (register-view-by-id id view))
+    (set-on-change~ view on-change)
+    (register-widget handle view)
+    (platformUISwitchSetState handle (if state 1 0))
+    view))
+
+
+(set-switch-changed-callback
+  (lambda (view)
+    (let* ((sview (get-widget view))
+           (pcb (and sview 
+                     (get-on-change~ sview))))
+      (and pcb
+           (pcb sview)))))
+  
+  
 
 ;;;
 ;;;; IOS-View
@@ -124,10 +153,12 @@
   )
 
 
-(definition public (UIView #!key (x 0.) (y 0.) (width 100.) (height 100.) (corner-radius 0.) (background-color (UIColor alpha: 0.))
+(definition public (UIView #!key (id #f) (x 0.) (y 0.) (width 100.) (height 100.) (corner-radius 0.) (background-color (UIColor alpha: 0.))
                      (on-touch-down #f) (on-touch-up #f) (on-touch-move #f) (paint-callback #f) #!rest children)
   (let ((handle (platformCreateUIView x y width height)))
     (let ((view (new IOS-View handle)))
+      (if id
+          (register-view-by-id id view))
       (set-on-touch-down~ view on-touch-down)
       (set-on-touch-move~ view on-touch-move)
       (set-on-touch-up~ view on-touch-up)
@@ -488,12 +519,13 @@
 (definition public NSTextAlignmentNatural 4)
 
 
-(definition public (UILabel #!key (id #f) (x 0.) (y 0.) (width 100.) (height 100.) (text "Label") (font-size 14.) (alignment NSTextAlignmentLeft) (background-color (UIColor alpha: 0.)) (corner-radius 10.) (resize-to-fit? #f))
+(definition public (UILabel #!key (id #f) (maxlines 1) (x 0.) (y 0.) (width 100.) (height 100.) (text "Label") (font-size 14.) (alignment NSTextAlignmentLeft) (background-color (UIColor alpha: 0.)) (corner-radius 10.) (resize-to-fit? #f))
   (let ((handle (platformCreateUILabel x y width height)))
     (let ((view (new IOS-Label handle)))
       (if id
           (register-view-by-id id view))
       (UILabelSetFontSize handle font-size)
+      (UILabelSetMaxLines handle maxlines)
       (UILabelSetText handle text)
       (UILabelSetTextAlignment handle alignment)
       (UIViewSetBackgroundColor handle (get-handle~ background-color))

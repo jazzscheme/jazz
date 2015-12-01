@@ -746,11 +746,11 @@
 
 (definition public (with-safe-execution context thunk (continue-text: continue-text #f) (continue-handler: continue-handler #f))
   (define (ask-continue err)
-    (let ((text (format "The following error occurred while {a}:{%}{%}{a}{%}{%}Press Continue {a}, Exit to exit immediately"
+    (let ((text (format "The following error occurred while {a}:{%}{%}{a}{%}{%}Press Continue {a}, Quit to quit immediately"
                         context
                         (exception-reason err)
                         (or continue-text "to bypass this problem"))))
-      (let ((result (message-box text type: 'confirmation yes: "Continue" no: "Debug Now" cancel: "Exit")))
+      (let ((result (message-box text type: 'confirmation yes: "Continue" no: "Debug Now" cancel: "Quit")))
         (case result
           ((yes)
            (post-stop err)
@@ -758,14 +758,14 @@
           ((no)
            #f)
           ((cancel)
-           (exit))))))
+           (quit))))))
   
-  (define (warn-exit err)
+  (define (warn-quit err)
     (let ((text (format "The following error occurred while {a}:{%}{%}{a}"
                         context
                         (exception-reason err))))
-      (message-box text yes: "Exit")
-      (exit)))
+      (message-box text yes: "Quit")
+      (quit)))
   
   (if (or (get-controller-debugger) (not (safe-execution?~ (get-process))))
       (thunk)
@@ -774,7 +774,7 @@
         (let ((err (wrap-exception obj)))
           (if continue-handler
               (ask-continue err)
-            (warn-exit err))))
+            (warn-quit err))))
       (lambda (err)
         (continue-handler err))
       thunk)))

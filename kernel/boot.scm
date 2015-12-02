@@ -88,14 +88,18 @@
       (let ((path (string-append jazz:source "kernel/syntax/header"))
             (src (string-append jazz:source "kernel/syntax/header.scm"))
             (o1 (string-append jazz:source "kernel/syntax/header.o1")))
+        (define (compile-header)
+          (compile-file path)
+          (file-last-access-and-modification-times-set! o1 (file-last-access-time o1) (file-last-modification-time src)))
+        
         (if (not (file-exists? o1))
-            (compile-file path)
+            (compile-header)
           (if (not (= (time->seconds (file-last-modification-time src))
                       (time->seconds (file-last-modification-time o1))))
               (begin
+                ;; delete it first so gambit doesn't generate .o2 .o3 ...
                 (delete-file o1)
-                (compile-file path)
-                (file-last-access-and-modification-times-set! o1 (file-last-access-time o1) (file-last-modification-time src))))))
+                (compile-header)))))
       
       (if (not loaded?)
           (begin

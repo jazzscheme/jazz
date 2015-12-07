@@ -53,23 +53,23 @@
 
 
 ;;;
-;;;; Remote-Connection-Broke Exception
+;;;; Connection-Broke Exception
 ;;;
 
 
-(class Remote-Connection-Broke extends Exception)
+(class Connection-Broke extends Exception)
 
 
-(definition public (throw-remote-connection-broke)
-  (throw (new Remote-Connection-Broke)))
+(definition public (throw-connection-broke)
+  (throw (new Connection-Broke)))
 
 
 ;;;
-;;;; Communication Exception
+;;;; Connection Exception
 ;;;
 
 
-(class Communication-Exception extends Exception
+(class Connection-Exception extends Exception
   
   
   (slot exception getter generate)
@@ -86,12 +86,12 @@
         (format printer "{a}" (exception-reason exception))))))
 
 
-(definition public (with-communication thunk)
+(definition public (with-connection thunk)
   (with-exception-filter
     (lambda (exc)
-      (not (is? exc Remote-Connection-Broke)))
+      (is-not? exc Connection-Broke))
     (lambda (exc)
-      (throw (new Communication-Exception exc)))
+      (throw (new Connection-Exception exc)))
     thunk))
 
 
@@ -168,7 +168,7 @@
 (definition public (read-binary-data port)
   (let ((data (read-binary port)))
     (if (eof-object? data)
-        (throw-remote-connection-broke)
+        (throw-connection-broke)
       data)))
 
 
@@ -186,7 +186,7 @@
          (b11 (read-u8 port))
          (b12 (read-u8 port)))
     (if (eof-object? b12)
-        (throw-remote-connection-broke)
+        (throw-connection-broke)
       (let ((application-code (bytes->32-bit-integer b1 b2 b3 b4))
             (version-code (bytes->64-bit-integer b5 b6 b7 b8 b9 b10 b11 b12)))
         (values application-code (64-bit-integer->version version-code))))))

@@ -35,12 +35,45 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+;; OVERVIEW
+;;   uuid
+;;     used to uniquely identify processes
+;;   ior
+;;     marshalled object sent remotely
+;;   listener
+;;     tcp server receiving requests
+;;   switchboard
+;;     handles client and server side requests
+;;   pumps
+;;     waits on socket for messages client and server side
+;;   stub
+;;     interface common to local and remote objects
+;;   proxy local / remote
+;;     objects implementing transparent communication
+;;   register
+;;     an object to register remotely accessible objects
+;;
+;; local <-> remote call
+;;   local code calls invoke-remote from some local thread
+;;     message is sent to local switchboard mailbox
+;;       local thread then calls wait-for-result
+;;       when first time connection
+;;         persistent socket is established and pump started
+;;         note that there is only one socket between processes
+;;       remote pump receives message and sends it to switchboard
+;;         remote switchboard calls message in a thread
+;;           remote thread sends result back
+;;       local pump receives message and sends it to switchboard
+;;         local switchboard sends result to local thread
+
+
 (module jazz.jrm jazz
 
 
 (export (jazz.jrm.autoload))
 (import (jazz.jrm.autoload)
         (jazz.jrm.protocol)
+        (jazz.event)
         (jazz.network)
         (jazz.version))
 
@@ -165,7 +198,7 @@
 
 
 (definition package (remote-proxy-live? remote-proxy)
-  (catch (Remote-Connection-Broke exc
+  (catch (Connection-Broke exc
            #f)
     (parameterize ((send-timeout live-timeout)
                    (receive-timeout live-timeout))
@@ -208,7 +241,7 @@
     (load-unit 'jazz.jrm.register.Register)
     (set! *jrm-switchboard*
           (new-thread (lambda ()
-                        (process-remote-messages))
+                        (process-switchboard))
                       'jrm-switchboard))
     (thread-start! *jrm-switchboard*)))
 
@@ -217,7 +250,7 @@
   (when *jrm-switchboard*
     (let ((invoke-thread (current-thread)))
       (thread-send (require-remote-switchboard) (values 'flush #f invoke-thread))
-      (catch (Remote-Connection-Broke exc
+      (catch (Connection-Broke exc
                #f)
         (wait-for-result 'flush invoke-thread)))))
 
@@ -226,9 +259,13 @@
   (make-table))
 
 
+(definition protected (jrm-pumps)
+  *jrm-pumps*)
+
+
 (definition public (require-jrm-port uuid)
   (or (table-ref *jrm-pumps* uuid #f)
-      (throw-remote-connection-broke)))
+      (throw-connection-broke)))
 
 
 (definition public (connect-uuid host service)
@@ -250,10 +287,10 @@
             (send-remote-message (list 'connect local-uuid) port)))
         (let ((uuid (read-port port)))
           (when (eof-object? uuid)
-            (throw-remote-connection-broke))
+            (throw-connection-broke))
           (thread-start! (new-thread
                            (lambda ()
-                             (process-jrm-pump uuid port))
+                             (process-pump uuid port))
                            'jrm-pump))
           (table-set! *jrm-pumps* uuid port)
           (debug-jrm '-pump- 'started (list host service port))
@@ -287,7 +324,7 @@
 (definition (send-remote-message info port)
   (let ((timeout (send-timeout)))
     (when timeout
-      (output-port-timeout-set! port timeout throw-remote-connection-broke)))
+      (output-port-timeout-set! port timeout throw-connection-broke)))
   (write-port port info))
 
 
@@ -310,7 +347,7 @@
         ((result)
          result)
         ((broke)
-         (throw-remote-connection-broke))
+         (throw-connection-broke))
         ((error)
          (error "Remote error while executing {s}: {a}" method-name result))))))
 
@@ -337,23 +374,47 @@
 
 
 ;;;
-;;;; Server
+;;;; Remote
 ;;;
 
 
-(definition (invocation-broke thread exception)
-  (debug-jrm 'server 'broke (list thread exception))
-  (let ((cookie (object->serial thread)))
-    (thread-send thread (cons *jrm-marker* (list 'broke cookie exception)))))
+(definition package (process-remote port)
+  (define (receive-remote-message port)
+    (let ((timeout (receive-timeout)))
+      (when timeout
+        (input-port-timeout-set! port timeout)))
+    (let ((info (read-port port)))
+      (if (eof-object? info)
+          (throw-connection-broke)
+        info)))
+  
+  (let ((message (receive-remote-message port)))
+    ;; connect-uuid might already have created a pump
+    ;; when both processes invoke simultaneously
+    (case (car message)
+      ((connect)
+       (bind (kind uuid) message
+         (with-jrm-mutex
+           (lambda ()
+             (table-set! *jrm-pumps* uuid port)))
+         (let ((server (require-remote-listener)))
+           (let ((local-uuid (listening-uuid)))
+             (write-port port local-uuid)))
+         (process-pump uuid port))))))
 
 
-(definition (process-jrm-pump uuid port)
+;;;
+;;;; Pump
+;;;
+
+
+(definition (process-pump uuid port)
   (declare (proper-tail-calls))
   (let (loop)
     (input-port-timeout-set! port +inf.0)
-    (let ((message (catch (Remote-Connection-Broke exc
+    (let ((message (catch (Connection-Broke exc
                             (eof-object))
-                     (catch (Communication-Exception exc
+                     (catch (Connection-Exception exc
                               (eof-object))
                        (read-port port)))))
       (debug-jrm '-pump- 'read message)
@@ -423,7 +484,7 @@
                (thread-send thread (cons *jrm-marker* message))))))
         ((live?)
          (bind (kind cookie method-name proxy-ior arguments) message
-           (catch Remote-Connection-Broke
+           (catch Connection-Broke
              (with-jrm-mutex
                (lambda ()
                  (let ((port (require-jrm-port uuid)))
@@ -449,7 +510,12 @@
                          ((call) 'jrm-call)))))))))
 
 
-(definition (process-remote-messages)
+;;;
+;;;; Switchboard
+;;;
+
+
+(definition (process-switchboard)
   (define (find-best-timeout invocations)
     (let ((best-thread #f)
           (best-timeout +inf.0)
@@ -490,10 +556,15 @@
                    (let ((cookie (object->serial invoke-thread)))
                      (with-exception-filter
                        (lambda (exc)
-                         (or (is? exc Communication-Exception)
-                             (is? exc Remote-Connection-Broke)))
+                         (or (is? exc Connection-Exception)
+                             (is? exc Connection-Broke)))
                        (lambda (exc)
-                         (invocation-broke invoke-thread exc))
+                         ;; post doesn't wait on mailbox
+                         (if (eq? kind 'post)
+                             (post-event
+                               (lambda ()
+                                 (throw exc)))
+                           (invocation-broke invoke-thread exc)))
                        (lambda ()
                          (let ((port (require-jrm-port uuid))
                                (message (list kind cookie method-name proxy-ior arguments)))
@@ -505,29 +576,10 @@
       (loop))))
 
 
-(definition package (process-remote port)
-  (define (receive-remote-message port)
-    (let ((timeout (receive-timeout)))
-      (when timeout
-        (input-port-timeout-set! port timeout)))
-    (let ((info (read-port port)))
-      (if (eof-object? info)
-          (throw-remote-connection-broke)
-        info)))
-  
-  (let ((message (receive-remote-message port)))
-    ;; connect-uuid might already have created a pump
-    ;; when both processes invoke simultaneously
-    (case (car message)
-      ((connect)
-       (bind (kind uuid) message
-         (with-jrm-mutex
-           (lambda ()
-             (table-set! *jrm-pumps* uuid port)))
-         (let ((server (require-remote-listener)))
-           (let ((local-uuid (listening-uuid)))
-             (write-port port local-uuid)))
-         (process-jrm-pump uuid port))))))
+(definition (invocation-broke thread exception)
+  (debug-jrm 'server 'broke (list thread exception))
+  (let ((cookie (object->serial thread)))
+    (thread-send thread (cons *jrm-marker* (list 'broke cookie exception)))))
 
 
 ;;;
@@ -786,7 +838,7 @@
 
 
 (definition (write-port port info)
-  (with-communication
+  (with-connection
     (lambda ()
       (write-header *jazz-code* *jazz-version* port)
       (write-data info port)
@@ -794,7 +846,7 @@
 
 
 (definition (read-port port)
-  (with-communication
+  (with-connection
     (lambda ()
       (receive (application-code client-version) (read-header port)
         ;;(validate-application-code application-code)

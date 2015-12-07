@@ -51,6 +51,17 @@
 (class Exemplar extends Object
   
   
+  (method meta override (marshall-object obj)
+    (serialize-object (class-of obj)
+                      (vector (serialize (get-base~ obj))
+                              (serialize (owned-attributes~ obj)))))
+  
+  
+  (method meta override (unmarshall-object content)
+    (bind-vector (base attributes) content
+      (apply new self base: base attributes)))
+  
+  
   (slot protected domain)
   (slot protected base)
   (slot protected ascendants initialize #f)
@@ -97,6 +108,17 @@
       (format output "~{{a}{?: {a}~}}"
         (reference-name (category-name (class-of self)))
         (not (empty-string? presentation)) presentation)))
+  
+  
+  (method protected (owned-attributes)
+    (let ((queue (new-queue)))
+      (for-each (lambda (attribute)
+                  (let ((value (get-attribute attribute)))
+                    (when (specified? value)
+                      (enqueue queue (symbol->keyword attribute))
+                      (enqueue queue value))))
+                (get-attributes))
+      (queue-list queue)))
   
   
   (method public (present)

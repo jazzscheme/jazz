@@ -587,7 +587,8 @@ c-end
           thunk)))))
 
 
-(define (jazz:quit)
+;; need a way to return exit status from main
+(define (jazz:quit #!optional (status 0))
   (raise jazz:quit-exception))
 
 

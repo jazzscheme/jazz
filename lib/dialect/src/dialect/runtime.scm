@@ -278,7 +278,7 @@
 
 (jazz:define-method (jazz:walk-binding-validate-assignment (jazz:Walk-Binding binding) walker resume source-declaration symbol-src)
   (%%when (%%not (jazz:walk-binding-assignable? binding))
-    (jazz:walk-error walker resume source-declaration symbol-src "Illegal assignment to: {s}" (jazz:get-lexical-binding-name binding))))
+    (jazz:walk-error walker resume source-declaration symbol-src "Illegal assignment to: {s}" binding)))
 
 
 (jazz:define-method (jazz:walk-binding-assignable? (jazz:Walk-Binding binding))
@@ -418,7 +418,7 @@
 
 
 (jazz:define-method (jazz:walk-binding-validate-call (jazz:Declaration declaration) walker resume source-declaration operator arguments form-src)
-  (jazz:walk-error walker resume source-declaration form-src "{a} is not callable" (jazz:get-lexical-binding-name declaration)))
+  (jazz:walk-error walker resume source-declaration form-src "{a} is not callable" declaration))
 
 
 (jazz:define-virtual (jazz:compose-declaration-locator (jazz:Declaration declaration)))

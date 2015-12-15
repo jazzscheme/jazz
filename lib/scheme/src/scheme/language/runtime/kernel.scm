@@ -333,6 +333,7 @@
 (native current-output-port <:port>)
 (native with-input-from-file <string^procedure:object>)
 (native with-output-to-file <string^procedure:object>)
+(native open-file <string:port>)
 (native open-input-file <string:port>)
 (native open-output-file <string:port>)
 (native close-input-port <port:void>)

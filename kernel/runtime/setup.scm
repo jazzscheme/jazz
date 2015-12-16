@@ -566,11 +566,9 @@ c-end
 ;;;
 
 
-(define jazz:quit-exception
+(define jazz:quit-marker
   '(quit))
 
-(define jazz:quit-continuation
-  #f)
 
 (define jazz:quit-thread
   #f)
@@ -579,24 +577,26 @@ c-end
 (define (jazz:with-quit thunk)
   (%%continuation-capture
     (lambda (cont)
-      (set! jazz:quit-continuation cont)
       (set! jazz:quit-thread (current-thread))
       (let ((previous-handler (current-exception-handler)))
         (with-exception-handler
           (lambda (exc)
-            (if (%%eq? exc jazz:quit-exception)
-                (%%continuation-return jazz:quit-continuation #f)
+            (if (and (%%pair? exc) (%%eq? (%%car exc) jazz:quit-marker))
+                (let ((exit-status (%%cdr exc)))
+                  (%%continuation-graft cont
+                    (lambda ()
+                      (exit exit-status))))
               (previous-handler exc)))
           thunk)))))
 
 
-;; need a way to return exit status from main
 (define (jazz:quit #!optional (status 0))
+  (define (raise-quit)
+    (raise (%%cons jazz:quit-marker status)))
+  
   (if (%%eq? (%%current-thread) jazz:quit-thread)
-      (raise jazz:quit-exception)
-    (thread-interrupt! jazz:quit-thread
-                       (lambda ()
-                         (raise jazz:quit-exception)))))
+      (raise-quit)
+    (thread-interrupt! jazz:quit-thread raise-quit)))
 
 
 ;;;

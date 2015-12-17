@@ -97,6 +97,7 @@
   (property drag-move-handler                    initialize #f accessors generate)
   (property drag-up-handler                      initialize #f accessors generate)
   (property double-click-handler                 initialize #f accessors generate)
+  (property multiple-click-handler               initialize #f accessors generate)
   (property current-drop-handler                 initialize #f accessors generate)
   (property receive-drop-handler                 initialize #f accessors generate)
   (property receive-files-handler                initialize #f accessors generate)
@@ -2017,6 +2018,12 @@
   ;;;
   ;;;; Mouse
   ;;;
+  
+  
+  (method (make-mouse-event count . rest)
+    (let ((event (apply make-event Mouse-Event rest)))
+      (set-count~ event count)
+      event))
     
   
   (method (call-mouse-hover pos)
@@ -2032,7 +2039,7 @@
            (view (find-mouse-view pos)))
       (when view
         (let ((acquired (acquire~ view self pos)))
-          (dispatch-mouse-down view (make-event Mouse-Event :mouse-down view position: acquired))))))
+          (dispatch-mouse-down view (make-mouse-event 1 :mouse-down view position: acquired))))))
   
   
   (method protected (dispatch-mouse-down view event)
@@ -2176,7 +2183,7 @@
            (view (find-mouse-view pos)))
       (when view
         (let ((acquired (acquire~ view self pos)))
-          (dispatch-double-click view (make-event Mouse-Event :double-click view position: acquired))))))
+          (dispatch-double-click view (make-mouse-event 2 :double-click view position: acquired))))))
   
   
   (method protected (dispatch-double-click view event)
@@ -2197,6 +2204,34 @@
     (if double-click-handler
         (invoke-handler self double-click-handler event)
       (double-click event)))
+  
+  
+  (method protected (root-multiple-click count h v)
+    (let* ((pos (new Point h v))
+           (view (find-mouse-view pos)))
+      (when view
+        (let ((acquired (acquire~ view self pos)))
+          (dispatch-multiple-click view (make-mouse-event count :multiple-click view position: acquired))))))
+  
+  
+  (method protected (dispatch-multiple-click view event)
+    (when (view-enabled?~ view)
+      (hook-event event)
+      (close-popups~ view event: 'multiple-click)
+      (set-mouse-down? #t)
+      (set-mouse-down-view view)
+      (set-mouse-down-point (get-position-value~ event))
+      (when (mouse-activate?~ view)
+        (let ((host (get-host~ view)))
+          (when (and host (mouse-activate?~ host) (not (focused-host? host)))
+            (mouse-activate~ host))))
+      (call-multiple-click~ view event)))
+  
+  
+  (method public virtual (call-multiple-click event)
+    (if multiple-click-handler
+        (invoke-handler self multiple-click-handler event)
+      (multiple-click event)))
   
   
   (method protected (root-context-menu h v)
@@ -2339,6 +2374,12 @@
   
   (method public virtual (double-click evt)
     (call-mouse-down evt))
+  
+  
+  (method public virtual (multiple-click evt)
+    (if (odd? (get-count~ evt))
+        (call-mouse-down evt)
+      (call-double-click evt)))
   
   
   (method public virtual (with-context-click pos proc)

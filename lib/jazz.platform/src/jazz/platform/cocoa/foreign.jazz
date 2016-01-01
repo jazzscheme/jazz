@@ -3998,27 +3998,20 @@ void platformPlaySound(char* filename, double volume)
 
 
 (c-callback (key-press-callback handle key action) (platformwindow int int) int "key_press_callback" "" 1
-  (let ((result
-          (thread-call (primordial-thread) 'execute-event
-            (lambda ()
-              (if (when get-window
-                    (catch (Cancel-Signal exc
-                             #t)
-                      (let ((window (get-window handle)))
-                        (let ((char (integer->char key)))
-                          (if (eq? action PLATFORM_PRESS)
-                              (begin
-                                (key-down~ window char)
-                                (unless (memv? key modifier-keys)
-                                  (translate-shortcut char)))
-                            (key-up~ window char)
-                            #f)))))
-                  1
-                0)))))
-    ;; not sure why this is necessary
-    (if (thread-call-result? result)
-        result
-      1)))
+  (if (when get-window
+        (catch (Cancel-Signal exc
+                 #t)
+          (let ((window (get-window handle)))
+            (let ((char (integer->char key)))
+              (if (eq? action PLATFORM_PRESS)
+                  (begin
+                    (key-down~ window char)
+                    (unless (memv? key modifier-keys)
+                      (translate-shortcut char)))
+                (key-up~ window char)
+                #f)))))
+      1
+    0))
 
 
 (c-callback (char-callback handle c) (platformwindow int) void "char_callback" "" #f

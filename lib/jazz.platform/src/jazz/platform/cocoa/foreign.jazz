@@ -3690,24 +3690,27 @@ void platformSetIgnoreKeyRepeat(bool ignore)
 }
 
 
-void platformPollEvents()
+bool platformPollEvent()
 {
     NSEvent* event;
   
-    do
+    event = [NSApp nextEventMatchingMask:NSAnyEventMask
+                               untilDate:nil
+                                  inMode:NSDefaultRunLoopMode
+                                 dequeue:YES];
+
+    if (event && (! ignoreKeyRepeat || [event type] != NSKeyDown || ! [event isARepeat]))
     {
-        event = [NSApp nextEventMatchingMask:NSAnyEventMask
-                                   untilDate:nil
-                                      inMode:NSDefaultRunLoopMode
-                                     dequeue:YES];
-
-        if (event && (! ignoreKeyRepeat || [event type] != NSKeyDown || ! [event isARepeat]))
-            [NSApp sendEvent:event];
+        [NSApp sendEvent:event];
+        return true;
     }
-    while (event && (! exitCallable));
-
-    [platform.autoreleasePool drain];
-    platform.autoreleasePool = [[NSAutoreleasePool alloc] init];
+    else
+    {
+        [platform.autoreleasePool drain];
+        platform.autoreleasePool = [[NSAutoreleasePool alloc] init];
+    
+        return false;
+    }
 }
 
 
@@ -3855,7 +3858,7 @@ void platformPlaySound(char* filename, double volume)
 (c-callable (platformSetFocus platformwindow) void)
 (c-external (platformGetIgnoreKeyRepeat) bool)
 (c-external (platformSetIgnoreKeyRepeat bool) void)
-(c-callable (platformPollEvents) void)
+(c-callable (platformPollEvent) bool)
 (c-external (platformCurrentGraphics) CGContextRef)
 (c-callable (platformCloseWindow platformwindow) void)
 (c-external (platformTemporaryDirectory) char-string)

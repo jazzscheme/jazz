@@ -453,14 +453,16 @@
 
 (definition public (evaluate-in-unit unit-name expr evaluator)
   (define (evaluate-in)
-    (load-unit unit-name)
-    (let ((module-declaration (outline-unit unit-name)))
-      (parameterize ((requested-unit-name #f)
-                     (generate-symbol-for (format "%{a}&" (eval-count)))
-                     (generate-symbol-context unit-name)
-                     (generate-symbol-counter 0))
-        (evaluator
-          `(module ,unit-name ,(get-dialect-name~ module-declaration) ,expr)))))
+    (wrap-evaluate
+      (lambda ()
+        (load-unit unit-name)
+        (let ((module-declaration (outline-unit unit-name)))
+          (parameterize ((requested-unit-name #f)
+                         (generate-symbol-for (format "%{a}&" (eval-count)))
+                         (generate-symbol-context unit-name)
+                         (generate-symbol-counter 0))
+            (evaluator
+              `(module ,unit-name ,(get-dialect-name~ module-declaration) ,expr)))))))
   
   (let ((console-hook (get-console-evaluate-hook)))
     (if console-hook
@@ -469,6 +471,23 @@
               result
             (evaluate-in)))
       (evaluate-in))))
+
+
+(definition *evaluate-wrap*
+  #f)
+
+
+(definition public (register-evaluate-wrap wrap)
+  (set! *evaluate-wrap* wrap))
+
+(definition public (unregister-evaluate-wrap)
+  (set! *evaluate-wrap* #f))
+
+
+(definition public (wrap-evaluate thunk)
+  (if *evaluate-wrap*
+      (*evaluate-wrap* thunk)
+    (thunk)))
 
 
 (definition *evaluate-hooks*

@@ -1523,6 +1523,7 @@
 (define jazz:current-seconds
   (let ((f64vec (##make-f64vector 1)))
     (lambda ()
+      (declare (not interrupts-enabled))
       (##get-current-time! f64vec 0)
       (##f64vector-ref f64vec 0))))
 

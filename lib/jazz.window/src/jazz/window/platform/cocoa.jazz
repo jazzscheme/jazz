@@ -169,25 +169,19 @@
 ;;;
 
 
-(definition message-period <fl>
-  .01)
-
-(definition public (get-message-period)
-  message-period)
-
-(definition public (set-message-period period)
-  (set! message-period period))
-
-
 (definition package (process-messages)
   (define (process)
     (declare (proper-tail-calls))
     (let (loop)
-      (site (message on?: #t)
-        (execute-event
-          (lambda ()
-            (poll-events))))
-      (sleep message-period)
+      (let ((time (current-seconds)))
+        (site (message on?: #t)
+          (execute-event
+            (lambda ()
+              (poll-events))))
+        (let ((sleep (get-message-sleep))
+              (period (get-message-period))
+              (duration (- (current-seconds) time)))
+          (sleep period duration)))
       (when (thread-loop? (current-thread))
         (loop))))
   

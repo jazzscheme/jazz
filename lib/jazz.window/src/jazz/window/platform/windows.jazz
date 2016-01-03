@@ -415,18 +415,8 @@
 
 
 ;;;
-;;;; Message Pump
+;;;; Messages
 ;;;
-
-
-(definition message-period <fl>
-  .01)
-
-(definition public (get-message-period)
-  message-period)
-
-(definition public (set-message-period period)
-  (set! message-period period))
 
 
 (definition package (process-messages)
@@ -435,11 +425,15 @@
     (let ((hwnd (get-toplevel-hwnd))
           (thread (current-thread)))
       (let (loop)
-        (site (message on?: #t)
-          (execute-event
-            (lambda ()
-              (poll-events hwnd translate-shortcut))))
-        (sleep message-period)
+        (let ((time (current-seconds)))
+          (site (message on?: #t)
+            (execute-event
+              (lambda ()
+                (poll-events hwnd translate-shortcut))))
+          (let ((sleep (get-message-sleep))
+                (period (get-message-period))
+                (duration (- (current-seconds) time)))
+            (sleep period duration)))
         (when (thread-loop? thread)
           (loop)))))
   

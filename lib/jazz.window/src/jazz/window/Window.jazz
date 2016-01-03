@@ -46,6 +46,7 @@
         (jazz.graphic)
         (jazz.locale)
         (jazz.screen)
+        (jazz.settings)
         (jazz.ui)
         (jazz.view)
         (jazz.window))
@@ -323,11 +324,12 @@
   ;;;
 
 
-  (slot cursor-visible?  initialize #t getter generate)
-  (slot cursor-captured? initialize #f getter generate)
-  (slot manage-captured? initialize #f getter generate)
-  (slot manage-preserved initialize #f getter generate)
-  (slot warp-delta       initialize #f getter generate)
+  (slot cursor-visible?      initialize #t getter generate)
+  (slot cursor-captured?     initialize #f getter generate)
+  (slot cursor-positionable? initialize #t getter generate)
+  (slot manage-captured?     initialize #f getter generate)
+  (slot manage-preserved     initialize #f getter generate)
+  (slot warp-delta           initialize #f getter generate)
   
   
   (method public (show-cursor)
@@ -345,17 +347,21 @@
       (let ((manage? (not (platform-capture-cursor handle))))
         (set! cursor-visible? #f)
         (set! cursor-captured? #t)
+        ;; for instance VMware by letting the host OS handle the mouse
+        ;; makes it impossible to position the cursor programatically
+        (set! cursor-positionable? (find-setting 'jazz.cursor-positionable? #t))
         (set! manage-captured? manage?)
         (when manage?
           (hide-cursor)
-          (let ((pos (mouse-position))
-                (center (center-cursor)))
-            (set! manage-preserved pos)
-            (set! warp-delta (nu- center pos))
-            (set-mouse-position center))))))
+          (when cursor-positionable?
+            (let ((pos (mouse-position))
+                  (center (cursor-center)))
+              (set! manage-preserved pos)
+              (set! warp-delta (nu- center pos))
+              (set-mouse-position center)))))))
   
   
-  (method (center-cursor)
+  (method (cursor-center)
     (new Point (fxround/ (get-width) 2) (fxround/ (get-height) 2)))
   
   
@@ -363,7 +369,8 @@
     (when cursor-captured?
       (platform-release-cursor handle)
       (when manage-captured?
-        (set-mouse-position manage-preserved)
+        (when cursor-positionable?
+          (set-mouse-position manage-preserved))
         (show-cursor))
       (set! cursor-visible? #t)
       (set! cursor-captured? #f)

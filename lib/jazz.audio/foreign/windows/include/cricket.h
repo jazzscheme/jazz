@@ -8,6 +8,7 @@ __declspec(dllexport) void __cdecl CricketUpdate();
 __declspec(dllexport) void* __cdecl CricketNewBankSound(char* path);
 __declspec(dllexport) void* __cdecl CricketNewStreamSound(char* path);
 __declspec(dllexport) void __cdecl CricketDestroy(void* sound);
+__declspec(dllexport) bool __cdecl CricketReady(void* sound);
 __declspec(dllexport) void __cdecl CricketPlay(void* sound);
 __declspec(dllexport) void __cdecl CricketStop(void* sound);
 __declspec(dllexport) bool __cdecl CricketPlaying(void* sound);

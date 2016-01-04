@@ -48,6 +48,12 @@ void CricketDestroy(void* sound)
 }
 
 
+bool CricketReady(void* sound)
+{
+	return ((CkSound*) sound)->isReady();
+}
+
+
 void CricketPlay(void* sound)
 {
 	((CkSound*) sound)->play();

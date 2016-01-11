@@ -46,22 +46,22 @@
 
 
 (class Group-Box extends Base-Container
-
   
-  (property flat? initialize #f accessors explicit)
+  
+  (property frame-color initialize #f accessors explicit)
   
   
   ;;;
   ;;;; Access
   ;;;
+  
+  
+  (method public (get-frame-color)
+    frame-color)
 
 
-  (method public (get-flat?)
-    flat?)
-
-
-  (method public (set-flat? value)
-    (set! flat? value)
+  (method public (set-frame-color value)
+    (set! frame-color value)
     (invalidate-view))
   
   
@@ -81,6 +81,7 @@
            (box-height (get-height~ size))
            (metrics (get-metrics~ (effective-font)))
            (ascent (get-ascent~ metrics))
+           (flat? (flat-look? (get-skin)))
            (left (if flat? 1 2))
            (top (cond (title (+ ascent 1)) (flat? 1) (else 2)))
            (width (- box-width (if flat? 2 4)))
@@ -104,18 +105,27 @@
            (offset 9)
            (color (or (get-background~ skin) {Color Medium}))
            (flat? (flat-look? skin))
-           (frame-color (case style ((entry) {Color Entry-Border}) (else {Color Group-Border})))
+           (frame-color (or frame-color {Color Entry-Border}))
            (rect (get-bounds)))
       (let* ((metrics (get-text-metrics~ surface))
              (extent (and title (get-text-extent~ surface title)))
              (top (if title (fxceiling (/ (cairo_font_extents_t-ascent-ref metrics) 2)) 0)))
         (cairo_font_extents_t-free metrics)
-        (if flat?
-            (frame-rect~ surface (new Rect 0 top width height) frame-color)
-          (draw-edge~ surface (new Rect 0 top width height) inner: 'raised outer: 'sunken edges: 'rectangle))
-        (when title
-          (fill-rect~ surface (new Rect (- offset 2) 0 (+ offset (get-width~ extent) 2) (get-height~ extent)) color)
-          (draw-text~ surface offset 0 title {Color Black})))))
+        (let ((title-rect (and title (new Rect (- offset 2) 0 (+ offset (get-width~ extent) 2) (get-height~ extent)))))
+          (define (draw-frame)
+            (if flat?
+                (frame-rect~ surface (new Rect 0 top width height) frame-color)
+              (draw-edge~ surface (new Rect 0 top width height) inner: 'raised outer: 'sunken edges: 'rectangle)))
+          
+          (if (not title)
+              (draw-frame)
+            (with-clipout~ surface rect title-rect
+              (lambda ()
+                (draw-frame))))
+          (when title
+            (unless (eq? color 'none)
+              (fill-rect~ surface rect color))
+            (draw-text~ surface offset 0 title (text-color skin)))))))
 
   
   ;;;
@@ -127,10 +137,13 @@
     (find-skin 'ui:group))
   
   
+  (method (text-color skin)
+    (or (get-text-color~ skin)
+        {Color Black}))
+  
+  
   (method (flat-look? skin)
-    (case style
-      ((styled) (get-border-flat?~ skin))
-      (else flat?)))
+    (get-border-flat?~ skin))
   
   
   ;;;

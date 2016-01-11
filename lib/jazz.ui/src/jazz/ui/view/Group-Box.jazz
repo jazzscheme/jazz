@@ -48,7 +48,8 @@
 (class Group-Box extends Base-Container
   
   
-  (property frame-color initialize #f accessors explicit)
+  (property flat?        initialize #f accessors explicit)
+  (property border-color initialize #f accessors explicit)
   
   
   ;;;
@@ -56,12 +57,21 @@
   ;;;
   
   
-  (method public (get-frame-color)
-    frame-color)
+  (method public (get-flat?)
+    flat?)
 
 
-  (method public (set-frame-color value)
-    (set! frame-color value)
+  (method public (set-flat? value)
+    (set! flat? value)
+    (invalidate-view))
+  
+  
+  (method public (get-border-color)
+    border-color)
+
+
+  (method public (set-border-color value)
+    (set! border-color value)
     (invalidate-view))
   
   
@@ -105,26 +115,26 @@
            (offset 9)
            (color (or (get-background~ skin) {Color Medium}))
            (flat? (flat-look? skin))
-           (frame-color (or frame-color {Color Entry-Border}))
+           (border-color (or border-color {Color Entry-Border}))
            (rect (get-bounds)))
       (let* ((metrics (get-text-metrics~ surface))
              (extent (and title (get-text-extent~ surface title)))
              (top (if title (fxceiling (/ (cairo_font_extents_t-ascent-ref metrics) 2)) 0)))
         (cairo_font_extents_t-free metrics)
         (let ((title-rect (and title (new Rect (- offset 2) 0 (+ offset (get-width~ extent) 2) (get-height~ extent)))))
-          (define (draw-frame)
+          (define (draw-border)
             (if flat?
-                (frame-rect~ surface (new Rect 0 top width height) frame-color)
+                (frame-rect~ surface (new Rect 0 top width height) border-color)
               (draw-edge~ surface (new Rect 0 top width height) inner: 'raised outer: 'sunken edges: 'rectangle)))
           
-          (if (not title)
-              (draw-frame)
-            (with-clipout~ surface rect title-rect
-              (lambda ()
-                (draw-frame))))
           (when title
             (unless (eq? color 'none)
               (fill-rect~ surface rect color))
+            (if (not title)
+                (draw-border)
+              (with-clipout~ surface rect title-rect
+                (lambda ()
+                  (draw-border))))
             (draw-text~ surface offset 0 title (text-color skin)))))))
 
   
@@ -143,7 +153,10 @@
   
   
   (method (flat-look? skin)
-    (get-border-flat?~ skin))
+    (let ((border-flat? (get-border-flat?~ skin)))
+      (if (specified? border-flat?)
+          border-flat?
+        flat?)))
   
   
   ;;;

@@ -41,8 +41,10 @@
 (import (jazz.handler)
         (jazz.locale)
         (jazz.menu)
+        (jazz.skin)
         (jazz.ui)
-        (jazz.view))
+        (jazz.view)
+        (jazz.window))
 
 
 (class Combo-Box extends Combo-Text
@@ -83,10 +85,14 @@
                (update-choices))
       (let ((menu (new-choices-menu))
             (pick (get-pick)))
+        (define (determine-width)
+          (let ((border (popups-border~ (get-window-manager))))
+            (- (get-width) border border)))
+        
         (cond (menu
-                (receive (pos alternate-pos) (combo-popup-positions menu)
-                  (layout-menu~ menu width: (- (get-width) 4))
-                  (track-popup-menu menu pos alternate-position: alternate-pos)))
+               (receive (pos alternate-pos) (combo-popup-positions menu)
+                 (layout-menu~ menu width: (determine-width))
+                 (track-popup-menu menu pos alternate-position: alternate-pos)))
               (else
                (bell)
                (set-state (if (picker-view? (mouse-view)) 'highlighted 'inactive)))))))
@@ -145,20 +151,20 @@
             (string=? title (standardize-content current))
           (eq? choice selected)))
       
-      (define (create-check-item choice title parent)
+      (define (create-combo-item choice title parent)
         (let ((checked? (checked? choice title)))
-          (new Check-Item parent: parent title: title checked?: checked? user-data: choice action-handler: handler)))
+          (new Combo-Item parent: parent title: title checked?: checked? user-data: choice action-handler: handler)))
       
       (define (new-choices-menu-plain menu)
         (for-each (lambda (choice)
                     (if (not choice)
                         (new Separator-Item parent: menu)
                       (let ((title (present-choice choice)))
-                        (create-check-item choice title menu))))
+                        (create-combo-item choice title menu))))
                   choices))
       
       (define (new-choices-menu-condensed menu)
-        (make-condensed-menu~ menu choices create-check-item key: present-choice))
+        (make-condensed-menu~ menu choices create-combo-item key: present-choice))
       
       (when choices
         (let ((menu (new (context-menu-class))))
@@ -333,4 +339,18 @@
   
   
   (method meta override (get-class-descriptor (context: context #f))
-    (new jazz.ui.descriptors:Combo-Box-Descriptor))))
+    (new jazz.ui.descriptors:Combo-Box-Descriptor)))
+
+
+;;;
+;;;; Combo-Item
+;;;
+
+
+(class Combo-Item extends Check-Item
+  
+  
+  (method override (effective-font)
+    (let ((skin (find-skin 'ui:combo)))
+      (or (get-text-font~ skin)
+          (nextmethod))))))

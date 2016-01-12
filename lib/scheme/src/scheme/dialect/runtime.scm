@@ -859,7 +859,10 @@
                                 (%%cons (jazz:walk walker resume declaration environment test)
                                         (%%cons #t (jazz:walk walker resume declaration environment (%%cadr body))))
                               (%%cons (if (%%eq? (jazz:unwrap-syntactic-closure test) 'else)
-                                          #f
+                                          (begin
+                                            (%%when (%%null? body)
+                                              (jazz:walk-error walker resume declaration clause "Else clause must have a body"))
+                                            #f)
                                         (jazz:walk walker resume declaration environment test))
                                       (%%cons #f (and (%%not-null? body) (jazz:walk-implicit-begin walker resume declaration environment clause body)))))))))))
                 clauses)

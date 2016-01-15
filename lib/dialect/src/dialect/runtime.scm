@@ -782,6 +782,7 @@
 
 (jazz:define-method (jazz:outline-generate (jazz:Unit-Declaration declaration) output)
   (jazz:format output "(unit {a}" (jazz:get-lexical-binding-name declaration))
+  #; ;; requires are not needed and create problems when outlined
   (for-each (lambda (require-invoice)
               (let ((name (jazz:get-require-invoice-name require-invoice))
                     (phase (jazz:get-require-invoice-phase require-invoice)))
@@ -1551,6 +1552,7 @@
 (jazz:define-method (jazz:outline-generate (jazz:Module-Declaration declaration) output)
   (let ((declarations (jazz:outline-generate-filter-access (jazz:resolve-bindings (jazz:queue-list (jazz:get-namespace-declaration-children declaration))) (jazz:get-public-lookup declaration))))
     (jazz:format output "(module {a} {a}" (jazz:get-lexical-binding-name declaration) (jazz:get-module-declaration-dialect-name declaration))
+    #; ;; requires are not needed and create problems when outlined
     (for-each (lambda (require-invoice)
                 (let ((name (jazz:get-require-invoice-name require-invoice))
                       (phase (jazz:get-require-invoice-phase require-invoice)))

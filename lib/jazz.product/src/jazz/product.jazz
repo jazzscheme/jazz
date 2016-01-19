@@ -179,37 +179,43 @@
 ;; info="$(./jam -l info)"
 ;; message="`echo -e "$header\\n\\n$info"`"
 
-(definition public (deploy-application descriptor installation-directory)
+(definition public (deploy-application descriptor installation-directory (make: make #f) (install: install #f))
   (let ((jazz (string-append kernel-install "jazz"))
-        (name (symbol->string (product-descriptor-name descriptor)))
-        (dir (parse~ installation-directory)))
-    (feedback "Building {a}" name)
-    (call-process
-      (list
-        path: jazz
-        arguments: `("-make"
-                     ,name)))
-    (feedback "")
-    (feedback "Installing {a}" name)
-    (call-process
-      (list
-        path: jazz
-        arguments: `("-install"
-                     ,name)))
-    (feedback "")
-    (feedback "Deploying {a}" name)
+        (name (product-descriptor-name descriptor)))
+    (let ((make (or make name))
+          (install (or install name)))
+      (feedback "Building {a}" make)
+      (call-process
+        (list
+          path: jazz
+          arguments: `("-make"
+                       ,(symbol->string make))))
+      (feedback "")
+      (feedback "Installing {a}" install)
+      (call-process
+        (list
+          path: jazz
+          arguments: `("-install"
+                       ,(symbol->string install))))
+      (feedback "")
+      (deploy-directory name installation-directory))))
+
+
+(definition public (deploy-directory name dir)
+  (feedback "Deploying {a}" name)
+  (let ((dirname (parse~ dir)))
     (call-process
       (list
         path: "git"
         arguments: `("add" ".")
-        directory: dir))
+        directory: dirname))
     (call-process
       (list
         path: "git"
         arguments: `("commit" "-a" "-m" "Update" "--allow-empty")
-        directory: dir))
+        directory: dirname))
     (call-process
       (list
         path: "git"
         arguments: `("push")
-        directory: dir)))))
+        directory: dirname)))))

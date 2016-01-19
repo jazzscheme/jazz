@@ -370,7 +370,9 @@ c-end
               (if jazz:kernel-source-access?
                   (begin
                     (jazz:setup-settings)
-                    (jazz:process-jazzini #t)))
+                    (jazz:process-jazzini #t))
+                ;; non-secure quick hack
+                (jazz:load-jazzini-install))
               (jazz:make-exit-jobs-safe))
             
             #; ;; dynamic-dependencies

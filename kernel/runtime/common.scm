@@ -136,6 +136,14 @@
     (load-if-exists local)))
 
 
+(define (jazz:load-jazzini-install)
+  (define (load-if-exists file)
+    (if (file-exists? file)
+        (jazz:load-file file)))
+  
+  (load-if-exists (jazz:install-path jazz:jazzini)))
+
+
 (define (jazz:process-jazzini install?)
   (jazz:load-configuration-files jazz:jazzini install?))
 

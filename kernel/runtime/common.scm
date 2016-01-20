@@ -122,26 +122,19 @@
   ".buildini")
 
 
+(define (jazz:load-if-exists file)
+  (if (file-exists? file)
+      (jazz:load-file file)))
+
+
 (define (jazz:load-configuration-files filename install?)
-  (define (load-if-exists file)
-    (if (file-exists? file)
-        (jazz:load-file file)))
-  
   (let ((global (and jazz:jazz-settings-directory (%%string-append jazz:jazz-settings-directory filename)))
         (local filename))
     (if install?
-        (load-if-exists (jazz:install-path filename)))
+        (jazz:load-if-exists (jazz:install-path filename)))
     (if global
-        (load-if-exists global))
-    (load-if-exists local)))
-
-
-(define (jazz:load-jazzini-install)
-  (define (load-if-exists file)
-    (if (file-exists? file)
-        (jazz:load-file file)))
-  
-  (load-if-exists (jazz:install-path jazz:jazzini)))
+        (jazz:load-if-exists global))
+    (jazz:load-if-exists local)))
 
 
 (define (jazz:process-jazzini install?)
@@ -149,6 +142,15 @@
 
 (define (jazz:process-buildini install?)
   (jazz:load-configuration-files jazz:buildini install?))
+
+
+(define (jazz:process-settings)
+  (if jazz:kernel-source-access?
+      (begin
+        (jazz:setup-settings)
+        (jazz:process-jazzini #t))
+    (if jazz:kernel-jazzini-access?
+        (jazz:load-if-exists (jazz:install-path jazz:jazzini)))))
 
 
 ;;;

@@ -266,6 +266,10 @@
   (or jazz:source-access? (and (eq? jazz:image 'executable) (not jazz:product))))
 
 
+(define jazz:kernel-jazzini-access?
+  jazz:jazzini-access?)
+
+
 (define jazz:kernel-source
   (if (and jazz:kernel-source-access? jazz:source)
       (jazz:absolutize-directory jazz:kernel-install jazz:source)

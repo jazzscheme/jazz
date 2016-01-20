@@ -424,14 +424,10 @@
 
 
 (define (jazz:load-global/local filename)
-  (define (load-if-exists file)
-    (if (file-exists? file)
-        (load file)))
-  
   (let ((global (string-append jazz:jazz-settings-directory filename))
         (local filename))
-    (load-if-exists global)
-    (load-if-exists local)))
+    (jazz:load-if-exists global)
+    (jazz:load-if-exists local)))
 
 
 ;;;

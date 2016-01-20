@@ -139,6 +139,9 @@
 (jazz:define-setting jazz:build-source-access?
   #t)
 
+(jazz:define-setting jazz:build-jazzini-access?
+  #t)
+
 (jazz:define-setting jazz:build-single-objects?
   #f)
 

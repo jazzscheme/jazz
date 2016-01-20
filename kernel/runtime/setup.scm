@@ -209,10 +209,7 @@ c-end
 
 
 (define (jazz:library-main)
-  (if jazz:kernel-source-access?
-      (begin
-        (jazz:setup-settings)
-        (jazz:process-jazzini #t)))
+  (jazz:process-settings)
   (jazz:make-exit-jobs-safe)
   (jazz:prepare-repositories)
   (jazz:setup-repositories))
@@ -367,12 +364,7 @@ c-end
               (set! jazz:debugger debugger)
               (if nosource?
                   (set! jazz:kernel-source-access? #f))
-              (if jazz:kernel-source-access?
-                  (begin
-                    (jazz:setup-settings)
-                    (jazz:process-jazzini #t))
-                ;; non-secure quick hack
-                (jazz:load-jazzini-install))
+              (jazz:process-settings)
               (jazz:make-exit-jobs-safe))
             
             #; ;; dynamic-dependencies

@@ -62,6 +62,9 @@
 (define jazz:source-access?
   #f)
 
+(define jazz:jazzini-access?
+  #f)
+
 (define jazz:single-objects?
   #f)
 

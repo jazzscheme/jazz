@@ -378,7 +378,7 @@
             (jazz:error "Invalid .dependencies"))))))
   
   (let ((build (if (and jazz:kernel-bundle-install (file-exists? (%%string-append jazz:kernel-bundle-install "lib")))
-                   (jazz:make-repository 'Lib "lib" jazz:kernel-bundle-install binary?: #t)
+                   (jazz:make-repository 'Build "lib" jazz:kernel-bundle-install binary?: #t dynamic?: #t)
                  (jazz:make-repository 'Build "lib" (or (jazz:build-repository) jazz:kernel-install) binary?: #t dynamic?: #t))))
     (set! jazz:Build-Repository build)
     (set! jazz:Repositories (%%append jazz:Repositories (all-repositories build)))))

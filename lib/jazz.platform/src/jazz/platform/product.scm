@@ -88,7 +88,7 @@
 (cond-expand
   (x11
    (define jazz:x11-units
-     (let ((cc-flags (jazz:pkg-config-cflags "x11"))
+     (let ((cc-flags (string-append (jazz:pkg-config-cflags "x11") " -fpermissive"))
            (ld-flags (jazz:pkg-config-libs "x11")))
        `((jazz.platform.x11 cc-options: ,cc-flags ld-options: ,ld-flags)
          (jazz.platform.x11.x11-types)))))

@@ -43,8 +43,8 @@
 ;;;
 
 
-(define (jazz:cond-expand-features)
-  (##cond-expand-features))
+(define jazz:cond-expand-features
+  ##cond-expand-features)
 
 
 (define-macro (jazz:install-features)

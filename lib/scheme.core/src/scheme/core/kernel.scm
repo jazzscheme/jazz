@@ -52,6 +52,7 @@
 (native jazz:new-code)
 (native jazz:object-size)
 (native jazz:new-object)
+(native jazz:set-object-class)
 (native jazz:get-class-level)
 (native jazz:get-object-slot)
 (native jazz:set-object-slot)

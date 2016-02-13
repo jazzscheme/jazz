@@ -712,6 +712,10 @@
   (%%class-subtype? target class))
 
 
+(define (jazz:set-object-class object class)
+  (%%set-object-class object class))
+
+
 (jazz:define-method (jazz:of-type? (jazz:Class class) object)
   (%%class-subtype? (jazz:class-of object) class))
 

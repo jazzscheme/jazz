@@ -561,14 +561,6 @@
 
 
 ;;;
-;;;; Instance
-;;;
-
-
-;;(native jazz:current-instance)
-
-
-;;;
 ;;;; Integer
 ;;;
 

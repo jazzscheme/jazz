@@ -373,7 +373,8 @@
                 (let ((path (%%string-append dir name))
                       (options `(,@(if debug-environments? '(debug-environments) '())
                                  ,@(if debug-location? '(debug-location) '())
-                                 ,@(if debug-source? '(debug-source) '()))))
+                                 ,@(if debug-source? '(debug-source) '())
+                                 track-scheme)))
                   ;; standardize path as it will be the path stored in debugging information
                   (let ((standardized-path (jazz:pathname-standardize (path-normalize path))))
                     (jazz:push-changed-units path)

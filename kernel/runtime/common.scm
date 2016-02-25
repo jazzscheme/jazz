@@ -95,7 +95,8 @@
 (jazz:define-variable jazz:compile-options
   `(,@(if jazz:kernel-debug-environments? '(debug-environments) '())
     ,@(if jazz:kernel-debug-location? '(debug-location) '())
-    ,@(if jazz:kernel-debug-source? '(debug-source) '())))
+    ,@(if jazz:kernel-debug-source? '(debug-source) '())
+    track-scheme))
 
 (jazz:define-variable jazz:link
   #f)

@@ -799,6 +799,22 @@
       object)))
 
 
+(define (jazz:new3 class arg1 arg2 arg3)
+  (%%debug-assert (%%class? class)
+    (let ((object (%%make-object class (%%get-class-instance-size class))))
+      (jazz:initialize-slots object)
+      ((%%class-dispatch class 0 0) object arg1 arg2 arg3)
+      object)))
+
+
+(define (jazz:new4 class arg1 arg2 arg3 arg4)
+  (%%debug-assert (%%class? class)
+    (let ((object (%%make-object class (%%get-class-instance-size class))))
+      (jazz:initialize-slots object)
+      ((%%class-dispatch class 0 0) object arg1 arg2 arg3 arg4)
+      object)))
+
+
 (define (jazz:nascent-new class . rest)
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))
@@ -898,10 +914,9 @@
 (define (jazz:initialize-slots object)
   (let ((slots (%%get-class-instance-slots (%%get-object-class object))))
     (for-each (lambda (slot)
-                (let ((offset (%%get-slot-offset slot))
-                      (initialize (%%get-slot-initialize slot)))
+                (let ((initialize (%%get-slot-initialize slot)))
                   (%%when initialize
-                    (%%object-set! object offset (initialize object)))))
+                    (%%object-set! object (%%get-slot-offset slot) (initialize object)))))
               slots)))
 
 

@@ -39,6 +39,59 @@
 
 
 ;;;
+;;;; Tracking
+;;;
+
+
+@tracking (
+(class Foo extends Object
+  
+  (method override (initialize . rest)
+    ))
+
+(define a
+  #f)
+
+(define (foo a b)
+  (+ a b))
+
+(track-allocations)
+;; gambit.h
+(set! a (foo 1. 2.))         ;; ___F64BOX
+(set! a (cons 1 2))          ;; ___CONS
+(set! a (box 1))             ;; ___BOX
+                             ;; ___MAKEPROMISE *****
+(continuation-capture        ;; ___MAKECONTINUATION *****
+  (lambda (cont)
+    (set! a cont)))
+                             ;; ___MAKESYMBOL *****
+                             ;; ___MAKEKEYWORD *****
+                             ;; ___MAKEWILL *****
+(let ((x 1))                 ;; ___ALLOC_CLO *****
+  (set! a (lambda (y)
+            (+ x y))))
+(set! a (list 1 2))          ;; ___BEGIN_ALLOC_LIST
+(set! a (string #\a #\b))    ;; ___BEGIN_ALLOC_STRING
+(set! a (u8vector 1 2))      ;; ___BEGIN_ALLOC_U8VECTOR
+(set! a (f64vector 1. 2.))   ;; ___BEGIN_ALLOC_F64VECTOR
+(set! a (vector 1 2))        ;; ___BEGIN_ALLOC_VECTOR
+;; serialized                ;; ___BEGIN_ALLOC_STRUCTURE *****
+(set! a (values 1 2))        ;; ___BEGIN_ALLOC_VALUES
+;; _kernel.scm
+(set! a (make-vector 2))
+(set! a (make-string 2))
+(set! a (make-u8vector 2))
+(set! a (make-f64vector 2))
+;; jazz
+(set! a (new Point 1 2))     ;; allocate
+(set! a (new Foo))           ;; new
+(untrack-allocations)
+
+(loop (for n from 0 below (count-allocations))
+      (format :console "{l}{%}" (get-allocation n))))
+
+
+;;;
 ;;;; Audio
 ;;;
 

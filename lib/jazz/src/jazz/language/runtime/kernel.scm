@@ -1386,6 +1386,24 @@
 
 
 ;;;
+;;;; Tracking
+;;;
+
+
+(native jazz:tracking-allocations?)
+(native jazz:track-allocations)
+(native jazz:untrack-allocations)
+(native jazz:reset-allocations)
+(native jazz:count-allocations)
+(native jazz:snapshot-allocations)
+(native jazz:get-allocation-object)
+(native jazz:get-allocation-file)
+(native jazz:get-allocation-line)
+(native jazz:get-allocation)
+(native jazz:with-track-allocations)
+
+
+;;;
 ;;;; Unspecified
 ;;;
 

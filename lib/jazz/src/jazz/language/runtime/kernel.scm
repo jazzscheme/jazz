@@ -825,6 +825,11 @@
 (native jazz:last-pair)
 (native jazz:proper-list)
 
+;; until high-level optimized
+(native jazz:kernel-some?)
+(native jazz:kernel-every?)
+(native jazz:kernel-collect-if)
+
 
 ;;;
 ;;;; Logging

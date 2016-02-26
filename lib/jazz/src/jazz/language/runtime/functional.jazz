@@ -1996,10 +1996,13 @@
 
 
 (definition public (collect-if predicate <procedure> seq <Object> (key: key #f))
-  (coerce (loop (for obj in-sequence seq)
-                (when (predicate (apply-key key obj))
-                  (collect obj)))
-          (class-of seq)))
+  (if (and (null/pair? seq)
+           (not key))
+      (kernel-collect-if predicate seq)
+    (coerce (loop (for obj in-sequence seq)
+                  (when (predicate (apply-key key obj))
+                    (collect obj)))
+            (class-of seq))))
 
 
 (definition public (collect-type type seq <Object> (key: key #f))
@@ -2225,29 +2228,37 @@
 
 
 (definition public (some? predicate <procedure> (key: key #f) . seqs)
-  (continuation-capture
-    (lambda (return)
-      (apply iterate-sequences
-             (lambda objs
-               (and (apply predicate (map (lambda (object)
-                                           (apply-key key object))
-                                         objs))
-                    (continuation-return return #t)))
-             seqs)
-      #f)))
+  (if (and (not key)
+           (null/pair? (car seqs))
+           (null? (cdr seqs)))
+      (kernel-some? predicate (car seqs))
+    (continuation-capture
+      (lambda (return)
+        (apply iterate-sequences
+          (lambda objs
+            (and (apply predicate (map (lambda (object)
+                                         (apply-key key object))
+                                       objs))
+                 (continuation-return return #t)))
+          seqs)
+        #f))))
 
 
 (definition public (every? predicate <procedure> (key: key #f) . seqs)
-  (continuation-capture
-    (lambda (return)
-      (apply iterate-sequences
-             (lambda objs
-               (or (apply predicate (map (lambda (object)
-                                           (apply-key key object))
-                                         objs))
-                   (continuation-return return #f)))
-             seqs)
-      #t)))
+  (if (and (not key)
+           (null/pair? (car seqs))
+           (null? (cdr seqs)))
+      (kernel-every? predicate (car seqs))
+    (continuation-capture
+      (lambda (return)
+        (apply iterate-sequences
+          (lambda objs
+            (or (apply predicate (map (lambda (object)
+                                        (apply-key key object))
+                                      objs))
+                (continuation-return return #f)))
+          seqs)
+        #t))))
 
 
 (definition public (concatenate . rest)

@@ -178,6 +178,10 @@
              (iter (%%cdr scan))))))
 
 
+(define jazz:kernel-some? jazz:some?)
+(define jazz:kernel-every? jazz:every?)
+
+
 ;;;
 ;;;; Pathname
 ;;;

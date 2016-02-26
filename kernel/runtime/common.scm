@@ -265,6 +265,9 @@
       '())))
 
 
+(define jazz:kernel-collect-if jazz:collect-if)
+
+
 ;;;
 ;;;; String
 ;;;

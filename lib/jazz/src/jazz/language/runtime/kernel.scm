@@ -1395,6 +1395,7 @@
 (native jazz:untrack-allocations)
 (native jazz:reset-allocations)
 (native jazz:count-allocations)
+(native jazz:all-allocations)
 (native jazz:snapshot-allocations)
 (native jazz:get-allocation-object)
 (native jazz:get-allocation-file)

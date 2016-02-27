@@ -395,6 +395,9 @@
 (define jazz:count-allocations
   ##count-allocations)
 
+(define jazz:all-allocations
+  ##all-allocations)
+
 (define jazz:snapshot-allocations
   ##snapshot-allocations)
 
@@ -412,13 +415,6 @@
   (%%list (jazz:get-allocation-object n)
           (jazz:get-allocation-file n)
           (jazz:get-allocation-line n)))
-
-
-(define (jazz:with-track-allocations thunk)
-  (jazz:track-allocations)
-  (jazz:reset-allocations)
-  (thunk)
-  (jazz:untrack-allocations))
 
 
 ;;;

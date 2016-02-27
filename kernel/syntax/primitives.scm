@@ -461,6 +461,39 @@
 
 
 ;;;
+;;;; Homogeneous
+;;;
+
+
+;; use at your own risk versions that do not initialize memory
+(jazz:define-macro (%%allocate-vector    size . rest) `(%%tracking (##make-vector    ,size ,@rest)))
+(jazz:define-macro (%%allocate-s8vector  size . rest) `(%%tracking (##make-s8vector  ,size ,@rest)))
+(jazz:define-macro (%%allocate-u8vector  size . rest) `(%%tracking (##make-u8vector  ,size ,@rest)))
+(jazz:define-macro (%%allocate-s16vector size . rest) `(%%tracking (##make-s16vector ,size ,@rest)))
+(jazz:define-macro (%%allocate-u16vector size . rest) `(%%tracking (##make-u16vector ,size ,@rest)))
+(jazz:define-macro (%%allocate-s32vector size . rest) `(%%tracking (##make-s32vector ,size ,@rest)))
+(jazz:define-macro (%%allocate-u32vector size . rest) `(%%tracking (##make-u32vector ,size ,@rest)))
+(jazz:define-macro (%%allocate-s64vector size . rest) `(%%tracking (##make-s64vector ,size ,@rest)))
+(jazz:define-macro (%%allocate-u64vector size . rest) `(%%tracking (##make-u64vector ,size ,@rest)))
+(jazz:define-macro (%%allocate-f32vector size . rest) `(%%tracking (##make-f32vector ,size ,@rest)))
+(jazz:define-macro (%%allocate-f64vector size . rest) `(%%tracking (##make-f64vector ,size ,@rest)))
+
+
+;; tracking allocations
+(jazz:define-macro (%%make-vector    size . rest) `(%%tracking (make-vector    ,size ,@rest)))
+(jazz:define-macro (%%make-s8vector  size . rest) `(%%tracking (make-s8vector  ,size ,@rest)))
+(jazz:define-macro (%%make-u8vector  size . rest) `(%%tracking (make-u8vector  ,size ,@rest)))
+(jazz:define-macro (%%make-s16vector size . rest) `(%%tracking (make-s16vector ,size ,@rest)))
+(jazz:define-macro (%%make-u16vector size . rest) `(%%tracking (make-u16vector ,size ,@rest)))
+(jazz:define-macro (%%make-s32vector size . rest) `(%%tracking (make-s32vector ,size ,@rest)))
+(jazz:define-macro (%%make-u32vector size . rest) `(%%tracking (make-u32vector ,size ,@rest)))
+(jazz:define-macro (%%make-s64vector size . rest) `(%%tracking (make-s64vector ,size ,@rest)))
+(jazz:define-macro (%%make-u64vector size . rest) `(%%tracking (make-u64vector ,size ,@rest)))
+(jazz:define-macro (%%make-f32vector size . rest) `(%%tracking (make-f32vector ,size ,@rest)))
+(jazz:define-macro (%%make-f64vector size . rest) `(%%tracking (make-f64vector ,size ,@rest)))
+
+
+;;;
 ;;;; Interruption
 ;;;
 
@@ -893,6 +926,10 @@
           `(string? ,obj)
         `(##string? ,obj)))
     
+    (jazz:define-macro (%%make-string size . rest)
+      `(%%tracking
+         (make-string ,size ,@rest)))
+    
     (jazz:define-macro (%%string=? str1 str2)
       (if jazz:debug-core?
           `(string=? ,str1 ,str2)
@@ -1081,10 +1118,12 @@
     (jazz:define-macro (%%table? obj)
       `(table? ,obj))
     
-    (jazz:define-macro (%%make-table #!key (test eq?) (hash #f))
-      `(if (eq? ,hash #f)
-           (make-table test: ,test)
-         (make-table test: ,test hash: ,hash)))
+    (jazz:define-macro (%%make-table . rest)
+      (if (jazz:getf rest test:)
+          `(%%tracking
+             (make-table ,@rest))
+        `(%%tracking
+           (make-table test: eq? ,@rest))))
     
     (jazz:define-macro (%%table-ref table key . rest)
       (if jazz:debug-core?
@@ -1199,11 +1238,6 @@
      (if jazz:debug-core?
          `(vector ,@rest)
        `(##vector ,@rest)))
-   
-   (jazz:define-macro (%%make-vector size . rest)
-     (if jazz:debug-core?
-         `(make-vector ,size ,@rest)
-       `(##make-vector ,size ,@rest)))
    
    (jazz:define-macro (%%vector-length vector)
      (if jazz:debug-core?

@@ -1,0 +1,150 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Memory Tracking
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.tracker jazz
+
+
+;;;
+;;;; Tracker
+;;;
+
+
+(class Tracker extends Object)
+
+
+(definition default-tracker
+  (new Tracker))
+
+
+;;;
+;;;; Tracking
+;;;
+
+
+(class Tracking extends Object
+  
+  
+  (slot label       getter generate)
+  (slot tracker     getter generate)
+  (slot all         accessors generate)
+  (slot allocations accessors generate)
+  
+  
+  (method override (initialize label tracker)
+    (set! label~self label)
+    (set! tracker~self tracker)
+    (set! all~self 0)
+    (set! allocations~self '()))
+  
+  
+  (method (reset)
+    (set! all 0)
+    (set! allocations '())))
+
+
+;;;
+;;;; Trackings
+;;;
+
+
+(definition *trackings*
+  (make-table test: equal?))
+
+(definition *selected-tracking*
+  #f)
+
+
+(definition public (get-trackings)
+  *trackings*)
+
+(definition public (get-tracking-names)
+  (table-keys *trackings*))
+
+
+(definition public (get-selected-tracking)
+  *selected-tracking*)
+
+(definition public (set-selected-tracking name)
+  (set! *selected-tracking* name))
+
+
+(definition public (find-tracking name)
+  (table-ref *trackings* name #f))
+
+
+(definition public (find-selected-tracking)
+  (find-tracking (get-selected-tracking)))
+
+
+(definition (find/new-tracking label)
+  (or (find-tracking label)
+      (let ((tracking (new Tracking label default-tracker)))
+        (register-tracking tracking)
+        tracking)))
+
+
+(definition public (with-tracking label thunk)
+  (let ((tracking (find/new-tracking label)))
+    (track-allocations)
+    (reset-allocations)
+    (prog1 (thunk)
+      (untrack-allocations)
+      (set-all~ tracking (all-allocations))
+      (set-allocations~ tracking (collect-allocations)))))
+
+
+(definition (collect-allocations)
+  (loop (for n from 0 below (count-allocations))
+        (collect (list (get-allocation-object n)
+                       (get-allocation-file n)
+                       (get-allocation-line n)))))
+
+
+(definition (register-tracking tracking)
+  (table-set! *trackings* (get-label~ tracking) tracking))
+
+(definition (unregister-tracking name)
+  (table-clear *trackings* name))
+
+
+(definition public (reset-tracking tracking)
+  (reset~ tracking))
+
+
+(definition public (reset-trackings)
+  (set! *trackings* (make-table test: equal?))
+  (set! *selected-tracking* #f)))

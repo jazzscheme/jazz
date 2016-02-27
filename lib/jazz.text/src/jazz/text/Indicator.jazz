@@ -42,8 +42,8 @@
   
   
   (slot color)
-  (slot active-text     initialize #f)
-  (slot active-position initialize #f)
+  (slot active-text initialize #f)
+  (slot active      initialize #f)
   
   
   (method override (initialize color)
@@ -56,23 +56,31 @@
   ;;;
 
 
-  (method public (edit text position (ensure-displayed?: ensure-displayed? #t) (select?: select? #f))
+  (method public (edit text position/range (ensure-displayed?: ensure-displayed? #t) (select?: select? #f))
     (define (install-indicator)
-      (fill~ (get-model~ text) color position)
+      (if (is? position/range Cell)
+          (fill~ (get-model~ text) color position/range)
+        (set-highlight-color~ (get-model~ text) position/range color))
       (when ensure-displayed?
-        (ensure-cell-displayed~ text position))
+        (if (is? position/range Cell)
+            (ensure-cell-displayed~ text position/range)
+          (ensure-range-displayed~ text position/range)))
       (set! active-text text)
-      (set! active-position position)
+      (set! active position/range)
       (reset-tooltip~ text)
       (focus-host~ (get-host~ text))
       (when select?
-        (set-caret~ text position)))
+        (if (is? position/range Cell)
+            (set-caret~ text position/range)
+          (set-selection~ text position/range))))
     
     (define (uninstall-indicator)
-      (unfill~ (get-model~ active-text) active-position)
+      (if (is? active Cell)
+          (unfill~ (get-model~ active-text) active)
+        (set-highlight-color~ (get-model~ active-text) active #f))
       (reset-tooltip~ active-text)
       (set! active-text #f)
-      (set! active-position #f))
+      (set! active #f))
     
     (when active-text
       (uninstall-indicator))

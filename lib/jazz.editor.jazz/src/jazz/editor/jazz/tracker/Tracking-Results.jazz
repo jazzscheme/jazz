@@ -1,0 +1,263 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Tracking Results
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.editor.jazz.tracker.Tracking-Results jazz
+
+
+(import (jazz.catalog)
+        (jazz.debugger)
+        (jazz.feedback)
+        (jazz.graphic)
+        (jazz.handler)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.jrm)
+        (jazz.layout)
+        (jazz.resource)
+        (jazz.tree)
+        (jazz.ui)
+        (jazz.view))
+
+
+(class Tracking-Results extends Layout-View
+  
+  
+  (form
+    (<install>                                        size: {Dimension 600 400} layout-type: border position: {Point 1 0}
+      (<Layout-View>                name: tools
+        (<Push-Tool>                name: refresh     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh Tracking" resource: {Image-Resource "Refresh"} portfolio: :images action-handler: {Event-Handler :guest on-refresh-tracking})
+        (<Separator>                                  size: {Dimension 4 0})
+        (<Push-Tool>                name: reset       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Reset Tracking" resource: {Image-Resource "Clear"} portfolio: :images action-handler: {Event-Handler :guest on-reset-tracking}))
+      (<Layout-View>                                  layout-type: border location: center background: {Color Medium}
+        (<Layout-View>                                size: {Dimension 100 24} location: north layout-type: box layout-insets: {Rect 0 1 0 0} layout-padding: 2
+          (<Push-Tool>              name: view        size: {Dimension 22 22} tooltip?: #t tooltip-text: "View Tracking..." resource: {Image-Resource "Edit"} portfolio: :images action-handler: {Event-Handler :form on-choose-tracking})
+          (<Separator>                                size: {Dimension 4 0})
+          (<Label-View>             name: tracking    size: {Dimension 250 23} location: center))
+        (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
+          (<content~>                                 layout-type: fill
+            (<Tree-Header>                            style: document
+              (<content~>
+                (<Allocations-Tree> name: allocations selection-handler: {Selection-Handler :form on-select-location} return-press-handler: {Event-Handler :form on-return-press}))))))))
+  
+  
+  (method meta override (external-name . rest)
+    'Trackings)
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta override (host-icon)
+    {Image-Resource "Grab"})
+  
+  
+  (method meta override (host-title)
+    "Trackings")
+  
+  
+  (method meta override (host-position)
+    {Point 28 14})
+  
+  
+  (method meta override (host-size)
+    {Dimension 408 608})
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method override (get-tools-view)
+    (locate 'tools))
+  
+  
+  (method override (focus-default)
+    (acquire-focus~ (get-tree)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'allocations))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-choose-tracking evt)
+    (define (present-tracking tracking)
+      (if tracking
+          (->string tracking)
+        "<default>"))
+    
+    (let ((process (require-focused-process~ (get-debugger-manager))))
+      (let ((trackings (tracker-trackings~ process))
+            (tracking (tracker-selected-tracking~ process)))
+        (tracker-selected-tracking-set!~ process (request-list (sort string<? trackings key: present-tracking) title: "Choose Tracking" invite: "Select a tracking from the list" present: present-tracking selected: tracking))
+        (view-tracking))))
+  
+  
+  (method (on-reset-tracking evt)
+    (let ((all? (get-shift?~ evt)))
+      (reset-tracking all?)))
+  
+  
+  (method (reset-tracking all?)
+    (tracking-reset~ (require-focused-process~ (get-debugger-manager)) all?)
+    (view-tracking))
+  
+  
+  (method (on-refresh-tracking evt)
+    (view-tracking))
+  
+  
+  (method (on-select-location evt)
+    (let ((user-origin (get-user-origin~ evt)))
+      (edit-source)
+      ;; as a quick solution we let the previous call give the focus to the document
+      ;; because a lot of framework behavior depends on a new document gaining focus
+      (when user-origin
+        (acquire-focus~ (locate 'allocations)))))
+  
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (definition *frame-indicator*
+    (new Location-Indicator {Color Light-Red}))
+  
+  
+  (method (edit-source)
+    (edit-location~ *frame-indicator* (selected-location)))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method (selected-allocation)
+    (let ((tree (get-tree)))
+      (let ((rank (get-single-selection~ tree)))
+        (if (not rank)
+            #f
+          (get-user-data~ (get-row~ tree rank))))))
+  
+  
+  (method (selected-location)
+    (let ((allocation (selected-allocation)))
+      (if (not allocation)
+          #f
+        (bind (info file line) allocation
+          (when file
+            (let ((base (extract-base file)))
+              (let ((entries (get-filename-entries~ (get-cataloguer) base)))
+                (define (determine-entry)
+                  (case (length entries)
+                    ((0)
+                     #f)
+                    ((1)
+                     (car entries))
+                    (else
+                     ;; (bell)
+                     ;; quicky for tests
+                     (car entries))))
+                
+                (let ((entry (determine-entry)))
+                  (if entry
+                      (let ;; ugly hack until I understand why the C code is correct while the lisp code is off by one line
+                          ((line (if (starts-with? file "_")
+                                     line
+                                   (- line 1))))
+                        (list (get-moniker~ entry) line #f))
+                    #f)))))))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (view-tracking)
+    (with-cursor :wait
+      (lambda ()
+        (let ((tree (get-tree))
+              (tracking (parameterize ((receive-timeout 30))
+                          (tracker-tracking~ (require-focused-process~ (get-debugger-manager))))))
+          (when tracking
+            (bind (label all allocations) tracking
+              (define (add-allocation allocation)
+                (bind ((serial class presentation) file line) allocation
+                  (add-row~ tree
+                    children: (list (new Tree-Node title: presentation image: {Image-Resource "Link"})
+                                    (new Tree-Label title: (->string file))
+                                    (new Tree-Label title: (->string line)))
+                    user-data: allocation)))
+              
+              (remove-every-row~ tree)
+              (let ((title (format "{a}: all: {a}, count: {a}" label all (length allocations))))
+                (set-title~ (locate 'tracking) title)
+                (set-tooltip?~ (locate 'tracking) #t)
+                (set-tooltip-text~ (locate 'tracking) title))
+              (with-update-locked~ tree
+                (lambda ()
+                  (for-each add-allocation allocations))))))))))
+
+
+;;;
+;;;; Allocations-Tree
+;;;
+
+
+(class Allocations-Tree extends Tree-View
+  
+  
+  (form
+    (<install>                          portfolio: :images filled-column: object
+      (<Tree-Node-Column>  name: object title: "Object" width: 250 toplevel-controls?: #f)
+      (<Tree-Label-Column> name: file   title: "File" width: 150)
+      (<Tree-Label-Column> name: line   title: "Line" width: 75)))))

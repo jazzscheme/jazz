@@ -49,6 +49,7 @@
         (jazz.inspector)
         (jazz.jrm)
         (jazz.runtime)
+        (jazz.tracker)
         (profiler))
 
 
@@ -378,6 +379,43 @@
       (let ((profile (find-selected-profile)))
         (when profile
           (reset-profile profile (and profiler (require-service profiler)) depth)))))
+  
+  
+  ;;;
+  ;;;; Tracker
+  ;;;
+
+
+  (method override (tracker-trackings)
+    (get-tracking-names))
+  
+  
+  (method override (tracker-selected-tracking)
+    (get-selected-tracking))
+  
+  
+  (method override (tracker-selected-tracking-set! name)
+    (set-selected-tracking name))
+  
+  
+  (method override (tracker-tracking)
+    (let ((tracking (find-selected-tracking)))
+      (when tracking
+        (let ((allocations (get-allocations~ tracking)))
+          (list (get-label~ tracking)
+                (get-all~ tracking)
+                (map (lambda (allocation)
+                       (bind (object file line) allocation
+                         (list (package-info object) file line)))
+                     allocations))))))
+  
+  
+  (method override (tracking-reset all?)
+    (if all?
+        (reset-trackings)
+      (let ((tracking (find-selected-tracking)))
+        (when tracking
+          (reset-tracking tracking)))))
   
   
   ;;;

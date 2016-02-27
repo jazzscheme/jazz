@@ -686,7 +686,7 @@
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:arithmetic-shift-right '((##fxarithmetic-shift-right <fx^fx:fx>)))
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fixnum->flonum         '((##fixnum->flonum <fx:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flonum->fixnum         '(                     (##flonum->fixnum <fl:fx>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flonum->fixnum         '((##flonum->fixnum <fl:fx>)))
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:s8vector               '((##s8vector         <fx*:s8vector>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:s8vector-length        '((##s8vector-length  <s8vector:fx>)))
@@ -753,17 +753,32 @@
   (else))
 
 ;; use at your own risk versions that do not initialize memory
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-vector    '((##make-vector      <fx:vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s8vector  '((##make-s8vector    <fx:s8vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u8vector  '((##make-u8vector    <fx:u8vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s16vector '((##make-s16vector   <fx:s16vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u16vector '((##make-u16vector   <fx:u16vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s32vector '((##make-s32vector   <fx:s32vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u32vector '((##make-u32vector   <fx:u32vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s64vector '((##make-s64vector   <fx:s64vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u64vector '((##make-u64vector   <fx:u64vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-f32vector '((##make-f32vector   <fx:f32vector>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-f64vector '((##make-f64vector   <fx:f64vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-vector    '((%%allocate-vector    <any*:vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s8vector  '((%%allocate-s8vector  <any*:s8vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u8vector  '((%%allocate-u8vector  <any*:u8vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s16vector '((%%allocate-s16vector <any*:s16vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u16vector '((%%allocate-u16vector <any*:u16vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s32vector '((%%allocate-s32vector <any*:s32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u32vector '((%%allocate-u32vector <any*:u32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s64vector '((%%allocate-s64vector <any*:s64vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-u64vector '((%%allocate-u64vector <any*:u64vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-f32vector '((%%allocate-f32vector <any*:f32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-f64vector '((%%allocate-f64vector <any*:f64vector>)))
+
+;; tracking allocations
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:make-string          '((%%make-string    <any*:string>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:make-table           '((%%make-table     <any*:table>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:make-vector          '((%%make-vector    <any*:vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-s8vector          '((%%make-s8vector  <any*:s8vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-u8vector          '((%%make-u8vector  <any*:u8vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-s16vector         '((%%make-s16vector <any*:s16vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-u16vector         '((%%make-u16vector <any*:u16vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-s32vector         '((%%make-s32vector <any*:s32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-u32vector         '((%%make-u32vector <any*:u32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-s64vector         '((%%make-s64vector <any*:s64vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-u64vector         '((%%make-u64vector <any*:u64vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-f32vector         '((%%make-f32vector <any*:f32vector>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-f64vector         '((%%make-f64vector <any*:f64vector>)))
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((##f64vector-set!   <fl^fx^fl:void>)))
 

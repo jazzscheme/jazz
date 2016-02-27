@@ -68,5 +68,6 @@
       (jazz:generate-symbol-context name)
       (jazz:generate-symbol-counter 0)
       `(begin
+         (%%file ,(##string-append "block:" (##symbol->string name)))
          (jazz:verbose-kernel ',name)
          ,@body))))

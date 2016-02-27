@@ -545,13 +545,7 @@
                         (%%class-is? binding jazz:Autoload-Declaration))
                     (let ((values-codes (%%cdr arguments-codes)))
                       (jazz:new-code
-                        (case (%%length values-codes)
-                          ((0) `(jazz:new0 ,@(jazz:codes-forms arguments-codes)))
-                          ((1) `(jazz:new1 ,@(jazz:codes-forms arguments-codes)))
-                          ((2) `(jazz:new2 ,@(jazz:codes-forms arguments-codes)))
-                          ((3) `(jazz:new3 ,@(jazz:codes-forms arguments-codes)))
-                          ((4) `(jazz:new4 ,@(jazz:codes-forms arguments-codes)))
-                          (else `(jazz:new ,@(jazz:codes-forms arguments-codes))))
+                        `(%%new ,@(jazz:codes-forms arguments-codes))
                         binding
                         #f))
                   #f))

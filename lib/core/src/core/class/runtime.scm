@@ -775,46 +775,6 @@
       object)))
 
 
-(define (jazz:new0 class)
-  (%%debug-assert (%%class? class)
-    (let ((object (%%make-object class (%%get-class-instance-size class))))
-      (jazz:initialize-slots object)
-      ((%%class-dispatch class 0 0) object)
-      object)))
-
-
-(define (jazz:new1 class arg1)
-  (%%debug-assert (%%class? class)
-    (let ((object (%%make-object class (%%get-class-instance-size class))))
-      (jazz:initialize-slots object)
-      ((%%class-dispatch class 0 0) object arg1)
-      object)))
-
-
-(define (jazz:new2 class arg1 arg2)
-  (%%debug-assert (%%class? class)
-    (let ((object (%%make-object class (%%get-class-instance-size class))))
-      (jazz:initialize-slots object)
-      ((%%class-dispatch class 0 0) object arg1 arg2)
-      object)))
-
-
-(define (jazz:new3 class arg1 arg2 arg3)
-  (%%debug-assert (%%class? class)
-    (let ((object (%%make-object class (%%get-class-instance-size class))))
-      (jazz:initialize-slots object)
-      ((%%class-dispatch class 0 0) object arg1 arg2 arg3)
-      object)))
-
-
-(define (jazz:new4 class arg1 arg2 arg3 arg4)
-  (%%debug-assert (%%class? class)
-    (let ((object (%%make-object class (%%get-class-instance-size class))))
-      (jazz:initialize-slots object)
-      ((%%class-dispatch class 0 0) object arg1 arg2 arg3 arg4)
-      object)))
-
-
 (define (jazz:nascent-new class . rest)
   (%%debug-assert (%%class? class)
     (let ((object (%%make-object class (%%get-class-instance-size class))))

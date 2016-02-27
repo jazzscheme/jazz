@@ -182,6 +182,17 @@
   `(%%object-set! ,object ,jazz:object-class ,class))
 
 
+(jazz:define-macro (%%new class . rest)
+  (jazz:with-uniqueness class
+    (lambda (cls)
+      (let ((obj (jazz:generate-symbol "obj")))
+        `(%%debug-assert (%%class? ,cls)
+           (let ((,obj (%%make-object ,cls (%%get-class-instance-size ,cls))))
+             (jazz:initialize-slots ,obj)
+             ((%%class-dispatch ,cls 0 0) ,obj ,@rest)
+             ,obj))))))
+
+
 ;;;
 ;;;; Define Class
 ;;;

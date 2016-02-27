@@ -1698,7 +1698,7 @@
 
 
 (define (jazz:make-product name)
-  (let ((subproduct-table (%%make-table))
+  (let ((subproduct-table (%%make-table test: eq?))
         (subproduct-table-mutex (%%make-mutex 'subproduct-table-mutex))
         (active-processes '())
         (free-processes '())

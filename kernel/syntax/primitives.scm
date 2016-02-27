@@ -1132,21 +1132,8 @@
       `(table? ,obj))
     
     (jazz:define-macro (%%make-table . rest)
-      (define (has-test?)
-        (let iter ((scan rest))
-             (cond ((%%null? scan)
-                    #f)
-                   ((eq? (car scan) test:)
-                    #t)
-                   (else
-                    (iter (cdr scan))))))
-      
-      ;; make eq? the default test
-      (if (has-test?)
-          `(%%tracking
-             (make-table ,@rest))
-        `(%%tracking
-           (make-table test: eq? ,@rest))))
+      `(%%tracking
+         (make-table ,@rest)))
     
     (jazz:define-macro (%%table-ref table key . rest)
       (if jazz:debug-core?

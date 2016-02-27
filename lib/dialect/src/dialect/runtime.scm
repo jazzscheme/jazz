@@ -1026,7 +1026,7 @@
           #f))))
   
   (define (rename parameters)
-    (let ((mapping (%%make-table)))
+    (let ((mapping (%%make-table test: eq?)))
       (for-each (lambda (conversion)
                   (let ((key (car conversion))
                         (value (cadr conversion)))

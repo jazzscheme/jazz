@@ -110,9 +110,7 @@
   (case (jazz:walk-for)
     ((compile)
   `(##c-code #<<end-of-code
-
-  ___RESULT = ___UPDATE_ALLOC(___ARG1);
-   
+___RESULT = ___UPDATE_ALLOC(___ARG1);
 end-of-code
 
   ,expr))

@@ -2056,11 +2056,6 @@
       (proc))))
 
 
-;; #f interpret compile eval
-(define jazz:walk-for
-  (make-parameter #f))
-
-
 (define jazz:load-interpreted-hook
   #f)
 

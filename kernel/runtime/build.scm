@@ -381,7 +381,8 @@
                     (feedback-message "; compiling {a}..." path)
                     (if (not (jazz:dry-run?))
                         (begin
-                          (compile-file-to-target standardized-path options: options output: dst)
+                          (parameterize ((jazz:walk-for 'compile))
+                            (compile-file-to-target standardized-path options: options output: dst))
                           (if ios?
                               (let ((custom-cc-options ios-custom-cc-options))
                                 (jazz:call-process

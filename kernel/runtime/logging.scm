@@ -111,7 +111,7 @@ END-OF-DECLARE
 
 
 (define jazz:logging-depth
-  (%%make-parameter 0))
+  (make-parameter 0))
 
 
 (define jazz:logging?
@@ -137,7 +137,7 @@ END-OF-DECLARE
   (if (%%not (jazz:logging?))
       (thunk)
     (let ((str (%%symbol->string name))
-          (prefix (%%make-string (%%fx* (jazz:logging-depth) 2) #\space)))
+          (prefix (make-string (%%fx* (jazz:logging-depth) 2) #\space)))
       (jazz:logging-line (with-output-to-string ""
                            (lambda ()
                              (display "(")
@@ -156,7 +156,7 @@ END-OF-DECLARE
   (if (%%not (jazz:logging?))
       (thunk)
     (let ((str (%%symbol->string name))
-          (prefix (%%make-string (%%fx* (jazz:logging-depth) 2) #\space)))
+          (prefix (make-string (%%fx* (jazz:logging-depth) 2) #\space)))
       (jazz:logging-line (%%string-append prefix enter-marker str scheme-marker))
       (let ((result (parameterize ((jazz:logging-depth (%%fx+ (jazz:logging-depth) 1)))
                       (thunk))))

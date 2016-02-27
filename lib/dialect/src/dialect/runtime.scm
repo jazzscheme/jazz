@@ -147,7 +147,7 @@
 
 ;; complex code analysis for tools
 (define jazz:analysis-mode?
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 ;; declarations analysis table
@@ -1026,7 +1026,7 @@
           #f))))
   
   (define (rename parameters)
-    (let ((mapping (make-table)))
+    (let ((mapping (%%make-table)))
       (for-each (lambda (conversion)
                   (let ((key (car conversion))
                         (value (cadr conversion)))
@@ -2871,19 +2871,19 @@
 
 
 (define jazz:current-walker
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 (define jazz:current-resume
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 (define jazz:current-declaration
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 (define jazz:current-declaration-name
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 (define jazz:current-walk-error
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (define (jazz:with-walker-context walker resume declaration form-src thunk)
@@ -3123,7 +3123,7 @@
 
 
 (define jazz:walk-context
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (define (jazz:get-walk-context)
@@ -4144,7 +4144,7 @@
 
 
 (define jazz:*raise-walk-problems?*
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (define (jazz:walk-warning walker declaration src fmt-string . rest)
@@ -5544,7 +5544,7 @@
 
 
 (define jazz:outline-feedback
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (define (jazz:bin->otl bin)
@@ -5625,7 +5625,7 @@
 
 
 (define jazz:read-literals?
-  (make-parameter #t))
+  (%%make-parameter #t))
 
 
 (define (jazz:read-toplevel-forms pathname/resource #!key (read-literals? #t))

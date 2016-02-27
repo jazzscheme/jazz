@@ -52,7 +52,7 @@
 
 
 (define *in-profile-heartbeat?*
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (define (profile-heartbeat!)

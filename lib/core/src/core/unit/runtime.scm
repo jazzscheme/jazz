@@ -43,7 +43,7 @@
 
 
 (define jazz:for-each-subunit-continue
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (define (jazz:outline-subunit unit-name)

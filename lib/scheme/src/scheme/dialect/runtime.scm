@@ -213,7 +213,7 @@
 
 
 (define jazz:Special-Forms
-  (make-table test: eq?))
+  (%%make-table test: eq?))
 
 
 (define (jazz:register-special-form name proc)

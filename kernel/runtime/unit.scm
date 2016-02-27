@@ -127,7 +127,7 @@
 (define jazz:pristine-thread-continuation
   (thread-join!
     (thread-start!
-      (make-thread
+      (%%make-thread
         (lambda ()
           (continuation-capture
             (lambda (cont)
@@ -300,12 +300,12 @@
 
 
 (define jazz:profile
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 ;; to enable timing loading of an application
 (define jazz:run-loop?
-  (make-parameter #t))
+  (%%make-parameter #t))
 
 
 ;;;
@@ -1698,15 +1698,15 @@
 
 
 (define (jazz:make-product name)
-  (let ((subproduct-table (make-table))
-        (subproduct-table-mutex (make-mutex 'subproduct-table-mutex))
+  (let ((subproduct-table (%%make-table))
+        (subproduct-table-mutex (%%make-mutex 'subproduct-table-mutex))
         (active-processes '())
         (free-processes '())
         (outdated-processes '())
-        (process-mutex (make-mutex 'process-mutex))
-        (process-condition (make-condition-variable 'process-condition))
+        (process-mutex (%%make-mutex 'process-mutex))
+        (process-condition (%%make-condition 'process-condition))
         (listening-port (open-tcp-server 0))
-        (output-mutex (make-mutex 'output-mutex))
+        (output-mutex (%%make-mutex 'output-mutex))
         (jobs (or jazz:jobs (jazz:build-jobs) jazz:jobs-default))
         (stop-build? #f))
     (define (key-product? name)
@@ -1771,13 +1771,13 @@
                                   stdout-redirection: #t
                                   stderr-redirection: #t))))
                  (let ((established-port (read listening-port))
-                       (echo-thread (thread-start! (make-thread (lambda ()
-                                                                  (let iter ()
-                                                                       (let ((line (read-line process)))
-                                                                         (if (not (eof-object? line))
-                                                                             (begin
-                                                                               (atomic-output line)
-                                                                               (iter))))))))))
+                       (echo-thread (thread-start! (%%make-thread (lambda ()
+                                                                    (let iter ()
+                                                                         (let ((line (read-line process)))
+                                                                           (if (not (eof-object? line))
+                                                                               (begin
+                                                                                 (atomic-output line)
+                                                                                 (iter))))))))))
                    (let ((port/echo (%%cons established-port echo-thread)))
                      (set! active-processes (%%cons port/echo active-processes))
                      (mutex-unlock! process-mutex)
@@ -1832,8 +1832,8 @@
                 (map (lambda (name)
                        (mutex-lock! subproduct-table-mutex)
                        (let ((thread (or (%%table-ref subproduct-table name #f)
-                                         (let ((thread (thread-start! (make-thread (lambda ()
-                                                                                     (make name))))))
+                                         (let ((thread (thread-start! (%%make-thread (lambda ()
+                                                                                       (make name))))))
                                            (%%table-set! subproduct-table name thread)
                                            thread))))
                          (mutex-unlock! subproduct-table-mutex)
@@ -2012,7 +2012,7 @@
 
 
 (define jazz:load-indent
-  (make-parameter 0))
+  (%%make-parameter 0))
 
 
 (define (jazz:load-resource loading resource . rest)
@@ -2028,7 +2028,7 @@
 (define (jazz:with-verbose flag action path proc)
   (let ((port (console-port)))
     (define (verbose-load)
-      (display (make-string (jazz:load-indent) #\space) port)
+      (display (%%make-string (jazz:load-indent) #\space) port)
       (display "; " port)
       (display action port)
       (display " " port)
@@ -2038,7 +2038,7 @@
       (force-output port))
     
     (define (verbose-done)
-      (display (make-string (jazz:load-indent) #\space) port)
+      (display (%%make-string (jazz:load-indent) #\space) port)
       (display "; done " port)
       (display "..." port)
       (newline port)
@@ -2291,7 +2291,7 @@
 
 
 (define jazz:Load-Mutex
-  (make-mutex 'load))
+  (%%make-mutex 'load))
 
 
 (jazz:define-variable jazz:Load-Thread
@@ -2299,21 +2299,21 @@
 
 
 (define jazz:current-load-stack
-  (make-parameter '()))
+  (%%make-parameter '()))
 
 
 (define jazz:requested-unit-name
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 (define jazz:requested-unit-resource
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 (define jazz:requested-pathname
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (define jazz:compiled-source
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (define (jazz:get-load-mutex)
@@ -2399,7 +2399,7 @@
 
 
 (define jazz:current-script-arguments
-  (make-parameter '()))
+  (%%make-parameter '()))
 
 
 (define jazz:load-script-hook

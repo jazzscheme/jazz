@@ -104,14 +104,14 @@
 
 
 (define jazz:in-expression-comment?
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (define jazz:read-literals?
-  (make-parameter #t))
+  (%%make-parameter #t))
 
 (define jazz:read-literal-hook
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (jazz:define-variable jazz:new-literal)

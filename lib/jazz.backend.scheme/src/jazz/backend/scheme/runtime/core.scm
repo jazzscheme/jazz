@@ -571,7 +571,7 @@
 
 
 (define (flalloc)
-  (##subtype-set! (##make-f64vector 1) 30))
+  (##subtype-set! (%%make-f64vector 1) 30))
 
 (define (flset! fl ignore val)
   (##f64vector-set! fl 0 val))
@@ -1563,7 +1563,7 @@
 
 
 (define jazz:current-seconds
-  (let ((f64vec (##make-f64vector 1)))
+  (let ((f64vec (%%make-f64vector 1)))
     (lambda ()
       (declare (not interrupts-enabled))
       (##get-current-time! f64vec 0)

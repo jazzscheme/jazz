@@ -38,6 +38,11 @@
 (block kernel.expansion
 
 
+;; #f interpret compile eval
+(define jazz:walk-for
+  (make-parameter #f))
+
+
 (define (jazz:generate-symbol #!optional (prefix "sym"))
   (let ((for (jazz:generate-symbol-for))
         (counter (jazz:generate-symbol-counter)))

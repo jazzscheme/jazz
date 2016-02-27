@@ -115,7 +115,7 @@
 
 
 (define jazz:loading-module
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (define jazz:Mutations

@@ -74,7 +74,7 @@ end-of-code
     (else 1)))
 
 (define (##new-register #!optional (cardinality default-register-cardinality))
-  (let ((content (##make-vector cardinality)))
+  (let ((content (%%make-vector cardinality)))
     (let loop ((n 0))
          (if (##fx< n cardinality)
              (begin

@@ -706,6 +706,19 @@
 
 
 ;;;
+;;;; Parameter
+;;;
+
+
+(cond-expand
+  (gambit
+    (jazz:define-macro (%%make-parameter . rest)
+      `(%%tracking
+         (make-parameter ,@rest))))
+  (else))
+
+
+;;;
 ;;;; Port
 ;;;
 
@@ -1119,7 +1132,17 @@
       `(table? ,obj))
     
     (jazz:define-macro (%%make-table . rest)
-      (if (jazz:getf rest test:)
+      (define (has-test?)
+        (let iter ((scan rest))
+             (cond ((%%null? scan)
+                    #f)
+                   ((eq? (car scan) test:)
+                    #t)
+                   (else
+                    (iter (cdr scan))))))
+      
+      ;; make eq? the default test
+      (if (has-test?)
           `(%%tracking
              (make-table ,@rest))
         `(%%tracking
@@ -1177,8 +1200,20 @@
     (jazz:define-macro (%%thread? obj)
       `(thread? ,obj))
     
+    (jazz:define-macro (%%make-thread . rest)
+      `(%%tracking
+         (make-thread ,@rest)))
+    
     (jazz:define-macro (%%current-thread)
-      `(##current-thread)))
+      `(##current-thread))
+    
+    (jazz:define-macro (%%make-mutex . rest)
+      `(%%tracking
+         (make-mutex ,@rest)))
+    
+    (jazz:define-macro (%%make-condition . rest)
+      `(%%tracking
+         (make-condition-variable ,@rest))))
   
   (else))
 
@@ -1321,9 +1356,6 @@
    (jazz:define-macro (%%vector . rest)
      `(vector ,@rest))
    
-   (jazz:define-macro (%%make-vector size . rest)
-     `(make-vector ,size ,@rest))
-   
    (jazz:define-macro (%%vector-length vector)
      `(vector-length ,vector))
    
@@ -1334,4 +1366,17 @@
      `(vector-set! ,vector ,n ,value))
    
    (jazz:define-macro (%%vector-copy vector . rest)
-     `(vector-copy ,vector ,@rest)))))
+     `(vector-copy ,vector ,@rest))))
+
+
+;;;
+;;;; Will
+;;;
+
+
+(cond-expand
+  (gambit
+    (jazz:define-macro (%%make-will . rest)
+      `(%%tracking
+         (make-will ,@rest))))
+  (else)))

@@ -42,7 +42,7 @@
 
 
 (define jazz:structure-info
-  (make-table test: eq?))
+  (%%make-table test: eq?))
 
 
 (jazz:define-macro (jazz:define-structure name ascendant-name options slots)

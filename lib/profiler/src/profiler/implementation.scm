@@ -197,7 +197,7 @@
 
 
 (define *profiles*
-  (make-table test: equal?))
+  (%%make-table test: equal?))
 
 (define *selected-profile*
   #f)
@@ -255,7 +255,7 @@
 
 
 (define (reset-profiles)
-  (set! *profiles* (make-table test: equal?))
+  (set! *profiles* (%%make-table test: equal?))
   (set! *selected-profile* #f))
 
 
@@ -265,10 +265,10 @@
 
 
 (define profiler-on?
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 (define active-profile
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 (define *current-profile* #f)

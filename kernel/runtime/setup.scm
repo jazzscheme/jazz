@@ -96,7 +96,7 @@ c-end
 
 
 (define jazz:path->container-override
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 ;; store unit name instead of path if available

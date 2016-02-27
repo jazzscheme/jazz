@@ -2300,7 +2300,7 @@
 
 
 (define jazz:*self*
-  (make-parameter #f))
+  (%%make-parameter #f))
 
 
 ;;;

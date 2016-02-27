@@ -41,11 +41,6 @@
 (jazz:kernel-declares)
 
 
-;; #f interpret compile eval
-(define jazz:walk-for
-  (make-parameter #f))
-
-
 ;;;
 ;;;; Unit
 ;;;

@@ -44,8 +44,7 @@
 
 
 (jazz:define-emit (module (scheme backend) declaration environment)
-  (let ((name (jazz:get-lexical-binding-name declaration))
-        (body-expansion (jazz:emit-namespace-statements (jazz:get-namespace-declaration-body declaration) declaration environment backend))
+  (let ((body-expansion (jazz:emit-namespace-statements (jazz:get-namespace-declaration-body declaration) declaration environment backend))
         (inclusions-expansion (jazz:emit-module-inclusions declaration backend))
         (literals-expansion (jazz:emit-module-literals declaration backend))
         (variables-expansion (jazz:emit-module-variables declaration backend))
@@ -53,7 +52,6 @@
         (autoloads-expansion (jazz:emit-module-autoloads declaration environment backend))
         (registration-expansion (jazz:emit-module-registration declaration environment backend)))
     `(begin
-       (%%file ,(%%string-append "module:" (%%symbol->string name)))
        ,@(case (jazz:walk-for)
            ((eval) '())
            (else (jazz:declares 'module)))

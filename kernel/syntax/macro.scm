@@ -62,12 +62,3 @@
 ;; #f interpret compile eval
 (define jazz:walk-for
   (make-parameter #f))
-
-
-;; can the line 0 be improved
-(jazz:define-macro (%%file file)
-  (case (jazz:walk-for)
-    ((compile)
-     `(##c-code ,(%%string-append "#line 0 \"" file "\"")))
-    (else
-     `(begin))))

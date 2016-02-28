@@ -60,7 +60,6 @@
         (if (and (jazz:requested-unit-name) (%%neq? name (jazz:requested-unit-name)))
             (jazz:error "Unit at {s} is defining {s}" (jazz:requested-unit-name) name)
           `(begin
-             (%%file ,(%%string-append "unit:" (%%symbol->string name)))
              ,@(jazz:declares 'unit)
              ,@body))))))
 

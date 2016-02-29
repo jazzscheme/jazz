@@ -56,6 +56,9 @@
 (class Tracking-Results extends Layout-View
   
   
+  (slot hierarchical? initialize #t)
+  
+  
   (form
     (<install>                                        size: {Dimension 600 400} layout-type: border position: {Point 1 0}
       (<Layout-View>                name: tools
@@ -66,7 +69,8 @@
         (<Layout-View>                                size: {Dimension 100 24} location: north layout-type: box layout-insets: {Rect 0 1 0 0} layout-padding: 2
           (<Push-Tool>              name: view        size: {Dimension 22 22} tooltip?: #t tooltip-text: "View Tracking..." resource: {Image-Resource "Edit"} portfolio: :images action-handler: {Event-Handler :form on-choose-tracking})
           (<Separator>                                size: {Dimension 4 0})
-          (<Label-View>             name: tracking    size: {Dimension 250 23} location: center))
+          (<Label-View>             name: tracking    size: {Dimension 250 23} location: center)
+          (<Toggle-Tool>                              size: {Dimension 22 22} tooltip?: #t tooltip-text: "Flatten" resource: {Image-Resource "Flatten"} portfolio: :images action-handler: {Event-Handler :form on-flat/hierarchical} location: tail))
         (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
           (<content~>                                 layout-type: fill
             (<Tree-Header>                            style: document
@@ -124,6 +128,15 @@
   ;;;
   ;;;; Events
   ;;;
+  
+  
+  (method (on-flat/hierarchical evt)
+    (set-hierarchical? (not hierarchical?))
+    (view-tracking))
+  
+  
+  (method (set-hierarchical? flag)
+    (set! hierarchical? flag))
   
   
   (method (on-choose-tracking evt)
@@ -192,29 +205,20 @@
     (let ((allocation (selected-allocation)))
       (if (not allocation)
           #f
-        (bind (info file line) allocation
-          (when file
-            (let ((base (extract-base file)))
-              (let ((entries (get-filename-entries~ (get-cataloguer) base)))
-                (define (determine-entry)
-                  (case (length entries)
-                    ((0)
-                     #f)
-                    ((1)
-                     (car entries))
-                    (else
-                     ;; (bell)
-                     ;; quicky for tests
-                     (car entries))))
-                
-                (let ((entry (determine-entry)))
-                  (if entry
-                      (let ;; ugly hack until I understand why the C code is correct while the lisp code is off by one line
-                          ((line (if (starts-with? file "_")
-                                     line
-                                   (- line 1))))
-                        (list (get-moniker~ entry) line #f))
-                    #f)))))))))
+        (bind (info container line) allocation
+          (when container
+            (let ((cataloguer (get-cataloguer)))
+              (define (determine-entry)
+                (or (get-toplevel-definition~ cataloguer container)
+                    (let ((base (extract-base container)))
+                      (let ((entries (get-filename-entries~ cataloguer base)))
+                        (and (= (length entries) 1)
+                             (car entries))))))
+              
+              (let ((entry (determine-entry)))
+                (if entry
+                    (list (get-moniker~ entry) (- line 1) #f)
+                  #f))))))))
   
   
   ;;;
@@ -230,22 +234,41 @@
                           (tracker-tracking~ (require-focused-process~ (get-debugger-manager))))))
           (when tracking
             (bind (label all allocations) tracking
-              (define (add-allocation allocation)
-                (bind ((serial class presentation) file line) allocation
-                  (add-row~ tree
-                    children: (list (new Tree-Node title: presentation image: {Image-Resource "Link"})
-                                    (new Tree-Label title: (->string file))
-                                    (new Tree-Label title: (->string line)))
-                    user-data: allocation)))
-              
               (remove-every-row~ tree)
               (let ((title (format "{a}: all: {a}, count: {a}" label all (length allocations))))
                 (set-title~ (locate 'tracking) title)
                 (set-tooltip?~ (locate 'tracking) #t)
                 (set-tooltip-text~ (locate 'tracking) title))
-              (with-update-locked~ tree
-                (lambda ()
-                  (for-each add-allocation allocations))))))))))
+              (if hierarchical?
+                  (with-update-locked~ tree
+                    (lambda ()
+                      (let ((partition (partition allocations key: (lambda (allocation)
+                                                                     (bind ((serial class presentation) file line) allocation
+                                                                       (list file line class)))
+                                         test: equal?)))
+                        (for-each (lambda (partition)
+                                    (bind ((file line class) . allocations) partition
+                                      (let ((sample (car allocations)))
+                                        (let ((presentation (third (car sample))))
+                                          (add-row~ tree
+                                            children: (list (new Tree-Node title: presentation image: {Image-Resource "Link"})
+                                                            (new Tree-Label title: (->string file))
+                                                            (new Tree-Label title: (->string line))
+                                                            (new Tree-Label title: (->string (length allocations))))
+                                            user-data: sample)))))
+                                  (sort > partition key: (lambda (partition)
+                                                           (length (cdr partition))))))))
+                (with-update-locked~ tree
+                  (lambda ()
+                    (for-each (lambda (allocation)
+                                (bind ((serial class presentation) file line stack) allocation
+                                  (add-row~ tree
+                                    children: (list (new Tree-Node title: presentation image: {Image-Resource "Link"})
+                                                    (new Tree-Label title: (->string file))
+                                                    (new Tree-Label title: (->string line))
+                                                    (new Tree-Label title: "1"))
+                                    user-data: allocation)))
+                              allocations)))))))))))
 
 
 ;;;
@@ -258,6 +281,7 @@
   
   (form
     (<install>                          portfolio: :images filled-column: object
-      (<Tree-Node-Column>  name: object title: "Object" width: 250 toplevel-controls?: #f)
-      (<Tree-Label-Column> name: file   title: "File" width: 150)
-      (<Tree-Label-Column> name: line   title: "Line" width: 75)))))
+      (<Tree-Node-Column>  name: object title: "Object" width: 250 toplevel-controls?: #f display-images?: #f)
+      (<Tree-Label-Column> name: file   title: "File" width: 200)
+      (<Tree-Label-Column> name: line   title: "Line" width: 75)
+      (<Tree-Label-Column> name: count  title: "Count" width: 75)))))

@@ -77,4 +77,4 @@
 
 
 (define statprof
-  (make-profiler 'statprof start-statprof stop-statprof 2)))
+  (make-profiler 'statprof start-statprof stop-statprof 4)))

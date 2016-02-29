@@ -410,6 +410,9 @@
 (define jazz:get-allocation-line
   ##get-allocation-line)
 
+(define jazz:get-allocation-stack
+  ##get-allocation-stack)
+
 
 (define (jazz:get-allocation n)
   (%%list (jazz:get-allocation-object n)

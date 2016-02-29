@@ -327,7 +327,7 @@
   
   
   (method override (profiler-profile)
-    (define (frame->symbol frame)
+    (define (package-frame frame)
       (or (when frame
             (bind (creator locat) frame
               (when creator
@@ -338,7 +338,7 @@
     (define (merge-calls call-table calls)
       (iterate-table calls
         (lambda (proc count/duration)
-          (let ((key (map frame->symbol proc)))
+          (let ((key (map package-frame proc)))
             (let ((local-count/duration (table-ref calls key #f)))
               (if local-count/duration
                   (table-set! call-table key (list (+ (first count/duration) (first local-count/duration))
@@ -399,14 +399,22 @@
   
   
   (method override (tracker-tracking)
+    (define (package-frame frame)
+      (or (when frame
+            (bind (creator locat) frame
+              (when creator
+                (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
+                  (list name locat)))))
+          frame))
+    
     (let ((tracking (find-selected-tracking)))
       (when tracking
         (let ((allocations (get-allocations~ tracking)))
           (list (get-label~ tracking)
                 (get-all~ tracking)
                 (map (lambda (allocation)
-                       (bind (object file line) allocation
-                         (list (package-info object) file line)))
+                       (bind (object file line stack) allocation
+                         (list (package-info object) file line (and stack (map package-frame stack)))))
                      allocations))))))
   
   

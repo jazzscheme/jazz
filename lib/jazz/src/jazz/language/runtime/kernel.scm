@@ -126,6 +126,8 @@
 (native jazz:continuation-creator)
 (native jazz:continuation-locat)
 (native jazz:continuation-next)
+(native jazz:continuation-frames)
+(native jazz:track)
 
 
 ;;;
@@ -1400,6 +1402,7 @@
 (native jazz:get-allocation-object)
 (native jazz:get-allocation-file)
 (native jazz:get-allocation-line)
+(native jazz:get-allocation-stack)
 (native jazz:get-allocation)
 (native jazz:with-track-allocations)
 

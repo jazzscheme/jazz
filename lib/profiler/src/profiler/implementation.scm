@@ -407,7 +407,6 @@
            #f)))
   
   (define (identify-location locat)
-    ;; copy of jazz:locat->file/line/col
     (let ((container (and locat (%%locat-container locat))))
       (if container
           (let ((filepos (%%position->filepos (%%locat-position locat))))

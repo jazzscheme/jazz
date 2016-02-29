@@ -101,18 +101,6 @@
            (%%force-uniqueness ,(##cdr variables) ,code))))))
 
 
-(jazz:define-macro (%%tracking expr)
-  (case (jazz:walk-for)
-    ((compile)
-  `(##c-code #<<end-of-code
-___RESULT = ___UPDATE_ALLOC(___ARG1);
-end-of-code
-
-  ,expr))
-    (else
-     expr)))
-
-
 ;;;
 ;;;; Check
 ;;;
@@ -181,4 +169,91 @@ end-of-code
 
 (jazz:define-check-macro %%check-table
   table?
-  "TABLE"))
+  "TABLE")
+
+
+;;;
+;;;; Tracking
+;;;
+
+
+(jazz:define-macro (%%tracking expr)
+  (case (jazz:walk-for)
+    ((compile)
+     `(##c-code #<<end-of-code
+___RESULT = ___UPDATE_ALLOC(___ARG1);
+end-of-code
+
+  (jazz:track ,expr)))
+    (else
+     `(jazz:track ,expr))))
+
+
+(define jazz:*track-depth*
+  4)
+
+
+(define (jazz:track-depth)
+  jazz:*track-depth*)
+
+(define (jazz:track-depth-set! depth)
+  (set! jazz:*track-depth* depth))
+
+
+(define (jazz:track obj)
+  (if (##tracking-allocations?)
+      (begin
+        (##untrack-allocations)
+        (##continuation-capture
+          (lambda (cont)
+            (let ((stack (jazz:track-continuation cont jazz:*track-depth*)))
+              (##update-stack obj stack))))
+        (##track-allocations)))
+  obj)
+
+
+(define (jazz:track-continuation cont depth #!key (filter #f))
+  (define (continuation-creator cont)
+    (let ((proc (%%continuation-creator cont)))
+      (if (and proc (%%closure? proc))
+          (%%closure-code proc)
+        proc)))
+  
+  (define (continuation-next-interesting cont)
+    (let loop ((current-cont cont))
+         (if current-cont
+             (if (and (or (%%not filter) (filter current-cont))
+                      ;; until jazz:track is a macro
+                      (%%not (%%eq? (continuation-creator current-cont) jazz:track)))
+                 current-cont
+               (loop (%%continuation-next current-cont)))
+           #f)))
+  
+  (define (continuation-next-distinct cont creator)
+    (let loop ((current-cont (%%continuation-next cont)))
+         (if current-cont
+             (if (%%eq? creator (continuation-creator current-cont))
+                 (loop (%%continuation-next current-cont))
+               current-cont)
+           #f)))
+  
+  (define (identify-location locat)
+    (let ((container (and locat (%%locat-container locat))))
+      (if container
+          (let ((filepos (%%position->filepos (%%locat-position locat))))
+            (let ((line (%%filepos-line filepos))
+                  (col (%%filepos-col filepos)))
+              (%%list container line col)))
+        #f)))
+  
+  (define (identify cont d)
+    (let ((cont (and cont (%%fx< d depth) (continuation-next-interesting cont))))
+      (if (%%not cont)
+          '()
+        (let ((creator (continuation-creator cont))
+              (location (identify-location (%%continuation-locat cont))))
+          (%%cons (%%list creator location)
+                  (identify (continuation-next-distinct cont creator)
+                            (%%fx+ d 1)))))))
+  
+  (identify cont 0)))

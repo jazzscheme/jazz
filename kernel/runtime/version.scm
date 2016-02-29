@@ -483,6 +483,7 @@
           (debug-location? (%%unspecified))
           (debug-source? (%%unspecified))
           (debug-foreign? (%%unspecified))
+          (track-memory? (%%unspecified))
           (mutable-bindings? (%%unspecified))
           (kernel-interpret? (%%unspecified))
           (destination (%%unspecified))
@@ -502,6 +503,7 @@
     debug-location?
     debug-source?
     debug-foreign?
+    track-memory?
     mutable-bindings?
     kernel-interpret?
     destination
@@ -515,7 +517,7 @@
 ;;;
 
 
-(define (jazz:save-configuration name system platform compiler processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties file system-platform)
+(define (jazz:save-configuration name system platform compiler processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? track-memory? mutable-bindings? kernel-interpret? destination features properties file system-platform)
   (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding system-platform))
     (lambda (output)
       (display "(configuration " output)
@@ -523,12 +525,12 @@
       (newline output)
       (newline output)
       (display "  " output)
-      (jazz:print-configuration name system platform compiler processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties output)
+      (jazz:print-configuration name system platform compiler processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? track-memory? mutable-bindings? kernel-interpret? destination features properties output)
       (display ")" output)
       (newline output))))
 
 
-(define (jazz:print-configuration name system platform compiler processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? mutable-bindings? kernel-interpret? destination features properties output)
+(define (jazz:print-configuration name system platform compiler processor windowing safety optimize? debug-environments? debug-location? debug-source? debug-foreign? track-memory? mutable-bindings? kernel-interpret? destination features properties output)
   (define first?
     #t)
   
@@ -553,6 +555,7 @@
   (print-property debug-location?: debug-location?)
   (print-property debug-source?: debug-source?)
   (print-property debug-foreign?: debug-foreign?)
+  (print-property track-memory?: track-memory?)
   (print-property mutable-bindings?: mutable-bindings?)
   (print-property kernel-interpret?: kernel-interpret?)
   (print-property destination: destination)

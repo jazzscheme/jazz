@@ -671,6 +671,8 @@
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fl*                    '(                     (##fl* <fl^fl:fl>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fl/                    '(                     (##fl/ <fl^fl:fl>)))
 
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:nan?                   '(                     (##nan? <fl:bool>)))
+
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:bitwise-not            '((##fxnot <fx:fx>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:bitwise-and            '((##fxand <fx^fx:fx>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:bitwise-ior            '((##fxior <fx^fx:fx>)))

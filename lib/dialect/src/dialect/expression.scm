@@ -226,8 +226,7 @@
               (and (%%class-is? type jazz:Category-Type)
                    (%%eq? (jazz:get-category-type-declaration type) (jazz:get-category-type-declaration expect))))
         (let ((type (or type jazz:Any)))
-          ;; in Gambit a flonum is actually a f64vector of length 1
-          ;; accepting f64vectors in place of flonums enables constant memory optimizations
+          ;; enable flonum / f64vector polymorphism
           (if (%%eq? expect jazz:Flonum)
               (or (%%subtype? type jazz:Flonum)
                   (%%subtype? type jazz:F64Vector))

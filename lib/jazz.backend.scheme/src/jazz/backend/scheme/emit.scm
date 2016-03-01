@@ -608,12 +608,8 @@
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:-                    '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:*                    '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <int^int:int>) (##* <number^number:number>)))
 
-;; only done in release as these can crash on a division by zero
-(cond-expand
-  (release
-    (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:/                    '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>)))
-    (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:quotient             '((##fxquotient <fx^fx:fx>))))
-  (else))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:/                    '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:quotient             '((##fxquotient <fx^fx:fx>)))
 
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:floor                '(                     (##flfloor    <fl:fl>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:ceiling              '(                     (##flceiling  <fl:fl>)))
@@ -746,7 +742,9 @@
   (release
     (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f64vector-ref          '((##f64vector-ref    <f64vector^fx:fl>)))
     (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f64vector-set!         '((##f64vector-set!   <f64vector^fx^any:void>))))
-  (else))
+  (else
+    (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f64vector-ref          '((jazz:f64vector-safe-ref  <f64vector^fx:fl>)))
+    (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:f64vector-set!         '((jazz:f64vector-safe-set! <f64vector^fx^any:void>)))))
 
 ;; use at your own risk versions that do not initialize memory
 (jazz:add-primitive-patterns     'jazz.language.runtime.functional:allocate-s8vector  '((%%allocate-s8vector  <any*:s8vector>)))
@@ -781,7 +779,7 @@
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-will              '((%%make-will      <any*:any>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-parameter         '((%%make-parameter <any*:any>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((##f64vector-set!   <fl^fx^fl:void>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((##f64vector-set! <fl^fx^fl:void>)))
 
 (cond-expand
   (release

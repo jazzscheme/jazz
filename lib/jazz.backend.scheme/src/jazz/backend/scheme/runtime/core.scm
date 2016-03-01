@@ -580,6 +580,20 @@
   (##f64vector-set! fl 0 val))
 
 
+;; these should only be called by primitive patterns expansion
+(define (jazz:f64vector-safe-ref vec n)
+  (if (and (##fx>= n 0)
+           (##fx< n (##f64vector-length vec)))
+      (##f64vector-ref vec n)
+    (jazz:error "Out of range")))
+
+(define (jazz:f64vector-safe-set! vec n x)
+  (if (and (##fx>= n 0)
+           (##fx< n (##f64vector-length vec)))
+      (##f64vector-set! vec n x)
+    (jazz:error "Out of range")))
+
+
 ;;;
 ;;;; Infinity
 ;;;

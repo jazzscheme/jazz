@@ -388,7 +388,7 @@
             (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
               (let ((signature-casts (jazz:emit-signature-casts signature declaration augmented-environment backend))
                     (body-emit (jazz:emit 'begin backend expression declaration environment body-code)))
-                (let ((cast-body (jazz:simplify-begin (jazz:emit-type-check (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type declaration environment backend))))
+                (let ((cast-body (jazz:simplify-begin (jazz:emit-return-check (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type declaration environment backend))))
                   (jazz:new-code
                     (jazz:emit 'lambda backend expression declaration environment signature-emit signature-casts cast-body)
                     (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))

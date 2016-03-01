@@ -56,7 +56,7 @@
 (class Tracking-Results extends Layout-View
   
   
-  (slot hierarchical? initialize #t)
+  (slot hierarchical? initialize #f)
   
   
   (form
@@ -70,7 +70,7 @@
           (<Push-Tool>              name: view        size: {Dimension 22 22} tooltip?: #t tooltip-text: "View Tracking..." resource: {Image-Resource "Edit"} portfolio: :images action-handler: {Event-Handler :form on-choose-tracking})
           (<Separator>                                size: {Dimension 4 0})
           (<Label-View>             name: tracking    size: {Dimension 250 23} location: center)
-          (<Toggle-Tool>                              size: {Dimension 22 22} tooltip?: #t tooltip-text: "Flatten" resource: {Image-Resource "Flatten"} portfolio: :images action-handler: {Event-Handler :form on-flat/hierarchical} location: tail))
+          (<Toggle-Tool>                              size: {Dimension 22 22} selected?: #t tooltip?: #t tooltip-text: "Flatten" resource: {Image-Resource "Flatten"} portfolio: :images action-handler: {Event-Handler :form on-flat/hierarchical} location: tail))
         (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
           (<content~>                                 layout-type: fill
             (<Tree-Header>                            style: document
@@ -202,23 +202,26 @@
   
   
   (method (selected-location)
-    (let ((allocation (selected-allocation)))
-      (if (not allocation)
-          #f
-        (bind (info container line) allocation
-          (when container
-            (let ((cataloguer (get-cataloguer)))
-              (define (determine-entry)
-                (or (get-toplevel-definition~ cataloguer container)
-                    (let ((base (extract-base container)))
-                      (let ((entries (get-filename-entries~ cataloguer base)))
-                        (and (= (length entries) 1)
-                             (car entries))))))
-              
-              (let ((entry (determine-entry)))
-                (if entry
-                    (list (get-moniker~ entry) (- line 1) #f)
-                  #f))))))))
+    (let ((data (selected-allocation)))
+      (cond ((not data)
+             #f)
+            ((eq? (car data) locat:)
+             (cdr data))
+            (else
+             (bind (info container line) data
+               (when container
+                 (let ((cataloguer (get-cataloguer)))
+                   (define (determine-entry)
+                     (or (get-toplevel-definition~ cataloguer container)
+                         (let ((base (extract-base container)))
+                           (let ((entries (get-filename-entries~ cataloguer base)))
+                             (and (= (length entries) 1)
+                                  (car entries))))))
+                   
+                   (let ((entry (determine-entry)))
+                     (if entry
+                         (list (get-moniker~ entry) (- line 1) #f)
+                       #f)))))))))
   
   
   ;;;
@@ -251,9 +254,8 @@
                                       (let ((sample (car allocations)))
                                         (let ((presentation (third (car sample))))
                                           (add-row~ tree
-                                            children: (list (new Tree-Node title: presentation image: {Image-Resource "Link"})
-                                                            (new Tree-Label title: (->string file))
-                                                            (new Tree-Label title: (->string line))
+                                            children: (list (new Tree-Node title: (format "{a}:{a}" file line))
+                                                            (new Tree-Label title: presentation)
                                                             (new Tree-Label title: (->string (length allocations))))
                                             user-data: sample)))))
                                   (sort > partition key: (lambda (partition)
@@ -262,12 +264,23 @@
                   (lambda ()
                     (for-each (lambda (allocation)
                                 (bind ((serial class presentation) file line stack) allocation
-                                  (add-row~ tree
-                                    children: (list (new Tree-Node title: presentation image: {Image-Resource "Link"})
-                                                    (new Tree-Label title: (->string file))
-                                                    (new Tree-Label title: (->string line))
-                                                    (new Tree-Label title: "1"))
-                                    user-data: allocation)))
+                                  (let ((father
+                                          (add-row~ tree
+                                            children: (list (new Tree-Node title: (format "{a}:{a}" file line))
+                                                            (new Tree-Label title: presentation)
+                                                            (new Tree-Label title: "1"))
+                                            user-data: allocation)))
+                                    (when stack
+                                      (for-each (lambda (frame)
+                                                  (bind (creator locat) frame
+                                                    (bind (container line col) locat
+                                                      (add-row~ tree
+                                                        father: father
+                                                        children: (list (new Tree-Node title: (->string container))
+                                                                        (new Tree-Label title: "")
+                                                                        (new Tree-Label title: ""))
+                                                        user-data: (cons locat: locat)))))
+                                                stack)))))
                               allocations)))))))))))
 
 
@@ -280,8 +293,7 @@
   
   
   (form
-    (<install>                          portfolio: :images filled-column: object
-      (<Tree-Node-Column>  name: object title: "Object" width: 250 toplevel-controls?: #f display-images?: #f)
-      (<Tree-Label-Column> name: file   title: "File" width: 200)
-      (<Tree-Label-Column> name: line   title: "Line" width: 75)
-      (<Tree-Label-Column> name: count  title: "Count" width: 75)))))
+    (<install>                            portfolio: :images filled-column: object
+      (<Tree-Node-Column>  name: location title: "Location" width: 250 display-images?: #f)
+      (<Tree-Label-Column> name: object   title: "Object" width: 200)
+      (<Tree-Label-Column> name: count    title: "Count" width: 75)))))

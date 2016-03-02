@@ -52,6 +52,7 @@
   (slot dialect       getter generate)
   (slot definitions)
   (slot location-name)
+  (slot lines)
   
   
   (method override (initialize catalog file digest dialect definitions)
@@ -62,6 +63,7 @@
     (set! dialect~self dialect)
     (set! definitions~self definitions)
     (set! location-name~self (get-base~ file))
+    (set! lines~self #f)
     (set! marked?~self #t)
     (for-each (lambda (definition)
                 (set-parent~ definition self)
@@ -120,13 +122,47 @@
              definitions))
   
   
-  (method override (for-each-descendant-entry proc (include-self?: include-self? #t))
-    (when include-self?
-      (proc self))
+  (method (cache-lines) <vector>
+    (or lines
+        (let ((queue (new-queue)))
+          (for-each-descendant-entry
+            (lambda (entry)
+              (enqueue queue entry)))
+          (let ((vec (list->vector (queue-list queue))))
+            (set! lines vec)
+            vec))))
+  
+  
+  (method override (for-each-descendant-entry proc)
     (let (iter (entry self))
       (loop (for child in (get-definitions~ entry))
             (proc child)
             (iter child))))
+  
+  
+  ;; binary search
+  (method (line->entry line)
+    (let ((lines (cache-lines)))
+      (let ((len (length lines)))
+        (let (iter (head <fx> 0)
+                   (pos <fx> (fxround/ len 2))
+                   (tail <fx> (- len 1)))
+          (let ((entry (vector-ref lines pos)))
+            (let ((entry-line (get-line~ entry)))
+              (cond ((and (>= line entry-line)
+                          (let ((next-pos (+ pos 1)))
+                            (or (> next-pos tail)
+                                (let ((next-entry (vector-ref lines next-pos)))
+                                  (< line (get-line~ next-entry))))))
+                     entry)
+                    ((< line entry-line)
+                     (let ((new-pos (fxfloor/ (+ head pos) 2)))
+                       (when (/= new-pos pos)
+                         (iter 0 new-pos pos))))
+                    (else
+                     (let ((new-pos (fxceiling/ (+ pos tail) 2)))
+                       (when new-pos
+                         (iter pos new-pos tail)))))))))))
 
 
   ;;;

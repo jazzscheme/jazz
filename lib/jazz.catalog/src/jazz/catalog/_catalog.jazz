@@ -125,6 +125,41 @@
 
 
 ;;;
+;;;; Container
+;;;
+
+
+;; containers are either
+;; - a module name: a.b.c
+;; - a file name: foo.scm
+
+
+(definition container-entries
+  (make-table test: equal?))
+
+
+(definition protected (clear-container-entry container)
+  (table-clear container-entries container))
+
+
+(definition public (cache-container-entry container)
+  (define (find-entry)
+    (let ((cataloguer (get-cataloguer)))
+      (let ((toplevel (get-toplevel-definition~ cataloguer container)))
+        (if toplevel
+            (get-parent~ toplevel)
+          (let ((base (extract-base container)))
+            (let ((entries (get-filename-entries~ cataloguer base)))
+              (and (= (length entries) 1)
+                   (car entries))))))))
+  
+  (or (table-ref container-entries container #f)
+      (let ((entry (find-entry)))
+        (table-set! container-entries container entry)
+        entry)))
+
+
+;;;
 ;;;; File
 ;;;
 

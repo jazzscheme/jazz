@@ -192,17 +192,16 @@
           (let ((locations (selected-locations)))
             (if (not locations)
                 '()
-              (let ((count (length locations)))
-                (let ((from .4)
-                      (to .9))
-                  (let ((delta (/ (- to from) (+ count 1))))
-                    (map (lambda (location rank)
+              (let ((from .4)
+                    (to .9))
+                (map (lambda (info)
+                       (bind (location rank count) info
+                         (let ((delta (/ (- to from) (+ count 1))))
                            (let ((value (+ from (* delta (+ rank 1)))))
                              (let ((indicator (new Location-Indicator (new Color red: 1. green: value blue: value))))
                                (edit-location~ indicator location)
-                               indicator)))
-                         locations
-                         (naturals 0 count)))))))))
+                               indicator)))))
+                     locations))))))
   
   
   ;;;
@@ -216,11 +215,11 @@
              #f)
             ((pair? (car data))
              (map (lambda (info)
-                    (bind (entry line) info
-                      (list (get-file~ (get-file-definition~ entry)) line #f)))
+                    (bind (entry line rank count) info
+                      (list (list (get-file~ (get-file-definition~ entry)) line #f) rank count)))
                   data))
             (else
-             (list data)))))
+             (list (list data 0 1))))))
   
   
   ;;;
@@ -250,9 +249,9 @@
       (bind (entry info) allocation
         (third info)))
     
-    (define (allocation-data allocation)
+    (define (allocation-data allocation rank count)
       (bind (entry info container line) allocation
-        (list entry (- line 1))))
+        (list entry (- line 1) rank count)))
     
     (with-cursor :wait
       (lambda ()
@@ -274,7 +273,8 @@
                           (for-each (lambda (info)
                                       (bind (entry . allocations) info
                                         (let ((line-set (sort > (partition allocations key: fourth) key: (lambda (info) (length (cdr info))))))
-                                          (let ((line-samples (map cadr line-set)))
+                                          (let ((line-count (length line-set))
+                                                (line-samples (map cadr line-set)))
                                             (let ((sample (car line-samples))
                                                   (type-samples (partition line-samples key: cadadr)))
                                               (let ((father
@@ -282,8 +282,11 @@
                                                         children: (list (new Tree-Node title: (present-location sample))
                                                                         (new Tree-Label title: (join-strings (map present-object (map cadr type-samples)) " "))
                                                                         (new Tree-Label title: (->string (length allocations))))
-                                                        user-data: (map allocation-data line-samples))))
-                                                (for-each (lambda (info)
+                                                        user-data: (map (lambda (sample rank)
+                                                                          (allocation-data sample rank line-count))
+                                                                        line-samples
+                                                                        (naturals 0 line-count)))))
+                                                (for-each (lambda (info rank)
                                                             (bind (line . allocations) info
                                                               (let ((sample (car allocations)))
                                                                 (add-row~ tree
@@ -291,8 +294,9 @@
                                                                   children: (list (new Tree-Node title: (->string line))
                                                                                   (new Tree-Label title: (present-object sample))
                                                                                   (new Tree-Label title: (->string (length allocations))))
-                                                                  user-data: (list (allocation-data sample))))))
-                                                          line-set)))))))
+                                                                  user-data: (list (allocation-data sample rank line-count))))))
+                                                          line-set
+                                                          (naturals 0 line-count))))))))
                                     entry-set))))
                   (with-update-locked~ tree
                     (lambda ()
@@ -302,7 +306,7 @@
                                             children: (list (new Tree-Node title: (present-location allocation))
                                                             (new Tree-Label title: (present-object allocation))
                                                             (new Tree-Label title: "1"))
-                                            user-data: (list (allocation-data allocation)))))
+                                            user-data: (list (allocation-data allocation 0 1)))))
                                     (bind (entry info file line stack) allocation
                                       (when stack
                                         (for-each (lambda (frame)

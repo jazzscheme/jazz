@@ -330,6 +330,16 @@
 
 
 ;;;
+;;;; Writer
+;;;
+
+
+(define (jazz:output-port-width-set! port width)
+  (##vector-set! port 36 (lambda (port) width))
+  (void))
+
+
+;;;
 ;;;; Serial
 ;;;
 

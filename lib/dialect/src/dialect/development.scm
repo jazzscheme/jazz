@@ -101,7 +101,9 @@
 
 
 (define (jazz:expand unit-name . rest)
-  (apply jazz:expand-to-port unit-name (current-output-port) rest))
+  (let ((port (current-output-port)))
+    (jazz:output-port-width-set! port 160)
+    (apply jazz:expand-to-port unit-name port rest)))
 
 
 (define (jazz:expand-to-port unit-name port . rest)

@@ -56,7 +56,7 @@
 (class Tracking-Results extends Layout-View
   
   
-  (slot hierarchical? initialize #f)
+  (slot hierarchical? initialize #t)
   
   
   (form
@@ -180,12 +180,29 @@
   ;;;
   
   
-  (definition *frame-indicator*
-    (new Location-Indicator {Color Light-Red}))
+  (definition *frame-indicators*
+    '())
   
   
   (method (edit-source)
-    (edit-location~ *frame-indicator* (selected-location)))
+    (for-each (lambda (indicator)
+                (edit-location~ indicator #f))
+              *frame-indicators*)
+    (set! *frame-indicators*
+          (let ((locations (selected-locations)))
+            (if (not locations)
+                '()
+              (let ((count (length locations)))
+                (let ((from .4)
+                      (to .9))
+                  (let ((delta (/ (- to from) (+ count 1))))
+                    (map (lambda (location rank)
+                           (let ((value (+ from (* delta (+ rank 1)))))
+                             (let ((indicator (new Location-Indicator (new Color red: 1. green: value blue: value))))
+                               (edit-location~ indicator location)
+                               indicator)))
+                         locations
+                         (naturals 0 count)))))))))
   
   
   ;;;
@@ -193,26 +210,17 @@
   ;;;
   
   
-  (method (selected-allocation)
-    (let ((tree (get-tree)))
-      (let ((rank (get-single-selection~ tree)))
-        (if (not rank)
-            #f
-          (get-user-data~ (get-row~ tree rank))))))
-  
-  
-  (method (selected-location)
-    (let ((data (selected-allocation)))
+  (method (selected-locations)
+    (let ((data (get-single-selected-data~ (get-tree))))
       (cond ((not data)
              #f)
-            ((eq? (car data) locat:)
-             (cdr data))
+            ((pair? (car data))
+             (map (lambda (info)
+                    (bind (entry line) info
+                      (list (get-file~ (get-file-definition~ entry)) line #f)))
+                  data))
             (else
-             (bind (info container line) data
-               (let ((entry (and container (cache-container-entry container))))
-                 (if entry
-                     (list (get-file~ entry) (- line 1) #f)
-                   #f)))))))
+             (list data)))))
   
   
   ;;;
@@ -221,6 +229,31 @@
   
   
   (method (view-tracking)
+    (define (add-entry allocation)
+      (bind (info container line) allocation
+        (define (determine-entry)
+          (when container
+            (let ((file-entry (cache-container-entry container)))
+              (when file-entry
+                (or (line->entry~ file-entry (- line 1))
+                    (get-root-definition~ file-entry))))))
+        
+        (cons (determine-entry) allocation)))
+    
+    (define (present-location allocation)
+      (bind (entry info container line) allocation
+        (if entry
+            (get-name~ entry)
+          (format "{a}:{a}" container line))))
+    
+    (define (present-object allocation)
+      (bind (entry info) allocation
+        (third info)))
+    
+    (define (allocation-data allocation)
+      (bind (entry info container line) allocation
+        (list entry (- line 1))))
+    
     (with-cursor :wait
       (lambda ()
         (let ((tree (get-tree))
@@ -228,51 +261,61 @@
                           (tracker-tracking~ (require-focused-process~ (get-debugger-manager))))))
           (when tracking
             (bind (label all allocations) tracking
-              (remove-every-row~ tree)
-              (let ((title (format "{a}: all: {a}, count: {a}" label all (length allocations))))
-                (set-title~ (locate 'tracking) title)
-                (set-tooltip?~ (locate 'tracking) #t)
-                (set-tooltip-text~ (locate 'tracking) title))
-              (if hierarchical?
+              (let ((allocations (map add-entry allocations)))
+                (remove-every-row~ tree)
+                (let ((title (format "{a}: all: {a}, count: {a}" label all (length allocations))))
+                  (set-title~ (locate 'tracking) title)
+                  (set-tooltip?~ (locate 'tracking) #t)
+                  (set-tooltip-text~ (locate 'tracking) title))
+                (if hierarchical?
+                    (with-update-locked~ tree
+                      (lambda ()
+                        (let ((entry-set (sort > (partition allocations key: car) key: (lambda (info) (length (cdr info))))))
+                          (for-each (lambda (info)
+                                      (bind (entry . allocations) info
+                                        (let ((line-set (sort > (partition allocations key: fourth) key: (lambda (info) (length (cdr info))))))
+                                          (let ((line-samples (map cadr line-set)))
+                                            (let ((sample (car line-samples))
+                                                  (type-samples (partition line-samples key: cadadr)))
+                                              (let ((father
+                                                      (add-row~ tree
+                                                        children: (list (new Tree-Node title: (present-location sample))
+                                                                        (new Tree-Label title: (join-strings (map present-object (map cadr type-samples)) " "))
+                                                                        (new Tree-Label title: (->string (length allocations))))
+                                                        user-data: (map allocation-data line-samples))))
+                                                (for-each (lambda (info)
+                                                            (bind (line . allocations) info
+                                                              (let ((sample (car allocations)))
+                                                                (add-row~ tree
+                                                                  father: father
+                                                                  children: (list (new Tree-Node title: (->string line))
+                                                                                  (new Tree-Label title: (present-object sample))
+                                                                                  (new Tree-Label title: (->string (length allocations))))
+                                                                  user-data: (list (allocation-data sample))))))
+                                                          line-set)))))))
+                                    entry-set))))
                   (with-update-locked~ tree
                     (lambda ()
-                      (let ((partition (partition allocations key: (lambda (allocation)
-                                                                     (bind ((serial class presentation) file line) allocation
-                                                                       (list file line class)))
-                                         test: equal?)))
-                        (for-each (lambda (partition)
-                                    (bind ((file line class) . allocations) partition
-                                      (let ((sample (car allocations)))
-                                        (let ((presentation (third (car sample))))
-                                          (add-row~ tree
-                                            children: (list (new Tree-Node title: (format "{a}:{a}" file line))
-                                                            (new Tree-Label title: presentation)
-                                                            (new Tree-Label title: (->string (length allocations))))
-                                            user-data: sample)))))
-                                  (sort > partition key: (lambda (partition)
-                                                           (length (cdr partition))))))))
-                (with-update-locked~ tree
-                  (lambda ()
-                    (for-each (lambda (allocation)
-                                (bind ((serial class presentation) file line stack) allocation
+                      (for-each (lambda (allocation)
                                   (let ((father
                                           (add-row~ tree
-                                            children: (list (new Tree-Node title: (format "{a}:{a}" file line))
-                                                            (new Tree-Label title: presentation)
+                                            children: (list (new Tree-Node title: (present-location allocation))
+                                                            (new Tree-Label title: (present-object allocation))
                                                             (new Tree-Label title: "1"))
-                                            user-data: allocation)))
-                                    (when stack
-                                      (for-each (lambda (frame)
-                                                  (bind (creator locat) frame
-                                                    (bind (container line col) locat
-                                                      (add-row~ tree
-                                                        father: father
-                                                        children: (list (new Tree-Node title: (->string container))
-                                                                        (new Tree-Label title: "")
-                                                                        (new Tree-Label title: ""))
-                                                        user-data: (cons locat: locat)))))
-                                                stack)))))
-                              allocations)))))))))))
+                                            user-data: (list (allocation-data allocation)))))
+                                    (bind (entry info file line stack) allocation
+                                      (when stack
+                                        (for-each (lambda (frame)
+                                                    (bind (creator locat) frame
+                                                      (bind (container line col) locat
+                                                        (add-row~ tree
+                                                          father: father
+                                                          children: (list (new Tree-Node title: (->string container))
+                                                                          (new Tree-Label title: "")
+                                                                          (new Tree-Label title: ""))
+                                                          user-data: locat))))
+                                                  stack)))))
+                                allocations))))))))))))
 
 
 ;;;

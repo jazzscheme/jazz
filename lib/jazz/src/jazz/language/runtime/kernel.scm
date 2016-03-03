@@ -110,6 +110,7 @@
 (native jazz:closure-code)
 (native jazz:closure-length)
 (native jazz:closure-ref)
+(native jazz:closure-environment)
 
 
 ;;;

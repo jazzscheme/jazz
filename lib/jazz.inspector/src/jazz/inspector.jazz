@@ -66,6 +66,7 @@
             ((structure? value) (> (kind-length (structure-kind value)) 0))
             ((string? value) #f)
             ((sequence? value) (> (cardinality value) 0))
+            ((closure? value) #t)
             ((object? value) (not-null? (get-instance-slots~ (class-of value))))
             (else #f)))
     
@@ -127,6 +128,9 @@
                               (list (cons (list #f 'rest rank) (packager scan))))))))
         (add-missing total content)))
     
+    (define (inspect-sequence seq)
+      (inspect-list (coerce seq List)))
+    
     (define (inspect-table table)
       (let ((total (table-length table))
             (content (let (iter (scan (table->list table))
@@ -138,6 +142,9 @@
                                  (iter (cdr scan) (+ rank 1))))))))
         (let ((sorted (sort di<? content key: (lambda (info) (second (car info))))))
           (add-missing total sorted))))
+    
+    (define (inspect-closure value)
+      (inspect-list (closure-environment value)))
     
     (define (inspect-object object)
       (define (class-slot-info class)
@@ -169,7 +176,8 @@
     (cond ((null/pair? value) (inspect-list value))
           ((table? value) (inspect-table value))
           ((structure? value) (inspect-structure value))
-          ((sequence? value) (inspect-list (coerce value List)))
+          ((sequence? value) (inspect-sequence value))
+          ((closure? value) (inspect-closure value))
           ((object? value) (inspect-object value))
           (else '()))))
 

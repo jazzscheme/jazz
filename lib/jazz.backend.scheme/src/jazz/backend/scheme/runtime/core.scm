@@ -923,7 +923,8 @@
     
     
     (define (jazz:closure? obj)
-      (%%closure? obj))
+      (and (%%procedure? obj)
+           (%%closure? obj)))
     
     (define (jazz:closure-code closure)
       (%%closure-code closure))
@@ -933,6 +934,16 @@
     
     (define (jazz:closure-ref closure n)
       (%%closure-ref closure n))
+    
+    (define (jazz:closure-environment closure)
+      ;; to do interpreted
+      (if (##interp-procedure? closure)
+          '()
+        (let ((len (%%closure-length closure)))
+          (let iter ((n 1) (env '()))
+            (if (%%fx>= n len)
+                env
+              (iter (%%fx+ n 1) (%%cons (%%closure-ref closure n) env)))))))
     
     
     (define jazz:hidden-frames

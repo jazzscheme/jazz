@@ -113,7 +113,7 @@
                (%%is? value jazz:Constant))
           (jazz:get-code-form (jazz:emit-expression value declaration environment backend))
         (jazz:emit 'definition-reference backend declaration)))
-    (or (jazz:get-lexical-binding-type declaration)
+    (or (jazz:find-annotated-type declaration environment)
         jazz:Any)
     #f))
 

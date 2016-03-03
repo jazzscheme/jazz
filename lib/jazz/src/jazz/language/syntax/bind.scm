@@ -106,11 +106,23 @@
           (vector (car (cddr (source-code form-src))))
           (body (cdr (cddr (source-code form-src))))
           (vec (generate-symbol "vec")))
+      (define (parse-bindings)
+        (let (iter (scan bindings) (bindings '()))
+          (if (null? scan)
+              (reverse bindings)
+            (let ((specifier (binding-specifier scan)))
+              (if specifier
+                  (iter (cddr scan) (cons (cons (car scan) specifier) bindings))
+                (iter (cdr scan) (cons (cons (car scan) #f) bindings)))))))
+      
       (sourcify-if
-        `(let ((,vec ,vector))
-           (let ,(map (lambda (variable rank)
-                        `(,variable (vector-ref ,vec ,rank)))
+        (let ((bindings (parse-bindings)))
+          `(let ((,vec ,vector))
+             (let ,(map (lambda (binding rank)
+                          (let ((variable (car binding))
+                                (type (cdr binding)))
+                            `(,variable ,@(if type (list type) '()) (vector-ref ,vec ,rank))))
                         bindings
                         (naturals 0 (length bindings)))
-             ,@body))
+               ,@body)))
         form-src)))))

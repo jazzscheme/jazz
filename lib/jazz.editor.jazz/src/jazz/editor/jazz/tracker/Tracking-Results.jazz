@@ -70,12 +70,12 @@
           (<Push-Tool>              name: view        size: {Dimension 22 22} tooltip?: #t tooltip-text: "View Tracking..." resource: {Image-Resource "Edit"} portfolio: :images action-handler: {Event-Handler :form on-choose-tracking})
           (<Separator>                                size: {Dimension 4 0})
           (<Label-View>             name: tracking    size: {Dimension 250 23} location: center)
-          (<Toggle-Tool>                              size: {Dimension 22 22} selected?: #t tooltip?: #t tooltip-text: "Flatten" resource: {Image-Resource "Flatten"} portfolio: :images action-handler: {Event-Handler :form on-flat/hierarchical} location: tail))
+          (<Toggle-Tool>                              size: {Dimension 22 22} tooltip?: #t tooltip-text: "Flatten" resource: {Image-Resource "Flatten"} portfolio: :images action-handler: {Event-Handler :form on-flat/hierarchical} location: tail))
         (<Scroller-View>                              location: center style: document hscroll?: #t vscroll?: #t
           (<content~>                                 layout-type: fill
             (<Tree-Header>                            style: document
               (<content~>
-                (<Allocations-Tree> name: allocations selection-handler: {Selection-Handler :form on-select-location} return-press-handler: {Event-Handler :form on-return-press}))))))))
+                (<Allocations-Tree> name: allocations selection-handler: {Selection-Handler :form on-select-location} double-click-handler: {Event-Handler :form on-inspect-data} return-press-handler: {Event-Handler :form on-return-press}))))))))
   
   
   (method meta override (external-name . rest)
@@ -175,6 +175,10 @@
         (acquire-focus~ (locate 'allocations)))))
   
   
+  (method (on-inspect-data evt)
+    (inspect-data))
+  
+  
   ;;;
   ;;;; Edition
   ;;;
@@ -202,6 +206,22 @@
                                (edit-location~ indicator location)
                                indicator)))))
                      locations))))))
+  
+  
+  ;;;
+  ;;;; Inspection
+  ;;;
+  
+  
+  (method (inspect-data)
+    (let ((data (get-single-selected-data~ (get-tree))))
+      (if (and data (pair? (car data)))
+          (bind (entry line rank count info) (car data)
+            ;; process should be cached by view-tracking
+            (let ((process (require-focused-process~ (get-debugger-manager))))
+              (let ((debugger (get-debugger~ process)))
+                (inspect-info~ debugger process info))))
+        (bell))))
   
   
   ;;;
@@ -251,7 +271,7 @@
     
     (define (allocation-data allocation rank count)
       (bind (entry info container line) allocation
-        (list entry (- line 1) rank count)))
+        (list entry (- line 1) rank count info)))
     
     (with-cursor :wait
       (lambda ()

@@ -632,6 +632,7 @@
 
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:car                  '((##car    <pair:any>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:cdr                  '((##cdr    <pair:any>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:cons                 '((##cons   <any^any:pair>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:length               '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:null?                '((##null?  <any:bool>)))
 

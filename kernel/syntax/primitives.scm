@@ -366,7 +366,12 @@
    (jazz:define-macro (%%fxquotient x y)
      (if jazz:debug-core?
          `(quotient ,x ,y)
-       `(##fxquotient ,x ,y)))))
+       `(##fxquotient ,x ,y)))
+   
+   (jazz:define-macro (%%fxbetween? n lower upper)
+     (%%force-uniqueness (n)
+       `(and (>= ,n ,lower)
+             (<= ,n ,upper))))))
 
 
 ;;;

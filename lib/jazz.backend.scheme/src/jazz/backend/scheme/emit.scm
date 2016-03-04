@@ -650,6 +650,12 @@
     (jazz:add-primitive-patterns 'scheme.language.runtime.kernel:vector-set!          '((##vector-set!   <vector^fx^any:void>))))
   (else))
 
+(cond-expand
+  (release
+    (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:values-ref             '((##vector-ref    <values^fx:any>)))
+    (jazz:add-primitive-patterns 'jazz.language.runtime.kernel:values-set!            '((##vector-set!   <values^fx^any:void>))))
+  (else))
+
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:table-ref            '((##table-ref  <table^any:any>) (##table-ref    <table^any^any:any>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:table-set!           '((##table-set! <table^any^any:void>)))
 

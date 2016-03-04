@@ -238,10 +238,6 @@
       lst)))
 
 
-(define (jazz:values? obj)
-  (%%values? obj))
-
-
 ;;;
 ;;;; Exception
 ;;;
@@ -695,6 +691,23 @@
 
 (define (jazz:specified? expr)
   (%%not (%%unspecified? expr)))
+
+
+;;;
+;;;; Values
+;;;
+
+
+(define (jazz:values? obj)
+  (%%values? obj))
+
+
+(define (jazz:values-ref values n)
+  (##vector-ref values n))
+
+
+(define (jazz:values-set! values n obj)
+  (##vector-set! values n obj))
 
 
 ;;;

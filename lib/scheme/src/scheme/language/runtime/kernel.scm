@@ -299,7 +299,7 @@
 (native force <promise:object>)
 (native call-with-current-continuation <procedure:object>)
 (native call/cc <procedure:object>)
-(native values <object*:object>)
+(native values <object*:values>)
 (native call-with-values <procedure^procedure:object>)
 (native dynamic-wind <procedure^procedure^procedure:object>)
 

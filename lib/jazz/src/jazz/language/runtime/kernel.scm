@@ -1434,6 +1434,8 @@
 
 
 (native jazz:values?)
+(native jazz:values-ref)
+(native jazz:values-set!)
 
 
 ;;;

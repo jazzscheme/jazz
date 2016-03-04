@@ -40,7 +40,8 @@
 
 
 (export bind
-        bind-vector)
+        bind-vector
+        bind-values)
 
 (import (jazz.language.runtime.kernel))
 
@@ -122,6 +123,34 @@
                           (let ((variable (car binding))
                                 (type (cdr binding)))
                             `(,variable ,@(if type (list type) '()) (vector-ref ,vec ,rank))))
+                        bindings
+                        (naturals 0 (length bindings)))
+               ,@body)))
+        form-src))))
+
+
+(define-syntax bind-values
+  (lambda (form-src usage-environment macro-environment)
+    (let ((bindings (source-code (cadr (source-code form-src))))
+          (values (car (cddr (source-code form-src))))
+          (body (cdr (cddr (source-code form-src))))
+          (v (generate-symbol "v")))
+      (define (parse-bindings)
+        (let (iter (scan bindings) (bindings '()))
+          (if (null? scan)
+              (reverse bindings)
+            (let ((specifier (binding-specifier scan)))
+              (if specifier
+                  (iter (cddr scan) (cons (cons (car scan) specifier) bindings))
+                (iter (cdr scan) (cons (cons (car scan) #f) bindings)))))))
+      
+      (sourcify-if
+        (let ((bindings (parse-bindings)))
+          `(let ((,v ,values))
+             (let ,(map (lambda (binding rank)
+                          (let ((variable (car binding))
+                                (type (cdr binding)))
+                            `(,variable ,@(if type (list type) '()) (values-ref ,v ,rank))))
                         bindings
                         (naturals 0 (length bindings)))
                ,@body)))

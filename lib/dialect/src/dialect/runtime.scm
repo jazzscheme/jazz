@@ -4464,8 +4464,8 @@
    (value    getter: generate)))
 
 
-(define (jazz:new-internal-define variable value type)
-  (jazz:allocate-internal-define type #f variable value))
+(define (jazz:new-internal-define source variable value type)
+  (jazz:allocate-internal-define type source variable value))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Internal-Define expression) declaration environment backend)
@@ -4475,7 +4475,7 @@
       `(define ,(jazz:emit-binding-symbol variable declaration environment backend)
          ,(jazz:sourcified-form (jazz:emit-expression value declaration environment backend)))
       (jazz:get-expression-type expression)
-      #f)))
+      (jazz:get-expression-source expression))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Internal-Define expression) down up here seed environment)
@@ -4924,7 +4924,7 @@
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
             (signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
         (let ((effective-type (if signature (jazz:build-function-type signature type) type)))
-          (jazz:new-internal-define variable (jazz:walk walker resume declaration environment value) effective-type)))))
+          (jazz:new-internal-define form-src variable (jazz:walk walker resume declaration environment value) effective-type)))))
   
   (let ((internal-defines '()))
     (define (process form)
@@ -4953,9 +4953,9 @@
                   (augmented-environment environment)
                   (internal-defines (jazz:reverse! internal-defines)))
               (for-each (lambda (internal-define)
-                          (let ((internal-body (%%cdr (%%desourcify internal-define))))
-                            (%%assertion (%%pair? internal-body) (jazz:walk-error walker resume declaration internal-define "Ill-formed define")
-                              (let ((signature (%%car internal-body)))
+                          (let ((internal (%%cdr (jazz:source-code internal-define))))
+                            (%%assertion (%%pair? internal) (jazz:walk-error walker resume declaration internal-define "Ill-formed define")
+                              (let ((signature (%%desourcify (%%car internal))))
                                 (let ((name (if (%%symbol? signature)
                                                 signature
                                               (%%car signature))))

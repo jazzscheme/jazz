@@ -117,14 +117,27 @@
         tracking)))
 
 
+(definition (default-tracking)
+  (find/new-tracking #f))
+
+
+(definition public (start-tracker)
+  (track-allocations)
+  (reset-allocations))
+
+
+(definition public (stop-tracker (tracking #f))
+  (untrack-allocations)
+  (let ((tracking (or tracking (default-tracking))))
+    (set-all~ tracking (all-allocations))
+    (set-allocations~ tracking (collect-allocations))))
+
+
 (definition public (with-tracking label thunk)
   (let ((tracking (find/new-tracking label)))
-    (track-allocations)
-    (reset-allocations)
+    (start-tracker)
     (prog1 (thunk)
-      (untrack-allocations)
-      (set-all~ tracking (all-allocations))
-      (set-allocations~ tracking (collect-allocations)))))
+      (stop-tracker tracking))))
 
 
 (definition (collect-allocations)

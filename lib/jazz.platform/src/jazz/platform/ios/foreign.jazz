@@ -61,6 +61,9 @@
 #import <UIKit/UIKit.h>
 #import <CoreText/CoreText.h>
 #import <StoreKit/StoreKit.h>
+#import <MobileCoreServices/UTCoreTypes.h>
+#import <MediaPlayer/MediaPlayer.h>
+#import <AVFoundation/AVFoundation.h>
 //#)
 
 
@@ -72,7 +75,7 @@
 ;(c-type id (pointer (struct "objc_object") (id Class) "release_id"))
 (c-type id (pointer (struct "objc_object") #f))
 
-
+ 
 ;;;
 ;;;; Cocoa NSArray
 ;;;
@@ -461,6 +464,7 @@ extern void paint_callback(UIView*,CGContextRef context, int width, int height);
   #/Objective-C/
   [___arg1 setHidden:___arg2];
   //#)
+
 
 ;;;
 ;;;; Callbacks
@@ -867,6 +871,7 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
   "___arg1.accessoryType=___arg2;")
 
 
+
 ;;;
 ;;;; UIViewController
 ;;;
@@ -996,6 +1001,87 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
   //#)
 
 
+;;;
+;;;; Media player controller
+;;;
+
+
+
+(definition *video-done-callback*
+  #f)
+
+(definition public (set-video-done-callback proc)
+  (set! *video-done-callback* proc))
+
+
+(c-definition (video-done-callback ctrl) (uiviewcontroller) void "video_done_callback" ""
+  (when *video-done-callback*
+    (*video-done-callback* ctrl)))
+
+
+(definition *video-played-callback*
+  #f)
+
+(definition public (set-video-played-callback proc)
+  (set! *video-played-callback* proc))
+
+
+(c-definition (video-played-callback ctrl) (uiviewcontroller) void "video_played_callback" ""
+  (when *video-played-callback*
+    (*video-played-callback* ctrl)))
+
+
+(c-declare ios #/Objective-C/
+
+@interface JazzVideoController : UIViewController {}
+@property (strong, nonatomic) MPMoviePlayerViewController *ctrl;
+@end
+@implementation JazzVideoController
+
+-(void)videoFinished:(NSNotification*)aNotification{
+    UIViewController *mplayer=(UIViewController *)self.ctrl;
+    int value = [[aNotification.userInfo valueForKey:MPMoviePlayerPlaybackDidFinishReasonUserInfoKey] intValue];
+    if (value == MPMovieFinishReasonUserExited) { video_done_callback(mplayer);  }
+    if (value == MPMovieFinishReasonPlaybackEnded) { video_played_callback(mplayer);  }
+}
+
+@end
+//#)
+
+(c-external (platformPlayVideo uiviewcontroller char-string) void
+  #/Objective-C/
+   NSURL *movieURL = [NSURL fileURLWithPath:[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding]];
+   JazzVideoController *vctrl=[[JazzVideoController alloc] init];
+   MPMoviePlayerViewController *theMovie = [[MPMoviePlayerViewController alloc] initWithContentURL:movieURL];
+   vctrl.ctrl=theMovie;
+   [theMovie.moviePlayer.view setFrame: ___arg1.view.bounds];
+   [[NSNotificationCenter defaultCenter] removeObserver:theMovie  name:MPMoviePlayerPlaybackDidFinishNotification object:theMovie.moviePlayer];
+   [[NSNotificationCenter defaultCenter] addObserver:vctrl selector:@selector(videoFinished:) name:MPMoviePlayerPlaybackDidFinishNotification object:theMovie.moviePlayer];
+   [___arg1 presentViewController:theMovie animated:YES completion:nil];
+   [theMovie.moviePlayer play];
+   //#)
+
+
+(c-external (platformMoviePlayerView uiviewcontroller) uiview
+  #/Objective-C/
+  ___result=((MPMoviePlayerViewController *)___arg1).moviePlayer.view;
+  //#)
+
+
+(c-external (platformExtractVideoThumbnail char-string) uiimage
+  #/Objective-C/
+  NSURL *partOneUrl=[NSURL fileURLWithPath:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
+  AVURLAsset *asset1 = [[AVURLAsset alloc] initWithURL:partOneUrl options:nil];
+  AVAssetImageGenerator *generate1 = [[AVAssetImageGenerator alloc] initWithAsset:asset1];
+  generate1.appliesPreferredTrackTransform = YES;
+  NSError *err = NULL;
+  CMTime time = CMTimeMake(1, 2);
+  CGImageRef oneRef = [generate1 copyCGImageAtTime:time actualTime:NULL error:&err];
+  UIImage *one = [[UIImage alloc] initWithCGImage:oneRef];
+  ___result=one;
+  //#)
+
+
 
 ;;;
 ;;;; UIScrollView
@@ -1113,6 +1199,7 @@ extern void jazz_call_textfield_end_edit(UIView *);
   ___result=[[JazzUITextField alloc] initWithFrame:viewRect];
   ((JazzUITextField *)___result).delegate=(JazzUITextField *)___result;
   [___result setReturnKeyType:UIReturnKeyDone];
+  ((UITextField *)___result).autocapitalizationType=0;
   //#)
 
 
@@ -1133,9 +1220,21 @@ extern void jazz_call_textfield_end_edit(UIView *);
   //#)
 
 
+(c-external (UITextFieldSetSecureEntry uiview int) void
+  #/Objective-C/
+  ((UITextField *)___arg1).secureTextEntry=___arg2;
+  //#)
+
+
 (c-external (UITextFieldGetContent uiview) nonnull-UTF-8-string
   #/Objective-C/
   ___result=(char *)[((UITextField *)___arg1).text cStringUsingEncoding:NSUTF8StringEncoding];
+  //#)
+
+
+(c-external (UITextFieldSetEnabled uiview int) void
+  #/Objective-C/
+  ((UITextField *)___arg1).enabled=___arg2;
   //#)
 
 
@@ -1232,6 +1331,18 @@ extern void jazz_call_textfield_end_edit(UIView *);
   //#)
 
 
+(c-external (UIImageMaskedCircleCropped uiimage) uiimage
+  #/Objective-C/
+  CGImageRef orig=___arg1.CGImage;
+  int iwidth=CGImageGetWidth(orig);
+  CGImageRef corig=CGImageCreateWithImageInRect ( orig, CGRectMake(0.,40.,(CGFloat)iwidth,(CGFloat)iwidth));
+  UIImage *umask=[UIImage imageNamed:@"cmask"];
+  CGImageRef mask=umask.CGImage;
+  CGImageRef masked=CGImageCreateWithMask(corig,mask);
+  ___result=[UIImage imageWithCGImage:masked];
+  //#)
+
+
 (c-external (UIImageNamed nonnull-UTF-8-string) uiimage
   #/Objective-C/
   ___result=[UIImage imageNamed:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
@@ -1263,9 +1374,42 @@ extern void jazz_call_textfield_end_edit(UIView *);
 ;;;; Camera
 ;;;
 
+
+(c-type uiimagepickercontroller (pointer "UIImagePickerController"))
+
+
+(c-definition (jazz-call-media-captured ctrl image) (uiimagepickercontroller uiimage) void "jazz_call_media_captured" ""
+  (when *media-captured-callback*
+    (*media-captured-callback* ctrl image)))
+
+
+(definition *media-captured-callback*
+  #f)
+
+
+(definition public (set-media-captured-callback proc)
+  (set! *media-captured-callback* proc))
+
+
+
+(c-definition (jazz-call-movie-captured ctrl url) (uiimagepickercontroller char-string) void "jazz_call_movie_captured" ""
+  (when *movie-captured-callback*
+    (*movie-captured-callback* ctrl url)))
+
+
+(definition *movie-captured-callback*
+  #f)
+
+
+(definition public (set-movie-captured-callback proc)
+  (set! *movie-captured-callback* proc))
+
+
+
 (c-declare ios #/Objective-C/
   
-  extern void jazz_call_media_captured(UIImagePickerController *,UIImage *);
+  //extern void jazz_call_media_captured(UIImagePickerController *,UIImage *);
+  //extern void jazz_call_movie_captured(UIImagePickerController *,char *);
   
   @interface JazzMediaCaptureController : UIViewController <UIImagePickerControllerDelegate> {}
   @end
@@ -1279,13 +1423,29 @@ extern void jazz_call_textfield_end_edit(UIView *);
     [picker dismissViewControllerAnimated:YES completion:nil];
     NSLog(@"Picked image");
     jazz_call_media_captured(picker,image);
-  }                                        
+  }
+  
+  - (void)imagePickerController:(UIImagePickerController *)picker
+didFinishPickingMediaWithInfo:(NSDictionary<NSString *, id> *)info
+  {
+     NSString *type=[info objectForKey:UIImagePickerControllerMediaType];
+     if([type isEqualToString:@"public.movie"])
+     {
+        NSURL *url=[info objectForKey:UIImagePickerControllerMediaURL];
+        char *path=(char *)[url.path cStringUsingEncoding:NSUTF8StringEncoding];
+        jazz_call_movie_captured(picker,path);
+     }
+     else
+     {
+        UIImage *image=[info objectForKey:UIImagePickerControllerEditedImage];
+        jazz_call_media_captured(picker,image);
+     }
+  }
+                                                                               
                                                                                     
   @end
                                           
 //#)
-
-(c-type uiimagepickercontroller (pointer "UIImagePickerController"))
 
 
 (c-external (platformCaptureMedia uiviewcontroller int) uiimagepickercontroller
@@ -1304,24 +1464,38 @@ extern void jazz_call_textfield_end_edit(UIView *);
     cameraUI.allowsEditing = YES;
  
     cameraUI.delegate =(id<UINavigationControllerDelegate,UIImagePickerControllerDelegate>)[[JazzMediaCaptureController alloc] init];
- 
+    
     [___arg1 presentModalViewController: cameraUI animated: YES];
     
     ___result=cameraUI;
   //#)
 
 
-(c-definition (jazz-call-media-captured ctrl image) (uiimagepickercontroller uiimage) void "jazz_call_media_captured" ""
-  (when *media-captured-callback*
-    (*media-captured-callback* ctrl image)))
+(c-external (platformCaptureMovie uiviewcontroller int) uiimagepickercontroller
+  #/Objective-C/
+  UIImagePickerController *cameraUI = [[UIImagePickerController alloc] init];
+  cameraUI.sourceType = ___arg2;
+  
+  // Displays a control that allows the user to choose picture or
+  // movie capture, if both are available:
+  cameraUI.mediaTypes = @[(id)kUTTypeMovie];
+  
+  // Hides the controls for moving & scaling pictures, or for
+  // trimming movies. To instead show the controls, use YES.
+  cameraUI.allowsEditing = YES;
+  
+  cameraUI.delegate =(id<UINavigationControllerDelegate,UIImagePickerControllerDelegate>)[[JazzMediaCaptureController alloc] init];
+  
+  [___arg1 presentModalViewController: cameraUI animated: YES];
+  
+  ___result=cameraUI;
+  //#)
 
 
-(definition *media-captured-callback*
-  #f)
-
-
-(definition public (set-media-captured-callback proc)
-  (set! *media-captured-callback* proc))
+(c-external (platformDismissCaptureModal uiimagepickercontroller) void
+  #/Objective-C/
+  [___arg1 dismissViewControllerAnimated:YES completion:nil];
+  //#)
 
 
 ;;;
@@ -1369,6 +1543,12 @@ extern void jazz_call_textfield_end_edit(UIView *);
 (c-external (platformDismissModal uiviewcontroller) void
   #/Objective-C/
   [___arg1 dismissViewControllerAnimated:YES completion:nil];
+  //#)
+
+
+(c-external (platformDismissModalv2 uiviewcontroller) void
+  #/Objective-C/
+  [___arg1 dismissModalViewControllerAnimated:YES];
   //#)
 
 

@@ -100,7 +100,7 @@
   (slot on-change accessors generate))
 
 
-(definition public (UISwitch #!key (id #f) (x 0.) (y 0.) (on-change #f) (state #f))
+(definition public (UISwitch #!key (id #f) (x 0.) (y 0.) (on-change #f) (state #f) (enabled? #t))
   (let* ((handle (platformCreateUISwitch x y 0. 0.))
          (view (new IOS-Switch handle)))
     (if id
@@ -108,6 +108,7 @@
     (set-on-change~ view on-change)
     (register-widget handle view)
     (platformUISwitchSetState handle (if state 1 0))
+    (platformUISwitchSetEnabled handle (if enabled? 1 0))
     view))
 
 
@@ -210,6 +211,32 @@
       (and pcb
            (pcb sview x y)))))
 
+
+;;;
+;;;; IOS-TableViewCell
+;;;
+
+
+(class IOS-TableViewCell extends IOS-Class-Proxy
+  (slot on-image-select accessors generate)
+  )
+
+
+(definition public (UITableViewCell #!key (on-image-select #f))
+  (let ((handle (platformCreateUITableViewCell)))
+    (let ((view (new IOS-TableViewCell handle)))
+      (set-on-image-select~ view on-image-select)
+      (register-widget handle view)
+      view)))
+
+
+(set-image-select-callback
+  (lambda (cell)
+    (let* ((sview (get-widget cell)))
+      (and sview (get-on-image-select~ sview)
+        ((get-on-image-select~ sview) sview)))))
+
+  
 ;;;
 ;;;; IOS-TableView
 ;;;
@@ -226,9 +253,11 @@
   )
 
 
-(definition public (UITableView #!key (x 0.) (y 0.) (width 100.) (height 100.) (cell-constructor #f) (number-of-sections (lambda () 1)) (number-of-rows-in-section (lambda (i) 1)) (on-row-select #f) (cell-edit-style #f) (cell-edit-action #f))
+(definition public (UITableView #!key (x 0.) (y 0.) (width 100.) (height 100.) (cell-constructor #f) (number-of-sections (lambda () 1)) (number-of-rows-in-section (lambda (i) 1)) (on-row-select #f) (cell-edit-style #f) (cell-edit-action #f) (header-height 4.) (footer-height 0.))
   (let ((handle (platformCreateUITableView x y width height 1)))
     (let ((view (new IOS-TableView handle)))
+      (platformSetHeaderHeight handle header-height)
+      (platformSetFooterHeight handle footer-height)
       (set-cell-for-section-row~ view cell-constructor)
       (set-number-of-sections~ view number-of-sections)
       (set-number-of-rows-in-section~ view number-of-rows-in-section)
@@ -494,12 +523,13 @@
 
 (class IOS-ImageView extends IOS-Class-Proxy)
 
-(definition public (UIImageView #!key (id #f) (x 0.) (y 0.) (width 100.) (height 100.) (image #f))
+(definition public (UIImageView #!key (id #f) (x 0.) (y 0.) (width 100.) (height 100.) (image #f) (content-mode 0))
   (let ((handle (platformCreateUIImageView x y width height)))
     (let ((view (new IOS-ImageView handle)))
       (if id
           (register-view-by-id id view))
       (UIImageViewSetImage handle (or image (platformCreateUIImage)))
+      (UIImageViewSetContentMode handle content-mode)
       (register-widget handle view) 
       view)))
 

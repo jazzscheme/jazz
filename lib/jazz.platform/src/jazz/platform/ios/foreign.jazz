@@ -60,7 +60,7 @@
 
 #import <UIKit/UIKit.h>
 #import <CoreText/CoreText.h>
-
+#import <StoreKit/StoreKit.h>
 //#)
 
 
@@ -172,6 +172,18 @@
 
 
 ;;;
+;;;; Language
+;;;
+
+
+(c-external (platformGetLanguage) char-string
+  #/Objective-C/
+  NSString * language = [[NSLocale preferredLanguages] objectAtIndex:0];
+  ___result=(char *)[language cStringUsingEncoding:NSUTF8StringEncoding];
+  //#)
+
+
+;;;
 ;;;; Library path
 ;;;
 
@@ -199,7 +211,7 @@
 (c-type uialertcontroller (pointer "UIAlertController"))
 (c-type uialertaction (pointer "UIAlertAction"))
 
-(c-external (platformCreateUIAlertController char-string char-string) uialertcontroller
+(c-external (platformCreateUIAlertController nonnull-UTF-8-string nonnull-UTF-8-string) uialertcontroller
   #/Objective-C/
   ___result = [UIAlertController alertControllerWithTitle:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]
                 message: [NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding]
@@ -207,7 +219,7 @@
   //#)
 
 
-(c-external (platformCreateUIAlertAction char-string int) uialertaction
+(c-external (platformCreateUIAlertAction nonnull-UTF-8-string int) uialertaction
   #/Objective-C/
   ___result = [UIAlertAction actionWithTitle: [NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding] style:___arg2
                                                handler:^(UIAlertAction * action) {
@@ -526,6 +538,13 @@ extern void paint_callback(UIView*,CGContextRef context, int width, int height);
   [___arg1 setOn:___arg2 animated:YES];
   //#)
 
+
+(c-external (platformUISwitchSetEnabled uiview int) void
+  #/Objective-C/
+  ((UISwitch *)___arg1).enabled=___arg2;
+  //#)
+
+
 (c-definition (jazz-call-switch-changed switch) (uiview) void "jazz_call_switch_changed" ""
   (when *switch-changed-callback*
     (*switch-changed-callback* switch)))
@@ -736,6 +755,19 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
   [(UITableView *)___arg1 setEditing:___arg2 animated: YES];
   //#)
 
+
+(c-external (platformSetHeaderHeight uiview float) void
+  #/Objective-C/
+  ((UITableView *)___arg1).sectionHeaderHeight = ___arg2;
+  //#)
+
+
+(c-external (platformSetFooterHeight uiview float) void
+  #/Objective-C/
+  ((UITableView *)___arg1).sectionFooterHeight = ___arg2;
+  //#)
+
+
 (c-external (platformTableDeleteRow uiview int int) void
   #/Objective-C/
   NSIndexPath *path=[[NSIndexPath alloc] initWithIndex:___arg2];
@@ -757,25 +789,70 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
   ((UITableView *)___arg1).allowsSelectionDuringEditing=___arg2;
   //#)
 
+
+;;;
+;;;; JazzUITableViewCell
+;;;
+
+
+(c-definition (jazz-call-image-select cell) (uitableviewcell) void "jazz_call_image_select" ""
+  (debug 'jazz-call-image-select)
+  (when *image-select-callback*
+    (*image-select-callback* cell)))
+
+
+
+(c-declare ios #/Objective-C/
+
+@interface JazzUITableViewCell : UITableViewCell {}
+@end
+@implementation JazzUITableViewCell
+                
+
+ - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
+{
+   CGPoint touchPoint=[[touches anyObject] locationInView:self];
+  if(self.imageView.image && touchPoint.x<64.0) 	jazz_call_image_select(self);
+  else [super touchesBegan:touches withEvent:event];
+}
+ 
+ 
+                
+@end
+
+//#)
+
+(definition *image-select-callback*
+  #f)
+
+(definition public (set-image-select-callback cb)
+  (set! *image-select-callback* cb))
+
+
+
 ;;;
 ;;;; UITableViewCell
 ;;;
 
 
 (c-external (platformCreateUITableViewCell) uitableviewcell
-  "___result=[[UITableViewCell alloc] initWithStyle:3 reuseIdentifier:nil];")
+  "___result=[[JazzUITableViewCell alloc] initWithStyle:3 reuseIdentifier:nil];")
 
 
-(c-external (UITableViewCellsetTitle uitableviewcell char-string) void
+(c-external (UITableViewCellsetTitle uitableviewcell nonnull-UTF-8-string) void
   "___arg1.textLabel.text=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];")
 
 
-(c-external (UITableViewCellsetSubTitle uitableviewcell char-string) void
+(c-external (UITableViewCellsetSubTitle uitableviewcell nonnull-UTF-8-string) void
   "___arg1.detailTextLabel.text=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];")
   
 
 (c-external (UITableViewCellsetImage uitableviewcell uiimage) void
-  "___arg1.imageView.image=___arg2;")
+  #/Objective-C/
+  ___arg1.imageView.image=___arg2; 
+  UITapGestureRecognizer *singleTap = [[UITapGestureRecognizer alloc] initWithTarget:___arg1 action:@selector(handleImageTap:)];
+  [___arg1.imageView addGestureRecognizer:singleTap];
+  //#)
 
 
 (c-external (UITableViewCellcontentView uitableviewcell) uiview
@@ -807,7 +884,7 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
   "___arg1.view=___arg2;")
 
 
-(c-external (UIViewControllerSetTitle uiviewcontroller char-string) void
+(c-external (UIViewControllerSetTitle uiviewcontroller nonnull-UTF-8-string) void
   "___arg1.title=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];")
 
 
@@ -825,6 +902,11 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
 (c-external (platformUINavItemSetRightItem uinavigationitem uibarbuttonitem) void
   #/Objective-C/
   ___arg1.rightBarButtonItem=___arg2;
+  //#)
+
+(c-external (platformUINavItemSetLeftItem uinavigationitem uibarbuttonitem) void
+  #/Objective-C/
+  ___arg1.leftBarButtonItem=___arg2;
   //#)
 
 
@@ -852,10 +934,6 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
 (c-type uinavigationcontroller (pointer "UINavigationController"))
 
 
-(c-external (platformCreateUINavigationController uiviewcontroller) uiviewcontroller
-  "___result=[[UINavigationController alloc] initWithRootViewController:___arg1];")
-
-
 (c-external (UINavigationControllerSetRootController uiviewcontroller uiviewcontroller) void
   "[___arg1 setViewControllers:[NSArray arrayWithObject:___arg2]];")
 
@@ -866,6 +944,58 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
 
 (c-external (UINavigationControllerPopController uiviewcontroller) void
   "[___arg1 popViewControllerAnimated:YES];")
+  
+  
+(c-external (UINavigationControllerSetNavigationBarHidden uiviewcontroller int) void
+  "[___arg1 setNavigationBarHidden:___arg2 animated:YES];")  
+
+
+(define *navigation-callback* #f)
+
+
+(definition public (set-navigation-callback cb)
+  (set! *navigation-callback* cb))
+
+
+(c-definition (jazz-call-will-show-controller ctrl) (uiviewcontroller) void "jazz_call_will_show_controller" ""
+  (when *navigation-callback*
+    (*navigation-callback* ctrl)))
+
+
+(c-declare ios #/Objective-C/
+  
+ @interface JazzNavigationDelegate : NSObject <UINavigationControllerDelegate,UINavigationBarDelegate> {}
+ @end
+ @implementation JazzNavigationDelegate
+ 
+ - (void)navigationController:(UINavigationController *)navigationController
+      willShowViewController:(UIViewController *)viewController
+                    animated:(BOOL)animated
+ {
+    jazz_call_will_show_controller(viewController);
+ }
+ 
+ 
+ -(BOOL)navigationBar:(UINavigationBar *)navigationBar shouldPopItem:(UINavigationItem *)item
+{
+    NSLog(@"Back button got pressed!");
+    //if you return NO, the back button press is cancelled
+    return YES;
+}
+
+ @end
+ //#)
+
+
+(c-external (platformCreateUINavigationController uiviewcontroller) uiviewcontroller
+  #/Objective-C/
+  ___result=[[UINavigationController alloc] initWithRootViewController:___arg1];
+  JazzNavigationDelegate *navDelegate=[[JazzNavigationDelegate alloc] init];
+  ((UINavigationController *)___result).delegate=navDelegate;
+  //((UINavigationController *)___result).navigationBar.delegate = navDelegate;
+  //#)
+
+
 
 ;;;
 ;;;; UIScrollView
@@ -966,6 +1096,12 @@ extern void jazz_call_textfield_end_edit(UIView *);
     jazz_call_textfield_end_edit(self);
 }
 
+-(BOOL)textFieldShouldReturn:(UITextField *)textField
+{
+    [textField resignFirstResponder];
+    return YES;
+}
+
 @end
 
 //#)
@@ -975,6 +1111,8 @@ extern void jazz_call_textfield_end_edit(UIView *);
   #/Objective-C/
   CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
   ___result=[[JazzUITextField alloc] initWithFrame:viewRect];
+  ((JazzUITextField *)___result).delegate=(JazzUITextField *)___result;
+  [___result setReturnKeyType:UIReturnKeyDone];
   //#)
 
 
@@ -984,18 +1122,18 @@ extern void jazz_call_textfield_end_edit(UIView *);
   //#)
 
 
-(c-external (UITextFieldSetPlaceholder uiview char-string) void
+(c-external (UITextFieldSetPlaceholder uiview nonnull-UTF-8-string) void
   #/Objective-C/
   ((UITextField *)___arg1).placeholder=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];
   //#)
 
-(c-external (UITextFieldSetContent uiview char-string) void
+(c-external (UITextFieldSetContent uiview nonnull-UTF-8-string) void
   #/Objective-C/
   ((UITextField *)___arg1).text=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];
   //#)
 
 
-(c-external (UITextFieldGetContent uiview) char-string
+(c-external (UITextFieldGetContent uiview) nonnull-UTF-8-string
   #/Objective-C/
   ___result=(char *)[((UITextField *)___arg1).text cStringUsingEncoding:NSUTF8StringEncoding];
   //#)
@@ -1078,6 +1216,11 @@ extern void jazz_call_textfield_end_edit(UIView *);
   ((UIImageView *)___arg1).image=___arg2;
   //#)
 
+(c-external (UIImageViewSetContentMode uiview int) void
+  #/Objective-C/
+  ((UIImageView *)___arg1).contentMode=___arg2;
+  //#)
+
 
 (c-external (UIImageMaskedCircle uiimage) uiimage
   #/Objective-C/
@@ -1089,24 +1232,24 @@ extern void jazz_call_textfield_end_edit(UIView *);
   //#)
 
 
-(c-external (UIImageNamed char-string) uiimage
+(c-external (UIImageNamed nonnull-UTF-8-string) uiimage
   #/Objective-C/
   ___result=[UIImage imageNamed:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
   //#)
 
-(c-external (UISaveToPNG uiimage char-string) void
+(c-external (UISaveToPNG uiimage nonnull-UTF-8-string) void
   #/Objective-C/
   [UIImagePNGRepresentation(___arg1) writeToFile:[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding] atomically:YES];
   //#)
 
 
-(c-external (UIImageLoadFromPNG char-string) uiimage
+(c-external (UIImageLoadFromPNG nonnull-UTF-8-string) uiimage
   #/Objective-C/
   ___result=[[UIImage alloc] initWithContentsOfFile:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
   //#)
 
 
-(c-external (UIImageLoadFromPNG char-string) uiimage
+(c-external (UIImageLoadFromPNG nonnull-UTF-8-string) uiimage
   #/Objective-C/
   ___result=[[UIImage alloc] initWithContentsOfFile:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
   //#)
@@ -1204,7 +1347,7 @@ extern void jazz_call_textfield_end_edit(UIView *);
   //#)
 
 
-(c-external (NSDateDescription int) char-string
+(c-external (NSDateDescription int) nonnull-UTF-8-string
   #/Objective-C/
   NSDate *date=[NSDate dateWithTimeIntervalSince1970:___arg1];
   NSString *fdate=[NSDateFormatter localizedStringFromDate:date dateStyle:NSDateFormatterShortStyle timeStyle:NSDateFormatterShortStyle];
@@ -1277,7 +1420,7 @@ extern void jazz_call_textfield_end_edit(UIView *);
   //#)
 
 
-(c-external (UIButtonSetTitle uiview char-string) void
+(c-external (UIButtonSetTitle uiview nonnull-UTF-8-string) void
   #/Objective-C/
   [___arg1 setTitle:[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding] forState:UIControlStateNormal];
 
@@ -1319,7 +1462,7 @@ extern void jazz_call_textfield_end_edit(UIView *);
   //#)
 
 
-(c-external (UILabelSetText uiview char-string) void
+(c-external (UILabelSetText uiview nonnull-UTF-8-string) void
   #/Objective-C/
   ((UILabel *)___arg1).text=[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding];
   //#)
@@ -1329,6 +1472,109 @@ extern void jazz_call_textfield_end_edit(UIView *);
   #/Objective-C/
   ((UILabel *)___arg1).textAlignment=___arg2;
   //#)
+
+
+;;;
+;;;; StoreKit related
+;;;
+
+
+(c-external (platformStoreRequestProducts NSArray*) void
+  #/Objective-C/
+  SKProductsRequest *productsRequest = [[SKProductsRequest alloc]
+                    initWithProductIdentifiers:[NSSet setWithArray:___arg1]];
+ 
+  productsRequest.delegate = [[JazzProductRequestDelegate alloc] init];
+  [productsRequest start];
+  //#)
+
+(c-definition (jazz-call-products-request-callback products) (NSArray*) void "jazz_call_products_request_callback" ""
+  (when *product-request-callback*
+    (*product-request-callback* products)))
+
+
+(definition *product-request-callback* #f)
+
+
+(definition public (set-product-request-callback cb)
+  (set! *product-request-callback* cb))
+
+
+(c-declare ios #/Objective-C/
+  
+@interface JazzProductRequestDelegate : NSObject<SKProductsRequestDelegate> {}
+@end
+@implementation JazzProductRequestDelegate
+
+- (void)productsRequest:(SKProductsRequest *)request
+     didReceiveResponse:(SKProductsResponse *)response
+{
+ jazz_call_products_request_callback(response.products);
+}
+ 
+@end
+//#)
+
+
+(c-type skproduct (pointer "SKProduct"))
+(c-type skpaymenttransaction (pointer "SKPaymentTransaction"))
+
+(c-external (platformStoreProductIdentifier skproduct) char-string
+  #/Objective-C/
+ ___result=(char *)[___arg1.productIdentifier cStringUsingEncoding:NSUTF8StringEncoding];
+ //#)
+
+
+(c-external (platformStoreProductSubmitPaymentForProduct skproduct) void
+  #/Objective-C/
+  NSLog(@"Product: %@",___arg1);
+  SKMutablePayment *payment = [SKMutablePayment paymentWithProduct:___arg1];
+  [[SKPaymentQueue defaultQueue] addPayment:payment];
+  //#)
+  
+  
+(c-external (platformStoreRegisterObserver) void
+  #/Objective-C/
+  JazzTransactionObserver *observer=[[JazzTransactionObserver alloc] init];
+  [[SKPaymentQueue defaultQueue] addTransactionObserver:observer];
+  //#)
+
+
+(c-definition (jazz_call_transaction_state_change transaction state) (skpaymenttransaction int) void "jazz_call_transaction_state_change" ""
+  (when *product-transaction-state-change-callback*
+    (*product-transaction-state-change-callback* transaction state)))
+
+
+(define *product-transaction-state-change-callback* #f)
+
+(definition public (set-transaction-state-change-callback cb)
+  (set! *product-transaction-state-change-callback* cb))
+
+
+(c-declare ios #/Objective-C/
+  
+  @interface JazzTransactionObserver : NSObject<SKPaymentTransactionObserver> {}
+  @end
+  @implementation JazzTransactionObserver
+                                                        
+ - (void)paymentQueue:(SKPaymentQueue *)queue
+ updatedTransactions:(NSArray *)transactions
+{
+    for (SKPaymentTransaction *transaction in transactions) {
+             NSLog(@"Transaction: %@",transaction);
+             jazz_call_transaction_state_change(transaction,transaction.transactionState);
+    }
+}
+                                                        
+ @end
+ //#)
+
+
+  
+(c-external (platformTransactionFinish skpaymenttransaction) void
+  #/Objective-C/
+  [[SKPaymentQueue defaultQueue] finishTransaction:___arg1];
+  //#)  
 
 
 

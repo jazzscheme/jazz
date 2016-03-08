@@ -12,6 +12,7 @@
 //#)
 
 
+
 ;;;
 ;;;; basic types
 ;;;
@@ -166,7 +167,7 @@
 
 (c-external (cblCreateBasicAuthenticator char-string char-string) cblauthenticator
   #/Objective-C/
-  ___result=[CBLAuthenticator basicAuthenticatorWithUsername:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding] password:[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding]];
+  ___result=[CBLAuthenticator basicAuthenticatorWithName:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding] password:[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding]];
   //#)
 
 
@@ -186,6 +187,7 @@
 
 (c-external (cblReplicationStop cblreplication) void
   #/Objective-C/
+  NSLog(@"___arg1=%@",___arg1);
   [___arg1 stop];
   //#)
 
@@ -490,9 +492,9 @@
   {
    // Register the map function, the first time we access the view:
     [view setMapBlock: MAPBLOCK({
-                                 
+                                 if(![doc[@"archive"] isEqualToString:@"true"])
                                  emit(doc[@"actor"], doc);
-                                     }) reduceBlock: nil version: @"1"];
+                                     }) reduceBlock: nil version: @"1.1"];
     }
   ___result=view;
   //#)
@@ -505,9 +507,23 @@
   {
    // Register the map function, the first time we access the view:
     [view setMapBlock: MAPBLOCK({
-                                 
-                                 emit(doc[@"task"], doc);
-                                     }) reduceBlock: nil version: @"1"];
+                                 if(![doc[@"archive"] isEqualToString:@"true"])
+                                     emit(doc[@"task"], doc);
+                                }) reduceBlock: nil version: @"1.1"];
+    }
+  ___result=view;
+  //#)
+
+(c-external (tasksInstancesByState cbldatabase) cblview
+  #/Objective-C/
+  CBLView* view = [___arg1 viewNamed: @"tasksInstancesByState"];
+  if (!view.mapBlock) 
+  {
+   // Register the map function, the first time we access the view:
+    [view setMapBlock: MAPBLOCK({
+                                 if(![doc[@"archive"] isEqualToString:@"true"])
+                                    emit(doc[@"state"], doc);
+                                    }) reduceBlock: nil version: @"1.1"];
     }
   ___result=view;
   //#)
@@ -533,13 +549,13 @@
 ;;;
 
 
-(c-external (nsstring->string nsstring) char-string
+(c-external (nsstring->string nsstring) nonnull-UTF-8-string
   #/Objective-C/
   ___result=(char *)[___arg1 cStringUsingEncoding:NSUTF8StringEncoding];
   //#)
 
 
-(c-external (string->nsstring char-string) nsstring
+(c-external (string->nsstring nonnull-UTF-8-string) nsstring
   #/Objective-C/
   ___result=[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding];
   //#)
@@ -610,6 +626,8 @@
 
 (definition public (schemeObject->objectiveCobject value)
   (cond
+    ((boolean? value)
+     (integer->nsnumber (if value 1 0)))
     ((string? value)
      (string->nsstring value))
     ((integer? value)

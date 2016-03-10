@@ -617,6 +617,10 @@ extern void jazz_call_edit_action_for_row(JazzUITableView*,int,int);
 extern int jazz_call_number_of_sections(JazzUITableView*);
 extern int jazz_call_number_of_rows(JazzUITableView*,int);
 extern void jazz_call_did_select(JazzUITableView*,int,int);
+extern char *jazz_call_title_for_section(JazzUITableView*,int);
+extern NSArray *jazz_call_index_titles(JazzUITableView*);
+extern int jazz_call_index_mapping(JazzUITableView*,int);
+
 
 - (UITableViewCell *)tableView:(UITableView *)tableView
          cellForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -636,6 +640,13 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
    jazz_call_edit_action_for_row(self,(int)[indexPath indexAtPosition:0],(int)[indexPath indexAtPosition:1]);
 }
 
+- (NSString *)tableView:(UITableView *)tableView
+titleForHeaderInSection:(NSInteger)section
+{
+ char *title= jazz_call_title_for_section(self,(int)section);
+ return [NSString stringWithCString:title encoding:NSUTF8StringEncoding];
+}
+
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView
 {
@@ -650,7 +661,13 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
 
 - (NSArray<NSString *> *)sectionIndexTitlesForTableView:(UITableView *)tableView
 {
- return nil;
+ return jazz_call_index_titles(self);
+}
+
+
+- (NSInteger)tableView:(UITableView *)tableView sectionForSectionIndexTitle:(NSString *)title atIndex:(NSInteger)index
+{
+ return (NSInteger)jazz_call_index_mapping(self,(int)index);
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
@@ -691,6 +708,21 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
 (c-definition (jazz-call-number-of-rows table section) (uitableview int) int "jazz_call_number_of_rows" ""
   (when *number-of-rows-callback*
     (*number-of-rows-callback* table section)))
+
+
+(c-definition (jazz-call-title-for-section table section) (uitableview int) nonnull-UTF-8-string "jazz_call_title_for_section" ""
+  (when *section-titles-callback*
+    (*section-titles-callback* table section)))
+
+
+(c-definition (jazz-call-index-titles table) (uitableview) NSArray* "jazz_call_index_titles" ""
+  (when *index-titles-callback*
+    (*index-titles-callback* table)))
+
+
+(c-definition (jazz-call-index-mapping table i) (uitableview int) int "jazz_call_index_mapping" ""
+  (when *index-mapping-callback*
+    (*index-mapping-callback* table i)))
 
 
 (c-definition (jazz-call-did-select table i j) (uitableview int int) void "jazz_call_did_select" ""
@@ -742,6 +774,30 @@ extern void jazz_call_did_select(JazzUITableView*,int,int);
 
 (definition public (set-number-of-rows-callback proc)
   (set! *number-of-rows-callback* proc))
+
+
+(definition *section-titles-callback*
+  #f)
+
+
+(definition public (set-sections-titles-callback proc)
+  (set! *section-titles-callback* proc))
+
+
+(definition *index-titles-callback*
+  #f)
+
+
+(definition public (set-index-titles-callback proc)
+  (set! *index-titles-callback* proc))
+
+
+(definition *index-mapping-callback*
+  #f)
+
+
+(definition public (set-section-index-mapping-callback proc)
+  (set! *index-mapping-callback* proc))
 
 
 (c-external (platformCreateUITableView float float float float int) uiview

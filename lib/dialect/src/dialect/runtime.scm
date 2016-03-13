@@ -3381,12 +3381,13 @@
 
 
 (jazz:define-class jazz:Variable jazz:Symbol-Binding (constructor: jazz:allocate-variable)
-  ((reference-count getter: generate setter: generate)))
+  ((source          getter: generate)
+   (reference-count getter: generate setter: generate)))
 
 
-(define (jazz:new-variable name type)
+(define (jazz:new-variable name type source)
   (%%assertion (jazz:variable-name-valid? name) (jazz:error "Invalid variable name: {s}" (jazz:desourcify-all name))
-    (jazz:allocate-variable name type #f #f 0)))
+    (jazz:allocate-variable name type #f #f source 0)))
 
 
 (define (jazz:variable-name-valid? name)
@@ -3398,6 +3399,13 @@
     (if (jazz:syntactic-closure? name)
         (jazz:get-syntactic-closure-form name)
       name)))
+
+
+(jazz:define-method (jazz:emit-binding-symbol (jazz:Variable binding) declaration environment backend)
+  (jazz:sourcify-if
+    (or (jazz:get-symbol-binding-gensym binding)
+        (jazz:unwrap-syntactic-closure (jazz:get-lexical-binding-name binding)))
+    (jazz:get-variable-source binding)))
 
 
 (jazz:define-method (jazz:walk-binding-referenced (jazz:Variable binding))
@@ -3452,9 +3460,9 @@
   ())
 
 
-(define (jazz:new-parameter name type)
+(define (jazz:new-parameter name type source)
   (%%assertion (jazz:variable-name-valid? name) (jazz:error "Invalid variable name: {s}" (jazz:desourcify-all name))
-    (jazz:allocate-parameter name type #f #f 0)))
+    (jazz:allocate-parameter name type #f #f source 0)))
 
 
 (jazz:define-virtual (jazz:emit-parameter (jazz:Parameter parameter) declaration environment backend))
@@ -3473,8 +3481,8 @@
   ((class getter: generate)))
 
 
-(define (jazz:new-dynamic-parameter name type class)
-  (jazz:allocate-dynamic-parameter name type #f #f 0 class))
+(define (jazz:new-dynamic-parameter name type source class)
+  (jazz:allocate-dynamic-parameter name type #f #f source 0 class))
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Dynamic-Parameter parameter) declaration environment backend)
@@ -3491,8 +3499,8 @@
   ((default getter: generate setter: generate)))
 
 
-(define (jazz:new-optional-parameter name type default)
-  (jazz:allocate-optional-parameter name type #f #f 0 default))
+(define (jazz:new-optional-parameter name type source default)
+  (jazz:allocate-optional-parameter name type #f #f source 0 default))
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Optional-Parameter parameter) declaration environment backend)
@@ -3509,8 +3517,8 @@
   ((default getter: generate setter: generate)))
 
 
-(define (jazz:new-named-parameter name type default)
-  (jazz:allocate-named-parameter name type #f #f 0 default))
+(define (jazz:new-named-parameter name type source default)
+  (jazz:allocate-named-parameter name type #f #f source 0 default))
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Named-Parameter parameter) declaration environment backend)
@@ -3531,8 +3539,8 @@
   ())
 
 
-(define (jazz:new-rest-parameter name type)
-  (jazz:allocate-rest-parameter name type #f #f 0))
+(define (jazz:new-rest-parameter name type source)
+  (jazz:allocate-rest-parameter name type #f #f source 0))
 
 
 (jazz:define-method (jazz:emit-parameter (jazz:Rest-Parameter parameter) declaration environment backend)
@@ -4959,7 +4967,7 @@
                                 (let ((name (if (%%symbol? signature)
                                                 signature
                                               (%%car signature))))
-                                  (let ((variable (jazz:new-variable name #f)))
+                                  (let ((variable (jazz:new-variable name #f #f)))
                                     (jazz:enqueue variables variable)
                                     (set! augmented-environment (%%cons variable augmented-environment))))))))
                         internal-defines)
@@ -5365,7 +5373,7 @@
                       (let* ((specifier (jazz:source-code (%%car parameter)))
                              (code (if (jazz:specifier? specifier) (jazz:specifier->name specifier) (%%car parameter)))
                              (variable (jazz:source-code (%%cadr parameter)))
-                             (dynamic-parameter (jazz:new-dynamic-parameter variable jazz:Any (jazz:walk walker resume declaration augmented-environment code))))
+                             (dynamic-parameter (jazz:new-dynamic-parameter variable jazz:Any #f (jazz:walk walker resume declaration augmented-environment code))))
                         (jazz:enqueue dynamics dynamic-parameter)
                         (augment-environment dynamic-parameter))
                       (iterate-parameters (%%cdr scan) (%%memq section sections)))
@@ -5373,7 +5381,7 @@
                       (jazz:parse-specifier (%%cdr scan)
                         (lambda (specifier rest)
                           (let* ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) #f))
-                                 (positional-parameter (jazz:new-parameter parameter type)))
+                                 (positional-parameter (jazz:new-parameter parameter type #f)))
                             (jazz:enqueue positionals positional-parameter)
                             (augment-environment positional-parameter))
                           (iterate-parameters rest (%%memq section sections)))))
@@ -5385,7 +5393,7 @@
                           (let ((variable (jazz:source-code (%%car parameter)))
                                 (type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) #f))
                                 (default (if walk? (jazz:walk walker resume declaration augmented-environment (%%car rest)) #f)))
-                            (let ((optional-parameter (jazz:new-optional-parameter variable type default)))
+                            (let ((optional-parameter (jazz:new-optional-parameter variable type #f default)))
                               (jazz:enqueue optionals optional-parameter)
                               (augment-environment optional-parameter)))))
                       (iterate-parameters (%%cdr scan) (%%memq section sections)))
@@ -5402,7 +5410,7 @@
                                 (default (if walk? (jazz:walk walker resume declaration augmented-environment (%%car rest)) #f)))
                             (%%when (%%not (%%eq? (%%string->symbol (%%keyword->string keyword)) variable))
                               (jazz:walk-error walker resume declaration parameter-src "Mismatched key/name for keyword parameter: {s}" (jazz:desourcify parameter-src)))
-                            (let ((keyword-parameter (jazz:new-named-parameter variable type default)))
+                            (let ((keyword-parameter (jazz:new-named-parameter variable type #f default)))
                               (jazz:enqueue keywords keyword-parameter)
                               (augment-environment keyword-parameter)))))
                       (iterate-parameters (%%cdr scan) (%%memq section sections)))
@@ -5410,14 +5418,14 @@
                       (let ((rest parameter))
                         (%%when (%%not (%%symbol? rest))
                           (jazz:walk-error walker resume declaration scan "Ill-formed rest parameter: {s}" rest))
-                        (let ((parameter-expression (jazz:new-rest-parameter rest jazz:List)))
+                        (let ((parameter-expression (jazz:new-rest-parameter rest jazz:List #f)))
                           (augment-environment parameter-expression)
                           parameter-expression))))))))
             ((%%not (%%null? scan))
              (let ((rest (jazz:desourcify scan)))
                (%%when (%%not (%%symbol? rest))
                  (jazz:walk-error walker resume declaration scan "Ill-formed rest parameter: {s}" rest))
-               (let ((parameter-expression (jazz:new-rest-parameter rest jazz:List)))
+               (let ((parameter-expression (jazz:new-rest-parameter rest jazz:List #f)))
                  (augment-environment parameter-expression)
                  parameter-expression)))
             (else

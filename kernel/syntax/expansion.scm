@@ -256,4 +256,7 @@ end-of-code
                   (identify (continuation-next-distinct cont creator)
                             (%%fx+ d 1)))))))
   
-  (identify cont 0)))
+  (identify cont 0))
+
+
+(set! ##track jazz:track))

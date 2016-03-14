@@ -512,27 +512,30 @@
 (class C-Code extends Expression
   
   
-  (slot expansion getter generate)
+  (slot code      getter generate)
+  (slot arguments getter generate)
   
   
-  (method override (initialize expansion . rest)
+  (method override (initialize code arguments . rest)
     (apply nextmethod rest)
-    (set! expansion~self expansion))
+    (set! code~self code)
+    (set! arguments~self arguments))
   
   
   (method override (emit-expression declaration environment backend)
     (new-code
-      expansion
+      `(##c-code ,code ,@(map (lambda (argument)
+                                (sourcified-form (emit-expression~ argument declaration environment backend)))
+                              arguments))
       Any
       #f)))
 
 
 (special-form (c-code walker resume declaration environment form-src)
-  (let ((form (strip-syntactic-closures form-src)))
-    (assertion (and (list? form) (= 2 (length form))) (walk-error walker resume declaration form-src "Ill-formed c-code")
-      (bind (code) (cdr form)
-        (new C-Code
-          `(##c-code ,code))))))
+  (let ((form (cdr (source-code form-src))))
+    (new C-Code
+      (car form)
+      (walk-list walker resume declaration environment (cdr form)))))
 
 
 ;;;

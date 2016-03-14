@@ -61,6 +61,7 @@
   (slot label       getter generate)
   (slot tracker     getter generate)
   (slot all         accessors generate)
+  (slot count       accessors generate)
   (slot allocations accessors generate)
   
   
@@ -68,12 +69,33 @@
     (set! label~self label)
     (set! tracker~self tracker)
     (set! all~self 0)
-    (set! allocations~self '()))
+    (set! count~self 0)
+    (set! allocations~self #f))
   
   
   (method (reset)
     (set! all 0)
-    (set! allocations '())))
+    (set! count 0)
+    (set! allocations #f))
+  
+  
+  (method (add-allocations)
+    (when (not allocations)
+      (set! count 0)
+      (set! allocations (new-queue)))
+    (let ((free (- 8192 count)))
+      (let ((add (min free (count-allocations))))
+        (loop (for n from 0 below add)
+              (enqueue allocations
+                       (list (get-allocation-object n)
+                             (get-allocation-file n)
+                             (get-allocation-line n)
+                             (get-allocation-stack n)))
+              (increase! count)))))
+  
+  
+  (method (extract-allocations)
+    (queue-list allocations)))
 
 
 ;;;
@@ -121,32 +143,23 @@
   (find/new-tracking #f))
 
 
-(definition public (start-tracker (reset? #t))
+(definition public (start-tracker)
   (track-allocations)
-  (when reset?
-    (reset-allocations)))
+  (reset-allocations))
 
 
 (definition public (stop-tracker (tracking #f))
   (untrack-allocations)
   (let ((tracking (or tracking (default-tracking))))
     (set-all~ tracking (all-allocations))
-    (set-allocations~ tracking (collect-allocations))))
+    (add-allocations~ tracking)))
 
 
-(definition public (with-tracking label thunk (reset? #t))
+(definition public (with-tracking label thunk)
   (let ((tracking (find/new-tracking label)))
-    (start-tracker reset?)
+    (start-tracker)
     (prog1 (thunk)
       (stop-tracker tracking))))
-
-
-(definition (collect-allocations)
-  (loop (for n from 0 below (min 8192 (count-allocations)))
-        (collect (list (get-allocation-object n)
-                       (get-allocation-file n)
-                       (get-allocation-line n)
-                       (get-allocation-stack n)))))
 
 
 (definition (register-tracking tracking)

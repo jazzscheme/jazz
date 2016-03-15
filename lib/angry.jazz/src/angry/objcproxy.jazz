@@ -213,6 +213,35 @@
 
 
 ;;;
+;;;; AVPlayer
+;;;
+
+
+(class IOS-AVPlayer extends IOS-Class-Proxy
+  
+  (slot video-played-callback accessors generate)
+  
+)
+
+
+(definition public (AVPlayer #!key (x 0.) (y 0.) (super-view #f) (width 100.) (height 100.) (path "") (video-played #f))
+  (let* ((handle (platformPlayMovieInRect (get-handle~ super-view) path x y width height))
+        (view (new IOS-AVPlayer handle)))
+    (set-video-played-callback~ view video-played)
+    (register-widget handle view)
+    view))
+
+
+(set-video-played-callback
+  (lambda (player)
+    (let* ((sview (get-widget player)))
+      (and sview (get-video-played-callback~ sview)
+        ((get-video-played-callback~ sview) sview)))))
+  
+
+
+
+;;;
 ;;;; IOS-TableViewCell
 ;;;
 
@@ -422,20 +451,34 @@
 ;;;
   
 
-(class IOS-ScrollView extends IOS-Class-Proxy)
+(class IOS-ScrollView extends IOS-Class-Proxy
+  (slot on-page-change accessors generate)
+  )
 
-(definition public (UIScrollView #!key (x 0.) (y 0.) (width 100.) (height 100.) (min-zoom 1.) (max-zoom 1.) (scroll-width 1000.) (scroll-height 1000.) #!rest children)
+
+(definition public (UIScrollView #!key (x 0.) (y 0.) (width 100.) (height 100.) (min-zoom 1.) (max-zoom 1.) (paging? #f) (page-changed #f) (scroll-width 1000.) (scroll-height 1000.) #!rest children)
   (let ((handle (platformCreateUIScrollView x y width height)))
     (let ((view (new IOS-ScrollView handle)))
       (UIScrollViewSetScrollDimensions handle scroll-width scroll-height)
       (UIScrollViewSetMinZoom handle min-zoom)
       (UIScrollViewSetMaxZoom handle max-zoom)
+      (UIScrollViewSetPaging handle (if paging? 1 0))
       (UIScrollViewSetDelegate handle handle)
+      (set-on-page-change~ view page-changed)
       (register-widget handle view)
       (for-each (lambda (child)
                   (UIScrollViewAddSubview handle (get-handle~ child)))
                 children) 
       view)))
+
+
+(set-page-changed-callback
+  (lambda (view p)
+    (let* ((sview (get-widget view))
+           (pcb (and sview 
+                     (get-on-page-change~ sview))))
+      (and pcb
+           (pcb p)))))
 
 
 ;;;

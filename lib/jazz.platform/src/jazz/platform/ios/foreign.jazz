@@ -64,6 +64,7 @@
 #import <MobileCoreServices/UTCoreTypes.h>
 #import <MediaPlayer/MediaPlayer.h>
 #import <AVFoundation/AVFoundation.h>
+#import <AudioToolbox/AudioToolbox.h>
 //#)
 
 
@@ -172,6 +173,18 @@
   #/Objective-C/
   ___result=([[UIScreen mainScreen] bounds].size.height);
   //#)
+
+
+;;;
+;;;; System sounds
+;;;
+
+
+(c-external (platformPlaySystemSound int) void
+  #/Objective-C/
+  AudioServicesPlaySystemSound(___arg1);
+  //#)
+
 
 
 ;;;
@@ -1126,13 +1139,14 @@ titleForHeaderInSection:(NSInteger)section
 
 @interface JazzVideoController : UIViewController {}
 @property (strong, nonatomic) MPMoviePlayerViewController *ctrl;
+@property (strong, nonatomic) AVPlayer *player;
 @end
 @implementation JazzVideoController
 
 -(void)videoFinished:(NSNotification*)aNotification{
-    UIViewController *mplayer=(UIViewController *)self.ctrl;
+    UIViewController *mplayer=(UIViewController *)self.player;
     int value = [[aNotification.userInfo valueForKey:MPMoviePlayerPlaybackDidFinishReasonUserInfoKey] intValue];
-    if (value == MPMovieFinishReasonUserExited) { video_done_callback(mplayer);  }
+    if (value == MPMovieFinishReasonUserExited) { video_done_callback(self.ctrl);  }
     if (value == MPMovieFinishReasonPlaybackEnded) { video_played_callback(mplayer);  }
 }
 
@@ -1151,6 +1165,39 @@ titleForHeaderInSection:(NSInteger)section
    [___arg1 presentViewController:theMovie animated:YES completion:nil];
    [theMovie.moviePlayer play];
    //#)
+
+
+(c-type avplayer (pointer "AVPlayer"))
+
+(c-external (platformPlayMovieInRect uiview char-string float float float float) avplayer
+  #/Objective-C/
+  NSURL *movieURL = [NSURL fileURLWithPath:[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding]];
+  JazzVideoController *vctrl=[[JazzVideoController alloc] init];
+  AVPlayer *player=[AVPlayer playerWithURL:movieURL];
+  vctrl.player=player;
+  player.actionAtItemEnd = AVPlayerActionAtItemEndNone;
+  AVPlayerLayer *playerlayer=[AVPlayerLayer playerLayerWithPlayer:player];
+  playerlayer.frame = CGRectMake(___arg3, ___arg4, ___arg5, ___arg6);
+  [___arg1.layer addSublayer:playerlayer];
+  [[NSNotificationCenter defaultCenter] addObserver:vctrl
+                                             selector:@selector(videoFinished:)
+                                                 name:AVPlayerItemDidPlayToEndTimeNotification
+                                               object:[player currentItem]];
+  //[player play];
+  ___result=player;
+  //#)
+
+
+
+
+
+
+(c-external (platformVideoPlayerPlay avplayer) void
+  #/Objective-C/
+  AVPlayerItem *p = [___arg1 currentItem];
+  [p seekToTime:kCMTimeZero];
+  [___arg1 play];
+  //#)
 
 
 (c-external (platformMoviePlayerView uiviewcontroller) uiview
@@ -1182,6 +1229,15 @@ titleForHeaderInSection:(NSInteger)section
 (c-type uiscrollview (pointer "UIScrollView"))
 
 
+(c-definition (jazz-call-page-changed sview page) (uiview int) void "jazz_call_page_changed" ""
+  (when *page-changed-callback*
+    (*page-changed-callback* sview page)))
+
+(c-definition (jazz-call-begin-scroll sview) (uiview) void "jazz_call_begin_scroll" ""
+  (when *begin-scroll-callback*
+    (*begin-scroll-callback* sview)))
+
+
 (c-declare ios #/Objective-C/
 
 @interface JazzUIScrollView : UIScrollView <UIScrollViewDelegate> {}
@@ -1198,6 +1254,20 @@ titleForHeaderInSection:(NSInteger)section
                        withView:(UIView *)view
                         atScale:(CGFloat)scale
 {
+}
+
+
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView{
+ 
+    //find the page number you are on
+    CGFloat pageWidth = self.frame.size.width;
+    int page = floor((self.contentOffset.x - pageWidth / 2) / pageWidth) + 1;
+    jazz_call_page_changed(self,page);
+}
+
+- (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView
+{
+ jazz_call_begin_scroll(self);
 }
 
 
@@ -1238,6 +1308,12 @@ titleForHeaderInSection:(NSInteger)section
   //#)
 
 
+(c-external (UIScrollViewSetPaging uiview int) void
+  #/Objective-C/
+  ((UIScrollView *)___arg1).pagingEnabled=___arg2;
+  //#)
+
+
 (c-external (UIScrollViewSetDelegate uiview uiview) void
   #/Objective-C/
   
@@ -1251,7 +1327,23 @@ titleForHeaderInSection:(NSInteger)section
    ___result=(UIView *)(((UIScrollView *)___arg1).delegate);
          //#)
          
-        
+
+(definition *page-changed-callback*
+  #f)
+
+
+(definition public (set-page-changed-callback proc)
+  (set! *page-changed-callback* proc))
+
+
+(definition *begin-scroll-callback*
+  #f)
+
+
+(definition public (set-begin-scroll-callback proc)
+  (set! *begin-scroll-callback* proc))
+
+
 ;;;
 ;;;; JazzUITextField
 ;;;
@@ -1570,7 +1662,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<NSString *, id> *)info
   // Displays a control that allows the user to choose picture or
   // movie capture, if both are available:
   cameraUI.mediaTypes = @[(id)kUTTypeMovie];
-  
+  cameraUI.cameraDevice = UIImagePickerControllerCameraDeviceFront;
   // Hides the controls for moving & scaling pictures, or for
   // trimming movies. To instead show the controls, use YES.
   cameraUI.allowsEditing = YES;

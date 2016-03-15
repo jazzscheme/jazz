@@ -274,6 +274,18 @@
         
         (cons (determine-entry) allocation)))
     
+    (define (add-stack tree father stack)
+      (for-each (lambda (frame)
+                  (bind (creator locat) frame
+                    (bind (container line col) locat
+                      (add-row~ tree
+                        father: father
+                        children: (list (new Tree-Node title: (->string container))
+                                        (new Tree-Label title: "")
+                                        (new Tree-Label title: ""))
+                        user-data: locat))))
+                stack))
+    
     (define (present-location allocation)
       (bind (entry info container line) allocation
         (if entry
@@ -323,13 +335,20 @@
                                                                         (naturals 0 line-count)))))
                                                 (for-each (lambda (info rank)
                                                             (bind (line . allocations) info
-                                                              (let ((sample (car allocations)))
-                                                                (add-row~ tree
-                                                                  father: father
-                                                                  children: (list (new Tree-Node title: (->string line))
-                                                                                  (new Tree-Label title: (present-object sample))
-                                                                                  (new Tree-Label title: (->string (length allocations))))
-                                                                  user-data: (list (allocation-data sample rank line-count))))))
+                                                              (let ((stack-set (sort > (partition allocations key: fifth test: equal?) key: (lambda (info) (length (cdr info))))))
+                                                                (for-each (lambda (info)
+                                                                            (bind (stack . allocations) info
+                                                                              (let ((sample (car allocations)))
+                                                                                (let ((father
+                                                                                        (add-row~ tree
+                                                                                          father: father
+                                                                                          children: (list (new Tree-Node title: (->string line))
+                                                                                                          (new Tree-Label title: (present-object sample))
+                                                                                                          (new Tree-Label title: (->string (length allocations))))
+                                                                                          user-data: (list (allocation-data sample rank line-count)))))
+                                                                                  (when stack
+                                                                                    (add-stack tree father stack))))))
+                                                                          stack-set))))
                                                           line-set
                                                           (naturals 0 line-count))))))))
                                     entry-set))))
@@ -344,16 +363,7 @@
                                             user-data: (list (allocation-data allocation 0 1)))))
                                     (bind (entry info file line stack) allocation
                                       (when stack
-                                        (for-each (lambda (frame)
-                                                    (bind (creator locat) frame
-                                                      (bind (container line col) locat
-                                                        (add-row~ tree
-                                                          father: father
-                                                          children: (list (new Tree-Node title: (->string container))
-                                                                          (new Tree-Label title: "")
-                                                                          (new Tree-Label title: ""))
-                                                          user-data: locat))))
-                                                  stack)))))
+                                        (add-stack tree father stack)))))
                                 allocations))))))))))))
 
 

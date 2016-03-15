@@ -1124,6 +1124,18 @@ titleForHeaderInSection:(NSInteger)section
     (*video-done-callback* ctrl)))
 
 
+(definition *video-done-modal-callback*
+  #f)
+
+(definition public (set-video-done-modal-callback proc)
+  (set! *video-done-modal-callback* proc))
+
+
+(c-definition (video-done-modal-callback ctrl) (uiviewcontroller) void "video_done_modal_callback" ""
+  (when *video-done-modal-callback*
+    (*video-done-modal-callback* ctrl)))
+
+
 (definition *video-played-callback*
   #f)
 
@@ -1152,12 +1164,26 @@ titleForHeaderInSection:(NSInteger)section
 }
 
 @end
+
+@interface JazzModalVideoController : UIViewController {}
+@property (strong, nonatomic) MPMoviePlayerViewController *ctrl;
+@end
+@implementation JazzModalVideoController
+
+-(void)videoFinished:(NSNotification*)aNotification{
+    UIViewController *mplayer=(UIViewController *)self.ctrl;
+    int value = [[aNotification.userInfo valueForKey:MPMoviePlayerPlaybackDidFinishReasonUserInfoKey] intValue];
+    if (value == MPMovieFinishReasonUserExited) { NSLog(@" video_done_modal_callback "); video_done_modal_callback(mplayer);  }
+}
+
+@end 
+    
 //#)
 
 (c-external (platformPlayVideo uiviewcontroller char-string) void
   #/Objective-C/
    NSURL *movieURL = [NSURL fileURLWithPath:[NSString stringWithCString:___arg2 encoding:NSUTF8StringEncoding]];
-   JazzVideoController *vctrl=[[JazzVideoController alloc] init];
+   JazzModalVideoController *vctrl=[[JazzModalVideoController alloc] init];
    MPMoviePlayerViewController *theMovie = [[MPMoviePlayerViewController alloc] initWithContentURL:movieURL];
    vctrl.ctrl=theMovie;
    [theMovie.moviePlayer.view setFrame: ___arg1.view.bounds];

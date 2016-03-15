@@ -1711,7 +1711,7 @@
             (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
               (let* ((root? (root-dynamic-parameters? generic-declaration signature name parameters))
                      (new-declaration (jazz:new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature root?))
-                     (body-environment (if root? augmented-environment (%%cons (jazz:new-nextmethod-variable 'nextmethod #f) augmented-environment))))
+                     (body-environment (if root? augmented-environment (%%cons (jazz:new-nextmethod-variable 'nextmethod #f #f) augmented-environment))))
                 (jazz:set-specific-declaration-body new-declaration
                                                  (jazz:walk-body walker resume new-declaration body-environment body))
                 (jazz:set-declaration-source new-declaration form-src)
@@ -2169,7 +2169,7 @@
                (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
                  (let ((body-expression
                          (cond (root-category-declaration
-                                (jazz:walk walker resume new-declaration (%%cons (jazz:new-nextmethod-variable 'nextmethod (jazz:get-lexical-binding-type root-method-declaration)) augmented-environment) `(with-self ,@body)))
+                                (jazz:walk walker resume new-declaration (%%cons (jazz:new-nextmethod-variable 'nextmethod (jazz:get-lexical-binding-type root-method-declaration) #f) augmented-environment) `(with-self ,@body)))
                                (body
                                 (jazz:walk walker resume new-declaration augmented-environment `(with-self ,@body)))
                                (else
@@ -2219,9 +2219,9 @@
   ())
 
 
-(define (jazz:new-nextmethod-variable name type)
+(define (jazz:new-nextmethod-variable name type source)
   (%%assertion (jazz:variable-name-valid? name) (jazz:error "Invalid variable name: {s}" (jazz:desourcify-all name))
-    (jazz:allocate-nextmethod-variable name type #f #f 0)))
+    (jazz:allocate-nextmethod-variable name type #f #f source 0)))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:NextMethod-Variable binding) source-declaration environment backend)

@@ -80,18 +80,20 @@
   
   
   (method (add-allocations)
-    (when (not allocations)
-      (set! count 0)
-      (set! allocations (new-queue)))
-    (let ((free (- 8192 count)))
-      (let ((add (min free (count-allocations))))
-        (loop (for n from 0 below add)
-              (enqueue allocations
-                       (list (get-allocation-object n)
-                             (get-allocation-file n)
-                             (get-allocation-line n)
-                             (get-allocation-stack n)))
-              (increase! count)))))
+    (let ((allocs (count-allocations)))
+      (increase! all allocs)
+      (when (not allocations)
+        (set! count 0)
+        (set! allocations (new-queue)))
+      (let ((free (- 8192 count)))
+        (let ((add (min free allocs)))
+          (loop (for n from 0 below add)
+                (enqueue allocations
+                         (list (get-allocation-object n)
+                               (get-allocation-file n)
+                               (get-allocation-line n)
+                               (get-allocation-stack n)))
+                (increase! count))))))
   
   
   (method (extract-allocations)
@@ -151,7 +153,6 @@
 (definition public (stop-tracker (tracking #f))
   (untrack-allocations)
   (let ((tracking (or tracking (default-tracking))))
-    (set-all~ tracking (all-allocations))
     (add-allocations~ tracking)))
 
 

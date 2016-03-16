@@ -99,7 +99,7 @@
   (ios
    (define jazz:ios-units
      `((jazz.platform.ios.camera ld-options: "-framework CoreFoundation -framework AVFoundation -framework CoreMedia -framework CoreGraphics -framework QuartzCore -framework ImageIO" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc)
-       (jazz.platform.ios.foreign ld-options: "-framework CoreFoundation -framework AudioToolbox -framework CoreGraphics -framework StoreKit -framework MediaPlayer -framework AVFoundation -framework CoreMedia -framework MobileCoreServices" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc)
+       (jazz.platform.ios.foreign ld-options: "-framework CoreFoundation -framework AudioToolbox -framework CoreLocation -framework CoreGraphics -framework StoreKit -framework MediaPlayer -framework AVFoundation -framework CoreMedia -framework MobileCoreServices" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc)
        (angry.database ld-options: "-ObjC -F/Users/magnan/CDSCode/CDSProducts/TestCairo2 -framework CoreFoundation -framework CoreGraphics -lz -lsqlite3 -framework SystemConfiguration -framework Security -framework CouchbaseLite -framework CFNetwork -framework MobileCoreServices" custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options output-language: objc))))
   (else))
 

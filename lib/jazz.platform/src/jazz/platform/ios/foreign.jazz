@@ -65,6 +65,7 @@
 #import <MediaPlayer/MediaPlayer.h>
 #import <AVFoundation/AVFoundation.h>
 #import <AudioToolbox/AudioToolbox.h>
+#import <CoreLocation/CoreLocation.h>
 
 //#)
 
@@ -212,6 +213,114 @@
   ___result=(char *)[libraryDirectory cStringUsingEncoding:NSUTF8StringEncoding];
   //#)
 
+
+;;;
+;;;; Location Service
+;;;
+
+
+(c-definition (jazz_call_location_update_lambda lat long) (float float) void "jazz_call_location_update_lambda" ""
+  (when *location-update-callback*
+    (*location-update-callback* lat long)))
+
+
+(definition *location-update-callback*
+  #f)
+
+
+(definition public (set-location-update-callback proc)
+  (set! *location-update-callback* proc))
+
+
+(c-declare ios #/Objective-C/
+  
+@interface JazzLocationController : NSObject <CLLocationManagerDelegate> {}
+@end
+@implementation JazzLocationController
+                                                  
+- (void)locationManager:(CLLocationManager *)manager didEnterRegion:(CLRegion *)region
+{
+NSLog(@"Did enter region!");
+}
+
+
+- (void)locationManager:(CLLocationManager *)manager didExitRegion:(CLRegion *)region
+{
+ NSLog(@"Did exit region!");
+}
+
+
+- (void)locationManager:(CLLocationManager *)manager
+     didUpdateLocations:(NSArray<CLLocation *> *)locations
+{
+ CLLocation *loc=[locations lastObject];
+  jazz_call_location_update_lambda(loc.coordinate.latitude,loc.coordinate.longitude);
+}
+
+
+@end
+//#)
+
+
+(c-type cllocationmanager (pointer "CLLocationManager"))
+(c-type clregion (pointer "CLRegion"))
+(c-type cllocation (pointer "CLLocation"))
+
+
+(c-external (platformCreateLocationManager) cllocationmanager
+  #/Objective-C/
+  CLLocationManager *manager=[[CLLocationManager alloc] init];
+  manager.delegate=[[JazzLocationController alloc] init];
+  ___result = manager;
+  //#)
+
+(c-external (platformLocationServicesStatus) int
+  #/Objective-C/
+  ___result = [CLLocationManager authorizationStatus];
+  //#)
+
+
+(c-external (platformRequestLocationServicesInUse cllocationmanager) void
+  #/Objective-C/
+  [___arg1 requestWhenInUseAuthorization];
+  //#)
+
+
+(c-external (platformRequestLocationServicesAlways cllocationmanager) void
+  #/Objective-C/
+  [___arg1 requestAlwaysAuthorization];
+  //#)
+
+
+(c-external (platformCreateCircularRegion float float float char-string) clregion
+  #/Objective-C/
+  ___result = [[CLCircularRegion alloc] initWithCenter:CLLocationCoordinate2DMake(___arg1,___arg2) radius: ___arg3 identifier: [NSString stringWithCString:___arg4 encoding:NSUTF8StringEncoding]];
+  //#)
+
+
+(c-external (platformLocationManagerStartMonitoringForRegion cllocationmanager clregion) void
+  #/Objective-C/
+  [___arg1 startMonitoringForRegion:___arg2];
+  //#)
+
+
+
+(c-external (platformLocationManagerStartUpdatingLocation cllocationmanager) void
+  #/Objective-C/
+  [___arg1 startUpdatingLocation];
+  //#)
+
+
+(c-external (platformCreateLocation float float) cllocation
+  #/Objective-C/
+  ___result=[[CLLocation alloc] initWithLatitude:___arg1 longitude:___arg2];
+  //#)
+
+
+(c-external (platformLocationDistance cllocation cllocation) float
+  #/Objective-C/
+  ___result=[___arg1 distanceFromLocation:___arg2];
+  //#)
 
 ;;;
 ;;;; UIAlertView

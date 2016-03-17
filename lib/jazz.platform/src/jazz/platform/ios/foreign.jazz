@@ -1095,8 +1095,55 @@ titleForHeaderInSection:(NSInteger)section
 (c-type uinavigationitem (pointer "UINavigationItem"))
 
 
+
+(define *shake-callback* #f)
+
+
+(definition public (set-shake-callback cb)
+  (set! *shake-callback* cb))
+
+
+(c-definition (jazz-call-shake ctrl) (uiviewcontroller) void "jazz_call_shake" ""
+  (when *shake-callback*
+    (*shake-callback* ctrl)))
+
+
+
+(c-declare ios #/Objective-C/
+
+@interface JazzUIViewController : UIViewController {}
+@end
+@implementation JazzUIViewController
+
+-(BOOL)canBecomeFirstResponder {
+    return YES;
+}
+
+-(void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [self becomeFirstResponder];
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [self resignFirstResponder];
+    [super viewWillDisappear:animated];
+}
+
+- (void)motionEnded:(UIEventSubtype)motion withEvent:(UIEvent *)event
+{
+    if (motion == UIEventSubtypeMotionShake )
+    {
+        jazz_call_shake(self);
+    }
+}
+
+@end
+
+//#)
+
+
 (c-external (platformCreateUIViewController) uiviewcontroller
-  "___result=[[UIViewController alloc] init];")
+  "___result=[[JazzUIViewController alloc] init];")
   
 
 (c-external (UIViewControllerSetView uiviewcontroller uiview) void

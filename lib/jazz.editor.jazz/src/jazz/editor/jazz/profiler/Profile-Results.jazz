@@ -221,12 +221,28 @@
   ;;;
   
   
-  (definition *frame-indicator*
-    (new Location-Indicator {Color red: 255 green: 146 blue: 94}))
+  (definition *frame-indicators*
+    '())
   
   
   (method (edit-source)
-    (edit-location~ *frame-indicator* (selected-location)))
+    (for-each (lambda (indicator)
+                (edit-location~ indicator #f))
+              *frame-indicators*)
+    (set! *frame-indicators*
+          (let ((locations (selected-locations)))
+            (if (not locations)
+                '()
+              (let ((from .4)
+                    (to .9))
+                (map (lambda (info)
+                       (bind (location rank count) info
+                         (let ((delta (/ (- to from) (+ count 1))))
+                           (let ((value (+ from (* delta (+ rank 1)))))
+                             (let ((indicator (new Location-Indicator (new Color red: 1. green: value blue: value) @w {Color red: 255 green: 146 blue: 94})))
+                               (edit-location~ indicator location)
+                               indicator)))))
+                     locations))))))
   
   
   ;;;
@@ -234,19 +250,8 @@
   ;;;
   
   
-  (method (selected-frame)
-    (let ((tree (get-tree)))
-      (let ((rank (get-single-selection~ tree)))
-        (if (not rank)
-            #f
-          (get-user-data~ (get-row~ tree rank))))))
-  
-  
-  (method (selected-location)
-    (let ((frame (selected-frame)))
-      (if (not frame)
-          #f
-        (second frame))))
+  (method (selected-locations)
+    (get-single-selected-data~ (get-tree)))
   
   
   ;;;
@@ -300,9 +305,9 @@
                     (if (null? stack)
                         (add-row~ tree father: father children: (make-children "<nostack>" count duration) user-data: #f)
                       (bind (head-frame . frames) stack
-                        (let ((row (add-row~ tree father: father children: (make-children head-frame count duration) user-data: head-frame)))
+                        (let ((row (add-row~ tree father: father children: (make-children head-frame count duration) user-data: (list (list (second head-frame) 0 1)))))
                           (for-each (lambda (frame)
-                                      (add-row~ tree father: row children: (make-children frame #f #f) user-data: frame))
+                                      (add-row~ tree father: row children: (make-children frame #f #f) user-data: (list (list (second frame) 0 1))))
                                     frames))))))
                 
                 (set-value~ (locate 'profiler) profiler)
@@ -339,11 +344,23 @@
                         (lambda ()
                           (for-each (lambda (kv)
                                       (bind (locator total-count calls) kv
-                                        (let ((locator-name (if (string? locator) locator (list locator))))
-                                          (let ((father (add-row~ tree children: (make-children locator-name total-count #f) user-data: #f)))
-                                            (for-each (lambda (call)
-                                                        (add-call-rows call father))
-                                                      (sort > calls key: second))))))
+                                        (let ((locator-name (if (string? locator) locator (list locator)))
+                                              (sorted-calls (sort > calls key: second))
+                                              (calls-count (length calls)))
+                                          (let ((data (remove-false
+                                                        (map (lambda (call rank)
+                                                               (let ((stack (car call)))
+                                                                 (when stack
+                                                                   (let ((head-frame (car stack)))
+                                                                     (let ((head-locator (first head-frame)))
+                                                                       (when (eq? head-locator locator)
+                                                                         (list (second head-frame) rank calls-count)))))))
+                                                             sorted-calls
+                                                             (naturals 0 calls-count)))))
+                                            (let ((father (add-row~ tree children: (make-children locator-name total-count #f) user-data: data)))
+                                              (for-each (lambda (call)
+                                                          (add-call-rows call father))
+                                                        sorted-calls))))))
                                     (sort > (table->list locator-table) key: second)))))))))))))))
 
 

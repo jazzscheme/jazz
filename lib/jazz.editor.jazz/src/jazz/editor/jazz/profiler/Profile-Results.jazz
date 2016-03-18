@@ -346,21 +346,28 @@
                                       (bind (locator total-count calls) kv
                                         (let ((locator-name (if (string? locator) locator (list locator)))
                                               (sorted-calls (sort > calls key: second))
-                                              (calls-count (length calls)))
-                                          (let ((data (remove-false
-                                                        (map (lambda (call rank)
-                                                               (let ((stack (car call)))
-                                                                 (when stack
-                                                                   (let ((head-frame (car stack)))
-                                                                     (let ((head-locator (first head-frame)))
-                                                                       (when (eq? head-locator locator)
-                                                                         (list (second head-frame) rank calls-count)))))))
-                                                             sorted-calls
-                                                             (naturals 0 calls-count)))))
-                                            (let ((father (add-row~ tree children: (make-children locator-name total-count #f) user-data: data)))
-                                              (for-each (lambda (call)
-                                                          (add-call-rows call father))
-                                                        sorted-calls))))))
+                                              (locator-calls (make-table test: equal?)))
+                                          (for-each (lambda (call)
+                                                      (let ((stack (car call)))
+                                                        (when stack
+                                                          (let ((frame (find stack locator key: first return: 'item)))
+                                                            (when frame
+                                                              (let ((location (second frame))
+                                                                    (count (second call)))
+                                                                ;; accumulate same location calls
+                                                                (table-set! locator-calls location (+ (table-ref locator-calls location 0) count))))))))
+                                                    sorted-calls)
+                                          (let ((locator-pairs (sort > (table->list locator-calls) key: cdr)))
+                                            (let ((locator-count (length locator-pairs)))
+                                              (let ((data (map (lambda (pair rank)
+                                                                 (let ((location (car pair)))
+                                                                   (list location rank locator-count)))
+                                                               locator-pairs
+                                                               (naturals 0 locator-count))))
+                                                (let ((father (add-row~ tree children: (make-children locator-name total-count #f) user-data: data)))
+                                                  (for-each (lambda (call)
+                                                              (add-call-rows call father))
+                                                            sorted-calls))))))))
                                     (sort > (table->list locator-table) key: second)))))))))))))))
 
 

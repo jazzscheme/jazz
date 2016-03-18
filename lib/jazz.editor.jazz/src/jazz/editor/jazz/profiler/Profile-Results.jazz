@@ -233,15 +233,14 @@
           (let ((locations (selected-locations)))
             (if (not locations)
                 '()
-              (let ((from .4)
-                    (to .9))
+              (let ((highest .4)
+                    (lowest .8))
                 (map (lambda (info)
-                       (bind (location rank count) info
-                         (let ((delta (/ (- to from) (+ count 1))))
-                           (let ((value (+ from (* delta (+ rank 1)))))
-                             (let ((indicator (new Location-Indicator (new Color red: 1. green: value blue: value) @w {Color red: 255 green: 146 blue: 94})))
-                               (edit-location~ indicator location)
-                               indicator)))))
+                       (bind (location value minimum maximum) info
+                         (let ((value (+ highest (* (if (= minimum maximum) .5 (/ (- maximum value) (- maximum minimum))) (- lowest highest)))))
+                           (let ((indicator (new Location-Indicator (new Color red: 1. green: value blue: value))))
+                             (edit-location~ indicator location)
+                             indicator))))
                      locations))))))
   
   
@@ -300,14 +299,14 @@
                           (and (/= frames-count 0) (inexact->exact (truncate (exact->inexact (/ frames-duration frames-count)))))
                           (and (/= frames-duration 0) (inexact->exact (truncate (/ frames-count (milliseconds->seconds frames-duration)))))))
                 
-                (define (add-call-rows call (father #f))
+                (define (add-call-rows call minimum maximum (father #f))
                   (bind (stack count duration) call
                     (if (null? stack)
                         (add-row~ tree father: father children: (make-children "<nostack>" count duration) user-data: #f)
                       (bind (head-frame . frames) stack
-                        (let ((row (add-row~ tree father: father children: (make-children head-frame count duration) user-data: (list (list (second head-frame) 0 1)))))
+                        (let ((row (add-row~ tree father: father children: (make-children head-frame count duration) user-data: (list (list (second head-frame) count minimum maximum)))))
                           (for-each (lambda (frame)
-                                      (add-row~ tree father: row children: (make-children frame #f #f) user-data: (list (list (second frame) 0 1))))
+                                      (add-row~ tree father: row children: (make-children frame #f #f) user-data: (list (list (second frame) 0 0 0))))
                                     frames))))))
                 
                 (set-value~ (locate 'profiler) profiler)
@@ -324,7 +323,12 @@
                   (if (= shown 0)
                       (with-update-locked~ tree
                         (lambda ()
-                          (for-each add-call-rows (sort > calls key: second))))
+                          (let ((cardinalities (map second calls)))
+                            (let ((minimum (minimum cardinalities))
+                                  (maximum (maximum cardinalities)))
+                              (for-each (lambda (call)
+                                          (add-call-rows call minimum maximum))
+                                        (sort > calls key: second))))))
                     (let ((locator-table (make-table test: eq?))
                           (null-stack "<nostack>"))
                       (for-each (lambda (call)
@@ -342,8 +346,8 @@
                                 calls)
                       (with-update-locked~ tree
                         (lambda ()
-                          (for-each (lambda (kv)
-                                      (bind (locator total-count calls) kv
+                          (for-each (lambda (info)
+                                      (bind (locator total-count calls) info
                                         (let ((locator-name (if (string? locator) locator (list locator)))
                                               (sorted-calls (sort > calls key: second))
                                               (locator-calls (make-table test: equal?)))
@@ -358,16 +362,20 @@
                                                                 (table-set! locator-calls location (+ (table-ref locator-calls location 0) count))))))))
                                                     sorted-calls)
                                           (let ((locator-pairs (sort > (table->list locator-calls) key: cdr)))
-                                            (let ((locator-count (length locator-pairs)))
-                                              (let ((data (map (lambda (pair rank)
-                                                                 (let ((location (car pair)))
-                                                                   (list location rank locator-count)))
-                                                               locator-pairs
-                                                               (naturals 0 locator-count))))
-                                                (let ((father (add-row~ tree children: (make-children locator-name total-count #f) user-data: data)))
-                                                  (for-each (lambda (call)
-                                                              (add-call-rows call father))
-                                                            sorted-calls))))))))
+                                            (let ((locator-cardinalities (map cdr locator-pairs)))
+                                              (let ((locator-minimum (minimum locator-cardinalities))
+                                                    (locator-maximum (maximum locator-cardinalities)))
+                                                (let ((data (map (lambda (pair)
+                                                                   (bind (location . cardinality) pair
+                                                                     (list location cardinality locator-minimum locator-maximum)))
+                                                                 locator-pairs)))
+                                                  (let ((father (add-row~ tree children: (make-children locator-name total-count #f) user-data: data)))
+                                                    (let ((cardinalities (map second sorted-calls)))
+                                                      (let ((minimum (minimum cardinalities))
+                                                            (maximum (maximum cardinalities)))
+                                                        (for-each (lambda (call)
+                                                                    (add-call-rows call minimum maximum father))
+                                                                  sorted-calls)))))))))))
                                     (sort > (table->list locator-table) key: second)))))))))))))))
 
 

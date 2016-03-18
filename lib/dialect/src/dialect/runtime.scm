@@ -3401,13 +3401,6 @@
       name)))
 
 
-(jazz:define-method (jazz:emit-binding-symbol (jazz:Variable binding) declaration environment backend)
-  (jazz:sourcify-if
-    (or (jazz:get-symbol-binding-gensym binding)
-        (jazz:unwrap-syntactic-closure (jazz:get-lexical-binding-name binding)))
-    (jazz:get-variable-source binding)))
-
-
 (jazz:define-method (jazz:walk-binding-referenced (jazz:Variable binding))
   (jazz:set-variable-reference-count binding (%%fx+ (jazz:get-variable-reference-count binding) 1)))
 

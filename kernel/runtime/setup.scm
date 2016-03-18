@@ -319,7 +319,7 @@ c-end
   ;; f -> force
   (jazz:with-quit
     (lambda ()
-      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "target" "debugger" "link" "j" "jobs" "port" "dialect") missing-argument-for-option
+      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect") missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
                 (nosource? (jazz:get-option "nosource" options))
@@ -354,6 +354,7 @@ c-end
                 (link (symbol-argument (jazz:get-option "link" options)))
                 (jobs (number-argument (or (jazz:get-option "j" options) (jazz:get-option "jobs" options))))
                 (port (number-argument (jazz:get-option "port" options)))
+                (module (symbol-argument (or (jazz:get-option "m" options) (jazz:get-option "module" options))))
                 (dialect (symbol-argument (jazz:get-option "dialect" options))))
             (define (setup-kernel)
               (if (and jazz:kernel-install (jazz:global-bound? '##set-gambitdir!))
@@ -553,7 +554,7 @@ c-end
                    (if debug?
                        (setup-build)
                      (setup-runtime))
-                   (jazz:repl-main gambit? dialect)))))))))
+                   (jazz:repl-main gambit? module dialect)))))))))
 
 
 ;;;
@@ -599,27 +600,29 @@ c-end
 ;;;
 
 
-(define jazz:expansion-context
+(define jazz:expansion-module
   'terminal)
 
 (define jazz:expansion-dialect
   'jazz)
 
 
-(define (jazz:repl-main #!optional (gambit? #f) (dialect #f))
+(define (jazz:repl-main #!optional (gambit? #f) (module #f) (dialect #f))
   (jazz:setup-readtable)
   (jazz:setup-expansion-hook)
   (if gambit?
-      (set! jazz:expansion-context #f))
+      (set! jazz:expansion-module #f))
+  (if module
+      (set! jazz:expansion-module module))
   (if dialect
       (if (eq? dialect 'none)
-          (set! jazz:expansion-context #f)
+          (set! jazz:expansion-module #f)
         (set! jazz:expansion-dialect dialect)))
   (current-input-port (repl-input-port))
   (current-output-port (repl-output-port))
   (current-error-port (repl-output-port))
   (parameterize ((jazz:walk-for 'terminal)
-                 (jazz:requested-unit-name 'terminal)
+                 (jazz:requested-unit-name jazz:expansion-module)
                  (jazz:generate-symbol-for "&")
                  (jazz:generate-symbol-context 'terminal)
                  (jazz:generate-symbol-counter 0))
@@ -654,18 +657,22 @@ c-end
         (if (and (%%pair? code) (%%eq? (%%car code) 'in))
             (if (%%null? (%%cdr code))
                 (%%sourcify
-                  `',jazz:expansion-context
+                  `',jazz:expansion-module
                   src)
-              (let ((context (%%cadr code)))
-                (set! jazz:expansion-context context)
+              (let ((module (%%cadr code)))
+                (set! jazz:expansion-module module)
                 (%%sourcify
-                  `',context
+                  `',module
                   src)))
-          (cond ((%%not jazz:expansion-context)
+          (cond ((%%not jazz:expansion-module)
                  src)
                 (else
                  (jazz:load-foundation)
+                 (if (%%neq? jazz:expansion-module 'terminal)
+                     (begin
+                       (jazz:load-unit jazz:expansion-module)
+                       ((jazz:global-ref 'jazz:outline-unit) jazz:expansion-module)))
                  (%%sourcify
-                   `(module ,jazz:expansion-context ,jazz:expansion-dialect ,src)
+                   `(module ,jazz:expansion-module ,jazz:expansion-dialect ,src)
                    src)))))
     src)))

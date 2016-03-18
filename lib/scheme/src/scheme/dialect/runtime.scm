@@ -461,7 +461,7 @@
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend))
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             (jazz:sourcify
+                             (jazz:sourcify-if
                                `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend))
                                src))))
                        bindings
@@ -536,7 +536,7 @@
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend))
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             (jazz:sourcify
+                             (jazz:sourcify-if
                                `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend))
                                src))))
                        bindings
@@ -614,7 +614,7 @@
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend))
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             (jazz:sourcify
+                             (jazz:sourcify-if
                                `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend))
                                src))))
                        bindings
@@ -683,7 +683,7 @@
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend))
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             (jazz:sourcify
+                             (jazz:sourcify-if
                                `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend))
                                src))))
                        bindings

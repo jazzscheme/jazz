@@ -177,16 +177,97 @@
 ;;;
 
 
+(define jazz:tracking-allocations?
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##tracking-allocations?)
+    (lambda ()
+      #f)))
+
+(define jazz:track-allocations
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##track-allocations)
+    (lambda ()
+      #f)))
+
+(define jazz:untrack-allocations
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##untrack-allocations)
+    (lambda ()
+      #f)))
+
+(define jazz:update-stack
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##update-stack)
+    (lambda (obj stack)
+      #f)))
+
+(define jazz:reset-allocations
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##reset-allocations)
+    (lambda ()
+      #f)))
+
+(define jazz:count-allocations
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##count-allocations)
+    (lambda ()
+      0)))
+
+(define jazz:all-allocations
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##all-allocations)
+    (lambda ()
+      0)))
+
+(define jazz:snapshot-allocations
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##snapshot-allocations)
+    (lambda ()
+      #f)))
+
+(define jazz:get-allocation-object
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##get-allocation-object)
+    (lambda (n)
+      #f)))
+
+(define jazz:get-allocation-file
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##get-allocation-file)
+    (lambda (n)
+      #f)))
+
+(define jazz:get-allocation-line
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##get-allocation-line)
+    (lambda (n)
+      #f)))
+
+(define jazz:get-allocation-stack
+  (if jazz:kernel-track-memory?
+      (jazz:global-ref '##get-allocation-stack)
+    (lambda (n)
+      #f)))
+
+
+(define (jazz:get-allocation n)
+  (%%list (jazz:get-allocation-object n)
+          (jazz:get-allocation-file n)
+          (jazz:get-allocation-line n)))
+
+
 (jazz:define-macro (%%tracking expr)
-  (case (jazz:walk-for)
-    ((compile)
-     `(##c-code #<<end-of-code
+  (if jazz:kernel-track-memory?
+      (case (jazz:walk-for)
+        ((compile)
+         `(##c-code #<<end-of-code
 ___RESULT = ___UPDATE_ALLOC(___ARG1);
 end-of-code
 
-  (jazz:track ,expr)))
-    (else
-     `(jazz:track ,expr))))
+            (jazz:track ,expr)))
+        (else
+         `(jazz:track ,expr)))
+    expr))
 
 
 (define jazz:*track-depth*
@@ -201,14 +282,14 @@ end-of-code
 
 
 (define (jazz:track obj)
-  (if (##tracking-allocations?)
+  (if (jazz:tracking-allocations?)
       (begin
-        (##untrack-allocations)
+        (jazz:untrack-allocations)
         (##continuation-capture
           (lambda (cont)
             (let ((stack (jazz:track-continuation cont jazz:*track-depth*)))
-              (##update-stack obj stack))))
-        (##track-allocations)))
+              (jazz:update-stack obj stack))))
+        (jazz:track-allocations)))
   obj)
 
 
@@ -259,4 +340,5 @@ end-of-code
   (identify cont 0))
 
 
-(set! ##track jazz:track))
+(if jazz:kernel-track-memory?
+    (set! ##track jazz:track)))

@@ -376,51 +376,6 @@
 
 
 ;;;
-;;;; Tracking
-;;;
-
-
-(define jazz:tracking-allocations?
-  ##tracking-allocations?)
-
-(define jazz:track-allocations
-  ##track-allocations)
-
-(define jazz:untrack-allocations
-  ##untrack-allocations)
-
-(define jazz:reset-allocations
-  ##reset-allocations)
-
-(define jazz:count-allocations
-  ##count-allocations)
-
-(define jazz:all-allocations
-  ##all-allocations)
-
-(define jazz:snapshot-allocations
-  ##snapshot-allocations)
-
-(define jazz:get-allocation-object
-  ##get-allocation-object)
-
-(define jazz:get-allocation-file
-  ##get-allocation-file)
-
-(define jazz:get-allocation-line
-  ##get-allocation-line)
-
-(define jazz:get-allocation-stack
-  ##get-allocation-stack)
-
-
-(define (jazz:get-allocation n)
-  (%%list (jazz:get-allocation-object n)
-          (jazz:get-allocation-file n)
-          (jazz:get-allocation-line n)))
-
-
-;;;
 ;;;; Classes
 ;;;
 

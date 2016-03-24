@@ -40,7 +40,8 @@
 
 (import (jazz.application)
         (jazz.automata)
-        (jazz.editor))
+        (jazz.editor)
+        (jazz.editor.c))
 
 
 (class CLike-Syntax extends Code-Syntax
@@ -114,4 +115,17 @@
       ((profile-macro)             (colorize-keyword                   found start end colorizer 'Profile-Macro))
       ((profile-keyword)           (colorize-keyword                   found start end colorizer 'Profile-Keyword))
       ((profile-type)              (colorize-keyword                   found start end colorizer 'Profile-Type))
-      (else (nextmethod found type start end colorizer recolorize?))))))
+      (else (nextmethod found type start end colorizer recolorize?))))
+  
+  
+  (method override (get-parsed-entries)
+    (let ((text (single-client~ model)))
+      (when text
+        (let ((moniker (get-moniker~ text)))
+          (when (and moniker (file? moniker) (not (get-modified?~ text)))
+            (let ((cataloguer (get-cataloguer)))
+              (when cataloguer
+                (let ((file-entry (cache-file-entry moniker)))
+                  (when file-entry
+                    (when (string=? (get-hash~ (get-digest~ file-entry)) (get-moniker-digest~ (get-document-controller~ text)))
+                      (collect-type C-Definition-Entry (get-definitions~ file-entry))))))))))))))

@@ -12,7 +12,7 @@
 
 
 (definition public (register-widget handle widget)
-  (debug handle (foreign-address handle) widget)
+  ;(debug handle (foreign-address handle) widget)
   (table-set! widgets (foreign-address handle) widget))
 
 
@@ -101,11 +101,17 @@
   (slot on-change accessors generate))
 
 
-(definition public (UISwitch #!key (id #f) (x 0.) (y 0.) (on-change #f) (state #f) (enabled? #t))
+(definition public (UISwitch #!key (id #f) (x 0.) (y 0.) (on-change #f) (state #f) (enabled? #t) (onTintColor #f) (tintColor #f) (thumbTintColor #f))
   (let* ((handle (platformCreateUISwitch x y 0. 0.))
          (view (new IOS-Switch handle)))
     (if id
         (register-view-by-id id view))
+    (when onTintColor
+      (platformUISwitchSetOnTintColor handle (get-handle~ onTintColor)))
+    (when tintColor
+      (platformUISwitchSetTintColor handle (get-handle~ tintColor)))
+    (when thumbTintColor
+      (platformUISwitchSetThumbTintColor handle (get-handle~ thumbTintColor)))
     (set-on-change~ view on-change)
     (register-widget handle view)
     (platformUISwitchSetState handle (if state 1 0))
@@ -252,7 +258,7 @@
   )
 
 
-(definition public (UITableViewCell #!key (on-image-select #f) (touch-mode 'none))
+(definition public (UITableViewCell #!key (on-image-select #f) (touch-mode 'none) (background-color #f) (text-color #f))
   (let ((handle (case touch-mode 
                   ((none)
                    (platformCreateUITableViewCell))
@@ -261,6 +267,11 @@
                   ((right)
                    (platformCreateUITableViewCellRightTouch)))))
     (let ((view (new IOS-TableViewCell handle)))
+      (when background-color
+        (UITableViewCellSetBackgroundColor handle (get-handle~ background-color)))
+      (when text-color
+        (UITableViewCellSetTextColor handle (get-handle~ text-color))
+        (UITableViewCellSetDetailTextColor handle (get-handle~ text-color)))
       (set-on-image-select~ view on-image-select)
       (register-widget handle view)
       view)))
@@ -292,11 +303,17 @@
   )
 
 
-(definition public (UITableView #!key (x 0.) (y 0.) (width 100.) (height 100.) (cell-constructor #f) (number-of-sections (lambda () 1)) (title-for-section (lambda (tview i) "")) (section-index-titles (lambda (tview) (null-array))) (section-index-mapping (lambda (tview i) i)) (number-of-rows-in-section (lambda (i) 1)) (on-row-select #f) (cell-edit-style #f) (cell-edit-action #f) (header-height 4.) (footer-height 0.))
+(definition public (UITableView #!key (x 0.) (y 0.) (width 100.) (height 100.) (cell-constructor #f) 
+                     (number-of-sections (lambda () 1)) (title-for-section (lambda (tview i) "")) 
+                     (section-index-titles (lambda (tview) (null-array))) (section-index-mapping (lambda (tview i) i))
+                     (number-of-rows-in-section (lambda (i) 1)) (on-row-select #f) (cell-edit-style #f) (cell-edit-action #f)
+                     (header-height 4.) (footer-height 0.) (background-view #f))
   (let ((handle (platformCreateUITableView x y width height 1)))
     (let ((view (new IOS-TableView handle)))
       (platformSetHeaderHeight handle header-height)
       (platformSetFooterHeight handle footer-height)
+      (when background-view
+        (platformUITableSetBackgroundView handle (get-handle~ background-view)))
       (set-cell-for-section-row~ view cell-constructor)
       (set-number-of-sections~ view number-of-sections)
       (set-title-for-section~ view title-for-section)
@@ -439,9 +456,13 @@
   )
 
 
-(definition public (UINavigationController rctrl)
+(definition public (UINavigationController rctrl #!key (bar-tint #f) (item-tint #f))
   (let ((handle (platformCreateUINavigationController (get-handle~ rctrl))))
     (let ((nctrl (new IOS-NavigationController handle)))
+      (when item-tint
+        (UINavigationControllerSetNavigationBarTintColor handle (get-handle~ item-tint)))
+      (when bar-tint
+        (UINavigationControllerSetNavigationBarColor handle (get-handle~ bar-tint)))
       (set-root-view-controller~ nctrl rctrl)
       (register-widget handle nctrl)
       nctrl)))
@@ -641,11 +662,13 @@
 (definition public NSTextAlignmentNatural 4)
 
 
-(definition public (UILabel #!key (id #f) (maxlines 1) (x 0.) (y 0.) (width 100.) (height 100.) (text "Label") (font-size 14.) (alignment NSTextAlignmentLeft) (background-color (UIColor alpha: 0.)) (corner-radius 10.) (resize-to-fit? #f))
+(definition public (UILabel #!key (id #f) (maxlines 1) (x 0.) (y 0.) (width 100.) (height 100.) (color #f) (text "Label") (font-size 14.) (alignment NSTextAlignmentLeft) (background-color (UIColor alpha: 0.)) (corner-radius 10.) (resize-to-fit? #f))
   (let ((handle (platformCreateUILabel x y width height)))
     (let ((view (new IOS-Label handle)))
       (if id
           (register-view-by-id id view))
+      (when color
+        (UILabelSetColor handle (get-handle~ color)))
       (UILabelSetFontSize handle font-size)
       (UILabelSetMaxLines handle maxlines)
       (UILabelSetText handle text)

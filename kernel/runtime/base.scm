@@ -313,7 +313,8 @@
      (let ((home-dir #f))
        (lambda ()
          (define (home-heuristic)
-           (if (file-exists? "~")
+           (if (and (file-exists? "~")
+                    (%%not jazz:kernel-c/home-homedir?))
                "~"
              (let ((dir "c:/Home"))
                (if (%%not (file-exists? dir))

@@ -291,6 +291,10 @@
   jazz:source-repositories)
 
 
+(define jazz:kernel-c/home-homedir?
+  jazz:c/home-homedir?)
+
+
 (define (jazz:jazz-product)
   jazz:product)
 

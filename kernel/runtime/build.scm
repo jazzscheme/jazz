@@ -653,6 +653,8 @@
                     (newline output)
                     (jazz:print-variable 'jazz:jazzini-access? (jazz:build-jazzini-access?) output)
                     (newline output)
+                    (jazz:print-variable 'jazz:c/home-homedir? (jazz:build-c/home-homedir?) output)
+                    (newline output)
                     (jazz:print-variable 'jazz:single-objects? (jazz:build-single-objects?) output)
                     (newline output)
                     (jazz:print-variable 'jazz:jazz-versions (map jazz:record->vector (jazz:get-jazz-versions)) output)

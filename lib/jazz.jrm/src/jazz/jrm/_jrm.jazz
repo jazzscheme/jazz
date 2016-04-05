@@ -436,24 +436,26 @@
             ((exec) (list 'result cookie (unspecified)))
             ((call) (list 'result cookie result)))))
       
-      (continuation-capture
-        (lambda (return)
-          (with-exception-handler
-            (lambda (exc)
-              (continuation-capture
-                (lambda (cont)
-                  (debug-jrm 'server 'exception
-                    (lambda ()
-                      (list method-name
-                            (with-output-to-string ""
-                              (lambda ()
-                                (display-exception exc)))
-                            (with-output-to-string ""
-                              (lambda ()
-                                (display-continuation-backtrace cont))))))
-                  (continuation-return return (list 'error cookie (exception-reason exc))))))
-            (lambda ()
-              (dispatch-result message)))))))
+      (if (jazz.debuggee:get-controller-debugger)
+          (dispatch-result message)
+        (continuation-capture
+          (lambda (return)
+            (with-exception-handler
+              (lambda (exc)
+                (continuation-capture
+                  (lambda (cont)
+                    (debug-jrm 'server 'exception
+                      (lambda ()
+                        (list method-name
+                              (with-output-to-string ""
+                                (lambda ()
+                                  (display-exception exc)))
+                              (with-output-to-string ""
+                                (lambda ()
+                                  (display-continuation-backtrace cont))))))
+                    (continuation-return return (list 'error cookie (exception-reason exc))))))
+              (lambda ()
+                (dispatch-result message))))))))
   
   (define (cleanup-pump-invocations invocations pump-uuid)
     (table-for-each

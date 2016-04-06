@@ -544,7 +544,7 @@ NSLog(@"Did enter region!");
 (c-external (platformMakeUIColor float float float float) uicolor
   #/Objective-C/
   ___result=[UIColor colorWithRed: ___arg1 green: ___arg2 blue: ___arg3 alpha: ___arg4];
-           
+  [___result retain];         
   //#)
 
 
@@ -617,7 +617,7 @@ extern void paint_callback(UIView*,CGContextRef context, int width, int height);
 
 //#)
 
-
+#|
 (cond-expand
   (arm
     (c-declare ios #/Objective-C/
@@ -637,11 +637,25 @@ extern void paint_callback(UIView*,CGContextRef context, int width, int height);
         return ___FIX(___NO_ERR);
         }
       //#)))
-    
+|#
+
+
+(c-declare ios #/Objective-C/
+  ___SCMOBJ release_uiview(void *ptr)
+  {
+   UIView *x=(UIView *)ptr;
+    if (x != nil)
+    {
+        [x release];
+        NSLog(@"Freed");
+    }
+    return ___FIX(___NO_ERR);
+    }
+  //#)
  
 
 (c-type jazzuiview (pointer "JazzUIView" (jazzuiview) "release_uiview"))
-(c-type uiview (pointer "UIView"))
+(c-type uiview (pointer "UIView" (uiview) "release_uiview"))
 
 
 (c-external (platformCreateUIView float float float float) uiview
@@ -649,6 +663,7 @@ extern void paint_callback(UIView*,CGContextRef context, int width, int height);
   CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
   ___result=[[JazzUIView alloc] initWithFrame:viewRect];
   ___result.userInteractionEnabled=YES;
+  [___result retain];
   //#)
 
 (c-external (UIViewSetBackgroundColor uiview uicolor) void
@@ -815,6 +830,7 @@ extern void paint_callback(UIView*,CGContextRef context, int width, int height);
   [___result addTarget:ctrl
              action:@selector(switchChanged:)
    forControlEvents:UIControlEventValueChanged];
+  [___result retain];
   //#)
 
 
@@ -1095,6 +1111,7 @@ titleForHeaderInSection:(NSInteger)section
   CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
   ___result=[[JazzUITableView alloc] initWithFrame:viewRect style:___arg5];
   ((UITableView *)___result).dataSource=(id<UITableViewDataSource>)___result;
+  [___result retain];
   //#)
 
 (c-external (platformSetDelegate uiview uiview) void
@@ -1741,6 +1758,7 @@ titleForHeaderInSection:(NSInteger)section
   #/Objective-C/
   CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
   ___result=[[JazzUIScrollView alloc] initWithFrame:viewRect];
+  [___result retain];
   //#)
 
 
@@ -1869,6 +1887,7 @@ extern void jazz_call_textfield_end_edit(UIView *);
   ((JazzUITextField *)___result).delegate=(JazzUITextField *)___result;
   [___result setReturnKeyType:UIReturnKeyDone];
   ((UITextField *)___result).autocapitalizationType=0;
+  [___result retain];
   //#)
 
 
@@ -1971,6 +1990,7 @@ extern void jazz_call_textfield_end_edit(UIView *);
   #/Objective-C/
   CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
   ___result=[[JazzUITextView alloc] initWithFrame:viewRect];
+  [___result retain];
   //#)
 
 
@@ -1985,6 +2005,7 @@ extern void jazz_call_textfield_end_edit(UIView *);
 ;;;
 
 
+#|
 (cond-expand
   (arm
     (c-declare ios #/Objective-C/
@@ -2004,15 +2025,31 @@ extern void jazz_call_textfield_end_edit(UIView *);
         return ___FIX(___NO_ERR);
         }
       //#)))
+|#
+
+(c-declare ios #/Objective-C/
+  ___SCMOBJ release_uiimage(void *ptr)
+  {
+   UIImage *x=(UIImage *)ptr;
+    if (x != nil)
+    {
+       [x release];
+       NSLog(@"Release UIIMage");
+    }
+    return ___FIX(___NO_ERR);
+    }
+  //#)
 
 
-;(c-type uiimage (pointer "UIImage" (uiimage) "release_uiimage"))
-(c-type uiimage (pointer "UIImage"))
+
+(c-type uiimage (pointer "UIImage" (uiimage) "release_uiimage"))
+;(c-type uiimage (pointer "UIImage"))
 
 
 (c-external (platformCreateUIImage) uiimage
   #/Objective-C/
    ___result=[[UIImage alloc] init];
+   [___result retain];
   //#)
 
 
@@ -2045,6 +2082,7 @@ extern void jazz_call_textfield_end_edit(UIView *);
   #/Objective-C/
   CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
   ___result=[[UIImageView alloc] initWithFrame:viewRect];
+  [___result retain];
   //#)
   
   
@@ -2066,6 +2104,7 @@ extern void jazz_call_textfield_end_edit(UIView *);
   CGImageRef mask=umask.CGImage;
   CGImageRef masked=CGImageCreateWithMask(orig,mask);
   ___result=[UIImage imageWithCGImage:masked];
+  [___result retain];
   //#)
 
 
@@ -2078,18 +2117,43 @@ extern void jazz_call_textfield_end_edit(UIView *);
   CGImageRef mask=umask.CGImage;
   CGImageRef masked=CGImageCreateWithMask(corig,mask);
   ___result=[UIImage imageWithCGImage:masked];
+  [___result retain];
+  //#)
+
+
+(c-external (UIImageMaskedCircleCroppedv2 uiimage) uiimage
+  #/Objective-C/
+  CGImageRef orig=___arg1.CGImage;
+  int iwidth=CGImageGetWidth(orig);
+  CGImageRef corig=CGImageCreateWithImageInRect ( orig, CGRectMake(0.,200.,(CGFloat)iwidth,(CGFloat)iwidth));
+  UIImage *umask=[UIImage imageNamed:@"doctor-mask2"];
+  CGImageRef mask=umask.CGImage;
+  CGImageRef masked=CGImageCreateWithMask(corig,mask);
+  ___result=[UIImage imageWithCGImage:masked];
+  [___result retain];
+  //#)
+
+
+(c-type nsdata2 (pointer "NSData"))
+
+(c-external (UIImageFromData nsdata2) uiimage
+  #/Objective-C/
+  ___result=[UIImage imageWithData:___arg1];
+  [___result retain];
   //#)
 
 
 (c-external (UIImageNamed nonnull-UTF-8-string) uiimage
   #/Objective-C/
   ___result=[UIImage imageNamed:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
+  [___result retain];
   //#)
 
 
 (c-external (StretchableUIImageNamed nonnull-UTF-8-string float float) uiimage
   #/Objective-C/
   ___result=[[UIImage imageNamed:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]] resizableImageWithCapInsets:UIEdgeInsetsMake(___arg2,___arg3, ___arg2, ___arg3)];
+  [___result retain];
   //#)
 
 
@@ -2102,12 +2166,14 @@ extern void jazz_call_textfield_end_edit(UIView *);
 (c-external (UIImageLoadFromPNG nonnull-UTF-8-string) uiimage
   #/Objective-C/
   ___result=[[UIImage alloc] initWithContentsOfFile:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
+  [___result retain];
   //#)
 
 
 (c-external (UIImageLoadFromPNG nonnull-UTF-8-string) uiimage
   #/Objective-C/
   ___result=[[UIImage alloc] initWithContentsOfFile:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
+  [___result retain];
   //#)
 
 
@@ -2277,6 +2343,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<NSString *, id> *)info
   CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
   UIDatePicker *picker=[[UIDatePicker alloc] initWithFrame:viewRect];
   ___result=picker;
+  [___result retain];
   //#)
 
 
@@ -2363,6 +2430,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<NSString *, id> *)info
   [but setFrame:viewRect];
   [but setExclusiveTouch:YES];
   ___result=but;
+  [___result retain];
   //#)
 
 
@@ -2425,6 +2493,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<NSString *, id> *)info
   #/Objective-C/
   CGRect  viewRect = CGRectMake(___arg1, ___arg2, ___arg3, ___arg4);
   ___result=[[UILabel alloc] initWithFrame:viewRect];
+  [___result retain];
   //#)
 
 

@@ -47,24 +47,33 @@
         (jazz.opengl.window.windows (cond windows))
         (jazz.opengl.window.x11     (cond x11))
         (jazz.platform)
+        (jazz.version)
         (jazz.window))
+
+
+(definition minimum-needed-version
+  (cond-expand
+    (mac
+     {Version 3 2})
+    (else
+     {Version 3 0})))
 
 
 (definition public (new-opengl-window (class: class #f) (position: position #f) (size: size #f) (need-version: need-version #f) (fullscreen?: fullscreen? #f) (render?: render? #t) (visible?: visible? #t))
   (define (validate-version)
-    (when need-version
-      (let ((major (glGetInteger GL_MAJOR_VERSION))
-            (minor (glGetInteger GL_MINOR_VERSION)))
-        (when (or (< major (get-major~ need-version))
-                  (and (= major (get-major~ need-version))
-                       (< minor (get-minor~ need-version))))
-          (system-message (format "OpenGL {a}.{a} doesn't meet the OpenGL {a}.{a} requirements"
-                                  major
-                                  minor
-                                  (get-major~ need-version)
-                                  (get-minor~ need-version))
-                          type: 'error)
-          (quit)))))
+    (let ((need-version (or need-version minimum-needed-version))
+          (major (glGetInteger GL_MAJOR_VERSION))
+          (minor (glGetInteger GL_MINOR_VERSION)))
+      (when (or (< major (get-major~ need-version))
+                (and (= major (get-major~ need-version))
+                     (< minor (get-minor~ need-version))))
+        (system-message (format "OpenGL {a}.{a} doesn't meet the OpenGL {a}.{a} requirements"
+                                major
+                                minor
+                                (get-major~ need-version)
+                                (get-minor~ need-version))
+                        type: 'error)
+        (quit))))
   
   (let ((window (create-opengl-window class: class position: position size: size fullscreen?: fullscreen? render?: render?)))
     (initialize-glew)

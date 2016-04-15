@@ -82,6 +82,7 @@
         (jazz.jrm.protocol)
         (jazz.event)
         (jazz.network)
+        (jazz.settings)
         (jazz.version))
 
 
@@ -160,14 +161,26 @@
     remote-listener))
 
 
-(definition public (start-remote-listener (default-host: default-host #f) (default-service: default-service #f) (default-alternate-service: default-alternate-service #f))
+(definition public (listen-parameter)
+  (host/service-parameter "listen" 'listen (values #f #f #f)))
+
+
+(definition public (host/service-parameter arg setting (default (unspecified)))
+  (get-parameter arg parse-host/service setting parse-host/service default))
+
+
+(definition public (start-remote-listener (host: host #f) (service: service #f) (alternate-service: alternate-service #f))
   (unless remote-listener
-    (receive (host service alternate-service) (command-host/service "listen")
-      (let ((server (new Remote-Listener host: (or host default-host Remote-Listener-Host) service: (or service default-service Remote-Listener-Service) alternate-service: (or alternate-service default-alternate-service))))
-        (start~ server)
-        (if (wait-started~ server error?: #f)
-            (set-remote-listener server)
-          (error "Unable to start remote listener"))))))
+    (receive (listen-host listen-service listen-alternate-service) (listen-parameter)
+      (let ((host (or host listen-host Remote-Listener-Host))
+            (service (or service listen-service Remote-Listener-Service))
+            (alternate-service (or alternate-service listen-alternate-service)))
+        (let ((server (new Remote-Listener host: host service: service alternate-service: alternate-service)))
+          (start~ server)
+          (if (wait-started~ server error?: #f)
+              (set-remote-listener server)
+            (error "Unable to start remote listener"))
+          (start-remote-switchboard))))))
 
 
 (definition public (stop-remote-listener)
@@ -276,9 +289,8 @@
             (close-port port)))
         (throw exc))
       (lambda ()
-        (let ((server (require-remote-listener)))
-          (let ((local-uuid (listening-uuid)))
-            (send-remote-message (list 'connect local-uuid) port)))
+        (let ((local-uuid (listening-uuid)))
+          (send-remote-message (list 'connect local-uuid) port))
         (let ((uuid (read-port port)))
           (when (eof-object? uuid)
             (throw-connection-broke))
@@ -391,9 +403,8 @@
          (with-jrm-mutex
            (lambda ()
              (table-set! *jrm-pumps* uuid port)))
-         (let ((server (require-remote-listener)))
-           (let ((local-uuid (listening-uuid)))
-             (write-port port local-uuid)))
+         (let ((local-uuid (listening-uuid)))
+           (write-port port local-uuid))
          (process-pump uuid port))))))
 
 

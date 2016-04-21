@@ -107,15 +107,19 @@
 
 
 (definition public (read-form file)
+  (call-with-input-file (path-settings file char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
+    (lambda (input)
+      (read-form-from input file))))
+
+
+(definition public (read-form-from input (file #f))
   (parameterize ((walk-for #f))
-    (call-with-input-file (path-settings file char-encoding: 'UTF eol-encoding: 'cr-lf readtable: jazz-readtable)
-      (lambda (input)
-        (let ((expr (read input)))
-          (if (eof-object? expr)
-              (error "No expression found in form file: {a}" (parse~ file))
-            (let ((form (parse-form expr file)))
-              (set-origin~ form file)
-              form)))))))
+    (let ((expr (read input)))
+      (if (eof-object? expr)
+          (error "No expression found in form{?~: {a}~}" (and file (parse~ file)))
+        (let ((form (parse-form expr file)))
+          (set-origin~ form file)
+          form)))))
 
 
 (definition public (parse-form expr (file #f))
@@ -123,7 +127,7 @@
     (if (and (pair? expr)
              (eq? (car expr) 'data))
         (parse-data expr proc)
-      (error "Ill-formed data{a}" (if file (format " in: {a}" (parse~ file)) ""))))
+      (error "Ill-formed data{? in: {a}~}" (and file (parse~ file)))))
   
   (define (parse-data expr proc)
     (bind (data dialect . info) expr

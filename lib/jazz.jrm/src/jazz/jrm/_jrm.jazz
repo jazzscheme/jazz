@@ -358,17 +358,23 @@
          (error "Remote error while executing {s}: {a}" method-name result))))))
 
 
+;; quick hack to improve
+(definition public post-problem-handler
+  (make-parameter #f))
+
+
 (definition (invoke-remote kind method-name remote-proxy arguments)
   (define (make-absolute-timeout timeout)
     (seconds->systime (+ (systime->seconds (current-systime)) timeout)))
   
   (let ((proxy-ior (proxy->ior remote-proxy))
-        (invoke-thread (current-thread)))
+        (invoke-thread (current-thread))
+        (post-problem-handler (post-problem-handler)))
     (let ((uuid (get-uuid~ proxy-ior))
           (cookie (object->serial invoke-thread))
           (timeout (and (neq? kind 'post) (make-absolute-timeout (receive-timeout)))))
       (debug-jrm 'client 'send (list kind cookie method-name (get-ior~ remote-proxy) (and *debug-arguments?* arguments)))
-      (thread-send (require-remote-switchboard) (values 'invoke uuid (values invoke-thread timeout kind method-name proxy-ior arguments)))
+      (thread-send (require-remote-switchboard) (values 'invoke uuid (values invoke-thread post-problem-handler timeout kind method-name proxy-ior arguments)))
       (case kind
         ((post)
          (unspecified))
@@ -555,7 +561,7 @@
                        (invoke-thread message))
                    (table-set! invocations invoke-thread (list timeout uuid message))))
                 ((invoke)
-                 (receive (invoke-thread timeout kind method-name proxy-ior arguments) message
+                 (receive (invoke-thread post-problem-handler timeout kind method-name proxy-ior arguments) message
                    (debug-jrm 'server 'invoke (list (object->serial invoke-thread) timeout kind method-name proxy-ior arguments))
                    (assert (thread? invoke-thread))
                    (let ((cookie (object->serial invoke-thread)))
@@ -566,9 +572,11 @@
                        (lambda (exc)
                          ;; post doesn't wait on mailbox
                          (if (eq? kind 'post)
-                             (post-event
-                               (lambda ()
-                                 (throw exc)))
+                             (if post-problem-handler
+                                 (post-problem-handler exc)
+                               (post-event
+                                 (lambda ()
+                                   (throw exc))))
                            (invocation-broke invoke-thread exc)))
                        (lambda ()
                          (let ((port (require-jrm-port uuid))

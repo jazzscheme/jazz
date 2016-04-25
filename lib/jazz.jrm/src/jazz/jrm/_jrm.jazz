@@ -390,6 +390,14 @@
 ;;;
 
 
+;; aec quick hack
+(definition protected remote-problem-handler
+  #f)
+
+(definition protected (set-remote-problem-handler problem-handler)
+  (set! remote-problem-handler problem-handler))
+
+
 (definition package (process-remote port)
   (define (receive-remote-message port)
     (let ((timeout (receive-timeout)))
@@ -400,18 +408,23 @@
           (throw-connection-broke)
         info)))
   
-  (let ((message (receive-remote-message port)))
-    ;; connect-uuid might already have created a pump
-    ;; when both processes invoke simultaneously
-    (case (car message)
-      ((connect)
-       (bind (kind uuid) message
-         (with-jrm-mutex
-           (lambda ()
-             (table-set! *jrm-pumps* uuid port)))
-         (let ((local-uuid (listening-uuid)))
-           (write-port port local-uuid))
-         (process-pump uuid port))))))
+  (define (process)
+    (let ((message (receive-remote-message port)))
+      ;; connect-uuid might already have created a pump
+      ;; when both processes invoke simultaneously
+      (case (car message)
+        ((connect)
+         (bind (kind uuid) message
+           (with-jrm-mutex
+             (lambda ()
+               (table-set! *jrm-pumps* uuid port)))
+           (let ((local-uuid (listening-uuid)))
+             (write-port port local-uuid))
+           (process-pump uuid port))))))
+  
+  (if remote-problem-handler
+      (remote-problem-handler process)
+    (process)))
 
 
 ;;;

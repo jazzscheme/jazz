@@ -52,7 +52,8 @@
   (slot socket-info                            getter generate)
   (slot server-port        initialize #f       accessors generate)
   (slot server-thread)
-  (slot started-condition)
+  (slot started-mutex)
+  (slot stopped-mutex)
   (slot state              initialize 'stopped)
   (slot hits               initialize 0        getter generate)
   (slot debug?                                 accessors generate)
@@ -69,7 +70,8 @@
       (set! alternate-service~self alternate-service)
       (set! socket-info~self #f)
       (set! server-thread~self #f)
-      (set! started-condition~self (make-condition))
+      (set! started-mutex~self (make-mutex 'started))
+      (set! stopped-mutex~self (make-mutex 'stopped))
       (set! debug?~self debug?)
       (set! reuse-address?~self reuse-address?)
       (set! connection-handler~self connection-handler)))
@@ -110,39 +112,36 @@
   
   (method override (start)
     (set-state 'starting)
-    (start-listener))
+    (start-listener)
+    (wait-started))
   
   
   (method override (stop)
     (set-state 'stopping)
     (when server-thread
       (exit-thread server-thread)
+      (wait-stopped)
       (set! server-thread #f)))
   
   
   (method override (restart)
     (stop)
-    (wait-stopped)
     (start))
   
   
-  (method override (wait-started (error?: error? #f))
-    ;; braindead quicky
-    (sleep 0.25))
+  (method override (wait-started)
+    (mutex-lock! started-mutex)
+    (mutex-unlock! started-mutex))
   
   
-  (method override (wait-stopped (error?: error? #f))
-    ;; braindead quicky
-    (sleep 0.25))
+  (method override (wait-stopped)
+    (mutex-lock! stopped-mutex)
+    (mutex-unlock! stopped-mutex))
   
   
   ;;;
   ;;;; Server
   ;;;
-  
-  
-  (definition Server-Timeout
-    0.25)
   
   
   (method override (server-name)
@@ -224,23 +223,27 @@
           (set! server-port port)
           (set! socket-info (tcp-server-socket-info server-port))
           (set-state 'started)
-          ;;(condition-broadcast! started-condition)
+          (mutex-lock! started-mutex)
           (set! server-thread
                 (thread-start!
                   (create-thread
                     (lambda ()
                       (declare (proper-tail-calls))
-                      (let (loop)
-                        (let ((port (read server-port)))
-                          (server-hit)
-                          (thread-start!
-                            (create-thread
-                              (lambda ()
-                                (unwind-protect
-                                    (accept-connection port)
-                                  (close-connection port)))
-                              (connection-name)))
-                          (loop))))
+                      (mutex-unlock! started-mutex)
+                      (mutex-lock! stopped-mutex)
+                      (unwind-protect
+                          (let (loop)
+                            (let ((port (read server-port)))
+                              (server-hit)
+                              (thread-start!
+                                (create-thread
+                                  (lambda ()
+                                    (unwind-protect
+                                        (accept-connection port)
+                                      (close-connection port)))
+                                  (connection-name)))
+                              (loop)))
+                        (mutex-unlock! stopped-mutex)))
                     (server-name))))))))
   
   

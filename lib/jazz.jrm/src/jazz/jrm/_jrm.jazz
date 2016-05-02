@@ -273,7 +273,7 @@
       (throw-connection-broke)))
 
 
-(definition public (connect-uuid host service)
+(definition public (connect-uuid host service (slave? #f))
   (debug-jrm '-pump- 'start (list host service))
   (let ((port (open-tcp-client (list server-address: host port-number: service readtable: jazz-readtable))))
     (with-exception-catcher
@@ -294,7 +294,7 @@
             (throw-connection-broke))
           (thread-start! (new-thread
                            (lambda ()
-                             (process-pump uuid port))
+                             (process-pump uuid port slave?))
                            'jrm-pump))
           (table-set! *jrm-pumps* uuid port)
           (debug-jrm '-pump- 'started (list host service port))
@@ -430,11 +430,13 @@
 ;;;
 
 
-(definition (process-pump uuid port)
+(definition (process-pump uuid port (slave? #f))
   (declare (proper-tail-calls))
   (let (loop)
     (input-port-timeout-set! port +inf.0)
     (let ((message (catch (connection-problem? exc
+                            (when slave?
+                              (delay-event (lambda () (quit))))
                             (eof-object))
                      (read-port port))))
       (debug-jrm '-pump- 'read message)
@@ -773,8 +775,8 @@
   (ior->proxy (new IOR uuid host port (serialize-runtime-reference (reference Register-Stub)) #f '())))
 
 
-(definition public (connect-remote-register host port)
-  (let ((uuid (connect-uuid host port)))
+(definition public (connect-remote-register host port (slave? #f))
+  (let ((uuid (connect-uuid host port slave?)))
     (new-remote-register uuid host port)))
 
 

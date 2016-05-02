@@ -434,11 +434,9 @@
   (declare (proper-tail-calls))
   (let (loop)
     (input-port-timeout-set! port +inf.0)
-    (let ((message (catch (Connection-Broke exc
+    (let ((message (catch (connection-problem? exc
                             (eof-object))
-                     (catch (Connection-Exception exc
-                              (eof-object))
-                       (read-port port)))))
+                     (read-port port))))
       (debug-jrm '-pump- 'read message)
       (thread-send (require-remote-switchboard) (values 'pump uuid message))
       (if (eof-object? message)
@@ -578,9 +576,7 @@
                    (let ((cookie (object->serial invoke-thread)))
                      (with-exception-filter
                        (lambda (exc)
-                         (or (os-exception? exc)
-                             (is? exc Connection-Exception)
-                             (is? exc Connection-Broke)))
+                         (connection-problem? exc))
                        (lambda (exc)
                          ;; post doesn't wait on mailbox
                          (if (eq? kind 'post)

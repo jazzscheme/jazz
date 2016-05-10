@@ -43,6 +43,7 @@
         (jazz.handler)
         (jazz.locale)
         (jazz.menu)
+        (jazz.skin)
         (jazz.ui)
         (jazz.view))
 
@@ -58,6 +59,7 @@
   
   (property orientation     initialize 'top accessors explicit)
   (property keep-one-sheet? initialize #t   accessors generate)
+  (property separator?      initialize #f   accessors generate)
   
   
   (slot padding             initialize 10)
@@ -167,38 +169,40 @@
 
   
   (method package (update-borders)   ;; Quick fix : a little scaling if the tabs go beyond the width of the view.
-    (let ((view-width (get-width)))  ;; No text clipping, no "...", all the text will still be printed.  
-      (let loop ((n 0)
-                 (h 2)
-                 (borders (list))
-                 (chx-in children)
-                 (chx-out (list)))
-           (if (pair? chx-in)
-               (let* ((header (car chx-in))
-                      (title (localize (get-title~ header)))
-                      (closable? (and (get-closable?~ header)
-                                      (or (not keep-one-sheet?)
-                                          (and keep-one-sheet?
-                                               (> (length children) 1)))))
-                      (next (+ h padding (if title (+ (get-width~ (text-extent~ (effective-font) title))
-                                                      (if closable? 8 0)) 10) padding)))
-                 (loop (+ n 1) next (cons (cons h next) borders) (cdr chx-in) (cons header chx-out)))
-             (when (pair? chx-out)
-               (let ((max (cdr (car borders))))
-                 (if (and (> max view-width) (not (= view-width 0)))
-                     (let* ((scale (let ((r (/ view-width max)))  
-                                     (lambda (border) 
-                                       (cons (inexact->exact (round (* r (car border))))
-                                             (inexact->exact (round (* r (cdr border)))))))))
-                       (for-each (lambda (header border) (set-borders~ header (scale border)))
-                                 chx-out borders))
-                   (for-each set-borders~ chx-out borders))))))))
+    (let ((view-width (get-width))   ;; No text clipping, no "...", all the text will still be printed.
+          (transparent? (eq? (get-background~ (get-skin)) 'none)))
+      (let ((padding (if transparent? 5 padding)))
+        (let loop ((n 0)
+                   (h 2)
+                   (borders (list))
+                   (chx-in children)
+                   (chx-out (list)))
+             (if (pair? chx-in)
+                 (let* ((header (car chx-in))
+                        (title (localize (get-title~ header)))
+                        (closable? (and (get-closable?~ header)
+                                        (or (not keep-one-sheet?)
+                                            (and keep-one-sheet?
+                                                 (> (length children) 1)))))
+                        (next (+ h padding (if title (+ (get-width~ (text-extent~ (effective-font) title))
+                                                        (if closable? 8 0)) 10) padding)))
+                   (loop (+ n 1) next (cons (cons h next) borders) (cdr chx-in) (cons header chx-out)))
+               (when (pair? chx-out)
+                 (let ((max (cdr (car borders))))
+                   (if (and (> max view-width) (not (= view-width 0)))
+                       (let* ((scale (let ((r (/ view-width max)))  
+                                       (lambda (border) 
+                                         (cons (inexact->exact (round (* r (car border))))
+                                               (inexact->exact (round (* r (cdr border)))))))))
+                         (for-each (lambda (header border) (set-borders~ header (scale border)))
+                                   chx-out borders))
+                     (for-each set-borders~ chx-out borders)))))))))
 
   
   (method (find-header pt)
     (let ((h (get-h~ pt))
           (v (get-v~ pt)))
-      (when (< v headers-height)
+      (when (< v (effective-headers-height))
         (continuation-capture
           (lambda (return)
             (for-each (lambda (header n)
@@ -293,11 +297,11 @@
 
   (method public (invalidate-header n)
     (bind (lf . rg) (get-borders~ (sheet-ranked n))
-      (invalidate-rect (new Rect (- lf 2) 0 (+ rg 2) headers-height))))
+      (invalidate-rect (new Rect (- lf 2) 0 (+ rg 2) (effective-headers-height)))))
   
   
   (method public (invalidate-headers)
-    (invalidate-rect (new Rect 0 0 (get-width) headers-height)))
+    (invalidate-rect (new Rect 0 0 (get-width) (effective-headers-height))))
 
 
   (method public (get-selection-name)
@@ -355,6 +359,13 @@
                     (set-position~ child {Point 0 0})
                     (set-size~ child size)))
                 children)))
+  
+  
+  (method (effective-headers-height)
+    (let ((transparent? (eq? (get-background~ (get-skin)) 'none)))
+      (if (and transparent? separator?)
+          (+ headers-height 4)
+        headers-height)))
 
 
   ;;;
@@ -367,22 +378,25 @@
       (let ((left    0)
             (top     0)
             (right   (get-width~ size))
-            (bottom  (get-height~ size)))
-        (let ((content (if (null? children) top (+ top headers-height -1))))
-          (let ((content-rect (new Rect left content right bottom)))
-            (unless (rect-inside-border? clipper content-rect {Rect 1 1 2 2})
-              (set-font~ surface {Font Label})
-              (set-color~ surface {Color Light})
-              (set-line-width~ surface 1)
-              (draw-edge~ surface content-rect inner: 'raised outer: 'raised edges: '(right bottom))
-              (set-color~ surface {Color Light})
-              (move-to~ surface 0 content)
-              (line-to~ surface 0 bottom)
-              (set-color~ surface {Color Light})
-              (if (null? children)
-                  (line~ surface 0 0 right 0)
-                (let ((h (cdr (get-borders~ (last children)))))
-                  (line~ surface h content (- right 1) content)))))
+            (bottom  (get-height~ size))
+            (transparent? (eq? (get-background~ (get-skin)) 'none)))
+        (let ((content (if (null? children) top (+ top (effective-headers-height) -1))))
+          (unless (and transparent? (not separator?))
+            (let ((content-rect (new Rect left content right bottom)))
+              (unless (rect-inside-border? clipper content-rect {Rect 1 1 2 2})
+                (set-font~ surface {Font Label})
+                (set-color~ surface (if transparent? {Color red: .308 green: .381 blue: .448} {Color Light}))
+                (set-line-width~ surface 1)
+                (unless transparent?
+                  (draw-edge~ surface content-rect inner: 'raised outer: 'raised edges: '(right bottom))
+                  (set-color~ surface {Color Light})
+                  (move-to~ surface 0 content)
+                  (line-to~ surface 0 bottom)
+                  (set-color~ surface {Color Light}))
+                (if (null? children)
+                    (line~ surface 0 0 right 0)
+                  (let ((h (cdr (get-borders~ (last children)))))
+                    (line~ surface h content (if transparent? right (- right 1)) content))))))
           (when (< (get-top~ clipper) content)
             (let ((left-clip (get-left~ clipper))
                   (right-clip (get-right~ clipper)))
@@ -391,9 +405,10 @@
                   (let ((header (car headers))
                         (selected? (= n selection)))
                     (bind (lf . rg) (get-borders~ header)
-                      (when selected?
-                        (decrease! lf 2)
-                        (increase! rg 2))
+                      (unless transparent?
+                        (when selected?
+                          (decrease! lf 2)
+                          (increase! rg 2)))
                       (when (< lf right-clip)
                         (when (> rg left-clip)
                           (let* ((title (localize (get-title~ header)))
@@ -406,44 +421,52 @@
                                  (top (if selected? 0 2))
                                  (background {Color red: 200 green: 198 blue: 187}))
                             ;; background
-                            (cond ((debug-paint?)
-                                   (let ((rect (new Rect (+ lf 1) (+ top 1) (- rg 2) content)))
-                                     (fill-rect~ surface rect (cycle-debug-color!))))
-                                  (header-color
-                                    (let ((rect (new Rect (+ lf (if next? 3 1) 2) (+ top 2 1) (- rg 3) content)))
-                                      (gradient-fill-rect~ surface rect (list (list 0 header-color) (list 1 header-end-color)) direction: 'vertical)))
-                                  ((not selected?)
-                                   (let ((rect (new Rect (+ lf 1) (+ top 1) (- rg 2) content)))
-                                     (fill-rect~ surface rect background))))
+                            (unless transparent?
+                              (cond ((debug-paint?)
+                                     (let ((rect (new Rect (+ lf 1) (+ top 1) (- rg 2) content)))
+                                       (fill-rect~ surface rect (cycle-debug-color!))))
+                                    (header-color
+                                      (let ((rect (new Rect (+ lf (if next? 3 1) 2) (+ top 2 1) (- rg 3) content)))
+                                        (gradient-fill-rect~ surface rect (list (list 0 header-color) (list 1 header-end-color)) direction: 'vertical)))
+                                    ((not selected?)
+                                     (let ((rect (new Rect (+ lf 1) (+ top 1) (- rg 2) content)))
+                                       (fill-rect~ surface rect background)))))
                             ;; border
-                            (when border-color
-                              (set-color~ surface border-color)
-                              (move-to~ surface (+ lf 2) (+ top 2))
-                              (line-to-preserve~ surface (- rg 4) (+ top 2))
-                              (line-to-preserve~ surface (- rg 4) (- content 2))
-                              (line-to-preserve~ surface (+ lf 2) (- content 2))
-                              (line-to~ surface (+ lf 2) (+ top 2)))
+                            (unless transparent?
+                              (when border-color
+                                (set-color~ surface border-color)
+                                (move-to~ surface (+ lf 2) (+ top 2))
+                                (line-to-preserve~ surface (- rg 4) (+ top 2))
+                                (line-to-preserve~ surface (- rg 4) (- content 2))
+                                (line-to-preserve~ surface (+ lf 2) (- content 2))
+                                (line-to~ surface (+ lf 2) (+ top 2))))
                             ;; right
-                            (unless previous?
-                              (draw-edge~ surface (new Rect lf (+ top 2) rg content) inner: 'raised outer: 'raised edges: '(right))
-                              (set-color~ surface background)
-                              (move-to~ surface (- rg 2) (+ top 1))
-                              (line-to~ surface (- rg 1) (+ top 2)))
+                            (unless transparent?
+                              (unless previous?
+                                (draw-edge~ surface (new Rect lf (+ top 2) rg content) inner: 'raised outer: 'raised edges: '(right))
+                                (set-color~ surface background)
+                                (move-to~ surface (- rg 2) (+ top 1))
+                                (line-to~ surface (- rg 1) (+ top 2))))
                             ;; top
-                            (set-color~ surface (if selected? {Color Light} {Color red: 243 green: 243 blue: 241}))
-                            (move-to~ surface (- rg 2) top)
-                            (line-to-preserve~ surface (+ lf (if next? 1 2)) top)
+                            (unless transparent?
+                              (set-color~ surface (if selected? {Color Light} {Color red: 243 green: 243 blue: 241}))
+                              (move-to~ surface (- rg 2) top)
+                              (line-to-preserve~ surface (+ lf (if next? 1 2)) top))
                             ;; left
-                            (unless next?
-                              (line-to-preserve~ surface lf (+ top 2))
-                              (line-to~ surface lf content))
+                            (unless transparent?
+                              (unless next?
+                                (line-to-preserve~ surface lf (+ top 2))
+                                (line-to~ surface lf content)))
                             ;; bottom
-                            (unless selected?
-                              (move-to~ surface lf content)
-                              (line-to~ surface rg content))
+                            (unless (and transparent? (not separator?))
+                              (unless selected?
+                                (when transparent?
+                                  (set-color~ surface {Color red: .308 green: .381 blue: .448}))
+                                (move-to~ surface (if transparent? (- lf 2) lf) content)
+                                (line-to~ surface rg content)))
                             ;; title
                             (when title
-                              (draw-text~ surface (+ lf 5) (+ top 3) title (or title-color {Color Black})))
+                              (draw-text~ surface (+ lf 5) (if transparent? 5 (+ top 3)) title (if transparent? (if selected? {Color red: .005 green: .796 blue: .918} {Color Medium-Gray}) (or title-color {Color Black}))))
                             ;; close
                             (when (and (get-closable?~ header)
                                        selected?
@@ -465,6 +488,15 @@
       (case orientation
         ((top) (draw-top surface clipper size))
         ((bottom) (draw-bottom surface clipper size)))))
+  
+  
+  ;;;
+  ;;;; Skin
+  ;;;
+  
+  
+  (method override (get-skin)
+    (find-skin 'ui:tab))
   
   
   ;;;

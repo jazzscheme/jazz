@@ -69,7 +69,7 @@
           `((jazz.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
   (else
     (define jazz:fontconfig-units
-      (let ((cc-flags (jazz:pkg-config-cflags "fontconfig"))
+      (let ((cc-flags (string-append (jazz:pkg-config-cflags "fontconfig") " -fpermissive"))
             (ld-flags (jazz:pkg-config-libs "fontconfig")))
         `((jazz.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
 

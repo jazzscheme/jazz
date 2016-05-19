@@ -56,7 +56,7 @@
            ld-options: ,(string-append "-L" zlib-lib-path " -lz"))))))
   (else
    (define jazz:zlib-units
-     '())))
+     '((jazz.zlib.foreign cc-options: "-fpermissive")))))
 
 
 (cond-expand

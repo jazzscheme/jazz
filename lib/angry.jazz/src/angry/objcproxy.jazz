@@ -258,7 +258,7 @@
   )
 
 
-(definition public (UITableViewCell #!key (on-image-select #f) (touch-mode 'none) (background-color #f) (text-color #f))
+(definition public (UITableViewCell #!key (on-image-select #f) (touch-mode 'none) (background-color #f) (border-color #f) (text-color #f) #!rest children)
   (let ((handle (case touch-mode 
                   ((none)
                    (platformCreateUITableViewCell))
@@ -269,9 +269,14 @@
     (let ((view (new IOS-TableViewCell handle)))
       (when background-color
         (UITableViewCellSetBackgroundColor handle (get-handle~ background-color)))
+      (when border-color
+        (UITableViewCellSetBorderColor handle (get-handle~ border-color)))
       (when text-color
         (UITableViewCellSetTextColor handle (get-handle~ text-color))
         (UITableViewCellSetDetailTextColor handle (get-handle~ text-color)))
+      (for-each (lambda (child)
+                  (UIViewAddSubview (UITableViewCellcontentView handle) (get-handle~ child)))
+                children)
       (set-on-image-select~ view on-image-select)
       (register-widget handle view)
       view)))
@@ -295,6 +300,7 @@
   (slot number-of-rows-in-section accessors generate)
   (slot title-for-section accessors generate)
   (slot cell-for-section-row accessors generate)
+  (slot cell-height-for-section-row accessors generate)
   (slot cell-edit-style-for-section-row accessors generate)
   (slot edit-action-for-section-row accessors generate)
   (slot on-row-select accessors generate)
@@ -303,7 +309,7 @@
   )
 
 
-(definition public (UITableView #!key (x 0.) (y 0.) (width 100.) (height 100.) (cell-constructor #f) 
+(definition public (UITableView #!key (x 0.) (y 0.) (width 100.) (height 100.) (cell-constructor #f) (cell-height (lambda (tview i j) 40.))
                      (number-of-sections (lambda () 1)) (title-for-section (lambda (tview i) "")) 
                      (section-index-titles (lambda (tview) (null-array))) (section-index-mapping (lambda (tview i) i))
                      (number-of-rows-in-section (lambda (i) 1)) (on-row-select #f) (cell-edit-style #f) (cell-edit-action #f)
@@ -315,6 +321,7 @@
       (when background-view
         (platformUITableSetBackgroundView handle (get-handle~ background-view)))
       (set-cell-for-section-row~ view cell-constructor)
+      (set-cell-height-for-section-row~ view cell-height)
       (set-number-of-sections~ view number-of-sections)
       (set-title-for-section~ view title-for-section)
       (set-section-index-titles~ view section-index-titles)
@@ -335,6 +342,16 @@
                      (get-cell-for-section-row~ sview))))
       (and pcb
            (pcb sview i j)))))
+
+
+(set-cell-height-for-row-callback
+  (lambda (table i j)
+    (let* ((sview (get-widget table))
+           (pcb (and sview 
+                     (get-cell-height-for-section-row~ sview))))
+      (and pcb
+           (pcb sview i j)))))
+
 
 (set-edit-style-callback
   (lambda (table i j)
@@ -580,8 +597,8 @@
 
 (definition public (presentModalView #!key (controller #f) (view (UIView)) (on-ok (lambda () #t)) (on-cancel (lambda () #t)))
   (let* ((modal (UIView x: 0. y: 0. width: (platformGetScreenWidth) height: (platformGetScreenHeight) background-color: (UIColor red: 1. green: 1. blue: 1.)
-                  (UIButton x: 10. y: 30. width: 100. height: 20. font-size: 18. on-push: (lambda (button) (on-cancel) (dismissModalView controller)) title: "Cancel")
-                  (UIButton x: (- (platformGetScreenWidth) 100.) y: 30. width: 50. height: 20. font-size: 18. on-push: (lambda (button) (on-ok) (dismissModalView controller)) title: "Ok")
+                  (UIButton title-color-normal: (UIColor red: 0. green: 0. blue: 1.)  x: 10. y: 30. width: 100. height: 20. font-size: 18. on-push: (lambda (button) (on-cancel) (dismissModalView controller)) title: "Cancel")
+                  (UIButton title-color-normal: (UIColor red: 0. green: 0. blue: 1.) x: (- (platformGetScreenWidth) 100.) y: 30. width: 50. height: 20. font-size: 18. on-push: (lambda (button) (on-ok) (dismissModalView controller)) title: "Ok")
                   view))
          (ctrl (UIViewController modal)))
     (platformPresentModal (get-handle~ controller) (get-handle~ ctrl))))

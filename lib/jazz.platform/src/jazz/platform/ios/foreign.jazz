@@ -866,6 +866,7 @@ extern void paint_callback(UIView*,CGContextRef context, int width, int height);
 }
 
 extern UITableViewCell *jazz_call_cell_for_row(JazzUITableView*,int,int);
+extern float jazz_call_cell_height_for_row(JazzUITableView*,int,int);
 extern int jazz_call_editing_style_for_row (JazzUITableView*,int,int);
 extern void jazz_call_edit_action_for_row(JazzUITableView*,int,int);
 extern int jazz_call_number_of_sections(JazzUITableView*);
@@ -881,6 +882,14 @@ extern int jazz_call_index_mapping(JazzUITableView*,int);
 {
    return jazz_call_cell_for_row(self,(int)[indexPath indexAtPosition:0],(int)[indexPath indexAtPosition:1]);
 } 
+
+
+- (CGFloat)tableView:(UITableView *)tableView
+heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+   return jazz_call_cell_height_for_row(self,(int)[indexPath indexAtPosition:0],(int)[indexPath indexAtPosition:1]);
+}
+
 
 - (UITableViewCellEditingStyle)tableView:(UITableView *)tableView
            editingStyleForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -992,6 +1001,11 @@ titleForHeaderInSection:(NSInteger)section
     (*cell-for-row-callback* table i j)))
 
 
+(c-definition (jazz-call-cell-height-for-row table i j) (uitableview int int) float "jazz_call_cell_height_for_row" ""
+  (when *cell-height-for-row-callback*
+    (*cell-height-for-row-callback* table i j)))
+
+
 (c-definition (jazz-call-editing-style-for-row table i j) (uitableview int int) int "jazz_call_editing_style_for_row" ""
   (when *cell-edit-style-for-row-callback*
     (*cell-edit-style-for-row-callback* table i j)))
@@ -1039,10 +1053,6 @@ titleForHeaderInSection:(NSInteger)section
   (set! *did-select-callback* proc))
   
 
-(definition *cell-for-row-callback*
-  #f)
-
-
 (definition public (set-edit-style-callback proc)
   (set! *cell-edit-style-for-row-callback* proc))
 
@@ -1059,8 +1069,21 @@ titleForHeaderInSection:(NSInteger)section
   #f)
 
 
+(definition *cell-for-row-callback*
+  #f)
+
+
 (definition public (set-cell-for-row-callback proc)
   (set! *cell-for-row-callback* proc))
+
+
+
+(definition *cell-height-for-row-callback*
+  #f)
+
+
+(definition public (set-cell-height-for-row-callback proc)
+  (set! *cell-height-for-row-callback* proc))
 
 
 (definition *number-of-sections-callback*
@@ -1273,6 +1296,10 @@ titleForHeaderInSection:(NSInteger)section
 
 (c-external (UITableViewCellSetBackgroundColor uitableviewcell uicolor) void
   "___arg1.backgroundColor=___arg2;")
+
+
+(c-external (UITableViewCellSetBorderColor uitableviewcell uicolor) void
+  "NSLog(@\"Set broder\"); [___arg1.contentView.layer setBorderColor:___arg2.CGColor];")
 
 
 (c-external (UITableViewCellSetTextColor uitableviewcell uicolor) void

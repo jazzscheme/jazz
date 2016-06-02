@@ -1250,8 +1250,10 @@
     (jazz:delete-feedback 2))
   
   (define (library-file? file level)
-    (let ((ext (jazz:pathname-extension file)))
-      (or (jazz:extension? ext "lmf")
+    (let ((base (jazz:pathname-base file))
+          (ext (jazz:pathname-extension file)))
+      (or (and (jazz:string-ends-with? base "lmf")
+               (jazz:extension? ext "scm"))
           (jazz:numeric-extension? ext "l"))))
   
   (define (empty-libraries dir level)

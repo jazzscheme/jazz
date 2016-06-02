@@ -173,10 +173,33 @@
             (jazz:build-product-descriptor descriptor unit: unit force?: force?))))))
 
 
+(define (jazz:build-platform-library descriptor)
+  (let ((ld-options
+          (cond-expand
+            (windows
+              (let ((pdh-lib-path (jazz:quote-jazz-pathname "lib/jazz.platform/foreign/windows/pdh/lib")))
+                (list (string-append "-L" pdh-lib-path) "-mwindows" "-lwinmm" "-lpdh" "-lpsapi")))
+            (x11
+              (let ((ld-flags (jazz:pkg-config-libs "x11")))
+                (jazz:split-string ld-flags #\space)))
+            (ios
+              (list "-framework" "CoreFoundation" "-framework" "CoreGraphics"))
+            (cocoa
+              (list "-framework" "Cocoa" "-framework" "OpenGL" "-framework" "IOKit"))))
+        (unit-language
+          (cond-expand
+            ((or cocoa ios)
+             '((jazz.platform.cocoa.foreign . objc)))
+            (else
+             #f))))
+    (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor ld-options: ld-options unit-language: unit-language)))
+
+
 ;;;
 ;;;; Register
 ;;;
 
 
 (jazz:register-product 'jazz.platform
-  build: jazz:build-platform))
+  build: jazz:build-platform
+  build-library: jazz:build-platform-library))

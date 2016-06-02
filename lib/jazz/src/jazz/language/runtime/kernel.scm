@@ -139,6 +139,7 @@
 (native jazz:compile-unit)
 (native jazz:build-unit)
 (native jazz:build-image)
+(native jazz:build-library)
 (native jazz:for-each-subunit)
 (native jazz:load-manifest)
 
@@ -790,6 +791,7 @@
 (native jazz:compiler-present?)
 (native jazz:compiler-name)
 (native jazz:compiler-extension)
+(native jazz:language-extension)
 (native jazz:add-exit-job!)
 (native jazz:log-backtrace)
 (native jazz:set-crash-reporter)

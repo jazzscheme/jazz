@@ -207,11 +207,7 @@
     (jazz:binary-with-extension src ""))
   
   (define bin-extension
-    (let ((compiler jazz:kernel-compiler))
-      (case (or output-language 'c)
-        ((objc) (case compiler ((c) ".m") ((c++) ".mm")))
-        ((c) (case compiler ((c) ".c") ((c++) ".cpp")))
-        (else (jazz:error "Unknown output language: {s}" output-language)))))
+    (%%string-append "." (jazz:language-extension (or output-language 'c))))
   
   (define ios?
     (and (jazz:build-configuration) (eq? (jazz:get-configuration-platform (jazz:build-configuration)) 'ios)))

@@ -45,25 +45,30 @@
 
 (cond-expand
   (cocoa
-    (define jazz:freetype-units
+    (define jazz:freetype-flags
       (let ((freetype-include-path (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/include"))
             (freetype-lib-path     (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
             (png-lib-path          (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" freetype-include-path))
               (ld-flags (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype.6")))
-          `((jazz.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
+          (list cc-flags ld-flags)))))
   (windows
-    (define jazz:freetype-units
+    (define jazz:freetype-flags
       (let ((freetype-include-path (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/include"))
             (freetype-lib-path     (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/lib")))
         (let ((cc-flags (string-append "-I" freetype-include-path))
               (ld-flags (string-append "-L" freetype-lib-path " -lfreetype")))
-          `((jazz.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
+          (list cc-flags ld-flags)))))
   (else
-    (define jazz:freetype-units
+    (define jazz:freetype-flags
       (let ((cc-flags (jazz:pkg-config-cflags "freetype2"))
             (ld-flags (jazz:pkg-config-libs "freetype2")))
-        `((jazz.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))))
+        (list cc-flags ld-flags)))))
+
+
+(define jazz:freetype-units
+  (jazz:bind (cc-flags ld-flags) jazz:freetype-flags
+    `((jazz.freetype cc-options: ,cc-flags ld-options: ,ld-flags))))
 
 
 (cond-expand
@@ -101,10 +106,16 @@
         (jazz:build-product-descriptor descriptor))))
 
 
+(define (jazz:build-freetype-library descriptor)
+  (jazz:bind (cc-flags ld-flags) jazz:freetype-flags
+    (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor ld-options: (jazz:split-string ld-flags #\space))))
+
+
 ;;;
 ;;;; Register
 ;;;
 
 
 (jazz:register-product 'jazz.freetype
-  build: jazz:build-freetype))
+  build: jazz:build-freetype
+  build-library: jazz:build-freetype-library))

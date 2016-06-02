@@ -69,7 +69,7 @@
 
 (cond-expand
   (ios
-    (define jazz:cairo-units
+    (define jazz:cairo-flags
       (let (;; use those include as they where tailored for ios
             (cairo-include-path      (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/ios/cairo/include/cairo"))
             (pixman-include-path     (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/pixman/include"))
@@ -82,9 +82,9 @@
                                                                  (arm "lib/jazz.zlib/foreign/ios/lib/arm")))))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" png-lib-path " -L" zlib-lib-path " -framework CoreFoundation -framework CoreGraphics -lcairo -lpixman-1 -lpng16 -lz")))
-          `((jazz.cairo cc-options: ,cc-flags ld-options: ,ld-flags output-language: objc))))))
+          (list cc-flags ld-flags)))))
   (cocoa
-    (define jazz:cairo-units
+    (define jazz:cairo-flags
       (let ((cairo-include-path      (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/cairo/include/cairo"))
             (pixman-include-path     (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/pixman/include"))
             (fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/include"))
@@ -96,10 +96,10 @@
             (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
             (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
-              (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lcairo.2")))
-          `((jazz.cairo cc-options: ,cc-flags ld-options: ,ld-flags custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options))))))
+              (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfreetype.6" " -lcairo.2")))
+          (list cc-flags ld-flags)))))
   (windows
-    (define jazz:cairo-units
+    (define jazz:cairo-flags
       (let ((cairo-include-path      (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/windows/cairo/include"))
             (pixman-include-path     (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/windows/pixman/include"))
             (fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/include"))
@@ -116,16 +116,35 @@
             (zlib-lib-path           (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
         (let ((cc-flags (string-append "-I" cairo-include-path " -I" pixman-include-path " -I" fontconfig-include-path " -I" freetype-include-path " -I" expat-include-path " -I" png-include-path " -I" zlib-include-path " -fpermissive"))
               (ld-flags (string-append "-L" cairo-lib-path " -L" pixman-lib-path " -L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -mwindows -lcairo -lfreetype")))
-          `((jazz.cairo cc-options: ,cc-flags ld-options: ,(string-append ld-flags " -lMsimg32")))))))
+          (list cc-flags ld-flags)))))
   (x11
-    (define jazz:cairo-units
+    (define jazz:cairo-flags
       (let ((cairo-name (jazz:guess-cairo-name)))
         (receive (major minor build) (jazz:parse-dot-version (jazz:pkg-config-version cairo-name))
           (if (%%fx< minor 4)
               (jazz:error "Cairo 1.4 or higher needed")
             (let ((cc-flags (jazz:pkg-config-cflags cairo-name))
                   (ld-flags (jazz:pkg-config-libs cairo-name)))
-              `((jazz.cairo                cc-options: ,cc-flags ld-options: ,ld-flags)))))))))
+              (list cc-flags ld-flags))))))))
+
+
+(cond-expand
+  (ios
+    (define jazz:cairo-units
+      (jazz:bind (cc-flags ld-flags) jazz:cairo-flags
+        `((jazz.cairo cc-options: ,cc-flags ld-options: ,ld-flags output-language: objc)))))
+  (cocoa
+    (define jazz:cairo-units
+      (jazz:bind (cc-flags ld-flags) jazz:cairo-flags
+        `((jazz.cairo cc-options: ,cc-flags ld-options: ,ld-flags custom-cc: ,jazz:custom-cc custom-cc-options: ,jazz:custom-cc-options)))))
+  (windows
+    (define jazz:cairo-units
+      (jazz:bind (cc-flags ld-flags) jazz:cairo-flags
+        `((jazz.cairo cc-options: ,cc-flags ld-options: ,(string-append ld-flags " -lMsimg32"))))))
+  (x11
+    (define jazz:cairo-units
+      (jazz:bind (cc-flags ld-flags) jazz:cairo-flags
+        `((jazz.cairo cc-options: ,cc-flags ld-options: ,ld-flags))))))
 
 
 (cond-expand
@@ -171,10 +190,22 @@
         (jazz:build-product-descriptor descriptor))))
 
 
+(define (jazz:build-cairo-library descriptor)
+  (jazz:bind (cc-flags ld-flags) jazz:cairo-flags
+    (let ((unit-language
+            (cond-expand
+              (ios
+               '((jazz.platform.cocoa.foreign . objc)))
+              (else
+               #f))))
+      (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor ld-options: (jazz:split-string ld-flags #\space) unit-language: unit-language))))
+
+
 ;;;
 ;;;; Register
 ;;;
 
 
 (jazz:register-product 'jazz.cairo
-  build: jazz:build-cairo))
+  build: jazz:build-cairo
+  build-library: jazz:build-cairo-library))

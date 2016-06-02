@@ -94,10 +94,24 @@
         (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
 
 
+(define (jazz:build-zlib-library descriptor)
+  (let ((ld-options
+          (cond-expand
+            (cocoa
+              (list "-lz.1"))
+            (windows
+              (let ((zlib-lib-path (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
+                (list (string-append "-L" zlib-lib-path) "-lz")))
+            (else
+             '()))))
+    (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor ld-options: ld-options)))
+
+
 ;;;
 ;;;; Register
 ;;;
 
 
 (jazz:register-product 'jazz.zlib
-  build: jazz:build-zlib))
+  build: jazz:build-zlib
+  build-library: jazz:build-zlib-library))

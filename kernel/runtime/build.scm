@@ -82,6 +82,14 @@
     "c"))
 
 
+(define (jazz:language-extension language)
+  (let ((compiler jazz:kernel-compiler))
+    (case language
+      ((objc) (case compiler ((c) "m") ((c++) "mm")))
+      ((c) (case compiler ((c) "c") ((c++) "cpp")))
+      (else (jazz:error "Unknown language: {s}" language)))))
+
+
 ;;;
 ;;;; Version
 ;;;
@@ -1106,13 +1114,15 @@
 
 
 ;;;
-;;;; Libraries
+;;;; Library
 ;;;
 
 
 (define (jazz:build-library-impl product-name descriptor
           #!key
           (options '())
+          (ld-options '())
+          (unit-language #f)
           (platform jazz:kernel-platform)
           (destination-directory jazz:kernel-install)
           (feedback jazz:feedback))
@@ -1242,7 +1252,13 @@
                                     (map (lambda (subunit-name)
                                            (jazz:with-unit-resources subunit-name #f
                                              (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                               (string-append (jazz:resource-pathname obj) "." (jazz:compiler-extension)))))
+                                               (let ((extension (if (%%not unit-language)
+                                                                    (jazz:compiler-extension)
+                                                                  (let ((pair (%%assq subunit-name unit-language)))
+                                                                    (if (%%not pair)
+                                                                        (jazz:compiler-extension)
+                                                                      (jazz:language-extension (%%cdr pair)))))))
+                                                 (string-append (jazz:resource-pathname obj) "." extension)))))
                                          sub-units)))
                        output: linkfile
                        warnings?: #f)
@@ -1261,20 +1277,22 @@
                                           (%%string-append (jazz:resource-pathname obj) ".o"))))
                                     sub-units)
                              ,linkfile
+                             ;; patch because of warning when C++ is used
+                             "-w"
                              "-o" ,library-o1
                              ,(string-append "-I" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~include"))))
                              ,(string-append "-L" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~lib"))))
+                             ,@ld-options
                              ,@(link-options))))
             (case platform
               ((windows)
                (if jazz:single-objects?
                    (jazz:obliterate-PE-timestamp library-o1 'DLL))))
+            ;; cleanup
             (for-each delete-file (%%list header-c header-o linkfile))
             #t)
 
-          (or ;; quick patch
-              (memq product-name '(jazz.platform jazz.opengl))
-              (and o1-exists? (library-manifest-uptodate? header-s sub-units))
+          (or (and o1-exists? (library-manifest-uptodate? header-s sub-units))
               (build-library)))))))
 
 

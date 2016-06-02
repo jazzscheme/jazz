@@ -104,10 +104,26 @@
         (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
 
 
+(define (jazz:build-opengl-library descriptor)
+  (let ((ld-options
+          (cond-expand
+            (windows
+              (let ((glew-lib-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/windows/opengl/glew/lib")))
+                (list (string-append "-L" glew-lib-path) "-lopengl32" "-lglu32" "-lglew32" "-mwindows")))
+            (cocoa
+              (let ((glew-lib-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/lib")))
+                (list (string-append "-L" glew-lib-path) "-framework" "OpenGL" "-lglew")))
+            (else
+             '()))))
+    (pp (jazz:product-descriptor-name descriptor))
+    (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor ld-options: ld-options)))
+
+
 ;;;
 ;;;; Register
 ;;;
 
 
 (jazz:register-product 'jazz.opengl
-  build: jazz:build-opengl))
+  build: jazz:build-opengl
+  build-library: jazz:build-opengl-library))

@@ -1637,6 +1637,7 @@
 
 
 (define (jazz:build-product name)
+  (jazz:load-build)
   (let ((product (jazz:setup-product name)))
     #; ;; dynamic-dependencies
     (jazz:adjust-build-repository product)
@@ -1644,7 +1645,6 @@
           (build-library (%%get-product-build-library product))
           (descriptor (%%get-product-descriptor product)))
       (jazz:feedback "make {a}" name)
-      (jazz:load-build)
       (if build
           (build descriptor)
         (jazz:build-product-descriptor descriptor))

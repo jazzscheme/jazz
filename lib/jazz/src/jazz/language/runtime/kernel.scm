@@ -720,6 +720,7 @@
 (native jazz:executable-extension)
 (native jazz:quote-pathname)
 (native jazz:quote-jazz-pathname)
+(native jazz:jazz-pathname)
 (native jazz:run-product)
 (native jazz:update-product)
 (native jazz:build-product)

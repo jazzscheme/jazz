@@ -100,7 +100,7 @@
             (cocoa
               (list "-lz.1"))
             (windows
-              (let ((zlib-lib-path (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
+              (let ((zlib-lib-path (jazz:jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
                 (list (string-append "-L" zlib-lib-path) "-lz")))
             (else
              '()))))

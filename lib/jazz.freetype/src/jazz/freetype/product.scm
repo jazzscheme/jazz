@@ -107,7 +107,17 @@
 
 
 (define (jazz:build-freetype-library descriptor)
-  (jazz:bind (cc-flags ld-flags) jazz:freetype-flags
+  (let ((ld-flags
+          (cond-expand
+            (cocoa
+              (let ((freetype-lib-path (jazz:jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
+                    (png-lib-path (jazz:jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
+                (string-append "-L" freetype-lib-path " -L" png-lib-path " -lfreetype.6")))
+            (windows
+              (let ((freetype-lib-path (jazz:jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/lib")))
+                (string-append "-L" freetype-lib-path " -lfreetype")))
+            (else
+             (jazz:pkg-config-libs "freetype2")))))
     (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor ld-options: (jazz:split-string ld-flags #\space))))
 
 

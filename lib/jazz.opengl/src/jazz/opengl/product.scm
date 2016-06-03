@@ -108,10 +108,10 @@
   (let ((ld-options
           (cond-expand
             (windows
-              (let ((glew-lib-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/windows/opengl/glew/lib")))
+              (let ((glew-lib-path (jazz:jazz-pathname "lib/jazz.opengl/foreign/windows/opengl/glew/lib")))
                 (list (string-append "-L" glew-lib-path) "-lopengl32" "-lglu32" "-lglew32" "-mwindows")))
             (cocoa
-              (let ((glew-lib-path (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/lib")))
+              (let ((glew-lib-path (jazz:jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/lib")))
                 (list (string-append "-L" glew-lib-path) "-framework" "OpenGL" "-lglew")))
             (else
              '()))))

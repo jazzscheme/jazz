@@ -177,7 +177,7 @@
   (let ((ld-options
           (cond-expand
             (windows
-              (let ((pdh-lib-path (jazz:quote-jazz-pathname "lib/jazz.platform/foreign/windows/pdh/lib")))
+              (let ((pdh-lib-path (jazz:jazz-pathname "lib/jazz.platform/foreign/windows/pdh/lib")))
                 (list (string-append "-L" pdh-lib-path) "-mwindows" "-lwinmm" "-lpdh" "-lpsapi")))
             (x11
               (let ((ld-flags (jazz:pkg-config-libs "x11")))

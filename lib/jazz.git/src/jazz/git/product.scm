@@ -103,10 +103,10 @@
   (let ((ld-options
           (cond-expand
             (cocoa
-              (let ((git-lib-path (jazz:quote-jazz-pathname "lib/jazz.git/foreign/mac/libgit2/lib")))
+              (let ((git-lib-path (jazz:jazz-pathname "lib/jazz.git/foreign/mac/libgit2/lib")))
                 (list (string-append "-L" git-lib-path) "-lgit2.22" "-lgambit")))
             (windows
-              (let ((git-lib-path (jazz:quote-jazz-pathname "lib/jazz.git/foreign/windows/libgit2/lib")))
+              (let ((git-lib-path (jazz:jazz-pathname "lib/jazz.git/foreign/windows/libgit2/lib")))
                 (list (string-append "-L" git-lib-path) "-lgit2")))
             (else
              '()))))

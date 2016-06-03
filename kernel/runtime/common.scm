@@ -579,7 +579,11 @@
 
 
 (define (jazz:quote-jazz-pathname suffix)
-  (jazz:quote-pathname (path-expand (string-append jazz:kernel-source suffix))))
+  (jazz:quote-pathname (jazz:jazz-pathname suffix)))
+
+
+(define (jazz:jazz-pathname suffix)
+  (path-expand (string-append jazz:kernel-source suffix)))
 
 
 (cond-expand

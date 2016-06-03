@@ -99,18 +99,16 @@
         (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
 
 
-(define (jazz:build-git-library descriptor)
-  (let ((ld-options
-          (cond-expand
-            (cocoa
-              (let ((git-lib-path (jazz:jazz-pathname "lib/jazz.git/foreign/mac/libgit2/lib")))
-                (list (string-append "-L" git-lib-path) "-lgit2.22" "-lgambit")))
-            (windows
-              (let ((git-lib-path (jazz:jazz-pathname "lib/jazz.git/foreign/windows/libgit2/lib")))
-                (list (string-append "-L" git-lib-path) "-lgit2")))
-            (else
-             '()))))
-    (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor ld-options: ld-options)))
+(define (jazz:git-library-options descriptor add-language)
+  (cond-expand
+    (cocoa
+      (let ((git-lib-path (jazz:jazz-pathname "lib/jazz.git/foreign/mac/libgit2/lib")))
+        (list (string-append "-L" git-lib-path) "-lgit2.22" "-lgambit")))
+    (windows
+      (let ((git-lib-path (jazz:jazz-pathname "lib/jazz.git/foreign/windows/libgit2/lib")))
+        (list (string-append "-L" git-lib-path) "-lgit2")))
+    (else
+     '())))
 
 
 ;;;
@@ -120,4 +118,4 @@
 
 (jazz:register-product 'jazz.git
   build: jazz:build-git
-  build-library: jazz:build-git-library))
+  library-options: jazz:git-library-options))

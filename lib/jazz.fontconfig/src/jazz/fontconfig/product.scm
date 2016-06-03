@@ -114,24 +114,22 @@
         (jazz:build-product-descriptor descriptor))))
 
 
-(define (jazz:build-fontconfig-library descriptor)
-  (let ((ld-flags
-          (cond-expand
-            (cocoa
-              (let ((fontconfig-lib-path     (jazz:jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/lib"))
-                    (freetype-lib-path       (jazz:jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
-                    (png-lib-path            (jazz:jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
-                (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
-            (windows
-              (let ((fontconfig-lib-path     (jazz:jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/lib"))
-                    (freetype-lib-path       (jazz:jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/lib"))
-                    (expat-lib-path          (jazz:jazz-pathname "lib/jazz.cairo/foreign/windows/expat/lib"))
-                    (png-lib-path            (jazz:jazz-pathname "lib/jazz.cairo/foreign/windows/png/lib"))
-                    (zlib-lib-path           (jazz:jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
-                (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
-            (else
-             (jazz:pkg-config-libs "fontconfig")))))
-    (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor ld-options: (jazz:split-string ld-flags #\space))))
+(define (jazz:fontconfig-library-options descriptor add-language)
+  (cond-expand
+    (cocoa
+      (let ((fontconfig-lib-path     (jazz:jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/lib"))
+            (freetype-lib-path       (jazz:jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
+            (png-lib-path            (jazz:jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
+        (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
+    (windows
+      (let ((fontconfig-lib-path     (jazz:jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/lib"))
+            (freetype-lib-path       (jazz:jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/lib"))
+            (expat-lib-path          (jazz:jazz-pathname "lib/jazz.cairo/foreign/windows/expat/lib"))
+            (png-lib-path            (jazz:jazz-pathname "lib/jazz.cairo/foreign/windows/png/lib"))
+            (zlib-lib-path           (jazz:jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
+        (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
+    (else
+     (jazz:pkg-config-libs "fontconfig"))))
 
 
 ;;;
@@ -141,4 +139,4 @@
 
 (jazz:register-product 'jazz.fontconfig
   build: jazz:build-fontconfig
-  build-library: jazz:build-fontconfig-library))
+  library-options: jazz:fontconfig-library-options))

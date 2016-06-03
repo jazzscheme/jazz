@@ -1122,7 +1122,7 @@
           #!key
           (options '())
           (ld-options '())
-          (unit-language #f)
+          (unit-language '())
           (platform jazz:kernel-platform)
           (destination-directory jazz:kernel-install)
           (feedback jazz:feedback))
@@ -1252,12 +1252,10 @@
                                     (map (lambda (subunit-name)
                                            (jazz:with-unit-resources subunit-name #f
                                              (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                               (let ((extension (if (%%not unit-language)
-                                                                    (jazz:compiler-extension)
-                                                                  (let ((pair (%%assq subunit-name unit-language)))
-                                                                    (if (%%not pair)
-                                                                        (jazz:compiler-extension)
-                                                                      (jazz:language-extension (%%cdr pair)))))))
+                                               (let ((extension (let ((pair (%%assq subunit-name unit-language)))
+                                                                  (if (%%not pair)
+                                                                      (jazz:compiler-extension)
+                                                                    (jazz:language-extension (%%cdr pair))))))
                                                  (string-append (jazz:resource-pathname obj) "." extension)))))
                                          sub-units)))
                        output: linkfile

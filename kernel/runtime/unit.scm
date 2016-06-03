@@ -1471,9 +1471,9 @@
           #f))))
 
 
-(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (build-library #f) (install #f) (deploy #f))
+(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (library-options #f) (install #f) (deploy #f))
   (receive (package descriptor) (jazz:find-product-descriptor name)
-    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build build-library install deploy package descriptor))))
+    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build library-options install deploy package descriptor))))
 
 
 (define (jazz:get-product-descriptor name)
@@ -1502,7 +1502,7 @@
             #f
             jazz:update-product-descriptor
             jazz:build-product-descriptor
-            jazz:build-library-descriptor
+            #f
             #f
             #f
             package
@@ -1642,16 +1642,14 @@
     #; ;; dynamic-dependencies
     (jazz:adjust-build-repository product)
     (let ((build (%%get-product-build product))
-          (build-library (%%get-product-build-library product))
+          (library-options (%%get-product-library-options product))
           (descriptor (%%get-product-descriptor product)))
       (jazz:feedback "make {a}" name)
       (if build
           (build descriptor)
         (jazz:build-product-descriptor descriptor))
       (if (jazz:link-libraries?)
-          (if build-library
-              (build-library descriptor)
-            (jazz:build-library-descriptor descriptor))))))
+          (jazz:build-library-descriptor descriptor library-options: library-options)))))
 
 
 (define (jazz:build-product-descriptor descriptor #!key (unit #f) (force? #f))
@@ -1670,11 +1668,22 @@
     (build-product)))
 
 
-(define (jazz:build-library-descriptor descriptor)
+(define (jazz:build-library-descriptor descriptor #!key (library-options #f))
+  (define (lib-options)
+    (if library-options
+        (let ((unit-language '()))
+          (define (add-language unit-name language)
+            (set! unit-language (cons (cons unit-name language) unit-language)))
+          
+          (let ((ld-options (library-options descriptor add-language)))
+            (values ld-options unit-language)))
+      (values '() '())))
+  
   (let ((library (jazz:product-descriptor-library descriptor)))
-    (if library
-        (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: library)
-      (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor))))
+    (let ((options (or library '())))
+      (receive (ld-options unit-language) (lib-options)
+        (let ((ld-options (if (string? ld-options) (jazz:split-string ld-options #\space) ld-options)))
+          (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: library ld-options: ld-options unit-language: unit-language))))))
 
 
 (define (jazz:install-product name)

@@ -190,15 +190,13 @@
         (jazz:build-product-descriptor descriptor))))
 
 
-(define (jazz:build-cairo-library descriptor)
+(define (jazz:cairo-library-options descriptor add-language)
+  (cond-expand
+    (ios
+      (add-language 'jazz.platform.cocoa.foreign 'objc))
+    (else))
   (jazz:bind (cc-flags ld-flags) (jazz:cairo-flags jazz:jazz-pathname)
-    (let ((unit-language
-            (cond-expand
-              (ios
-               '((jazz.platform.cocoa.foreign . objc)))
-              (else
-               #f))))
-      (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor ld-options: (jazz:split-string ld-flags #\space) unit-language: unit-language))))
+    ld-flags))
 
 
 ;;;
@@ -208,4 +206,4 @@
 
 (jazz:register-product 'jazz.cairo
   build: jazz:build-cairo
-  build-library: jazz:build-cairo-library))
+  library-options: jazz:cairo-library-options))

@@ -98,18 +98,18 @@
 
 
 (jazz:define-structure Product () (constructor: %%make-product accessors-type: macro)
-  ((name          getter: generate)
-   (title         getter: generate)
-   (icon          getter: generate)
-   (run           getter: generate)
-   (test          getter: generate)
-   (update        getter: generate)
-   (build         getter: generate)
-   (build-library getter: generate)
-   (install       getter: generate)
-   (deploy        getter: generate)
-   (package       getter: generate)
-   (descriptor    getter: generate)))
+  ((name            getter: generate)
+   (title           getter: generate)
+   (icon            getter: generate)
+   (run             getter: generate)
+   (test            getter: generate)
+   (update          getter: generate)
+   (build           getter: generate)
+   (library-options getter: generate)
+   (install         getter: generate)
+   (deploy          getter: generate)
+   (package         getter: generate)
+   (descriptor      getter: generate)))
 
  
 ;;;

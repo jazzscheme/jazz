@@ -1329,7 +1329,15 @@
                                        ((windows) '("-Wl,--large-address-aware" "-shared" "-D___DYNAMIC"))
                                        (else '("-bundle" "-D___DYNAMIC")))
                                    ,loader-o
-                                   ,static-lib
+                                   ,@(cond-expand
+                                       (windows
+                                         (map (lambda (subunit-name)
+                                                  (jazz:with-unit-resources subunit-name #f
+                                                    (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                                                      (%%string-append (jazz:resource-pathname obj) ".o"))))
+                                                sub-units))
+                                       (else
+                                        (%%list static-lib)))
                                    ,linkfile
                                    ;; patch because of a warning when C++ is used
                                    "-w"

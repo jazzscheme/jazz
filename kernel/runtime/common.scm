@@ -116,6 +116,9 @@
 (define (jazz:link-libraries?)
   (%%memq 'libraries jazz:link-options))
 
+(define (jazz:link-static?)
+  (%%memq 'static jazz:link-options))
+
 (define jazz:jazzini
   ".jazzini")
 
@@ -797,4 +800,4 @@
 
 
 (define jazz:Library-Extension "l")
-(define jazz:Library-Manifest-Suffix "_lmf"))
+(define jazz:Library-Manifest-Name "_lmf"))

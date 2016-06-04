@@ -1642,14 +1642,13 @@
     #; ;; dynamic-dependencies
     (jazz:adjust-build-repository product)
     (let ((build (%%get-product-build product))
-          (library-options (%%get-product-library-options product))
           (descriptor (%%get-product-descriptor product)))
       (jazz:feedback "make {a}" name)
       (if build
           (build descriptor)
         (jazz:build-product-descriptor descriptor))
-      (if (jazz:link-libraries?)
-          (jazz:build-library-descriptor descriptor library-options: library-options)))))
+      (if (or (jazz:link-libraries?) (jazz:link-static?))
+          (jazz:build-library-descriptor descriptor)))))
 
 
 (define (jazz:build-product-descriptor descriptor #!key (unit #f) (force? #f))
@@ -1668,22 +1667,10 @@
     (build-product)))
 
 
-(define (jazz:build-library-descriptor descriptor #!key (library-options #f))
-  (define (lib-options)
-    (if library-options
-        (let ((unit-language '()))
-          (define (add-language unit-name language)
-            (set! unit-language (cons (cons unit-name language) unit-language)))
-          
-          (let ((ld-options (library-options descriptor add-language)))
-            (values ld-options unit-language)))
-      (values '() '())))
-  
+(define (jazz:build-library-descriptor descriptor)
   (let ((library (jazz:product-descriptor-library descriptor)))
     (let ((options (or library '())))
-      (receive (ld-options unit-language) (lib-options)
-        (let ((ld-options (if (string? ld-options) (jazz:split-string ld-options #\space) ld-options)))
-          (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: library ld-options: ld-options unit-language: unit-language))))))
+      (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: library))))
 
 
 (define (jazz:install-product name)
@@ -1984,11 +1971,11 @@
            (iter (%%fx+ n 1) #t)))))
 
 
-(define (jazz:product-library-name-base package product-name)
-  (jazz:relocate-product-library-name-base (%%get-package-repository package) package product-name))
+(define (jazz:product-library-name-base package path)
+  (jazz:relocate-product-library-name-base (%%get-package-repository package) package path))
 
 
-(define (jazz:relocate-product-library-name-base repository package product-name)
+(define (jazz:relocate-product-library-name-base repository package path)
   (define (build-dir package)
     (let ((parent (%%get-package-parent package)))
       (jazz:repository-pathname repository
@@ -1997,7 +1984,7 @@
   
   (string-append (build-dir package)
                  "/"
-                 (%%symbol->string product-name)))
+                 path))
 
 
 ;;;

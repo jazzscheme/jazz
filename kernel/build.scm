@@ -1257,6 +1257,11 @@
           (jazz:numeric-extension? ext "l"))))
   
   (define (empty-libraries dir level)
+    (let ((static-dir (string-append dir "static/")))
+      (if (file-exists? static-dir)
+          (begin
+            (jazz:feedback "; deleting {a}..." static-dir)
+            (jazz:delete-directory static-dir))))
     (jazz:empty-directory dir
                           level
                           library-file?

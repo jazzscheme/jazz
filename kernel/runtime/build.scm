@@ -304,10 +304,12 @@
           (console? #f)
           (minimum-heap #f)
           (maximum-heap #f)
+          (static-libraries '())
           (feedback jazz:feedback))
   (let ((product-name (if (%%not product) "kernel" (%%symbol->string product)))
         (gambit-library (if include-compiler? "gambitgsc" "gambit"))
-        (library-image? (%%eq? image 'library)))
+        (library-image? (%%eq? image 'library))
+        (static-info (jazz:static-info static-libraries)))
     (let ((image-name (if (%%not product) "jazz" product-name))
           (gambit-dir (path-normalize "~~/"))
           (source-dir (jazz:relativise-directory "./" "./" source))
@@ -316,7 +318,10 @@
           (product-dir (string-append destination-directory "build/products/" product-name "/"))
           (image-dir (if (and bundle (eq? windowing 'cocoa) (not library-image?))
                          (%%string-append destination-directory bundle ".app" "/Contents/MacOS/")
-                       destination-directory)))
+                       destination-directory))
+          (static-units (%%car static-info))
+          (static-options (%%cadr static-info))
+          (static-languages (%%cddr static-info)))
       (define ios?
         (and (jazz:build-configuration) (eq? (jazz:get-configuration-platform (jazz:build-configuration)) 'ios)))
       
@@ -1116,6 +1121,62 @@
 
 
 ;;;
+;;;; Static
+;;;
+
+
+(define (jazz:static-info library-names)
+  (let ((units '())
+        (ld-options '())
+        (unit-language '()))
+    
+    (define (remove-duplicates list)
+      (map car (table->list (list->table (map (lambda (x) (%%cons x #f)) list)))))
+    
+    (define (process-units descriptor library-name)
+      (let ((update (jazz:cond-expanded-product-descriptor-update library-name descriptor)))
+        (let ((sub-units (remove-duplicates (%%apply append (map jazz:get-subunit-names update)))))
+          (set! units (append units sub-units)))))
+    
+    (define (process-options descriptor library-options)
+      (if library-options
+          (let ()
+            (define (add-language unit-name language)
+              (set! unit-language (cons (cons unit-name language) unit-language)))
+            
+            (set! ld-options (append ld-options (let ((ld-options (library-options descriptor add-language)))
+                                                  (if (string? ld-options)
+                                                      (jazz:split-string ld-options #\space)
+                                                    ld-options)))))))
+    
+    (for-each (lambda (library-name)
+                (let ((product (jazz:get-product library-name)))
+                  (let ((descriptor (%%get-product-descriptor product))
+                        (library-options (%%get-product-library-options product)))
+                    (process-units descriptor library-name)
+                    (process-options descriptor library-options))))
+              library-names)
+    (cons units (cons ld-options unit-language))))
+
+
+(define (jazz:make-static-loader file library units)
+  (call-with-output-file (list path: file eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
+    (lambda (port)
+      (display (string-append "(jazz:register-image-units '" (%%symbol->string library) " '(") port)
+      (newline port)
+      (for-each (lambda (unit-name)
+                  (jazz:with-unit-resources unit-name #f
+                    (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                      (display (string-append "  (" (%%symbol->string unit-name) " ") port)
+                      (write (%%get-manifest-compile-time-hash manifest) port)
+                      (display ")" port)
+                      (newline port))))
+                units)
+      (display "))" port)
+      (newline port))))
+
+
+;;;
 ;;;; Library
 ;;;
 
@@ -1123,18 +1184,12 @@
 (define (jazz:build-library-impl product-name descriptor
           #!key
           (options '())
-          (ld-options '())
-          (unit-language '())
           (platform jazz:kernel-platform)
           (destination-directory jazz:kernel-install)
           (feedback jazz:feedback))
-  
   (define (feedback-message fmt-string . rest)
     (if feedback
         (apply feedback fmt-string rest)))
-  
-  (define (remove-duplicates list)
-    (map car (table->list (list->table (map (lambda (x) (%%cons x #f)) list)))))
   
   (define (link-options)
     (define (platform-options link-options platform)
@@ -1180,18 +1235,18 @@
         (%%apply append (map expand-link-option raw-options)))))
  
   ; is the lib up-to-date according to the lib manifest?
-  (define (library-manifest-uptodate? header sub-units)
+  (define (library-manifest-uptodate? loader sub-units)
     (define digest-table (%%make-table test: eq?))
     
     (define (load-image-units-manifest)
-      (if (jazz:file-exists? header)
+      (if (jazz:file-exists? loader)
           (begin
             (set! jazz:register-image-units
                   (lambda (lib-name units)
                     (for-each (lambda (unit)
                                 (%%table-set! digest-table (%%car unit) (%%cadr unit)))
                               units)))
-            (load header))))
+            (load loader))))
     
     (define (unit-uptodate? unit-name)
       (let ((image-unit-compile-time-hash (%%table-ref digest-table unit-name #f)))
@@ -1211,88 +1266,89 @@
     (load-image-units-manifest)
     (subunits-uptodate? sub-units))
   
-  (define (make-library-header header- library sub-units)
-    (call-with-output-file (list path: header- eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
-      (lambda (port)
-        (display (string-append "(jazz:register-image-units '" (%%symbol->string library) " '(") port)
-        (newline port)
-        (for-each (lambda (unit-name)
-                    (jazz:with-unit-resources unit-name #f
-                      (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                        (display (string-append "  (" (%%symbol->string unit-name) " ") port)
-                        (write (%%get-manifest-compile-time-hash manifest) port)
-                        (display ")" port)
-                        (newline port))))
-                  sub-units)
-        (display "))" port)
-        (newline port))))
-  
   (let* ((product (jazz:get-product product-name))
          (package (%%get-product-package product))
-         (update (jazz:cond-expanded-product-descriptor-update product-name descriptor))
-         (library-base (jazz:relocate-product-library-name-base jazz:Build-Repository package product-name))
-         (library-dir (jazz:pathname-dir library-base)))
+         (library-base (jazz:relocate-product-library-name-base jazz:Build-Repository package (%%symbol->string product-name)))
+         (library-dir (jazz:pathname-dir library-base))
+         (static-info (jazz:static-info (list product-name))))
     (jazz:with-numbered-pathname (string-append library-base "." jazz:Library-Extension) #t 1
       (lambda (library-o1 o1-exists?)
-        (let* ((linkfile (string-append library-o1 "." (jazz:compiler-extension)))
-               (header (string-append library-base jazz:Library-Manifest-Suffix))
-               (header-name (string-append jazz:product-uniqueness-prefix (%%symbol->string product-name)))
-               (header-s (string-append header ".scm"))
-               (header-c (string-append header "." (jazz:compiler-extension)))
-               (header-o (string-append header ".o"))
-               (sub-units (remove-duplicates (%%apply append (map jazz:get-subunit-names update)))))
+        (let* ((static-dir (string-append library-dir "static/"))
+               (static-lib (string-append static-dir "lib" (%%symbol->string product-name) ".a"))
+               (static-o1 (string-append static-dir (jazz:pathname-name library-o1)))
+               (linkfile (string-append static-o1 "." (jazz:compiler-extension)))
+               (loader (string-append static-dir jazz:Library-Manifest-Name))
+               (loader-name (string-append jazz:product-uniqueness-prefix (%%symbol->string product-name)))
+               (loader-s (string-append loader ".scm"))
+               (loader-c (string-append loader "." (jazz:compiler-extension)))
+               (loader-o (string-append loader ".o"))
+               (sub-units (%%car static-info))
+               (ld-options (%%cadr static-info))
+               (unit-language (%%cddr static-info)))
           (define (build-library)
             (jazz:load/create-build-package package)
-            (make-library-header header-s product-name sub-units)
-            (compile-file-to-target header-s output: header-c module-name: header-name)
-            (compile-file header-c options: '(obj) cc-options: "-D___DYNAMIC ")
+            (jazz:make-static-loader loader-s product-name sub-units)
+            (compile-file-to-target loader-s output: loader-c module-name: loader-name)
+            (compile-file loader-c options: '(obj) cc-options: "-D___DYNAMIC ")
             
-            ;(feedback-message "; creating link file...")
-            (link-flat (map (lambda (module)
-                              (list module '(preload . #f)))
-                            (%%cons header-c
-                                    (map (lambda (subunit-name)
-                                           (jazz:with-unit-resources subunit-name #f
-                                             (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                               (let ((extension (let ((pair (%%assq subunit-name unit-language)))
-                                                                  (if (%%not pair)
-                                                                      (jazz:compiler-extension)
-                                                                    (jazz:language-extension (%%cdr pair))))))
-                                                 (string-append (jazz:resource-pathname obj) "." extension)))))
-                                         sub-units)))
-                       output: linkfile
-                       warnings?: #f)
+            (let ()
+              (jazz:call-process
+                (list
+                  path: "ar"
+                  arguments: `("-rcs"
+                               ,static-lib
+                               ,loader-o
+                               ,@(map (lambda (subunit-name)
+                                        (jazz:with-unit-resources subunit-name #f
+                                          (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                                            (%%string-append (jazz:resource-pathname obj) ".o"))))
+                                      sub-units)))))
             
-            (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))
-            (jazz:call-process
-              (list
-                path: (jazz:compiler-name)
-                arguments: `(,@(case platform
-                                 ((windows) '("-Wl,--large-address-aware" "-shared" "-D___DYNAMIC"))
-                                 (else '("-bundle" "-D___DYNAMIC")))
-                             ,header-o
-                             ,@(map (lambda (subunit-name)
-                                      (jazz:with-unit-resources subunit-name #f
-                                        (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                          (%%string-append (jazz:resource-pathname obj) ".o"))))
-                                    sub-units)
-                             ,linkfile
-                             ;; patch because of warning when C++ is used
-                             "-w"
-                             "-o" ,library-o1
-                             ,(string-append "-I" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~include"))))
-                             ,(string-append "-L" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~lib"))))
-                             ,@ld-options
-                             ,@(link-options))))
-            (case platform
-              ((windows)
-               (if jazz:single-objects?
-                   (jazz:obliterate-PE-timestamp library-o1 'DLL))))
-            ;; cleanup
-            (for-each delete-file (%%list header-c header-o linkfile))
+            (if (jazz:link-libraries?)
+                (begin
+                  ;(feedback-message "; creating link file...")
+                  (link-flat (map (lambda (module)
+                                    (list module '(preload . #f)))
+                                  (%%cons loader-c
+                                          (map (lambda (subunit-name)
+                                                 (jazz:with-unit-resources subunit-name #f
+                                                   (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                                                     (let ((extension (let ((pair (%%assq subunit-name unit-language)))
+                                                                        (if (%%not pair)
+                                                                            (jazz:compiler-extension)
+                                                                          (jazz:language-extension (%%cdr pair))))))
+                                                       (string-append (jazz:resource-pathname obj) "." extension)))))
+                                               sub-units)))
+                             output: linkfile
+                             warnings?: #f)
+                  (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))
+                  (jazz:call-process
+                    (list
+                      path: (jazz:compiler-name)
+                      arguments: `(,@(case platform
+                                       ((windows) '("-Wl,--large-address-aware" "-shared" "-D___DYNAMIC"))
+                                       (else '("-bundle" "-D___DYNAMIC")))
+                                   ,loader-o
+                                   ,static-lib
+                                   ,linkfile
+                                   ;; patch because of a warning when C++ is used
+                                   "-w"
+                                   "-o" ,static-o1
+                                   ,(string-append "-I" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~include"))))
+                                   ,(string-append "-L" (jazz:pathname-standardize (path-strip-trailing-directory-separator (path-normalize "~~lib"))))
+                                   ,@ld-options
+                                   ,@(link-options))))
+                  (case platform
+                    ((windows)
+                     (if jazz:single-objects?
+                         (jazz:obliterate-PE-timestamp static-o1 'DLL))))
+                  ;; cleanup
+                  (for-each delete-file (%%list loader-c loader-o linkfile))
+                  (rename-file static-o1 library-o1)))
             #t)
-
-          (or (and o1-exists? (library-manifest-uptodate? header-s sub-units))
+          
+          (jazz:create-directories static-dir)
+          (or (and o1-exists? (library-manifest-uptodate? loader-s sub-units))
               (build-library)))))))
 
 

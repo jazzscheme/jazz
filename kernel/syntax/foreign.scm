@@ -38,6 +38,9 @@
 (block kernel.foreign
 
 
+(jazz:kernel-declares)
+
+
 ;; quicky duplicated code
 (define enter-marker
   ";---> ")

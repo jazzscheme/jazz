@@ -38,6 +38,9 @@
 (block kernel.base
 
 
+(jazz:kernel-declares)
+
+
 ;;;
 ;;;; Number
 ;;;

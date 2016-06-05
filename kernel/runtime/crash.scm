@@ -39,6 +39,9 @@
 (block kernel.crash
 
 
+(jazz:kernel-declares)
+
+
 (define (jazz:log-backtrace ignore)
   (continuation-capture
     (lambda (k)

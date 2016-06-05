@@ -830,6 +830,7 @@
 (native jazz:list-copy)
 (native jazz:last-pair)
 (native jazz:proper-list)
+(native jazz:sort-list)
 
 ;; until high-level optimized
 (native jazz:kernel-some?)

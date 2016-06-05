@@ -75,14 +75,23 @@
       not-found)))
 
 
-(define (jazz:sort l smaller)
+(define (jazz:sort-list smaller l #!key (key #f))
+  (declare (proper-tail-calls))
+  (declare (optimize-dead-local-variables))
+  (declare (inline))
+  (declare (inlining-limit 1000))
+  (define (apply-key key object)
+    (if (not key)
+        object
+      (key object)))
+
   (define (merge-sort l)
     (define (merge l1 l2)
       (cond ((%%null? l1) l2)
             ((%%null? l2) l1)
             (else
              (let ((e1 (%%car l1)) (e2 (%%car l2)))
-               (if (smaller e1 e2)
+               (if (smaller (apply-key key e1) (apply-key key e2))
                    (%%cons e1 (merge (%%cdr l1) l2))
                  (%%cons e2 (merge l1 (%%cdr l2))))))))
     

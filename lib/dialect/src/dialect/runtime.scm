@@ -1511,7 +1511,7 @@
                                      (set! loaded? #t)))
                                ,(jazz:sourcified-form (jazz:emit-binding-reference referenced-declaration module-declaration environment backend))))))))))
               (jazz:get-module-declaration-walker-autoloads module-declaration))
-    (jazz:sort (jazz:queue-list queue) (lambda (x y) (%%string<? (%%symbol->string (%%cadr x)) (%%symbol->string (%%cadr y)))))))
+    (jazz:sort-list (lambda (x y) (%%string<? (%%symbol->string (%%cadr x)) (%%symbol->string (%%cadr y)))) (jazz:queue-list queue))))
 
 
 (define (jazz:emit-module-registration declaration environment backend)
@@ -1524,7 +1524,7 @@
                           (%%when (and (%%not autoload) (%%not symbols))
                             (jazz:enqueue queue (jazz:get-module-invoice-name module-invoice))))))
                     (jazz:get-module-declaration-exports declaration))
-          (jazz:sort (jazz:queue-list queue) (lambda (x y) (%%string<? (%%symbol->string x) (%%symbol->string y)))))
+          (jazz:sort-list (lambda (x y) (%%string<? (%%symbol->string x) (%%symbol->string y))) (jazz:queue-list queue)))
       ',(let ((walker (jazz:get-module-declaration-walker declaration))
               (queue (jazz:new-queue)))
           (jazz:iterate-table-safe (jazz:get-public-lookup declaration)
@@ -1535,7 +1535,7 @@
                 (let ((export (jazz:runtime-export walker decl)))
                   (if export
                       (jazz:enqueue queue (%%cons name export)))))))
-          (jazz:sort (jazz:queue-list queue) (lambda (x y) (%%string<? (%%symbol->string (%%car x)) (%%symbol->string (%%car y)))))))))
+          (jazz:sort-list (lambda (x y) (%%string<? (%%symbol->string (%%car x)) (%%symbol->string (%%car y)))) (jazz:queue-list queue))))))
 
 
 (jazz:define-method (jazz:runtime-export (jazz:Walker walker) declaration)

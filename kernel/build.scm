@@ -362,16 +362,16 @@
 
 
 (define (jazz:sort-configurations configurations)
-  (jazz:sort configurations
-             (lambda (c1 c2)
-               (let ((n1 (jazz:get-configuration-name c1))
-                     (n2 (jazz:get-configuration-name c2)))
-                 (cond ((not n1)
-                        #t)
-                       ((not n2)
-                        #f)
-                       (else
-                        (string-ci<? (symbol->string n1) (symbol->string n2))))))))
+  (jazz:sort-list (lambda (c1 c2)
+                    (let ((n1 (jazz:get-configuration-name c1))
+                          (n2 (jazz:get-configuration-name c2)))
+                      (cond ((not n1)
+                             #t)
+                            ((not n2)
+                             #f)
+                            (else
+                             (string-ci<? (symbol->string n1) (symbol->string n2))))))
+                  configurations))
 
 
 (define (jazz:register-configuration configuration)

@@ -291,6 +291,10 @@
   jazz:source-repositories)
 
 
+(define jazz:kernel-c/home-homedir?
+  jazz:c/home-homedir?)
+
+
 (define (jazz:jazz-product)
   jazz:product)
 
@@ -1467,9 +1471,9 @@
           #f))))
 
 
-(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (build-library #f) (install #f) (deploy #f))
+(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (library-options #f) (install #f) (deploy #f))
   (receive (package descriptor) (jazz:find-product-descriptor name)
-    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build build-library install deploy package descriptor))))
+    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build library-options install deploy package descriptor))))
 
 
 (define (jazz:get-product-descriptor name)
@@ -1498,7 +1502,7 @@
             #f
             jazz:update-product-descriptor
             jazz:build-product-descriptor
-            jazz:build-library-descriptor
+            #f
             #f
             #f
             package
@@ -1633,21 +1637,18 @@
 
 
 (define (jazz:build-product name)
+  (jazz:load-build)
   (let ((product (jazz:setup-product name)))
     #; ;; dynamic-dependencies
     (jazz:adjust-build-repository product)
     (let ((build (%%get-product-build product))
-          (build-library (%%get-product-build-library product))
           (descriptor (%%get-product-descriptor product)))
       (jazz:feedback "make {a}" name)
-      (jazz:load-build)
       (if build
           (build descriptor)
         (jazz:build-product-descriptor descriptor))
-      (if (jazz:link-libraries?)
-          (if build-library
-              (build-library descriptor)
-            (jazz:build-library-descriptor descriptor))))))
+      (if (or (jazz:link-libraries?) (jazz:link-static?))
+          (jazz:build-library-descriptor descriptor)))))
 
 
 (define (jazz:build-product-descriptor descriptor #!key (unit #f) (force? #f))
@@ -1668,9 +1669,8 @@
 
 (define (jazz:build-library-descriptor descriptor)
   (let ((library (jazz:product-descriptor-library descriptor)))
-    (if library
-        (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: library)
-      (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor))))
+    (let ((options (or library '())))
+      (jazz:build-library (jazz:product-descriptor-name descriptor) descriptor options: library))))
 
 
 (define (jazz:install-product name)
@@ -1971,11 +1971,11 @@
            (iter (%%fx+ n 1) #t)))))
 
 
-(define (jazz:product-library-name-base package product-name)
-  (jazz:relocate-product-library-name-base (%%get-package-repository package) package product-name))
+(define (jazz:product-library-name-base package path)
+  (jazz:relocate-product-library-name-base (%%get-package-repository package) package path))
 
 
-(define (jazz:relocate-product-library-name-base repository package product-name)
+(define (jazz:relocate-product-library-name-base repository package path)
   (define (build-dir package)
     (let ((parent (%%get-package-parent package)))
       (jazz:repository-pathname repository
@@ -1984,7 +1984,7 @@
   
   (string-append (build-dir package)
                  "/"
-                 (%%symbol->string product-name)))
+                 path))
 
 
 ;;;

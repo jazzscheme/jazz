@@ -1889,32 +1889,8 @@
 
 
 (definition public (sort test seq (key: key #f))
-  (define (sort-list l smaller key)
-    (define (merge-sort l)
-      (define (merge l1 l2)
-        (cond ((null? l1) l2)
-              ((null? l2) l1)
-              (else
-               (let ((e1 (car l1)) (e2 (car l2)))
-                 (if (smaller (apply-key key e1) (apply-key key e2))
-                     (cons e1 (merge (cdr l1) l2))
-                   (cons e2 (merge l1 (cdr l2))))))))
-      
-      (define (split l)
-        (if (or (null? l) (null? (cdr l)))
-            l
-          (cons (car l) (split (cddr l)))))
-      
-      (if (or (null? l) (null? (cdr l)))
-          l
-        (let* ((l1 (merge-sort (split l)))
-               (l2 (merge-sort (split (cdr l)))))
-          (merge l1 l2))))
-    
-    (merge-sort l))
-  
   (if (null/pair? seq)
-      (sort-list seq test key)
+      (sort-list test seq key: key)
     ;; first draft to be optimized
     (coerce (sort test (coerce seq List) key: key) (class-of seq))))
 
@@ -4608,7 +4584,8 @@
           (mutex-unlock! mutex)
           (thunk))
         priority)
-      (mutex-lock! mutex))))
+      (mutex-lock! mutex)
+      (mutex-unlock! mutex))))
 
 
 (definition public (thread-execute thread name thunk (priority 0))
@@ -4622,7 +4599,8 @@
               (thunk)
             (mutex-unlock! mutex)))
         priority)
-      (mutex-lock! mutex))))
+      (mutex-lock! mutex)
+      (mutex-unlock! mutex))))
 
 
 (definition thread-call-noresult
@@ -4640,12 +4618,13 @@
       (mutex-lock! mutex)
       (mutex-specific-set! mutex thread-call-noresult)
       (thread-write thread
-                    (lambda ()
-                      (unwind-protect
-                          (mutex-specific-set! mutex (thunk))
-                        (mutex-unlock! mutex)))
-                    priority)
+        (lambda ()
+          (unwind-protect
+              (mutex-specific-set! mutex (thunk))
+            (mutex-unlock! mutex)))
+        priority)
       (mutex-lock! mutex)
+      (mutex-unlock! mutex)
       (mutex-specific mutex))))
 
 

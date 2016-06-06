@@ -45,7 +45,7 @@
 
 (cond-expand
   (cocoa
-    (define jazz:fontconfig-units
+    (define jazz:fontconfig-flags
       (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/include"))
             (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/lib"))
             (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/include"))
@@ -54,9 +54,9 @@
             (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path " -fpermissive"))
               (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
-          `((jazz.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
+          (list cc-flags ld-flags)))))
   (windows
-    (define jazz:fontconfig-units
+    (define jazz:fontconfig-flags
       (let ((fontconfig-include-path (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/include"))
             (fontconfig-lib-path     (jazz:quote-jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/lib"))
             (freetype-include-path   (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/include"))
@@ -66,12 +66,17 @@
             (zlib-lib-path           (jazz:quote-jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
         (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -fpermissive"))
               (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
-          `((jazz.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
+          (list cc-flags ld-flags)))))
   (else
-    (define jazz:fontconfig-units
-      (let ((cc-flags (jazz:pkg-config-cflags "fontconfig"))
+    (define jazz:fontconfig-flags
+      (let ((cc-flags (string-append (jazz:pkg-config-cflags "fontconfig") " -fpermissive"))
             (ld-flags (jazz:pkg-config-libs "fontconfig")))
-        `((jazz.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))))
+        (list cc-flags ld-flags)))))
+
+
+(define jazz:fontconfig-units
+  (jazz:bind (cc-flags ld-flags) jazz:fontconfig-flags
+    `((jazz.fontconfig cc-options: ,cc-flags ld-options: ,ld-flags))))
 
 
 (cond-expand
@@ -109,10 +114,29 @@
         (jazz:build-product-descriptor descriptor))))
 
 
+(define (jazz:fontconfig-library-options descriptor add-language)
+  (cond-expand
+    (cocoa
+      (let ((fontconfig-lib-path     (jazz:jazz-pathname "lib/jazz.fontconfig/foreign/mac/fontconfig/lib"))
+            (freetype-lib-path       (jazz:jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
+            (png-lib-path            (jazz:jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
+        (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
+    (windows
+      (let ((fontconfig-lib-path     (jazz:jazz-pathname "lib/jazz.fontconfig/foreign/windows/fontconfig/lib"))
+            (freetype-lib-path       (jazz:jazz-pathname "lib/jazz.freetype/foreign/windows/freetype/lib"))
+            (expat-lib-path          (jazz:jazz-pathname "lib/jazz.cairo/foreign/windows/expat/lib"))
+            (png-lib-path            (jazz:jazz-pathname "lib/jazz.cairo/foreign/windows/png/lib"))
+            (zlib-lib-path           (jazz:jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
+        (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" expat-lib-path " -L" png-lib-path " -L" zlib-lib-path " -lfontconfig")))
+    (else
+     (jazz:pkg-config-libs "fontconfig"))))
+
+
 ;;;
 ;;;; Register
 ;;;
 
 
 (jazz:register-product 'jazz.fontconfig
-  build: jazz:build-fontconfig))
+  build: jazz:build-fontconfig
+  library-options: jazz:fontconfig-library-options))

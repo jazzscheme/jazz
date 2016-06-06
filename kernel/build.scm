@@ -362,16 +362,16 @@
 
 
 (define (jazz:sort-configurations configurations)
-  (jazz:sort configurations
-             (lambda (c1 c2)
-               (let ((n1 (jazz:get-configuration-name c1))
-                     (n2 (jazz:get-configuration-name c2)))
-                 (cond ((not n1)
-                        #t)
-                       ((not n2)
-                        #f)
-                       (else
-                        (string-ci<? (symbol->string n1) (symbol->string n2))))))))
+  (jazz:sort-list (lambda (c1 c2)
+                    (let ((n1 (jazz:get-configuration-name c1))
+                          (n2 (jazz:get-configuration-name c2)))
+                      (cond ((not n1)
+                             #t)
+                            ((not n2)
+                             #f)
+                            (else
+                             (string-ci<? (symbol->string n1) (symbol->string n2))))))
+                  configurations))
 
 
 (define (jazz:register-configuration configuration)
@@ -1250,11 +1250,18 @@
     (jazz:delete-feedback 2))
   
   (define (library-file? file level)
-    (let ((ext (jazz:pathname-extension file)))
-      (or (jazz:extension? ext "lmf")
+    (let ((base (jazz:pathname-base file))
+          (ext (jazz:pathname-extension file)))
+      (or (and (jazz:string-ends-with? base "lmf")
+               (jazz:extension? ext "scm"))
           (jazz:numeric-extension? ext "l"))))
   
   (define (empty-libraries dir level)
+    (let ((static-dir (string-append dir "static/")))
+      (if (file-exists? static-dir)
+          (begin
+            (jazz:feedback "; deleting {a}..." static-dir)
+            (jazz:delete-directory static-dir))))
     (jazz:empty-directory dir
                           level
                           library-file?

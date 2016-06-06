@@ -42,6 +42,14 @@
 (import (jazz.audio.foreign))
 
 
+;; unfortunately cricket crashes on some systems
+(definition protected cricket?
+  #t)
+
+(definition protected (set-cricket? flag)
+  (set! cricket? flag))
+
+
 ;;;
 ;;;; Library
 ;;;
@@ -52,20 +60,23 @@
 
 
 (definition public (initialize-audio)
-  (unless audio-initialized?
-    (CricketInit)
-    (set! audio-initialized? #t)))
+  (when cricket?
+    (unless audio-initialized?
+      (CricketInit)
+      (set! audio-initialized? #t))))
 
 
 (definition public (shutdown-audio)
-  (when audio-initialized?
-    (CricketShutdown)
-    (set! audio-initialized? #f)))
+  (when cricket?
+    (when audio-initialized?
+      (CricketShutdown)
+      (set! audio-initialized? #f))))
 
 
 (definition public (update-audio)
-  (when audio-initialized?
-    (CricketUpdate)))
+  (when cricket?
+    (when audio-initialized?
+      (CricketUpdate))))
 
 
 (add-exit-job!
@@ -79,19 +90,21 @@
 
 
 (definition public (new-bank-sound path)
-  (new Sound (CricketNewBankSound (parse~ path))))
+  (new Sound (and cricket? (CricketNewBankSound (parse~ path)))))
 
 
 (definition public (new-stream-sound path)
-  (new Sound (CricketNewStreamSound (parse~ path))))
+  (new Sound (and cricket? (CricketNewStreamSound (parse~ path)))))
 
 
 (definition public (set-3d-attenuation near far)
-  (CricketSet3dAttenuation near far))
+  (when cricket?
+    (CricketSet3dAttenuation near far)))
 
 
 (definition public (set-3d-listener eyeX eyeY eyeZ lookingAtX lookingAtY lookingAtZ upX upY upZ)
-  (CricketSet3dListenerPosition eyeX eyeY eyeZ lookingAtX lookingAtY lookingAtZ upX upY upZ))
+  (when cricket?
+    (CricketSet3dListenerPosition eyeX eyeY eyeZ lookingAtX lookingAtY lookingAtZ upX upY upZ)))
 
 
 (class Sound extends Object
@@ -105,56 +118,74 @@
   
   
   (method override (destroy)
-    (CricketDestroy handle))
+    (when cricket?
+      (CricketDestroy handle)))
   
   
   (method public (ready?)
-    (CricketReady handle))
+    (if cricket?
+        (CricketReady handle)
+      #t))
   
   
   (method public (play)
-    (CricketPlay handle))
+    (when cricket?
+      (CricketPlay handle)))
   
   
   (method public (stop)
-    (CricketStop handle))
+    (when cricket?
+      (CricketStop handle)))
   
   
   (method public (playing?)
-    (CricketPlaying handle))
+    (if cricket?
+        (CricketPlaying handle)
+      #f))
   
   
   (method public (pause)
-    (CricketPause handle))
+    (when cricket?
+      (CricketPause handle)))
   
   
   (method public (resume)
-    (CricketResume handle))
+    (when cricket?
+      (CricketResume handle)))
   
   
   (method public (paused?)
-    (CricketPaused handle))
+    (if cricket?
+        (CricketPaused handle)
+      #f))
   
   
   (method public (set-loop)
-    (CricketSetLoop handle))
+    (when cricket?
+      (CricketSetLoop handle)))
   
   
   (method public (release-loop)
-    (CricketReleaseLoop handle))
+    (when cricket?
+      (CricketReleaseLoop handle)))
   
   
   (method public (get-volume)
-    (CricketGetVolume handle))
+    (if cricket?
+        (CricketGetVolume handle)
+      1.))
   
   
   (method public (set-volume volume)
-    (CricketSetVolume handle volume))
+    (when cricket?
+      (CricketSetVolume handle volume)))
   
   
   (method public (set-3d-enabled flag)
-    (CricketSet3dEnabled handle flag))
+    (when cricket?
+      (CricketSet3dEnabled handle flag)))
   
   
   (method public (set-3d-position x y z)
-    (CricketSet3dPosition handle x y z))))
+    (when cricket?
+      (CricketSet3dPosition handle x y z)))))

@@ -56,7 +56,7 @@
            ld-options: ,(string-append "-L" zlib-lib-path " -lz"))))))
   (else
    (define jazz:zlib-units
-     '())))
+     '((jazz.zlib.foreign cc-options: "-fpermissive")))))
 
 
 (cond-expand
@@ -94,10 +94,22 @@
         (jazz:build-product-descriptor descriptor unit: unit force?: force?))))
 
 
+(define (jazz:zlib-library-options descriptor add-language)
+  (cond-expand
+    (cocoa
+      (list "-lz.1"))
+    (windows
+      (let ((zlib-lib-path (jazz:jazz-pathname "lib/jazz.zlib/foreign/windows/zlib/lib")))
+        (list (string-append "-L" zlib-lib-path) "-lz")))
+    (else
+     '())))
+
+
 ;;;
 ;;;; Register
 ;;;
 
 
 (jazz:register-product 'jazz.zlib
-  build: jazz:build-zlib))
+  build: jazz:build-zlib
+  library-options: jazz:zlib-library-options))

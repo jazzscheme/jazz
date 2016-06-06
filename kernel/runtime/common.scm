@@ -116,6 +116,9 @@
 (define (jazz:link-libraries?)
   (%%memq 'libraries jazz:link-options))
 
+(define (jazz:link-static?)
+  (%%memq 'static jazz:link-options))
+
 (define jazz:jazzini
   ".jazzini")
 
@@ -579,7 +582,11 @@
 
 
 (define (jazz:quote-jazz-pathname suffix)
-  (jazz:quote-pathname (path-expand (string-append jazz:kernel-source suffix))))
+  (jazz:quote-pathname (jazz:jazz-pathname suffix)))
+
+
+(define (jazz:jazz-pathname suffix)
+  (path-expand (string-append jazz:kernel-source suffix)))
 
 
 (cond-expand
@@ -793,4 +800,4 @@
 
 
 (define jazz:Library-Extension "l")
-(define jazz:Library-Manifest-Suffix "_lmf"))
+(define jazz:Library-Manifest-Name "_lmf"))

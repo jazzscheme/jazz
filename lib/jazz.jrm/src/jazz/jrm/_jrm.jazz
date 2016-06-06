@@ -82,6 +82,7 @@
         (jazz.jrm.protocol)
         (jazz.event)
         (jazz.network)
+        (jazz.settings)
         (jazz.version))
 
 
@@ -160,14 +161,24 @@
     remote-listener))
 
 
-(definition public (start-remote-listener (default-host: default-host #f) (default-service: default-service #f) (default-alternate-service: default-alternate-service #f))
+(definition public (listen-parameter)
+  (host/service-parameter "listen" 'listen (values #f #f #f)))
+
+
+(definition public (host/service-parameter arg setting (default (unspecified)))
+  (get-parameter arg parse-host/service setting parse-host/service default))
+
+
+(definition public (start-remote-listener (host: host #f) (service: service #f) (alternate-service: alternate-service #f))
   (unless remote-listener
-    (receive (host service alternate-service) (command-host/service "listen")
-      (let ((server (new Remote-Listener host: (or host default-host Remote-Listener-Host) service: (or service default-service Remote-Listener-Service) alternate-service: (or alternate-service default-alternate-service))))
-        (start~ server)
-        (if (wait-started~ server error?: #f)
-            (set-remote-listener server)
-          (error "Unable to start remote listener"))))))
+    (receive (listen-host listen-service listen-alternate-service) (listen-parameter)
+      (let ((host (or host listen-host Remote-Listener-Host))
+            (service (or service listen-service Remote-Listener-Service))
+            (alternate-service (or alternate-service listen-alternate-service)))
+        (let ((server (new Remote-Listener host: host service: service alternate-service: alternate-service)))
+          (start~ server)
+          (set-remote-listener server)
+          (start-remote-switchboard))))))
 
 
 (definition public (stop-remote-listener)
@@ -262,7 +273,7 @@
       (throw-connection-broke)))
 
 
-(definition public (connect-uuid host service)
+(definition public (connect-uuid host service (slave? #f))
   (debug-jrm '-pump- 'start (list host service))
   (let ((port (open-tcp-client (list server-address: host port-number: service readtable: jazz-readtable))))
     (with-exception-catcher
@@ -276,15 +287,14 @@
             (close-port port)))
         (throw exc))
       (lambda ()
-        (let ((server (require-remote-listener)))
-          (let ((local-uuid (listening-uuid)))
-            (send-remote-message (list 'connect local-uuid) port)))
+        (let ((local-uuid (listening-uuid)))
+          (send-remote-message (list 'connect local-uuid) port))
         (let ((uuid (read-port port)))
           (when (eof-object? uuid)
             (throw-connection-broke))
           (thread-start! (new-thread
                            (lambda ()
-                             (process-pump uuid port))
+                             (process-pump uuid port slave?))
                            'jrm-pump))
           (table-set! *jrm-pumps* uuid port)
           (debug-jrm '-pump- 'started (list host service port))
@@ -346,17 +356,23 @@
          (error "Remote error while executing {s}: {a}" method-name result))))))
 
 
+;; quick hack to improve
+(definition public post-problem-handler
+  (make-parameter #f))
+
+
 (definition (invoke-remote kind method-name remote-proxy arguments)
   (define (make-absolute-timeout timeout)
     (seconds->systime (+ (systime->seconds (current-systime)) timeout)))
   
   (let ((proxy-ior (proxy->ior remote-proxy))
-        (invoke-thread (current-thread)))
+        (invoke-thread (current-thread))
+        (post-problem-handler (post-problem-handler)))
     (let ((uuid (get-uuid~ proxy-ior))
           (cookie (object->serial invoke-thread))
           (timeout (and (neq? kind 'post) (make-absolute-timeout (receive-timeout)))))
       (debug-jrm 'client 'send (list kind cookie method-name (get-ior~ remote-proxy) (and *debug-arguments?* arguments)))
-      (thread-send (require-remote-switchboard) (values 'invoke uuid (values invoke-thread timeout kind method-name proxy-ior arguments)))
+      (thread-send (require-remote-switchboard) (values 'invoke uuid (values invoke-thread post-problem-handler timeout kind method-name proxy-ior arguments)))
       (case kind
         ((post)
          (unspecified))
@@ -372,6 +388,14 @@
 ;;;
 
 
+;; aec quick hack
+(definition protected remote-problem-handler
+  #f)
+
+(definition protected (set-remote-problem-handler problem-handler)
+  (set! remote-problem-handler problem-handler))
+
+
 (definition package (process-remote port)
   (define (receive-remote-message port)
     (let ((timeout (receive-timeout)))
@@ -382,19 +406,23 @@
           (throw-connection-broke)
         info)))
   
-  (let ((message (receive-remote-message port)))
-    ;; connect-uuid might already have created a pump
-    ;; when both processes invoke simultaneously
-    (case (car message)
-      ((connect)
-       (bind (kind uuid) message
-         (with-jrm-mutex
-           (lambda ()
-             (table-set! *jrm-pumps* uuid port)))
-         (let ((server (require-remote-listener)))
+  (define (process)
+    (let ((message (receive-remote-message port)))
+      ;; connect-uuid might already have created a pump
+      ;; when both processes invoke simultaneously
+      (case (car message)
+        ((connect)
+         (bind (kind uuid) message
+           (with-jrm-mutex
+             (lambda ()
+               (table-set! *jrm-pumps* uuid port)))
            (let ((local-uuid (listening-uuid)))
-             (write-port port local-uuid)))
-         (process-pump uuid port))))))
+             (write-port port local-uuid))
+           (process-pump uuid port))))))
+  
+  (if remote-problem-handler
+      (remote-problem-handler process)
+    (process)))
 
 
 ;;;
@@ -402,15 +430,15 @@
 ;;;
 
 
-(definition (process-pump uuid port)
+(definition (process-pump uuid port (slave? #f))
   (declare (proper-tail-calls))
   (let (loop)
     (input-port-timeout-set! port +inf.0)
-    (let ((message (catch (Connection-Broke exc
+    (let ((message (catch (connection-problem? exc
+                            (when slave?
+                              (delay-event (lambda () (quit))))
                             (eof-object))
-                     (catch (Connection-Exception exc
-                              (eof-object))
-                       (read-port port)))))
+                     (read-port port))))
       (debug-jrm '-pump- 'read message)
       (thread-send (require-remote-switchboard) (values 'pump uuid message))
       (if (eof-object? message)
@@ -436,7 +464,7 @@
             ((exec) (list 'result cookie (unspecified)))
             ((call) (list 'result cookie result)))))
       
-      (if *debug-locally?*
+      (if (jazz.debuggee:get-controller-debugger)
           (dispatch-result message)
         (continuation-capture
           (lambda (return)
@@ -544,20 +572,21 @@
                        (invoke-thread message))
                    (table-set! invocations invoke-thread (list timeout uuid message))))
                 ((invoke)
-                 (receive (invoke-thread timeout kind method-name proxy-ior arguments) message
+                 (receive (invoke-thread post-problem-handler timeout kind method-name proxy-ior arguments) message
                    (debug-jrm 'server 'invoke (list (object->serial invoke-thread) timeout kind method-name proxy-ior arguments))
                    (assert (thread? invoke-thread))
                    (let ((cookie (object->serial invoke-thread)))
                      (with-exception-filter
                        (lambda (exc)
-                         (or (is? exc Connection-Exception)
-                             (is? exc Connection-Broke)))
+                         (connection-problem? exc))
                        (lambda (exc)
                          ;; post doesn't wait on mailbox
                          (if (eq? kind 'post)
-                             (post-event
-                               (lambda ()
-                                 (throw exc)))
+                             (if post-problem-handler
+                                 (post-problem-handler exc)
+                               (post-event
+                                 (lambda ()
+                                   (throw exc))))
                            (invocation-broke invoke-thread exc)))
                        (lambda ()
                          (let ((port (require-jrm-port uuid))
@@ -713,6 +742,15 @@
          (get-ior~ y)))
 
 
+(definition public (connect-remote proxy)
+  (let ((ior (get-ior~ proxy)))
+    (let ((uuid (get-uuid~ ior))
+          (host (get-host~ ior))
+          (service (get-service~ ior)))
+      (assert (uuid=? (connect-uuid (or host localhost) service)
+                      uuid)))))
+
+
 ;;;
 ;;;; Register
 ;;;
@@ -737,8 +775,8 @@
   (ior->proxy (new IOR uuid host port (serialize-runtime-reference (reference Register-Stub)) #f '())))
 
 
-(definition public (connect-remote-register host port)
-  (let ((uuid (connect-uuid host port)))
+(definition public (connect-remote-register host port (slave? #f))
+  (let ((uuid (connect-uuid host port slave?)))
     (new-remote-register uuid host port)))
 
 

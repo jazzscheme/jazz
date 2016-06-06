@@ -139,6 +139,7 @@
 (native jazz:compile-unit)
 (native jazz:build-unit)
 (native jazz:build-image)
+(native jazz:build-library)
 (native jazz:for-each-subunit)
 (native jazz:load-manifest)
 
@@ -719,6 +720,7 @@
 (native jazz:executable-extension)
 (native jazz:quote-pathname)
 (native jazz:quote-jazz-pathname)
+(native jazz:jazz-pathname)
 (native jazz:run-product)
 (native jazz:update-product)
 (native jazz:build-product)
@@ -790,6 +792,7 @@
 (native jazz:compiler-present?)
 (native jazz:compiler-name)
 (native jazz:compiler-extension)
+(native jazz:language-extension)
 (native jazz:add-exit-job!)
 (native jazz:log-backtrace)
 (native jazz:set-crash-reporter)
@@ -827,6 +830,7 @@
 (native jazz:list-copy)
 (native jazz:last-pair)
 (native jazz:proper-list)
+(native jazz:sort-list)
 
 ;; until high-level optimized
 (native jazz:kernel-some?)

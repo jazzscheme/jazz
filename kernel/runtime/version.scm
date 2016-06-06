@@ -575,7 +575,8 @@
       ("objects" objects)
       ("lib" libraries)
       ("libraries" libraries)
-      ("all" objects libraries)))
+      ("static" static)
+      ("all" objects libraries static)))
   
   (define (invalid option)
     (jazz:error "Invalid link option: {a}" option))

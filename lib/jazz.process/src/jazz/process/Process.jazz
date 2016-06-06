@@ -150,9 +150,15 @@
   
   
   (method (setup-debugging)
-    (when (and (not (controlling-terminal?)) (not (using-debugger?)))
-      (set-exception-debugger (application-exception-debugger))
-      (set-exception-hook exception-debugger-hook)))
+    (unless (using-debugger?)
+      (let ((exception-debugger (process-debugger)))
+        (when exception-debugger
+          (set-exception-debugger exception-debugger)
+          (set-exception-hook exception-debugger-hook)))))
+  
+  
+  (method protected virtual (process-debugger)
+    (application-exception-debugger))
   
   
   (method (monitor-memory)
@@ -824,17 +830,7 @@
   
   
   (method package (start-remote-server)
-    (receive (host service alternate-service) (listen-parameter)
-      (start-remote-listener default-host: host default-service: service default-alternate-service: alternate-service))
-    (start-remote-switchboard))
-  
-  
-  (method (listen-parameter)
-    (host/service-parameter "listen" 'listen (values #f #f #f)))
-  
-  
-  (method (host/service-parameter arg setting (default (unspecified)))
-    (get-parameter arg parse-host/service setting parse-host/service default))
+    (start-remote-listener))
   
   
   (method protected virtual (stop-servers)

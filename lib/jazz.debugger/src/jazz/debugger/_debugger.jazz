@@ -48,12 +48,6 @@
 
 
 (definition public (with-jrm-exception-handler process thunk)
-  (define (jrm-exception? exc)
-    (or (os-exception? exc)
-        (and (object? exc)
-             (or (is? exc Connection-Exception)
-                 (is? exc Connection-Broke)))))
-  
   (define (abort-connect?)
     (when (eq? (call-event
                  (lambda ()
@@ -74,7 +68,7 @@
   (when (not (and process
                   (not (get-alive?~ (get-debugger-manager) process))
                   (abort-connect?)))
-    (catch (jrm-exception? exc
+    (catch (connection-problem? exc
              (process-jrm-exception exc))
       (thunk))))
 
@@ -222,6 +216,11 @@
                        procedures)))
 
 
+;;;
+;;;; Configurations
+;;;
+
+
 (definition *process-configurations*
   (make-table test: debugged=? hash: debugged-hash))
 
@@ -238,8 +237,8 @@
 
 
 (definition public (registered-processes target)
-  (collect (lambda (kv)
-             (bind (process . configuration) kv
+  (collect (lambda (info)
+             (bind (process . configuration) info
                (when (equal? configuration target)
                  process)))
            (table->list *process-configurations*)))

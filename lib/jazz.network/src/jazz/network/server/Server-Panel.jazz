@@ -102,7 +102,7 @@
               ((help ?) (help-command arguments))
               ((reboot) (reboot-command arguments))
               ((quit) (quit-command arguments))
-              (else (error "Unknown command: {s}" command)))))))
+              (else (process-server-command command arguments)))))))
     
     (define (start-command arguments)
       (start-server))
@@ -114,7 +114,7 @@
       (restart-server))
     
     (define (info-command arguments)
-      (server-info))
+      (server-info (not-null? arguments)))
     
     (define (listener-command arguments)
       (let ((listener (get-remote-listener)))
@@ -200,9 +200,7 @@
     (define (start-server)
       (define (start-stopped)
         (start~ server)
-        (if (not (wait-started~ server error?: #f))
-            (error "Unable to start server")
-          (format output "Server started at {a}{%}" (server-at))))
+        (format output "Server started at {a}{%}" (server-at)))
       
       (define (format-exception exc)
         (cond ((os-exception? exc)
@@ -233,9 +231,7 @@
         (case state
           ((started)
            (stop~ server)
-           (if (not (wait-stopped~ server error?: #f))
-               (error "Unable to stop server")
-             (format output "Server stopped{%}")))
+           (format output "Server stopped{%}"))
           (else
            (format output "Server is {s}{%}" state)))))
     
@@ -244,19 +240,17 @@
         (case state
           ((stopped started)
            (restart~ server)
-           (if (not (wait-started~ server error?: #f))
-               (error "Unable to restart server")
-             (format output "Server restarted at {a}{%}" (server-at))))
+           (format output "Server restarted at {a}{%}" (server-at)))
           (else
            (format output "Server is {s}{%}" state)))))
     
-    (define (server-info)
+    (define (server-info detailed?)
       (format output "Server {a}{%}" (get-state~ server))
       (format output "  name                    : {a}{%}" (server-name~ server))
       (format output "  class                   : {a}{%}" (category-identifier (class-of server)))
       (format output "  host                    : {a}{%}" (or (server-host~ server) localhost))
       (format output "  service                 : {a}{%}" (server-service~ server))
-      (output-server-info output)
+      (output-server-info detailed? output)
       (format output "  hits                    : {a}{%}" (server-hits~ server))
       (format output "  debug?                  : {a}{%}" (server-debug?~ server)))
     
@@ -308,5 +302,9 @@
                (loop #t))))))
   
   
-  (method protected virtual (output-server-info output)
+  (method protected virtual (process-server-command command arguments)
+    (error "Unknown command: {s}" command))
+  
+  
+  (method protected virtual (output-server-info detailed? output)
     )))

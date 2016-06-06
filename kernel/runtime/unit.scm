@@ -1410,6 +1410,20 @@
   (%%make-table test: eq?))
 
 
+(define (jazz:register-run name proc)
+  (%%table-set! jazz:Products-Run-Table name proc))
+
+
+(define (jazz:registered-run name)
+  (or (%%table-ref jazz:Products-Run-Table name #f)
+      (jazz:error "Unable to find registered run: {s}" name)))
+
+
+(define (jazz:run-registered name)
+  (let ((proc (jazz:registered-run name)))
+    (proc)))
+
+
 (jazz:define-variable jazz:process-product
   #f)
 
@@ -1544,7 +1558,7 @@
 
 
 (define (jazz:register-product-run name proc)
-  (%%table-set! jazz:Products-Run-Table name proc))
+  (jazz:register-run name proc))
 
 
 (define (jazz:run-product name)
@@ -1554,13 +1568,9 @@
       (if run
           (begin
             (for-each jazz:load-unit run)
-            (let ((proc (get-registered-run name)))
+            (let ((proc (jazz:registered-run name)))
               (proc descriptor)))
         (jazz:error "Product is not runnable: {s}" name))))
-  
-  (define (get-registered-run name)
-    (or (%%table-ref jazz:Products-Run-Table name #f)
-        (jazz:error "Unable to find registered run: {s}" name)))
   
   (let ((product (jazz:setup-product name)))
     (let ((run (%%get-product-run product))

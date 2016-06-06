@@ -42,6 +42,19 @@
 
 
 ;;;
+;;;; Launch
+;;;
+
+
+(c-define (launch-application boot) (char-string) void "launch_application" ""
+  (jazz:load-unit 'foundation)
+  (jazz:load-unit 'jazz)
+  (let ((boot (string->symbol boot)))
+    (jazz:load-unit boot)
+    (jazz:run-registered boot)))
+
+
+;;;
 ;;;; Heartbeat
 ;;;
 
@@ -52,19 +65,4 @@
     (if (##global-var? thread-process)
         (let ((func (##global-var-ref thread-process)))
           (if (not (##unbound? func))
-              (func timeout: 0))))))
-
-
-(c-define (load-library path) (char-string) void "load_library" ""
-  (load path))
-
-
-#;
-(c-define (set-current-directory path) (char-string) void "set_current_directory" ""
-  (current-directory (path-directory path)))
-
-
-(c-define (launch-application boot-unit) (char-string) void "launch_application" ""
-  (jazz:load-unit 'foundation)
-  (jazz:load-unit 'jazz)
-  (jazz:load-unit (string->symbol boot-unit))))
+              (func timeout: 0)))))))

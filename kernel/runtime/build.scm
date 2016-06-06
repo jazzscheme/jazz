@@ -633,8 +633,8 @@
       
       (define (link-file)
         (if library-image?
-            (product-file (%%string-append "jazz" ".o1." (jazz:compiler-extension)))
-          (product-file (%%string-append "jazz" "." (jazz:compiler-extension)))))
+            (product-file (%%string-append image-name ".o1." (jazz:compiler-extension)))
+          (product-file (%%string-append image-name "." (jazz:compiler-extension)))))
       
       (define (generate-product rebuild?)
         (let ((file (product-file (%%string-append (product-filename) ".scm"))))
@@ -804,90 +804,98 @@
       (define (link-image)
         (let ((kernel-dir (jazz:pathname-normalize (jazz:pathname-dir (image-file))))
               (kernel-name (jazz:pathname-name (image-file)))
-              (c-files `(,(kernel-file "syntax/verbose.o")
-                         ,(kernel-file "_architecture.o")
-                         ,(product-file (string-append (product-filename) ".o"))
-                         ,(kernel-file "syntax/header.o")
-                         ,(kernel-file "syntax/macro.o")
-                         ,(kernel-file "syntax/block.o")
-                         ,(kernel-file "syntax/foreign.o")
-                         ,(kernel-file "syntax/expansion.o")
-                         ,(kernel-file "syntax/features.o")
-                         ,(kernel-file "syntax/declares.o")
-                         ,(kernel-file "syntax/primitives.o")
-                         ,(kernel-file "syntax/structure.o")
-                         ,(kernel-file "syntax/syntax.o")
-                         ,(kernel-file "syntax/runtime.o")
-                         ,(kernel-file "runtime/logging.o")
-                         ,(kernel-file "runtime/base.o")
-                         ,(kernel-file "runtime/record.o")
-                         ,(kernel-file "syntax/repository.o")
-                         ,(kernel-file "runtime/crash.o")
-                         ;; to test cross compiling
-                         ,(kernel-file "runtime/configuration.o")
-                         ,(kernel-file "runtime/embedded.o")
-                         ,(kernel-file "runtime/version.o")
-                         ,(kernel-file "runtime/common.o")
-                         ,(kernel-file "runtime/settings.o")
-                         ,(kernel-file "runtime/advise.o")
-                         ,@(if include-compiler?
-                               `(,(kernel-file "runtime/build.o"))
-                             '())
-                         ,(kernel-file "runtime/install.o")
-                         ,(kernel-file "runtime/digest.o")
-                         ,(kernel-file "runtime/unit.o")
-                         ,(kernel-file "runtime/readtable.o")
-                         ,(kernel-file "runtime/setup.o")
-                         ,(product-file (string-append (main-filename) ".o"))
-                         ,(link-file))))
-          (feedback-message "; linking {a}..." (if library-image? "library" "executable"))
-          (jazz:create-directories kernel-dir)
-          (if ios?
-              (let ((custom-cc-options (cons "-bundle" ios-custom-cc-options))
-                    (link-options (case compiler ((c++) '("-lc++")) (else '()))))
-                (jazz:invoke-process
-                  (list
-                    path: ios-custom-cc
-                    arguments: `(,@custom-cc-options ,@link-options ,(%%string-append "-I" ios-gambit-include-dir) ,(%%string-append "-L" ios-gambit-lib-dir) ,@c-files "-o" ,(string-append kernel-dir "/" kernel-name)))))
-            (jazz:gambitcomp
-              'exe
-              (jazz:pathname-normalize build-dir)
-              c-files
-              (string-append kernel-dir "/" kernel-name)
-              (string-append "-I" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
-              ""
-              (jazz:join-strings `(,(string-append "-L" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
-                                   ,@(gambit-link-libraries)
-                                   ,@(link-libraries)
-                                   ,@(resource-files)
-                                   ,@(link-options))
-                                 " ")
-              #f))
-          (case windowing
-            ((cocoa)
-             (jazz:call-process
-               (list
-                 path: "install_name_tool"
-                 arguments: `("-add_rpath" "@executable_path" ,(image-file))))
-             (if (and bundle (not library-image?))
-                 (jazz:call-process
-                   (list
-                     path: "install_name_tool"
-                     arguments: `("-add_rpath" "@executable_path/../../.." ,(image-file)))))))
-          (if ios?
-              (let ((id (and (jazz:global-bound? 'apple-developer-id)
-                             (jazz:global-ref 'apple-developer-id))))
-                (if id
-                    (begin
-                      (feedback-message "; signing {a}..." (if library-image? "library" "executable"))
-                      (jazz:call-process
-                        (list
-                          path: "/usr/bin/codesign"
-                          arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,(string-append kernel-dir "/" kernel-name))))))))
-          (case platform
-            ((windows)
-             (if (jazz:build-single-objects?)
-                 (jazz:obliterate-PE-timestamp (image-file) 'EXE))))))
+              (base-files `(,(kernel-file "syntax/verbose.o")
+                            ,(kernel-file "_architecture.o")
+                            ,(product-file (string-append (product-filename) ".o"))
+                            ,(kernel-file "syntax/header.o")
+                            ,(kernel-file "syntax/macro.o")
+                            ,(kernel-file "syntax/block.o")
+                            ,(kernel-file "syntax/foreign.o")
+                            ,(kernel-file "syntax/expansion.o")
+                            ,(kernel-file "syntax/features.o")
+                            ,(kernel-file "syntax/declares.o")
+                            ,(kernel-file "syntax/primitives.o")
+                            ,(kernel-file "syntax/structure.o")
+                            ,(kernel-file "syntax/syntax.o")
+                            ,(kernel-file "syntax/runtime.o")
+                            ,(kernel-file "runtime/logging.o")
+                            ,(kernel-file "runtime/base.o")
+                            ,(kernel-file "runtime/record.o")
+                            ,(kernel-file "syntax/repository.o")
+                            ,(kernel-file "runtime/crash.o")
+                            ;; to test cross compiling
+                            ,(kernel-file "runtime/configuration.o")
+                            ,(kernel-file "runtime/embedded.o")
+                            ,(kernel-file "runtime/version.o")
+                            ,(kernel-file "runtime/common.o")
+                            ,(kernel-file "runtime/settings.o")
+                            ,(kernel-file "runtime/advise.o")
+                            ,@(if include-compiler?
+                                  `(,(kernel-file "runtime/build.o"))
+                                '())
+                            ,(kernel-file "runtime/install.o")
+                            ,(kernel-file "runtime/digest.o")
+                            ,(kernel-file "runtime/unit.o")
+                            ,(kernel-file "runtime/readtable.o")
+                            ,(kernel-file "runtime/setup.o")))
+              (main-file (product-file (string-append (main-filename) ".o")))
+              (link-file (link-file)))
+          (let ((c-files (append base-files (%%list main-file link-file))))
+            (feedback-message "; linking {a}..." (if library-image? "library" "executable"))
+            (jazz:create-directories kernel-dir)
+            ;; static kernel
+            (jazz:call-process
+              (list
+                path: "ar"
+                arguments: `("-rcs"
+                             ,(product-file (string-append image-name ".a"))
+                             ,@base-files)))
+            (if ios?
+                (let ((custom-cc-options (cons "-bundle" ios-custom-cc-options))
+                      (link-options (case compiler ((c++) '("-lc++")) (else '()))))
+                  (jazz:invoke-process
+                    (list
+                      path: ios-custom-cc
+                      arguments: `(,@custom-cc-options ,@link-options ,(%%string-append "-I" ios-gambit-include-dir) ,(%%string-append "-L" ios-gambit-lib-dir) ,@c-files "-o" ,(string-append kernel-dir "/" kernel-name)))))
+              (jazz:gambitcomp
+                'exe
+                (jazz:pathname-normalize build-dir)
+                c-files
+                (string-append kernel-dir "/" kernel-name)
+                (string-append "-I" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~include")) platform))
+                ""
+                (jazz:join-strings `(,(string-append "-L" (jazz:quote-pathname (path-strip-trailing-directory-separator (path-normalize "~~lib")) platform))
+                                     ,@(gambit-link-libraries)
+                                     ,@(link-libraries)
+                                     ,@(resource-files)
+                                     ,@(link-options))
+                                   " ")
+                #f))
+            (case windowing
+              ((cocoa)
+               (jazz:call-process
+                 (list
+                   path: "install_name_tool"
+                   arguments: `("-add_rpath" "@executable_path" ,(image-file))))
+               (if (and bundle (not library-image?))
+                   (jazz:call-process
+                     (list
+                       path: "install_name_tool"
+                       arguments: `("-add_rpath" "@executable_path/../../.." ,(image-file)))))))
+            (if ios?
+                (let ((id (and (jazz:global-bound? 'apple-developer-id)
+                               (jazz:global-ref 'apple-developer-id))))
+                  (if id
+                      (begin
+                        (feedback-message "; signing {a}..." (if library-image? "library" "executable"))
+                        (jazz:call-process
+                          (list
+                            path: "/usr/bin/codesign"
+                            arguments: `("--force" "--sign" ,id "--preserve-metadata=identifier,entitlements" "--timestamp=none" ,(string-append kernel-dir "/" kernel-name))))))))
+            (case platform
+              ((windows)
+               (if (jazz:build-single-objects?)
+                   (jazz:obliterate-PE-timestamp (image-file) 'EXE)))))))
       
       (define (image-file)
         (cond ((and bundle (eq? windowing 'cocoa) (not library-image?))

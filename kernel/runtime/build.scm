@@ -506,6 +506,7 @@
           (compile-source-file "runtime/" "crash")
           ;; to test cross compiling
           (compile-source-file "runtime/" "configuration")
+          (compile-source-file "runtime/" "embedded")
           (compile-source-file "runtime/" "version")
           (compile-source-file "runtime/" "common")
           (compile-source-file "runtime/" "settings")
@@ -601,6 +602,7 @@
                                ,(kernel-file "runtime/crash")
                                ;; to test cross compiling
                                ,(kernel-file "runtime/configuration")
+                               ,(kernel-file "runtime/embedded")
                                ,(kernel-file "runtime/version")
                                ,(kernel-file "runtime/common")
                                ,(kernel-file "runtime/settings")
@@ -823,6 +825,7 @@
                          ,(kernel-file "runtime/crash.o")
                          ;; to test cross compiling
                          ,(kernel-file "runtime/configuration.o")
+                         ,(kernel-file "runtime/embedded.o")
                          ,(kernel-file "runtime/version.o")
                          ,(kernel-file "runtime/common.o")
                          ,(kernel-file "runtime/settings.o")

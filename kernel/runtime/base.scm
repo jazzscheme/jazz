@@ -177,7 +177,11 @@
 
 
 (define jazz:pathname-type
-  file-type)
+  (lambda (pathname)
+    (let ((type (file-type pathname)))
+      (if (eq? type 'regular)
+          'file
+        type))))
 
 (define jazz:pathname-exists?
   file-exists?)
@@ -243,7 +247,7 @@
 
 (define (jazz:directory-files directory)
   (jazz:collect-if (lambda (name)
-                     (%%eq? (jazz:pathname-type (string-append directory name)) 'regular))
+                     (%%eq? (jazz:pathname-type (string-append directory name)) 'file))
                    (jazz:directory-content directory)))
 
 
@@ -303,7 +307,7 @@
                         (sub-dst (string-append dst name)))
                     (if (or (%%eq? copy? #t) (copy? name level))
                         (case (jazz:pathname-type sub-src)
-                          ((regular)
+                          ((file)
                            (copy-file sub-src sub-dst))
                           ((directory)
                            (copy (string-append sub-src "/") (string-append sub-dst "/") (%%fx+ level 1)))))))

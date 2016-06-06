@@ -513,8 +513,8 @@
   (for-each (lambda (file)
               (let ((src-pathname (string-append src "/" file))
                     (dst-pathname (string-append dst "/" file)))
-                (case (file-info-type (file-info src-pathname))
-                  ((regular)
+                (case (jazz:pathname-type src-pathname)
+                  ((file)
                    (jazz:copy-file src-pathname dst-pathname feedback: #f)))))
             (directory-files src)))
 

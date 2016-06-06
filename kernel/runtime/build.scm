@@ -1295,7 +1295,7 @@
     (jazz:with-numbered-pathname (string-append library-base "." jazz:Library-Extension) #t 1
       (lambda (library-o1 o1-exists?)
         (let* ((static-dir (string-append library-dir "static/"))
-               (static-lib (string-append static-dir "lib" (%%symbol->string product-name) ".a"))
+               (static-lib (string-append static-dir (%%symbol->string product-name) ".a"))
                (static-o1 (string-append static-dir (jazz:pathname-name library-o1)))
                (linkfile (string-append static-o1 "." (jazz:compiler-extension)))
                (loader (string-append static-dir jazz:Library-Manifest-Name))
@@ -1305,41 +1305,49 @@
                (loader-o (string-append loader ".o"))
                (sub-units (%%car static-info))
                (ld-options (%%cadr static-info))
-               (unit-language (%%cddr static-info)))
+               (unit-language (%%cddr static-info))
+               (linked-files (%%cons loader-c
+                                     (map (lambda (subunit-name)
+                                            (jazz:with-unit-resources subunit-name #f
+                                              (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                                                (let ((extension (let ((pair (%%assq subunit-name unit-language)))
+                                                                   (if (%%not pair)
+                                                                       (jazz:compiler-extension)
+                                                                     (jazz:language-extension (%%cdr pair))))))
+                                                  (string-append (jazz:resource-pathname obj) "." extension)))))
+                                          sub-units))))
           (define (build-library)
             (jazz:load/create-build-package package)
             (jazz:make-static-loader loader-s product-name sub-units)
             (compile-file-to-target loader-s output: loader-c module-name: loader-name)
             (compile-file loader-c options: '(obj) cc-options: "-D___DYNAMIC ")
             
-            (let ()
-              (jazz:call-process
-                (list
-                  path: "ar"
-                  arguments: `("-rcs"
-                               ,static-lib
-                               ,loader-o
-                               ,@(map (lambda (subunit-name)
-                                        (jazz:with-unit-resources subunit-name #f
-                                          (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                            (%%string-append (jazz:resource-pathname obj) ".o"))))
-                                      sub-units)))))
+            (jazz:call-process
+              (list
+                path: "ar"
+                arguments: `("-rcs"
+                             ,static-lib
+                             ,loader-o
+                             ,@(map (lambda (subunit-name)
+                                      (jazz:with-unit-resources subunit-name #f
+                                        (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                                          (%%string-append (jazz:resource-pathname obj) ".o"))))
+                                    sub-units))))
+            
+            (let ((link-info (string-append static-dir (%%symbol->string product-name) ".link")))
+              (call-with-output-file (list path: link-info eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
+                (lambda (output)
+                  (for-each (lambda (file)
+                              (write file output)
+                              (newline output))
+                            linked-files))))
             
             (if (jazz:link-libraries?)
                 (begin
                   ;(feedback-message "; creating link file...")
                   (link-flat (map (lambda (module)
                                     (list module '(preload . #f)))
-                                  (%%cons loader-c
-                                          (map (lambda (subunit-name)
-                                                 (jazz:with-unit-resources subunit-name #f
-                                                   (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                                     (let ((extension (let ((pair (%%assq subunit-name unit-language)))
-                                                                        (if (%%not pair)
-                                                                            (jazz:compiler-extension)
-                                                                          (jazz:language-extension (%%cdr pair))))))
-                                                       (string-append (jazz:resource-pathname obj) "." extension)))))
-                                               sub-units)))
+                                  linked-files)
                              output: linkfile
                              warnings?: #f)
                   (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))

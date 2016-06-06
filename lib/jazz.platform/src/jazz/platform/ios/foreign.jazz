@@ -161,6 +161,19 @@
   //#)
 
 
+(c-external (platformDefaultsSetFloatForKey char-string float) void
+  #/Objective-C/
+  NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+  [userDefaults setFloat:___arg2 forKey:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
+  //#)
+
+
+(c-external (platformDefaultsGetFloatForKey char-string) float
+  #/Objective-C/
+  NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+  ___result=[userDefaults floatForKey:[NSString stringWithCString:___arg1 encoding:NSUTF8StringEncoding]];
+  //#)
+
 
 (c-external (platformDefaultsSetStringrForKey char-string char-string) void
   #/Objective-C/
@@ -2282,12 +2295,15 @@ extern void jazz_call_textfield_end_edit(UIView *);
   {
     [picker dismissViewControllerAnimated:YES completion:nil];
     NSLog(@"Picked image");
-    jazz_call_media_captured(picker,image);
+    UIImage *newImage = [UIImage imageWithCGImage:image.CGImage];
+    [newImage retain];
+    jazz_call_media_captured(picker,newImage);
   }
   
   - (void)imagePickerController:(UIImagePickerController *)picker
 didFinishPickingMediaWithInfo:(NSDictionary<NSString *, id> *)info
   {
+     [picker dismissViewControllerAnimated:YES completion:nil];
      NSString *type=[info objectForKey:UIImagePickerControllerMediaType];
      if([type isEqualToString:@"public.movie"])
      {
@@ -2298,7 +2314,9 @@ didFinishPickingMediaWithInfo:(NSDictionary<NSString *, id> *)info
      else
      {
         UIImage *image=[info objectForKey:UIImagePickerControllerEditedImage];
-        jazz_call_media_captured(picker,image);
+        UIImage *newImage = [UIImage imageWithCGImage:image.CGImage];
+        [newImage retain];
+        jazz_call_media_captured(picker,newImage);
      }
   }
                                                                                
@@ -2642,7 +2660,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<NSString *, id> *)info
  updatedTransactions:(NSArray *)transactions
 {
     for (SKPaymentTransaction *transaction in transactions) {
-             NSLog(@"Transaction: %@",transaction);
+             NSLog(@"Transaction: %@ state: %d",transaction,transaction.transactionState);
              jazz_call_transaction_state_change(transaction,transaction.transactionState);
     }
 }

@@ -233,7 +233,7 @@
     (and ios? "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang"))
   
   (define ios-custom-cc-options
-    (and ios? (list "-arch" (symbol->string ios-architecture) "-fmessage-length=0" "-I/Users/magnan/CDSCode/CDSProducts/TestCairo2/CouchbaseLite.framework/Headers" "-fdiagnostics-show-note-include-stack" "-fmacro-backtrace-limit=0" "-Wno-c++11-compat-deprecated-writable-strings" "-fmodules" "-gmodules"
+    (and ios? (list "-arch" (symbol->string ios-architecture) "-fmessage-length=0" "-I/Users/magnan/Downloads/couchbase-lite-ios-enterprise_1-3/CouchbaseLite.framework/Headers" "-fdiagnostics-show-note-include-stack" "-fmacro-backtrace-limit=0" "-Wno-c++11-compat-deprecated-writable-strings" "-fmodules" "-gmodules"
       "-Wnon-modular-include-in-framework-module" "-Werror=non-modular-include-in-framework-module" "-Wno-trigraphs" "-fpascal-strings" "-O0"
       "-fno-common" "-fno-objc-arc" "-Wno-shift-negative-value" "-Wno-missing-field-initializers" "-Wno-missing-prototypes" "-Werror=return-type" "-Wunreachable-code"
       "-Werror=deprecated-objc-isa-usage" "-Werror=objc-root-class" "-Wno-missing-braces" "-Wparentheses" "-Wswitch" "-Wempty-body"
@@ -247,7 +247,8 @@
   (define (compile)
     (let ((unique-module-name (%%string-append jazz:bin-uniqueness-prefix (%%symbol->string unit-name)))
           (src-pathname (jazz:resource-pathname src))
-          (bin-output (string-append bin-pathname-base bin-extension)))
+          (bin-output (string-append bin-pathname-base bin-extension))
+          (link-file-output (string-append bin-pathname-base "_" bin-extension)))
       (parameterize ((jazz:generate-symbol-for "^")
                      (jazz:generate-symbol-context unit-name)
                      (jazz:generate-symbol-counter 0)
@@ -270,7 +271,10 @@
                                   arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) "-D___DYNAMIC" ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output)
                                   show-console: #f)))
                           (compile-file bin-output options: (%%cons 'obj options) cc-options: (string-append "-D___DYNAMIC " cc-options))))))
-            (jazz:error "compilation failed")))))
+            (jazz:error "compilation failed")
+          
+          
+          ))))
   
   (define (update-manifest)
     (let ((digest-filepath (jazz:digest-pathname build-package src))

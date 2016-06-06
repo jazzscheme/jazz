@@ -267,10 +267,7 @@
                                   arguments: `(,@custom-cc-options ,(%%string-append "-I" gambit-include-dir) "-D___DYNAMIC" ,@(jazz:split-string cc-options #\space) "-c" "-o" ,(string-append bin-pathname-base ".o") ,bin-output)
                                   show-console: #f)))
                           (compile-file bin-output options: (%%cons 'obj options) cc-options: (string-append "-D___DYNAMIC " cc-options))))))
-            (jazz:error "compilation failed")
-          
-          
-          ))))
+            (jazz:error "compilation failed")))))
   
   (define (update-manifest)
     (let ((digest-filepath (jazz:digest-pathname build-package src))

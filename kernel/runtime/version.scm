@@ -573,9 +573,9 @@
   (define link-options
     '(("obj" objects)
       ("objects" objects)
-      ("lib" libraries)
-      ("libraries" libraries)
-      ("static" static)
+      ("lib" objects libraries)
+      ("libraries" objects libraries)
+      ("static" objects static)
       ("all" objects libraries static)))
   
   (define (invalid option)

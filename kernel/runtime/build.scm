@@ -1306,16 +1306,15 @@
                (sub-units (%%car static-info))
                (ld-options (%%cadr static-info))
                (unit-language (%%cddr static-info))
-               (linked-files (%%cons loader-c
-                                     (map (lambda (subunit-name)
-                                            (jazz:with-unit-resources subunit-name #f
-                                              (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
-                                                (let ((extension (let ((pair (%%assq subunit-name unit-language)))
-                                                                   (if (%%not pair)
-                                                                       (jazz:compiler-extension)
-                                                                     (jazz:language-extension (%%cdr pair))))))
-                                                  (string-append (jazz:resource-pathname obj) "." extension)))))
-                                          sub-units))))
+               (linked-files (map (lambda (subunit-name)
+                                    (jazz:with-unit-resources subunit-name #f
+                                      (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+                                        (let ((extension (let ((pair (%%assq subunit-name unit-language)))
+                                                           (if (%%not pair)
+                                                               (jazz:compiler-extension)
+                                                             (jazz:language-extension (%%cdr pair))))))
+                                          (string-append (jazz:resource-pathname obj) "." extension)))))
+                                  sub-units)))
           (define (build-library)
             (jazz:load/create-build-package package)
             (jazz:make-static-loader loader-s product-name sub-units)
@@ -1340,14 +1339,15 @@
                   (for-each (lambda (file)
                               (write file output)
                               (newline output))
-                            linked-files))))
+                            (%%cons loader-c linked-files)))))
             
             (if (jazz:link-libraries?)
                 (begin
                   ;(feedback-message "; creating link file...")
-                  (link-flat (map (lambda (module)
-                                    (list module '(preload . #f)))
-                                  linked-files)
+                  (link-flat (%%cons loader-c
+                                     (map (lambda (module)
+                                            (cons module '((preload . #f))))
+                                          linked-files))
                              output: linkfile
                              warnings?: #f)
                   (feedback-message "; linking library... ({a} units)" (%%number->string (%%length sub-units)))

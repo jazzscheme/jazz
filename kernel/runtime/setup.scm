@@ -248,9 +248,7 @@ c-end
   (jazz:iterate-table libraries
     (lambda (product-name library-filename)
       (let ((pathname (path-normalize library-filename)))
-        (jazz:load-binary pathname #t)
-        (let ((header-name (%%string->symbol (string-append jazz:product-uniqueness-prefix (%%symbol->string product-name)))))
-          (##load-required-module header-name))))))
+        (jazz:load-binary pathname #t)))))
 
 
 ; this function is called from the library header when loading

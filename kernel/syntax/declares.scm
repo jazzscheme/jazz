@@ -52,6 +52,7 @@
                 
                 (not inline)
                 
+                #; ;; don't think we need those for the kernel
                 ,@(if jazz:kernel-optimize?
                        '()
                      '((not proper-tail-calls)

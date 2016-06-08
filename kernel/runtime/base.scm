@@ -402,6 +402,7 @@
 
 
 (define (jazz:split-command-line arguments options-with-no-args options-with-args missing-argument-for-option cont)
+  (declare (proper-tail-calls))
   (define (split-commands arguments)
     (let iter ((commands '()) (arguments arguments))
       (if (or (%%null? arguments)

@@ -1,0 +1,204 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Java Syntax
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.editor.java.syntax.Java-Syntax jazz
+
+
+(import (jazz.editor.clike)
+        (jazz.editor.java)
+        (jazz.preferences))
+
+
+(class Java-Syntax extends CLike-Syntax
+  
+  
+  (method override (preferences)
+    (get-preferences '(documents java-text)))
+  
+  
+  ;;;
+  ;;;; Constituents
+  ;;;
+  
+  
+  (method override (get-constituent-test)
+    c-constituent?)
+  
+  
+  ;;;
+  ;;;; Completion
+  ;;;
+  
+  
+  (method override (auto-complete-char? key last)
+    (or (eqv? key #\_)
+        (and (upper-case? key)
+             (and last (lower-case? last)))
+        (not (text-constituent? key))))
+
+
+  (method override (favorite-completions)
+    (get-completions~ (preferences)))
+
+
+  ;;;
+  ;;;; Explorer
+  ;;;
+
+
+  (method override (explorer-class)
+    Java-Explorer)
+
+  
+  ;;;
+  ;;;; Keywords
+  ;;;
+  
+  
+  (constant Keywords
+    '("package"
+      "import"
+      "static"
+      "class"
+      "extends"
+      "implements"
+      "abstract"
+      "const"
+      "enum"
+      "extern"
+      "new"
+      "delete"
+      "operator"
+      "sizeof"
+      "this"
+      "inline"
+      "typedef"
+      "public"
+      "protected"
+      "private"
+      "virtual"
+      "final"
+      "if"
+      "else"
+      "while"
+      "for"
+      "do"
+      "switch"
+      "case"
+      "default"
+      "break"
+      "continue"
+      "return"
+      "try"
+      "catch"
+      "throw"
+      "null"
+      "true"
+      "false"
+      "void"
+      "boolean"
+      "char"
+      "int"
+      "long"
+      "short"
+      "unsigned"
+      "float"
+      "double"))
+  
+  
+  (method override (get-keywords)
+    Keywords)
+    
+  
+  ;;;
+  ;;;; Profile
+  ;;;
+
+  
+  (method override (get-profile-macros profile)
+    (get-macros~ (get-preferences '(documents java-text))))
+
+  
+  (method override (get-profile-keywords profile)
+    (get-keywords~ (get-preferences '(documents java-text))))
+
+  
+  (method override (get-profile-types profile)
+    (get-types~ (get-preferences '(documents java-text))))
+
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (definition Syntax-Targets
+    #f)
+  
+  (definition Syntax-Automata
+    #f)
+  
+  
+  (method override (syntax-targets)
+    (unless Syntax-Targets
+      (set! Syntax-Targets (compute-syntax-targets)))
+    Syntax-Targets)
+  
+  
+  (method override (syntax-automata)
+    (unless Syntax-Automata
+      (set! Syntax-Automata (compute-syntax-automata)))
+    Syntax-Automata)
+  
+  
+  (method override (colorize-entries)
+    )
+  
+  
+  ;;;
+  ;;;; Styles
+  ;;;
+  
+  
+  (definition Comment-Styles
+    '(Title Line-Comment Balanced-Comment))
+  
+  
+  (method override (comment-style? style)
+    (some? (lambda (style-name)
+             (inherits?~ style style-name))
+           Comment-Styles))))

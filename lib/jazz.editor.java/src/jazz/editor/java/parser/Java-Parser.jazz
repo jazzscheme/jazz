@@ -66,32 +66,34 @@
       (loop (for n from 0 below (cardinality lines))
             (do
               (let* ((line (vector-ref lines n))
-                     (item #f @wait (find-function lines line n)))
+                     (item (or (find-package line n)
+                               (find-import line n)
+                               (find-definition line n))))
                 (when item (put~ fact item)))))
       (get-output~ fact)))
     
     ;;;
-    ;;;; Sharp Define
+    ;;;; Package
     ;;;
     
-    (define sharp-define
-      "#define")
+    (define package
+      "package")
     
-    (define (find-sharp-define line n)
+    (define (find-package line n)
       (let ((len (string-length line))
             (col (skip-whitespace line)))
-        (when (and (> len (+ col (string-length sharp-define)))
-                   (string=? sharp-define (substring line col (+ col (string-length sharp-define)))))
-          (let* ((start (+ col (string-length sharp-define)))
+        (when (and (> len (+ col (string-length package)))
+                   (string=? package (substring line col (+ col (string-length package)))))
+          (let* ((start (+ col (string-length package)))
                  (col (skip-whitespace line start: start)))
             (when (and (> col start) (< col len))
               (let* ((start col)
-                     (col (skip (lambda (c) (or (c-constituent? c))) line start: start)))
-                (when (and (> col start) (<= col len))
-                  (new Java-Define-Entry (subseq line start col) n start n col))))))))
+                     (col (skip (lambda (c) (or (c-constituent? c) (eqv? c #\period))) line start: start)))
+                (when (and (> col start) (< col len))
+                  (new Java-Package-Entry (subseq line start col) n start n col))))))))
     
     ;;;
-    ;;;; Import Heuristic
+    ;;;; Import
     ;;;
     
     (define import
@@ -104,29 +106,64 @@
                    (string=? import (substring line col (+ col (string-length import)))))
           (let* ((start (+ col (string-length import)))
                  (col (skip-whitespace line start: start)))
-            (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
-              (let* ((start (+ col 1))
+            (when (and (> col start) (< col len))
+              (let* ((start col)
                      (col (skip (lambda (c) (or (c-constituent? c) (eqv? c #\period))) line start: start)))
-                (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
+                (when (and (> col start) (< col len))
                   (new Java-Import-Entry (subseq line start col) n start n col))))))))
     
     ;;;
-    ;;;; Function Heuristic
+    ;;;; Definition
     ;;;
     
-    (define (find-function lines line n)
-      (let ((len (string-length line)))
-        (when (and (> len 0)
-                   (eqv? (string-ref line 0) #\{))
-          (continuation-capture
-            (lambda (return)
-              (loop (for i from (- n 1) downto 0)
-                    (do
-                          (let ((line (vector-ref lines i)))
-                            (let ((end (skip c-constituent? line)))
-                              (when (> end 0)
-                                (continuation-return return
-                                                     (new Java-Export-Entry (subseq line 0 end) i 0 i end)))))))
-              #f)))))
+    (define visibilities
+      '("private"
+        "protected"
+        "public"))
+    
+    (define modifiers
+      '())
+    
+    (define (find-definition line n)
+      (let ((len (string-length line))
+            (col (skip-whitespace line)))
+        (when (some? (lambda (visibility)
+                       (and (> len (+ col (string-length visibility)))
+                            (string=? visibility (substring line col (+ col (string-length visibility))))))
+                     visibilities)
+          (let ((col (search line " = ")))
+            (if col
+                (let ((start (skip c-constituent? line reversed?: #t start: col)))
+                  (new Java-Definition-Entry (subseq line start col) n start n col))
+              (let ((last (string-ref line (- len 1))))
+                (cond ((search line " throws ")
+                       =>
+                       (lambda (pos)
+                         (let ((start (search line "(" reversed?: #t start: pos)))
+                           (when start
+                             (let ((col start))
+                               (let ((start (skip c-constituent? line reversed?: #t start: col)))
+                                 (new Java-Definition-Entry (subseq line start col) n start n col)))))))
+                      ((eqv? last #\))
+                       (let ((start (search line "(" reversed?: #t start: len)))
+                         (when start
+                           (let ((col start))
+                             (let ((start (skip c-constituent? line reversed?: #t start: col)))
+                               (new Java-Definition-Entry (subseq line start col) n start n col))))))
+                      ((eqv? last #\;)
+                       (let ((col (- len 1)))
+                         (let ((start (skip c-constituent? line reversed?: #t start: col)))
+                           (new Java-Definition-Entry (subseq line start col) n start n col))))
+                      ((let ((try (lambda (str)
+                                    (let ((pos (search line str)))
+                                      (and pos (+ pos (string-length str)))))))
+                         (or (try " class ")
+                             (try " interface ")
+                             (try " enum ")))
+                       => (lambda (start)
+                            (let ((col (skip c-constituent? line start: start)))
+                              (new Java-Definition-Entry (subseq line start col) n start n col))))
+                      (else
+                       #f))))))))
     
     (new Java-File-Entry catalog file digest dialect (parse-definitions)))))

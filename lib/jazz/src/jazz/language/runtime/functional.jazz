@@ -2164,15 +2164,18 @@
             #f))))))
 
 
-(definition public (skip predicate <procedure> seq <Object> (key: key #f) (start: start 0))
+(definition public (skip predicate <procedure> seq <Object> (key: key #f) (start: start #f) (reversed?: reversed? #f))
   (continuation-capture
     (lambda (return)
-      (let ((iterator (iterate-sequence seq)))
-        (set-position~ iterator start)
+      (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
+        (when start
+          (set-position~ iterator start))
         (iterate iterator
                  (lambda (object)
                    (when (not (predicate (apply-key key object)))
-                     (continuation-return return (- (get-position~ iterator) 1)))))
+                     (continuation-return return (if reversed?
+                                                     (+ (get-position~ iterator) 1)
+                                                   (- (get-position~ iterator) 1))))))
         (get-position~ iterator)))))
 
 

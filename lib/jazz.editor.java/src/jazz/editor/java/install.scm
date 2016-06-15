@@ -39,10 +39,9 @@
 
 
 (jazz:define-literal Java-File-Entry       jazz.editor.java.literals:construct-java-file-entry)
-(jazz:define-literal Java-Category-Entry   jazz.editor.java.literals:construct-java-category-entry)
-(jazz:define-literal Java-Define-Entry     jazz.editor.java.literals:construct-java-define-entry)
+(jazz:define-literal Java-Package-Entry    jazz.editor.java.literals:construct-java-package-entry)
 (jazz:define-literal Java-Import-Entry     jazz.editor.java.literals:construct-java-import-entry)
-(jazz:define-literal Java-Export-Entry     jazz.editor.java.literals:construct-java-export-entry)
+(jazz:define-literal Java-Definition-Entry jazz.editor.java.literals:construct-java-definition-entry)
 
 
 (jazz:register-coupler 'catalog

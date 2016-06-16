@@ -42,7 +42,21 @@
         (jazz.editor.java))
 
 
+;; TODO
+;; - save definition start & end needed for search-client
+;; - scan text of definition to extract references
+;;   - include all line for class, instance, variable, ...
+;;   - for functions will only need to manage comments,
+;;     strings, open close brackets and whitespace vs
+;;     constituent i think
+
+
 (class Java-Parser extends File-Parser
+  
+  
+  (definition ignored-references
+    (let ((syntax (new Java-Syntax #f)))
+      (get-keywords~ syntax)))
   
   
   ;;;
@@ -68,7 +82,7 @@
               (let* ((line (vector-ref lines n))
                      (item (or (find-package line n)
                                (find-import line n)
-                               (find-definition line n))))
+                               (find-definition lines line n))))
                 (when item (put~ fact item)))))
       (get-output~ fact)))
     
@@ -124,20 +138,91 @@
     (define modifiers
       '())
     
-    (define (find-definition line n)
+    (define (collect-references lines l c endl name)
+      (declare (proper-tail-calls))
+      (let ((references '())
+            (count (vector-length lines))
+            (line (vector-ref lines l)))
+        (let ((len (string-length line)))
+          (define (get)
+            (if (< c len)
+                (prog1 (string-ref line c)
+                  (increase! c))
+              (let ((nl (+ l 1)))
+                (if (and endl (>= nl endl))
+                    #f
+                  (let (iter (nl nl))
+                    (if (>= nl count)
+                        #f
+                      (let ((nline (vector-ref lines nl)))
+                        (if (empty-string? nline)
+                            (iter (+ nl 1))
+                          (set! l nl)
+                          (set! line nline)
+                          (set! len (string-length line))
+                          (set! c 0)
+                          (string-ref line c)))))))))
+          
+          (define (add reference)
+            (unless (or (equal? reference name)
+                        (member? reference ignored-references)
+                        (member? reference references))
+              (set! references (cons reference references))))
+          
+          (define (process level)
+            (process-character level (get)))
+          
+          (define (process-character level c)
+            (cond ((not c))
+                  ((whitespace? c)
+                   (process level))
+                  ((c-constituent? c)
+                   (process-constituent level c))
+                  ((eqv? c #\{)
+                   (process-open level))
+                  ((eqv? c #\})
+                   (process-close level))
+                  (else
+                   (process level))))
+          
+          (define (process-constituent level c)
+            (let ((constituent (string c)))
+              (let (iter)
+                (let ((c (get)))
+                  (if (and c (c-constituent? c))
+                      (begin
+                        (set! constituent (string-append constituent (string c)))
+                        (iter))
+                    (add constituent)
+                    (process-character level c))))))
+          
+          (define (process-open level)
+            (process (+ level 1)))
+          
+          (define (process-close level)
+            (let ((new-level (- level 1)))
+              (when (or endl (> new-level 0))
+                (process new-level))))
+          
+          (process 0)
+          (values l c references))))
+    
+    (define (find-definition lines line n)
       (let ((len (string-length line))
-            (col (skip-whitespace line))
+            (line-start (skip-whitespace line))
             (visibility #f))
         (when (some? (lambda (vis)
-                       (when (and (> len (+ col (string-length vis)))
-                                  (string=? vis (substring line col (+ col (string-length vis)))))
-                         (set! visibility (+ col (string-length vis)))
+                       (when (and (> len (+ line-start (string-length vis)))
+                                  (string=? vis (substring line line-start (+ line-start (string-length vis)))))
+                         (set! visibility (+ line-start (string-length vis)))
                          #t))
                      visibilities)
           (let ((col (search line " = ")))
             (if col
                 (let ((start (skip c-constituent? line reversed?: #t start: col)))
-                  (new Java-Definition-Entry (subseq line start col) n start n col))
+                  (let ((name (subseq line start col)))
+                    (receive (endl endc references) (collect-references lines n line-start (+ n 1) name)
+                      (new Java-Definition-Entry name n start n col n line-start endl endc references))))
               (let ((last (string-ref line (- len 1))))
                 (define (constructor?)
                   (let ((pos (skip c-constituent? line start: (+ visibility 1))))
@@ -153,17 +238,23 @@
                             (when start
                               (let ((col start))
                                 (let ((start (skip c-constituent? line reversed?: #t start: col)))
-                                  (new Java-Definition-Entry (subseq line start col) n start n col)))))))
+                                  (let ((name (subseq line start col)))
+                                    (receive (endl endc references) (collect-references lines n line-start #f name)
+                                      (new Java-Definition-Entry name n start n col n line-start endl endc references)))))))))
                       ((eqv? last #\))
                        (let ((start (search line "(" reversed?: #t start: len)))
                          (when start
                            (let ((col start))
                              (let ((start (skip c-constituent? line reversed?: #t start: col)))
-                               (new Java-Definition-Entry (subseq line start col) n start n col))))))
+                               (let ((name (subseq line start col)))
+                                 (receive (endl endc references) (collect-references lines n line-start #f name)
+                                   (new Java-Definition-Entry name n start n col n line-start endl endc references))))))))
                       ((eqv? last #\;)
                        (let ((col (- len 1)))
                          (let ((start (skip c-constituent? line reversed?: #t start: col)))
-                           (new Java-Definition-Entry (subseq line start col) n start n col))))
+                           (let ((name (subseq line start col)))
+                             (receive (endl endc references) (collect-references lines n line-start (+ n 1) name)
+                               (new Java-Definition-Entry name n start n col n line-start endl endc references))))))
                       ((let ((try (lambda (str)
                                     (let ((pos (search line str)))
                                       (and pos (+ pos (string-length str)))))))
@@ -172,7 +263,9 @@
                              (try " enum ")))
                        => (lambda (start)
                             (let ((col (skip c-constituent? line start: start)))
-                              (new Java-Definition-Entry (subseq line start col) n start n col))))
+                              (let ((name (subseq line start col)))
+                                (receive (endl endc references) (collect-references lines n line-start (+ n 1) name)
+                                  (new Java-Definition-Entry name n start n col n line-start endl endc references))))))
                       (else
                        #f))))))))
     

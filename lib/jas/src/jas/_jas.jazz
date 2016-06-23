@@ -49,11 +49,14 @@
     (format output "Usage:{%}")
     (format output "  jas init{%}")
     (format output "  jas config{%}")
-    (format output "  jas ls{%}")
     (format output "  jas add{%}")
+    (format output "  jas remove{%}")
+    (format output "  jas list{%}")
     (format output "  jas commit{%}")
     (format output "  jas status{%}")
+    (format output "  jas diff{%}")
     (format output "  jas log{%}")
+    (format output "  jas parse{%}")
     (format output "  jas retrieve{%}")
     (format output "{%}")
     (format output "Help:{%}")
@@ -85,14 +88,6 @@
              (format output "Unknown jas config command: {a}" command))))))
 
 
-(definition package (jas$ls arguments)
-  (let ((repo (jas-open (jas-directory "."))))
-    (let ((index (jas-staging-index repo)))
-      (for-each (lambda (entry)
-                  (apply debug entry))
-                (get-entries~ index)))))
-
-
 (definition package (jas$add arguments)
   (let ((path (car arguments))
         (repo (jas-open (jas-directory ".")))
@@ -100,11 +95,19 @@
     (jas-add repo path)))
 
 
-(definition package (jas$rm arguments)
+(definition package (jas$remove arguments)
   (let ((path (car arguments))
         (repo (jas-open (jas-directory ".")))
         (output (current-output-port)))
     (jas-remove repo path)))
+
+
+(definition package (jas$list arguments)
+  (let ((repo (jas-open (jas-directory "."))))
+    (let ((index (jas-staging-index repo)))
+      (for-each (lambda (entry)
+                  (apply debug entry))
+                (get-entries~ index)))))
 
 
 (definition package (jas$commit arguments)
@@ -126,13 +129,20 @@
   (let ((repo (jas-open (jas-directory ".")))
         (output (current-output-port)))
     (let ((diff (jas-status repo)))
-      (for-each (lambda (change)
-                  (bind (what path) change
-                    (case what
-                      ((added)    (format output "    \033[32madded:    {a}\033[39;49m{%}" path))
-                      ((removed)  (format output "    \033[31mremoved:  {a}\033[39;49m{%}" path))
-                      ((modified) (format output "    \033[33mmodified: {a}\033[39;49m{%}" path)))))
-                (get-changes~ diff)))))
+      (describe-diff diff output))))
+
+
+(definition package (jas$diff arguments)
+  (let ((repo (jas-open (jas-directory ".")))
+        (output (current-output-port)))
+    (if (null? arguments)
+        (jas$status arguments)
+      (let ((from-commit (jas-parse repo (car arguments)))
+            (to-commit (jas-parse repo (cadr arguments))))
+        (let ((from-index (jas-commit-index repo from-commit))
+              (to-index (jas-commit-index repo to-commit)))
+          (let ((diff (jas-diff repo from-index to-index)))
+            (describe-diff diff output)))))))
 
 
 (definition package (jas$log arguments)
@@ -153,11 +163,48 @@
               (iter parent))))))))
 
 
+(definition package (jas$parse arguments)
+  (let ((repo (jas-open (jas-directory ".")))
+        (output (current-output-port)))
+    (let ((rev (car arguments)))
+      (let ((revision (jas-parse repo rev)))
+        (if revision
+            (format output "{a}{%}" revision)
+          (format output "Unknown revision: {a}{%}" rev))))))
+
+
 (definition package (jas$retrieve arguments)
   (let ((repo (jas-open (jas-directory ".")))
         (output (current-output-port)))
     (let ((digest (car arguments)))
       (pp (jas-retrieve repo digest) output))))
+
+
+(definition package (jas$test arguments)
+  (let ((repo (jas-open (jas-directory ".")))
+        (output (current-output-port)))
+    ))
+
+
+;;;
+;;;; Describe
+;;;
+
+
+(definition (describe-index index output)
+  (for-each (lambda (entry)
+              (apply debug entry))
+            (get-entries~ index)))
+
+
+(definition (describe-diff diff output)
+  (for-each (lambda (change)
+              (bind (what path) change
+                (case what
+                  ((added)    (format output "    \033[32madded:    {a}\033[39;49m{%}" path))
+                  ((removed)  (format output "    \033[31mremoved:  {a}\033[39;49m{%}" path))
+                  ((modified) (format output "    \033[36mmodified: {a}\033[39;49m{%}" path)))))
+            (get-changes~ diff)))
 
 
 ;;;

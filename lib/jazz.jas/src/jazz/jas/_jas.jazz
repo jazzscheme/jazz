@@ -107,10 +107,6 @@
   (remove~ repo path))
 
 
-(definition public (jas-update-index repo)
-  (update-index~ repo))
-
-
 (definition public (jas-head-index repo)
   (head-index~ repo))
 
@@ -123,8 +119,20 @@
   (staging-index~ repo))
 
 
+(definition public (jas-commit-index repo commit)
+  (commit-index~ repo commit))
+
+
 (definition public (jas-status repo)
   (status~ repo))
+
+
+(definition public (jas-diff repo from to)
+  (diff~ repo from to))
+
+
+(definition public (jas-parse repo rev)
+  (parse~ repo rev))
 
 
 (definition public (jas-retrieve repo digest)
@@ -153,7 +161,7 @@
     (set! directory~self (new-directory~ working ".jas"))
     (set! config (new-file~ directory "config"))
     (set! head (new-file~ directory "HEAD"))
-    (set! index (new JAS-Index self file: (new-file~ directory "index")))
+    (set! index (new JAS-Index self working file: (new-file~ directory "index")))
     (set! objects (new-directory~ directory "objects")))
   
   
@@ -235,6 +243,10 @@
   ;;;
   
   
+  (method (exists? digest)
+    (exists?~ (new-file~ objects digest)))
+  
+  
   (method (retrieve digest)
     (call-with-input-file (path-settings (new-file~ objects digest))
       read))
@@ -255,6 +267,11 @@
         (let ((commit (write-content content)))
           (write-head commit)
           commit))))
+  
+  
+  (method (commit-parent commit)
+    (bind (author email message tree parent time) (retrieve commit)
+      parent))
   
   
   ;;;
@@ -293,21 +310,12 @@
           (error "Unable to find {a}" path)))))
   
   
-  (method (update-index)
-    (let ((head-entries (get-entries~ (head-index))))
-      (set! index (new JAS-Index self file: (new-file~ directory "index") entries: head-entries))
-      (save~ index)))
-  
-  
   (method (head-index)
-    (let ((head (read-head)))
-      (assert head)
-      (bind (author email message tree parent time) (retrieve head)
-        (tree-index tree))))
+    (commit-index (require-head)))
   
   
   (method (working-index)
-    (prog1 (new JAS-Index self entries: (scan-directory #f working base: index))
+    (prog1 (new JAS-Index self working entries: (scan-directory #f working base: index))
       (save~ index)))
   
   
@@ -315,8 +323,13 @@
     index)
   
   
+  (method (commit-index commit)
+    (bind (author email message tree parent time) (retrieve commit)
+      (tree-index tree)))
+  
+  
   (method (tree-index tree)
-    (new JAS-Index self entries: (scan-tree tree)))
+    (new JAS-Index self #f entries: (scan-tree tree)))
   
   
   (method (scan-file path file (base: base #f))
@@ -371,7 +384,36 @@
   
   
   (method (index->tree index)
-    )
+    (let ((directory (get-directory~ index))
+          (entries (get-entries~ index)))
+      (define (gather prefix)
+        (let ((len (string-length prefix))
+              (queue (new-queue)))
+          (define (prefix-change path)
+            (let ((slash (search path "/" start: len)))
+              (when slash
+                (substring path 0 (+ slash 1)))))
+          
+          (let (iter)
+            (if (null? entries)
+                (write-tree (queue-list queue))
+              (let ((entry (car entries)))
+                (bind (path digest seconds) entry
+                  (if (starts-with? path prefix)
+                      (let ((slash (search path "/" start: len)))
+                        (if (not slash)
+                            (let ((file (new-file~ directory path)))
+                              (enqueue queue (list 'blob (get-name~ file) digest))
+                              (set! entries (cdr entries))
+                              (iter))
+                          (let ((name (substring path len slash))
+                                (new-prefix (substring path 0 (+ slash 1))))
+                            (enqueue queue (list 'tree name (gather new-prefix)))
+                            (iter))))
+                    (write-tree (queue-list queue)))))))))
+      
+      (assert directory)
+      (gather "")))
   
   
   ;;;
@@ -384,9 +426,9 @@
       (merge-ordered (lambda (what key left right)
                        (case what
                          ((:left)
-                          (enqueue queue (list 'added key)))
-                         ((:right)
                           (enqueue queue (list 'removed key)))
+                         ((:right)
+                          (enqueue queue (list 'added key)))
                          ((:same)
                           (let ((from-entry (find-entry~ from key))
                                 (to-entry (find-entry~ to key)))
@@ -405,7 +447,7 @@
   
   
   (method (status)
-    (diff (staging-index) (head-index)))
+    (diff (head-index) (staging-index)))
   
   
   ;;;
@@ -423,7 +465,32 @@
   (method (read-head)
     (when (exists?~ head)
       (call-with-input-file (path-settings head)
-        read))))
+        read)))
+  
+  
+  (method (require-head)
+    (let ((head (read-head)))
+      (assert head)
+      head))
+  
+  
+  ;;;
+  ;;;; Revisions
+  ;;;
+  
+  
+  (method (parse rev)
+    (cond ((starts-with? rev "HEAD" ignore-case?: #t)
+           (let ((parents (substring rev (string-length "HEAD") (string-length rev))))
+             (if (equal? parents (make-string (string-length parents) #\^))
+                 (let (iter (commit (require-head)) (count (string-length parents)))
+                   (if (<= count 0)
+                       commit
+                     (iter (commit-parent commit) (- count 1))))
+               (error "Invalid revision: {a}" rev))))
+          (else
+           (and (exists? rev)
+                rev)))))
 
 
 ;;;
@@ -435,13 +502,15 @@
   
   
   (slot repository getter generate)
+  (slot directory  getter generate)
   (slot file       getter generate)
   (slot paths      getter generate)
   (slot entries    getter generate)
   
   
-  (method override (initialize repository (file: file #f) (entries: entries #f))
+  (method override (initialize repository directory (file: file #f) (entries: entries #f))
     (set! repository~self repository)
+    (set! directory~self directory)
     (set! file~self file)
     (set! paths~self (make-table test: equal?))
     (set! entries~self (or entries (if (and file (exists?~ file))

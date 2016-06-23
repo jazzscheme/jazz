@@ -1,0 +1,563 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Associative Storage
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.jas jazz
+
+
+(import (jazz.io)
+        (jazz.settings)
+        (jazz.time)
+        (time))
+
+
+;;;
+;;;; Interface
+;;;
+
+
+(definition public (jas-init working)
+  (let ((dir (new-directory~ working ".jas")))
+    (create-directories~ (new-directory~ dir "objects"))
+    (new JAS-Repository working)))
+
+
+(definition public (jas-open working)
+  (new JAS-Repository working))
+
+
+(definition public (jas-config-get repo key)
+  (config-get~ repo key))
+
+
+(definition public (jas-config-set repo key value)
+  (config-set~ repo key value))
+
+
+(definition public (jas-write repo pathname)
+  (write-pathname~ repo pathname))
+
+
+(definition public (jas-write-file repo file)
+  (write-file~ repo file))
+
+
+(definition public (jas-write-directory repo dir)
+  (write-directory~ repo dir))
+
+
+(definition public (jas-write-tree repo content)
+  (write-tree~ repo content))
+
+
+(definition public (jas-staging-tree repo)
+  (staging-tree~ repo))
+
+
+(definition public (jas-commit repo author email message tree parent)
+  (commit~ repo author email message tree parent))
+
+
+(definition public (jas-write-head repo commit)
+  (write-head~ repo commit))
+
+
+(definition public (jas-read-head repo)
+  (read-head~ repo))
+
+
+(definition public (jas-add repo path)
+  (add~ repo path))
+
+
+(definition public (jas-remove repo path)
+  (remove~ repo path))
+
+
+(definition public (jas-update-index repo)
+  (update-index~ repo))
+
+
+(definition public (jas-head-index repo)
+  (head-index~ repo))
+
+
+(definition public (jas-working-index repo)
+  (working-index~ repo))
+
+
+(definition public (jas-staging-index repo)
+  (staging-index~ repo))
+
+
+(definition public (jas-status repo)
+  (status~ repo))
+
+
+(definition public (jas-retrieve repo digest)
+  (retrieve~ repo digest))
+
+
+;;;
+;;;; Repository
+;;;
+
+
+(class JAS-Repository extends Object
+  
+  
+  (slot working                 getter generate)
+  (slot directory               getter generate)
+  (slot config                  getter generate)
+  (slot head                    getter generate)
+  (slot index                   getter generate)
+  (slot objects                 getter generate)
+  (slot settings  initialize #f getter generate)
+  
+  
+  (method override (initialize working)
+    (set! working~self working)
+    (set! directory~self (new-directory~ working ".jas"))
+    (set! config (new-file~ directory "config"))
+    (set! head (new-file~ directory "HEAD"))
+    (set! index (new JAS-Index self file: (new-file~ directory "index")))
+    (set! objects (new-directory~ directory "objects")))
+  
+  
+  ;;;
+  ;;;; Config
+  ;;;
+  
+  
+  (method (config-get key)
+    (let ((settings (config-settings)))
+      (get-setting~ settings key)))
+  
+  
+  (method (config-set key value)
+    (let ((settings (config-settings)))
+      (set-setting~ settings key value)
+      (save-content~ settings)))
+  
+  
+  (method (config-settings)
+    (unless (exists?~ config)
+      (create~ config))
+    (new File-Settings file: config))
+  
+  
+  ;;;
+  ;;;; Write
+  ;;;
+  
+  
+  (method (write-pathname pathname)
+    (cond ((file? pathname)
+           (write-file pathname))
+          ((directory? pathname)
+           (write-directory pathname))
+          (else
+           (error "Unable to write {s}" pathname))))
+  
+  
+  (method (write-file file)
+    (let ((digest (digest-file (parse~ file) 'SHA-1)))
+      (copy-file~ file (new-file~ objects digest))
+      digest))
+  
+  
+  (method (write-directory dir)
+    (let ((queue (new-queue)))
+      (iterate-directory~ dir
+        (lambda (pathname)
+          (let ((name (get-name~ pathname)))
+            (unless (member? name '(".jas" ".git" ".DS_Store"))
+              (if (file? pathname)
+                  (enqueue queue (list 'blob name (write-file pathname)))
+                (enqueue queue (list 'tree name (write-directory pathname)))))))
+        files?: #t
+        directories?: #t
+        recursive?: #f
+        sort?: #t
+        sort-type?: #f
+        sort-test: ci<?)
+      (let ((tree (queue-list queue)))
+        (write-tree tree))))
+  
+  
+  (method (write-tree tree)
+    (write-content tree))
+  
+  
+  (method (write-content content)
+    (let ((digest (digest-u8vector (object->u8vector content) 'SHA-1)))
+      (call-with-output-file (path-settings (new-file~ objects digest))
+        (lambda (output)
+          (pp content output)))
+      digest))
+  
+  
+  ;;;
+  ;;;; Retrieve
+  ;;;
+  
+  
+  (method (retrieve digest)
+    (call-with-input-file (path-settings (new-file~ objects digest))
+      read))
+  
+  
+  ;;;
+  ;;;; Commit
+  ;;;
+  
+  
+  (method (staging-tree)
+    (index->tree index))
+  
+  
+  (method (commit author email message tree parent)
+    (let ((time (date->string (system-date) "~a ~b ~d ~H:~M:~S ~Y ~z")))
+      (let ((content (list author email message tree parent time)))
+        (let ((commit (write-content content)))
+          (write-head commit)
+          commit))))
+  
+  
+  ;;;
+  ;;;; Index
+  ;;;
+  
+  
+  (method (add path)
+    (let ((path (normalize-path path)))
+      (cond ((not path)
+             (add-directory~ index #f working))
+            ((ends-with? path "/")
+             (add-directory~ index path (new-directory~ working path)))
+            (else
+             (add-file~ index path (new-file~ working path))))))
+  
+  
+  (method (remove path)
+    (let ((path (normalize-path path)))
+      (cond ((not path)
+             (remove-directory~ index #f working))
+            ((ends-with? path "/")
+             (remove-directory~ index path (new-directory~ working path)))
+            (else
+             (remove-file~ index path (new-file~ working path))))))
+  
+  
+  (method (normalize-path path)
+    (if (equal? path ".")
+        #f
+      (let ((pathname (string-append (parse~ working) path)))
+        (if (file-exists? pathname)
+            (case (pathname-type pathname)
+              ((file) path)
+              (else (normalize-directory path)))
+          (error "Unable to find {a}" path)))))
+  
+  
+  (method (update-index)
+    (let ((head-entries (get-entries~ (head-index))))
+      (set! index (new JAS-Index self file: (new-file~ directory "index") entries: head-entries))
+      (save~ index)))
+  
+  
+  (method (head-index)
+    (let ((head (read-head)))
+      (assert head)
+      (bind (author email message tree parent time) (retrieve head)
+        (tree-index tree))))
+  
+  
+  (method (working-index)
+    (prog1 (new JAS-Index self entries: (scan-directory #f working base: index))
+      (save~ index)))
+  
+  
+  (method (staging-index)
+    index)
+  
+  
+  (method (tree-index tree)
+    (new JAS-Index self entries: (scan-tree tree)))
+  
+  
+  (method (scan-file path file (base: base #f))
+    (let ((seconds (get-modification-seconds~ file)))
+      (or (and base (let ((entry (find-entry~ base path)))
+                      (and entry
+                           (bind (entry-path entry-digest entry-seconds) entry
+                             (if (not entry-seconds)
+                                 #f
+                                 @todo-correctly
+                                 (let ((digest (digest-file (parse~ file) 'SHA-1)))
+                                   (if (equal? entry-digest digest)
+                                       ;; update seconds
+                                       (begin
+                                         (set-third! entry seconds)
+                                         (list path digest seconds))))
+                               (and (= entry-seconds seconds)
+                                    entry))))))
+          (list path (digest-file (parse~ file) 'SHA-1) seconds))))
+  
+  
+  (method (scan-directory dirpath dir (base: base #f))
+    (let ((entries (new-queue)))
+      (iterate-directory~ dir
+        (lambda (path kind)
+          (let ((file (new-file~ dir path)))
+            (let ((subpath (join path "/")))
+              (enqueue entries (scan-file (if (not dirpath) subpath (string-append dirpath subpath))  file base: base)))))
+        full?: #f
+        files?: #t
+        directories?: #f
+        recursive?: #t
+        ignored-toplevel-dirnames: '(".jas" ".git")
+        sort?: #t
+        sort-type?: #f
+        sort-test: ci<?)
+      (queue-list entries)))
+  
+  
+  (method (scan-tree tree)
+    (let ((entries (new-queue)))
+      (define (scan prefix tree)
+        (for-each (lambda (entry)
+                    (bind (kind path digest) entry
+                      (case kind
+                        ((blob) (enqueue entries (list (string-append prefix path) digest #f)))
+                        ((tree) (scan (string-append prefix path "/") digest)))))
+                  (retrieve tree)))
+      
+      (scan "" tree)
+      (queue-list entries)))
+  
+  
+  (method (index->tree index)
+    )
+  
+  
+  ;;;
+  ;;;; Diff
+  ;;;
+  
+  
+  (method (diff from to)
+    (let ((queue (new-queue)))
+      (merge-ordered (lambda (what key left right)
+                       (case what
+                         ((:left)
+                          (enqueue queue (list 'added key)))
+                         ((:right)
+                          (enqueue queue (list 'removed key)))
+                         ((:same)
+                          (let ((from-entry (find-entry~ from key))
+                                (to-entry (find-entry~ to key)))
+                            (unless (equal? (second from-entry)
+                                            (second to-entry))
+                              (enqueue queue (list 'modified key)))))))
+                     (get-entries~ from)
+                     (get-entries~ to)
+                     key: car)
+      (new JAS-Diff (queue-list queue))))
+  
+  
+  ;;;
+  ;;;; Status
+  ;;;
+  
+  
+  (method (status)
+    (diff (staging-index) (head-index)))
+  
+  
+  ;;;
+  ;;;; References
+  ;;;
+  
+  
+  (method (write-head commit)
+    (call-with-output-file (path-settings head)
+      (lambda (output)
+        (write commit output)
+        (newline output))))
+  
+  
+  (method (read-head)
+    (when (exists?~ head)
+      (call-with-input-file (path-settings head)
+        read))))
+
+
+;;;
+;;;; Index
+;;;
+
+
+(class JAS-Index extends Object
+  
+  
+  (slot repository getter generate)
+  (slot file       getter generate)
+  (slot paths      getter generate)
+  (slot entries    getter generate)
+  
+  
+  (method override (initialize repository (file: file #f) (entries: entries #f))
+    (set! repository~self repository)
+    (set! file~self file)
+    (set! paths~self (make-table test: equal?))
+    (set! entries~self (or entries (if (and file (exists?~ file))
+                                       (load)
+                                     '())))
+    (setup-paths))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (let ((len (length entries)))
+          (format output "with {a} entr{a}" (format-cardinality len) (format-y/ies len))))))
+  
+  
+  (method (setup-paths)
+    (for-each (lambda (entry)
+                (table-set! paths (car entry) entry))
+              entries))
+  
+  
+  (method (load)
+    (call-with-input-file (path-settings file)
+      read-all))
+  
+  
+  (method (save)
+    (call-with-output-file (path-settings file)
+      (lambda (output)
+        (for-each (lambda (entry)
+                    (format output "{s}{%}" entry))
+                  entries))))
+  
+  
+  (method (updating path test proc)
+    (let (iter (prev #f) (scan entries))
+      (if (null? scan)
+          (proc prev scan)
+        (let ((entry (car scan)))
+          (let ((entry-path (car entry)))
+            (if (test entry-path path)
+                (iter prev (cdr scan))
+              (case (ci-compare entry-path path)
+                ((:less)
+                 (iter scan (cdr scan)))
+                ((:equal)
+                 (proc prev (cdr scan)))
+                ((:greater)
+                 (proc prev scan)))))))))
+  
+  
+  (method (update path test added)
+    (updating path test
+      (lambda (prev next)
+        (cond ((not prev)
+               (if (null? added)
+                   (set! entries next)
+                 (set-cdr! (last-pair added) next)
+                 (set! entries added)))
+              (else
+               (if (null? added)
+                   (set-cdr! prev next)
+                 (set-cdr! prev added)
+                 (set-cdr! (last-pair added) next))))))
+    entries)
+  
+  
+  (method (add-file path file)
+    (update path ci=? (list (scan-file~ repository path file base: self)))
+    (save))
+  
+  
+  (method (add-directory path directory)
+    (update path (directory-test path) (scan-directory~ repository path directory base: self))
+    (save))
+  
+  
+  (method (remove-file path file)
+    (update path ci=? '())
+    (save))
+  
+  
+  (method (remove-directory path directory)
+    (update path (directory-test path) '())
+    (save))
+  
+  
+  (method (directory-test path)
+    (if (not path)
+        (lambda (entry-path path)
+          #t)
+      (lambda (entry-path path)
+        (starts-with? entry-path path ignore-case?: #t))))
+  
+  
+  (method (find-entry path)
+    (table-ref paths path #f)))
+
+
+;;;
+;;;; Diff
+;;;
+
+
+(class JAS-Diff extends Object
+  
+  
+  (slot changes getter generate)
+  
+  
+  (method override (initialize changes)
+    (set! changes~self changes))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (let ((len (length changes)))
+          (format output "with {a} change{a}" (format-cardinality len) (format-plural len))))))))

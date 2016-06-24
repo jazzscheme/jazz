@@ -63,6 +63,20 @@
 
 
 ;;;
+;;;; Exception Handling
+;;;
+
+
+;; remote exception handling is a difficult
+;; problem that will need more looking into
+(definition protected transmit-exceptions?
+  #f)
+
+(definition (set-transmit-exceptions? flag)
+  (set! transmit-exceptions? flag))
+
+
+;;;
 ;;;; Connection Broke
 ;;;
 
@@ -100,12 +114,14 @@
 
 
 (definition public (with-connection thunk)
-  (with-exception-filter
-    (lambda (exc)
-      (is-not? exc Connection-Broke))
-    (lambda (exc)
-      (throw (new Connection-Exception exc)))
-    thunk))
+  (if (not transmit-exceptions?)
+      (thunk)
+    (with-exception-filter
+      (lambda (exc)
+        (is-not? exc Connection-Broke))
+      (lambda (exc)
+        (throw (new Connection-Exception exc)))
+      thunk)))
 
 
 (definition public (connection-problem? exc)

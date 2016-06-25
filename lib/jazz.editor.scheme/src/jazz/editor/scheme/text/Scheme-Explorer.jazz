@@ -272,13 +272,15 @@
   
   
   (method (walk-define context symbol form declaration keyword expression doc)
-    (let ((entry context))
-      (keyword context start end)
+    (let ((entry context)
+          (recolorizing-inner? (and line-hook (> (get-col~ start) 1))))
+      (when (not recolorizing-inner?)
+        (keyword context start end))
       (forward-whites)
       (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
         (when list?
           (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol))
+        (when (and (forward-expr) (eq? kind 'symbol) (not recolorizing-inner?))
           (set! entry (declaration context 'define '() symbol '() #f start end (get-marked) #f)))
         (when list?
           (walk-parameters entry declaration keyword expression doc))
@@ -324,13 +326,15 @@
   
   
   (method (walk-define-macro context symbol form declaration keyword expression doc)
-    (let ((entry context))
-      (keyword context start end)
+    (let ((entry context)
+          (recolorizing-inner? (and line-hook (> (get-col~ start) 1))))
+      (when (not recolorizing-inner?)
+        (keyword context start end))
       (forward-whites)
       (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
         (when list?
           (enter-list))
-        (when (and (forward-expr) (eq? kind 'symbol))
+        (when (and (forward-expr) (eq? kind 'symbol) (not recolorizing-inner?))
           (set! entry (declaration context 'define-macro '() symbol '() #f start end (get-marked) #f)))
         (when list?
           (walk-expressions entry expression 'code #f))
@@ -341,14 +345,16 @@
   
   
   (method (walk-define-syntax context symbol form declaration keyword expression doc)
-    (let ((entry context))
-      (keyword context start end)
+    (let ((entry context)
+          (recolorizing-inner? (and line-hook (> (get-col~ start) 1))))
+      (when (not recolorizing-inner?)
+        (keyword context start end))
       (let ((modifiers (walk-modifiers context declaration keyword (get-modifiers~ form))))
         (forward-whites)
         (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
           (when list?
             (enter-list))
-          (when (and (forward-expr) (eq? kind 'symbol))
+          (when (and (forward-expr) (eq? kind 'symbol) (not recolorizing-inner?))
             (set! entry (declaration context 'define-macro modifiers symbol '() #f start end (get-marked) #f)))
           (when list?
             (walk-expressions entry expression 'code #f))

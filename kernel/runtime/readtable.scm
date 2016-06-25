@@ -126,22 +126,22 @@
       (let ((lst (%%build-list re #t start-pos #\})))
         (jazz:readenv-wrap re
                            (cond ;; do not read
-                             ((or (%%not (jazz:read-literals?)) (jazz:in-expression-comment?))
-                              #f)
-                             ;; empty literal
-                             ((%%null? lst)
-                              (%%unspecified))
-                             ;; walk
-                             ((jazz:walk-for)
-                              (jazz:load-foundation)
-                              (jazz:new-literal (%%car lst) (%%cdr lst)))
-                             ;; read
-                             (else
-                              (let ((name (%%car lst))
-                                    (arguments (%%cdr lst))
-                                    (hook (jazz:read-literal-hook)))
-                                (or (and hook (hook name arguments))
-                                    (jazz:construct-literal name arguments))))))))))
+                                 ((or (%%not (jazz:read-literals?)) (jazz:in-expression-comment?))
+                                  #f)
+                                 ;; empty literal
+                                 ((%%null? lst)
+                                  (%%unspecified))
+                                 ;; walk
+                                 ((jazz:walk-for)
+                                  (jazz:load-foundation)
+                                  (jazz:new-literal (%%car lst) (%%cdr lst)))
+                                 ;; read
+                                 (else
+                                  (let ((name (%%car lst))
+                                        (arguments (%%cdr lst))
+                                        (hook (jazz:read-literal-hook)))
+                                    (or (and hook (hook name arguments))
+                                        (jazz:construct-literal name arguments))))))))))
 
 
 (define (jazz:read-comment re c)

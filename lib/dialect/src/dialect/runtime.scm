@@ -5180,6 +5180,9 @@
     (let ((module-declaration (jazz:get-declaration-toplevel declaration)))
       (let ((import-invoices (walk-imports (jazz:filter-features (%%cdr form)))))
         ;; so units with errors are not added to the module when evaluating code
+        #;
+        ;; commented as this is not correct and creates problems in the
+        ;; worker by loading code when only doing a code walk expansion
         (%%when (%%eq? (jazz:walk-for) 'eval)
           (for-each (lambda (import-invoice)
                       (let ((module-declaration (jazz:get-module-invoice-module import-invoice)))

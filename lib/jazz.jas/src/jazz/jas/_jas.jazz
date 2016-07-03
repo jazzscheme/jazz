@@ -41,6 +41,7 @@
 (import (jazz.io)
         (jazz.settings)
         (jazz.time)
+        (jazz.zlib)
         (time))
 
 
@@ -191,6 +192,16 @@
       (call-with-output-file (path-settings (new-file~ objects digest))
         (lambda (output)
           (pp content output)))
+      digest))
+  
+  
+  (method (write-file file digest)
+    (write-blob (load-binary~ file) digest))
+  
+  
+  (method (write-blob content digest)
+    (let ((objects-file (new-file~ objects digest)))
+      (save-binary~ objects-file (zlib-deflate content))
       digest))
   
   
@@ -359,6 +370,7 @@
                       (let ((slash (search path "/" start: len)))
                         (if (not slash)
                             (let ((file (new-file~ directory path)))
+                              (write-file file digest)
                               (enqueue queue (list 'blob (get-name~ file) digest))
                               (set! entries (cdr entries))
                               (iter))

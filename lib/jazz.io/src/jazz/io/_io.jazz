@@ -1204,7 +1204,7 @@
   
   
   ;;;
-  ;;;; Input/Output
+  ;;;; Lines
   ;;;
 
 
@@ -1216,7 +1216,28 @@
   (method override (save-lines lines (char-encoding: char-encoding #f) (eol-encoding: eol-encoding #f))
     (call-with-output-file (path-settings self char-encoding: (or char-encoding 'UTF-8) eol-encoding: eol-encoding)
       (lambda (output)
-        (write-lines output lines)))))
+        (write-lines output lines))))
+  
+  
+  ;;;
+  ;;;; Binary
+  ;;;
+
+
+  (method (load-binary)
+    (call-with-input-file (path-settings self)
+      (lambda (port)
+        (let ((fileSize <fx> (input-port-byte-position port 0 2)))
+          (input-port-byte-position port 0)
+          (let ((content (make-u8vector fileSize)))
+            (read-subu8vector content 0 fileSize port)
+            content)))))
+
+
+  (method (save-binary content)
+    (call-with-output-file (path-settings self)
+      (lambda (port)
+        (write-subu8vector content 0 (u8vector-length content) port)))))
 
 
 (definition public inline (file? object)

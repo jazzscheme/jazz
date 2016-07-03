@@ -121,15 +121,21 @@
             (email (or email (jas-config-get repo 'user.email)))
             (tree (jas-staging-tree repo))
             (parent (or parent (jas-read-head repo))))
-        (let ((commit (jas-commit repo author email message tree parent)))
+        (let ((commit (jas-commit repo author email message tree (and parent (jas-resolve repo parent)))))
           (format output "{a}" commit))))))
 
 
 (definition package (jas$status arguments)
   (let ((repo (jas-open (jas-directory ".")))
         (output (current-output-port)))
-    (let ((diff (jas-status repo)))
-      (describe-diff diff output))))
+    (let ((head (jas-read-head repo))
+          (diff (jas-status repo)))
+      (if (string? head)
+          (format output "HEAD detached at {a}{%}" head)
+        (format output "On branch {a}{%}" (cadr head)))
+      (when (not-null? (get-changes~ diff))
+        (format output "{%}")
+        (describe-diff diff output)))))
 
 
 (definition package (jas$diff arguments)
@@ -151,7 +157,7 @@
     (let ((head (jas-read-head repo)))
       (if (not head)
           (format output "Your current head does not have any commits yet")
-        (let (iter (commit head))
+        (let (iter (commit (jas-resolve repo head)))
           (bind (author email message digest parent time) (jas-retrieve repo commit)
             (format output "\033[33mcommit {a}\033[39;49m{%}" commit)
             (format output "Author: {a} <{a}>{%}" author email)

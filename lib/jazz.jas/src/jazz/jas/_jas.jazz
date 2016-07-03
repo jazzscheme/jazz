@@ -131,22 +131,23 @@
 (class JAS-Repository extends Object
   
   
-  (slot working                 getter generate)
-  (slot directory               getter generate)
-  (slot config                  getter generate)
-  (slot head                    getter generate)
-  (slot index                   getter generate)
-  (slot objects                 getter generate)
-  (slot settings  initialize #f getter generate)
+  (slot working         getter generate)
+  (slot directory       getter generate)
+  (slot global-settings getter generate)
+  (slot local-settings  getter generate)
+  (slot head            getter generate)
+  (slot index           getter generate)
+  (slot objects         getter generate)
   
   
   (method override (initialize working)
+    (initialize-aliases)
     (set! working~self working)
     (set! directory~self (new-directory~ working ".jas"))
-    (set! config (new-file~ directory "config"))
     (set! head (new-file~ directory "HEAD"))
     (set! index (new JAS-Index self working file: (new-file~ directory "index")))
-    (set! objects (new-directory~ directory "objects")))
+    (set! objects (new-directory~ directory "objects"))
+    (register-configs))
   
   
   ;;;
@@ -154,21 +155,26 @@
   ;;;
   
   
+  (method (register-configs)
+    (let ((global {File Home ".jas"})
+          (local (new-file~ directory "config")))
+      (define (new-settings file)
+        (when (not (exists?~ file))
+          (create~ file))
+        (new File-Settings file: file))
+      
+      (set! global-settings (new-settings global))
+      (set! local-settings (new-settings local))))
+  
+  
   (method (config-get key)
-    (let ((settings (config-settings)))
-      (get-setting~ settings key)))
+    (find-setting key))
   
   
   (method (config-set key value)
-    (let ((settings (config-settings)))
+    (let ((settings local-settings))
       (set-setting~ settings key value)
       (save-content~ settings)))
-  
-  
-  (method (config-settings)
-    (unless (exists?~ config)
-      (create~ config))
-    (new File-Settings file: config))
   
   
   ;;;

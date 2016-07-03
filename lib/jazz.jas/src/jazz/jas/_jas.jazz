@@ -67,22 +67,6 @@
   (config-set~ repo key value))
 
 
-(definition public (jas-write repo pathname)
-  (write-pathname~ repo pathname))
-
-
-(definition public (jas-write-file repo file)
-  (write-file~ repo file))
-
-
-(definition public (jas-write-directory repo dir)
-  (write-directory~ repo dir))
-
-
-(definition public (jas-write-tree repo content)
-  (write-tree~ repo content))
-
-
 (definition public (jas-staging-tree repo)
   (staging-tree~ repo))
 
@@ -192,40 +176,6 @@
   ;;;
   
   
-  (method (write-pathname pathname)
-    (cond ((file? pathname)
-           (write-file pathname))
-          ((directory? pathname)
-           (write-directory pathname))
-          (else
-           (error "Unable to write {s}" pathname))))
-  
-  
-  (method (write-file file)
-    (let ((digest (digest-file (parse~ file) 'SHA-1)))
-      (copy-file~ file (new-file~ objects digest))
-      digest))
-  
-  
-  (method (write-directory dir)
-    (let ((queue (new-queue)))
-      (iterate-directory~ dir
-        (lambda (pathname)
-          (let ((name (get-name~ pathname)))
-            (unless (member? name '(".jas" ".git" ".DS_Store"))
-              (if (file? pathname)
-                  (enqueue queue (list 'blob name (write-file pathname)))
-                (enqueue queue (list 'tree name (write-directory pathname)))))))
-        files?: #t
-        directories?: #t
-        recursive?: #f
-        sort?: #t
-        sort-type?: #f
-        sort-test: ci<?)
-      (let ((tree (queue-list queue)))
-        (write-tree tree))))
-  
-  
   (method (write-tree tree)
     (write-content tree))
   
@@ -332,6 +282,8 @@
     (new JAS-Index self #f entries: (scan-tree tree)))
   
   
+  ;; TODO think through the logic of when
+  ;; we can correctly update base's entries
   (method (scan-file path file (base: base #f))
     (let ((seconds (get-modification-seconds~ file)))
       (or (and base (let ((entry (find-entry~ base path)))

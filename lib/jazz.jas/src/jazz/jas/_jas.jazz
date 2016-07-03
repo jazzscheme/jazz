@@ -282,24 +282,22 @@
     (new JAS-Index self #f entries: (scan-tree tree)))
   
   
-  ;; TODO think through the logic of when
-  ;; we can correctly update base's entries
   (method (scan-file path file (base: base #f))
     (let ((seconds (get-modification-seconds~ file)))
       (or (and base (let ((entry (find-entry~ base path)))
                       (and entry
                            (bind (entry-path entry-digest entry-seconds) entry
-                             (if (not entry-seconds)
-                                 #f
-                                 @todo-correctly
-                                 (let ((digest (digest-file (parse~ file) 'SHA-1)))
-                                   (if (equal? entry-digest digest)
-                                       ;; update seconds
-                                       (begin
-                                         (set-third! entry seconds)
-                                         (list path digest seconds))))
-                               (and (= entry-seconds seconds)
-                                    entry))))))
+                             (and entry-seconds
+                                  (if (= entry-seconds seconds)
+                                      (list path entry-digest seconds)
+                                    (let ((digest (digest-file (parse~ file) 'SHA-1)))
+                                      ;; update base entry seconds
+                                      ;; we do not update the digest
+                                      ;; we are only creating a fast test
+                                      ;; path + seconds = correct digest
+                                      (when (equal? entry-digest digest)
+                                        (set-third! entry seconds))
+                                      (list path digest seconds))))))))
           (list path (digest-file (parse~ file) 'SHA-1) seconds))))
   
   
@@ -309,7 +307,7 @@
         (lambda (path kind)
           (let ((file (new-file~ dir path)))
             (let ((subpath (join path "/")))
-              (enqueue entries (scan-file (if (not dirpath) subpath (string-append dirpath subpath))  file base: base)))))
+              (enqueue entries (scan-file (if (not dirpath) subpath (string-append dirpath subpath)) file base: base)))))
         full?: #f
         files?: #t
         directories?: #f

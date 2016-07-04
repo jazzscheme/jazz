@@ -244,25 +244,25 @@
           (end (get-end~ range)))
       (with-update-locked
         (lambda ()
-          (with-safe-explore
-            (lambda ()
-              (set-caret start)
-              (receive (modified? last-delta <fx>) (tabulate-lines (get-line~ start) (get-line~ end))
-                (set-caret (nu+ end last-delta))
-                (when modified?
-                  (set-modified? #t))
-                modified?))
-            action: 'ignore)))))
+          (set-caret start)
+          (receive (modified? last-delta <fx+>) (tabulate-lines (get-line~ start) (get-line~ end))
+            (set-caret (if last-delta (nu+ end last-delta) end))
+            (when modified?
+              (set-modified? #t))
+            modified?)))))
   
   
   (method protected (tabulate-lines start end)
     (let ((modified? #f)
           (last-delta #f))
-      (loop (for line from start to end)
-            (for delta = (tabulate-line line))
-            (when (/= delta 0)
-              (set! modified? #t))
-            (set! last-delta delta))
+      (with-safe-explore
+        (lambda ()
+          (loop (for line from start to end)
+                (for delta = (tabulate-line line))
+                (when (/= delta 0)
+                  (set! modified? #t))
+                (set! last-delta delta)))
+        action: 'ignore)
       (values modified? last-delta)))
   
   

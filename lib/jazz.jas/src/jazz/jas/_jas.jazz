@@ -76,8 +76,12 @@
   (commit~ repo author email message tree parent))
 
 
-(definition public (jas-write-head repo commit)
-  (write-head~ repo commit))
+(definition public (jas-branches repo)
+  (branches~ repo))
+
+
+(definition public (jas-checkout repo name (create?: create? #f))
+  (checkout~ repo name create?: create?))
 
 
 (definition public (jas-read-head repo)
@@ -108,12 +112,27 @@
   (commit-index~ repo commit))
 
 
-(definition public (jas-status repo)
-  (status~ repo))
+(definition public (jas-staging-status repo)
+  (staging-status~ repo))
+
+
+(definition public (jas-working-status repo)
+  (working-status~ repo))
 
 
 (definition public (jas-diff repo from to)
   (diff~ repo from to))
+
+
+(definition public (jas-commit? repo ref)
+  (commit?~ repo ref))
+
+
+(definition public (jas-branch? repo ref)
+  (branch?~ repo ref))
+
+(definition public (jas-branch-name repo ref)
+  (branch-name~ repo ref))
 
 
 (definition public (jas-resolve repo ref)
@@ -141,17 +160,21 @@
   (slot global-settings getter generate)
   (slot local-settings  getter generate)
   (slot head            getter generate)
-  (slot branch          getter generate)
   (slot index           getter generate)
   (slot objects         getter generate)
   
   
   (method override (initialize working)
+    (define (jas-directory)
+      (let ((dir (new-directory~ working ".jas")))
+        (if (exists?~ dir)
+            dir
+          (jas-exception "Not a jas repository"))))
+    
     (initialize-aliases)
     (set! working~self working)
-    (set! directory~self (new-directory~ working ".jas"))
+    (set! directory~self (jas-directory))
     (set! head (new-file~ directory "HEAD"))
-    (set! branch "master")
     (set! index (new JAS-Index self working file: (new-file~ directory "index")))
     (set! objects (new-directory~ directory "objects"))
     (register-configs))
@@ -185,6 +208,15 @@
   
   
   ;;;
+  ;;;; Database
+  ;;;
+  
+  
+  (method (objects-file digest)
+    (new-file~ objects digest))
+  
+  
+  ;;;
   ;;;; Write
   ;;;
   
@@ -195,7 +227,7 @@
   
   (method (write-content content)
     (let ((digest (digest-u8vector (object->u8vector content) 'SHA-1)))
-      (call-with-output-file (path-settings (new-file~ objects digest))
+      (call-with-output-file (path-settings (objects-file digest))
         (lambda (output)
           (pp content output)))
       digest))
@@ -206,7 +238,7 @@
   
   
   (method (write-blob content digest)
-    (let ((objects-file (new-file~ objects digest)))
+    (let ((objects-file (objects-file digest)))
       (save-binary~ objects-file (zlib-deflate content))
       digest))
   
@@ -217,12 +249,22 @@
   
   
   (method (exists? digest)
-    (exists?~ (new-file~ objects digest)))
+    (exists?~ (objects-file digest)))
   
   
   (method (retrieve digest)
-    (call-with-input-file (path-settings (new-file~ objects digest))
+    (call-with-input-file (path-settings (objects-file digest))
       read))
+  
+  
+  (method (retrieve-file digest file)
+    (create-directories~ file)
+    (save-binary~ file (retrieve-blob digest)))
+  
+  
+  (method (retrieve-blob digest)
+    (let ((objects-file (objects-file digest)))
+      (zlib-inflate (load-binary~ objects-file))))
   
   
   ;;;
@@ -237,15 +279,78 @@
   (method (commit author email message tree parent)
     (let ((time (date->string (system-date) "~a ~b ~d ~H:~M:~S ~Y ~z")))
       (let ((content (list author email message tree parent time)))
-        (let ((commit (write-content content)))
-          (write-branch commit)
-          (write-head (list ref: branch))
+        (let ((commit (write-content content))
+              (head (read-head)))
+          (cond ((branch? head)
+                 (write-branch (branch-name head) commit))
+                ((and (commit? head)
+                      (equal? head parent))
+                 (write-head commit))
+                ((and (not head)
+                      (not parent))
+                 (write-branch "master" commit)
+                 (write-head (make-branch "master"))))
           commit))))
+  
+  
+  (method (commit-tree commit)
+    (bind (author email message tree parent time) (retrieve commit)
+      tree))
   
   
   (method (commit-parent commit)
     (bind (author email message tree parent time) (retrieve commit)
       parent))
+  
+  
+  ;;;
+  ;;;; Checkout
+  ;;;
+  
+  
+  (method (checkout name (create?: create? #f))
+    (cond (create?
+           (let ((commit (resolve (require-head))))
+             (write-branch name commit)
+             (write-head (make-branch name))
+             commit))
+          ((branch-exists? name)
+           (let ((ref (make-branch name)))
+             (checkout-commit (resolve ref))
+             (write-head ref)
+             ref))
+          (else
+           (let ((commit (resolve (parse name))))
+             (if (exists? commit)
+                 (begin
+                   (checkout-commit commit)
+                   (write-head commit)
+                   commit)
+               (jas-exception "Unable to checkout {a}" name))))))
+  
+  
+  (method (checkout-commit commit)
+    (let ((working-index (working-index))
+          (staging-index (staging-index))
+          (commit-index (commit-index commit)))
+      (if (not-null? (get-changes~ (diff staging-index working-index)))
+          (jas-exception "Please commit your changes before you can checkout")
+        (let ((diff (diff staging-index commit-index)))
+          (for-each (lambda (change)
+                      (bind (what path . rest) change
+                        (let ((file (new-file~ working (tokenise-filename path))))
+                          (case what
+                            ((added)
+                             (retrieve-file (car rest) file)
+                             (add-file~ staging-index path file))
+                            ((removed)
+                             (delete-file~ file)
+                             (remove-file~ staging-index path file))
+                            ((modified)
+                             (retrieve-file (cadr rest) file)
+                             (add-file~ staging-index path file))))))
+                    (get-changes~ diff))
+          (save~ staging-index)))))
   
   
   ;;;
@@ -281,7 +386,7 @@
             (case (pathname-type pathname)
               ((file) path)
               (else (normalize-directory path)))
-          (error "Unable to find {a}" path)))))
+          (jas-exception "Unable to find {a}" path)))))
   
   
   (method (head-index)
@@ -298,11 +403,10 @@
   
   
   (method (commit-index commit)
-    (bind (author email message tree parent time) (retrieve commit)
-      (tree-index tree)))
+    (tree->index (commit-tree commit)))
   
   
-  (method (tree-index tree)
+  (method (tree->index tree)
     (new JAS-Index self #f entries: (scan-tree tree)))
   
   
@@ -401,15 +505,14 @@
       (merge-ordered (lambda (what key left right)
                        (case what
                          ((:left)
-                          (enqueue queue (list 'removed key)))
+                          (enqueue queue (list 'removed key (second left))))
                          ((:right)
-                          (enqueue queue (list 'added key)))
+                          (enqueue queue (list 'added key (second right))))
                          ((:same)
-                          (let ((from-entry (find-entry~ from key))
-                                (to-entry (find-entry~ to key)))
-                            (unless (equal? (second from-entry)
-                                            (second to-entry))
-                              (enqueue queue (list 'modified key)))))))
+                          (let ((from-digest (second (find-entry~ from key)))
+                                (to-digest (second (find-entry~ to key))))
+                            (unless (equal? from-digest to-digest)
+                              (enqueue queue (list 'modified key from-digest to-digest)))))))
                      (get-entries~ from)
                      (get-entries~ to)
                      key: car)
@@ -421,8 +524,12 @@
   ;;;
   
   
-  (method (status)
+  (method (staging-status)
     (diff (head-index) (staging-index)))
+  
+  
+  (method (working-status)
+    (diff (staging-index) (working-index)))
   
   
   ;;;
@@ -454,7 +561,7 @@
   ;;;
   
   
-  (method (write-branch commit)
+  (method (write-branch branch commit)
     (let ((file (branch-file branch)))
       (create-directories~ file)
       (call-with-output-file (path-settings file)
@@ -471,7 +578,21 @@
   
   
   (method (branch-file name)
-    (new-file~ directory (list "refs" "heads" name)))
+    (new-file~ (branches-directory) name))
+  
+  
+  (method (branches-directory)
+    (new-directory~ directory '("refs" "heads")))
+  
+  
+  (method (branch-exists? name)
+    (exists?~ (branch-file name)))
+  
+  
+  (method (branches)
+    (map get-name~ (collect-files~ (branches-directory)
+                     (lambda (file)
+                       #t))))
   
   
   ;;;
@@ -479,15 +600,28 @@
   ;;;
   
   
+  (method (commit? ref)
+    (string? ref))
+  
+  
+  (method (branch? ref)
+    (and (pair? ref)
+         (eq? (car ref) branch:)))
+  
+  (method (make-branch name)
+    (list branch: name))
+  
+  (method (branch-name ref)
+    (cadr ref))
+  
+  
   (method (resolve ref)
-    (cond ((string? ref)
+    (cond ((commit? ref)
            ref)
-          ((and (pair? ref)
-                (eq? (car ref) ref:))
-            (let ((name (cadr ref)))
-              (read-branch name)))
+          ((branch? ref)
+           (read-branch (branch-name ref)))
           (else
-           (error "Invalid reference: {s}" ref))))
+           (jas-exception "Invalid reference: {a}" ref))))
   
   
   ;;;
@@ -503,10 +637,11 @@
                    (if (<= count 0)
                        commit
                      (iter (commit-parent commit) (- count 1))))
-               (error "Invalid revision: {a}" rev))))
+               (jas-exception "Invalid revision: {a}" rev))))
+          ((equal? rev "master")
+           (make-branch "master"))
           (else
-           (and (exists? rev)
-                rev)))))
+           rev))))
 
 
 ;;;
@@ -645,4 +780,57 @@
     (print-unreadable self output
       (lambda (output)
         (let ((len (length changes)))
-          (format output "with {a} change{a}" (format-cardinality len) (format-plural len))))))))
+          (format output "with {a} change{a}" (format-cardinality len) (format-plural len)))))))
+
+
+;;;
+;;;; Exception
+;;;
+
+
+(definition protected (jas-exception format-string . rest)
+  (throw (new JAS-Exception (apply format format-string rest))))
+
+
+(class JAS-Exception extends Exception
+  
+  
+  (slot message)
+  
+  
+  (method override (initialize message)
+    (nextmethod)
+    (set! message~self message))
+  
+  
+  (method override (get-message)
+    message))
+
+
+;;;
+;;;; Describe
+;;;
+  
+  
+(definition public (jas-describe obj output)
+  (define (describe-index index)
+    (for-each (lambda (entry)
+                (apply debug entry))
+              (get-entries~ index)))
+  
+  (define (describe-diff diff)
+    (for-each (lambda (change)
+                (bind (what path) change
+                  (case what
+                    ((added)    (format output "    \033[32madded:    {a}\033[39;49m{%}" path))
+                    ((removed)  (format output "    \033[31mremoved:  {a}\033[39;49m{%}" path))
+                    ((modified) (format output "    \033[36mmodified: {a}\033[39;49m{%}" path)))))
+              (get-changes~ diff)))
+  
+  (typecase obj
+    ((JAS-Index)
+     (describe-index obj))
+    ((JAS-Diff)
+     (describe-diff obj))
+    (else
+     (jas-exception "Unable to describe {a}" obj)))))

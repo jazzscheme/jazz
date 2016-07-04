@@ -38,179 +38,219 @@
 (module jas jazz
 
 
-(import (jazz.core)
-        (jazz.io)
-        (jazz.jas)
-        (jazz.runtime))
+(import (jazz.io)
+        (jazz.jas))
 
 
 (definition package (jas$help arguments)
-  (let ((output (current-output-port)))
-    (format output "Usage:{%}")
-    (format output "  jas init{%}")
-    (format output "  jas config{%}")
-    (format output "  jas add{%}")
-    (format output "  jas remove{%}")
-    (format output "  jas list{%}")
-    (format output "  jas commit{%}")
-    (format output "  jas status{%}")
-    (format output "  jas diff{%}")
-    (format output "  jas log{%}")
-    (format output "  jas parse{%}")
-    (format output "  jas retrieve{%}")
-    (format output "{%}")
-    (format output "Help:{%}")
-    (format output "  jas help")
-    (force-output output)))
+  (with-jas
+    (lambda (output)
+      (format output "Usage:{%}")
+      (format output "  jas init{%}")
+      (format output "  jas config{%}")
+      (format output "  jas add{%}")
+      (format output "  jas remove{%}")
+      (format output "  jas list{%}")
+      (format output "  jas commit{%}")
+      (format output "  jas branch{%}")
+      (format output "  jas checkout{%}")
+      (format output "  jas status{%}")
+      (format output "  jas diff{%}")
+      (format output "  jas log{%}")
+      (format output "  jas parse{%}")
+      (format output "  jas retrieve{%}")
+      (format output "  jas cat{%}")
+      (format output "{%}")
+      (format output "Help:{%}")
+      (format output "  jas help")
+      (force-output output))))
 
 
 (definition package (jas$init arguments)
-  (let ((dir (get-current-directory))
-        (output (current-output-port)))
-    (let ((repo (jas-init dir)))
-      (format output "Initialized empty JAS repository in {a}" (parse~ (get-directory~ repo))))))
+  (with-jas
+    (lambda (output)
+      (let ((dir (get-current-directory)))
+        (let ((repo (jas-init dir)))
+          (format output "Initialized empty JAS repository in {a}" (parse~ (get-directory~ repo))))))))
 
 
 (definition package (jas$config arguments)
-  (let ((repo (jas-open (jas-directory ".")))
-        (output (current-output-port)))
-    (bind (command . arguments) arguments
-      (cond ((equal? command "get")
-             (bind (key) arguments
-               (let ((key (string->symbol key)))
-                 (format output "{a}" (jas-config-get repo key)))))
-            ((equal? command "set")
-             (bind (key value) arguments
-               (let ((key (string->symbol key)))
-                 (jas-config-set repo key value)
-                 (format output "{a} set to {a}" key value))))
-            (else
-             (format output "Unknown jas config command: {a}" command))))))
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (bind (command . arguments) arguments
+          (cond ((equal? command "get")
+                 (bind (key) arguments
+                   (let ((key (string->symbol key)))
+                     (format output "{a}" (jas-config-get repo key)))))
+                ((equal? command "set")
+                 (bind (key value) arguments
+                   (let ((key (string->symbol key)))
+                     (jas-config-set repo key value)
+                     (format output "{a} set to {a}" key value))))
+                (else
+                 (format output "Unknown jas config command: {a}" command))))))))
 
 
 (definition package (jas$add arguments)
-  (let ((path (car arguments))
-        (repo (jas-open (jas-directory ".")))
-        (output (current-output-port)))
-    (jas-add repo path)))
+  (with-jas
+    (lambda (output)
+      (let ((path (car arguments))
+            (repo (jas-open (jas-directory "."))))
+        (jas-add repo path)))))
 
 
 (definition package (jas$remove arguments)
-  (let ((path (car arguments))
-        (repo (jas-open (jas-directory ".")))
-        (output (current-output-port)))
-    (jas-remove repo path)))
+  (with-jas
+    (lambda (output)
+      (let ((path (car arguments))
+            (repo (jas-open (jas-directory "."))))
+        (jas-remove repo path)))))
 
 
 (definition package (jas$list arguments)
-  (let ((repo (jas-open (jas-directory "."))))
-    (let ((index (jas-staging-index repo)))
-      (for-each (lambda (entry)
-                  (apply debug entry))
-                (get-entries~ index)))))
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (let ((index (jas-staging-index repo)))
+          (for-each (lambda (entry)
+                      (apply debug entry))
+                    (get-entries~ index)))))))
 
 
 (definition package (jas$commit arguments)
-  (let ((output (current-output-port)))
-    (let ((repo (jas-open (jas-directory ".")))
-          (author (jas-argument arguments "author" "a"))
-          (email (jas-argument arguments "email" "e"))
-          (message (jas-argument arguments "message" "m"))
-          (parent (jas-argument arguments "parent" "p")))
-      (let ((author (or author (jas-config-get repo 'user.name)))
-            (email (or email (jas-config-get repo 'user.email)))
-            (tree (jas-staging-tree repo))
-            (parent (or parent (jas-read-head repo))))
-        (let ((commit (jas-commit repo author email message tree (and parent (jas-resolve repo parent)))))
-          (format output "{a}" commit))))))
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory ".")))
+            (author (jas-argument arguments "author" "a"))
+            (email (jas-argument arguments "email" "e"))
+            (message (jas-argument arguments "message" "m"))
+            (parent (jas-argument arguments "parent" "p")))
+        (if (not message)
+            (format output "Missing commit message{%}")
+          (let ((author (or author (jas-config-get repo 'user.name)))
+                (email (or email (jas-config-get repo 'user.email)))
+                (tree (jas-staging-tree repo))
+                (parent (or parent (jas-read-head repo))))
+            (let ((commit (jas-commit repo author email message tree (and parent (jas-resolve repo parent)))))
+              (format output "{a}" commit))))))))
+
+
+(definition package (jas$branch arguments)
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (let ((head (jas-read-head repo))
+              (branches (jas-branches repo)))
+          (let ((head-branch (and (jas-branch? repo head) (jas-branch-name repo head))))
+            (for-each (lambda (branch)
+                        (if (equal? branch head-branch)
+                            (format output "* \033[32m{a}\033[39;49m{%}" branch)
+                          (format output "  {a}{%}" branch)))
+                      branches)))))))
+
+
+(definition package (jas$checkout arguments)
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (let ((create? (jas-switch arguments "b"))
+              (name (last arguments)))
+          (let ((ref (jas-checkout repo name create?: create?)))
+            (cond (create?
+                   (format output "Switched to a new branch {a}{%}" name))
+                  ((jas-branch? repo ref)
+                   (format output "Switched to branch {a}{%}" (jas-branch-name repo ref)))
+                  (else
+                   (format output "Checked out detached HEAD at {a}{%}" ref)))))))))
 
 
 (definition package (jas$status arguments)
-  (let ((repo (jas-open (jas-directory ".")))
-        (output (current-output-port)))
-    (let ((head (jas-read-head repo))
-          (diff (jas-status repo)))
-      (if (string? head)
-          (format output "HEAD detached at {a}{%}" head)
-        (format output "On branch {a}{%}" (cadr head)))
-      (when (not-null? (get-changes~ diff))
-        (format output "{%}")
-        (describe-diff diff output)))))
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (define (describe title diff)
+          (when (not-null? (get-changes~ diff))
+            (format output "{%}")
+            (format output "{a}{%}" title)
+            (jas-describe diff output)))
+        
+        (let ((head (jas-read-head repo)))
+          (if (jas-commit? repo head)
+              (format output "HEAD detached at {a}{%}" head)
+            (format output "On branch {a}{%}" (jas-branch-name repo head)))
+          (describe "Changes to be committed:" (jas-staging-status repo))
+          (describe "Changes not staged for commit:" (jas-working-status repo))
+          ;; "Untracked files:"
+          )))))
 
 
 (definition package (jas$diff arguments)
-  (let ((repo (jas-open (jas-directory ".")))
-        (output (current-output-port)))
-    (if (null? arguments)
-        (jas$status arguments)
-      (let ((from-commit (jas-parse repo (car arguments)))
-            (to-commit (jas-parse repo (cadr arguments))))
-        (let ((from-index (jas-commit-index repo from-commit))
-              (to-index (jas-commit-index repo to-commit)))
-          (let ((diff (jas-diff repo from-index to-index)))
-            (describe-diff diff output)))))))
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (if (null? arguments)
+            (jas$status arguments)
+          (let ((from-commit (jas-resolve repo (jas-parse repo (car arguments))))
+                (to-commit (jas-resolve repo (jas-parse repo (cadr arguments)))))
+            (let ((from-index (jas-commit-index repo from-commit))
+                  (to-index (jas-commit-index repo to-commit)))
+              (let ((diff (jas-diff repo from-index to-index)))
+                (jas-describe diff output)))))))))
 
 
 (definition package (jas$log arguments)
-  (let ((repo (jas-open (jas-directory ".")))
-        (output (current-output-port)))
-    (let ((head (jas-read-head repo)))
-      (if (not head)
-          (format output "Your current head does not have any commits yet")
-        (let (iter (commit (jas-resolve repo head)))
-          (bind (author email message digest parent time) (jas-retrieve repo commit)
-            (format output "\033[33mcommit {a}\033[39;49m{%}" commit)
-            (format output "Author: {a} <{a}>{%}" author email)
-            (format output "Date:   {a}{%}" time)
-            (format output "{%}")
-            (format output "    {a}{%}" message)
-            (when parent
-              (format output "{%}")
-              (iter parent))))))))
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (let ((head (jas-read-head repo)))
+          (if (not head)
+              (format output "Your current head does not have any commits yet")
+            (let (iter (commit (jas-resolve repo head)))
+              (bind (author email message digest parent time) (jas-retrieve repo commit)
+                (format output "\033[33mcommit {a}\033[39;49m{%}" commit)
+                (format output "Author: {a} <{a}>{%}" author email)
+                (format output "Date:   {a}{%}" time)
+                (format output "{%}")
+                (format output "    {a}{%}" message)
+                (when parent
+                  (format output "{%}")
+                  (iter parent))))))))))
 
 
 (definition package (jas$parse arguments)
-  (let ((repo (jas-open (jas-directory ".")))
-        (output (current-output-port)))
-    (let ((rev (car arguments)))
-      (let ((revision (jas-parse repo rev)))
-        (if revision
-            (format output "{a}{%}" revision)
-          (format output "Unknown revision: {a}{%}" rev))))))
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (let ((rev (car arguments)))
+          (let ((revision (jas-parse repo rev)))
+            (if revision
+                (format output "{a}{%}" revision)
+              (format output "Unknown revision: {a}{%}" rev))))))))
 
 
 (definition package (jas$retrieve arguments)
-  (let ((repo (jas-open (jas-directory ".")))
-        (output (current-output-port)))
-    (let ((digest (car arguments)))
-      (pp (jas-retrieve repo digest) output))))
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (let ((digest (jas-resolve repo (jas-parse repo (car arguments)))))
+          (pp (jas-retrieve repo digest) output))))))
+
+
+(definition package (jas$cat arguments)
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (let ((digest (car arguments)))
+          (let ((content (retrieve-blob~ repo digest)))
+            (write-subu8vector content 0 (u8vector-length content) output)))))))
 
 
 (definition package (jas$test arguments)
-  (let ((repo (jas-open (jas-directory ".")))
-        (output (current-output-port)))
-    ))
-
-
-;;;
-;;;; Describe
-;;;
-
-
-(definition (describe-index index output)
-  (for-each (lambda (entry)
-              (apply debug entry))
-            (get-entries~ index)))
-
-
-(definition (describe-diff diff output)
-  (for-each (lambda (change)
-              (bind (what path) change
-                (case what
-                  ((added)    (format output "    \033[32madded:    {a}\033[39;49m{%}" path))
-                  ((removed)  (format output "    \033[31mremoved:  {a}\033[39;49m{%}" path))
-                  ((modified) (format output "    \033[36mmodified: {a}\033[39;49m{%}" path)))))
-            (get-changes~ diff)))
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        ))))
 
 
 ;;;
@@ -218,8 +258,27 @@
 ;;;
 
 
+(definition package (with-jas proc)
+  (let ((output (current-output-port)))
+    (catch (JAS-Exception exc
+             (format output "{a}{%}" (get-message~ exc)))
+      (proc output))))
+
+
 (definition package (jas-directory path)
   (new Directory (tokenise-filename (pathname-normalize path))))
+
+
+(definition package (jas-switch arguments . args)
+  (continuation-capture
+    (lambda (return)
+      (define (try arg)
+        (let ((arg (string-append "-" arg)))
+          (when (member arg arguments)
+            (continuation-return return #t))))
+      
+      (for-each try args)
+      #f)))
 
 
 (definition package (jas-argument arguments . args)

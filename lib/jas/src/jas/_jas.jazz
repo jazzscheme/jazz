@@ -62,7 +62,7 @@
       (format output "  jas cat{%}")
       (format output "{%}")
       (format output "Help:{%}")
-      (format output "  jas help")
+      (format output "  jas help{%}")
       (force-output output))))
 
 
@@ -71,7 +71,7 @@
     (lambda (output)
       (let ((dir (get-current-directory)))
         (let ((repo (jas-init dir)))
-          (format output "Initialized empty JAS repository in {a}" (parse~ (get-directory~ repo))))))))
+          (format output "Initialized empty JAS repository in {a}{%}" (parse~ (get-directory~ repo))))))))
 
 
 (definition package (jas$config arguments)
@@ -82,14 +82,14 @@
           (cond ((equal? command "get")
                  (bind (key) arguments
                    (let ((key (string->symbol key)))
-                     (format output "{a}" (jas-config-get repo key)))))
+                     (format output "{a}{%}" (jas-config-get repo key)))))
                 ((equal? command "set")
                  (bind (key value) arguments
                    (let ((key (string->symbol key)))
                      (jas-config-set repo key value)
-                     (format output "{a} set to {a}" key value))))
+                     (format output "{a} set to {a}{%}" key value))))
                 (else
-                 (format output "Unknown jas config command: {a}" command))))))))
+                 (format output "Unknown jas config command: {a}{%}" command))))))))
 
 
 (definition package (jas$add arguments)
@@ -132,8 +132,8 @@
                 (email (or email (jas-config-get repo 'user.email)))
                 (tree (jas-staging-tree repo))
                 (parent (or parent (jas-read-head repo))))
-            (let ((commit (jas-commit repo author email message tree (and parent (jas-resolve repo parent)))))
-              (format output "{a}" commit))))))))
+            (jas-commit repo author email message tree (and parent (jas-resolve repo parent)))
+            (format output "Commited {a}{%}" message)))))))
 
 
 (definition package (jas$branch arguments)
@@ -176,11 +176,15 @@
             (jas-describe diff output)))
         
         (let ((head (jas-read-head repo)))
-          (if (jas-commit? repo head)
-              (format output "HEAD detached at {a}{%}" head)
-            (format output "On branch {a}{%}" (jas-branch-name repo head)))
+          (cond ((not head)
+                 (format output "Your current head does not have any commits yet{%}"))
+                ((jas-commit? repo head)
+                 (format output "HEAD detached at {a}{%}" head))
+                (else
+                 (format output "On branch {a}{%}" (jas-branch-name repo head))))
           (describe "Changes to be committed:" (jas-staging-status repo))
           (describe "Changes not staged for commit:" (jas-working-status repo))
+          ;; TODO
           ;; "Untracked files:"
           )))))
 
@@ -205,7 +209,7 @@
       (let ((repo (jas-open (jas-directory "."))))
         (let ((head (jas-read-head repo)))
           (if (not head)
-              (format output "Your current head does not have any commits yet")
+              (format output "Your current head does not have any commits yet{%}")
             (let (iter (commit (jas-resolve repo head)))
               (bind (author email message digest parent time) (jas-retrieve repo commit)
                 (format output "\033[33mcommit {a}\033[39;49m{%}" commit)

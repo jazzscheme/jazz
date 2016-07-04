@@ -51,9 +51,7 @@
 
 
 (definition public (jas-init working)
-  (let ((dir (new-directory~ working ".jas")))
-    (create-directories~ (new-directory~ dir "objects"))
-    (new JAS-Repository working)))
+  (new JAS-Repository working init?: #t))
 
 
 (definition public (jas-open working)
@@ -162,14 +160,19 @@
   (slot head            getter generate)
   (slot index           getter generate)
   (slot objects         getter generate)
+  (slot heads           getter generate)
   
   
-  (method override (initialize working)
+  (method override (initialize working (init?: init? #f))
     (define (jas-directory)
       (let ((dir (new-directory~ working ".jas")))
-        (if (exists?~ dir)
-            dir
-          (jas-exception "Not a jas repository"))))
+        (cond ((exists?~ dir)
+               dir)
+              (init?
+               (create-directories~ dir)
+               dir)
+              (else
+               (jas-exception "Not a jas repository")))))
     
     (initialize-aliases)
     (set! working~self working)
@@ -177,7 +180,20 @@
     (set! head (new-file~ directory "HEAD"))
     (set! index (new JAS-Index self working file: (new-file~ directory "index")))
     (set! objects (new-directory~ directory "objects"))
+    (set! heads (new-directory~ directory '("refs" "heads")))
+    (when init?
+      (init))
     (register-configs))
+  
+  
+  ;;;
+  ;;;; Init
+  ;;;
+  
+  
+  (method (init)
+    (create-directories~ objects)
+    (create-directories~ heads))
   
   
   ;;;
@@ -191,7 +207,9 @@
       (define (new-settings file)
         (when (not (exists?~ file))
           (create~ file))
-        (new File-Settings file: file))
+        (let ((settings (new File-Settings file: file)))
+          (register-settings settings)
+          settings))
       
       (set! global-settings (new-settings global))
       (set! local-settings (new-settings local))))
@@ -390,7 +408,10 @@
   
   
   (method (head-index)
-    (commit-index (resolve (require-head))))
+    (let ((head (read-head)))
+      (if (not head)
+          (new JAS-Index self #f)
+        (commit-index (resolve head)))))
   
   
   (method (working-index)
@@ -563,7 +584,6 @@
   
   (method (write-branch branch commit)
     (let ((file (branch-file branch)))
-      (create-directories~ file)
       (call-with-output-file (path-settings file)
         (lambda (output)
           (write commit output)
@@ -582,7 +602,7 @@
   
   
   (method (branches-directory)
-    (new-directory~ directory '("refs" "heads")))
+    heads)
   
   
   (method (branch-exists? name)

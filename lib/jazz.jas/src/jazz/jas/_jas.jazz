@@ -173,6 +173,7 @@
   (slot directory       getter generate)
   (slot global-settings getter generate)
   (slot local-settings  getter generate)
+  (slot disregard       getter generate)
   (slot ignore          getter generate)
   (slot head            getter generate)
   (slot index           getter generate)
@@ -198,7 +199,8 @@
     (set! index (new JAS-Index self working file: (new-file~ directory "index")))
     (set! objects (new-directory~ directory "objects"))
     (set! heads (new-directory~ directory '("refs" "heads")))
-    (set! ignore '(".DS_Store"))
+    (set! disregard '(".DS_Store"))
+    (set! ignore '())
     (when init?
       (init))
     (register-configs))
@@ -346,17 +348,46 @@
   
   (method (discard)
     (let ((diff (diff (working-index) (staging-index))))
-      (for-each (lambda (change)
-                  (bind (what path . rest) change
-                    (let ((file (new-file~ working (tokenise-filename path))))
-                      (case what
-                        ((added)
-                         (retrieve-file (car rest) file))
-                        ((removed)
-                         (delete-file~ file))
-                        ((modified)
-                         (retrieve-file (cadr rest) file))))))
-                (get-changes~ diff))))
+      (discarding-directories
+        (lambda (discard-directory)
+          (for-each (lambda (change)
+                      (bind (what path . rest) change
+                        (let ((file (new-file~ working (tokenise-filename path))))
+                          (case what
+                            ((added)
+                             (retrieve-file (car rest) file))
+                            ((removed)
+                             (delete-file~ file)
+                             (discard-directory (get-parent~ file)))
+                            ((modified)
+                             (retrieve-file (cadr rest) file))))))
+                    (get-changes~ diff))))))
+  
+  
+  (method (discarding-directories proc)
+    (let ((queue (new-queue)))
+      (define (discard-directory dir)
+        (unless (member? dir (queue-list queue) test: pathname=?)
+          (enqueue queue dir)))
+      
+      (define (directory-empty? dir)
+        (continuation-capture
+          (lambda (return)
+            (iterate-directory~ dir
+              (lambda (path)
+                (unless (member? (get-name~ path) disregard)
+                  (continuation-return return #f)))
+              files?: #t
+              directories?: #t
+              recursive?: #f
+              ignored-toplevel-dirnames: '(".jas" ".git"))
+            #t)))
+      
+      (prog1 (proc discard-directory)
+        (for-each (lambda (dir)
+                    (when (directory-empty? dir)
+                      (delete-directory~ dir)))
+                  (queue-list queue)))))
   
   
   ;;;
@@ -424,20 +455,23 @@
     (let ((staging-index (staging-index))
           (commit-index (commit-index commit)))
       (let ((diff (diff staging-index commit-index)))
-        (for-each (lambda (change)
-                    (bind (what path . rest) change
-                      (let ((file (new-file~ working (tokenise-filename path))))
-                        (case what
-                          ((added)
-                           (retrieve-file (car rest) file)
-                           (add-file~ staging-index path file))
-                          ((removed)
-                           (delete-file~ file)
-                           (remove-file~ staging-index path file))
-                          ((modified)
-                           (retrieve-file (cadr rest) file)
-                           (add-file~ staging-index path file))))))
-                  (get-changes~ diff))
+        (discarding-directories
+          (lambda (discard-directory)
+            (for-each (lambda (change)
+                        (bind (what path . rest) change
+                          (let ((file (new-file~ working (tokenise-filename path))))
+                            (case what
+                              ((added)
+                               (retrieve-file (car rest) file)
+                               (add-file~ staging-index path file))
+                              ((removed)
+                               (delete-file~ file)
+                               (discard-directory (get-parent~ file))
+                               (remove-file~ staging-index path file))
+                              ((modified)
+                               (retrieve-file (cadr rest) file)
+                               (add-file~ staging-index path file))))))
+                      (get-changes~ diff))))
         (save~ staging-index))))
   
   
@@ -525,9 +559,11 @@
       (iterate-directory~ dir
         (lambda (path kind)
           (let ((file (new-file~ dir path)))
-            (unless (member? (get-name~ file) ignore)
-              (let ((subpath (join path "/")))
-                (enqueue entries (scan-file (if (not dirpath) subpath (string-append dirpath subpath)) file base: base))))))
+            (let ((name (get-name~ file)))
+              (unless (or (member? name disregard)
+                          (member? name ignore))
+                (let ((subpath (join path "/")))
+                  (enqueue entries (scan-file (if (not dirpath) subpath (string-append dirpath subpath)) file base: base)))))))
         full?: #f
         files?: #t
         directories?: #f

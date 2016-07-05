@@ -235,18 +235,22 @@
 (definition package (jas$log arguments)
   (with-jas
     (lambda (output)
-      (let ((repo (jas-open (jas-directory "."))))
-        (let ((head (jas-require-head repo)))
-          (let (iter (commit (jas-resolve repo head)))
-            (bind (author email message digest parent time) (jas-retrieve repo commit)
-              (format output "\033[33mcommit {a}\033[39;49m{%}" commit)
-              (format output "Author: {a} <{a}>{%}" author email)
-              (format output "Date:   {a}{%}" time)
-              (format output "{%}")
-              (format output "    {a}{%}" message)
-              (when parent
+      (let ((repo (jas-open (jas-directory ".")))
+            (n (jas-number-argument arguments "n")))
+        (unless (eqv? n 0)
+          (let ((head (jas-require-head repo)))
+            (let (iter (commit (jas-resolve repo head)) (count n))
+              (bind (author email message digest parent time) (jas-retrieve repo commit)
+                (format output "\033[33mcommit {a}\033[39;49m{%}" commit)
+                (format output "Author: {a} <{a}>{%}" author email)
+                (format output "Date:   {a}{%}" time)
                 (format output "{%}")
-                (iter parent)))))))))
+                (format output "    {a}{%}" message)
+                (when parent
+                  (let ((count (and count (- count 1))))
+                    (when (or (not count) (> count 0))
+                      (format output "{%}")
+                      (iter parent count))))))))))))
 
 
 (definition package (jas$parse arguments)
@@ -322,4 +326,10 @@
               (continuation-return return (cadr pair))))))
       
       (for-each try args)
-      #f))))
+      #f)))
+
+
+(definition package (jas-number-argument arguments . args)
+  (let ((value (apply jas-argument arguments args)))
+    (and value
+         (string->number value)))))

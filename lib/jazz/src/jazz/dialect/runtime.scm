@@ -64,8 +64,7 @@
 (jazz:define-method (jazz:emit-inlined-binding-call (jazz:Definition-Declaration declaration) arguments call source-declaration environment backend)
   (let ((value (jazz:get-definition-declaration-value declaration)))
     (if (%%class-is? value jazz:Lambda)
-        (if (and (%%eq? (jazz:get-definition-declaration-expansion declaration) 'inline)
-                 (or (jazz:inline-definitions?) (jazz:untyped-inline-definition? value)))
+        (if (%%eq? (jazz:get-definition-declaration-expansion declaration) 'inline)
             (let ((signature (jazz:get-lambda-signature value))
                   (body (jazz:get-lambda-body value)))
               (if (jazz:only-positional? signature)
@@ -93,6 +92,7 @@
 
 
 ;; quick solution for now as some inlined definitions like /= will change the semantics if not inlined
+;; (not needed anymore now that we always inline even in debug)
 (define (jazz:untyped-inline-definition? value)
   (jazz:every? (lambda (parameter)
                  (%%not (jazz:get-lexical-binding-type parameter)))
@@ -109,7 +109,6 @@
   (jazz:new-code
     (let ((value (jazz:get-definition-declaration-value declaration)))
       (if (and (%%eq? (jazz:get-definition-declaration-expansion declaration) 'inline)
-               (jazz:inline-constants?)
                (%%is? value jazz:Constant))
           (jazz:get-code-form (jazz:emit-expression value declaration environment backend))
         (jazz:emit 'definition-reference backend declaration)))

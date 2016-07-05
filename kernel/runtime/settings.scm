@@ -175,24 +175,6 @@
 ;;;
 
 
-(cond-expand
-  (release
-   (jazz:define-setting jazz:inline-definitions?
-     #t))
-  (else
-   (jazz:define-setting jazz:inline-definitions?
-     #f)))
-
-
-(cond-expand
-  (release
-   (jazz:define-setting jazz:inline-constants?
-     #t))
-  (else
-   (jazz:define-setting jazz:inline-constants?
-     #f)))
-
-
 (jazz:define-setting jazz:debug-specializers
   '())
 

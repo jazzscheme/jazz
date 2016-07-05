@@ -52,6 +52,9 @@
       (format output "  jas remove{%}")
       (format output "  jas list{%}")
       (format output "  jas commit{%}")
+      (format output "  jas discard{%}")
+      (format output "  jas restore{%}")
+      (format output "  jas reset{%}")
       (format output "  jas branch{%}")
       (format output "  jas checkout{%}")
       (format output "  jas status{%}")
@@ -136,6 +139,29 @@
             (format output "Commited {a}{%}" message)))))))
 
 
+(definition package (jas$discard arguments)
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (jas-discard repo)))))
+
+
+(definition package (jas$restore arguments)
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (let ((commit (jas-resolve repo (jas-parse repo (car arguments)))))
+          (jas-restore repo commit))))))
+
+
+(definition package (jas$reset arguments)
+  (with-jas
+    (lambda (output)
+      (let ((repo (jas-open (jas-directory "."))))
+        (let ((commit (jas-resolve repo (jas-parse repo (car arguments)))))
+          (jas-reset repo commit))))))
+
+
 (definition package (jas$branch arguments)
   (with-jas
     (lambda (output)
@@ -156,7 +182,7 @@
       (let ((repo (jas-open (jas-directory "."))))
         (let ((create? (jas-switch arguments "b"))
               (name (last arguments)))
-          (let ((ref (jas-checkout repo name create?: create?)))
+          (let ((ref (jas-checkout repo name validate-clean?: #t create?: create?)))
             (cond (create?
                    (format output "Switched to a new branch {a}{%}" name))
                   ((jas-branch? repo ref)
@@ -175,10 +201,8 @@
             (format output "{a}{%}" title)
             (jas-describe diff output)))
         
-        (let ((head (jas-read-head repo)))
-          (cond ((not head)
-                 (format output "Your current head does not have any commits yet{%}"))
-                ((jas-commit? repo head)
+        (let ((head (jas-require-head repo)))
+          (cond ((jas-commit? repo head)
                  (format output "HEAD detached at {a}{%}" head))
                 (else
                  (format output "On branch {a}{%}" (jas-branch-name repo head))))
@@ -207,19 +231,17 @@
   (with-jas
     (lambda (output)
       (let ((repo (jas-open (jas-directory "."))))
-        (let ((head (jas-read-head repo)))
-          (if (not head)
-              (format output "Your current head does not have any commits yet{%}")
-            (let (iter (commit (jas-resolve repo head)))
-              (bind (author email message digest parent time) (jas-retrieve repo commit)
-                (format output "\033[33mcommit {a}\033[39;49m{%}" commit)
-                (format output "Author: {a} <{a}>{%}" author email)
-                (format output "Date:   {a}{%}" time)
+        (let ((head (jas-require-head repo)))
+          (let (iter (commit (jas-resolve repo head)))
+            (bind (author email message digest parent time) (jas-retrieve repo commit)
+              (format output "\033[33mcommit {a}\033[39;49m{%}" commit)
+              (format output "Author: {a} <{a}>{%}" author email)
+              (format output "Date:   {a}{%}" time)
+              (format output "{%}")
+              (format output "    {a}{%}" message)
+              (when parent
                 (format output "{%}")
-                (format output "    {a}{%}" message)
-                (when parent
-                  (format output "{%}")
-                  (iter parent))))))))))
+                (iter parent)))))))))
 
 
 (definition package (jas$parse arguments)

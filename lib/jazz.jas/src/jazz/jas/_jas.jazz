@@ -74,16 +74,32 @@
   (commit~ repo author email message tree parent))
 
 
+(definition public (jas-discard repo)
+  (discard~ repo))
+
+
+(definition public (jas-restore repo commit)
+  (restore~ repo commit))
+
+
+(definition public (jas-reset repo commit)
+  (reset~ repo commit))
+
+
 (definition public (jas-branches repo)
   (branches~ repo))
 
 
-(definition public (jas-checkout repo name (create?: create? #f))
-  (checkout~ repo name create?: create?))
+(definition public (jas-checkout repo name (validate-clean?: validate-clean? #f) (create?: create? #f))
+  (checkout~ repo name validate-clean?: validate-clean? create?: create?))
 
 
 (definition public (jas-read-head repo)
   (read-head~ repo))
+
+
+(definition public (jas-require-head repo)
+  (require-head~ repo))
 
 
 (definition public (jas-add repo path)
@@ -157,6 +173,7 @@
   (slot directory       getter generate)
   (slot global-settings getter generate)
   (slot local-settings  getter generate)
+  (slot ignore          getter generate)
   (slot head            getter generate)
   (slot index           getter generate)
   (slot objects         getter generate)
@@ -181,6 +198,7 @@
     (set! index (new JAS-Index self working file: (new-file~ directory "index")))
     (set! objects (new-directory~ directory "objects"))
     (set! heads (new-directory~ directory '("refs" "heads")))
+    (set! ignore '(".DS_Store"))
     (when init?
       (init))
     (register-configs))
@@ -322,11 +340,66 @@
   
   
   ;;;
+  ;;;; Discard
+  ;;;
+  
+  
+  (method (discard)
+    (let ((diff (diff (working-index) (staging-index))))
+      (for-each (lambda (change)
+                  (bind (what path . rest) change
+                    (let ((file (new-file~ working (tokenise-filename path))))
+                      (case what
+                        ((added)
+                         (retrieve-file (car rest) file))
+                        ((removed)
+                         (delete-file~ file))
+                        ((modified)
+                         (retrieve-file (cadr rest) file))))))
+                (get-changes~ diff))))
+  
+  
+  ;;;
+  ;;;; Restore
+  ;;;
+  
+  
+  (method (restore commit)
+    (let ((head (require-head)))
+      (if (equal? (resolve head) commit)
+          (discard)
+        (discard)
+        (checkout-commit commit)
+        (cond ((commit? head)
+               (write-head commit))
+              (else
+               (let ((name (branch-name head)))
+                 (write-branch name commit)))))))
+  
+  
+  ;;;
+  ;;;; Reset
+  ;;;
+  
+  
+  (method (reset commit)
+    (let ((head (require-head)))
+      (cond ((commit? head)
+             (jas-exception "Unable to reset while in a detached HEAD state"))
+            (else
+             (let ((name (branch-name head)))
+               (write-branch name commit))))))
+  
+  
+  ;;;
   ;;;; Checkout
   ;;;
   
   
-  (method (checkout name (create?: create? #f))
+  (method (checkout name (validate-clean?: validate-clean? #f) (create?: create? #f))
+    (when (and validate-clean?
+               (not-null? (get-changes~ (diff (working-index) (staging-index)))))
+      (jas-exception "Please commit your changes before you can checkout"))
     (cond (create?
            (let ((commit (resolve (require-head))))
              (write-branch name commit)
@@ -348,27 +421,24 @@
   
   
   (method (checkout-commit commit)
-    (let ((working-index (working-index))
-          (staging-index (staging-index))
+    (let ((staging-index (staging-index))
           (commit-index (commit-index commit)))
-      (if (not-null? (get-changes~ (diff staging-index working-index)))
-          (jas-exception "Please commit your changes before you can checkout")
-        (let ((diff (diff staging-index commit-index)))
-          (for-each (lambda (change)
-                      (bind (what path . rest) change
-                        (let ((file (new-file~ working (tokenise-filename path))))
-                          (case what
-                            ((added)
-                             (retrieve-file (car rest) file)
-                             (add-file~ staging-index path file))
-                            ((removed)
-                             (delete-file~ file)
-                             (remove-file~ staging-index path file))
-                            ((modified)
-                             (retrieve-file (cadr rest) file)
-                             (add-file~ staging-index path file))))))
-                    (get-changes~ diff))
-          (save~ staging-index)))))
+      (let ((diff (diff staging-index commit-index)))
+        (for-each (lambda (change)
+                    (bind (what path . rest) change
+                      (let ((file (new-file~ working (tokenise-filename path))))
+                        (case what
+                          ((added)
+                           (retrieve-file (car rest) file)
+                           (add-file~ staging-index path file))
+                          ((removed)
+                           (delete-file~ file)
+                           (remove-file~ staging-index path file))
+                          ((modified)
+                           (retrieve-file (cadr rest) file)
+                           (add-file~ staging-index path file))))))
+                  (get-changes~ diff))
+        (save~ staging-index))))
   
   
   ;;;
@@ -455,8 +525,9 @@
       (iterate-directory~ dir
         (lambda (path kind)
           (let ((file (new-file~ dir path)))
-            (let ((subpath (join path "/")))
-              (enqueue entries (scan-file (if (not dirpath) subpath (string-append dirpath subpath)) file base: base)))))
+            (unless (member? (get-name~ file) ignore)
+              (let ((subpath (join path "/")))
+                (enqueue entries (scan-file (if (not dirpath) subpath (string-append dirpath subpath)) file base: base))))))
         full?: #f
         files?: #t
         directories?: #f
@@ -572,9 +643,8 @@
   
   
   (method (require-head)
-    (let ((head (read-head)))
-      (assert head)
-      head))
+    (or (read-head)
+        (jas-exception-no-commits)))
   
   
   ;;;
@@ -810,6 +880,10 @@
 
 (definition protected (jas-exception format-string . rest)
   (throw (new JAS-Exception (apply format format-string rest))))
+
+
+(definition protected (jas-exception-no-commits)
+  (jas-exception "Your current head does not have any commits yet"))
 
 
 (class JAS-Exception extends Exception

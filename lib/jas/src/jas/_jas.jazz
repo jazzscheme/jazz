@@ -128,18 +128,19 @@
   (with-jas
     (lambda (output)
       (let ((repo (jas-open (jas-directory ".")))
-            (author (jas-argument arguments "author" "a"))
-            (email (jas-argument arguments "email" "e"))
             (message (jas-argument arguments "message" "m"))
-            (parent (jas-argument arguments "parent" "p")))
+            (all? (jas-switch arguments "all" "a")))
         (if (not message)
             (format output "Missing commit message{%}")
-          (let ((author (or author (jas-config-get repo 'user.name)))
-                (email (or email (jas-config-get repo 'user.email)))
+          ;; for now also include new files
+          (when all?
+            (jas-add repo "."))
+          (let ((author (jas-config-get repo 'user.name))
+                (email (jas-config-get repo 'user.email))
                 (tree (jas-staging-tree repo))
-                (parent (or parent (jas-read-head repo))))
-            (jas-commit repo author email message tree (and parent (jas-resolve repo parent)))
-            (format output "Commited {a}{%}" message)))))))
+                (head (jas-read-head repo)))
+            (let ((commit (jas-commit repo author email message tree (and head (jas-resolve repo head)))))
+              (format output "{a}{%}" commit))))))))
 
 
 (definition package (jas$discard arguments)
@@ -221,7 +222,8 @@
     (lambda (output)
       (let ((repo (jas-open (jas-directory "."))))
         (if (null? arguments)
-            (jas$status arguments)
+            (let ((diff (jas-working-status repo)))
+              (jas-describe diff output))
           (let ((from-commit (jas-resolve repo (jas-parse repo (car arguments))))
                 (to-commit (jas-resolve repo (jas-parse repo (cadr arguments)))))
             (let ((from-index (jas-commit-index repo from-commit))

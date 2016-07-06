@@ -2331,31 +2331,11 @@
      (if (or (%%not type) (%%eq? type jazz:Any) (%%object-class? type) (jazz:object-declaration? type))
          #f
        (let ((parameter (jazz:sourcified-form code)))
-         (if (%%eq? type jazz:Flonum)
-             ;; local copy/paste of Type emit-check to support flonum / f64vector polymorphism
-             (let ((locator (jazz:emit-type type source-declaration environment backend)))
-               `(if (%%not (or ,(jazz:emit-test type parameter source-declaration environment backend)
-                               ,(jazz:emit-test jazz:F64Vector parameter source-declaration environment backend)))
-                    (jazz:type-error ,parameter ,locator)))
-           (jazz:emit-check type parameter source-declaration environment backend)))))))
+         (jazz:emit-check type parameter source-declaration environment backend))))))
 
 
-(cond-expand
-  (release
-   (define (jazz:emit-return-check code type source-declaration environment backend)
-     (jazz:emit-type-check code type source-declaration environment backend)))
-  (else
-   (define (jazz:emit-return-check code type source-declaration environment backend)
-     (if (%%eq? type jazz:Flonum)
-         ;; local copy/paste of Type emit-check to support flonum / f64vector polymorphism
-         (let ((value (jazz:generate-symbol "val"))
-               (locator (jazz:emit-type type source-declaration environment backend)))
-           `(let ((,value (let () ,(jazz:sourcified-form code))))
-              (if (%%not (or ,(jazz:emit-test type value source-declaration environment backend)
-                             ,(jazz:emit-test jazz:F64Vector value source-declaration environment backend)))
-                  (jazz:type-error ,value ,locator))
-              ,value))
-       (jazz:emit-type-check code type source-declaration environment backend)))))
+(define (jazz:emit-return-check code type source-declaration environment backend)
+  (jazz:emit-type-check code type source-declaration environment backend))
 
 
 ;;;
@@ -2565,6 +2545,7 @@
 (%%table-set! jazz:primitive-types 'fx           jazz:Fixnum)
 (%%table-set! jazz:primitive-types 'fb           jazz:Fixbound)
 (%%table-set! jazz:primitive-types 'fl           jazz:Flonum)
+(%%table-set! jazz:primitive-types 'fv           jazz:Flovec)
 (%%table-set! jazz:primitive-types 'list         jazz:List)
 (%%table-set! jazz:primitive-types 'null         jazz:Null)
 (%%table-set! jazz:primitive-types 'pair         jazz:Pair)

@@ -234,10 +234,6 @@
                    (else
                     (and (%%class-is? arg jazz:Constant)
                          (%%subtype? type jazz:Fixnum)))))
-                ;; flonum / f64vector polymorphism
-                ((%%eq? expect jazz:Flonum)
-                 (or (%%subtype? type jazz:Flonum)
-                     (%%subtype? type jazz:F64Vector)))
                 (else
                  (%%subtype? type expect))))))
     

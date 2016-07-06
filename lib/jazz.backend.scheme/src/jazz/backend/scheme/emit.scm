@@ -598,33 +598,33 @@
   (%%table-ref jazz:*primitive-patterns* locator '()))
 
 
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:=                    '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:<                    '((##fx<  <fx*:bool>)  (##fl<  <fl*:bool>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:<=                   '((##fx<= <fx*:bool>)  (##fl<= <fl*:bool>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:>                    '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:>=                   '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:=                    '((##fx=  <fx*:bool>)  (##fl=  <fv*:bool>)  (##= <number^number:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:<                    '((##fx<  <fx*:bool>)  (##fl<  <fv*:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:<=                   '((##fx<= <fx*:bool>)  (##fl<= <fv*:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:>                    '((##fx>  <fx*:bool>)  (##fl>  <fv*:bool>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:>=                   '((##fx>= <fx*:bool>)  (##fl>= <fv*:bool>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:+                    '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:-                    '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:*                    '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <int^int:int>) (##* <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:+                    '((##fx+  <fx*:fx>)    (##fl+  <fv*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:-                    '((##fx-  <fx^fx*:fx>) (##fl-  <fv^fv*:fl>) (##- <int^int:int>) (##- <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:*                    '((##fx*  <fx*:fx>)    (##fl*  <fv*:fl>)    (##* <int^int:int>) (##* <number^number:number>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:/                    '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:/                    '(                     (##fl/  <fv^fv*:fl>)                     (##/ <number^number:number>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:quotient             '((##fxquotient <fx^fx:fx>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:floor                '(                     (##flfloor    <fl:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:ceiling              '(                     (##flceiling  <fl:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:truncate             '(                     (##fltruncate <fl:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:round                '(                     (##flround    <fl:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:floor                '(                     (##flfloor    <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:ceiling              '(                     (##flceiling  <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:truncate             '(                     (##fltruncate <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:round                '(                     (##flround    <fv:fl>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:abs                  '(                     (##flabs      <fl:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:sqrt                 '(                     (##flsqrt     <fl:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:abs                  '(                     (##flabs      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:sqrt                 '(                     (##flsqrt     <fv:fl>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:sin                  '(                     (##flsin      <fl:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:cos                  '(                     (##flcos      <fl:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:tan                  '(                     (##fltan      <fl:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:asin                 '(                     (##flasin     <fl:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:acos                 '(                     (##flacos     <fl:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:atan                 '(                     (##flatan     <fl:fl>) (##flatan <fl^fl:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:sin                  '(                     (##flsin      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:cos                  '(                     (##flcos      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:tan                  '(                     (##fltan      <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:asin                 '(                     (##flasin     <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:acos                 '(                     (##flacos     <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:atan                 '(                     (##flatan     <fv:fl>) (##flatan <fv^fv:fl>)))
 
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:not                  '((##not  <any:bool>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:eq?                  '((##eq?  <any^any:bool>)))
@@ -649,8 +649,8 @@
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:table-ref            '((##table-ref  <table^any:any>) (##table-ref    <table^any^any:any>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:table-set!           '((##table-set! <table^any^any:void>)))
 
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:min                  '((##fxmin <fx^fx:fx>) (##flmin <fl^fl:fl>) (##flmin <fl^fl^fl:fl>)))
-(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:max                  '((##fxmax <fx^fx:fx>) (##flmax <fl^fl:fl>) (##flmax <fl^fl^fl:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:min                  '((##fxmin <fx^fx:fx>) (##flmin <fv^fv:fl>) (##flmin <fv^fv^fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:max                  '((##fxmax <fx^fx:fx>) (##flmax <fv^fv:fl>) (##flmax <fv^fv^fv:fl>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:modulo               '((##fxmodulo <fx^fx:fx>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:even?                '((##fxeven? <fx:bool>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:odd?                 '((##fxodd? <fx:bool>)))
@@ -659,12 +659,12 @@
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fx-                    '((##fx- <fx^fx:fx>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fx*                    '((##fx* <fx^fx:fx>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fl+                    '(                     (##fl+ <fl^fl:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fl-                    '(                     (##fl- <fl^fl:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fl*                    '(                     (##fl* <fl^fl:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fl/                    '(                     (##fl/ <fl^fl:fl>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fl+                    '(                     (##fl+ <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fl-                    '(                     (##fl- <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fl*                    '(                     (##fl* <fv^fv:fl>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fl/                    '(                     (##fl/ <fv^fv:fl>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:nan?                   '(                     (##flnan? <fl:bool>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:nan?                   '(                     (##flnan? <fv:bool>)))
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:bitwise-not            '((##fxnot <fx:fx>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:bitwise-and            '((##fxand <fx^fx:fx>)))
@@ -675,7 +675,7 @@
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:arithmetic-shift-right '((##fxarithmetic-shift-right <fx^fx:fx>)))
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:fixnum->flonum         '((##fixnum->flonum <fx:fl>)))
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flonum->fixnum         '((##flonum->fixnum <fl:fx>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flonum->fixnum         '((##flonum->fixnum <fv:fx>)))
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:s8vector               '((##s8vector         <fx*:s8vector>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:s8vector-length        '((##s8vector-length  <s8vector:fx>)))
@@ -750,7 +750,7 @@
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-will              '((%%make-will      <any*:any>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-parameter         '((%%make-parameter <any*:any>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((##f64vector-set! <fl^fb^fl:void>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((##f64vector-set! <fl^fb^fv:void>)))
 
 (cond-expand
   (release

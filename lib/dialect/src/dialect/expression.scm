@@ -226,7 +226,7 @@
               (and (%%class-is? type jazz:Category-Type)
                    (%%eq? (jazz:get-category-type-declaration type) (jazz:get-category-type-declaration expect))))
         (let ((type (or type jazz:Any)))
-          (cond ;; fixbound special case
+          (cond ;; fixbound
                 ((%%eq? expect jazz:Fixbound)
                  (cond-expand
                    (release
@@ -234,6 +234,10 @@
                    (else
                     (and (%%class-is? arg jazz:Constant)
                          (%%subtype? type jazz:Fixnum)))))
+                ;; flovec
+                ((%%eq? expect jazz:Flovec)
+                 (or (%%subtype? type jazz:Flonum)
+                     (%%subtype? type jazz:F64Vector)))
                 (else
                  (%%subtype? type expect))))))
     

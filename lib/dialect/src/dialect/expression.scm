@@ -226,11 +226,20 @@
               (and (%%class-is? type jazz:Category-Type)
                    (%%eq? (jazz:get-category-type-declaration type) (jazz:get-category-type-declaration expect))))
         (let ((type (or type jazz:Any)))
-          ;; enable flonum / f64vector polymorphism
-          (if (%%eq? expect jazz:Flonum)
-              (or (%%subtype? type jazz:Flonum)
-                  (%%subtype? type jazz:F64Vector))
-            (%%subtype? type expect)))))
+          (cond ;; fixbound special case
+                ((%%eq? expect jazz:Fixbound)
+                 (cond-expand
+                   (release
+                    (%%subtype? type jazz:Fixnum))
+                   (else
+                    (and (%%class-is? arg jazz:Constant)
+                         (%%subtype? type jazz:Fixnum)))))
+                ;; flonum / f64vector polymorphism
+                ((%%eq? expect jazz:Flonum)
+                 (or (%%subtype? type jazz:Flonum)
+                     (%%subtype? type jazz:F64Vector)))
+                (else
+                 (%%subtype? type expect))))))
     
     (define (match-positional?)
       (and (%%fx>= argcount mandatory)

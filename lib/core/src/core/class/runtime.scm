@@ -1173,6 +1173,29 @@
 
 
 ;;;
+;;;; Fixbound
+;;;
+
+
+(jazz:define-class-runtime jazz:Fixbound-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:Fixbound-Class class) object)
+  (%%fixnum? object))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:Fixbound-Class class))
+  'fb)
+
+
+(jazz:define-method (jazz:emit-test (jazz:Fixbound-Class type) value source-declaration environment backend)
+  `(%%fixnum? ,value))
+
+
+(jazz:define-class-runtime jazz:Fixbound)
+
+
+;;;
 ;;;; Flonum
 ;;;
 

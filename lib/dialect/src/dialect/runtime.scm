@@ -2563,6 +2563,7 @@
 (%%table-set! jazz:primitive-types 'rational     jazz:Rational)
 (%%table-set! jazz:primitive-types 'int          jazz:Integer)
 (%%table-set! jazz:primitive-types 'fx           jazz:Fixnum)
+(%%table-set! jazz:primitive-types 'fb           jazz:Fixbound)
 (%%table-set! jazz:primitive-types 'fl           jazz:Flonum)
 (%%table-set! jazz:primitive-types 'list         jazz:List)
 (%%table-set! jazz:primitive-types 'null         jazz:Null)

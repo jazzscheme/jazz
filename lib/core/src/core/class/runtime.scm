@@ -1235,10 +1235,6 @@
 
 
 (jazz:define-method (jazz:emit-test (jazz:Flovec-Class type) value source-declaration environment backend)
-  ;; a temporary check for the dual inclusion in the expansion that is
-  ;; probably not necessary as all callers make sure to only pass symbols
-  (if (%%not (%%symbol? value))
-      (jazz:error "Not symbol test value"))
   `(or (%%flonum? ,value)
        (%%f64vector? ,value)))
 
@@ -1274,7 +1270,8 @@
 
 
 (jazz:define-method (jazz:emit-test (jazz:List-Class type) value source-declaration environment backend)
-  `(or (%%null? ,value) (%%pair? ,value)))
+  `(or (%%null? ,value)
+       (%%pair? ,value)))
 
 
 (jazz:define-class-runtime jazz:List)

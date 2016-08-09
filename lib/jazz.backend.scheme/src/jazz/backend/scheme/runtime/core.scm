@@ -729,7 +729,14 @@
     
     (define (jazz:with-readtable readtable thunk)
       (parameterize ((current-readtable readtable))
-        (thunk))))
+        (thunk)))
+    
+    
+    (define (six-types)
+      ##six-types)
+    
+    (define (six-types-set! lst)
+      (set! ##six-types lst)))
   
   (else))
 

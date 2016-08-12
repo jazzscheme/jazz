@@ -444,6 +444,7 @@
 (native u8vector-append)
 (native u8vector-fill!)
 (native subu8vector)
+(native subu8vector-move!)
 
 ;; s16
 (native s16vector)

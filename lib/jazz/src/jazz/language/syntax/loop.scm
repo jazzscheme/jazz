@@ -407,6 +407,11 @@
                               variable
                             (bind (then-key then) rest
                               then)))))
+        ((init)
+         (bind (init t test i iter) rest
+           (add-variable variable (or type '<Object>) init)
+           (add-test test)
+           (add-iteration variable iter)))
         ((=)
          (let ((value (car rest)))
            (add-binding variable '<Object> value)))

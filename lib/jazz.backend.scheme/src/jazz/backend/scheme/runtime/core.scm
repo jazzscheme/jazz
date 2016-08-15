@@ -1549,6 +1549,14 @@
 (define current-seconds jazz:current-seconds)
 
 
+(define jazz:current-monotonic
+  (let ((u64vec (##u64vector 0.)))
+    (lambda ()
+      (declare (not interrupts-enabled))
+      (##get-monotonic-time! u64vec 0)
+      (##u64vector-ref u64vec 0))))
+
+
 ;;;
 ;;;; Vector
 ;;;

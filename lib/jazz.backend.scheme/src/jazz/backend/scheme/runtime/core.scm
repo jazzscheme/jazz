@@ -736,7 +736,10 @@
       ##six-types)
     
     (define (six-types-set! lst)
-      (set! ##six-types lst)))
+      (set! ##six-types lst))
+    
+    (define (print-marker)
+      #f))
   
   (else))
 

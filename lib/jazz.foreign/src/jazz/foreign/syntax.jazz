@@ -728,6 +728,12 @@
 
 
 (macro public (c-external signature result-type . rest)
+  (define (parse-specifier proc)
+    (if (and (not-null? rest)
+             (specifier? (car rest)))
+        (proc (car rest) (cdr rest))
+      (proc #f rest)))
+  
   (define homogeneous-types
     '(u8vector
       s8vector
@@ -809,13 +815,20 @@
         (format output ");")
         (get-output-string output))))
   
-  (let ((name (car signature))
-        (types (cdr signature)))
-    (let ((has-special? (some? special-type? types)))
-      (let ((converted-types (convert-types has-special? types))
-            (c-name-or-code (if (or (null? rest) (symbol? (car rest))) (convert-code has-special? types (symbol->string name)) (car rest))))
-        `(definition public ,name
-           (c-function ,name ,converted-types ,result-type ,c-name-or-code))))))
+  (parse-specifier
+    (lambda (specifier rest)
+      (let ((name (car signature))
+            (types (cdr signature)))
+        (let ((has-special? (some? special-type? types)))
+          (let ((converted-types (convert-types has-special? types))
+                (c-name-or-code (if (or (null? rest) (symbol? (car rest))) (convert-code has-special? types (symbol->string name)) (car rest))))
+            (define (specifier->function-type)
+              (let ((str (symbol->string specifier)))
+                (let ((len (string-length str)))
+                  (string->symbol (string-append "<:" (substring str 1 (- len 1)) ">")))))
+            
+            `(definition public ,name ,@(if specifier (list (specifier->function-type)) '())
+               (c-function ,name ,converted-types ,result-type ,c-name-or-code))))))))
 
 
 ;;;

@@ -41,9 +41,12 @@
 (export increase!
         decrease!
         multiply!
-        divide!)
+        divide!
+        bitwise-ior!)
 
 (import (scheme.syntax-rules (phase syntax)))
+
+(native private bitwise-ior)
 
 
 (define-syntax increase!
@@ -71,4 +74,10 @@
 (define-syntax divide!
   (syntax-rules ()
     ((_ location factor)
-     (set! location (/ location factor))))))
+     (set! location (/ location factor)))))
+
+
+(define-syntax bitwise-ior!
+  (syntax-rules ()
+    ((_ location factor)
+     (set! location (bitwise-ior location factor))))))

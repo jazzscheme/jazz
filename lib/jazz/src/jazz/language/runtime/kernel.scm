@@ -476,6 +476,7 @@
 (native s32vector?)
 (native s32vector->list)
 (native list->s32vector)
+(native subs32vector-move!)
 
 ;; u32
 (native u32vector)

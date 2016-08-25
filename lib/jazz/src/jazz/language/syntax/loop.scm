@@ -369,6 +369,7 @@
                    ((to) (set! to (cadr scan)) (set! test '<=) (set! scan (cddr scan)))
                    ((below) (set! to (cadr scan)) (set! test '<) (set! scan (cddr scan)))
                    ((downto) (set! to (cadr scan)) (set! test '>=) (set! oper '-) (set! scan (cddr scan)))
+                   ((above) (set! to (cadr scan)) (set! test '>) (set! oper '-) (set! scan (cddr scan)))
                    ((end) (set! to (cadr scan)) (set! test '<=) (set! scan (cddr scan)))
                    ((by) (set! by (cadr scan)) (set! scan (cddr scan)))
                    (else (error "Unknown for keyword: {t}" key)))))

@@ -618,6 +618,7 @@
 
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:abs                  '(                     (##flabs      <fv:fl>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:sqrt                 '(                     (##flsqrt     <fv:fl>)))
+(jazz:add-primitive-patterns     'scheme.language.runtime.kernel:expt                 '(                     (##flexpt     <fv^fv:fl>)))
 
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:sin                  '(                     (##flsin      <fv:fl>)))
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:cos                  '(                     (##flcos      <fv:fl>)))

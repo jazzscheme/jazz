@@ -156,6 +156,14 @@
             #f))))))
 
 
+(define (jazz:find-unit-options unit-name)
+  (let ((options (%%get-product-options (jazz:find-unit-product unit-name))))
+    (and options
+         (let ((pair (%%assq unit-name options)))
+           (and pair
+                (%%cdr pair))))))
+
+
 #; ;; test is pretty much obsolete and also doesn't consult gambc-cc to find the actual CC used
 (cond-expand
   (windows

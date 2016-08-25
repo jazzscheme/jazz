@@ -105,6 +105,7 @@
    (test            getter: generate)
    (update          getter: generate)
    (build           getter: generate)
+   (options         getter: generate)
    (library-options getter: generate)
    (install         getter: generate)
    (deploy          getter: generate)

@@ -1485,9 +1485,9 @@
           #f))))
 
 
-(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (library-options #f) (install #f) (deploy #f))
+(define (jazz:register-product name #!key (title #f) (icon #f) (run #f) (test #f) (update #f) (build #f) (options #f) (library-options #f) (install #f) (deploy #f))
   (receive (package descriptor) (jazz:find-product-descriptor name)
-    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build library-options install deploy package descriptor))))
+    (%%table-set! jazz:Products-Table name (%%make-product name title icon run test update build options library-options install deploy package descriptor))))
 
 
 (define (jazz:get-product-descriptor name)
@@ -1516,6 +1516,7 @@
             #f
             jazz:update-product-descriptor
             jazz:build-product-descriptor
+            #f
             #f
             #f
             #f

@@ -709,6 +709,8 @@
 (native jazz:update-product-descriptor)
 (native jazz:build-product-descriptor)
 (native jazz:custom-compile/build)
+(native jazz:find-unit-product)
+(native jazz:find-unit-options)
 (native jazz:current-process-product)
 (native jazz:current-process-name)
 (native jazz:current-process-name-set!)

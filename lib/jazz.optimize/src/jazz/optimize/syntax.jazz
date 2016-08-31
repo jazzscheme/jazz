@@ -1,0 +1,185 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Optimize Syntax
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.optimize.syntax jazz
+
+
+(import (jazz.core (phase syntax))
+        (jazz.dialect.classes.foundation))
+
+(import (fmt (except fl upcase downcase))
+        (fmt.fmt-c))
+
+
+;;;
+;;;; Optimize
+;;;
+
+
+(definition (emit-optimize header body)
+  (let ((free '()))
+    (define (emit-body body env)
+      `(%begin ,@(emit-list body env)))
+    
+    (define (emit-list lst env)
+      (map (lambda (expr)
+             (emit expr env))
+           lst))
+    
+    (define (emit expr env)
+      (typecase expr
+        ((Call) (emit-call expr env))
+        ((Binding-Reference) (emit-reference expr env))
+        ((Let) (emit-let expr env))
+        (else (emit-unsupported expr))))
+    
+    (define (emit-call call env)
+      (let ((operator (primitive-operator (get-operator~ call)))
+            (arguments (get-arguments~ call)))
+        (if operator
+            `(,operator ,@(emit-list arguments env))
+          (error "Unable to optimize {s}" call))))
+    
+    (define (emit-reference ref env)
+      (let ((binding (get-binding~ ref)))
+        (if (is? binding Parameter)
+            (let ((name (get-name~ binding))
+                  (type (get-type~ binding)))
+              (unless (memq? name free)
+                (set! free (cons binding free)))
+              name)
+          (emit-unsupported `(reference ,binding)))))
+    
+    (define (emit-let expr env)
+      (let ((bindings (get-bindings~ expr))
+            (body (get-body~ expr)))
+        (pp (map (lambda (binding)
+               (let ((variable (car binding))
+                     (value (cdr binding)))
+                 (list variable (get-type~ variable) value)))
+             bindings)))
+      'let)
+    
+    (define (emit-unsupported expr)
+      `(unsupported ,expr))
+    
+    (define (primitive-operator operator)
+      (if (is? operator Binding-Reference)
+          (primitive-reference (get-binding~ operator))
+        #f))
+    
+    (define (primitive-reference binding)
+      (if (is? binding Export-Declaration)
+          (let ((symbol (get-symbol~ binding)))
+            (if (memq? symbol '(+ - * /))
+                symbol
+              #f))
+        #f))
+    
+    (define (type->c type)
+      (typecase type
+        ((Fixnum-Class) 'int)
+        ((Flonum-Class) 'double)
+        (else (error "Unknown C type: {s}" type))))
+    
+    (define (type->lisp type)
+      (typecase type
+        ((Fixnum-Class) 'int)
+        ((Flonum-Class) 'double)
+        (else (error "Unknown Lisp type: {s}" type))))
+    
+    (define (wrap-arguments code)
+      (let ((code (c-expr
+                    `(%begin
+                       ,@(map (lambda (binding rank)
+                                (let ((name (get-name~ binding))
+                                      (type (get-type~ binding)))
+                                  `(%var ,(type->c type) ,name ,(string->symbol (format "___arg{a}" rank)))))
+                              (reverse free)
+                              (naturals 1 (+ (length free) 1)))
+                       (___return ,code)))))
+        (fmt #t code)
+        `((c-lambda ,(map (lambda (binding)
+                            (let ((name (get-name~ binding))
+                                  (type (get-type~ binding)))
+                              (type->lisp type)))
+                          (reverse free))
+              int
+            ,(fmt #f "" code))
+          x
+          y)))
+    
+    (wrap-arguments (emit-body body '()))))
+
+
+;;;
+;;;; Special
+;;;
+
+
+(class Optimize extends Expression
+  
+  
+  (slot header getter generate)
+  (slot body   getter generate)
+  
+  
+  (method override (initialize header body . rest)
+    (apply nextmethod rest)
+    (set! header~self header)
+    (set! body~self body))
+  
+  
+  (method override (tree-fold down up here seed environment)
+    (tree-fold~ body down up here seed environment))
+  
+  
+  (method override (emit-expression declaration environment backend)
+    (emit-expressions body declaration environment backend)
+    (new-code
+      (emit-optimize header body)
+      Any
+      #f)))
+
+
+(special-form (optimize walker resume declaration environment form-src)
+  (let ((form (cdr (source-code form-src))))
+    (let ((header (car form))
+          (body (cdr form)))
+      (new Optimize
+        header
+        (walk-list walker resume declaration environment body))))))

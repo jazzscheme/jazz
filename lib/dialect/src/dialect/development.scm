@@ -63,6 +63,18 @@
 
 
 ;;;
+;;;; Walk
+;;;
+
+
+(define (jazz:walk-describe unit-name)
+  (jazz:load-unit 'jazz.backend.describe)
+  (let ((port (current-output-port)))
+    (jazz:output-port-width-set! port 160)
+    (jazz:expand-to-port unit-name port backend: 'describe)))
+
+
+;;;
 ;;;; Expand
 ;;;
 

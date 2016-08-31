@@ -313,11 +313,12 @@ c-end
   ;; r -> run
   ;; t -> test
   ;; v -> version
+  ;; w -> walk
   ;; x -> expand
   ;; f -> force
   (jazz:with-quit
     (lambda ()
-      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "x" "expand" "c" "compile" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect") missing-argument-for-option
+      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "w" "walk" "x" "expand" "c" "compile" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect") missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
                 (nosource? (jazz:get-option "nosource" options))
@@ -345,6 +346,7 @@ c-end
                 (build (jazz:get-option "build" options))
                 (install (jazz:get-option "install" options))
                 (deploy (jazz:get-option "deploy" options))
+                (walk (or (jazz:get-option "w" options) (jazz:get-option "walk" options)))
                 (expand (or (jazz:get-option "x" options) (jazz:get-option "expand" options)))
                 (compile (or (jazz:get-option "c" options) (jazz:get-option "compile" options)))
                 (target (symbol-argument (jazz:get-option "target" options)))
@@ -510,6 +512,11 @@ c-end
                   (jazz:product
                    (setup-runtime)
                    (jazz:run-product jazz:product))
+                  (walk
+                   (setup-build)
+                   (jazz:load-unit 'foundation)
+                   (jazz:load-unit 'dialect.development)
+                   ((jazz:global-ref 'jazz:walk-describe) (%%string->symbol walk)))
                   (expand
                    (setup-build)
                    (jazz:load-unit 'foundation)

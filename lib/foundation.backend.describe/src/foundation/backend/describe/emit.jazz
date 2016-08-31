@@ -177,7 +177,7 @@
 ;;;
 
 
-(define-emit (cond (describe backend) expression declaration environment)
+(define-emit (cond (describe backend) expression declaration environment clauses)
   `(cond))
 
 
@@ -275,7 +275,12 @@
 
 
 (define-emit (variable-reference (describe backend) binding source-declaration environment)
-  `(variable-reference ,(get-name~ binding)))
+  (if (is? binding Lexical-Binding)
+      (let ((type (get-type~ binding)))
+        (if type
+            `(variable-reference ,(get-name~ binding) ,(type->specifier type))
+          `(variable-reference ,(get-name~ binding))))
+    `(variable-reference ,(get-name~ binding))))
 
 
 (define-emit (lexical-binding-reference (describe backend) binding)
@@ -287,7 +292,10 @@
 
 
 (define-emit (symbol-reference (describe backend) binding)
-  `(symbol-reference ,(get-name~ binding)))
+  (let ((type (get-type~ binding)))
+    (if type
+        `(symbol-reference ,(get-name~ binding) ,(type->specifier type))
+      `(symbol-reference ,(get-name~ binding)))))
 
 
 ;;;
@@ -323,4 +331,4 @@
 
 
 (define-emit (variable-assignment (describe backend) binding source-declaration environment binding-code value-code)
-  `(variable-assignment ,(jazz:sourcified-form value-code))))
+  `(variable-assignment ,(get-name~ binding) ,(jazz:sourcified-form value-code))))

@@ -4011,8 +4011,7 @@
 
 (define (jazz:annotate-bindings bindings)
   (map (lambda (binding)
-         (let ((variable (%%car binding))
-               (value (%%cdr binding)))
+         (let ((variable (%%car binding)))
            (let ((declared-type (jazz:get-lexical-binding-type variable)))
              (let ((type (or declared-type jazz:Void)))
                (jazz:new-annotated-variable variable declared-type type)))))
@@ -4346,6 +4345,11 @@
   (map (lambda (expression)
          (jazz:emit-expression expression declaration environment backend))
        expressions))
+
+
+;; quick hack
+(define (jazz:emit-expr expr declaration environment backend)
+  (jazz:emit-expression expr declaration environment backend))
 
 
 (define (jazz:tree-fold-list ls down up here seed environment)

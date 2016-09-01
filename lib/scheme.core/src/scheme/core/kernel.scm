@@ -39,6 +39,16 @@
 
 
 ;;;
+;;;; Annotate
+;;;
+
+
+(native jazz:find-annotated)
+(native jazz:find-annotated-type)
+(native jazz:annotate-let)
+
+
+;;;
 ;;;; Class
 ;;;
 

@@ -45,16 +45,18 @@
         (fmt.fmt-c))
 
 
+;; quick hack
+(definition public (return expr)
+  expr)
+
+
 ;;;
-;;;; Optimize
+;;;; Emit
 ;;;
 
 
-(definition (emit-optimize header body)
+(definition (emit-optimize header body declaration environment backend)
   (let ((free '()))
-    (define (emit-body body env)
-      `(%begin ,@(emit-list body env)))
-    
     (define (emit-list lst env)
       (map (lambda (expr)
              (emit expr env))
@@ -62,37 +64,75 @@
     
     (define (emit expr env)
       (typecase expr
+        ((Constant) (emit-constant expr env))
         ((Call) (emit-call expr env))
         ((Binding-Reference) (emit-reference expr env))
         ((Let) (emit-let expr env))
+        ((Body) (emit-body expr env))
+        ((Begin) (emit-begin expr env))
+        ((If) (emit-if expr env))
         (else (emit-unsupported expr))))
     
-    (define (emit-call call env)
-      (let ((operator (primitive-operator (get-operator~ call)))
-            (arguments (get-arguments~ call)))
-        (if operator
-            `(,operator ,@(emit-list arguments env))
-          (error "Unable to optimize {s}" call))))
+    (define (emit-constant expr env)
+      (source-code (get-expansion~ expr)))
     
-    (define (emit-reference ref env)
-      (let ((binding (get-binding~ ref)))
-        (if (is? binding Parameter)
-            (let ((name (get-name~ binding))
-                  (type (get-type~ binding)))
-              (unless (memq? name free)
-                (set! free (cons binding free)))
+    (define (emit-call expr env)
+      (let ((operator (get-operator~ expr))
+            (arguments (get-arguments~ expr)))
+        (debug operator)
+        ;; quick hack
+        (if (and (is? operator Binding-Reference)
+                 (is? (get-binding~ operator) Definition-Declaration)
+                 (eq? (get-name~ (get-binding~ operator)) 'return))
+            (emit-return (car arguments) env)
+          (let ((primitive (primitive-operator operator)))
+            (if primitive
+                `(,primitive ,@(emit-list arguments env))
+              `(unable-to-optimize ,operator))))))
+    
+    ;; quick hack
+    (define (emit-return expr env)
+      `(___return ,(emit expr env)))
+    
+    (define (emit-reference expr env)
+      (let ((binding (get-binding~ expr)))
+        (if (is? binding Variable)
+            (let ((name (get-name~ binding)))
+              (when (find-annotated binding environment)
+                (unless (memq? binding free)
+                  (set! free (cons binding free))))
               name)
           (emit-unsupported `(reference ,binding)))))
     
     (define (emit-let expr env)
-      (let ((bindings (get-bindings~ expr))
-            (body (get-body~ expr)))
-        (pp (map (lambda (binding)
-               (let ((variable (car binding))
-                     (value (cdr binding)))
-                 (list variable (get-type~ variable) value)))
-             bindings)))
-      'let)
+      (annotate-let expr declaration env backend
+        (lambda (augmented-environment)
+          (let ((bindings (get-bindings~ expr))
+                (body (get-body~ expr)))
+            `(%begin
+               ,@(map (lambda (binding)
+                        (let ((variable (car binding))
+                              (value (cdr binding)))
+                          (let ((type (find-annotated-type variable augmented-environment)))
+                            `(%var ,(type->c type) ,(get-name~ variable) ,(emit value augmented-environment)))))
+                      bindings)
+               ,@(emit body augmented-environment))))))
+    
+    (define (emit-body expr env)
+      (let ((expressions (get-expressions~ expr)))
+        (emit-list expressions env)))
+    
+    (define (emit-begin expr env)
+      (let ((expressions (get-expressions~ expr)))
+        `(%begin ,@(emit-list expressions env))))
+    
+    (define (emit-if expr env)
+      (let ((test (get-test~ expr))
+            (yes (get-yes~ expr))
+            (no (get-no~ expr)))
+        `(if ,(emit test env)
+             ,(emit yes env)
+           ,(emit no env))))
     
     (define (emit-unsupported expr)
       `(unsupported ,expr))
@@ -103,10 +143,17 @@
         #f))
     
     (define (primitive-reference binding)
+      (define primitives
+        '((+ . +)
+          (- . -)
+          (* . *)
+          (/ . /)
+          (= . ==)))
+      
       (if (is? binding Export-Declaration)
-          (let ((symbol (get-symbol~ binding)))
-            (if (memq? symbol '(+ - * /))
-                symbol
+          (let ((pair (assq (get-symbol~ binding) primitives)))
+            (if pair
+                (cdr pair)
               #f))
         #f))
     
@@ -114,40 +161,41 @@
       (typecase type
         ((Fixnum-Class) 'int)
         ((Flonum-Class) 'double)
-        (else (error "Unknown C type: {s}" type))))
+        (else `(unknown-c-type ,type))))
     
     (define (type->lisp type)
       (typecase type
         ((Fixnum-Class) 'int)
         ((Flonum-Class) 'double)
-        (else (error "Unknown Lisp type: {s}" type))))
+        (else `(unknown-lisp-type ,type))))
     
-    (define (wrap-arguments code)
-      (let ((code (c-expr
-                    `(%begin
+    (define (wrap code)
+      (let ((free (reverse free)))
+        (let ((expr `(%begin
                        ,@(map (lambda (binding rank)
                                 (let ((name (get-name~ binding))
                                       (type (get-type~ binding)))
                                   `(%var ,(type->c type) ,name ,(string->symbol (format "___arg{a}" rank)))))
-                              (reverse free)
+                              free
                               (naturals 1 (+ (length free) 1)))
-                       (___return ,code)))))
-        (fmt #t code)
-        `((c-lambda ,(map (lambda (binding)
-                            (let ((name (get-name~ binding))
-                                  (type (get-type~ binding)))
-                              (type->lisp type)))
-                          (reverse free))
-              int
-            ,(fmt #f "" code))
-          x
-          y)))
+                       ,@code)))
+          (let ((code (c-expr expr)))
+            (pp expr) (newline)
+            (fmt #t code) (newline)
+            `((c-lambda ,(map (lambda (binding)
+                                (let ((name (get-name~ binding))
+                                      (type (get-type~ binding)))
+                                  (type->lisp type)))
+                              free)
+                  int
+                ,(fmt #f "" code))
+              ,@(map get-name~ free))))))
     
-    (wrap-arguments (emit-body body '()))))
+    (wrap (emit-list body environment))))
 
 
 ;;;
-;;;; Special
+;;;; Optimize
 ;;;
 
 
@@ -169,9 +217,8 @@
   
   
   (method override (emit-expression declaration environment backend)
-    (emit-expressions body declaration environment backend)
     (new-code
-      (emit-optimize header body)
+      (emit-optimize header body declaration environment backend)
       Any
       #f)))
 
@@ -182,4 +229,67 @@
           (body (cdr form)))
       (new Optimize
         header
-        (walk-list walker resume declaration environment body))))))
+        (walk-list walker resume declaration environment body)))))
+
+
+;;;
+;;;; For
+;;;
+
+
+(native jazz:emit-expr)
+
+
+(class For extends Expression
+  
+  
+  (slot variable getter generate)
+  (slot init     getter generate)
+  (slot test     getter generate)
+  (slot update   getter generate)
+  (slot body     getter generate)
+  
+  
+  (method override (initialize variable init test update body . rest)
+    (apply nextmethod rest)
+    (set! variable~self variable)
+    (set! init~self init)
+    (set! test~self test)
+    (set! update~self update)
+    (set! body~self body))
+  
+  
+  (method override (tree-fold down up here seed environment)
+    (tree-fold~ body down up here seed environment))
+  
+  
+  (method override (emit-expression declaration environment backend)
+    (with-annotated-frame (annotate-bindings (list (list variable)))
+      (lambda (frame)
+        (let ((augmented-environment (cons frame environment)))
+          (pp body)
+          (pp (emit-expressions body declaration augmented-environment backend))
+          (pp (get-name~ variable))
+          (pp (get-form~ (emit-expr init declaration environment backend)))
+          (pp (map get-form~ (emit-expressions body declaration augmented-environment backend)))
+          (exit)
+          (new-code
+            `(let (iter (,(get-name~ variable) ,(sourcified-form (emit-expr init declaration environment backend))))
+               ,(sourcified-form (emit-expressions body declaration augmented-environment backend)))
+            Any
+            #f))))))
+
+
+(special-form (for walker resume declaration environment form-src)
+  (let ((form (cdr (source-code form-src))))
+    (let ((header (car form))
+          (body (cdr form)))
+      (bind (name init test update) (source-code header)
+        (let ((variable (new Variable (source-code name) #f name)))
+          (let ((augmented-environment (cons variable environment)))
+            (new For
+              variable
+              (walk walker resume declaration environment init)
+              (walk walker resume declaration augmented-environment test)
+              (walk walker resume declaration augmented-environment update)
+              (walk-list walker resume declaration augmented-environment body)))))))))

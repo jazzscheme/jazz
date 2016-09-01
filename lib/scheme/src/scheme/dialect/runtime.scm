@@ -447,6 +447,22 @@
   (jazz:allocate-let #f source bindings body))
 
 
+;; warning duplicated code with emit-expression
+(define (jazz:annotate-let expression declaration environment backend proc)
+  (let ((bindings (jazz:get-let-bindings expression)))
+    (jazz:with-annotated-frame (jazz:annotate-bindings bindings)
+      (lambda (frame)
+        (let ((variables (jazz:get-annotated-frame-variables frame))
+              (augmented-environment (%%cons frame environment)))
+          (for-each (lambda (binding annotated-variable)
+                      (let ((value (%%cdr binding)))
+                        (let ((value-code (jazz:emit-expression value declaration augmented-environment backend)))
+                          (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code)))))
+                       bindings
+                       variables)
+          (proc augmented-environment))))))
+
+
 (jazz:define-method (jazz:emit-expression (jazz:Let expression) declaration environment backend)
   (let ((bindings (jazz:get-let-bindings expression))
         (body (jazz:get-let-body expression)))

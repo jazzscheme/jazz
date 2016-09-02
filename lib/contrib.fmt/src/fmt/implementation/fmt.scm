@@ -684,12 +684,13 @@
                   (lp (- i 1))))))
 
             (define (pad-all d i)
+              (flush)
               (cond
                ((>= d base)
-                (flush/rounded))
-               (else
-                (flush)
-                (write-digit d)))
+                (write-digit 1)
+                (set! d (- base d))
+                (set! i (- i 1))))
+              (write-digit d)
               (let lp ((i (- i 1)))
                 (cond
                  ((> i 0)
@@ -844,6 +845,9 @@
             ;;              (pad-sci (if (< (* r 2) s) d (+ d 1)) i k))))))
 
             (cond
+             ((and (= 2 base) (integer? n))
+              (if prefix (display prefix port))
+              (display (number->string n 2) port))
              ((negative? e)
               (if (or (= e *min-e*) (not (= f *bot-f*)))
                   (scale (* f 2) (* (expt 2.0 (- e)) 2) 1 1 0 f e)

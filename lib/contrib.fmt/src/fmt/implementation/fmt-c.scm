@@ -67,13 +67,14 @@
         (else 95))))
 
 (define (c-op< x y) (< (c-op-precedence x) (c-op-precedence y)))
+(define (c-op<= x y) (<= (c-op-precedence x) (c-op-precedence y)))
 
 (define (c-paren x) (cat "(" x ")"))
 
 (define (c-maybe-paren op x)
   (lambda (st)
     ((fmt-let 'op op
-              (if (or (fmt-in-macro? st) (c-op< (fmt-op st) op))
+              (if (or (fmt-in-macro? st) (c-op<= (fmt-op st) op))
                   (c-paren x)
                   x))
      st)))
@@ -399,24 +400,25 @@
   (if (or (symbol? x) (string? x)) (dsp x) (c-expr x)))
 
 (define (cpp-if/aux name check . o)
-  (let ((pass (and (pair? o) (car o)))
-        (fail (and (pair? o) (pair? (cdr o)) (cadr o))))
+  (let* ((pass (and (pair? o) (car o)))
+         (comment (if (member name '("ifdef" "ifndef"))
+                      (cat "  "
+                           (c-comment
+                            " " (if (equal? name "ifndef") "! " "")
+                            check " "))
+                      ""))
+         (endif (if pass (cat fl "#endif" comment) ""))
+         (tail (cond
+                ((and (pair? o) (pair? (cdr o)))
+                 (if (pair? (cddr o))
+                     (apply cpp-elif (cdr o))
+                     (cat (cpp-else) (cadr o) endif)))
+                (else endif))))
     (lambda (st)
       (let ((indent (c-current-indent-string st)))
         ((cat fl "#" name " " (cpp-expr check) fl
-              (if pass (cat indent pass) "")
-              (if fail (cat fl "#else" fl indent fail) "")
-              (if (or pass fail)
-                  (cat fl
-                       "#endif"
-                       (if (member name '("ifdef" "ifndef"))
-                           (cat " "
-                                (c-comment
-                                 " " (if (equal? name "ifndef") "! " "")
-                                 check " "))
-                           "")
-                       fl)
-                  ""))
+              (if pass (cat indent pass) "") fl
+              tail fl)
          st)))))
 
 (define (cpp-if check . o)
@@ -427,6 +429,8 @@
   (apply cpp-if/aux "ifndef" check o))
 (define (cpp-elif check . o)
   (apply cpp-if/aux "elif" check o))
+(define (cpp-else . o)
+  (cat fl "#else " (if (pair? o) (c-comment (car o)) "") fl))
 (define (cpp-endif . o)
   (cat fl "#endif " (if (pair? o) (c-comment (car o)) "") fl))
 
@@ -567,7 +571,7 @@
 ;; basic control structures
 
 (define (c-while check . body)
-  (cat (c-block (cat "while (" (c-in-test check) ")")
+  (cat (c-block (cat "while (" (c-in-test (c-expr check)) ")")
                 (c-in-stmt (apply c-begin body)))
        fl))
 
@@ -575,7 +579,7 @@
   (cat
    (c-block
     (c-in-expr
-     (cat "for (" (c-expr init) "; " (c-in-test check) "; "
+     (cat "for (" (c-expr init) "; " (c-in-test (c-expr check)) "; "
           (c-expr update ) ")"))
     (c-in-stmt (apply c-begin body)))
    fl))
@@ -730,20 +734,39 @@
 
 (define (c-switch-clause/breaks x)
   (lambda (st)
-    (let* ((break? (car x))
+    (let* ((break?
+            (and (car x)
+                 (not (member (cadr x) '(case/fallthrough
+                                         default/fallthrough
+                                         else/fallthrough)))))
+           (explicit-case? (member (cadr x) '(case case/fallthrough)))
            (indent (c-current-indent-string st))
            (indent-body (c-indent st))
            (sep (string-append ":" nl-str indent)))
       ((cat (c-in-expr
              (fmt-join/suffix
               dsp
-              (if (pair? (cadr x))
-                  (map (lambda (y) (cat (dsp "case ") (c-expr y)))
-                       (cadr x))
-                  (list (dsp "default")))
+              (cond
+               ((pair? (cadr x))
+                (map (lambda (y) (cat (dsp "case ") (c-expr y)))
+                     (cadr x)))
+               (explicit-case?
+                (map (lambda (y) (cat (dsp "case ") (c-expr y)))
+                     (if (list? (caddr x))
+                         (caddr x)
+                         (list (caddr x)))))
+               ((member (cadr x)
+                        '(default else default/fallthrough else/fallthrough))
+                (list (dsp "default")))
+               (else
+                (error
+                 "unknown switch clause, expected a list or default but got"
+                 (cadr x))))
               sep))
             (make-space (or (fmt-indent-space st) 4))
-            (fmt-join c-expr (cddr x) indent-body)
+            (fmt-join c-expr
+                      (if explicit-case? (cdddr x) (cddr x))
+                      indent-body)
             (if (and break? (not (fmt-return? st)))
                 (cat fl indent-body c-break)
                 ""))

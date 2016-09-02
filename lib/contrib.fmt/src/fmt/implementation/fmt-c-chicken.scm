@@ -25,7 +25,7 @@
   c< c> c<= c>= c= c+= c-= c*= c/= c%= c&= c^= c<<= c>>= ;++c --c ;  |c\|=|
   c++/post c--/post c. c->
   c-bit-or c-or c-bit-or=
-  cpp-if cpp-ifdef cpp-ifndef cpp-elif cpp-endif cpp-undef
+  cpp-if cpp-ifdef cpp-ifndef cpp-elif cpp-endif cpp-else cpp-undef
   cpp-include cpp-define cpp-wrap-header cpp-pragma cpp-line
   cpp-error cpp-warning cpp-stringify cpp-sym-cat
   c-comment c-block-comment c-attribute

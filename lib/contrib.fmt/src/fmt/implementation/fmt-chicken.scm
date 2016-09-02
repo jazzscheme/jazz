@@ -1,6 +1,6 @@
 ;;;; fmt-chicken.scm -- Chicken fmt extension
 ;;
-;; Copyright (c) 2007-2011 Alex Shinn.  All rights reserved.
+;; Copyright (c) 2007-2014 Alex Shinn.  All rights reserved.
 ;; BSD-style license: http://synthcode.com/license.txt
 
 (module

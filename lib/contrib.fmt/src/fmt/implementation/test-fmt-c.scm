@@ -1,6 +1,9 @@
 
 (cond-expand
- (chicken (use test) (load "fmt-c-chicken.scm"))
+ (chicken
+  (use test)
+  (load "fmt-chicken.scm")
+  (load "fmt-c-chicken.scm"))
  (gauche
   (use gauche.test)
   (use text.fmt)
@@ -170,6 +173,68 @@
 "
     (fmt #f (c-fun 'int 'q '(x) (c-switch 'x '((1) 1) '((2) 4) '(else 5)))))
 
+(test "switch (x) {
+    case 1:
+    case 2:
+        foo();
+        break;
+    default:
+        bar();
+        break;
+}
+"
+    (fmt #f (c-expr '(switch x ((1 2) (foo)) (else (bar))))))
+
+(test "switch (x) {
+    case 1:
+        foo();
+        break;
+    case 2:
+    case 3:
+        bar();
+        break;
+    default:
+        baz();
+        break;
+}
+"
+    (fmt #f (c-expr
+             '(switch x (case 1 (foo)) (case (2 3) (bar)) (else (baz))))))
+
+(test "switch (x) {
+    case 1:
+    case 2:
+        foo();
+    default:
+        bar();
+        break;
+}
+"
+    (fmt #f (c-expr '(switch x (case/fallthrough (1 2) (foo)) (else (bar))))))
+
+(test "switch (x) {
+    case 1:
+    case 2:
+        foo();
+        break;
+    default:
+        bar();
+        break;
+}
+"
+    (fmt #f (c-expr '(switch x ((1 2) (foo)) (default (bar))))))
+
+(test "switch (x) {
+    default:
+        bar();
+    case 1:
+    case 2:
+        foo();
+        break;
+}
+"
+    (fmt #f (c-expr '(switch x (else/fallthrough (bar)) ((1 2) (foo))))))
+
 (test "for (i = 0; i < n; i++) {
     printf(\"i: %d\");
 }
@@ -183,6 +248,17 @@
 
 (test "(a + x) * (b + y) == c;\n"
     (fmt #f (c-expr '(== (* (+ a x) (+ b y)) c))))
+
+(test "1 - (3 + 2);\n"
+    (fmt #f (c-expr '(- 1 (+ 3 2)))))
+(test "1 - (3 - 2);\n"
+    (fmt #f (c-expr '(- 1 (- 3 2)))))
+(test "1 - 3 - 2;\n"
+    (fmt #f (c-expr '(- 1 3 2))))
+(test "1 + (3 + 2);\n"
+    (fmt #f (c-expr '(+ 1 (+ 3 2)))))
+(test "1 + 3 + 2;\n"
+    (fmt #f (c-expr '(+ 1 3 2))))
 
 (test
 "(abracadabra!!!! + xylophone????)
@@ -238,11 +314,23 @@
 
 extern int foo ();
 
-#endif /* ! FOO_H */
+#endif  /* ! FOO_H */
 "
     (fmt #f (cpp-wrap-header
              'FOO_H
              (c-extern (c-prototype 'int 'foo '())))))
+
+(test "#if foo
+1
+#elif bar
+2
+#elif baz
+3
+#else 
+4
+#endif
+"
+    (fmt #f (cpp-if 'foo 1 'bar 2 'baz 3 4)))
 
 (test "/* this is a /\\* nested *\\/ comment */"
     (fmt #f (c-comment " this is a " (c-comment " nested ") " comment ")))
@@ -258,7 +346,7 @@ extern int foo ();
     case 2:
         x = 4;
         break;
-#endif /* H_TWO */
+#endif  /* H_TWO */
     default:
         x = 5;
         break;

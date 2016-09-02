@@ -1,3 +1,18 @@
+PACKAGE = fmt
+
+CHEZ = scheme
+INSTALL = install -D
+
+PREFIX = /usr/local
+EXEC_PREFIX = ${PREFIX}
+BINDIR = ${EXEC_PREFIX}/bin
+LIBDIR = ${EXEC_PREFIX}/lib
+INCLUDEDIR = ${PREFIX}/include
+DATAROOTDIR = ${PREFIX}/share
+DATADIR = ${DATAROOTDIR}
+MANDIR = ${DATAROOTDIR}/man
+INFODIR = ${DATAROOTDIR}/info
+DOCDIR = ${DATAROOTDIR}/doc/${PACKAGE}-`cat VERSION`
 
 .PHONY: all chicken gauche gauche-dir mzscheme planet clean distclean doc
 
@@ -88,7 +103,25 @@ dist: doc distclean
 	tar cphzvf fmt-`cat VERSION`.tar.gz fmt-`cat VERSION`
 	rm -rf fmt-`cat VERSION`
 
-CHICKEN_FMT_DIR=~/src/scheme/chicken-eggs/release/4/fmt
+CHICKEN_FMT_DIR=~/src/scheme/chicken-eggs/fmt/trunk
 
 chicken:
 	@for f in fmt-c-chicken.scm fmt-column.scm fmt.scm fmt-c.scm fmt-js.scm fmt-js-chicken.scm fmt-pretty.scm fmt.setup fmt-chicken.scm fmt-unicode-chicken.scm test-fmt-c.scm fmt-color-chicken.scm fmt.html test-fmt.scm fmt-color.scm fmt.meta test-round.scm; do if ! diff -q $$f $(CHICKEN_FMT_DIR)/$$f; then cp $$f $(CHICKEN_FMT_DIR)/; fi; done
+
+chezversion ::= $(shell echo '(call-with-values scheme-version-number (lambda (a b c) (format \#t "~d.~d" a b)))' | ${CHEZ} -q)
+schemedir = ${LIBDIR}/csv${chezversion}-site
+
+chez-build:
+	$(CHEZ) --program compile-all.chezscheme.sls
+
+chez-install:
+	${INSTALL} -t ${schemedir} fmt.so fmt-c.so fmt-js.so
+	${INSTALL} -t ${DOCDIR} README VERSION fmt.html fmt.css
+
+chez-install-src:
+	${INSTALL} -t ${schemedir} fmt.sls fmt.scm fmt-c.sls fmt-c.scm fmt-js.sls fmt-js.scm fmt-utils.chezscheme.sls fmt-pretty.scm let-optionals.scm fmt-column.scm
+
+chez-check:
+	$(CHEZ) --script test-fmt.chezscheme.sls
+	$(CHEZ) --script test-fmt-c.chezscheme.sls
+	$(CHEZ) --script test-fmt-js.chezscheme.sls

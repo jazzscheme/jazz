@@ -2579,6 +2579,9 @@
 (define (jazz:lookup-primitive-type name)
   (%%table-ref jazz:primitive-types name #f))
 
+(define (jazz:add-primitive-type name type)
+  (%%table-set! jazz:primitive-types name type))
+
 
 (define jazz:primitive-declarations
   (%%make-table test: eq?))

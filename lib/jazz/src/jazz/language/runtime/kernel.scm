@@ -1463,6 +1463,7 @@
 (native jazz:binding-specifier)
 (native jazz:parse-specifier)
 (native jazz:type->specifier)
+(native jazz:add-primitive-type)
 (native jazz:requested-unit-name)
 (native jazz:requested-unit-resource)
 (native jazz:get-private-lookup)

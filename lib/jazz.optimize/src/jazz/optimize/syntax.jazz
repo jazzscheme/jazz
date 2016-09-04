@@ -59,6 +59,10 @@
 ;;       able to create a C global variable for every fn called from
 ;;       another module. note that this is really similar to what
 ;;       Gambit does for linking user code
+;;   - I think the Lisp side should only generate fn and no fn! and fn&
+;;     as in a thread-safe world there is no sensible place we can pass
+;;     to fn! to put the result. All critical pieces should then be
+;;     wrapped in an optimize
 
 ;; SUPPORT
 ;; - fx& make-fx&
@@ -146,6 +150,16 @@
 ;; - how I got the type in emit-for
 ;; - generate-symbol in for
 
+;; HOMOGENEOUS
+;; - ___F64VECTORLENGTH
+;; - ___F64* content = ___CAST(___F64*, ___BODY(___arg1));
+;; - allocate a new f64vector of count elements
+;;   ___SCMOBJ r = ___EXT(___alloc_scmobj) (NULL, ___sF64VECTOR, count*sizeof(___F64));
+;;   ___F64* ptr = ___CAST(___F64*, ___BODY(r));
+;;   fill / copy / ... the content using ptr
+;;   ___result = r;
+;;   ___EXT(___release_scmobj)(r);
+
 
 ;; hack around calling emit-expression from within an emit-expression method
 (native jazz:emit-expr)
@@ -187,15 +201,18 @@
     (define (emit-call expr env)
       (let ((operator (get-operator~ expr))
             (arguments (get-arguments~ expr)))
-        ;; quick hack
-        (if (and (is? operator Binding-Reference)
-                 (is? (get-binding~ operator) Definition-Declaration)
-                 (eq? (get-name~ (get-binding~ operator)) 'return))
-            (emit-return (car arguments) env)
-          (let ((primitive (primitive-operator operator)))
-            (if primitive
-                `(,primitive ,@(emit-list arguments env))
-              `(unable-to-optimize ,operator))))))
+        (let ((binding (and (is? operator Binding-Reference) (get-binding~ operator))))
+          ;; quick hack
+          (if (and (is? binding Definition-Declaration)
+                   (eq? (get-name~ binding) 'return))
+              (emit-return (car arguments) env)
+            (let ((primitive (primitive-operator binding)))
+              (cond (primitive
+                     `(,primitive ,@(emit-list arguments env)))
+                    ((is? binding Defoptimize-Declaration)
+                     `(bar a a))
+                    (else
+                     `(unable-to-optimize ,operator))))))))
     
     ;; quick hack
     (define (emit-return expr env)
@@ -257,12 +274,7 @@
     (define (emit-unsupported expr)
       `(unsupported ,expr))
     
-    (define (primitive-operator operator)
-      (if (is? operator Binding-Reference)
-          (primitive-reference (get-binding~ operator))
-        #f))
-    
-    (define (primitive-reference binding)
+    (define (primitive-operator binding)
       (define primitives
         '((+ . +)
           (- . -)
@@ -325,7 +337,15 @@
 
 
 
-(class Defoptimize-Declaration extends Definition-Declaration)
+(class Defoptimize-Declaration extends Definition-Declaration
+  
+  
+  (method override (emit-declaration environment backend)
+    (let ((expression (emit-expression value self environment backend)))
+      `(begin
+         (c-declare "int bar(int x, int y) { return x + y; }")
+         (define ,locator
+           ,(sourcified-form expression))))))
 
 
 (define (walk-defoptimize-declaration walker resume declaration environment form-src)

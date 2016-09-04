@@ -1517,14 +1517,14 @@
                 (values name specifier access compatibility expansion value parameters)))))))))
 
 
-(define (jazz:walk-definition-declaration walker resume declaration environment form-src)
+(define (jazz:walk-extended-definition-declaration walker resume declaration environment form-src new-definition-declaration)
   (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((type (jazz:specifier->type walker resume declaration environment specifier)))
         (let ((signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
           (let ((effective-type (if signature (jazz:build-function-type signature type) type)))
             (let ((new-declaration (or (jazz:find-declaration-child declaration name)
-                                       (jazz:new-definition-declaration name effective-type access compatibility '() declaration expansion signature))))
+                                       (new-definition-declaration name effective-type access compatibility '() declaration expansion signature))))
               (jazz:set-declaration-source new-declaration form-src)
               (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
                 (%%when (%%eq? expansion 'inline)
@@ -1535,7 +1535,7 @@
                 effective-declaration))))))))
 
 
-(define (jazz:walk-definition walker resume declaration environment form-src)
+(define (jazz:walk-extended-definition walker resume declaration environment form-src)
   (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((new-declaration (jazz:require-declaration declaration name)))
@@ -1547,13 +1547,22 @@
           ;; jazz:find-annotated fails on first keyword at jazz.language.runtime.functional:minimum
           ;; because (eq? variable annotated-variable) -> one points to a stale value
           (let ((new-environment (if #f #; parameters
-                                   (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
-                                     (jazz:set-definition-declaration-signature new-declaration signature)
-                                     (%%cons new-declaration augmented-environment))
-                                   (%%cons new-declaration environment))))
+                                     (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
+                                       (jazz:set-definition-declaration-signature new-declaration signature)
+                                       (%%cons new-declaration augmented-environment))
+                                     (%%cons new-declaration environment))))
             (jazz:set-definition-declaration-value new-declaration (jazz:walk walker resume new-declaration new-environment value))))
         (jazz:set-declaration-source new-declaration form-src)
         new-declaration))))
+
+
+(define (jazz:walk-definition-declaration walker resume declaration environment form-src)
+  (jazz:walk-extended-definition-declaration walker resume declaration environment form-src
+    jazz:new-definition-declaration))
+
+
+(define (jazz:walk-definition walker resume declaration environment form-src)
+  (jazz:walk-extended-definition walker resume declaration environment form-src))
 
 
 ;;;

@@ -1478,6 +1478,8 @@
 (native jazz:outline-unit)
 (native jazz:walk-unit)
 (native jazz:walk/outline-unit)
+(native jazz:walk-extended-definition-declaration)
+(native jazz:walk-extended-definition)
 (native jazz:generate-unit)
 (native jazz:expand)
 (native jazz:expanding-unit)

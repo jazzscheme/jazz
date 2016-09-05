@@ -65,32 +65,36 @@
 ;;     wrapped in an optimize
 
 ;; SUPPORT
-;; - fx& make-fx&
-;; - f32& f64& make-f32& make-f64&
-;; - = /= < <= > >=
-;; - + - * /
-;; - modulo bitwise-and ...
-;; - set!
-;; - let let* ...
-;; - if cond case ...
+;; - fx& make-fx& (obsolete)
+;; - f32& f64& make-f32& make-f64& (obsolete)
+;; ! = /= < <= > >= (TODO: /= is an inline function, not primitive)
+;; ! + - * /
+;; ! modulo bitwise-and ...
+;; ! set!
+;; !~ let let* ...
+;; !~ if cond case ...
 ;; - (cast <fx> <fl> ...)
 ;; - (get-slot~ obj)
 ;; - (fn a b c)
-;; - (for (init test update) body)
-;; - f64vector-ref f64vector-set! ...
+;; ! (for (init test update) body)
+;; * f64vector-ref f64vector-set! ...
+;;   --> see gambit ch. 10
 ;; - macro calls
 ;; - inline calls
 ;; - cffi calls like randomInt
 ;; - internal defines like evaluate-morph
-;; - constants
+;; ! constants
 ;; - continuation-capture/return that becomes break, continue, ...
-;; - vertex&, matrix&, ... e.g. type extensible
+;; 2 vertex&, matrix&, ... e.g. type extensible (together with next)
+;;    --> vertex is f64vector[3], matrix is f64vector[16]
+;; 2 fn fn! fn& constant space and thread-safe
 ;; - typed variables like <fx> <fl> ...
 ;; - set! gambit boxing
 ;; - (cast <Tangent> <KeyFrame> ...)
 ;; - and or
 ;; - allege
-;; - fn fn! fn& constant space and thread-safe
+;; 2 defoptimize (no linking by putting all code in same module)
+;; 3 linking
 
 ;; KNOWLEDGE
 ;; - ___argn is a macro that refers to the Scheme stack and so should be
@@ -135,10 +139,10 @@
 ;;   - C code using Gambit's CFFI
 
 ;; MODULES
-;; - world.procedural world.biome
-;; - world.geometry world.geometry.base world.polygon
-;; - world.animation
-;; - world.collision
+;; - (generation) world.procedural world.biome
+;; - (geometry) world.geometry world.geometry.base world.polygon
+;; - (animation) world.animation
+;; - (collision) world.collision
 
 ;; FUNCTIONS
 ;; - ray-triangle-distance!
@@ -151,7 +155,6 @@
 ;; - generate-symbol in for
 
 ;; HOMOGENEOUS
-;; - ___F64VECTORLENGTH
 ;; - ___F64* content = ___CAST(___F64*, ___BODY(___arg1));
 ;; - allocate a new f64vector of count elements
 ;;   ___SCMOBJ r = ___EXT(___alloc_scmobj) (NULL, ___sF64VECTOR, count*sizeof(___F64));
@@ -177,58 +180,104 @@
 
 (definition (emit-optimize header body declaration environment backend)
   (let ((free '()))
-    (define (emit-list lst env)
-      (map (lambda (expr)
-             (emit expr env))
-           lst))
     
-    (define (emit expr env)
+    (define (emit-list lst env context)
+      (cond ((null? lst) 
+             '())
+            ((null? (cdr lst))
+             (list (emit (car lst) env context)))
+            (else
+             (cons (emit (car lst) env #f)
+                   (emit-list (cdr lst) env context)))))
+    
+    (define (emit expr env context)
+      (debug expr)
       (typecase expr
-        ((Constant) (emit-constant expr env))
-        ((Call) (emit-call expr env))
-        ((Binding-Reference) (emit-reference expr env))
-        ((Let) (emit-let expr env))
-        ((Body) (emit-body expr env))
-        ((Begin) (emit-begin expr env))
-        ((If) (emit-if expr env))
-        ((For) (emit-for expr env))
-        ((Assignment) (emit-assignment expr env))
+        ((Constant) (emit-constant expr env context))
+        ((Call) (emit-call expr env context))
+        ((Binding-Reference) (emit-reference expr env context))
+        ((Let) (emit-let expr env context))
+        ((Letstar) (emit-letstar expr env context))
+        ((Body) (emit-body expr env context))
+        ((Begin) (emit-begin expr env context))
+        ((If) (emit-if expr env context))
+        ((For) (emit-for expr env context))
+        ((Assignment) (emit-assignment expr env context))
         (else (emit-unsupported expr))))
     
-    (define (emit-constant expr env)
-      (source-code (get-expansion~ expr)))
+    (define (emit-constant expr env context)
+      (emit-return (source-code (get-expansion~ expr)) context))
     
-    (define (emit-call expr env)
+    (define (emit-call expr env context)
       (let ((operator (get-operator~ expr))
             (arguments (get-arguments~ expr)))
         (let ((binding (and (is? operator Binding-Reference) (get-binding~ operator))))
-          ;; quick hack
-          (if (and (is? binding Definition-Declaration)
-                   (eq? (get-name~ binding) 'return))
-              (emit-return (car arguments) env)
-            (let ((primitive (primitive-operator binding)))
-              (cond (primitive
-                     `(,primitive ,@(emit-list arguments env)))
-                    ((is? binding Defoptimize-Declaration)
-                     `(bar a a))
-                    (else
-                     `(unable-to-optimize ,operator))))))))
+            (if (is? operator Binding-Reference)
+                (cond ((is? binding Export-Declaration)
+                       (emit-return `(,(primitive-reference binding) 
+                                      ,@(emit-list arguments env #f))
+                                    context))
+                      ((is? binding Defoptimize-Declaration)
+                       `(bar a a))
+                      ((is? binding Definition-Declaration)
+                       (compound-reference binding arguments))
+                      (else `(unable-to-optimize ,operator)))
+              `(unable-to-optimize ,operator)))))
+    
+    ;; TODO
+    (define (compound-reference binding arguments)
+      (let ((expansion (get-expansion~ binding))
+            (signature (get-signature~ binding))
+            (value (get-value~ binding)))
+        (debug expansion signature value)                  
+        `(compound-not-implemented ,binding)))
+    
+    (define (primitive-reference binding)
+      (define primitives
+        '(; arithmetic operators
+          (+ . +)
+          (- . -)
+          (* . *)
+          (/ . /)
+          (modulo . %)
+          ; relational operators
+          (= . ==)
+          (/= . !=) ; /= is an inline call in jazz, so it won't pass through here
+          (< . <)
+          (<= . <=)
+          (> . >)
+          (>= . >=)
+          ; logical operators (or and and have their own AST nodes)
+          (not . !)
+          ; bitwise operators
+          (bitwise-and . &)
+          (bitwise-xor . ^)
+          (bitwise-not . ~)
+          ;(bitwise-ior . |) ;this doesn't work
+          ))
+      
+      (let ((pair (assq (get-symbol~ binding) primitives)))
+        (if pair
+            (cdr pair)
+          #f)))
     
     ;; quick hack
-    (define (emit-return expr env)
-      `(___return ,(emit expr env)))
+    (define (emit-return expr context)
+      (if context
+          `(___return ,expr)
+        expr))
     
-    (define (emit-reference expr env)
+    (define (emit-reference expr env context)
       (let ((binding (get-binding~ expr)))
         (if (is? binding Variable)
             (let ((name (get-name~ binding)))
               (when (find-annotated binding environment)
                 (unless (memq? binding free)
                   (set! free (cons binding free))))
-              name)
+              (emit-return name context))
           `(unsupported-reference ,binding))))
     
-    (define (emit-let expr env)
+    (define (emit-let expr env context)
       (annotate-let expr declaration env backend
         (lambda (augmented-environment)
           (let ((bindings (get-bindings~ expr))
@@ -238,61 +287,46 @@
                         (let ((variable (car binding))
                               (value (cdr binding)))
                           (let ((type (find-annotated-type variable augmented-environment)))
-                            `(%var ,(type->c type) ,(get-name~ variable) ,(emit value augmented-environment)))))
+                            `(%var ,(type->c type) ,(get-name~ variable) ,(emit value augmented-environment #f)))))
                       bindings)
-               ,@(emit body augmented-environment))))))
+               ,@(emit body augmented-environment context))))))
     
-    (define (emit-body expr env)
+    (define (emit-letstar expr env context)
+      ;stub
+      )
+    
+    (define (emit-body expr env context)
       (let ((expressions (get-expressions~ expr)))
-        (emit-list expressions env)))
+        (emit-list expressions env context)))
     
-    (define (emit-begin expr env)
+    (define (emit-begin expr env context)
       (let ((expressions (get-expressions~ expr)))
-        `(%begin ,@(emit-list expressions env))))
+        `(%begin ,@(emit-list expressions env context))))
     
-    (define (emit-if expr env)
+    (define (emit-if expr env context)
       (let ((test (get-test~ expr))
             (yes (get-yes~ expr))
             (no (get-no~ expr)))
-        `(if ,(emit test env)
-             ,(emit yes env)
-           ,(emit no env))))
+        (debug 111 no (get-operator~ (car (get-expressions~ no))))
+        `(if ,(emit test env #f)
+             ,(emit yes env context)
+           ,(emit no env context))))
     
-    (define (emit-for expr env)
+    (define (emit-for expr env context)
       (let ((var (get-name~ (get-variable~ expr)))
             (type (get-type~ (emit-expr (get-init~ expr) declaration env backend))))
         `(%begin
            (%var ,(type->c type) ,var)
-           (for (= ,var ,(emit (get-init~ expr) env)) ,(emit (get-test~ expr) env) ,(emit (get-update~ expr) env)
-             ,@(emit-list (get-body~ expr) env)))))
+           (for (= ,var ,(emit (get-init~ expr) env #f)) ,(emit (get-test~ expr) env #f) ,(emit (get-update~ expr) env #f)
+             ,@(emit-list (get-body~ expr) env #f)))))
     
-    (define (emit-assignment expr env)
+    (define (emit-assignment expr env context)
       (let ((binding (get-binding~ expr))
             (value (get-value~ expr)))
-        `(= ,(get-name~ binding) ,(emit value env))))
+        `(= ,(get-name~ binding) ,(emit value env #f))))
     
     (define (emit-unsupported expr)
       `(unsupported ,expr))
-    
-    (define (primitive-operator binding)
-      (define primitives
-        '((+ . +)
-          (- . -)
-          (* . *)
-          (/ . /)
-          (= . ==)
-          (/= . !=)
-          (< . <)
-          (<= . <=)
-          (> . >)
-          (>= . >=)))
-      
-      (if (is? binding Export-Declaration)
-          (let ((pair (assq (get-symbol~ binding) primitives)))
-            (if pair
-                (cdr pair)
-              #f))
-        #f))
     
     (define (type->c type)
       (typecase type
@@ -316,7 +350,7 @@
                               free
                               (naturals 1 (+ (length free) 1)))
                        ,@code)))
-          (let ((code (c-expr expr)))
+          (let ((code (c-expr/sexp expr)))
             (pp expr) (newline)
             (fmt #t code) (newline)
             `((c-lambda ,(map (lambda (binding)
@@ -328,7 +362,7 @@
                 ,(fmt #f "" code))
               ,@(map get-name~ free))))))
     
-    (wrap (emit-list body environment))))
+    (wrap (emit-list body environment #t))))
 
 
 ;;;
@@ -397,7 +431,6 @@
       (new Optimize
         header
         (walk-list walker resume declaration environment body)))))
-
 
 ;;;
 ;;;; For

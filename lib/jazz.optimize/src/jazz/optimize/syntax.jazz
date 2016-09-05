@@ -150,10 +150,6 @@
 ;; MARC
 ;; - is there a way to know if a gc occured during a call from C to Lisp?
 
-;; SAMUEL
-;; - how I got the type in emit-for
-;; - generate-symbol in for
-
 ;; HOMOGENEOUS
 ;; - ___F64* content = ___CAST(___F64*, ___BODY(___arg1));
 ;; - allocate a new f64vector of count elements
@@ -168,11 +164,6 @@
 (native jazz:emit-expr)
 
 
-;; quick hack
-(definition public (return expr)
-  expr)
-
-
 ;;;
 ;;;; Emit
 ;;;
@@ -180,43 +171,41 @@
 
 (definition (emit-optimize header body declaration environment backend)
   (let ((free '()))
-    
-    (define (emit-list lst env context)
+    (define (emit-list lst env tail?)
       (cond ((null? lst) 
              '())
             ((null? (cdr lst))
-             (list (emit (car lst) env context)))
+             (list (emit (car lst) env tail?)))
             (else
              (cons (emit (car lst) env #f)
-                   (emit-list (cdr lst) env context)))))
+                   (emit-list (cdr lst) env tail?)))))
     
-    (define (emit expr env context)
-      (debug expr)
+    (define (emit expr env tail?)
       (typecase expr
-        ((Constant) (emit-constant expr env context))
-        ((Call) (emit-call expr env context))
-        ((Binding-Reference) (emit-reference expr env context))
-        ((Let) (emit-let expr env context))
-        ((Letstar) (emit-letstar expr env context))
-        ((Body) (emit-body expr env context))
-        ((Begin) (emit-begin expr env context))
-        ((If) (emit-if expr env context))
-        ((For) (emit-for expr env context))
-        ((Assignment) (emit-assignment expr env context))
+        ((Constant) (emit-constant expr env tail?))
+        ((Call) (emit-call expr env tail?))
+        ((Binding-Reference) (emit-reference expr env tail?))
+        ((Let) (emit-let expr env tail?))
+        ((Letstar) (emit-letstar expr env tail?))
+        ((Body) (emit-body expr env tail?))
+        ((Begin) (emit-begin expr env tail?))
+        ((If) (emit-if expr env tail?))
+        ((For) (emit-for expr env tail?))
+        ((Assignment) (emit-assignment expr env tail?))
         (else (emit-unsupported expr))))
     
-    (define (emit-constant expr env context)
-      (emit-return (source-code (get-expansion~ expr)) context))
+    (define (emit-constant expr env tail?)
+      (emit-tail (source-code (get-expansion~ expr)) tail?))
     
-    (define (emit-call expr env context)
+    (define (emit-call expr env tail?)
       (let ((operator (get-operator~ expr))
             (arguments (get-arguments~ expr)))
         (let ((binding (and (is? operator Binding-Reference) (get-binding~ operator))))
             (if (is? operator Binding-Reference)
                 (cond ((is? binding Export-Declaration)
-                       (emit-return `(,(primitive-reference binding) 
-                                      ,@(emit-list arguments env #f))
-                                    context))
+                       (emit-tail `(,(primitive-reference binding) 
+                                    ,@(emit-list arguments env #f))
+                                  tail?))
                       ((is? binding Defoptimize-Declaration)
                        `(bar a a))
                       ((is? binding Definition-Declaration)
@@ -229,7 +218,6 @@
       (let ((expansion (get-expansion~ binding))
             (signature (get-signature~ binding))
             (value (get-value~ binding)))
-        (debug expansion signature value)                  
         `(compound-not-implemented ,binding)))
     
     (define (primitive-reference binding)
@@ -261,23 +249,22 @@
             (cdr pair)
           #f)))
     
-    ;; quick hack
-    (define (emit-return expr context)
-      (if context
+    (define (emit-tail expr tail?)
+      (if tail?
           `(___return ,expr)
         expr))
     
-    (define (emit-reference expr env context)
+    (define (emit-reference expr env tail?)
       (let ((binding (get-binding~ expr)))
         (if (is? binding Variable)
             (let ((name (get-name~ binding)))
               (when (find-annotated binding environment)
                 (unless (memq? binding free)
                   (set! free (cons binding free))))
-              (emit-return name context))
+              (emit-tail name tail?))
           `(unsupported-reference ,binding))))
     
-    (define (emit-let expr env context)
+    (define (emit-let expr env tail?)
       (annotate-let expr declaration env backend
         (lambda (augmented-environment)
           (let ((bindings (get-bindings~ expr))
@@ -289,30 +276,29 @@
                           (let ((type (find-annotated-type variable augmented-environment)))
                             `(%var ,(type->c type) ,(get-name~ variable) ,(emit value augmented-environment #f)))))
                       bindings)
-               ,@(emit body augmented-environment context))))))
+               ,@(emit body augmented-environment tail?))))))
     
-    (define (emit-letstar expr env context)
+    (define (emit-letstar expr env tail?)
       ;stub
       )
     
-    (define (emit-body expr env context)
+    (define (emit-body expr env tail?)
       (let ((expressions (get-expressions~ expr)))
-        (emit-list expressions env context)))
+        (emit-list expressions env tail?)))
     
-    (define (emit-begin expr env context)
+    (define (emit-begin expr env tail?)
       (let ((expressions (get-expressions~ expr)))
-        `(%begin ,@(emit-list expressions env context))))
+        `(%begin ,@(emit-list expressions env tail?))))
     
-    (define (emit-if expr env context)
+    (define (emit-if expr env tail?)
       (let ((test (get-test~ expr))
             (yes (get-yes~ expr))
             (no (get-no~ expr)))
-        (debug 111 no (get-operator~ (car (get-expressions~ no))))
         `(if ,(emit test env #f)
-             ,(emit yes env context)
-           ,(emit no env context))))
+             ,(emit yes env tail?)
+           ,(emit no env tail?))))
     
-    (define (emit-for expr env context)
+    (define (emit-for expr env tail?)
       (let ((var (get-name~ (get-variable~ expr)))
             (type (get-type~ (emit-expr (get-init~ expr) declaration env backend))))
         `(%begin
@@ -320,7 +306,7 @@
            (for (= ,var ,(emit (get-init~ expr) env #f)) ,(emit (get-test~ expr) env #f) ,(emit (get-update~ expr) env #f)
              ,@(emit-list (get-body~ expr) env #f)))))
     
-    (define (emit-assignment expr env context)
+    (define (emit-assignment expr env tail?)
       (let ((binding (get-binding~ expr))
             (value (get-value~ expr)))
         `(= ,(get-name~ binding) ,(emit value env #f))))

@@ -102,7 +102,7 @@
   #f)
 
 (jazz:define-variable jazz:link-options
-  #f)
+  '(objects))
 
 (jazz:define-variable jazz:jobs
   #f)

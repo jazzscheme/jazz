@@ -159,6 +159,7 @@
 ;; - bailout
 ;; - inline needs thinking
 ;;   - maybe simply inline at the C level!?
+;; - run optimize -action t w x c r
 
 ;; GUILLAUME
 ;; - typedefs to make everything uniform!?
@@ -320,9 +321,9 @@
     (define (emit-dispatch expr env tail?)
       (let ((object-argument (car (get-arguments~ expr))))
         (let ((object-type (get-type~ (emit-expr object-argument declaration env backend))))
-          (let ((optimize (find-optimize-class object-type)))
+          (let ((optimize (find-class-optimize object-type)))
             (if (not optimize)
-                (bailout `(not-optimize-class ,(get-name~ object-type)))
+                (bailout `(not-class-optimize ,(get-name~ object-type)))
               (debug optimize)
               (bailout `(todo ,expr)))))))
     
@@ -427,6 +428,11 @@
     (else #f)))
 
 
+;; quick hack
+(definition (optimize-name name)
+  (string->symbol (string-append (symbol->string name) "$optimize")))
+
+
 ;;;
 ;;;; Type
 ;;;
@@ -449,31 +455,45 @@
 (class Type-Optimize-Declaration extends Declaration
   
   
+  (slot label getter generate)
   (slot model getter generate)
   
   
   (method override (initialize . rest)
-    (bind-keywords ((model #f) . others) rest
+    (bind-keywords ((label #f) (model #f) . others) rest
       (apply nextmethod others)
+      (set! label~self label)
       (set! model~self model)))
   
   
   (method override (emit-declaration environment backend)
-    `(begin)))
+    (let ((expr `(typedef (%array double 3) ,label)))
+      (let ((code (c-expr/sexp expr)))
+        ;(pp expr) (newline)
+        (fmt #t code) (newline)
+        `(c-declare ,(fmt #f "" code)))))
+  
+  
+  (method override (outline-extract meta)
+    #f))
 
 
 (define (walk-typeoptimize-declaration walker resume declaration environment form-src)
   (let ((form (cdr (source-code form-src))))
-    (let ((name (source-code (car form)))
+    (let ((label (source-code (car form)))
           (type-name (source-code (cadr form))))
-      (let ((model (get-binding~ (walk walker resume declaration environment type-name))))
-        (let ((new-declaration (new Type-Optimize-Declaration name: name type: Any access: 'public compatibility: 'uptodate attributes: '() parent: declaration model: model)))
-          (register-optimize-class name new-declaration)
+      (let ((name (optimize-name label))
+            (model (get-binding~ (walk walker resume declaration environment type-name))))
+        (let ((new-declaration (new Type-Optimize-Declaration name: name type: Any access: 'public compatibility: 'uptodate attributes: '() parent: declaration label: label model: model)))
+          (add-declaration-child walker resume declaration new-declaration)
+          (register-optimize-type name new-declaration)
           new-declaration)))))
 
 
 (define (walk-typeoptimize walker resume declaration environment form-src)
-  (new Begin '()))
+  (let ((form (cdr (source-code form-src))))
+    (let ((name (optimize-name (source-code (car form)))))
+      (require-declaration declaration name))))
 
 
 (define-walker-declaration typeoptimize jazz walk-typeoptimize-declaration walk-typeoptimize)
@@ -484,58 +504,70 @@
 ;;;
 
 
-(definition optimize-classes
+(definition class-optimize
   (make-table test: eq?))
 
 
-(definition (register-optimize-class name declaration)
-  (table-set! optimize-classes name declaration))
+(definition (register-class-optimize name optimize)
+  (table-set! class-optimize name optimize))
 
-(definition (find-optimize-class class-declaration)
-  (table-search (lambda (name declaration)
-                  (when (eq? (get-model~ declaration) class-declaration)
-                    declaration))
-                optimize-classes))
+(definition (find-class-optimize class-declaration)
+  (table-search (lambda (name optimize)
+                  (when (eq? (get-model~ optimize) class-declaration)
+                    optimize))
+                class-optimize))
 
 
 (class Class-Optimize-Declaration extends Declaration
   
   
+  (slot label getter generate)
   (slot model getter generate)
   
   
   (method override (initialize . rest)
-    (bind-keywords ((model #f) . others) rest
+    (bind-keywords ((label #f) (model #f) . others) rest
       (apply nextmethod others)
+      (set! label~self label)
       (set! model~self model)))
   
   
   (method override (emit-declaration environment backend)
-    (let ((expr `(struct ,name
-                   (,@(collect (lambda (slot)
-                                 (when (is? slot Slot-Declaration)
-                                   (let ((name (get-name~ slot))
-                                         (type (get-type~ slot)))
-                                     `(,(type->c type) ,name))))
-                               (queue-list (get-children~ model)))))))
+    (let ((expr `(typedef
+                   (struct
+                     (,@(collect (lambda (slot)
+                                   (when (is? slot Slot-Declaration)
+                                     (let ((name (get-name~ slot))
+                                           (type (get-type~ slot)))
+                                       `(,(type->c type) ,name))))
+                                 (queue-list (get-children~ model)))))
+                   ,label)))
       (let ((code (c-expr/sexp expr)))
         ;(pp expr) (newline)
         (fmt #t code) (newline)
-        `(c-declare ,(fmt #f "" code))))))
+        `(c-declare ,(fmt #f "" code)))))
+  
+  
+  (method override (outline-extract meta)
+    #f))
 
 
 (define (walk-classoptimize-declaration walker resume declaration environment form-src)
   (let ((form (cdr (source-code form-src))))
-    (let ((name (source-code (car form)))
+    (let ((label (source-code (car form)))
           (class-name (source-code (cadr form))))
-      (let ((model (get-binding~ (walk walker resume declaration environment class-name))))
-        (let ((new-declaration (new Class-Optimize-Declaration name: name type: Any access: 'public compatibility: 'uptodate attributes: '() parent: declaration model: model)))
-          (register-optimize-class class-name new-declaration)
+      (let ((name (optimize-name label))
+            (model (get-binding~ (walk walker resume declaration environment class-name))))
+        (let ((new-declaration (new Class-Optimize-Declaration name: name type: Any access: 'public compatibility: 'uptodate attributes: '() parent: declaration label: label model: model)))
+          (add-declaration-child walker resume declaration new-declaration)
+          (register-class-optimize class-name new-declaration)
           new-declaration)))))
 
 
 (define (walk-classoptimize walker resume declaration environment form-src)
-  (new Begin '()))
+  (let ((form (cdr (source-code form-src))))
+    (let ((name (optimize-name (source-code (car form)))))
+      (require-declaration declaration name))))
 
 
 (define-walker-declaration classoptimize jazz walk-classoptimize-declaration walk-classoptimize)
@@ -591,10 +623,6 @@
     (set! body~self body))
   
   
-  (method override (tree-fold down up here seed environment)
-    (tree-fold~ body down up here seed environment))
-  
-  
   (method override (emit-expression declaration environment backend)
     (new-code
       (emit-optimize body declaration environment backend)
@@ -632,10 +660,6 @@
     (set! update~self update)
     (set! body~self body)
     (set! expansion~self expansion))
-  
-  
-  (method override (tree-fold down up here seed environment)
-    (tree-fold~ body down up here seed environment))
   
   
   (method override (emit-expression declaration environment backend)

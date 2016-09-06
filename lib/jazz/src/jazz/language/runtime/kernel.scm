@@ -1481,6 +1481,8 @@
 (native jazz:walk-extended-definition-declaration)
 (native jazz:walk-extended-definition)
 (native jazz:generate-unit)
+(native jazz:walk-describe)
+(native jazz:custom-compile-unit)
 (native jazz:expand)
 (native jazz:expanding-unit)
 (native jazz:expand-unit)

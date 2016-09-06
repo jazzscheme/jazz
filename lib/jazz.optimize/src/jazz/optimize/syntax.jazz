@@ -150,6 +150,20 @@
 ;; MARC
 ;; - is there a way to know if a gc occured during a call from C to Lisp?
 
+;; SAMUEL
+;; - renamed context to tail?
+;; - removed optimize header
+;; - type/classoptimize
+;;   - generate struct
+;;   - dispatch
+;; - bailout
+;; - inline needs thinking
+;;   - maybe simply inline at the C level!?
+
+;; GUILLAUME
+;; - typedefs to make everything uniform!?
+;; - probably an emit-optimize-body fn
+
 ;; HOMOGENEOUS
 ;; - ___F64* content = ___CAST(___F64*, ___BODY(___arg1));
 ;; - allocate a new f64vector of count elements
@@ -169,7 +183,7 @@
 ;;;
 
 
-(definition (emit-optimize body declaration environment backend)
+(definition (emit-optimize body declaration environment backend (defoptimize? #f))
   (let ((free '())
         (bailout? #f))
     (define (emit-list lst env tail?)
@@ -193,6 +207,7 @@
         ((If) (emit-if expr env tail?))
         ((For) (emit-for expr env tail?))
         ((Assignment) (emit-assignment expr env tail?))
+        ((Dispatch) (emit-dispatch expr env tail?))
         (else (emit-unsupported expr))))
     
     (define (emit-constant expr env tail?)
@@ -207,50 +222,41 @@
                               ,@(emit-list arguments env #f))
                             tail?))
                 ((is? binding Definition-Optimize-Declaration)
-                 `(bar a a))
+                 (emit-defoptimize-call binding arguments env tail?))
                 ((is? binding Definition-Declaration)
-                 (compound-reference binding arguments))
+                 (emit-definition-call binding arguments env tail?))
                 (else
                  (bailout `(unable-to-optimize ,operator)))))))
     
-    ;; TODO
-    (define (compound-reference binding arguments)
-      (let ((expansion (get-expansion~ binding))
-            (signature (get-signature~ binding))
-            (value (get-value~ binding)))
-        (bailout `(compound-not-implemented ,binding))))
+    (define (emit-defoptimize-call binding arguments env tail?)
+      (emit-tail (cons (get-name~ binding) (emit-list arguments env #f)) tail?))
     
+    (define (emit-definition-call binding arguments env tail?)
+      (let ((value (get-value~ binding)))
+        (if #f @nice-try-but-doesnt-work-as-is-with-c
+            (and (is? value Lambda)
+                 (eq? (get-expansion~ binding) 'inline))
+            (emit-inline-call binding arguments env tail?)
+          (bailout `(definition-call-not-implemented ,binding)))))
+    
+    (define (emit-inline-call binding arguments env tail?)
+      (let ((signature (get-signature~ binding))
+            (value (get-value~ binding)))
+        (let ((bindings (map (lambda (parameter argument)
+                               (cons parameter argument))
+                             (get-positional~ signature)
+                             arguments))
+              (body (get-body~ value)))
+          (emit (new Let bindings body) env tail?))))
+
     (define (primitive-reference binding)
-      (define primitives
-        '(; arithmetic operators
-          (+ . +)
-          (- . -)
-          (* . *)
-          (/ . /)
-          (modulo . %)
-          ; relational operators
-          (= . ==)
-          (/= . !=) ; /= is an inline call in jazz, so it won't pass through here
-          (< . <)
-          (<= . <=)
-          (> . >)
-          (>= . >=)
-          ; logical operators (or and and have their own AST nodes)
-          (not . !)
-          ; bitwise operators
-          (bitwise-and . &)
-          (bitwise-xor . ^)
-          (bitwise-not . ~)
-          ;(bitwise-ior . |) ;this doesn't work
-          ))
-      
       (let ((pair (assq (get-symbol~ binding) primitives)))
         (if pair
             (cdr pair)
           #f)))
     
     (define (emit-tail expr tail?)
-      (if tail?
+      (if (and tail? (not defoptimize?))
           `(___return ,expr)
         expr))
     
@@ -311,6 +317,15 @@
             (value (get-value~ expr)))
         `(= ,(get-name~ binding) ,(emit value env #f))))
     
+    (define (emit-dispatch expr env tail?)
+      (let ((object-argument (car (get-arguments~ expr))))
+        (let ((object-type (get-type~ (emit-expr object-argument declaration env backend))))
+          (let ((optimize (find-optimize-class object-type)))
+            (if (not optimize)
+                (bailout `(not-optimize-class ,(get-name~ object-type)))
+              (debug optimize)
+              (bailout `(todo ,expr)))))))
+    
     (define (emit-unsupported expr)
       (bailout `(unsupported ,expr)))
     
@@ -336,21 +351,66 @@
                               free
                               (naturals 1 (+ (length free) 1)))
                        ,@code)))
-          (let ((code (c-expr/sexp expr)))
-            ;(pp expr) (newline)
-            (fmt #t code) (newline)
-            (if bailout?
-                `(begin ,@(codes-forms (emit-expressions body declaration environment backend)))
-              `((c-lambda ,(map (lambda (binding)
-                                  (let ((name (get-name~ binding))
-                                        (type (get-type~ binding)))
-                                    (safe-type->lisp type)))
-                                free)
-                    int
-                  ,(fmt #f "" code))
-                ,@(map get-name~ free)))))))
+          (let ((code (c-expr/sexp expr))
+                (statements-code (emit-statements-code body declaration environment backend)))
+            (let ((return-type (get-type~ statements-code)))
+              (let ((lisp-return-type (type->lisp return-type)))
+                (when (not lisp-return-type)
+                  (debug 'unsupported-return-type return-type)
+                  (newline))
+                ;(pp expr) (newline)
+                (fmt #t code) (newline)
+                (if bailout?
+                    `(begin ,@(get-form~ statements-code))
+                  `((c-lambda ,(map (lambda (binding)
+                                      (let ((name (get-name~ binding))
+                                            (type (get-type~ binding)))
+                                        (safe-type->lisp type)))
+                                    free)
+                        ,lisp-return-type
+                      ,(fmt #f "" code))
+                    ,@(map get-name~ free)))))))))
     
-    (wrap (emit-list body environment #t))))
+    (let ((code (emit-list body environment #t)))
+      (if defoptimize?
+          code
+        (wrap code)))))
+
+
+(definition (emit-defoptimize name signature return-type body declaration environment backend)
+  (let ((body (emit-optimize (get-expressions~ body) declaration environment backend #t)))
+    (let ((arguments (map (lambda (parameter)
+                            (list (type->c (get-type~ parameter)) (get-name~ parameter)))
+                          (get-positional~ signature)))
+          (return-type (type->c return-type)))
+      (let ((expr `(%fun ,return-type ,name ,arguments ,@body)))
+        (let ((code (c-expr/sexp expr)))
+          (fmt #t code) (newline)
+          `(c-declare ,(fmt #f "" code)))))))
+
+
+(definition primitives
+  '(; arithmetic operators
+    (+ . +)
+    (- . -)
+    (* . *)
+    (/ . /)
+    (modulo . %)
+    ; relational operators
+    (= . ==)
+    (/= . !=) ; /= is an inline call in jazz, so it won't pass through here
+    (< . <)
+    (<= . <=)
+    (> . >)
+    (>= . >=)
+    ; logical operators (or and and have their own AST nodes)
+    (not . !)
+    ; bitwise operators
+    (bitwise-and . &)
+    (bitwise-xor . ^)
+    (bitwise-not . ~)
+    ;(bitwise-ior . |) ;this doesn't work
+    ))
 
 
 (definition (type->lisp type)
@@ -368,26 +428,144 @@
 
 
 ;;;
-;;;; Defoptimize
+;;;; Type
 ;;;
 
 
+(definition optimize-types
+  (make-table test: eq?))
 
-(class Defoptimize-Declaration extends Definition-Declaration
+
+(definition (register-optimize-type name declaration)
+  (table-set! optimize-types name declaration))
+
+(definition (find-optimize-type type-name)
+  (table-search (lambda (name declaration)
+                  (when (eq? name type-name)
+                    declaration))
+                optimize-types))
+
+
+(class Type-Optimize-Declaration extends Declaration
+  
+  
+  (slot model getter generate)
+  
+  
+  (method override (initialize . rest)
+    (bind-keywords ((model #f) . others) rest
+      (apply nextmethod others)
+      (set! model~self model)))
   
   
   (method override (emit-declaration environment backend)
-    (let ((expression (emit-expression value self environment backend)))
-      `(begin
-         (c-declare "int bar(int x, int y) { return x + y; }")
-         (define ,locator
-           ,(sourcified-form expression))))))
+    `(begin)))
+
+
+(define (walk-typeoptimize-declaration walker resume declaration environment form-src)
+  (let ((form (cdr (source-code form-src))))
+    (let ((name (source-code (car form)))
+          (type-name (source-code (cadr form))))
+      (let ((model (get-binding~ (walk walker resume declaration environment type-name))))
+        (let ((new-declaration (new Type-Optimize-Declaration name: name type: Any access: 'public compatibility: 'uptodate attributes: '() parent: declaration model: model)))
+          (register-optimize-class name new-declaration)
+          new-declaration)))))
+
+
+(define (walk-typeoptimize walker resume declaration environment form-src)
+  (new Begin '()))
+
+
+(define-walker-declaration typeoptimize jazz walk-typeoptimize-declaration walk-typeoptimize)
+
+
+;;;
+;;;; Class
+;;;
+
+
+(definition optimize-classes
+  (make-table test: eq?))
+
+
+(definition (register-optimize-class name declaration)
+  (table-set! optimize-classes name declaration))
+
+(definition (find-optimize-class class-declaration)
+  (table-search (lambda (name declaration)
+                  (when (eq? (get-model~ declaration) class-declaration)
+                    declaration))
+                optimize-classes))
+
+
+(class Class-Optimize-Declaration extends Declaration
+  
+  
+  (slot model getter generate)
+  
+  
+  (method override (initialize . rest)
+    (bind-keywords ((model #f) . others) rest
+      (apply nextmethod others)
+      (set! model~self model)))
+  
+  
+  (method override (emit-declaration environment backend)
+    (let ((expr `(struct ,name
+                   (,@(collect (lambda (slot)
+                                 (when (is? slot Slot-Declaration)
+                                   (let ((name (get-name~ slot))
+                                         (type (get-type~ slot)))
+                                     `(,(type->c type) ,name))))
+                               (queue-list (get-children~ model)))))))
+      (let ((code (c-expr/sexp expr)))
+        ;(pp expr) (newline)
+        (fmt #t code) (newline)
+        `(c-declare ,(fmt #f "" code))))))
+
+
+(define (walk-classoptimize-declaration walker resume declaration environment form-src)
+  (let ((form (cdr (source-code form-src))))
+    (let ((name (source-code (car form)))
+          (class-name (source-code (cadr form))))
+      (let ((model (get-binding~ (walk walker resume declaration environment class-name))))
+        (let ((new-declaration (new Class-Optimize-Declaration name: name type: Any access: 'public compatibility: 'uptodate attributes: '() parent: declaration model: model)))
+          (register-optimize-class class-name new-declaration)
+          new-declaration)))))
+
+
+(define (walk-classoptimize walker resume declaration environment form-src)
+  (new Begin '()))
+
+
+(define-walker-declaration classoptimize jazz walk-classoptimize-declaration walk-classoptimize)
+
+
+;;;
+;;;; Definition
+;;;
+
+
+(class Definition-Optimize-Declaration extends Definition-Declaration
+  
+  
+  (method override (emit-declaration environment backend)
+    (let ((expression (emit-expression value self environment backend))
+          (signature (get-signature~ value))
+          (body (get-body~ value)))
+      (with-annotated-frame (annotate-signature signature)
+        (lambda (frame)
+          (let ((augmented-environment (cons frame environment)))
+            (emit-defoptimize name signature (get-type~ value) body self augmented-environment backend)
+            @w
+            (define ,locator
+              ,(sourcified-form expression))))))))
 
 
 (define (walk-defoptimize-declaration walker resume declaration environment form-src)
   (walk-extended-definition-declaration walker resume declaration environment form-src
     (lambda (name type access compatibility attributes parent expansion signature)
-      (new Defoptimize-Declaration name: name type: type access: access compatibility: compatibility attributes: attributes parent: parent))))
+      (new Definition-Optimize-Declaration name: name type: type access: access compatibility: compatibility attributes: attributes parent: parent))))
 
 
 (define (walk-defoptimize walker resume declaration environment form-src)
@@ -428,6 +606,7 @@
   (let ((body (cdr (source-code form-src))))
     (new Optimize
       (walk-list walker resume declaration environment body))))
+
 
 ;;;
 ;;;; For

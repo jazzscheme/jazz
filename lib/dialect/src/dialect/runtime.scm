@@ -4415,19 +4415,12 @@
     (jazz:with-annotated-frame (jazz:annotate-internal-defines internal-defines)
       (lambda (frame)
         (let ((augmented-environment (%%cons frame environment)))
-          ;; return unique expression type
-          (if (and (%%null? internal-defines)
-                   (%%not-null? expressions)
-                   (%%null? (%%cdr expressions)))
-              (let ((expressions (jazz:emit-expressions expressions declaration augmented-environment backend)))
-                (jazz:new-code
-                  (jazz:codes-forms expressions)
-                  (jazz:get-code-type (%%car expressions))
-                  #f))
+          (let ((internal-defines (jazz:emit-expressions internal-defines declaration augmented-environment backend))
+                (expressions (jazz:emit-expressions expressions declaration augmented-environment backend)))
             (jazz:new-code
-              (%%append (jazz:codes-forms (jazz:emit-expressions internal-defines declaration augmented-environment backend))
-                        (jazz:codes-forms (jazz:emit-expressions expressions declaration augmented-environment backend)))
-              jazz:Any
+              (%%append (jazz:codes-forms internal-defines)
+                        (jazz:codes-forms expressions))
+              (jazz:get-code-type (jazz:last expressions))
               #f)))))))
 
 

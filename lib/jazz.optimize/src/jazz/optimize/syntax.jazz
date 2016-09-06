@@ -169,8 +169,9 @@
 ;;;
 
 
-(definition (emit-optimize header body declaration environment backend)
-  (let ((free '()))
+(definition (emit-optimize body declaration environment backend)
+  (let ((free '())
+        (bailout? #f))
     (define (emit-list lst env tail?)
       (cond ((null? lst) 
              '())
@@ -201,24 +202,23 @@
       (let ((operator (get-operator~ expr))
             (arguments (get-arguments~ expr)))
         (let ((binding (and (is? operator Binding-Reference) (get-binding~ operator))))
-            (if (is? operator Binding-Reference)
-                (cond ((is? binding Export-Declaration)
-                       (emit-tail `(,(primitive-reference binding) 
-                                    ,@(emit-list arguments env #f))
-                                  tail?))
-                      ((is? binding Defoptimize-Declaration)
-                       `(bar a a))
-                      ((is? binding Definition-Declaration)
-                       (compound-reference binding arguments))
-                      (else `(unable-to-optimize ,operator)))
-              `(unable-to-optimize ,operator)))))
+          (cond ((is? binding Export-Declaration)
+                 (emit-tail `(,(primitive-reference binding) 
+                              ,@(emit-list arguments env #f))
+                            tail?))
+                ((is? binding Definition-Optimize-Declaration)
+                 `(bar a a))
+                ((is? binding Definition-Declaration)
+                 (compound-reference binding arguments))
+                (else
+                 (bailout `(unable-to-optimize ,operator)))))))
     
     ;; TODO
     (define (compound-reference binding arguments)
       (let ((expansion (get-expansion~ binding))
             (signature (get-signature~ binding))
             (value (get-value~ binding)))
-        `(compound-not-implemented ,binding)))
+        (bailout `(compound-not-implemented ,binding))))
     
     (define (primitive-reference binding)
       (define primitives
@@ -262,7 +262,7 @@
                 (unless (memq? binding free)
                   (set! free (cons binding free))))
               (emit-tail name tail?))
-          `(unsupported-reference ,binding))))
+          (bailout `(unsupported-reference ,binding)))))
     
     (define (emit-let expr env tail?)
       (annotate-let expr declaration env backend
@@ -274,7 +274,7 @@
                         (let ((variable (car binding))
                               (value (cdr binding)))
                           (let ((type (find-annotated-type variable augmented-environment)))
-                            `(%var ,(type->c type) ,(get-name~ variable) ,(emit value augmented-environment #f)))))
+                            `(%var ,(safe-type->c type) ,(get-name~ variable) ,(emit value augmented-environment #f)))))
                       bindings)
                ,@(emit body augmented-environment tail?))))))
     
@@ -302,7 +302,7 @@
       (let ((var (get-name~ (get-variable~ expr)))
             (type (get-type~ (emit-expr (get-init~ expr) declaration env backend))))
         `(%begin
-           (%var ,(type->c type) ,var)
+           (%var ,(safe-type->c type) ,var)
            (for (= ,var ,(emit (get-init~ expr) env #f)) ,(emit (get-test~ expr) env #f) ,(emit (get-update~ expr) env #f)
              ,@(emit-list (get-body~ expr) env #f)))))
     
@@ -312,19 +312,19 @@
         `(= ,(get-name~ binding) ,(emit value env #f))))
     
     (define (emit-unsupported expr)
-      `(unsupported ,expr))
+      (bailout `(unsupported ,expr)))
     
-    (define (type->c type)
-      (typecase type
-        ((Fixnum-Class) 'int)
-        ((Flonum-Class) 'double)
-        (else `(unknown-c-type ,type))))
+    (define (bailout expr)
+      (set! bailout? #t)
+      expr)
     
-    (define (type->lisp type)
-      (typecase type
-        ((Fixnum-Class) 'int)
-        ((Flonum-Class) 'double)
-        (else `(unknown-lisp-type ,type))))
+    (define (safe-type->lisp type)
+      (or (type->lisp type)
+          (bailout `(unknown-lisp-type ,type))))
+    
+    (define (safe-type->c type)
+      (or (type->c type)
+          (bailout `(unknown-c-type ,type))))
     
     (define (wrap code)
       (let ((free (reverse free)))
@@ -332,23 +332,39 @@
                        ,@(map (lambda (binding rank)
                                 (let ((name (get-name~ binding))
                                       (type (get-type~ binding)))
-                                  `(%var ,(type->c type) ,name ,(string->symbol (format "___arg{a}" rank)))))
+                                  `(%var ,(safe-type->c type) ,name ,(string->symbol (format "___arg{a}" rank)))))
                               free
                               (naturals 1 (+ (length free) 1)))
                        ,@code)))
           (let ((code (c-expr/sexp expr)))
-            (pp expr) (newline)
+            ;(pp expr) (newline)
             (fmt #t code) (newline)
-            `((c-lambda ,(map (lambda (binding)
-                                (let ((name (get-name~ binding))
-                                      (type (get-type~ binding)))
-                                  (type->lisp type)))
-                              free)
-                  int
-                ,(fmt #f "" code))
-              ,@(map get-name~ free))))))
+            (if bailout?
+                `(begin ,@(codes-forms (emit-expressions body declaration environment backend)))
+              `((c-lambda ,(map (lambda (binding)
+                                  (let ((name (get-name~ binding))
+                                        (type (get-type~ binding)))
+                                    (safe-type->lisp type)))
+                                free)
+                    int
+                  ,(fmt #f "" code))
+                ,@(map get-name~ free)))))))
     
     (wrap (emit-list body environment #t))))
+
+
+(definition (type->lisp type)
+  (typecase type
+    ((Fixnum-Class) 'int)
+    ((Flonum-Class) 'double)
+    (else #f)))
+
+
+(definition (type->c type)
+  (typecase type
+    ((Fixnum-Class) 'int)
+    ((Flonum-Class) 'double)
+    (else #f)))
 
 
 ;;;

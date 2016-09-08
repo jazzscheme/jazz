@@ -2063,25 +2063,27 @@
               (jazz:set-property-declaration-getter new-declaration
                 (jazz:walk walker resume declaration environment
                   (cond (getter-name
-                          `(lambda (self)
-                             (with-self
-                               (,getter-name))))
+                         `(lambda (self)
+                            (with-self
+                              (,getter-name))))
                         (allocate?
-                          `(lambda (self)
-                             (with-self ,name)))
-                        (else #f))))
+                         `(lambda (self)
+                            (with-self ,name)))
+                        (else
+                         #f))))
               (jazz:set-property-declaration-setter new-declaration
                 (let ((value (jazz:generate-symbol "val")))
                   (jazz:walk walker resume declaration environment
                     (cond (setter-name
-                            `(lambda (self ,value)
-                               (with-self
-                                 (,setter-name ,value))))
+                           `(lambda (self ,value)
+                              (with-self
+                                (,setter-name ,value))))
                           (allocate?
-                            `(lambda (self ,value)
-                               (with-self
-                                 (set! ,name ,value))))
-                          (else #f)))))))
+                           `(lambda (self ,value)
+                              (with-self
+                                (set! ,name ,value))))
+                          (else
+                           #f)))))))
           (jazz:set-declaration-source new-declaration form-src)
           new-declaration)))))
 

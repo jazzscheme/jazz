@@ -566,6 +566,7 @@ end-of-code
                          (##fx= st (macro-subtype-boxvalues))
                          (##fx= st (macro-subtype-meroon))
                          (##fx= st (macro-subtype-jazz))
+                         (##fx= st (macro-subtype-jazzstruct))
                          (##fx= st (macro-subtype-promise)))
                      (copy-ovector obj st))
 

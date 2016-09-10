@@ -517,7 +517,7 @@
     if (___MEM_ALLOCATED(obj))
     {
         int subtype = (*___UNTAG(obj) & ___SMASK) >> ___HTB;
-        if (subtype == ___sJAZZ)
+        if (subtype == ___sJAZZ || subtype == ___sJAZZSTRUCT)
             ___RESULT = ___VECTORREF(obj,0);
         else if (subtype == ___sSTRUCTURE)
             ___RESULT = ___FAL;

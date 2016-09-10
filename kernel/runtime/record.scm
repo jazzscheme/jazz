@@ -55,13 +55,26 @@
     (jazz:define-macro (%%subtype-jazz)
       7)
     
+    (jazz:define-macro (%%subtype-jazzstruct)
+      16)
+    
     ;; this function is here for structure / class unification
     (jazz:define-macro (%%jazz? expr)
-      `(##jazz? ,expr))
+      (jazz:with-uniqueness expr
+        (lambda (expr)
+          `(or (##jazz? ,expr) (##jazzstruct? ,expr)))))
+    
+    ;; this function is here for structure / class unification
+    (jazz:define-macro (%%jazzstruct? expr)
+      `(##jazzstruct? ,expr))
     
     ;; this function is here for structure / class unification
     (jazz:define-macro (%%jazzify expr)
       `(##subtype-set! ,expr (%%subtype-jazz)))
+    
+    ;; this function is here for structure / class unification
+    (jazz:define-macro (%%jazzstructify expr)
+      `(##subtype-set! ,expr (%%subtype-jazzstruct)))
     
     #; ;; defined as functions until structure / class unification
     (jazz:define-macro (%%record? expr)
@@ -146,6 +159,19 @@
 
 (jazz:define-macro (%%set-record-structure record structure)
   `(%%record-set! ,record ,jazz:structure-offset ,structure))
+
+
+(define (jazz:jazz? obj)
+  (%%jazz? obj))
+
+(define (jazz:jazzify obj)
+  (%%jazzify obj))
+
+(define (jazz:jazzstruct? obj)
+  (%%jazzstruct? obj))
+
+(define (jazz:jazzstructify obj)
+  (%%jazzstructify obj))
 
 
 ;; defined as functions until structure / class unification

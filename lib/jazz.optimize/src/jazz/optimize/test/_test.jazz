@@ -38,8 +38,531 @@
 (module jazz.optimize.test jazz
 
 
-(import (jazz.optimize (phase syntax))
+(import (jazz.foreign)
+        (jazz.platform)
+        (jazz.optimize (phase syntax))
         (jazz.optimize.test.syntax (phase syntax)))
+
+
+;; TODO
+;; - probably an emit-optimize-body fn
+;; - move ((unspecified)) from walk to emit (if)
+;; - maybe delegate the inline to C
+;;   - and maybe this is not even necessary (test)
+;;     if gcc smartly inlines as needed
+;; - implement /=
+
+;; MARC
+;; - is there a way to know if a gc occured during a call from C to Lisp?
+;; - better way of doing ptr->origin.head = ___MAKE_HD(___HD_BYTES(ptr->origin.head), ___sJAZZSTRUCT, ___PERM)
+;; - I have random crashes in my code
+
+
+(c-external (bytes->words int) int
+  #/C/
+    ___result = ___WORDS(___arg1);
+//#)
+
+
+;;;
+;;;; Still
+;;;
+
+
+;; for now composite and container objects must be still
+(c-external (make-u8vector-still int) scheme-object
+  #/C/
+    ___result = ___EXT(___alloc_scmobj) (NULL, ___sU8VECTOR, ___arg1);
+    ___EXT(___release_scmobj)(___result);
+//#)
+
+
+;;;
+;;;; Struct
+;;;
+
+
+(class Struct extends Object)
+
+
+;;;
+;;;; Container
+;;;
+
+
+(class Container extends Object)
+
+
+;;;
+;;;; Vertex
+;;;
+
+
+(c-declare test #/C/
+  typedef struct {
+            ___WORD head;
+            ___SCMOBJ model;
+            double x;
+            double y;
+            double z;
+  } vertex;
+//#)
+
+
+(c-external (sizeof-vertex) int
+  #/C/
+  ___result = sizeof(vertex);
+//#)
+
+
+(definition public vertex-size <fx>
+  (sizeof-vertex))
+
+(definition public vertex-words <fx>
+  (bytes->words vertex-size))
+
+
+(class Vertex extends Struct
+  
+  
+  @w (slot x <fl>)
+  @w (slot y <fl>)
+  @w (slot z <fl>)
+  
+  
+  (method override (print output readably)
+    (format output "~{Vertex {a} {a} {a}}"
+      (vertex-x self)
+      (vertex-y self)
+      (vertex-z self))))
+
+
+(definition public (make-vertex) <Vertex>
+  (let ((vertex (jazzstructify (make-u8vector vertex-size))))
+    (c-code
+      #/C/
+        vertex* ptr = ___CAST(vertex*, ___UNTAG(___ARG1));
+        ptr->model = ___ARG2;
+//#
+      vertex
+      Vertex)
+    vertex))
+
+
+(definition public (vertex x <fl> y <fl> z <fl>) <Vertex>
+  (let ((vertex (jazzstructify (make-u8vector vertex-size))))
+    (c-code
+      #/C/
+        vertex* ptr = ___CAST(vertex*, ___UNTAG(___ARG1));
+        ptr->model = ___ARG2;
+        ptr->x = ___F64UNBOX(___ARG3);
+        ptr->y = ___F64UNBOX(___ARG4);
+        ptr->z = ___F64UNBOX(___ARG5);
+//#
+      vertex
+      Vertex
+      x
+      y
+      z)
+    vertex))
+
+
+(definition public (vertex-x vert <Vertex>) <fl>
+  ((c-lambda vertex-x (scheme-object) double
+    #/C/
+      vertex* ptr = ___CAST(vertex*, ___UNTAG(___arg1));
+      ___return(ptr->x);
+//#)
+    vert))
+
+(definition public (vertex-y vert <Vertex>) <fl>
+  ((c-lambda vertex-y (scheme-object) double
+    #/C/
+      vertex* ptr = ___CAST(vertex*, ___UNTAG(___arg1));
+      ___return(ptr->y);
+//#)
+    vert))
+
+(definition public (vertex-z vert <Vertex>) <fl>
+  ((c-lambda vertex-z (scheme-object) double
+    #/C/
+      vertex* ptr = ___CAST(vertex*, ___UNTAG(___arg1));
+      ___return(ptr->z);
+//#)
+    vert))
+
+
+(definition public (vertex-x-set! vert <Vertex> x <fl>) <void>
+  (c-code
+    #/C/
+      vertex* ptr = ___CAST(vertex*, ___UNTAG(___ARG1));
+      ptr->x = ___F64UNBOX(___ARG2);
+//#
+    vert
+    x))
+
+(definition public (vertex-y-set! vert <Vertex> x <fl>) <void>
+  (c-code
+    #/C/
+      vertex* ptr = ___CAST(vertex*, ___UNTAG(___ARG1));
+      ptr->y = ___F64UNBOX(___ARG2);
+//#
+    vert
+    x))
+
+(definition public (vertex-z-set! vert <Vertex> x <fl>) <void>
+  (c-code
+    #/C/
+      vertex* ptr = ___CAST(vertex*, ___UNTAG(___ARG1));
+      ptr->z = ___F64UNBOX(___ARG2);
+//#
+    vert
+    x))
+
+
+(definition public (vertex+ v1 <Vertex> v2 <Vertex>) <Vertex>
+  (vertex
+    (+ (vertex-x v1) (vertex-x v2))
+    (+ (vertex-y v1) (vertex-y v2))
+    (+ (vertex-z v1) (vertex-z v2))))
+
+
+@w
+(debug (make-vertex))
+@w
+(let ((vert (vertex 2. 3. 5.)))
+  (debug vert)
+  (vertex-x-set! vert 7.)
+  (vertex-y-set! vert 9.)
+  (vertex-z-set! vert 11.)
+  (debug vert))
+
+
+;;;
+;;;; Vertices
+;;;
+
+
+(c-declare test #/C/
+  typedef struct {
+            ___WORD head;
+            ___SCMOBJ model;
+            int length;
+  } vertices;
+//#)
+
+
+(class Vertices extends Container)
+
+
+(definition public (make-vertices count)
+  (let ((vertices (jazzstructify (make-u8vector (* count vertex-size)))))
+    (c-code
+      #/C/
+        int len = ___INT(___ARG1);
+        int head = ___MAKE_HD(___HD_BYTES(___ARG2), ___sJAZZSTRUCT, ___PERM);
+        vertices* container = ___CAST(vertices*, ___UNTAG(___ARG2));
+        container->model = ___ARG3;
+        container->length = len;
+        vertex* ptr = ___CAST(vertex*, container + 1);
+        for (int n = 0; n < len; n++)
+        {
+            ptr->head = head;
+            ptr->model = ___ARG4;
+            ptr++;
+        }
+//#
+      count
+      vertices
+      Vertices
+      Vertex)
+    vertices))
+
+
+(definition public (vertices-length vertices)
+  (c-code
+    #/C/
+      vertices* container = ___CAST(vertices*, ___UNTAG(___ARG1));
+      ___RESULT = ___FIX(container->length);
+//#
+    vertices))
+
+
+(definition public (vertices-ref vertices n)
+  (c-code
+    #/C/
+      vertices* container = ___CAST(vertices*, ___UNTAG(___ARG1));
+      vertex* ptr = ___CAST(vertex*, container + 1);
+      ___RESULT = ___TAG(ptr + ___INT(___ARG2), ___tSUBTYPED);
+//#
+    vertices
+    n))
+
+
+@w
+(let ((vertices (make-vertices 10)))
+  (debug vertices (vertices-length vertices))
+  (let ((vert (vertices-ref vertices 2)))
+    (vertex-x-set! vert 4.)
+    (vertex-y-set! vert 5.)
+    (vertex-z-set! vert 6.)
+    (debug vert)
+    (debug (vertices-ref vertices 2))))
+
+
+;;;
+;;;; Plane
+;;;
+
+
+(c-declare test #/C/
+  typedef struct {
+            ___WORD head;
+            ___SCMOBJ model;
+            vertex origin;
+            vertex normal;
+  } plane;
+//#)
+
+
+(c-external (sizeof-plane) int
+  #/C/
+  ___result = sizeof(plane);
+//#)
+
+
+(definition public plane-size <fx>
+  (sizeof-plane))
+
+(definition public plane-words <fx>
+  (bytes->words plane-size))
+
+
+(class Plane extends Struct
+  
+  
+  @w (slot origin <Vertex> initialize (make-vertex) getter generate)
+  @w (slot normal <Vertex> initialize (make-vertex) getter generate)
+  
+  
+  (method override (print output readably)
+    (format output "~{Plane {a} {a}}"
+      (plane-origin self)
+      (plane-normal self))))
+
+
+(definition public (plane origin <Vertex> normal <Vertex>) <Plane>
+  (let ((plane (jazzstructify (make-u8vector-still plane-size))))
+    (c-code
+      #/C/
+        plane* ptr = ___CAST(plane*, ___UNTAG(___ARG1));
+        ptr->model = ___ARG2;
+        ptr->origin = *___CAST(vertex*, ___UNTAG(___ARG3)); ptr->origin.head = ___MAKE_HD(___HD_BYTES(ptr->origin.head), ___sJAZZSTRUCT, ___PERM);
+        ptr->normal = *___CAST(vertex*, ___UNTAG(___ARG4)); ptr->normal.head = ___MAKE_HD(___HD_BYTES(ptr->normal.head), ___sJAZZSTRUCT, ___PERM);
+//#
+      plane
+      Plane
+      origin
+      normal)
+    plane))
+
+
+(definition public (plane-origin plane <Plane>) <Vertex>
+  (c-code
+    #/C/
+      plane* ptr = ___CAST(plane*, ___UNTAG(___ARG1));
+      ___RESULT = ___TAG(&ptr->origin, ___tSUBTYPED);
+//#
+    plane))
+
+(definition public (plane-normal plane <Plane>) <Vertex>
+  (c-code
+    #/C/
+      plane* ptr = ___CAST(plane*, ___UNTAG(___ARG1));
+      ___RESULT = ___TAG(&ptr->normal, ___tSUBTYPED);
+//#
+    plane))
+
+
+@w
+(let ((plane (plane (vertex 1. 2. 3.) (vertex 0. 1. 0.))))
+  (debug plane)
+  (debug (vertex+ (plane-origin plane) (plane-normal plane)))
+  (let ((orig (plane-origin plane))
+        (normal (plane-normal plane)))
+    (debug orig normal)))
+
+
+;;;
+;;;; Planes
+;;;
+
+
+(c-declare test #/C/
+  typedef struct {
+            ___WORD head;
+            ___SCMOBJ model;
+            int length;
+  } planes;
+//#)
+
+
+(class Planes extends Container)
+
+
+(definition public (make-planes count)
+  (let ((planes (jazzstructify (make-u8vector (* count plane-size)))))
+    (c-code
+      #/C/
+        int len = ___INT(___ARG1);
+        int head = ___MAKE_HD(___HD_BYTES(___ARG2), ___sJAZZSTRUCT, ___PERM);
+        planes* container = ___CAST(planes*, ___UNTAG(___ARG2));
+        container->model = ___ARG3;
+        container->length = len;
+        plane* ptr = ___CAST(plane*, container + 1);
+        for (int n = 0; n < len; n++)
+        {
+            ptr->head = head;
+            ptr->model = ___ARG4;
+            ptr->origin.head = ___MAKE_HD(sizeof(vertex), ___sJAZZSTRUCT, ___PERM);
+            ptr->origin.model = ___ARG5;
+            ptr->normal.head = ___MAKE_HD(sizeof(vertex), ___sJAZZSTRUCT, ___PERM);
+            ptr->normal.model = ___ARG5;
+            ptr++;
+        }
+//#
+      count
+      planes
+      Planes
+      Plane
+      Vertex)
+    planes))
+
+
+(definition public (planes-length planes)
+  (c-code
+    #/C/
+      planes* container = ___CAST(planes*, ___UNTAG(___ARG1));
+      ___RESULT = ___FIX(container->length);
+//#
+    planes))
+
+
+(definition public (planes-ref planes n)
+  (c-code
+    #/C/
+      planes* container = ___CAST(planes*, ___UNTAG(___ARG1));
+      plane* ptr = ___CAST(plane*, container + 1);
+      ___RESULT = ___TAG(ptr + ___INT(___ARG2), ___tSUBTYPED);
+//#
+    planes
+    n))
+
+
+@w
+(let ((planes (make-planes 10)))
+  (debug planes (planes-length planes))
+  (debug (planes-ref planes 2)))
+
+
+;;;
+;;;; Stack
+;;;
+
+
+(native make-thread-with-stack)
+(native force-f64vector-set!)
+
+
+(define (thread-sp-get) (thread-specific (current-thread)))
+(define (thread-sp-set! sp) (thread-specific-set! (current-thread) sp))
+
+
+(define (thread-make-f64vector len)
+  (let ((sp (thread-sp-get)))
+    (thread-sp-set! (+ sp 1 len))
+    (c-code
+      #/C/
+        ___WORD* ptr = ___UNTAG(___ARG1) + ___INT(___ARG2);
+        ptr[0] = ___MAKE_HD(___INT(___ARG3) * sizeof(___F64), ___sF64VECTOR, ___PERM);
+        ___RESULT = ___TAG(ptr, ___tSUBTYPED);
+//#
+    (current-thread)
+    sp
+    len)))
+
+
+(define (thread-make-vertex)
+  (let ((sp (thread-sp-get)))
+    (thread-sp-set! (+ sp vertex-words))
+    (c-code
+      #/C/
+        vertex* ptr = ___CAST(vertex*, ___UNTAG(___ARG1) + ___INT(___ARG2));
+        ptr->head = ___MAKE_HD(sizeof(vertex), ___sJAZZSTRUCT, ___PERM);
+        ptr->model = ___ARG3;
+        ___RESULT = ___TAG(ptr, ___tSUBTYPED);
+//#
+    (current-thread)
+    sp
+    Vertex)))
+
+
+(define (thread-make-plane)
+  (let ((sp (thread-sp-get)))
+    (thread-sp-set! (+ sp plane-words))
+    (c-code
+      #/C/
+        plane* ptr = ___CAST(plane*, ___UNTAG(___ARG1) + ___INT(___ARG2));
+        ptr->head = ___MAKE_HD(sizeof(plane), ___sJAZZSTRUCT, ___PERM);
+        ptr->model = ___ARG3;
+        ptr->origin.head = ___MAKE_HD(sizeof(vertex), ___sJAZZSTRUCT, ___PERM);
+        ptr->origin.model = ___ARG4;
+        ptr->normal.head = ___MAKE_HD(sizeof(vertex), ___sJAZZSTRUCT, ___PERM);
+        ptr->normal.model = ___ARG4;
+        ___RESULT = ___TAG(ptr, ___tSUBTYPED);
+//#
+    (current-thread)
+    sp
+    Plane
+    Vertex)))
+
+
+(define t
+  (make-thread-with-stack 4096
+    (lambda ()
+      (let ((sp (thread-sp-get)))
+        (let ((v1 (thread-make-f64vector 3))
+              (v2 (thread-make-f64vector 3))
+              (vert (thread-make-vertex))
+              (plane (thread-make-plane)))
+          (force-f64vector-set! v1 1 1.111)
+          (force-f64vector-set! v2 1 2.222)
+          (vertex-x-set! vert 1.1)
+          (vertex-y-set! vert 2.2)
+          (vertex-z-set! vert 3.3)
+          (let ((origin (plane-origin plane))
+                (normal (plane-normal plane)))
+            (vertex-x-set! origin 4.4)
+            (vertex-y-set! origin 5.5)
+            (vertex-z-set! origin 6.6)
+            (vertex-x-set! normal 0.)
+            (vertex-y-set! normal 1.)
+            (vertex-z-set! normal 0.))
+          (pp (list 'v1= v1))
+          (pp (list 'v2= v2))
+          (pp (list 'vert= vert))
+          (pp (list 'plane= plane))
+          (thread-sp-set! sp)
+          (let ((v3 (thread-make-f64vector 3)))
+            (force-f64vector-set! v3 1 3.333)
+            (pp (list 'v1= v1))
+            (pp (list 'v2= v2))
+            (pp (list 'v3= v3))
+            (thread-sp-set! sp)))))))
+
+(thread-start! t)
+
+(thread-sleep! 1)
 
 
 ;;;
@@ -47,6 +570,7 @@
 ;;;
 
 
+@w (
 (defoptimize (add x <fl> y <fl>) <fl>
   (+ x y))
 
@@ -64,62 +588,7 @@
     (add a (fn a b))))
 
 
-(debug (foo 2. 3.))
-
-
-;;;
-;;;; Type
-;;;
-
-
-(typeoptimize vertex Vertex 3)
-(typeoptimize quaternion Quaternion 4)
-
-
-(defoptimize public inline (vertex x <fl> y <fl> z <fl>) <vertex>
-  (f64vector x
-             y
-             z))
-
-
-(defoptimize public inline (vertex-x vert <vertex>) <fl>
-  (f64vector-ref vert 0))
-
-(defoptimize public inline (vertex-y vert <vertex>) <fl>
-  (f64vector-ref vert 1))
-
-(defoptimize public inline (vertex-z vert <vertex>) <fl>
-  (f64vector-ref vert 2))
-
-
-(definition (goo a <vertex> b <vertex>)
-  (optimize
-    (vertex
-      (+ (vertex-x a) (vertex-x b))
-      (+ (vertex-y a) (vertex-y b))
-      (+ (vertex-z a) (vertex-z b)))))
-
-
-;;;
-;;;; Class
-;;;
-
-
-(class Coord extends Object
-  
-  (slot x <fl>)
-  (slot y <fl>)
-  (slot z <fl>))
-
-(classoptimize coord Coord)
-
-
-(definition (hoo a <Coord> b <Coord>) <Coord>
-  (optimize
-    (new Coord
-      (+ (get-x~ a) (get-x~ b))
-      (+ (get-y~ a) (get-y~ b))
-      (+ (get-z~ a) (get-z~ b)))))
+(debug (foo 2. 3.)))
 
 
 ;;;
@@ -127,6 +596,7 @@
 ;;;
 
 
+@w (
 (definition (zoo x <fx> y <fx>)
   (optimize
     (let ((t 0))
@@ -138,4 +608,4 @@
       t)))
 
 
-(debug (zoo 2 3)))
+(debug (zoo 2 3))))

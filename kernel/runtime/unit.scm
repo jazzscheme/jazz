@@ -2146,6 +2146,12 @@
       (or lib-uptodate? bin-uptodate? src))))
 
 
+(define (jazz:unit-obj-uptodate? unit-name)
+  (jazz:with-unit-resources unit-name #f
+    (lambda (src obj bin load-proc obj-uptodate? bin-uptodate? lib-uptodate? manifest)
+      obj-uptodate?)))
+
+
 (define (jazz:load-foundation)
   (jazz:load-unit 'foundation))
 

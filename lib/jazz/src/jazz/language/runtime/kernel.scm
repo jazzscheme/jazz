@@ -171,6 +171,14 @@
 
 
 ;;;
+;;;; Devel
+;;;
+
+
+(native jazz:subtype)
+
+
+;;;
 ;;;; Development
 ;;;
 
@@ -808,6 +816,7 @@
 (native jazz:call-process)
 (native jazz:feedback)
 (native jazz:unit-loadable?)
+(native jazz:unit-obj-uptodate?)
 (native jazz:load-foundation)
 (native jazz:load-runtime)
 (native jazz:load-build)
@@ -911,6 +920,10 @@
 ;;;
 
 
+(native jazz:jazz?)
+(native jazz:jazzify)
+(native jazz:jazzstruct?)
+(native jazz:jazzstructify)
 (native jazz:new)
 (native jazz:nascent-new)
 (native jazz:class-of)

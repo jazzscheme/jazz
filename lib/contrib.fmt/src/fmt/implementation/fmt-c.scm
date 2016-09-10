@@ -172,7 +172,7 @@
             ((struct union class) ((apply c-struct/aux x) st))
             ((enum) ((apply c-enum (cdr x)) st))
             ((inline auto restrict register volatile extern static)
-             ((cat (car x) " " (apply-cat (cdr x))) st))
+             ((cat (car x) " " (c-expr (cadr x))) st))
             ;; non C-keywords must have some character invalid in a C
             ;; identifier to avoid conflicts - by default we prefix %
             ((vector-ref)

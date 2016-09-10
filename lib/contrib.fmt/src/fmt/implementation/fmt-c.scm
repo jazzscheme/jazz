@@ -223,6 +223,7 @@
             ((bitwise-not bit-not) ((apply c-op '~ (cdr x)) st))
             ((arithmetic-shift) ((apply c-op '<< (cdr x)) st))
             ((bitwise-ior= bit-or=) ((apply c-op "|=" (cdr x)) st))
+            ((%and) ((apply c-op "&&" (cdr x)) st))
             ((%or) ((apply c-op "||" (cdr x)) st))
             ((%. %field) ((apply c-op "." (cdr x)) st))
             ((%->) ((apply c-op "->" (cdr x)) st))

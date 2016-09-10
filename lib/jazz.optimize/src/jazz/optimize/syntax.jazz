@@ -203,10 +203,13 @@
         ((Letstar) (emit-letstar expr env tail?))
         ((Body) (emit-body expr env tail?))
         ((Begin) (emit-begin expr env tail?))
+        ((And) (emit-and expr env tail?))
+        ((Or) (emit-or expr env tail?))
         ((If) (emit-if expr env tail?))
         ((For) (emit-for expr env tail?))
         ((Assignment) (emit-assignment expr env tail?))
         ((Dispatch) (emit-dispatch expr env tail?))
+        ((Cast) (emit-cast expr env tail?))
         (else (emit-unsupported expr))))
     
     (define (emit-constant expr env tail?)
@@ -230,8 +233,14 @@
         (let ((primitive (primitive-reference symbol)))
           (cond (primitive
                  (emit-tail `(,primitive ,@(emit-list arguments env #f)) tail?))
+                ((eq? symbol 's32vector-ref)
+                 (emit-tail `(vector-ref ,@(emit-list arguments env #f)) tail?))
+                ((eq? symbol 's32vector-set!)
+                 (emit-tail `(vector-set! ,@(emit-list arguments env #f)) tail?))
                 ((eq? symbol 'f64vector-ref)
                  (emit-tail `(vector-ref ,@(emit-list arguments env #f)) tail?))
+                ((eq? symbol 'f64vector-set!)
+                 (emit-tail `(vector-set! ,@(emit-list arguments env #f)) tail?))
                 (else
                  (bailout `(export-call-not-implemented ,symbol)))))))
     
@@ -274,7 +283,7 @@
     (define (emit-reference expr env tail?)
       (let ((binding (get-binding~ expr)))
         (cond ((is? binding Variable)
-               (let ((name (get-name~ binding)))
+               (let ((name (name->c (get-name~ binding))))
                  (when (find-annotated binding environment)
                    (unless (memq? binding free)
                      (set! free (cons binding free))))
@@ -311,6 +320,12 @@
     (define (emit-begin expr env tail?)
       (let ((expressions (get-expressions~ expr)))
         `(%begin ,@(emit-list expressions env tail?))))
+    
+    (define (emit-and expr env tail?)
+      `(%and ,@(emit-list (get-expressions~ expr) env tail?)))
+    
+    (define (emit-or expr env tail?)
+      `(%or ,@(emit-list (get-expressions~ expr) env tail?)))
     
     (define (emit-if expr env tail?)
       (let ((test (get-test~ expr))
@@ -352,6 +367,9 @@
               (debug optimize)
               (bailout `(todo ,expr)))))))
     
+    (define (emit-cast expr env tail?)
+      `(%cast ,(type->c (get-type~ expr)) ,(emit (get-expression~ expr) env tail?)))
+    
     (define (emit-unsupported expr)
       (bailout `(unsupported ,expr)))
     
@@ -371,9 +389,14 @@
       (let ((free (reverse free)))
         (let ((expr `(%begin
                        ,@(map (lambda (binding rank)
-                                (let ((name (get-name~ binding))
-                                      (type (get-type~ binding)))
-                                  `(%var ,(safe-type->c type) ,name ,(string->symbol (format "___arg{a}" rank)))))
+                                (let ((name (name->c (get-name~ binding)))
+                                      (type (find-annotated-type binding environment)))
+                                  (cond ((is? type S32Vector-Class)
+                                         `(%var ___S32* ,name (___CAST ___S32* (___BODY ,(string->symbol (format "___arg{a}" rank))))))
+                                        ((is? type F64Vector-Class)
+                                         `(%var ___F64* ,name (___CAST ___F64* (___BODY ,(string->symbol (format "___arg{a}" rank))))))
+                                        (else
+                                         `(%var ,(safe-type->c type) ,name ,(string->symbol (format "___arg{a}" rank)))))))
                               free
                               (naturals 1 (+ (length free) 1)))
                        ,@code)))
@@ -389,9 +412,14 @@
                 (if bailout?
                     `(begin ,@(get-form~ statements-code))
                   `((c-lambda ,(map (lambda (binding)
-                                      (let ((name (get-name~ binding))
-                                            (type (get-type~ binding)))
-                                        (safe-type->lisp type)))
+                                      (let ((name (name->c (get-name~ binding)))
+                                            (type (find-annotated-type binding environment)))
+                                        (cond ((is? type S32Vector-Class)
+                                               'scheme-object)
+                                              ((is? type F64Vector-Class)
+                                               'scheme-object)
+                                              (else
+                                               (safe-type->lisp type)))))
                                     free)
                         ,lisp-return-type
                       ,(fmt #f "" code))
@@ -436,26 +464,28 @@
 
 
 (definition primitives
-  '(; arithmetic operators
+  '(;; arithmetic operators
     (+ . +)
     (- . -)
     (* . *)
     (/ . /)
     (modulo . %)
-    ; relational operators
+    ;; relational operators
     (= . ==)
     (/= . !=)
     (< . <)
     (<= . <=)
     (> . >)
     (>= . >=)
-    ; logical operators (or and and have their own AST nodes)
+    ;; logical operators (or and and have their own AST nodes)
     (not . !)
-    ; bitwise operators
+    ;; bitwise operators
     (bitwise-and . bitwise-and)
     (bitwise-ior . bitwise-ior)
     (bitwise-xor . bitwise-xor)
-    (bitwise-not . bitwise-not)))
+    (bitwise-not . bitwise-not)
+    ;; language
+    (fxfloor . floor)))
 
 
 (definition (type->lisp type)

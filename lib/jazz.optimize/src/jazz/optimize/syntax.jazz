@@ -226,23 +226,29 @@
                  (bailout `(unable-to-optimize ,operator)))))))
     
     (define (emit-export-call binding arguments env tail?)
-      (emit-tail `(,(primitive-reference (get-symbol~ binding))
-                   ,@(emit-list arguments env #f))
-                 tail?))
+      (let ((symbol (get-symbol~ binding)))
+        (let ((primitive (primitive-reference symbol)))
+          (cond (primitive
+                 (emit-tail `(,primitive ,@(emit-list arguments env #f)) tail?))
+                ((eq? symbol 'f64vector-ref)
+                 (emit-tail `(vector-ref ,@(emit-list arguments env #f)) tail?))
+                (else
+                 (bailout `(export-call-not-implemented ,symbol)))))))
     
     (define (emit-defoptimize-call binding arguments env tail?)
-      (emit-tail (cons (get-name~ binding) (emit-list arguments env #f)) tail?))
+      (emit-tail `(,(name->c (get-name~ binding)) ,@(emit-list arguments env #f)) tail?))
     
     (define (emit-definition-call binding arguments env tail?)
-      (let ((primitive (primitive-reference (get-name~ binding))))
-        (if primitive
-            (emit-tail `(,primitive ,@(emit-list arguments env #f)) tail?)
-          (let ((value (get-value~ binding)))
-            (if #f @nice-try-but-doesnt-work-as-is-with-c
-                (and (is? value Lambda)
-                     (eq? (get-expansion~ binding) 'inline))
-                (emit-inline-call binding arguments env tail?)
-              (bailout `(definition-call-not-implemented ,binding)))))))
+      (let ((name (get-name~ binding)))
+        (let ((primitive (primitive-reference name)))
+          (if primitive
+              (emit-tail `(,primitive ,@(emit-list arguments env #f)) tail?)
+            (let ((value (get-value~ binding)))
+              (if #f @nice-try-but-doesnt-work-as-is-with-c
+                  (and (is? value Lambda)
+                       (eq? (get-expansion~ binding) 'inline))
+                  (emit-inline-call binding arguments env tail?)
+                (bailout `(definition-call-not-implemented ,name))))))))
     
     (define (emit-inline-call binding arguments env tail?)
       (let ((signature (get-signature~ binding))
@@ -267,13 +273,18 @@
     
     (define (emit-reference expr env tail?)
       (let ((binding (get-binding~ expr)))
-        (if (is? binding Variable)
-            (let ((name (get-name~ binding)))
-              (when (find-annotated binding environment)
-                (unless (memq? binding free)
-                  (set! free (cons binding free))))
-              (emit-tail name tail?))
-          (bailout `(unsupported-reference ,binding)))))
+        (cond ((is? binding Variable)
+               (let ((name (get-name~ binding)))
+                 (when (find-annotated binding environment)
+                   (unless (memq? binding free)
+                     (set! free (cons binding free))))
+                 (emit-tail name tail?)))
+              ((is? binding Definition-Optimize-Declaration)
+               (if (is? (get-value~ binding) Constant)
+                   (name->c (get-name~ binding))
+                 (bailout `(unsupported-reference ,binding))))
+              (else
+               (bailout `(unsupported-reference ,binding))))))
     
     (define (emit-let expr env tail?)
       (annotate-let expr declaration env backend
@@ -384,13 +395,32 @@
         (wrap code)))))
 
 
-(definition (emit-defoptimize name signature return-type body expansion declaration environment backend)
+(definition (emit-defoptimize-constant name type constant declaration environment backend)
+  (let ((name (name->c name))
+        (value (source-code (cadr (get-expansion~ constant)))))
+    (define (extract)
+      (cond ((f64vector? value)
+             (values 'double (f64vector-length value) (coerce value Vector)))
+            (else
+             (values #f #f #f))))
+    
+    (receive (type size initializer) (extract)
+      (if type
+          (let ((expr `(%var (%array ,type ,size) ,name ,initializer)))
+            (let ((code (c-expr/sexp expr)))
+              (fmt #t code) (newline)
+              `(c-declare ,(fmt #f "" code))))
+        (error "Unsupported optimize constant: {s}" value)))))
+        
+
+
+(definition (emit-defoptimize-function name signature return-type body expansion declaration environment backend)
   (let ((body (emit-optimize (get-expressions~ body) declaration environment backend #t)))
     (let ((arguments (map (lambda (parameter)
-                            (list (type->c (get-type~ parameter)) (get-name~ parameter)))
+                            (list (type->c (get-type~ parameter)) (name->c (get-name~ parameter))))
                           (get-positional~ signature)))
           (return-type (type->c return-type)))
-      (let ((expr `(%fun ,return-type ,name ,arguments ,@body)))
+      (let ((expr `(%fun ,return-type ,(name->c name) ,arguments ,@body)))
         (let ((expr (if (eq? expansion 'inline) `(inline ,expr) expr)))
           (let ((code (c-expr/sexp expr)))
             (fmt #t code) (newline)
@@ -434,6 +464,10 @@
     (else #f)))
 
 
+(definition (name->c name)
+  (string->symbol (substitute #\- #\_ (symbol->string name))))
+
+
 ;; quick hack
 (definition (optimize-name name)
   (string->symbol (string-append (symbol->string name) "$optimize")))
@@ -448,16 +482,18 @@
   
   
   (method override (emit-declaration environment backend)
-    (let ((expression (emit-expression value self environment backend))
-          (signature (get-signature~ value))
-          (body (get-body~ value)))
-      (with-annotated-frame (annotate-signature signature)
-        (lambda (frame)
-          (let ((augmented-environment (cons frame environment)))
-            (emit-defoptimize name signature (get-type~ value) body expansion self augmented-environment backend)
-            @w
-            (define ,locator
-              ,(sourcified-form expression))))))))
+    (let ((expression (emit-expression value self environment backend)))
+      (cond ((is? value Constant)
+             (emit-defoptimize-constant name (get-type~ value) value self environment backend))
+            ((is? value Lambda)
+             (let ((signature (get-signature~ value))
+                   (body (get-body~ value)))
+               (with-annotated-frame (annotate-signature signature)
+                 (lambda (frame)
+                   (let ((augmented-environment (cons frame environment)))
+                     (emit-defoptimize-function name signature (get-type~ value) body expansion self augmented-environment backend))))))
+            (else
+             (error "Unsupported optimize: {s}" value))))))
 
 
 (define (walk-defoptimize-declaration walker resume declaration environment form-src)

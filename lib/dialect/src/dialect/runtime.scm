@@ -4420,7 +4420,7 @@
             (jazz:new-code
               (%%append (jazz:codes-forms internal-defines)
                         (jazz:codes-forms expressions))
-              (jazz:get-code-type (if (%%null? expressions) jazz:Any (jazz:last expressions)))
+              (if (%%null? expressions) jazz:Any (jazz:get-code-type (jazz:last expressions)))
               #f)))))))
 
 

@@ -321,12 +321,20 @@
            ,(emit no env tail?))))
     
     (define (emit-for expr env tail?)
-      (let ((var (get-name~ (get-variable~ expr)))
-            (type (get-type~ (emit-expr (get-init~ expr) declaration env backend))))
-        `(%begin
-           (%var ,(safe-type->c type) ,var)
-           (for (= ,var ,(emit (get-init~ expr) env #f)) ,(emit (get-test~ expr) env #f) ,(emit (get-update~ expr) env #f)
-             ,@(emit-list (get-body~ expr) env #f)))))
+      (let ((variable (get-variable~ expr)))
+        (let ((var (get-name~ variable))
+              (type (get-type~ (emit-expr (get-init~ expr) declaration env backend))))
+          (let ((init (emit (get-init~ expr) env #f)))
+            (with-annotated-frame (annotate-bindings (list (list variable)))
+              (lambda (frame)
+                (let ((augmented-environment (cons frame environment)))
+                  (let ((test (emit (get-test~ expr) augmented-environment #f))
+                        (update (emit (get-update~ expr) augmented-environment #f))
+                        (body (emit-list (get-body~ expr) augmented-environment #f)))
+                    `(%begin
+                       (%var ,(safe-type->c type) ,var)
+                       (for (= ,var ,init) ,test ,update
+                         ,@body))))))))))
     
     (define (emit-assignment expr env tail?)
       (let ((binding (get-binding~ expr))

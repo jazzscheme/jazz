@@ -384,16 +384,17 @@
         (wrap code)))))
 
 
-(definition (emit-defoptimize name signature return-type body declaration environment backend)
+(definition (emit-defoptimize name signature return-type body expansion declaration environment backend)
   (let ((body (emit-optimize (get-expressions~ body) declaration environment backend #t)))
     (let ((arguments (map (lambda (parameter)
                             (list (type->c (get-type~ parameter)) (get-name~ parameter)))
                           (get-positional~ signature)))
           (return-type (type->c return-type)))
       (let ((expr `(%fun ,return-type ,name ,arguments ,@body)))
-        (let ((code (c-expr/sexp expr)))
-          (fmt #t code) (newline)
-          `(c-declare ,(fmt #f "" code)))))))
+        (let ((expr (if (eq? expansion 'inline) `(inline ,expr) expr)))
+          (let ((code (c-expr/sexp expr)))
+            (fmt #t code) (newline)
+            `(c-declare ,(fmt #f "" code))))))))
 
 
 (definition primitives
@@ -453,7 +454,7 @@
       (with-annotated-frame (annotate-signature signature)
         (lambda (frame)
           (let ((augmented-environment (cons frame environment)))
-            (emit-defoptimize name signature (get-type~ value) body self augmented-environment backend)
+            (emit-defoptimize name signature (get-type~ value) body expansion self augmented-environment backend)
             @w
             (define ,locator
               ,(sourcified-form expression))))))))
@@ -462,7 +463,7 @@
 (define (walk-defoptimize-declaration walker resume declaration environment form-src)
   (walk-extended-definition-declaration walker resume declaration environment form-src
     (lambda (name type access compatibility attributes parent expansion signature)
-      (new Definition-Optimize-Declaration name: name type: type access: access compatibility: compatibility attributes: attributes parent: parent))))
+      (new Definition-Optimize-Declaration name: name type: type access: access compatibility: compatibility attributes: attributes parent: parent expansion: expansion))))
 
 
 (define (walk-defoptimize walker resume declaration environment form-src)

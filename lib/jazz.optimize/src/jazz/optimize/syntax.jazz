@@ -186,7 +186,7 @@
   (let ((free '())
         (bailout? #f))
     (define (emit-list lst env tail?)
-      (cond ((null? lst) 
+      (cond ((null? lst)
              '())
             ((null? (cdr lst))
              (list (emit (car lst) env tail?)))
@@ -217,9 +217,7 @@
             (arguments (get-arguments~ expr)))
         (let ((binding (and (is? operator Binding-Reference) (get-binding~ operator))))
           (cond ((is? binding Export-Declaration)
-                 (emit-tail `(,(primitive-reference binding) 
-                              ,@(emit-list arguments env #f))
-                            tail?))
+                 (emit-export-call binding arguments env tail?))
                 ((is? binding Definition-Optimize-Declaration)
                  (emit-defoptimize-call binding arguments env tail?))
                 ((is? binding Definition-Declaration)
@@ -227,16 +225,24 @@
                 (else
                  (bailout `(unable-to-optimize ,operator)))))))
     
+    (define (emit-export-call binding arguments env tail?)
+      (emit-tail `(,(primitive-reference (get-symbol~ binding))
+                   ,@(emit-list arguments env #f))
+                 tail?))
+    
     (define (emit-defoptimize-call binding arguments env tail?)
       (emit-tail (cons (get-name~ binding) (emit-list arguments env #f)) tail?))
     
     (define (emit-definition-call binding arguments env tail?)
-      (let ((value (get-value~ binding)))
-        (if #f @nice-try-but-doesnt-work-as-is-with-c
-            (and (is? value Lambda)
-                 (eq? (get-expansion~ binding) 'inline))
-            (emit-inline-call binding arguments env tail?)
-          (bailout `(definition-call-not-implemented ,binding)))))
+      (let ((primitive (primitive-reference (get-name~ binding))))
+        (if primitive
+            (emit-tail `(,primitive ,@(emit-list arguments env #f)) tail?)
+          (let ((value (get-value~ binding)))
+            (if #f @nice-try-but-doesnt-work-as-is-with-c
+                (and (is? value Lambda)
+                     (eq? (get-expansion~ binding) 'inline))
+                (emit-inline-call binding arguments env tail?)
+              (bailout `(definition-call-not-implemented ,binding)))))))
     
     (define (emit-inline-call binding arguments env tail?)
       (let ((signature (get-signature~ binding))
@@ -248,8 +254,8 @@
               (body (get-body~ value)))
           (emit (new Let bindings body) env tail?))))
 
-    (define (primitive-reference binding)
-      (let ((pair (assq (get-symbol~ binding) primitives)))
+    (define (primitive-reference name)
+      (let ((pair (assq name primitives)))
         (if pair
             (cdr pair)
           #f)))
@@ -399,7 +405,7 @@
     (modulo . %)
     ; relational operators
     (= . ==)
-    (/= . !=) ; /= is an inline call in jazz, so it won't pass through here
+    (/= . !=)
     (< . <)
     (<= . <=)
     (> . >)
@@ -407,11 +413,10 @@
     ; logical operators (or and and have their own AST nodes)
     (not . !)
     ; bitwise operators
-    (bitwise-and . &)
-    (bitwise-xor . ^)
-    (bitwise-not . ~)
-    ;(bitwise-ior . |) ;this doesn't work
-    ))
+    (bitwise-and . bitwise-and)
+    (bitwise-ior . bitwise-ior)
+    (bitwise-xor . bitwise-xor)
+    (bitwise-not . bitwise-not)))
 
 
 (definition (type->lisp type)

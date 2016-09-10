@@ -43,7 +43,7 @@
 ;; `properties' slot holding an alist for all other values.
 
 (define *default-fmt-state*
-  (vector 0 0 10 '() #\space #f 78 #f #f #f #f #f #f))
+  (vector 0 0 10 '() #\space #f 200 #f #f #f #f #f #f))
 
 (define fmt-state? vector?)
 

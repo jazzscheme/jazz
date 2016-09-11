@@ -177,6 +177,10 @@
 (native jazz:emit-expr)
 
 
+(definition protected debug-optimize?
+  (make-parameter #f))
+
+
 ;;;
 ;;;; Emit
 ;;;
@@ -407,8 +411,9 @@
                 (when (not lisp-return-type)
                   (debug 'unsupported-return-type return-type)
                   (newline))
-                ;(pp expr) (newline)
-                (fmt #t code) (newline)
+                (when (debug-optimize?)
+                  ;(pp expr) (newline)
+                  (fmt #t code) (newline))
                 (if bailout?
                     `(begin ,@(get-form~ statements-code))
                   `((c-lambda ,(map (lambda (binding)
@@ -444,10 +449,10 @@
       (if type
           (let ((expr `(%var (%array ,type ,size) ,name ,initializer)))
             (let ((code (c-expr/sexp expr)))
-              (fmt #t code) (newline)
+              (when (debug-optimize?)
+                (fmt #t code) (newline))
               `(c-declare ,(fmt #f "" code))))
         (error "Unsupported optimize constant: {s}" value)))))
-        
 
 
 (definition (emit-defoptimize-function name signature return-type body expansion declaration environment backend)
@@ -459,7 +464,8 @@
       (let ((expr `(%fun ,return-type ,(name->c name) ,arguments ,@body)))
         (let ((expr (if (eq? expansion 'inline) `(inline ,expr) expr)))
           (let ((code (c-expr/sexp expr)))
-            (fmt #t code) (newline)
+            (when (debug-optimize?)
+              (fmt #t code) (newline))
             `(c-declare ,(fmt #f "" code))))))))
 
 

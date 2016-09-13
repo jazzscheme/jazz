@@ -218,7 +218,7 @@
         (else (emit-unsupported expr))))
     
     (define (emit-constant expr env tail?)
-      (emit-tail (source-code (get-expansion~ expr)) tail?))
+      (emit-tail (source-code (unquote-expr (get-expansion~ expr))) tail?))
     
     (define (emit-call expr env tail?)
       (let ((operator (get-operator~ expr))
@@ -315,8 +315,7 @@
                ,@(emit body augmented-environment tail?))))))
     
     (define (emit-letstar expr env tail?)
-      ;stub
-      )
+      (bailout `(todo-let*)))
     
     (define (emit-body expr env tail?)
       (let ((expressions (get-expressions~ expr)))
@@ -373,7 +372,7 @@
         `(= ,(get-name~ binding) ,(emit value env #f))))
     
     (define (emit-dispatch expr env tail?)
-      (bailout `(todo ,expr))
+      (bailout `(todo-dispatch ,(get-name~ expr)))
       @todo
       (let ((object-argument (car (get-arguments~ expr))))
         (let ((object-type (get-type~ (emit-expr object-argument declaration env backend))))
@@ -450,20 +449,24 @@
 
 (definition (emit-defoptimize-constant name type constant declaration environment backend)
   (let ((name (name->c name))
-        (value (source-code (cadr (get-expansion~ constant)))))
+        (value (source-code (unquote-expr (get-expansion~ constant)))))
     (define (extract)
-      (cond ((f64vector? value)
-             (values 'double (f64vector-length value) (coerce value Vector)))
+      (cond ((flonum? value)
+             `(%var double ,name ,value))
+            ((f64vector? value)
+             (extract-homogeneous 'double (f64vector-length value) (coerce value Vector)))
             (else
-             (values #f #f #f))))
+             #f)))
     
-    (receive (type size initializer) (extract)
-      (if type
-          (let ((expr `(%var (%array ,type ,size) ,name ,initializer)))
-            (let ((code (c-expr/sexp expr)))
-              (when (debug-optimize?)
-                (fmt #t code) (newline))
-              `(c-declare ,(fmt #f "" code))))
+    (define (extract-homogeneous type size initializer)
+      `(%var (%array ,type ,size) ,name ,initializer))
+    
+    (let ((expr (extract)))
+      (if expr
+          (let ((code (c-expr/sexp expr)))
+            (when (debug-optimize?)
+              (fmt #t code) (newline))
+            `(c-declare ,(fmt #f "" code)))
         (error "Unsupported optimize constant: {s}" value)))))
 
 
@@ -527,6 +530,14 @@
 ;; quick hack
 (definition (optimize-name name)
   (string->symbol (string-append (symbol->string name) "$optimize")))
+
+
+(definition (unquote-expr expr)
+  (if (and (pair? expr)
+           (eq? (car expr) 'quote))
+      (cadr expr)
+    expr))
+  
 
 
 ;;;

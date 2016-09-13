@@ -258,8 +258,22 @@
                      (unless (member? input inputs)
                        (set! inputs (cons input inputs))))
                    (emit-tail name tail?))))
+              ((is? binding Slot-Declaration)
+               (let ((input (list 'self (get-parent~ binding) 'self)))
+                 (unless (member? input inputs)
+                   (set! inputs (cons input inputs))))
+               (emit-slot-reference binding 'self env tail?))
               (else
                (bailout `(unsupported-reference ,binding))))))
+    
+    (define (emit-slot-reference binding object env tail?)
+      (let ((name (get-name~ binding)))
+        (let ((c-name (string->symbol (string-append (symbol->string (name->c name)) "_offset"))))
+          (let ((offset-locator (compose-helper (get-locator~ binding) 'offset)))
+            (let ((input (list offset-locator Fixnum c-name)))
+              (unless (member? input inputs)
+                (set! inputs (cons input inputs))))
+            (emit-tail (safe-lisp->c (get-type~ binding) `(vector-ref (___BODY ,object) ,c-name)) tail?)))))
     
     (define (emit-call expr env tail?)
       (define (emit-export-call binding arguments env tail?)
@@ -322,6 +336,33 @@
                  (emit-definition-call binding arguments env tail?))
                 (else
                  (bailout `(unable-to-optimize ,operator)))))))
+    
+    (define (emit-dispatch expr env tail?)
+      (or (let ((name (get-name~ expr))
+                (arguments (get-arguments~ expr)))
+            (let ((object-argument (car arguments))
+                  (rest-arguments (cdr arguments)))
+              (let ((object-type (get-type~ (emit-expr object-argument declaration env backend)))
+                    (str (symbol->string name)))
+                ;; quick solution for getter
+                (if (and (starts-with? str "get-") (null? rest-arguments))
+                    (let ((slot-name (string->symbol (substring str 4 (string-length str)))))
+                      (if (is? object-type Namespace-Declaration)
+                          (let ((slot-declaration (find-declaration-child object-type slot-name)))
+                            (if (is? slot-declaration Slot-Declaration)
+                                (emit-slot-reference slot-declaration (emit object-argument env #f) env tail?)
+                              #f))
+                        #f))
+                  #f))))
+          (bailout `(todo-dispatch ,(get-name~ expr))))
+      @todo
+      (let ((object-argument (car (get-arguments~ expr))))
+        (let ((object-type (get-type~ (emit-expr object-argument declaration env backend))))
+          (let ((optimize (find-class-optimize object-type)))
+            (if (not optimize)
+                (bailout `(not-class-optimize ,(get-name~ object-type)))
+              (debug optimize)
+              (bailout `(todo ,expr)))))))
     
     (define (emit-let expr env tail?)
       (annotate-let expr declaration env backend
@@ -394,39 +435,6 @@
             (value (get-value~ expr)))
         `(= ,(name->c (get-name~ binding)) ,(emit value env #f))))
     
-    (define (emit-dispatch expr env tail?)
-      (or (let ((name (get-name~ expr))
-                (arguments (get-arguments~ expr)))
-            (let ((object-argument (car arguments))
-                  (rest-arguments (cdr arguments)))
-              (let ((object-type (get-type~ (emit-expr object-argument declaration env backend)))
-                    (str (symbol->string name)))
-                ;; quick solution for getter
-                (if (and (starts-with? str "get-") (null? rest-arguments))
-                    (let ((slot-name (string->symbol (substring str 4 (string-length str)))))
-                      (if (is? object-type Namespace-Declaration)
-                          (let ((slot-declaration (find-declaration-child object-type slot-name)))
-                            (if (is? slot-declaration Slot-Declaration)
-                                (let ((object (emit object-argument env #f))
-                                      (c-name (string->symbol (string-append (symbol->string (name->c slot-name)) "_offset"))))
-                                  (let ((offset-locator (compose-helper (get-locator~ slot-declaration) 'offset)))
-                                    (let ((input (list offset-locator Fixnum c-name)))
-                                      (unless (member? input inputs)
-                                        (set! inputs (cons input inputs))))
-                                    (emit-tail (safe-lisp->c (get-type~ slot-declaration) `(vector-ref (___BODY ,object) ,c-name)) tail?)))
-                              #f))
-                        #f))
-                  #f))))
-          (bailout `(todo-dispatch ,(get-name~ expr))))
-      @todo
-      (let ((object-argument (car (get-arguments~ expr))))
-        (let ((object-type (get-type~ (emit-expr object-argument declaration env backend))))
-          (let ((optimize (find-class-optimize object-type)))
-            (if (not optimize)
-                (bailout `(not-class-optimize ,(get-name~ object-type)))
-              (debug optimize)
-              (bailout `(todo ,expr)))))))
-    
     (define (emit-cast expr env tail?)
       `(%cast ,(type->c (get-type~ expr)) ,(emit (get-expression~ expr) env tail?)))
     
@@ -475,9 +483,12 @@
                                        (bind (argument type name) input
                                          (safe-type->lisp type)))
                                      inputs)))
-                (when (debug-optimize?)
+                (when (or (debug-optimize?) bailout?)
+                  (when bailout?
+                    (debug '***BAILOUT***))
                   ;(pp expr) (newline)
-                  @debug (begin
+                  @debug
+                  (begin
                     (display "((")
                     (debug 'c-lambda lisp-types lisp-return-type)
                     (display "  ...)")

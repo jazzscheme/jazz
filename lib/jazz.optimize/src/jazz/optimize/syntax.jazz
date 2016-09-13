@@ -210,6 +210,7 @@
         ((And) (emit-and expr env tail?))
         ((Or) (emit-or expr env tail?))
         ((If) (emit-if expr env tail?))
+        ((Cond) (emit-cond expr env tail?))
         ((For) (emit-for expr env tail?))
         ((Assignment) (emit-assignment expr env tail?))
         ((Dispatch) (emit-dispatch expr env tail?))
@@ -338,6 +339,17 @@
         `(if ,(emit test env #f)
              ,(emit yes env tail?)
            ,(emit no env tail?))))
+    
+    (define (emit-cond expr env tail?)
+      `(%cond ,@(let ((clauses (get-clauses~ expr)))
+                  (map (lambda (clause)
+                         (bind (test arrow? . body) clause
+                           `(,(if (not test) #t (emit test env #f))
+                             ,@(if arrow?
+                                   `(=>)
+                                 '())
+                             ,(emit body env #f))))
+                       clauses))))
     
     (define (emit-for expr env tail?)
       (let ((variable (get-variable~ expr)))

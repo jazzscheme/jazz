@@ -172,6 +172,23 @@
 ;;   ___result = r;
 ;;   ___EXT(___release_scmobj)(r);
 
+;; GUILLAUME
+;; - probably an emit-optimize-body fn
+;; - move ((unspecified)) from walk to emit (if)
+;; - maybe delegate the inline to C
+;;   - and maybe this is not even necessary (test)
+;;     if gcc smartly inlines as needed
+;; - solution to generate-symbol for Lisp and C
+;; - make lisp stack allocation automatic and safe using optimize
+
+;; MARC
+;; - is there a way to know if a gc occured during a call from C to Lisp?
+;; - better way of doing ptr->origin.head = ___MAKE_HD(___HD_BYTES(ptr->origin.head), ___sJAZZSTRUCT, ___PERM)
+;; - I have random crashes in my code
+;; - with 2 ADDR types, one could be used for len=1 which is 99% case with no lookup for container
+;; - make a yownu baseline before doing all those optimizations
+;; - also note basic heap memory as doing without all the & should lower it some
+
 
 ;; hack around calling emit-expression from within an emit-expression method
 (native jazz:emit-expr)
@@ -238,6 +255,8 @@
         (let ((primitive (primitive-reference symbol)))
           (cond (primitive
                  (emit-tail `(,primitive ,@(emit-list arguments env #f)) tail?))
+                ((eq? symbol 'vector-ref)
+                 (emit-tail `(vector-ref ,@(emit-list arguments env #f)) tail?))
                 ((eq? symbol 's32vector-ref)
                  (emit-tail `(vector-ref ,@(emit-list arguments env #f)) tail?))
                 ((eq? symbol 's32vector-set!)
@@ -288,11 +307,13 @@
     (define (emit-reference expr env tail?)
       (let ((binding (get-binding~ expr)))
         (cond ((is? binding Variable)
-               (let ((name (name->c (get-name~ binding))))
-                 (when (find-annotated binding environment)
-                   (unless (memq? binding free)
-                     (set! free (cons binding free))))
-                 (emit-tail name tail?)))
+               (let ((lisp-name (get-name~ binding)))
+                 (let ((name (name->c lisp-name)))
+                   (when (find-annotated binding environment)
+                     (let ((info (list lisp-name (find-annotated-type binding environment) name)))
+                       (unless (member? info free)
+                         (set! free (cons info free)))))
+                   (emit-tail name tail?))))
               ((is? binding Definition-Optimize-Declaration)
                (if (is? (get-value~ binding) Constant)
                    (name->c (get-name~ binding))
@@ -310,7 +331,7 @@
                         (let ((variable (car binding))
                               (value (cdr binding)))
                           (let ((type (find-annotated-type variable augmented-environment)))
-                            `(%var ,(safe-type->c type) ,(get-name~ variable) ,(emit value augmented-environment #f)))))
+                            `(%var ,(safe-type->c type) ,(name->c (get-name~ variable)) ,(emit value augmented-environment #f)))))
                       bindings)
                ,@(emit body augmented-environment tail?))))))
     
@@ -352,7 +373,7 @@
     
     (define (emit-for expr env tail?)
       (let ((variable (get-variable~ expr)))
-        (let ((var (get-name~ variable))
+        (let ((var (name->c (get-name~ variable)))
               (type (get-type~ (emit-expr (get-init~ expr) declaration env backend))))
           (let ((init (emit (get-init~ expr) env #f)))
             (with-annotated-frame (annotate-bindings (list (list variable)))
@@ -369,10 +390,32 @@
     (define (emit-assignment expr env tail?)
       (let ((binding (get-binding~ expr))
             (value (get-value~ expr)))
-        `(= ,(get-name~ binding) ,(emit value env #f))))
+        `(= ,(name->c (get-name~ binding)) ,(emit value env #f))))
     
     (define (emit-dispatch expr env tail?)
-      (bailout `(todo-dispatch ,(get-name~ expr)))
+      (or (let ((name (get-name~ expr))
+                (arguments (get-arguments~ expr)))
+            (let ((object-argument (car arguments))
+                  (rest-arguments (cdr arguments)))
+              (let ((object-type (get-type~ (emit-expr object-argument declaration env backend)))
+                    (str (symbol->string name)))
+                ;; quick solution for getter
+                (if (and (starts-with? str "get-") (null? rest-arguments))
+                    (let ((slot-name (string->symbol (substring str 4 (string-length str)))))
+                      (if (is? object-type Namespace-Declaration)
+                          (let ((slot-declaration (find-declaration-child object-type slot-name)))
+                            (if (is? slot-declaration Slot-Declaration)
+                                (let ((object (emit object-argument env #f))
+                                      (c-name (string->symbol (string-append (symbol->string (name->c slot-name)) "_offset"))))
+                                  (let ((offset-locator (compose-helper (get-locator~ slot-declaration) 'offset)))
+                                    (let ((info (list offset-locator Fixnum c-name)))
+                                      (unless (member? info free)
+                                        (set! free (cons info free))))
+                                    (emit-tail (safe-lisp->c (get-type~ slot-declaration) `(vector-ref (___BODY ,object) ,c-name)) tail?)))
+                              #f))
+                        #f))
+                  #f))))
+          (bailout `(todo-dispatch ,(get-name~ expr))))
       @todo
       (let ((object-argument (car (get-arguments~ expr))))
         (let ((object-type (get-type~ (emit-expr object-argument declaration env backend))))
@@ -381,6 +424,16 @@
                 (bailout `(not-class-optimize ,(get-name~ object-type)))
               (debug optimize)
               (bailout `(todo ,expr)))))))
+    
+    (define (emit-inline-dispatch binding arguments env tail?)
+      (let ((signature (get-signature~ binding))
+            (value (get-value~ binding)))
+        (let ((bindings (map (lambda (parameter argument)
+                               (cons parameter argument))
+                             (get-positional~ signature)
+                             arguments))
+              (body (get-body~ value)))
+          (emit (new Let bindings body) env tail?))))
     
     (define (emit-cast expr env tail?)
       `(%cast ,(type->c (get-type~ expr)) ,(emit (get-expression~ expr) env tail?)))
@@ -400,46 +453,43 @@
       (or (type->c type)
           (bailout `(unknown-c-type ,type))))
     
+    (define (safe-lisp->c type expr)
+      (or (lisp->c type expr)
+          (bailout `(unable-to-convert-lisp-type ,type))))
+    
+    (define (safe-arg->c type expr)
+      (or (arg->c type expr)
+          (bailout `(unable-to-convert-arg-type ,type))))
+    
     (define (wrap code)
       (let ((free (reverse free)))
         (let ((expr `(%begin
-                       ,@(map (lambda (binding rank)
-                                (let ((name (name->c (get-name~ binding)))
-                                      (type (find-annotated-type binding environment)))
-                                  (cond ((is? type S32Vector-Class)
-                                         `(%var ___S32* ,name (___CAST ___S32* (___BODY ,(string->symbol (format "___arg{a}" rank))))))
-                                        ((is? type F64Vector-Class)
-                                         `(%var ___F64* ,name (___CAST ___F64* (___BODY ,(string->symbol (format "___arg{a}" rank))))))
-                                        (else
-                                         `(%var ,(safe-type->c type) ,name ,(string->symbol (format "___arg{a}" rank)))))))
+                       ,@(map (lambda (info rank)
+                                (bind (value type name) info
+                                  `(%var ,(safe-type->c type) ,name ,(safe-arg->c type (string->symbol (format "___arg{a}" rank))))))
                               free
                               (naturals 1 (+ (length free) 1)))
                        ,@code)))
           (let ((code (c-expr/sexp expr))
                 (statements-code (emit-statements-code body declaration environment backend)))
             (let ((return-type (get-type~ statements-code)))
-              (let ((lisp-return-type (type->lisp return-type)))
-                (when (not lisp-return-type)
-                  (debug 'unsupported-return-type return-type)
-                  (newline))
+              (let ((lisp-return-type (or (type->lisp return-type) 'void))
+                    (lisp-types (map (lambda (info)
+                                       (bind (value type name) info
+                                         (safe-type->lisp type)))
+                                     free)))
                 (when (debug-optimize?)
                   ;(pp expr) (newline)
+                  ;(debug 'c-lambda lisp-types lisp-return-type)
                   (fmt #t code) (newline))
                 (if bailout?
                     `(begin ,@(get-form~ statements-code))
-                  `((c-lambda ,(map (lambda (binding)
-                                      (let ((name (name->c (get-name~ binding)))
-                                            (type (find-annotated-type binding environment)))
-                                        (cond ((is? type S32Vector-Class)
-                                               'scheme-object)
-                                              ((is? type F64Vector-Class)
-                                               'scheme-object)
-                                              (else
-                                               (safe-type->lisp type)))))
-                                    free)
-                        ,lisp-return-type
+                  `((c-lambda ,lisp-types ,lisp-return-type
                       ,(fmt #f "" code))
-                    ,@(map get-name~ free)))))))))
+                    ,@(map (lambda (info)
+                             (bind (value type name) info
+                               value))
+                           free)))))))))
     
     (let ((code (emit-list body environment #t)))
       (if defoptimize?
@@ -447,7 +497,7 @@
         (wrap code)))))
 
 
-(definition (emit-defoptimize-constant name type constant declaration environment backend)
+(definition (emit-defoptimize-constant locator name type constant declaration environment backend)
   (let ((name (name->c name))
         (value (source-code (unquote-expr (get-expansion~ constant)))))
     (define (extract)
@@ -466,7 +516,9 @@
           (let ((code (c-expr/sexp expr)))
             (when (debug-optimize?)
               (fmt #t code) (newline))
-            `(c-declare ,(fmt #f "" code)))
+            `(begin
+               (c-declare ,(fmt #f "" code))
+               (define ,locator ,(get-form~ (emit-expr constant declaration environment backend)))))
         (error "Unsupported optimize constant: {s}" value)))))
 
 
@@ -513,6 +565,10 @@
   (typecase type
     ((Fixnum-Class) 'int)
     ((Flonum-Class) 'double)
+    ((Vector-Class) 'scheme-object)
+    ((S32Vector-Class) 'scheme-object)
+    ((F64Vector-Class) 'scheme-object)
+    ((Category-Declaration) 'scheme-object)
     (else #f)))
 
 
@@ -520,6 +576,31 @@
   (typecase type
     ((Fixnum-Class) 'int)
     ((Flonum-Class) 'double)
+    ((Vector-Class) '___SCMOBJ*)
+    ((S32Vector-Class) '___S32*)
+    ((F64Vector-Class) '___F64*)
+    ((Category-Declaration) '___SCMOBJ)
+    (else #f)))
+
+
+(definition (lisp->c type expr)
+  (typecase type
+    ((Fixnum-Class) `(___INT ,expr))
+    ((Flonum-Class) `(___F64UNBOX ,expr))
+    ((Vector-Class) `(___CAST ___SCMOBJ* (___BODY ,expr)))
+    ((S32Vector-Class) `(___CAST ___S32* (___BODY ,expr)))
+    ((F64Vector-Class) `(___CAST ___F64* (___BODY ,expr)))
+    (else #f)))
+
+
+(definition (arg->c type expr)
+  (typecase type
+    ((Fixnum-Class) expr)
+    ((Flonum-Class) expr)
+    ((Vector-Class) `(___CAST ___SCMOBJ* (___BODY ,expr)))
+    ((S32Vector-Class) `(___CAST ___S32* (___BODY ,expr)))
+    ((F64Vector-Class) `(___CAST ___F64* (___BODY ,expr)))
+    ((Category-Declaration) expr)
     (else #f)))
 
 
@@ -551,7 +632,7 @@
   (method override (emit-declaration environment backend)
     (let ((expression (emit-expression value self environment backend)))
       (cond ((is? value Constant)
-             (emit-defoptimize-constant name (get-type~ value) value self environment backend))
+             (emit-defoptimize-constant locator name (get-type~ value) value self environment backend))
             ((is? value Lambda)
              (let ((signature (get-signature~ value))
                    (body (get-body~ value)))

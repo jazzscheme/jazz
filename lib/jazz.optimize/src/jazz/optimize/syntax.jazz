@@ -204,7 +204,7 @@
 
 
 (definition (emit-optimize body declaration environment backend (defoptimize? #f))
-  (let ((free '())
+  (let ((inputs '())
         (bailout? #f))
     (define (emit-list lst env tail?)
       (cond ((null? lst)
@@ -237,7 +237,80 @@
     (define (emit-constant expr env tail?)
       (emit-tail (source-code (unquote-expr (get-expansion~ expr))) tail?))
     
+    (define (emit-reference expr env tail?)
+      (let ((binding (get-binding~ expr)))
+        (cond ((is? binding Variable)
+               (let ((lisp-name (get-name~ binding)))
+                 (let ((name (name->c lisp-name)))
+                   (when (find-annotated binding environment)
+                     (let ((input (list lisp-name (find-annotated-type binding environment) name)))
+                       (unless (member? input inputs)
+                         (set! inputs (cons input inputs)))))
+                   (emit-tail name tail?))))
+              ((is? binding Definition-Optimize-Declaration)
+               (if (is? (get-value~ binding) Constant)
+                   (name->c (get-name~ binding))
+                 (bailout `(unsupported-reference ,binding))))
+              ((is? binding Definition-Declaration)
+               (let ((lisp-name (get-name~ binding)))
+                 (let ((name (name->c lisp-name)))
+                   (let ((input (list (get-locator~ binding) (get-type~ binding) name)))
+                     (unless (member? input inputs)
+                       (set! inputs (cons input inputs))))
+                   (emit-tail name tail?))))
+              (else
+               (bailout `(unsupported-reference ,binding))))))
+    
     (define (emit-call expr env tail?)
+      (define (emit-export-call binding arguments env tail?)
+        (let ((symbol (get-symbol~ binding)))
+          (let ((primitive (primitive-reference symbol)))
+            (cond (primitive
+                   (emit-tail `(,primitive ,@(emit-list arguments env #f)) tail?))
+                  ((eq? symbol 'vector-ref)
+                   (emit-tail `(vector-ref ,@(emit-list arguments env #f)) tail?))
+                  ((eq? symbol 's32vector-ref)
+                   (emit-tail `(vector-ref ,@(emit-list arguments env #f)) tail?))
+                  ((eq? symbol 's32vector-set!)
+                   (emit-tail `(vector-set! ,@(emit-list arguments env #f)) tail?))
+                  ((eq? symbol 'f64vector-ref)
+                   (emit-tail `(vector-ref ,@(emit-list arguments env #f)) tail?))
+                  ((eq? symbol 'f64vector-set!)
+                   (emit-tail `(vector-set! ,@(emit-list arguments env #f)) tail?))
+                  (else
+                   (bailout `(export-call-not-implemented ,symbol)))))))
+      
+      (define (emit-defoptimize-call binding arguments env tail?)
+        (emit-tail `(,(name->c (get-name~ binding)) ,@(emit-list arguments env #f)) tail?))
+      
+      (define (emit-definition-call binding arguments env tail?)
+        (let ((name (get-name~ binding)))
+          (let ((primitive (primitive-reference name)))
+            (if primitive
+                (emit-tail `(,primitive ,@(emit-list arguments env #f)) tail?)
+              (let ((value (get-value~ binding)))
+                (if #f @nice-try-but-doesnt-work-as-is-with-c
+                    (and (is? value Lambda)
+                         (eq? (get-expansion~ binding) 'inline))
+                    (emit-inline-call binding arguments env tail?)
+                  (bailout `(definition-call-not-implemented ,name))))))))
+      
+      (define (emit-inline-call binding arguments env tail?)
+        (let ((signature (get-signature~ binding))
+              (value (get-value~ binding)))
+          (let ((bindings (map (lambda (parameter argument)
+                                 (cons parameter argument))
+                               (get-positional~ signature)
+                               arguments))
+                (body (get-body~ value)))
+            (emit (new Let bindings body) env tail?))))
+      
+      (define (primitive-reference name)
+        (let ((pair (assq name primitives)))
+          (if pair
+              (cdr pair)
+            #f)))
+      
       (let ((operator (get-operator~ expr))
             (arguments (get-arguments~ expr)))
         (let ((binding (and (is? operator Binding-Reference) (get-binding~ operator))))
@@ -249,77 +322,6 @@
                  (emit-definition-call binding arguments env tail?))
                 (else
                  (bailout `(unable-to-optimize ,operator)))))))
-    
-    (define (emit-export-call binding arguments env tail?)
-      (let ((symbol (get-symbol~ binding)))
-        (let ((primitive (primitive-reference symbol)))
-          (cond (primitive
-                 (emit-tail `(,primitive ,@(emit-list arguments env #f)) tail?))
-                ((eq? symbol 'vector-ref)
-                 (emit-tail `(vector-ref ,@(emit-list arguments env #f)) tail?))
-                ((eq? symbol 's32vector-ref)
-                 (emit-tail `(vector-ref ,@(emit-list arguments env #f)) tail?))
-                ((eq? symbol 's32vector-set!)
-                 (emit-tail `(vector-set! ,@(emit-list arguments env #f)) tail?))
-                ((eq? symbol 'f64vector-ref)
-                 (emit-tail `(vector-ref ,@(emit-list arguments env #f)) tail?))
-                ((eq? symbol 'f64vector-set!)
-                 (emit-tail `(vector-set! ,@(emit-list arguments env #f)) tail?))
-                (else
-                 (bailout `(export-call-not-implemented ,symbol)))))))
-    
-    (define (emit-defoptimize-call binding arguments env tail?)
-      (emit-tail `(,(name->c (get-name~ binding)) ,@(emit-list arguments env #f)) tail?))
-    
-    (define (emit-definition-call binding arguments env tail?)
-      (let ((name (get-name~ binding)))
-        (let ((primitive (primitive-reference name)))
-          (if primitive
-              (emit-tail `(,primitive ,@(emit-list arguments env #f)) tail?)
-            (let ((value (get-value~ binding)))
-              (if #f @nice-try-but-doesnt-work-as-is-with-c
-                  (and (is? value Lambda)
-                       (eq? (get-expansion~ binding) 'inline))
-                  (emit-inline-call binding arguments env tail?)
-                (bailout `(definition-call-not-implemented ,name))))))))
-    
-    (define (emit-inline-call binding arguments env tail?)
-      (let ((signature (get-signature~ binding))
-            (value (get-value~ binding)))
-        (let ((bindings (map (lambda (parameter argument)
-                               (cons parameter argument))
-                             (get-positional~ signature)
-                             arguments))
-              (body (get-body~ value)))
-          (emit (new Let bindings body) env tail?))))
-
-    (define (primitive-reference name)
-      (let ((pair (assq name primitives)))
-        (if pair
-            (cdr pair)
-          #f)))
-    
-    (define (emit-tail expr tail?)
-      (if (and tail? (not defoptimize?))
-          `(___return ,expr)
-        expr))
-    
-    (define (emit-reference expr env tail?)
-      (let ((binding (get-binding~ expr)))
-        (cond ((is? binding Variable)
-               (let ((lisp-name (get-name~ binding)))
-                 (let ((name (name->c lisp-name)))
-                   (when (find-annotated binding environment)
-                     (let ((info (list lisp-name (find-annotated-type binding environment) name)))
-                       (unless (member? info free)
-                         (set! free (cons info free)))))
-                   (emit-tail name tail?))))
-              ((is? binding Definition-Optimize-Declaration)
-               (if (is? (get-value~ binding) Constant)
-                   (name->c (get-name~ binding))
-                 (bailout `(unsupported-reference ,binding))))
-              (else
-               (bailout `(unsupported-reference ,binding))))))
     
     (define (emit-let expr env tail?)
       (annotate-let expr declaration env backend
@@ -408,9 +410,9 @@
                                 (let ((object (emit object-argument env #f))
                                       (c-name (string->symbol (string-append (symbol->string (name->c slot-name)) "_offset"))))
                                   (let ((offset-locator (compose-helper (get-locator~ slot-declaration) 'offset)))
-                                    (let ((info (list offset-locator Fixnum c-name)))
-                                      (unless (member? info free)
-                                        (set! free (cons info free))))
+                                    (let ((input (list offset-locator Fixnum c-name)))
+                                      (unless (member? input inputs)
+                                        (set! inputs (cons input inputs))))
                                     (emit-tail (safe-lisp->c (get-type~ slot-declaration) `(vector-ref (___BODY ,object) ,c-name)) tail?)))
                               #f))
                         #f))
@@ -425,18 +427,13 @@
               (debug optimize)
               (bailout `(todo ,expr)))))))
     
-    (define (emit-inline-dispatch binding arguments env tail?)
-      (let ((signature (get-signature~ binding))
-            (value (get-value~ binding)))
-        (let ((bindings (map (lambda (parameter argument)
-                               (cons parameter argument))
-                             (get-positional~ signature)
-                             arguments))
-              (body (get-body~ value)))
-          (emit (new Let bindings body) env tail?))))
-    
     (define (emit-cast expr env tail?)
       `(%cast ,(type->c (get-type~ expr)) ,(emit (get-expression~ expr) env tail?)))
+    
+    (define (emit-tail expr tail?)
+      (if (and tail? (not defoptimize?))
+          `(___return ,expr)
+        expr))
     
     (define (emit-unsupported expr)
       (bailout `(unsupported ,expr)))
@@ -462,34 +459,46 @@
           (bailout `(unable-to-convert-arg-type ,type))))
     
     (define (wrap code)
-      (let ((free (reverse free)))
+      (let ((inputs (reverse inputs)))
         (let ((expr `(%begin
-                       ,@(map (lambda (info rank)
-                                (bind (value type name) info
+                       ,@(map (lambda (input rank)
+                                (bind (argument type name) input
                                   `(%var ,(safe-type->c type) ,name ,(safe-arg->c type (string->symbol (format "___arg{a}" rank))))))
-                              free
-                              (naturals 1 (+ (length free) 1)))
+                              inputs
+                              (naturals 1 (+ (length inputs) 1)))
                        ,@code)))
           (let ((code (c-expr/sexp expr))
                 (statements-code (emit-statements-code body declaration environment backend)))
             (let ((return-type (get-type~ statements-code)))
               (let ((lisp-return-type (or (type->lisp return-type) 'void))
-                    (lisp-types (map (lambda (info)
-                                       (bind (value type name) info
+                    (lisp-types (map (lambda (input)
+                                       (bind (argument type name) input
                                          (safe-type->lisp type)))
-                                     free)))
+                                     inputs)))
                 (when (debug-optimize?)
                   ;(pp expr) (newline)
-                  ;(debug 'c-lambda lisp-types lisp-return-type)
+                  @debug (begin
+                    (display "((")
+                    (debug 'c-lambda lisp-types lisp-return-type)
+                    (display "  ...)")
+                    (newline)
+                    (for-each (lambda (input)
+                                (bind (argument type name) input
+                                  (display " ")
+                                  (debug argument)))
+                              inputs)
+                    (display ")")
+                    (newline)
+                    (newline))
                   (fmt #t code) (newline))
                 (if bailout?
                     `(begin ,@(get-form~ statements-code))
                   `((c-lambda ,lisp-types ,lisp-return-type
                       ,(fmt #f "" code))
-                    ,@(map (lambda (info)
-                             (bind (value type name) info
-                               value))
-                           free)))))))))
+                    ,@(map (lambda (input)
+                             (bind (argument type name) input
+                               argument))
+                           inputs)))))))))
     
     (let ((code (emit-list body environment #t)))
       (if defoptimize?

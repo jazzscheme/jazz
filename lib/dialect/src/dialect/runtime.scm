@@ -4351,7 +4351,7 @@
 
 
 ;; quick hack
-(define (jazz:emit-expr expr declaration environment backend)
+(define (jazz:call-emit-expression expr declaration environment backend)
   (jazz:emit-expression expr declaration environment backend))
 
 

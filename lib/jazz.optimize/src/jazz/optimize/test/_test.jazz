@@ -44,28 +44,33 @@
         (jazz.optimize.test.syntax (phase syntax)))
 
 
-;; TODO
-;; - probably an emit-optimize-body fn
-;; - move ((unspecified)) from walk to emit (if)
-;; - maybe delegate the inline to C
-;;   - and maybe this is not even necessary (test)
-;;     if gcc smartly inlines as needed
-
-;; MARC
-;; - is there a way to know if a gc occured during a call from C to Lisp?
-;; - better way of doing ptr->origin.head = ___MAKE_HD(___HD_BYTES(ptr->origin.head), ___sJAZZSTRUCT, ___PERM)
-;; - I have random crashes in my code
+;;;
+;;;; Test
+;;;
 
 
+@w (
+(definition (test x <fl> y <fl>)
+  (optimize
+    (for (biome-x -2 (<= biome-x 2) (increase! biome-x))
+         (for (biome-z -2 (<= biome-z 2) (increase! biome-z))
+              (let ((weight (+ biome-x biome-z)))
+                2)))))
+
+
+(debug (test 2 3)))
+
+
+;;;
+;;;; Memory
+;;;
+
+
+@w (
 (c-external (bytes->words int) int
   #/C/
     ___result = ___WORDS(___arg1);
 //#)
-
-
-;;;
-;;;; Still
-;;;
 
 
 ;; for now composite and container objects must be still
@@ -89,7 +94,7 @@
 ;;;
 
 
-(class Container extends Object)
+(class Container extends Object))
 
 
 ;;;
@@ -97,6 +102,7 @@
 ;;;
 
 
+@w (
 (c-declare test #/C/
   typedef struct {
             ___WORD head;
@@ -226,15 +232,13 @@
     (+ (vertex-z v1) (vertex-z v2))))
 
 
-@w
 (debug (make-vertex))
-@w
 (let ((vert (vertex 2. 3. 5.)))
   (debug vert)
   (vertex-x-set! vert 7.)
   (vertex-y-set! vert 9.)
   (vertex-z-set! vert 11.)
-  (debug vert))
+  (debug vert)))
 
 
 ;;;
@@ -242,6 +246,7 @@
 ;;;
 
 
+@w (
 (c-declare test #/C/
   typedef struct {
             ___WORD head;
@@ -298,7 +303,6 @@
     n))
 
 
-@w
 (let ((vertices (make-vertices 10)))
   (debug vertices (vertices-length vertices))
   (let ((vert (vertices-ref vertices 2)))
@@ -306,7 +310,7 @@
     (vertex-y-set! vert 5.)
     (vertex-z-set! vert 6.)
     (debug vert)
-    (debug (vertices-ref vertices 2))))
+    (debug (vertices-ref vertices 2)))))
 
 
 ;;;
@@ -314,6 +318,7 @@
 ;;;
 
 
+@w (
 (c-declare test #/C/
   typedef struct {
             ___WORD head;
@@ -383,13 +388,12 @@
     plane))
 
 
-@w
 (let ((plane (plane (vertex 1. 2. 3.) (vertex 0. 1. 0.))))
   (debug plane)
   (debug (vertex+ (plane-origin plane) (plane-normal plane)))
   (let ((orig (plane-origin plane))
         (normal (plane-normal plane)))
-    (debug orig normal)))
+    (debug orig normal))))
 
 
 ;;;
@@ -397,6 +401,7 @@
 ;;;
 
 
+@w (
 (c-declare test #/C/
   typedef struct {
             ___WORD head;
@@ -458,10 +463,9 @@
     n))
 
 
-@w
 (let ((planes (make-planes 10)))
   (debug planes (planes-length planes))
-  (debug (planes-ref planes 2)))
+  (debug (planes-ref planes 2))))
 
 
 ;;;
@@ -469,6 +473,7 @@
 ;;;
 
 
+@w (
 (native make-thread-with-stack)
 (native force-f64vector-set!)
 
@@ -561,7 +566,7 @@
 
 (thread-start! t)
 
-(thread-sleep! 1)
+(thread-sleep! 1))
 
 
 ;;;
@@ -591,6 +596,104 @@
 
 
 ;;;
+;;;; Class
+;;;
+
+
+(class Pt extends Object
+  
+  
+  (slot x <fl> getter generate)
+  (slot y <fl> getter generate)
+  
+  
+  (method override (initialize x y)
+    (set! x~self x)
+    (set! y~self y))
+  
+  
+  (method (foo)
+    (optimize
+      (+ x y))))
+
+
+(definition (bar pt <Pt>)
+  (optimize
+    (+ (get-x~ pt) (get-y~ pt))))
+
+
+(defoptimize (baz pt <Pt>) <fl>
+  (+ (get-x~ pt) (get-y~ pt)))
+
+
+(definition (test)
+  (let ((pt (new Pt 2. 3.)))
+    (debug (foo~ pt) (bar pt) (optimize (baz pt)))))
+
+
+(test)
+
+
+;;;
+;;;; Function
+;;;
+
+
+@w (
+;; for optimize tests
+(c-definition (call0 proc) (scheme-object) scheme-object "call0" ""
+  (proc))
+
+(c-definition (call1 proc arg1) (scheme-object scheme-object) scheme-object "call1" ""
+  (proc arg1))
+
+(c-definition (call2 proc arg1 arg2) (scheme-object scheme-object scheme-object) scheme-object "call2" ""
+  (proc arg1 arg2))
+
+(c-definition (call3 proc arg1 arg2 arg3) (scheme-object scheme-object scheme-object scheme-object) scheme-object "call3" ""
+  (proc arg1 arg2 arg3))
+
+(c-definition (call4 proc arg1 arg2 arg3 arg4) (scheme-object scheme-object scheme-object scheme-object scheme-object) scheme-object "call4" ""
+  (proc arg1 arg2 arg3 arg4)))
+
+
+@w (
+;; for optimize tests
+(c-declare world.procedural #/C/
+#define ___BODYREF(x, y) ___CAST(___SCMOBJ*, ___BODY(x))[y]
+#define ___S32BODYREF(x, y) ___CAST(___S32*, ___BODY(x))[y]
+#define ___S32BODYSET(x, y, z) ___CAST(___S32*, ___BODY(x))[y] = (z)
+#define ___F64BODYREF(x, y) ___CAST(___F64*, ___BODY(x))[y]
+#define ___F64BODYSET(x, y, z) ___CAST(___F64*, ___BODY(x))[y] = (z)
+//#))
+
+
+@w (
+(definition base <fx>
+  2)
+
+(definition (set-base val <fx>) <void>
+  (set! base val))
+
+(definition (foo) <fx>
+  base)
+
+(definition (goo x <fx>) <fx>
+  (* x x))
+
+(definition (bar) <fx>
+  (optimize
+    (set-base 11)
+    (+ (foo) (goo 2))))
+
+(definition (baz proc <fx^fx:fx>)
+  (optimize
+    (+ (bar) (proc 2 3))))
+
+(debug (baz (lambda (x y) (+ x (* y y))))))
+
+
+;;;
 ;;;; Optimize
 ;;;
 
@@ -600,11 +703,127 @@
   (optimize
     (let ((t 0))
       (for (n 0 (< n 10) (increase! n))
-           (let ((a 2))
+           (let ((a 2)
+                 (b (+ n 5)))
              (if (= n 2)
-                 (increase! t (+ x (* a y)))
-               (increase! t (+ a y)))))
+                 (increase! t (+ x (* a b y)))
+               (increase! t (+ a n y)))))
       t)))
 
 
-(debug (zoo 2 3))))
+(debug (zoo 2 3)))
+
+
+;;;
+;;;; Generate
+;;;
+
+
+@w (
+(defoptimize grad-x <f64vector>
+  #f64(1. -1. 1. -1. 1. -1. 1. -1. 0. 0. 0. 0. 1. 0. -1. 0.))
+
+(defoptimize grad-y <f64vector>
+  #f64(1. 1. -1. -1. 0. 0. 0. 0. 1. -1. 1. -1. 1. -1. 1. -1.))
+
+(defoptimize grad-z <f64vector>
+  #f64(0. 0. 0. 0. 1. 1. -1. -1. 1. 1. -1. -1. 0. 1. 0. -1.))
+
+(defoptimize inline (grad index <fx> x <fl> y <fl> z <fl>) <fl>
+  (let ((i (bitwise-and index #b1111)))
+    (+ (* (f64vector-ref grad-x i) x) (* (f64vector-ref grad-y i) y) (* (f64vector-ref grad-z i) z))))
+
+
+(class Perlin-Attributes extends Object
+  
+  
+  (slot permutations <s32vector> initialize (make-s32vector 512) getter generate)
+  (slot x-coord      <fl>        initialize 0.                   getter generate)
+  (slot y-coord      <fl>        initialize 0.                   getter generate)
+  (slot z-coord      <fl>        initialize 0.                   getter generate))
+
+
+(definition (generate-noise-octave noise <f64vector> attributes <Perlin-Attributes> x-offset <fl> y-offset <fl> z-offset <fl> x-size <fx> y-size <fx> z-size <fx> x-scale <fl> y-scale <fl> z-scale <fl> scaling <fl>)
+  (optimize
+    (let ((permutations (get-permutations~ attributes))
+          (x-coord (get-x-coord~ attributes))
+          (y-coord (get-y-coord~ attributes))
+          (z-coord (get-z-coord~ attributes)))
+      (s32vector-ref permutations 0))))
+
+
+(import (world.foreign))
+
+
+(definition rand-seed
+  23)
+
+(definition rand
+  (newRandom rand-seed))
+
+
+(definition sea-level <fx>
+  63)
+
+
+(definition (generate-blocks block-ref <fx^fx^fx:fx> block-set! <fx^fx^fx^fx:void> data-set! <fx^fx^fx^fx:void> variations <f64vector>)
+  ;; for test
+  (define (call-randomInt n <fx>) <fx>
+    (randomInt rand n))
+  
+  (optimize
+    (for (i 0 (< i 4) (increase! i))
+         (let ((j (* i 5))
+               (k (* (+ i 1) 5)))
+           (for (l 0 (< l 4) (increase! l))
+                (let ((i1 (* (+ j l) 33))
+                      (j1 (* (+ j l 1) 33))
+                      (k1 (* (+ k l) 33))
+                      (l1 (* (+ k l 1) 33)))
+                  (for (i2 0 (< i2 32) (increase! i2))
+                       (let ((d1 (f64vector-ref variations (+ i1 i2)))
+                             (d2 (f64vector-ref variations (+ j1 i2)))
+                             (d3 (f64vector-ref variations (+ k1 i2)))
+                             (d4 (f64vector-ref variations (+ l1 i2))))
+                         (let ((d5 (/ (- (f64vector-ref variations (+ i1 i2 1)) d1) 8.))
+                               (d6 (/ (- (f64vector-ref variations (+ j1 i2 1)) d2) 8.))
+                               (d7 (/ (- (f64vector-ref variations (+ k1 i2 1)) d3) 8.))
+                               (d8 (/ (- (f64vector-ref variations (+ l1 i2 1)) d4) 8.)))
+                           (for (j2 0 (< j2 8) (increase! j2))
+                                (let ((d9 d1)
+                                      (d10 d2)
+                                      (y (+ j2 (* i2 8))))
+                                  (let ((d11 (/ (- d3 d1) 4.))
+                                        (d12 (/ (- d4 d2) 4.)))
+                                    (for (k2 0 (< k2 4) (increase! k2))
+                                         (let ((d13 (/ (- d10 d9) 4.))
+                                               (x (+ k2 (* i 4))))
+                                           (let ((lvt-45-1 d9))
+                                             (for (l2 0 (< l2 4) (increase! l2))
+                                                  (let ((z (+ l2 (* l 4))))
+                                                    (if (<= y (call-randomInt 5))
+                                                        (block-set! x y z 7)
+                                                      (if (> lvt-45-1 0.)
+                                                          (block-set! x y z 1)
+                                                        (when (< y sea-level)
+                                                          (block-set! x y z 9)))))
+                                                  (set! lvt-45-1 (+ lvt-45-1 d13)))
+                                             (set! d9 (+ d9 d11))
+                                             (set! d10 (+ d10 d12)))))
+                                    (set! d1 (+ d1 d5))
+                                    (set! d2 (+ d2 d6))
+                                    (set! d3 (+ d3 d7))
+                                    (set! d4 (+ d4 d8))))))))))))))
+
+
+(let ((variations (make-f64vector 825 0.)))
+  (define (block-ref x <fx> y <fx> z <fx>) <fx>
+    2)
+  
+  (define (block-set! x <fx> y <fx> z <fx> val <fx>) <void>
+    )
+  
+  (define (data-set! x <fx> y <fx> z <fx> val <fx>) <void>
+    )
+  
+  (generate-blocks block-ref block-set! data-set! variations))))

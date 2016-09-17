@@ -204,10 +204,10 @@
 
 
 (definition protected debug-optimize?
-  (make-parameter #t))
+  (make-parameter #f))
 
 (definition protected debug-lambda?
-  (make-parameter #t))
+  (make-parameter #f))
 
 
 (definition protected disable-optimize?
@@ -220,7 +220,8 @@
 
 
 (definition (emit-optimize body declaration environment backend (defoptimize? #f))
-  (let ((inputs '())
+  (let ((globals '())
+        (inputs '())
         (bailout? #f))
     (define (emit-list lst env tail?)
       (cond ((null? lst)
@@ -284,7 +285,9 @@
       (let ((name (get-name~ binding)))
         (let ((c-name (string->symbol (string-append (symbol->string (name->c name)) "_offset"))))
           (let ((offset-locator (compose-helper (get-locator~ binding) 'offset)))
-            (register-input (list offset-locator Fixnum c-name))
+            (if defoptimize?
+                (register-global (list offset-locator Fixnum c-name))
+              (register-input (list offset-locator Fixnum c-name)))
             (emit-tail (safe-lisp->c (get-type~ binding) `(vector-ref (___BODY ,object) ,c-name)) tail?)))))
     
     (define (emit-call expr env tail?)
@@ -503,6 +506,10 @@
     (define (emit-unsupported expr)
       (bailout `(unsupported ,expr)))
     
+    (define (register-global global)
+      (unless (member? global globals)
+        (set! globals (cons global globals))))
+    
     (define (register-input input)
       (unless (member? input inputs)
         (set! inputs (cons input inputs))))
@@ -550,30 +557,39 @@
                   ;(pp expr) (newline)
                   (when (debug-lambda?)
                     (display "((")
-                    (debug 'c-lambda lisp-types lisp-return-type)
-                    (display "  ...)")
+                    (display 'c-lambda)
+                    (display " ")
+                    (display lisp-types)
+                    (display " ")
+                    (display lisp-return-type)
                     (newline)
+                    (display "#/C/")
+                    (newline))
+                  (fmt #t code) (newline))
+                (prog1
+                    (if (or bailout? disable-optimize?)
+                        `(begin ,@(get-form~ statements-code))
+                      `((c-lambda ,lisp-types ,lisp-return-type
+                          ,(fmt #f "" code))
+                        ,@(map (lambda (input)
+                                 (bind (argument type name) input
+                                   argument))
+                               inputs)))
+                  (when (debug-lambda?)
+                    (display "//#)")
                     (for-each (lambda (input)
                                 (bind (argument type name) input
+                                  (newline)
                                   (display " ")
-                                  (debug argument)))
+                                  (display argument)))
                               inputs)
                     (display ")")
                     (newline)
-                    (newline))
-                  (fmt #t code) (newline))
-                (if (or bailout? disable-optimize?)
-                    `(begin ,@(get-form~ statements-code))
-                  `((c-lambda ,lisp-types ,lisp-return-type
-                      ,(fmt #f "" code))
-                    ,@(map (lambda (input)
-                             (bind (argument type name) input
-                               argument))
-                           inputs)))))))))
+                    (newline)))))))))
     
     (let ((code (emit-list body environment #t)))
       (if defoptimize?
-          code
+          (values (reverse globals) code)
         (wrap code)))))
 
 
@@ -603,7 +619,7 @@
 
 
 (definition (emit-defoptimize-function name signature return-type body expansion declaration environment backend)
-  (let ((body (emit-optimize (get-expressions~ body) declaration environment backend #t)))
+  (receive (globals body) (emit-optimize (get-expressions~ body) declaration environment backend #t)
     (let ((arguments (map (lambda (parameter)
                             (list (type->c (get-type~ parameter)) (name->c (get-name~ parameter))))
                           (get-positional~ signature)))
@@ -612,8 +628,21 @@
         (let ((expr (if (eq? expansion 'inline) `(inline ,expr) expr)))
           (let ((code (c-expr/sexp expr)))
             (when (and (debug-optimize?) (not disable-optimize?))
+              (for-each (lambda (global)
+                          (bind (argument type name) global
+                            (fmt #t (c-expr/sexp `(%var int ,name)))))
+                        globals)
               (fmt #t code) (newline))
-            `(c-declare ,(fmt #f "" code))))))))
+            `(begin
+               ,@(map (lambda (global)
+                        (bind (argument type name) global
+                          `(c-declare ,(fmt #f (c-expr/sexp `(%var int ,name))))))
+                      globals)
+               (c-declare ,(fmt #f "" code))
+               ,@(map (lambda (global)
+                        (bind (argument type name) global
+                          `(##c-code ,(format "{a} = ___INT(___ARG1);" name) ,argument)))
+                      globals))))))))
 
 
 (definition primitives
@@ -804,24 +833,36 @@
 (class Optimize extends Expression
   
   
-  (slot body getter generate)
+  (slot debug? getter generate)
+  (slot body   getter generate)
   
   
-  (method override (initialize body . rest)
+  (method override (initialize debug? body . rest)
     (apply nextmethod rest)
+    (set! debug?~self debug?)
     (set! body~self body))
   
   
   (method override (emit-expression declaration environment backend)
     (new-code
-      (emit-optimize body declaration environment backend)
+      (if debug?
+          (parameterize ((debug-optimize? #t)
+                         (debug-lambda? #t))
+            (emit-optimize body declaration environment backend))
+        (emit-optimize body declaration environment backend))
       Any
       #f)))
 
 
 (special-form (optimize walker resume declaration environment form-src)
-  (let ((body (cdr (source-code form-src))))
+  (define (parse form)
+    (if (and (pair? form) (eq? (source-code (car form)) 'debug))
+        (values #t (cdr form))
+      (values #f form)))
+  
+  (receive (debug? body) (parse (cdr (source-code form-src)))
     (new Optimize
+      debug?
       (walk-list walker resume declaration environment body))))
 
 

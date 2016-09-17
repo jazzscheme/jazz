@@ -125,13 +125,13 @@
 ;; this function should be unified with jazz:compile-unit-internal
 ;; (being careful about jazz:find-unit-product overhead)
 (jazz:define-variable-override jazz:custom-compile-unit-internal
-  (lambda (unit-name #!key (force? #f))
+  (lambda (unit-name #!key (options #f) (force? #f))
     (let ((product (jazz:find-unit-product unit-name)))
       (let ((build (and product
                         (%%get-product-build product))))
         (if build
             (build (%%get-product-descriptor product) unit: unit-name force?: force?)
-          (jazz:compile-unit unit-name force?: force?))))))
+          (jazz:compile-unit unit-name options: options force?: force?))))))
 
 
 (define (jazz:find-unit-product unit-name)

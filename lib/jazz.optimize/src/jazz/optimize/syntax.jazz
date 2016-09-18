@@ -301,11 +301,29 @@
                  #f)))
         
         (let ((symbol (get-symbol~ binding)))
-          (let ((caller (or (primitive-reference symbol)
-                            (vector-reference symbol))))
-            (if caller
-                (emit-tail `(,caller ,@(emit-list arguments env #f)) tail?)
-              (bailout `(export-call-not-implemented ,symbol))))))
+          (case symbol
+            ((jazz:continuation-capture)
+             (let ((lambda (car arguments)))
+               (if (is? lambda Lambda)
+                   `(%begin ,@(emit-body (get-body~ lambda) env tail?))
+                 (bailout `(non-lambda-continuation-capture ,lambda)))))
+            ((jazz:continuation-return)
+             (let ((name (get-name~ (get-binding~ (car arguments)))))
+               (case name
+                 ((return)
+                  `(return ,(emit (cadr arguments) env #f)))
+                 ((break)
+                  `(break))
+                 ((continue)
+                  `(continue))
+                 (else
+                  (bailout `(non-supported-continuation-return ,name))))))
+            (else
+             (let ((caller (or (primitive-reference symbol)
+                               (vector-reference symbol))))
+               (if caller
+                   (emit-tail `(,caller ,@(emit-list arguments env #f)) tail?)
+                 (bailout `(export-call-not-implemented ,symbol))))))))
       
       (define (emit-defoptimize-call binding arguments env tail?)
         (emit-tail `(,(name->c (get-name~ binding)) ,@(emit-list arguments env #f)) tail?))
@@ -628,6 +646,7 @@
         (let ((expr (if (eq? expansion 'inline) `(inline ,expr) expr)))
           (let ((code (c-expr/sexp expr)))
             (when (and (debug-optimize?) (not disable-optimize?))
+              ;(pp expr) (newline)
               (for-each (lambda (global)
                           (bind (argument type name) global
                             (fmt #t (c-expr/sexp `(%var int ,name)))))

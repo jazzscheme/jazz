@@ -487,29 +487,37 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:If expression) declaration environment backend)
-  (let ((test (jazz:get-if-test expression)))
+  (let ((test (jazz:get-if-test expression))
+        (yes (jazz:get-if-yes expression))
+        (no (jazz:get-if-no expression)))
     (jazz:bind (yes-environment . no-environment) (jazz:branch-types test environment)
       (let ((test (jazz:emit-expression test declaration environment backend))
-            (yes (jazz:emit-expression (jazz:get-if-yes expression) declaration yes-environment backend))
-            (no (jazz:emit-expression (jazz:get-if-no expression) declaration no-environment backend)))
+            (yes (jazz:emit-expression yes declaration yes-environment backend))
+            (no (and no (jazz:emit-expression no declaration no-environment backend))))
         (jazz:new-code
           (jazz:emit 'if backend expression declaration environment test yes no)
-          (jazz:extend-type (jazz:get-code-type yes) (jazz:get-code-type no))
+          (jazz:extend-type (jazz:get-code-type yes) (and no (jazz:get-code-type no)))
           (jazz:get-expression-source expression))))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:If expression) down up here seed environment)
-  (up expression
-      seed
-      (jazz:tree-fold
-        (jazz:get-if-no expression) down up here
-        (jazz:tree-fold
-          (jazz:get-if-yes expression) down up here
-          (jazz:tree-fold
-            (jazz:get-if-test expression) down up here (down expression seed environment) environment)
-          environment)
-        environment)
-      environment))
+  (let ((test (jazz:get-if-test expression))
+        (yes (jazz:get-if-yes expression))
+        (no (jazz:get-if-no expression)))
+    (up expression
+        seed
+        (let ((fold (jazz:tree-fold
+                      yes down up here
+                      (jazz:tree-fold
+                        test down up here (down expression seed environment) environment)
+                      environment)))
+          (if (%%not no)
+              fold
+            (jazz:tree-fold
+              no down up here
+              fold
+              environment)))
+        environment)))
 
 
 ;;;

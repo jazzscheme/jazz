@@ -102,14 +102,7 @@
   (syntax-rules ()
     ((when test expr ...)
      (if test
-         (expand-body expr ...)
-       #f))))
-
-
-(define-syntax jazzdoc
-  (syntax-rules ()
-    ((jazzdoc expr ...)
-     (unspecified))))
+         (expand-body expr ...)))))
 
 
 (define-syntax unless
@@ -165,6 +158,12 @@
                 (else
                  (error "Ill-formed predicate/type in catch: {t}" (desourcify predicate/type))))
           form-src)))))
+
+
+(define-syntax jazzdoc
+  (syntax-rules ()
+    ((jazzdoc expr ...)
+     (unspecified))))
 
 
 (define-syntax ~

@@ -861,11 +861,10 @@
                    (continuation-capture
                      (lambda (resume)
                        (jazz:walk walker resume declaration environment yes)))
-                   (jazz:walk walker resume declaration environment
-                     (%%cons 'begin
-                             (if (%%null? no)
-                                 '((unspecified))
-                               no)))))))
+                   (if (%%null? no)
+                       #f
+                     (jazz:walk walker resume declaration environment
+                       (%%cons 'begin no)))))))
 
 
 ;;;

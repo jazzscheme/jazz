@@ -149,7 +149,9 @@
 (jazz:define-emit (if (scheme backend) expression declaration environment test yes no)
   `(if ,(jazz:sourcified-form test)
        ,(jazz:sourcified-form yes)
-     ,(jazz:simplify-begin (jazz:sourcified-form no))))
+     ,@(if no
+           (%%list (jazz:simplify-begin (jazz:sourcified-form no)))
+         '())))
 
 
 ;;;

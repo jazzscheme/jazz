@@ -494,19 +494,23 @@
     
     (define (emit-for expr env tail?)
       (let ((variable (get-variable~ expr)))
-        (let ((var (name->c (get-name~ variable)))
-              (type (get-type~ (call-emit-expression (get-init~ expr) declaration env backend))))
-          (let ((init (emit (get-init~ expr) env #f)))
-            (with-annotated-frame (list (new Annotated-Variable variable Fixnum Fixnum))
-              (lambda (frame)
-                (let ((augmented-environment (cons frame env)))
-                  (let ((test (emit (get-test~ expr) augmented-environment #f))
-                        (update (emit (get-update~ expr) augmented-environment #f))
-                        (body (emit-list (get-body~ expr) augmented-environment #f)))
-                    `(%begin
-                       (%var ,(safe-type->c type) ,var)
-                       (for (= ,var ,init) ,test ,update
-                         ,@body))))))))))
+        (if (not variable)
+            (let ((body (emit-list (get-body~ expr) env #f)))
+              `(while 1
+                 ,@body))
+          (let ((var (name->c (get-name~ variable)))
+                (type (get-type~ (call-emit-expression (get-init~ expr) declaration env backend))))
+            (let ((init (emit (get-init~ expr) env #f)))
+              (with-annotated-frame (list (new Annotated-Variable variable Fixnum Fixnum))
+                (lambda (frame)
+                  (let ((augmented-environment (cons frame env)))
+                    (let ((test (emit (get-test~ expr) augmented-environment #f))
+                          (update (emit (get-update~ expr) augmented-environment #f))
+                          (body (emit-list (get-body~ expr) augmented-environment #f)))
+                      `(%begin
+                         (%var ,(safe-type->c type) ,var)
+                         (for (= ,var ,init) ,test ,update
+                           ,@body)))))))))))
     
     (define (emit-assignment expr env tail?)
       (let ((binding (get-binding~ expr))
@@ -918,21 +922,32 @@
 (special-form (for walker resume declaration environment form-src)
   (let ((form (source-code (cdr (source-code form-src)))))
     (let ((header (car form))
-          (body (cdr form)))
-      (bind (name init test update) (source-code header)
-        (let ((variable (new Variable (source-code name) #f name)))
-          (let ((augmented-environment (cons variable environment))
-                (iter (generate-symbol "iter")))
-            (new For
-              variable
-              (walk walker resume declaration environment init)
-              (walk walker resume declaration augmented-environment test)
-              (walk walker resume declaration augmented-environment update)
-              (walk-list walker resume declaration augmented-environment body)
-              (walk walker resume declaration environment
-                `(let ((,name ,init))
-                   (let (,iter)
-                     (when ,test
-                       ,@body
-                       ,update
-                       (,iter)))))))))))))
+          (body (cdr form))
+          (iter (generate-symbol "iter")))
+      (if (null? (source-code header))
+          (new For
+            #f
+            #f
+            #f
+            #f
+            (walk-list walker resume declaration environment body)
+            (walk walker resume declaration environment
+              `(let (,iter)
+                 ,@body
+                 (,iter))))
+        (bind (name init test update) (source-code header)
+          (let ((variable (new Variable (source-code name) #f name)))
+            (let ((augmented-environment (cons variable environment)))
+              (new For
+                variable
+                (walk walker resume declaration environment init)
+                (walk walker resume declaration augmented-environment test)
+                (walk walker resume declaration augmented-environment update)
+                (walk-list walker resume declaration augmented-environment body)
+                (walk walker resume declaration environment
+                  `(let ((,name ,init))
+                     (let (,iter)
+                       (when ,test
+                         ,@body
+                         ,update
+                         (,iter))))))))))))))

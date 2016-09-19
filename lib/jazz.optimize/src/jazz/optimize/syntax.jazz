@@ -319,11 +319,14 @@
                  (else
                   (bailout `(non-supported-continuation-return ,name))))))
             (else
-             (let ((caller (or (primitive-reference symbol)
-                               (vector-reference symbol))))
-               (if caller
-                   (emit-tail `(,caller ,@(emit-list arguments env #f)) tail?)
-                 (bailout `(export-call-not-implemented ,symbol))))))))
+             ;; quick try to generalize
+             (if (eq? symbol 'vector-set!)
+                 (emit-tail `(vector-set! ,(emit (car arguments) env #f) ,(emit (cadr arguments) env #f) ,(convert (get-type~ (call-emit-expression (caddr arguments) declaration env backend)) Object (emit (caddr arguments) env #f))) tail?)
+               (let ((caller (or (primitive-reference symbol)
+                                 (vector-reference symbol))))
+                 (if caller
+                     (emit-tail `(,caller ,@(emit-list arguments env #f)) tail?)
+                   (bailout `(export-call-not-implemented ,symbol)))))))))
       
       (define (emit-defoptimize-call binding arguments env tail?)
         (emit-tail `(,(name->c (get-name~ binding)) ,@(emit-list arguments env #f)) tail?))
@@ -795,6 +798,13 @@
   (typecase type
     ((Fixnum-Class) `(___INT ,expr))
     (else #f)))
+
+
+(definition (convert from to expr)
+  (cond ((and (is? from Fixnum-Class) (is? to Object-Class))
+         `(___FIX ,expr))
+        (else
+         expr)))
 
 
 (definition (name->c name)

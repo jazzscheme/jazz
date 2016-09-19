@@ -2546,6 +2546,7 @@
 (%%table-set! jazz:primitive-types 'fb           jazz:Fixbound)
 (%%table-set! jazz:primitive-types 'fl           jazz:Flonum)
 (%%table-set! jazz:primitive-types 'fv           jazz:Flovec)
+(%%table-set! jazz:primitive-types 's64          jazz:S64)
 (%%table-set! jazz:primitive-types 'list         jazz:List)
 (%%table-set! jazz:primitive-types 'null         jazz:Null)
 (%%table-set! jazz:primitive-types 'pair         jazz:Pair)

@@ -1243,6 +1243,29 @@
 
 
 ;;;
+;;;; S64
+;;;
+
+
+(jazz:define-class-runtime jazz:S64-Class)
+
+
+(jazz:define-method (jazz:of-type? (jazz:S64-Class class) object)
+  (%%integer? object))
+
+
+(jazz:define-method (jazz:emit-specifier (jazz:S64-Class class))
+  's64)
+
+
+(jazz:define-method (jazz:emit-test (jazz:S64-Class type) value source-declaration environment backend)
+  `(%%integer? ,value))
+
+
+(jazz:define-class-runtime jazz:S64)
+
+
+;;;
 ;;;; Sequence
 ;;;
 

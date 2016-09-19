@@ -174,7 +174,7 @@
 
 ;; GUILLAUME
 ;; - probably an emit-optimize-body fn
-;; - move ((unspecified)) from walk to emit (if)
+;; ! move ((unspecified)) from walk to emit (if)
 ;; - maybe delegate the inline to C
 ;;   - and maybe this is not even necessary (test)
 ;;     if gcc smartly inlines as needed
@@ -253,8 +253,8 @@
     
     (define (emit-constant expr env tail?)
       (let ((value (source-code (unquote-expr (get-expansion~ expr)))))
-        (emit-tail (cond ((eq? value #f) '___FAL)
-                         ((eq? value #t) '___TRU)
+        (emit-tail (cond ((eq? value #f) 0 @wait-correct-boolean '___FAL)
+                         ((eq? value #t) 1 @wait-correct-boolean '___TRU)
                          (else value))
                    tail?)))
     
@@ -479,7 +479,9 @@
             (no (get-no~ expr)))
         `(if ,(emit test env #f)
              ,(emit yes env tail?)
-           ,(emit no env tail?))))
+           ,@(if no
+                 (list (emit no env tail?))
+               '()))))
     
     (define (emit-cond expr env tail?)
       `(%cond ,@(let ((clauses (get-clauses~ expr)))
@@ -725,6 +727,7 @@
 
 (definition (type->c type)
   (typecase type
+    ((Boolean-Class) 'int)
     ((Fixnum-Class) 'int)
     ((Flonum-Class) 'double)
     ((Vector-Class) '___SCMOBJ*)
@@ -804,6 +807,7 @@
               (let ((c (string-ref str n)))
                 (cond ((eqv? c #\-) (write-char #\_ output))
                       ((eqv? c #\!))
+                      ((eqv? c #\?))
                       (else (write-char c output))))
               (iter (+ n 1)))
           (string->symbol (get-output-string output)))))))

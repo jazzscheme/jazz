@@ -325,11 +325,11 @@
   
   (method override (profiler-profile)
     (define (package-frame frame)
-      (or (when frame
-            (bind (creator locat) frame
-              (when creator
-                (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
-                  (list name locat)))))
+      (or (and frame
+               (bind (creator locat) frame
+                 (and creator
+                      (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
+                        (list name locat)))))
           frame))
     
     (define (merge-calls call-table calls)
@@ -348,26 +348,26 @@
         (proc profile)))
     
     (let ((profile (find-selected-profile)))
-      (when profile
-        (let ((remote-profile (and (get-application) (get-remote-profile~ (get-application) (profile-label profile)))))
-          (let ((frames-count (profile-add profile remote-profile profile-frames-count))
-                (frames-duration (profile-add profile remote-profile profile-frames-duration))
-                (calls-count (profile-add profile remote-profile profile-calls-count))
-                (calls-duration (profile-add profile remote-profile profile-calls-duration))
-                (calls (let ((call-table (make-table test: equal?)))
-                         (merge-calls call-table (profile-calls profile))
-                         (when remote-profile
-                           (merge-calls call-table (profile-calls remote-profile)))
-                         call-table)))
-            (list (profile-label profile)
-                  (profiler-type (profile-profiler profile))
-                  (profile-depth profile)
-                  frames-count
-                  frames-duration
-                  calls-count
-                  calls-duration
-                  (profile-process-info profile)
-                  (table->list calls)))))))
+      (and profile
+           (let ((remote-profile (and (get-application) (get-remote-profile~ (get-application) (profile-label profile)))))
+             (let ((frames-count (profile-add profile remote-profile profile-frames-count))
+                   (frames-duration (profile-add profile remote-profile profile-frames-duration))
+                   (calls-count (profile-add profile remote-profile profile-calls-count))
+                   (calls-duration (profile-add profile remote-profile profile-calls-duration))
+                   (calls (let ((call-table (make-table test: equal?)))
+                            (merge-calls call-table (profile-calls profile))
+                            (when remote-profile
+                              (merge-calls call-table (profile-calls remote-profile)))
+                            call-table)))
+               (list (profile-label profile)
+                     (profiler-type (profile-profiler profile))
+                     (profile-depth profile)
+                     frames-count
+                     frames-duration
+                     calls-count
+                     calls-duration
+                     (profile-process-info profile)
+                     (table->list calls)))))))
   
   
   (method override (profile-reset profiler depth all?)
@@ -405,22 +405,22 @@
   
   (method override (tracker-tracking)
     (define (package-frame frame)
-      (or (when frame
-            (bind (creator locat) frame
-              (when creator
-                (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
-                  (list name locat)))))
+      (or (and frame
+               (bind (creator locat) frame
+                 (and creator
+                      (let ((name (if (symbol? creator) creator (get-procedure-name creator))))
+                        (list name locat)))))
           frame))
     
     (let ((tracking (find-selected-tracking)))
-      (when tracking
-        (let ((allocations (extract-allocations~ tracking)))
-          (list (get-label~ tracking)
-                (get-all~ tracking)
-                (map (lambda (allocation)
-                       (bind (object file line stack) allocation
-                         (list (package-info object) file line (and stack (map package-frame stack)))))
-                     allocations))))))
+      (and tracking
+           (let ((allocations (extract-allocations~ tracking)))
+             (list (get-label~ tracking)
+                   (get-all~ tracking)
+                   (map (lambda (allocation)
+                          (bind (object file line stack) allocation
+                            (list (package-info object) file line (and stack (map package-frame stack)))))
+                        allocations))))))
   
   
   (method override (tracking-reset all?)

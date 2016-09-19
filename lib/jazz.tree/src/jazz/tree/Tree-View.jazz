@@ -180,11 +180,11 @@
   
   
   (method public (get-portfolio)
-    (when portfolio
-      (if (is? portfolio Portfolio)
-          portfolio
-        (set! portfolio (child portfolio))
-        portfolio)))
+    (and portfolio
+         (if (is? portfolio Portfolio)
+             portfolio
+           (set! portfolio (child portfolio))
+           portfolio)))
 
 
   (method public (set-portfolio object)
@@ -839,8 +839,8 @@
   
   (method override (mouse-data pos)
     (let ((cell (view->tree pos)))
-      (when cell
-        (get-cell-title cell))))
+      (and cell
+           (get-cell-title cell))))
 
 
   ;;;
@@ -1119,34 +1119,34 @@
   
   (method override (get-tooltip-bounds pos)
     (let ((cell (view->tree pos)))
-      (when cell
-        (calculate-tooltip-bounds cell))))
+      (and cell
+           (calculate-tooltip-bounds cell))))
   
   
   (method override (get-tooltip-context pos)
     (if (get-tooltip-text)
         (nextmethod pos)
       (let ((cell (view->tree pos)))
-        (when cell
-          (let ((row (get-row (get-line~ cell)))
-                (column (get-column (get-col~ cell)))
-                (text (localize (get-cell-tooltip cell))))
-            (when text
-              (let* ((width (get-width~ column))
-                     (height (get-height~ row))
-                     (content-rect (content-rect~ column row cell width height))
-                     (formatted? (get-formatted-tooltip?))
-                     (text-width (if formatted? 0 (+ (text-width~ (effective-font) text) 2))))
-                (when (or (cell-tooltips? cell) (> text-width (rect-width content-rect)))
-                  (let ((rect (calculate-tooltip-bounds cell))
-                        (h (+ (content-h~ column (get-level~ row)) (if (= (get-col~ cell) 0) 2 -2))))
-                    (new Tooltip-Context
-                      view: self
-                      text: (if formatted? text (split-lines text))
-                      bounds: rect
-                      position: (get-tooltip-position text rect h 0)
-                      padding: (new Dimension 0 0)
-                      font: (effective-font)))))))))))
+        (and cell
+             (let ((row (get-row (get-line~ cell)))
+                   (column (get-column (get-col~ cell)))
+                   (text (localize (get-cell-tooltip cell))))
+               (and text
+                    (let* ((width (get-width~ column))
+                           (height (get-height~ row))
+                           (content-rect (content-rect~ column row cell width height))
+                           (formatted? (get-formatted-tooltip?))
+                           (text-width (if formatted? 0 (+ (text-width~ (effective-font) text) 2))))
+                      (and (or (cell-tooltips? cell) (> text-width (rect-width content-rect)))
+                           (let ((rect (calculate-tooltip-bounds cell))
+                                 (h (+ (content-h~ column (get-level~ row)) (if (= (get-col~ cell) 0) 2 -2))))
+                             (new Tooltip-Context
+                               view: self
+                               text: (if formatted? text (split-lines text))
+                               bounds: rect
+                               position: (get-tooltip-position text rect h 0)
+                               padding: (new Dimension 0 0)
+                               font: (effective-font)))))))))))
   
   
   (method protected virtual (cell-tooltips? cell)
@@ -1173,8 +1173,8 @@
   
   
   (method override (get-drag-drop)
-    (when (view->tree mouse-down-point)
-      (nextmethod)))
+    (and (view->tree mouse-down-point)
+         (nextmethod)))
 
 
   ;;;
@@ -1238,14 +1238,14 @@
     (define (get-reorder-target drag-drop pos)
       (call-with-view->tree pos
         (lambda (cell v height)
-          (when cell
-            (let* ((line (get-line~ cell))
-                   (quarter (get-row-quarter v height))
-                   (current (get-target~ drag-drop))
-                   (row (get-row line)))
-              (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (eqv? quarter (get-quarter~ current)))
-                  current
-                (get-row-reorder-target drag-drop row quarter)))))))
+          (and cell
+               (let* ((line (get-line~ cell))
+                      (quarter (get-row-quarter v height))
+                      (current (get-target~ drag-drop))
+                      (row (get-row line)))
+                 (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (eqv? quarter (get-quarter~ current)))
+                     current
+                   (get-row-reorder-target drag-drop row quarter)))))))
     
     (define (get-row-quarter v height)
       (let ((quarter (/ (cast <fl> height) 4))
@@ -1270,34 +1270,34 @@
            (dst-line (row->line row))
            (current-rank (if (memq? quarter '(1 2)) dst-line (+ dst-line 1)))
            (accept? (or (not src-range) (and (not (memq? current-rank src-selection)) (/= current-rank (+ (cdr src-range) 1))))))
-      (when accept?
-        (let ((part (if (= current-rank dst-line) 'before 'after)))
-          (new Tree-Drop-Target view: self row: row part: part)))))
+      (and accept?
+           (let ((part (if (= current-rank dst-line) 'before 'after)))
+             (new Tree-Drop-Target view: self row: row part: part)))))
   
   
   (method protected virtual (get-tree-target drag-drop pos)
     (call-with-view->tree pos
       (lambda (cell v height)
-        (when cell
-          (let ((row (get-row (get-line~ cell)))
-                (current (get-target~ drag-drop)))
-            (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)))
-                current
-              (get-row-target drag-drop row)))))))
+        (and cell
+             (let ((row (get-row (get-line~ cell)))
+                   (current (get-target~ drag-drop)))
+               (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)))
+                   current
+                 (get-row-target drag-drop row)))))))
   
     
   (method public (get-tree-data-target drag-drop pos)
     (call-with-view->tree pos
       (lambda (cell v height)
-        (when cell
-          (let ((row (get-row (get-line~ cell)))
-                (col (get-col~ cell))
-                (source (get-source~ drag-drop))
-                (current (get-target~ drag-drop)))
-            (when (or (neq? (get-view~ source) self) (neq? (get-row~ source) row) (/= (get-col~ source) col))
-              (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (= col (get-col~ current)))
-                  current
-                (get-cell-target drag-drop row col))))))))
+        (and cell
+             (let ((row (get-row (get-line~ cell)))
+                   (col (get-col~ cell))
+                   (source (get-source~ drag-drop))
+                   (current (get-target~ drag-drop)))
+               (and (or (neq? (get-view~ source) self) (neq? (get-row~ source) row) (/= (get-col~ source) col))
+                    (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (= col (get-col~ current)))
+                        current
+                      (get-cell-target drag-drop row col))))))))
   
   
   (method protected virtual (get-row-target drag-drop row)
@@ -1919,8 +1919,7 @@
   (method public (select-user-data-row data (test: test eqv?) (include-invisibles?: include-invisibles? #f) (error?: error? #t))
     (let ((row (user-data-row data test: test include-invisibles?: include-invisibles?)))
       (if (not row)
-          (when error?
-            (error "Unable to select user-data: {t}" data))
+          (and error? (error "Unable to select user-data: {t}" data))
         (set-single-selection (row->line row)))))
 
   
@@ -2705,12 +2704,12 @@
     (define (visible-cell cell)
       (if any?
           cell
-        (when (cell-visible? cell)
-          cell)))
+        (and (cell-visible? cell)
+             cell)))
     
     (let ((line (if uniform-height? (quotient (get-v~ pos) default-row-height) (v->line (get-v~ pos))))
           (col (h->col (get-h~ pos))))
-      (when (and line col (>= line 0))
+      (and line col (>= line 0)
         (let ((cell (new Cell line col)))
           (let ((merge-cell (get-merge-cell (cell->site cell))))
             (visible-cell (if merge-cell (get-first-cell~ merge-cell) cell)))))))
@@ -2832,8 +2831,8 @@
                          (get-first-line~ merge-cell)
                        (get-line~ cell)) 1))
             (col (get-col~ cell)))
-        (when (>= line 0)
-          (new Cell line col)))))
+        (and (>= line 0)
+             (new Cell line col)))))
   
   
   (method public (cell-down cell (validate? #t))
@@ -2842,8 +2841,8 @@
                          (get-last-line~ merge-cell)
                        (get-line~ cell)) 1))
             (col (get-col~ cell)))
-        (when (or (not validate?) (< line (get-visible-count)))
-          (new Cell line col)))))
+        (and (or (not validate?) (< line (get-visible-count)))
+             (new Cell line col)))))
   
   
   (method public (cell-left cell)
@@ -2953,7 +2952,7 @@
                            ((Tree-Label) (get-title~ child))
                            (else (get-title~ child)))))
               (proc title line))))
-        start: (when row (if prefix row (get-next~ row)))
+        start: (and row (if prefix row (get-next~ row)))
         wrap?: #t)))
   
   
@@ -3037,10 +3036,10 @@
     (let ((first-line #f))
       (for-each (lambda (row)
                   (when (get-visible?~ row)
-                      (let ((line (row->line~ tree row)))
-                        (when (or (not first-line)
-                                  (< line first-line))
-                          (set! first-line line)))))
+                    (let ((line (row->line~ tree row)))
+                      (when (or (not first-line)
+                                (< line first-line))
+                        (set! first-line line)))))
                 merged-rows)
       first-line))
   
@@ -3049,9 +3048,9 @@
     (let ((last-line 0))
       (for-each (lambda (row)
                   (when (get-visible?~ row)
-                      (let ((line (row->line~ tree row)))
-                        (when (> line last-line)
-                          (set! last-line line)))))
+                    (let ((line (row->line~ tree row)))
+                      (when (> line last-line)
+                        (set! last-line line)))))
                 merged-rows)
       last-line))
   
@@ -3072,9 +3071,9 @@
     (let ((last-col 0))
       (for-each (lambda (column)
                   (when (get-visible?~ column)
-                      (let ((col (column->col~ tree column)))
-                        (when (> col last-col)
-                          (set! last-col col)))))
+                    (let ((col (column->col~ tree column)))
+                      (when (> col last-col)
+                        (set! last-col col)))))
                 merged-columns)
       last-col))
 

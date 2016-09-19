@@ -190,8 +190,7 @@
   (let ((result (find-alias name)))
     (if result
         (get-path~ result)
-      (when error?
-        (throw (new Unknown-Alias-Exception name))))))
+      (and error? (throw (new Unknown-Alias-Exception name))))))
 
 
 (definition public (set-alias! name path)
@@ -216,8 +215,7 @@
         (let ((alias (table-ref (get-table~ result) name #f)))
           (if alias
               (iterate (cdr path) alias)
-            (when error?
-              (throw (new Unknown-Alias-Exception name)))))))))
+            (and error? (throw (new Unknown-Alias-Exception name)))))))))
 
 
 (definition public (require-alias name)
@@ -346,7 +344,8 @@
 (definition public (register-repository-alias repository)
   (let ((name (repository-name repository)))
     ;; this test is a quick fix for the .buildini that can register a repo twice
-    (unless (is-alias? name)
+    (if (is-alias? name)
+        #f
       (register-alias name (tokenise-filename (repository-directory repository))))))
 
 
@@ -410,14 +409,12 @@
 
 (definition public (extract-extension filename <string>)
   (let ((pos (find filename #\period reversed?: #t)))
-    (when pos
-      (subseq filename (+ pos 1) (cardinality filename)))))
+    (and pos (subseq filename (+ pos 1) (cardinality filename)))))
 
 
 (definition public (extract-dir filename <string>)
   (let ((pos (find filename #\/ reversed?: #t)))
-    (when pos
-      (subseq filename 0 (+ pos 1)))))
+    (and pos (subseq filename 0 (+ pos 1)))))
 
 
 (cond-expand
@@ -913,8 +910,7 @@
     @windows-specific
     (let ((attributes (GetFileAttributes (parse))))
       (if (= attributes -1)
-          (when error?
-            (error "Unable to get file attributes for {t}" self))
+          (and error? (error "Unable to get file attributes for {t}" self))
         attributes)))
   
   
@@ -1001,7 +997,7 @@
         (apply append (map get-anchors~ (map find-alias anchors)))))
     
     (let* ((anchors (difference (determine-anchors) (or ignored-anchors '())))
-           (anchored (collect (lambda (anchor) (when (valid-alias? anchor) (anchor-to (new Directory (list anchor)) error?: #f))) anchors))
+           (anchored (collect (lambda (anchor) (and (valid-alias? anchor) (anchor-to (new Directory (list anchor)) error?: #f))) anchors))
            (sorted (sort < anchored key: (lambda (path) (length (get-list~ path))))))
       (if (null? sorted)
           self
@@ -1140,8 +1136,7 @@
   
   (method public (delete-file (overwrite-read-only?: overwrite-read-only? #f) (error?: error? #t))
     (if (not (exists?))
-        (when error?
-          (error "Unable to delete inexistant file: {s}" self))
+        (and error? (error "Unable to delete inexistant file: {s}" self))
       (overwrite-read-only overwrite-read-only?)
       (file-delete (parse))))
   

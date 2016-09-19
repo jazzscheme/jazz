@@ -654,12 +654,12 @@
         
         (define (local-self variables)
           (find-object (lambda (var)
-                         (when (string=? (second (car var)) "self")
-                           (let ((serial (cadr var)))
-                             (when serial
-                               (let ((object (serial->object serial)))
-                                 (when (object? object)
-                                   object))))))
+                         (and (string=? (second (car var)) "self")
+                              (let ((serial (cadr var)))
+                                (and serial
+                                     (let ((object (serial->object serial)))
+                                       (and (object? object)
+                                            object))))))
                        variables))
         
         (parameterize ((walk-for 'eval))
@@ -767,24 +767,24 @@
 
 
 (definition (context-alias context)
-  (when (enumerator? context)
-    (if (and (eq? context :default)
-             (neq? default-context :not-set))
-        default-context
-      (if (eq? context :scheme)
-          #f
-        (let ((process (get-process)))
-          (cond ((not process)
-                 (if (eq? context :default)
-                     (new (module-ref 'jazz.profile 'Me))
-                   #f))
-                ((eq? context :default)
-                 (or (resolve-nickname :profile)
-                     (resolve-nickname :process)))
-                ((eq? context :me)
-                 (context-alias :profile))
-                (else
-                 (resolve-nickname context))))))))
+  (and (enumerator? context)
+       (if (and (eq? context :default)
+                (neq? default-context :not-set))
+           default-context
+         (if (eq? context :scheme)
+             #f
+           (let ((process (get-process)))
+             (cond ((not process)
+                    (if (eq? context :default)
+                        (new (module-ref 'jazz.profile 'Me))
+                      #f))
+                   ((eq? context :default)
+                    (or (resolve-nickname :profile)
+                        (resolve-nickname :process)))
+                   ((eq? context :me)
+                    (context-alias :profile))
+                   (else
+                    (resolve-nickname context))))))))
 
 
 (define (console-context console)
@@ -1270,12 +1270,12 @@
 
 (definition package (present-current-loop-restart)
   (let ((loop (current-loop)))
-    (when loop
-      (let ((level (get-level~ loop)))
-        (format "Resume loop{a}"
-                (if (= level 0)
-                    ""
-                  (format " {a}" level)))))))
+    (and loop
+         (let ((level (get-level~ loop)))
+           (format "Resume loop{a}"
+                   (if (= level 0)
+                       ""
+                     (format " {a}" level)))))))
 
 
 ;;;

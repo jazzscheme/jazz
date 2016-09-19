@@ -337,12 +337,12 @@
   
   
   (method public (first-visible-son)
-    (when (not (empty? sons))
-      (let ((first (first sons)))
-        ;; optimize the 99.999% case
-        (if (get-visible-flag~ first)
-            first
-          (find-if get-visible-flag~ sons)))))
+    (and (not (empty? sons))
+         (let ((first (first sons)))
+           ;; optimize the 99.999% case
+           (if (get-visible-flag~ first)
+               first
+             (find-if get-visible-flag~ sons)))))
   
   
   (method public (get-siblings)
@@ -351,20 +351,20 @@
   
   (method public (previous-sibling)
     (let ((siblings (get-siblings)))
-      (when siblings
-        (let ((rank (find siblings self)))
-          (let ((previous (- rank 1)))
-            (and (>= previous 0)
-                 (element siblings previous)))))))
+      (and siblings
+           (let ((rank (find siblings self)))
+             (let ((previous (- rank 1)))
+               (and (>= previous 0)
+                    (element siblings previous)))))))
   
   
   (method public (next-sibling)
     (let ((siblings (get-siblings)))
-      (when siblings
-        (let ((rank (find siblings self)))
-          (let ((next (+ rank 1)))
-            (and (< next (cardinality siblings))
-                 (element siblings next)))))))
+      (and siblings
+           (let ((rank (find siblings self)))
+             (let ((next (+ rank 1)))
+               (and (< next (cardinality siblings))
+                    (element siblings next)))))))
   
   
   (method public (previous-visible-row target)
@@ -446,7 +446,7 @@
                (lambda (row)
                  (when (get-visible-flag~ row)
                    (link before row)
-                   (set! before (or (when (expanded?~ row) (last-descendant~ row)) row)))))
+                   (set! before (or (and (expanded?~ row) (last-descendant~ row)) row)))))
       (link before after)))
   
   
@@ -458,8 +458,8 @@
   
   
   (method public (reorder-sons replacement <Axis>)
-    (let ((before (when (expanded?) self))
-          (after (when (expanded?) (next-non-descendant))))
+    (let ((before (and (expanded?) self))
+          (after (and (expanded?) (next-non-descendant))))
       (relink replacement before after)
       (set! sons replacement)))
   
@@ -500,16 +500,17 @@
   
   
   (method protected (first-descendant)
-    (when (and (eq? state 'expanded) (not (empty? sons)))
+    (and (eq? state 'expanded) (not (empty? sons))
       (first-visible-son)))
   
   
   (method protected (last-proper-descendant)
     (let ((scan (first-descendant)))
-      (when scan
-        (while (and (get-next~ scan) (> (get-level~ (get-next~ scan)) level))
-          (set! scan (get-next~ scan)))
-        scan)))
+      (and scan
+           (begin
+             (while (and (get-next~ scan) (> (get-level~ (get-next~ scan)) level))
+               (set! scan (get-next~ scan)))
+             scan))))
   
   
   (method protected (last-descendant)
@@ -522,13 +523,13 @@
   
   
   (method protected (visible-sibling-follows?)
-    (when father
-      (let ((found? #f))
-        (some? (lambda (son)
-                 (prog1 (and found? (get-visible-flag~ son))
-                   (when (eq? son self)
-                     (set! found? #t))))
-               (get-sons~ father)))))
+    (and father
+         (let ((found? #f))
+           (some? (lambda (son)
+                    (prog1 (and found? (get-visible-flag~ son))
+                      (when (eq? son self)
+                        (set! found? #t))))
+                  (get-sons~ father)))))
   
   
   (method protected (sibling-follows?)

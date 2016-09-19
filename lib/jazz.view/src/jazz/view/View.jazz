@@ -194,13 +194,13 @@
   
   (method protected (detach-view-focus)
     (let ((focus (get-focus)))
-      (when (and focus (has-ascendant?~ focus self))
+      (and focus (has-ascendant?~ focus self)
         (let ((window-focus (get-window-focus)))
           ;; quick hack for cocoa pending bug
-          (when window-focus
-          (when (eq? player window-focus)
-            (reset-focus~ window-focus)
-            focus))))))
+          (and window-focus
+               (and (eq? player window-focus)
+                    (reset-focus~ window-focus)
+                    focus))))))
   
   
   ;;;
@@ -242,8 +242,8 @@
 
   (method public (get-overlapped)
     (let ((player (get-player)))
-      (when player
-        (get-overlapped~ player))))
+      (and player
+           (get-overlapped~ player))))
   
   
   (method public (different-overlapped? window)
@@ -418,16 +418,16 @@
   
   (method public (find-guest guest-type)
     (let ((host (find-host guest-type)))
-      (when host
-        (get-guest~ host))))
+      (and host
+           (get-guest~ host))))
   
   
   (method public (collect-guest guest-type)
     (collect (lambda (view)
-               (when (is? view Host-View)
-                 (let ((guest (get-guest~ view)))
-                   (when (is? guest guest-type)
-                     guest))))
+               (and (is? view Host-View)
+                    (let ((guest (get-guest~ view)))
+                      (and (is? guest guest-type)
+                           guest))))
              children))
 
 
@@ -843,7 +843,7 @@
   
   
   (method (invalidated-size sz)
-    (when (and player (is? parent View) (not (inhibit-invalidates?)))
+    (and player (is? parent View) (not (inhibit-invalidates?))
       (let ((old (get-bounds))
             (new (size-rect sz)))
         (acquire~ parent self (rect-union old new)))))
@@ -2499,11 +2499,11 @@
   
   
   (method (in-tooltip? pos)
-    (when *current-tooltip-context*
-      (let ((view (get-view~ *current-tooltip-context*))
-            (rect (get-bounds~ *current-tooltip-context*)))
-        (when rect
-          (in-rect? (acquire~ view self pos) rect)))))
+    (and *current-tooltip-context*
+         (let ((view (get-view~ *current-tooltip-context*))
+               (rect (get-bounds~ *current-tooltip-context*)))
+           (and rect
+                (in-rect? (acquire~ view self pos) rect)))))
   
   
   (method (process-tooltip evt)
@@ -2714,8 +2714,8 @@
   
   (method public (popup-initiator)
     (let ((overlapped (get-overlapped)))
-      (when (is? overlapped Popup)
-        (get-initiator~ overlapped))))
+      (and (is? overlapped Popup)
+           (get-initiator~ overlapped))))
   
   
   (method public (owned? overlapped)
@@ -3469,7 +3469,7 @@
   
   
   (method public (view-invalidater)
-    (when (and player (not (inhibit-invalidates?)))
+    (and player (not (inhibit-invalidates?))
       (with-clipped-transformation-surface
         (lambda (surface)
           (let ((player player)

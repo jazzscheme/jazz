@@ -246,6 +246,7 @@
         ((Or) (emit-or expr env tail?))
         ((If) (emit-if expr env tail?))
         ((Cond) (emit-cond expr env tail?))
+        ((Inline) (emit-inline expr env tail?))
         ((For) (emit-for expr env tail?))
         ((Assignment) (emit-assignment expr env tail?))
         ((Cast) (emit-cast expr env tail?))
@@ -496,6 +497,9 @@
                                  '())
                              ,(emit body env #f))))
                        clauses))))
+    
+    (define (emit-inline expr env tail?)
+      `(%inline ,(get-code~ expr)))
     
     (define (emit-for expr env tail?)
       (let ((variable (get-variable~ expr)))
@@ -911,6 +915,37 @@
     (new Optimize
       debug?
       (walk-list walker resume declaration environment body))))
+
+
+;;;
+;;;; Inline
+;;;
+
+
+(class Inline extends Expression
+  
+  
+  (slot code      getter generate)
+  (slot expansion getter generate)
+  
+  
+  (method override (initialize code expansion . rest)
+    (apply nextmethod rest)
+    (set! code~self code)
+    (set! expansion~self expansion))
+  
+  
+  (method override (emit-expression declaration environment backend)
+    (call-emit-expression expansion declaration environment backend)))
+
+
+(special-form (inline walker resume declaration environment form-src)
+  (let ((form (source-code (cdr (source-code form-src)))))
+    (let ((code (car form)))
+      (new Inline
+        (source-code code)
+        (walk walker resume declaration environment
+          code)))))
 
 
 ;;;

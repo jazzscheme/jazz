@@ -427,7 +427,7 @@
 
 
 ;; s8
-(native s8vector)
+(native s8vector <:s8vector>)
 (native make-s8vector <fx^opt<int>:s8vector>)
 (native s8vector-length)
 (native s8vector-ref)
@@ -437,7 +437,7 @@
 (native list->s8vector)
 
 ;; u8
-(native u8vector)
+(native u8vector <:u8vector>)
 (native make-u8vector <fx^opt<int>:u8vector>)
 (native u8vector-length)
 (native u8vector-ref)
@@ -455,7 +455,7 @@
 (native subu8vector-move!)
 
 ;; s16
-(native s16vector)
+(native s16vector <:s16vector>)
 (native make-s16vector <fx^opt<int>:s16vector>)
 (native s16vector-length)
 (native s16vector-ref)
@@ -465,7 +465,7 @@
 (native list->s16vector)
 
 ;; u16
-(native u16vector)
+(native u16vector <:u16vector>)
 (native make-u16vector <fx^opt<int>:u16vector>)
 (native u16vector-length)
 (native u16vector-ref)
@@ -476,7 +476,7 @@
 (native list->u16vector)
 
 ;; s32
-(native s32vector)
+(native s32vector <:s32vector>)
 (native make-s32vector <fx^opt<int>:s32vector>)
 (native s32vector-length)
 (native s32vector-ref)
@@ -487,7 +487,7 @@
 (native subs32vector-move!)
 
 ;; u32
-(native u32vector)
+(native u32vector <:u32vector>)
 (native make-u32vector <fx^opt<int>:u32vector>)
 (native u32vector-length)
 (native u32vector-ref)
@@ -497,7 +497,7 @@
 (native list->u32vector)
 
 ;; s64
-(native s64vector)
+(native s64vector <:s64vector>)
 (native make-s64vector <fx^opt<int>:s64vector>)
 (native s64vector-length)
 (native s64vector-ref)
@@ -507,7 +507,7 @@
 (native list->s64vector)
 
 ;; u64
-(native u64vector)
+(native u64vector <:u64vector>)
 (native make-u64vector <fx^opt<int>:u64vector>)
 (native u64vector-length)
 (native u64vector-ref)
@@ -517,7 +517,7 @@
 (native list->u64vector)
 
 ;; f32
-(native f32vector)
+(native f32vector <:f32vector>)
 (native make-f32vector <fx^opt<fl>:f32vector>)
 (native f32vector-length)
 (native f32vector-ref <f32vector^fx:fl>)
@@ -531,7 +531,7 @@
 (native subf32vector-move!)
 
 ;; f64
-(native f64vector)
+(native f64vector <:f64vector>)
 (native make-f64vector <fx^opt<fl>:f64vector>)
 (native f64vector-length)
 (native f64vector-ref <f64vector^fx:fl>)

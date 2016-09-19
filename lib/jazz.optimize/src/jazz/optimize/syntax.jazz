@@ -611,7 +611,7 @@
     
     (let ((code (emit-list body environment #t)))
       (if defoptimize?
-          (values (reverse globals) code)
+          (values bailout? (reverse globals) code)
         (wrap code)))))
 
 
@@ -641,7 +641,7 @@
 
 
 (definition (emit-defoptimize-function name signature return-type body expansion declaration environment backend)
-  (receive (globals body) (emit-optimize (get-expressions~ body) declaration environment backend #t)
+  (receive (bailout? globals body) (emit-optimize (get-expressions~ body) declaration environment backend #t)
     (let ((arguments (map (lambda (parameter)
                             (list (type->c (get-type~ parameter)) (name->c (get-name~ parameter))))
                           (get-positional~ signature)))
@@ -649,23 +649,27 @@
       (let ((expr `(%fun ,return-type ,(name->c name) ,arguments ,@body)))
         (let ((expr (if (eq? expansion 'inline) `(inline ,expr) expr)))
           (let ((code (c-expr/sexp expr)))
-            (when (and (debug-optimize?) (not disable-optimize?))
+            (when (and (or (debug-optimize?) bailout?) (not disable-optimize?))
+              (when bailout?
+                (debug '***BAILOUT***))
               ;(pp expr) (newline)
               (for-each (lambda (global)
                           (bind (argument type name) global
                             (fmt #t (c-expr/sexp `(%var int ,name)))))
                         globals)
               (fmt #t code) (newline))
-            `(begin
-               ,@(map (lambda (global)
-                        (bind (argument type name) global
-                          `(c-declare ,(fmt #f (c-expr/sexp `(%var int ,name))))))
-                      globals)
-               (c-declare ,(fmt #f "" code))
-               ,@(map (lambda (global)
-                        (bind (argument type name) global
-                          `(##c-code ,(format "{a} = ___INT(___ARG1);" name) ,argument)))
-                      globals))))))))
+            (if bailout?
+                `(begin)
+              `(begin
+                 ,@(map (lambda (global)
+                          (bind (argument type name) global
+                            `(c-declare ,(fmt #f (c-expr/sexp `(%var int ,name))))))
+                        globals)
+                 (c-declare ,(fmt #f "" code))
+                 ,@(map (lambda (global)
+                          (bind (argument type name) global
+                            `(##c-code ,(format "{a} = ___INT(___ARG1);" name) ,argument)))
+                        globals)))))))))
 
 
 (definition primitives

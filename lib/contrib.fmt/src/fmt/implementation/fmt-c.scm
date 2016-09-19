@@ -227,6 +227,7 @@
             ((%or) ((apply c-op "||" (cdr x)) st))
             ((%. %field) ((apply c-op "." (cdr x)) st))
             ((%->) ((apply c-op "->" (cdr x)) st))
+            ((%inline) ((cat (cadr x)) st))
             (else
              (cond
               ((eq? (car x) (string->symbol "."))

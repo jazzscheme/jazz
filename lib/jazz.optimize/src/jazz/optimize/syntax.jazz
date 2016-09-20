@@ -286,9 +286,7 @@
       (let ((name (get-name~ binding)))
         (let ((c-name (string->symbol (string-append (symbol->string (name->c name)) "_offset"))))
           (let ((offset-locator (compose-helper (get-locator~ binding) 'offset)))
-            (if defoptimize?
-                (register-global (list offset-locator Fixnum c-name))
-              (register-input (list offset-locator Fixnum c-name)))
+            (register-global/input (list offset-locator Fixnum c-name))
             (emit-tail (safe-lisp->c (get-type~ binding) `(vector-ref (___BODY ,object) ,c-name)) tail?)))))
     
     (define (emit-call expr env tail?)
@@ -312,7 +310,9 @@
              (let ((name (get-name~ (get-binding~ (car arguments)))))
                (case name
                  ((return)
-                  `(return ,(emit (cadr arguments) env #f)))
+                  (if (null? (cdr arguments))
+                      `(return)
+                    `(return ,(emit (cadr arguments) env #f))))
                  ((break)
                   `(break))
                  ((continue)
@@ -350,7 +350,7 @@
             (let ((c-name (name->c name)))
               (register-input (list (get-locator~ binding) Procedure c-name))
               (let ((caller (emit-caller arguments)))
-                (if caller
+                (if #f @wait-no-onsite-call-for-now caller
                     (emit-result (get-type~ value) `(,caller ,c-name ,@(emit-arguments arguments)))
                   (bailout `(unsupported-definition-call ,name)))))))
         
@@ -545,6 +545,11 @@
       (unless (member? input inputs)
         (set! inputs (cons input inputs))))
     
+    (define (register-global/input info)
+      (if defoptimize?
+          (register-global info)
+        (register-input info)))
+    
     (define (bailout expr)
       (set! bailout? #t)
       expr)
@@ -584,9 +589,13 @@
                                      inputs)))
                 (when (and (or (debug-optimize?) bailout?) (not disable-optimize?))
                   (when bailout?
-                    (debug '***BAILOUT***))
+                    (display '***BAILOUT***)
+                    (newline))
                   ;(pp expr) (newline)
                   (when (debug-lambda?)
+                    (display "// ")
+                    (display (get-name~ declaration))
+                    (newline)
                     (display "((")
                     (display 'c-lambda)
                     (display " ")
@@ -691,6 +700,8 @@
     (quotient . /)
     (even? . even)
     (odd? . odd)
+    (sin . sin)
+    (cos . cos)
     ;; relational
     (= . ==)
     (/= . !=)
@@ -709,7 +720,8 @@
     (jazz:arithmetic-shift-left . <<)
     (jazz:arithmetic-shift-right . >>)
     ;; language
-    (fxfloor . floor)))
+    (fxfloor . floor)
+    (fxfloor/ . floor_divide)))
 
 
 (definition (type->lisp type)

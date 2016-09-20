@@ -139,22 +139,23 @@
 
 (definition public (select-docked class (name: name #f) (workspace: workspace 'home) (focus?: focus? #f))
   (define (select-view view)
-    (when view
-      (let* ((host (get-host~ view))
-             (parent (get-parent~ host)))
-        (when (is? parent Pad-View)
-          (set-selection~ parent host))
-        (ensure-unzoomed (if (is? parent Splitter-View) host parent))
-        (when focus?
-          (focus-host~ host))
-        view)))
+    (and view
+         (let* ((host (get-host~ view))
+                (parent (get-parent~ host)))
+           (when (is? parent Pad-View)
+             (set-selection~ parent host))
+           (ensure-unzoomed (if (is? parent Splitter-View) host parent))
+           (when focus?
+             (focus-host~ host))
+           view)))
   
   (let ((guest (find-docked class)))
     (if guest
         (select-view guest)
-      (when workspace
-        (apply-preferences~ (get-workspace workspace))
-        (select-view (find-docked class))))))
+      (and workspace
+           (begin
+             (apply-preferences~ (get-workspace workspace))
+             (select-view (find-docked class)))))))
 
 
 (definition public (find-docked class)
@@ -254,8 +255,8 @@
 
 (definition public (current-stage-border)
   (let ((stage (current-stage)))
-    (when stage
-      (get-parent~ stage))))
+    (and stage
+         (get-parent~ stage))))
 
 
 (definition public (all-frames (include-invisibles?: include-invisibles? #f))
@@ -319,8 +320,8 @@
 
 (definition public (find-frame-guest guest-type)
   (let ((host (find-frame-host guest-type)))
-    (when host
-      (get-guest~ host))))
+    (and host
+         (get-guest~ host))))
 
 
 ;;;
@@ -370,8 +371,8 @@
 
 (definition public (current-document)
   (let ((frame (current-frame)))
-    (when (is? frame Frame-Host)
-      (get-guest~ frame))))
+    (and (is? frame Frame-Host)
+         (get-guest~ frame))))
 
 
 ;;;
@@ -669,15 +670,15 @@
 (definition public (next-stage stage)
   (let ((stages (get-active-stages)))
     (let ((count (length stages)))
-      (when (>= count 2)
-        (next-element stages stage)))))
+      (and (>= count 2)
+           (next-element stages stage)))))
 
 
 (definition public (previous-stage stage)
   (let ((stages (get-active-stages)))
     (let ((count (length stages)))
-      (when (>= count 2)
-        (previous-element stages stage)))))
+      (and (>= count 2)
+           (previous-element stages stage)))))
 
 
 (definition public (navigate-next-stage)
@@ -685,11 +686,11 @@
     (set! *stages* (cons stage (remove! stage *stages*))))
   
   (let ((stages (get-active-stages)))
-    (when (>= (length stages) 2)
-      (let ((stage (last-stage)))
-        (bring-stage-to-front stage)
-        (activate-stage stage)
-        stage))))
+    (and (>= (length stages) 2)
+         (let ((stage (last-stage)))
+           (bring-stage-to-front stage)
+           (activate-stage stage)
+           stage))))
 
 
 (definition public (navigate-previous-stage)
@@ -697,12 +698,12 @@
     (set! *stages* (append (remove! stage *stages*) (list stage))))
   
   (let ((stages (get-active-stages)))
-    (when (>= (length stages) 2)
-      (let ((stage (first-stage)))
-        (send-stage-to-back stage)
-        (let ((stage (first-stage)))
-          (activate-stage stage)
-          stage)))))
+    (and (>= (length stages) 2)
+         (let ((stage (first-stage)))
+           (send-stage-to-back stage)
+           (let ((stage (first-stage)))
+             (activate-stage stage)
+             stage)))))
 
 
 (define (activate-stage stage)
@@ -804,11 +805,11 @@
           (collect (lambda (frame)
                      (let ((visible? (get-visible?~ frame))
                            (guest (get-guest~ frame)))
-                       (when guest
-                         (let ((workspaces (effective-host-workspaces~ guest)))
-                           (cons frame
-                                 (or (memq? name workspaces)
-                                     (and (null? workspaces) visible?)))))))
+                       (and guest
+                            (let ((workspaces (effective-host-workspaces~ guest)))
+                              (cons frame
+                                    (or (memq? name workspaces)
+                                        (and (null? workspaces) visible?)))))))
                    frames))))
     
     (define (hide-frames visibilities)

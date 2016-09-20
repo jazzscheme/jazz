@@ -162,21 +162,21 @@
     (let* ((pos (view->text view))
            (expl (new Jazz-Explorer model start: pos end: pos)))
       (catch (Explore-Error err #f)
-        (when (outer-expr~ expl atomic?: #t explore-whitespace?: #f)
-          (let ((kind (get-kind~ expl)))
-            (when (eq? kind 'symbol)
-              (let* ((range (get-range~ expl))
-                     (location (range-location range))
-                     (text (and location (present-location location))))
-                (when text
-                  (let ((bounds (line-range-rect (get-line~ (get-start~ range)) (get-col~ (get-start~ range)) (get-col~ (get-end~ range)))))
-                    (when (in-rect? view bounds)
-                      (new Tooltip-Context
-                        view: self
-                        text: text
-                        position: (+ (rect-position bounds) (new Point -10 (rect-height bounds)))
-                        bounds: bounds
-                        font: {Font Label})))))))))))
+        (and (outer-expr~ expl atomic?: #t explore-whitespace?: #f)
+             (let ((kind (get-kind~ expl)))
+               (and (eq? kind 'symbol)
+                    (let* ((range (get-range~ expl))
+                           (location (range-location range))
+                           (text (and location (present-location location))))
+                      (and text
+                           (let ((bounds (line-range-rect (get-line~ (get-start~ range)) (get-col~ (get-start~ range)) (get-col~ (get-end~ range)))))
+                             (and (in-rect? view bounds)
+                                  (new Tooltip-Context
+                                    view: self
+                                    text: text
+                                    position: (+ (rect-position bounds) (new Point -10 (rect-height bounds)))
+                                    bounds: bounds
+                                    font: {Font Label})))))))))))
   
   
   ;;;
@@ -295,9 +295,9 @@
   @unused
   (method (position->location pos)
     (let ((expl (new Jazz-Explorer model start: pos end: pos)))
-      (when (outer-expr~ expl outer-composite?: #f)
-        (let ((range (get-range~ expl)))
-          (range-location range)))))
+      (and (outer-expr~ expl outer-composite?: #f)
+           (let ((range (get-range~ expl)))
+             (range-location range)))))
   
   
   (method (location-class loc (load?: load? #f))
@@ -334,10 +334,10 @@
   
   (method (declaration-name-location? object internal-location)
     (let ((info (declaration-name-info object)))
-      (when info
-        (receive (skip inside-allowed?) info
-          (or (= internal-location (list skip))
-              (and inside-allowed? (= internal-location (list skip 0))))))))
+      (and info
+           (receive (skip inside-allowed?) info
+             (or (= internal-location (list skip))
+                 (and inside-allowed? (= internal-location (list skip 0))))))))
 
 
   (method (range-location range)
@@ -389,10 +389,10 @@
   @doc-dependency
   (method (present-documentation symbol)
     (define (doc-jml)
-      (when symbol
-        (let ((doc (get-documentation~ (get-application) symbol)))
-          (when doc
-            (present-text~ doc)))))
+      (and symbol
+           (let ((doc (get-documentation~ (get-application) symbol)))
+             (and doc
+                  (present-text~ doc)))))
     
     (let ((jml (doc-jml)))
       (if (not jml)

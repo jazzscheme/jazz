@@ -329,8 +329,8 @@
   (method override (setup-nicknames)
     (define (focus-editor)
       (let ((focus (get-focus)))
-        (when focus
-          (get-view-editor (get-guest~ focus)))))
+        (and focus
+             (get-view-editor (get-guest~ focus)))))
     
     (define (search-manager)
       (get-guest~ (singleton-palette
@@ -488,18 +488,18 @@
     (let ((project (get-active-project))
           @wait
           (project-file (let ((guest (current-document)))
-                          (when (and guest (is? guest Document))
-                            (let ((moniker (get-moniker~ (get-document-controller~ guest))))
-                              (when moniker
-                                (let ((workbench (get-workbench)))
-                                  (find-source~ workbench moniker)))))))
+                          (and (and guest (is? guest Document))
+                               (let ((moniker (get-moniker~ (get-document-controller~ guest))))
+                                 (and moniker
+                                      (let ((workbench (get-workbench)))
+                                        (find-source~ workbench moniker)))))))
           ;; quicky as this should probably be a test on the above project-file
           ;; so files from different languages can be build in their own ways
           (unit-name (let ((guest (current-document)))
-                       (when (and guest (is? guest Document))
-                         (let ((moniker (get-moniker~ (get-document-controller~ guest))))
-                           (when moniker
-                             (find-pathname-unit (parse~ moniker))))))))
+                       (and (and guest (is? guest Document))
+                            (let ((moniker (get-moniker~ (get-document-controller~ guest))))
+                              (and moniker
+                                   (find-pathname-unit (parse~ moniker))))))))
       @wait (set-action-enabled? {Action ide edit-project} project)
       @wait (set-action-enabled? {Action ide compile-file} (and project unit-name @wait project-file))
       @wait (set-action-enabled? {Action ide build-project} project)
@@ -824,10 +824,10 @@
   
   
   (method public (get-documentation symbol)
-    (when symbol
-      (let ((cataloguer (get-documentation-cataloguer)))
-        (when cataloguer
-          (get-definition~ cataloguer symbol)))))
+    (and symbol
+         (let ((cataloguer (get-documentation-cataloguer)))
+           (and cataloguer
+                (get-definition~ cataloguer symbol)))))
   
   
   (method public (edit-documentation symbol)
@@ -1020,10 +1020,10 @@
   
   (method (determine-browse-target)
     (let ((focus (get-focus)))
-      (when (is? focus Code-Text-View)
-        (let ((form (current-expr~ focus)))
-          (when form
-            (standardize-form~ focus form #t))))))
+      (and (is? focus Code-Text-View)
+           (let ((form (current-expr~ focus)))
+             (and form
+                  (standardize-form~ focus form #t))))))
 
   
   (method package (on-edit-clipboard evt)

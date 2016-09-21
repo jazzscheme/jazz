@@ -363,8 +363,8 @@
           (moniker (get-moniker)))
       (if (not moniker)
           (let ((frame (get-frame)))
-            (when frame
-              (new History-Document-Item frame selection)))
+            (and frame
+                 (new History-Document-Item frame selection)))
         (new History-File-Item moniker selection))))
 
   
@@ -395,12 +395,12 @@
   
   (method (find-catalog)
     (let ((moniker (get-moniker)))
-      (when moniker
-        (let ((cataloguer (get-cataloguer)))
-          (when cataloguer
-            (let ((file-entry (cache-file-entry moniker)))
-              (when file-entry
-                (get-catalog~ file-entry))))))))
+      (and moniker
+           (let ((cataloguer (get-cataloguer)))
+             (and cataloguer
+                  (let ((file-entry (cache-file-entry moniker)))
+                    (and file-entry
+                         (get-catalog~ file-entry))))))))
 
   
   ;;;
@@ -477,17 +477,17 @@
 
 
   (method override (completion-name pos)
-    (unless (text-constituent?~ syntax (get-char (if (has-selection?) (get-end) pos)))
-      (let ((prev (previous-cell pos)))
-        (when prev
-          (let ((c (get-char prev)))
-            (unless (string-delimiter? c)
-              (when (text-constituent?~ syntax c)
-                (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
-                  (when (and (backward-expr~ expl) (memq? (get-kind~ expl) '(symbol specifier tag keyword string)))
-                    (let ((c (char-backward~ expl 0)))
-                      (when (or (not c) (not (string-delimiter? c)))
-                        (get-symbol-string~ expl))))))))))))
+    (and (not (text-constituent?~ syntax (get-char (if (has-selection?) (get-end) pos))))
+         (let ((prev (previous-cell pos)))
+           (and prev
+                (let ((c (get-char prev)))
+                  (and (not (string-delimiter? c))
+                       (and (text-constituent?~ syntax c)
+                            (let ((expl <Text-Explorer> (new (explorer-class) model start: pos end: pos)))
+                              (and (and (backward-expr~ expl) (memq? (get-kind~ expl) '(symbol specifier tag keyword string)))
+                                   (let ((c (char-backward~ expl 0)))
+                                     (and (or (not c) (not (string-delimiter? c)))
+                                          (get-symbol-string~ expl))))))))))))
   
   
   (method override (symbol-completions name)
@@ -649,40 +649,40 @@
   
   (method (find-matching-highlight (forward? #t))
     (define (find-backward pos)
-      (unless (at-beginning?)
-        (let ((previous (previous-cell pos)))
-          (when (match-backwards? (get-char previous))
-            (catch (Explore-Error err
-                     (bell)
-                     #f)
-              (let ((expl <Text-Explorer> (new (explorer-class) model start: pos)))
-                (when (backward-expr~ expl)
-                  (let ((start (get-start~ expl)))
-                    (cons (new-highlight start (next-cell start))
-                          (new-highlight previous pos))))))))))
+      (and (not (at-beginning?))
+           (let ((previous (previous-cell pos)))
+             (and (match-backwards? (get-char previous))
+                  (catch (Explore-Error err
+                           (bell)
+                           #f)
+                    (let ((expl <Text-Explorer> (new (explorer-class) model start: pos)))
+                      (and (backward-expr~ expl)
+                           (let ((start (get-start~ expl)))
+                             (cons (new-highlight start (next-cell start))
+                                   (new-highlight previous pos))))))))))
     
     (define (find-forward pos)
-      (unless (at-end?)
-        (when (match-forwards? (get-char pos))
-          (catch (Explore-Error err
-                   (bell)
-                     #f)
-            (let ((expl <Text-Explorer> (new (explorer-class) model start: pos)))
-              (when (forward-expr~ expl)
-                (let ((end (get-end~ expl)))
-                  (cons (new-highlight (previous-cell end) end)
-                        (new-highlight pos (next-cell pos))))))))))
+      (and (not (at-end?))
+           (and (match-forwards? (get-char pos))
+                (catch (Explore-Error err
+                         (bell)
+                         #f)
+                  (let ((expl <Text-Explorer> (new (explorer-class) model start: pos)))
+                    (and (forward-expr~ expl)
+                         (let ((end (get-end~ expl)))
+                           (cons (new-highlight (previous-cell end) end)
+                                 (new-highlight pos (next-cell pos))))))))))
     
     (define (new-highlight start end)
       (let ((range (new-range start end))
             (style (locate-style 'Match)))
         (new Text-Highlight self range style show-unfocused?: #f)))
     
-    (unless (macro-playing?~ (get-application))
-      (when (empty-selection?)
-        (let ((pos (get-caret)))
-          (or (find-backward pos)
-              (and forward? (find-forward pos)))))))
+    (and (not (macro-playing?~ (get-application)))
+         (and (empty-selection?)
+              (let ((pos (get-caret)))
+                (or (find-backward pos)
+                    (and forward? (find-forward pos)))))))
   
   
   (method (add-matching-highlight highlight)

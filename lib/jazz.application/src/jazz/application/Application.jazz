@@ -1115,15 +1115,15 @@
     (if (or (not shortcut-hook)
             (not (shortcut-hook shortcut)))
         (let ((action-items (collect-if get-action-handler~ (get-allowed-actions shortcut))))
-          (when (not-null? action-items)
-            (let ((action (car action-items)))
-              (when (action-allowed? action)
-                (parameterize ((event-type 'keyboard))
-                  ;; the memq? is a quick hack
-                  (unless (memq? (get-name~ action) '(start-recording stop-recording))
-                    (hook-event (new Keyboard-Event :char #f (modifiers->mask (get-modifiers~ shortcut)) key: (get-key~ shortcut))))
-                  (invoke~ action self #f)
-                  #t)))))
+          (and (not-null? action-items)
+               (let ((action (car action-items)))
+                 (and (action-allowed? action)
+                      (parameterize ((event-type 'keyboard))
+                        ;; the memq? is a quick hack
+                        (unless (memq? (get-name~ action) '(start-recording stop-recording))
+                          (hook-event (new Keyboard-Event :char #f (modifiers->mask (get-modifiers~ shortcut)) key: (get-key~ shortcut))))
+                        (invoke~ action self #f)
+                        #t)))))
       #t))
   
   
@@ -1763,15 +1763,15 @@
   
   (method public (find-toolbar)
     (let ((host (get-toolbar :toolbar)))
-      (when (and host (in-player?~ host))
-        (get-guest~ host))))
+      (and (and host (in-player?~ host))
+           (get-guest~ host))))
   
   
   (method public (find-command-toolbar)
     (define (try name)
       (let ((host (get-toolbar name)))
-        (when (and host (in-player?~ host))
-          (get-guest~ host))))
+        (and (and host (in-player?~ host))
+             (get-guest~ host))))
     
     (or (try :command)
         (try :minibuffer)
@@ -1930,14 +1930,14 @@
   
   (method public virtual (get-command-shell)
     (let ((toolbar (find-command-toolbar)))
-      (when toolbar
-        (locate-component~ toolbar 'command-shell))))
+      (and toolbar
+           (locate-component~ toolbar 'command-shell))))
   
   
   (method public virtual (get-command-text)
     (let ((shell (get-command-shell)))
-      (when shell
-        (get-text~ shell))))
+      (and shell
+           (get-text~ shell))))
   
   
   (method public (require-command-text)

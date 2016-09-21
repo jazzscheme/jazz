@@ -770,18 +770,18 @@
   
   
   (method (caret-rect caret-pos <Cell+> width)
-    (when caret-pos
-      (let* ((pos <Point> (text->view caret-pos))
-             (par <Paragraph> (get-paragraph (get-line~ caret-pos)))
-             (lne (get-line-at~ par (get-col~ caret-pos)))
-             (run (get-run~ par (get-col~ caret-pos)))
-             (height <fx> (if run (get-height~ run) (get-height~ par)))
-             (line-height <fx> (get-height~ lne))
-             (top <fx> (+ (get-v~ pos)
-                          (if run
-                              (justify-element~ (get-style~ run) height line-height)
-                            (- line-height height)))))
-        (new Rect (get-h~ pos) top (+ (get-h~ pos) width) (+ top height)))))
+    (and caret-pos
+         (let* ((pos <Point> (text->view caret-pos))
+                (par <Paragraph> (get-paragraph (get-line~ caret-pos)))
+                (lne (get-line-at~ par (get-col~ caret-pos)))
+                (run (get-run~ par (get-col~ caret-pos)))
+                (height <fx> (if run (get-height~ run) (get-height~ par)))
+                (line-height <fx> (get-height~ lne))
+                (top <fx> (+ (get-v~ pos)
+                             (if run
+                                 (justify-element~ (get-style~ run) height line-height)
+                               (- line-height height)))))
+           (new Rect (get-h~ pos) top (+ (get-h~ pos) width) (+ top height)))))
   
   
   ;;;
@@ -975,10 +975,10 @@
   
   (method (selection-line line <fx>)
     (let ((limit (get-limit)))
-      (when (<= line limit)
-        (if (= line limit)
-            (new Range$Cell$ (new Cell line 0) (new Cell line (paragraph-length line)))
-          (new Range$Cell$ (new Cell line 0) (new Cell (+ line 1) 0))))))
+      (and (<= line limit)
+           (if (= line limit)
+               (new Range$Cell$ (new Cell line 0) (new Cell line (paragraph-length line)))
+             (new Range$Cell$ (new Cell line 0) (new Cell (+ line 1) 0))))))
   
   
   (method (selection-range pos)
@@ -1037,9 +1037,10 @@
       ((1) (range-region (car parts) transformer))
       ((2) (with ((region (range-region (first parts) transformer)))
              (let ((union (range-region (second parts) transformer)))
-               (when (and region union)
-                 (combine-or!~ union region)
-                 union))))))
+               (and region union
+                 (begin
+                   (combine-or!~ union region)
+                   union)))))))
   
   
   (method (calculate-autoscroll-amount view)
@@ -1882,14 +1883,14 @@
   
   (method public (next-cell pos <Cell>) <Cell+>
     (let ((cell (copy pos)))
-      (when (next! cell)
-        cell)))
+      (and (next! cell)
+           cell)))
   
   
   (method public (previous-cell pos <Cell>) <Cell+>
     (let ((cell (copy pos)))
-      (when (previous! cell)
-        cell)))
+      (and (previous! cell)
+           cell)))
   
   
   (method (selection-lines)
@@ -1897,8 +1898,8 @@
   
   
   (method public (get-selected-string) <string+>
-    (when (has-selection?)
-      (get-string (get-selection))))
+    (and (has-selection?)
+         (get-string (get-selection))))
   
   
   (method public (get-selected-strings)
@@ -2701,14 +2702,14 @@
   
   (method public (current-name)
     (let ((range (current-expr-range)))
-      (when range
-        (name-at range))))
+      (and range
+           (name-at range))))
   
   
   (method public (current-symbol)
     (let ((expr (current-expr)))
-      (when (symbol? expr)
-        expr)))
+      (and (symbol? expr)
+           expr)))
   
   
   (method public (current-expr)
@@ -2722,8 +2723,8 @@
   
   (method public (current-expr-string)
     (let ((range (current-expr-range)))
-      (when range
-        (get-string range))))
+      (and range
+           (get-string range))))
   
   
   (method public virtual (name-at range)
@@ -3091,8 +3092,8 @@
   
   
   (method protected (effective-selection)
-    (when (has-effective-selection?)
-      (get-selection)))
+    (and (has-effective-selection?)
+         (get-selection)))
 
 
   (method protected (set-completion range unique?)
@@ -3300,8 +3301,8 @@
            (moniker (get-moniker))
            (mode (if (or (not moniker) (ci=? (get-extension~ moniker) "jazz")) 'code 'quotation))
            (found (search-expressions~ expl mode string position #f #f)))
-      (when found
-        (car found))))
+      (and found
+           (car found))))
 
   
   ;;;
@@ -3311,26 +3312,26 @@
   
   (method public virtual (select-next search-context (end: end #f))
     (let ((found (text-regular-search~ model search-context start: (get-end) end: end reversed?: #f)))
-      (when found
-        (bind (from . to) found
-          (set-selection (new Range$Cell$ from to))
-          @fixme-slow
-          (set-selection (new Range$Cell$ from (offset-position~ model (+ (position-offset~ model from) (- (position-offset~ model to) (position-offset~ model from))))))
-          (ensure-displayed)
-          (ensure-scrolled-left)
-          #t))))
+      (and found
+           (bind (from . to) found
+             (set-selection (new Range$Cell$ from to))
+             @fixme-slow
+             (set-selection (new Range$Cell$ from (offset-position~ model (+ (position-offset~ model from) (- (position-offset~ model to) (position-offset~ model from))))))
+             (ensure-displayed)
+             (ensure-scrolled-left)
+             #t))))
   
   
   (method public virtual (select-previous search-context (end: end #f))
     (let ((found (text-regular-search~ model search-context start: (get-start) end: end reversed?: #t)))
-      (when found
-        (bind (from . to) found
-          (set-selection (new Range$Cell$ from to))
-          @fixme-slow
-          (set-selection (new Range$Cell$ from (offset-position~ model (+ (position-offset~ model from) (- (position-offset~ model to) (position-offset~ model from))))))
-          (ensure-displayed)
-          (ensure-scrolled-left)
-          #t))))
+      (and found
+           (bind (from . to) found
+             (set-selection (new Range$Cell$ from to))
+             @fixme-slow
+             (set-selection (new Range$Cell$ from (offset-position~ model (+ (position-offset~ model from) (- (position-offset~ model to) (position-offset~ model from))))))
+             (ensure-displayed)
+             (ensure-scrolled-left)
+             #t))))
   
   
   (method public virtual (select-expr search-context direction)

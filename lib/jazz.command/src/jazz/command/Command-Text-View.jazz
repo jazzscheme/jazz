@@ -125,8 +125,8 @@
   (method (setup-search-client explicit-client)
     (define (determine-client)
       (let ((focus (get-focus)))
-        (when (and (is? focus Text-View) (not (in-cell-edit? focus)))
-          focus)))
+        (and (and (is? focus Text-View) (not (in-cell-edit? focus)))
+             focus)))
     
     (set! client (or explicit-client (determine-client)))
     (set! client-selection (and client (get-selection~ client)))
@@ -848,12 +848,13 @@
                     (when (>= (cardinality prefix) card)
                       (table-clear prefixes prefix))))))
             
-            (when found
-              (bind (from . to) found
-                (let ((range (new Range$Cell$ from to)))
-                  (add-prefix range)
-                  (set! last-range range)))
-              found)))))
+            (and found
+                 (begin
+                   (bind (from . to) found
+                     (let ((range (new Range$Cell$ from to)))
+                       (add-prefix range)
+                       (set! last-range range)))
+                   found))))))
     
     (define (highlight-boundary client beginning ending)
       (define (add-boundary-highlight range)
@@ -885,41 +886,41 @@
                     (text-regular-search-all~ model target start: beginning end: ending)))))
     
     (let ((client (get-client)))
-      (when (is? client Text-View)
-        (let ((model (get-model~ client))
-              (content (first-content~ text))
-              (repl (second-content~ text))
-              (context (get-context))
-              (beginning (get-beginning~ search-result))
-              (ending (get-ending~ search-result)))
-          (setup-context content)
-          (let ((all (and (not (empty-string? (get-target~ context))) (text-regular-search-all~ model context start: beginning end: ending))))
-            (let ((found #f))
-              (set! found (search-target model beginning ending content #f))
-              (when again?
-                (set! found (search-target model beginning ending content #t)))
-              (if found
-                  (set! last-found? #t)
-                (when (or last-found? again?)
-                  (set! last-found? #f)
-                  (bell)))
-              (if (not all)
-                  (clear-status~ text)
-                (let ((rank (and last-range (find all (cons (get-start~ last-range)
-                                                            (get-end~ last-range))
-                                              test: (lambda (x y)
-                                                      (and (cell=? (car x) (car y))
-                                                           (cell=? (cdr x) (cdr y)))))))
-                      (total (length all)))
-                  (set-status~ text (if rank
-                                        (format "{a} of {a}" (+ rank 1) total)
-                                      (format "{a}" total)))))
-              (remove-highlights)
-              (highlight-boundary client beginning ending)
-              (highlight-find client all)
-              (when repl
-                (highlight-replace client model beginning ending repl))
-              found))))))
+      (and (is? client Text-View)
+           (let ((model (get-model~ client))
+                 (content (first-content~ text))
+                 (repl (second-content~ text))
+                 (context (get-context))
+                 (beginning (get-beginning~ search-result))
+                 (ending (get-ending~ search-result)))
+             (setup-context content)
+             (let ((all (and (not (empty-string? (get-target~ context))) (text-regular-search-all~ model context start: beginning end: ending))))
+               (let ((found #f))
+                 (set! found (search-target model beginning ending content #f))
+                 (when again?
+                   (set! found (search-target model beginning ending content #t)))
+                 (if found
+                     (set! last-found? #t)
+                   (when (or last-found? again?)
+                     (set! last-found? #f)
+                     (bell)))
+                 (if (not all)
+                     (clear-status~ text)
+                   (let ((rank (and last-range (find all (cons (get-start~ last-range)
+                                                               (get-end~ last-range))
+                                                 test: (lambda (x y)
+                                                         (and (cell=? (car x) (car y))
+                                                              (cell=? (cdr x) (cdr y)))))))
+                         (total (length all)))
+                     (set-status~ text (if rank
+                                           (format "{a} of {a}" (+ rank 1) total)
+                                         (format "{a}" total)))))
+                 (remove-highlights)
+                 (highlight-boundary client beginning ending)
+                 (highlight-find client all)
+                 (when repl
+                   (highlight-replace client model beginning ending repl))
+                 found))))))
   
   
   (method (replace-all repl)
@@ -1219,17 +1220,17 @@
                   (substring filename (+ pos 1) (string-length filename))))))
     
     (receive (dir filename) (split-filename name)
-      (when (or (not dir)
-                (and (file-exists? dir)
-                     (eq? (pathname-type dir) 'directory)))
-        (collect (lambda (name)
-                   (when (compare-n filename name (string-length filename) test: char-ci=?)
-                     (let ((path (standardize-filename (string-append (or dir "") name))))
-                       (if (and (file-exists? path)
-                                (eq? (pathname-type path) 'directory))
-                           (string-append path "/")
-                         path))))
-                 (directory-content (list path: (or dir (current-directory)) ignore-hidden: 'dot-and-dot-dot))))))
+      (and (or (not dir)
+               (and (file-exists? dir)
+                    (eq? (pathname-type dir) 'directory)))
+           (collect (lambda (name)
+                      (and (compare-n filename name (string-length filename) test: char-ci=?)
+                           (let ((path (standardize-filename (string-append (or dir "") name))))
+                             (if (and (file-exists? path)
+                                      (eq? (pathname-type path) 'directory))
+                                 (string-append path "/")
+                               path))))
+                    (directory-content (list path: (or dir (current-directory)) ignore-hidden: 'dot-and-dot-dot))))))
   
   
   (method override (finish)
@@ -1312,8 +1313,8 @@
   (method override (symbol-completions name)
     (collect (lambda (view)
                (let ((presentation (present-title view)))
-                 (when (compare-n name presentation (string-length name) test: char-ci=?)
-                   presentation)))
+                 (and (compare-n name presentation (string-length name) test: char-ci=?)
+                      presentation)))
              (all-views)))
   
   

@@ -349,29 +349,29 @@
       (let ((dialect (get-parser-dialect (get-extension~ file))))
         (parse~ (get-parser dialect) file digest dialect)))
     
-    (when (scan-file? file)
-      (if (exists?~ file)
-          (let ((actual-entry (get-file-entry file)))
-            (let ((actual-digest (and actual-entry (get-digest~ actual-entry))))
-              (let ((updated-digest (file-digest file actual-digest)))
-                (cond ((and actual-digest (nu=? actual-digest updated-digest))
-                       (set-marked?~ actual-entry #t)
-                       #f)
-                      ((and actual-digest (string=? (get-hash~ actual-digest) (get-hash~ updated-digest)))
-                       (set-digest~ actual-entry updated-digest)
-                       (set-modified? #t)
-                       (set-marked?~ actual-entry #t)
-                       #f)
-                      (else
-                       (with-exception-filter
-                         (lambda (exc)
-                           #t)
-                         (lambda (exc)
-                           (wrap-exception exc))
-                         (lambda ()
-                           (scan file updated-digest report?))))))))
-        (console-feedback "{%}Unable to catalog inexistant file: {a}" (parse~ file))
-        #f)))
+    (and (scan-file? file)
+         (if (exists?~ file)
+             (let ((actual-entry (get-file-entry file)))
+               (let ((actual-digest (and actual-entry (get-digest~ actual-entry))))
+                 (let ((updated-digest (file-digest file actual-digest)))
+                   (cond ((and actual-digest (nu=? actual-digest updated-digest))
+                          (set-marked?~ actual-entry #t)
+                          #f)
+                         ((and actual-digest (string=? (get-hash~ actual-digest) (get-hash~ updated-digest)))
+                          (set-digest~ actual-entry updated-digest)
+                          (set-modified? #t)
+                          (set-marked?~ actual-entry #t)
+                          #f)
+                         (else
+                          (with-exception-filter
+                            (lambda (exc)
+                              #t)
+                            (lambda (exc)
+                              (wrap-exception exc))
+                            (lambda ()
+                              (scan file updated-digest report?))))))))
+           (console-feedback "{%}Unable to catalog inexistant file: {a}" (parse~ file))
+           #f)))
   
   
   ;;;
@@ -381,8 +381,8 @@
   
   (method (get-parser dialect)
     (let ((class (get-parser-class dialect)))
-      (when class
-        (new class self char-encoding: char-encoding heuristics: (get-heuristics) references?: references?))))
+      (and class
+           (new class self char-encoding: char-encoding heuristics: (get-heuristics) references?: references?))))
   
   
   ;;;

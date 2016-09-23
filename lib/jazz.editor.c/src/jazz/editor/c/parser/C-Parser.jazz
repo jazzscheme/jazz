@@ -87,15 +87,15 @@
     (define (find-sharp-define line n)
       (let ((len (string-length line))
             (col (skip-whitespace line)))
-        (when (and (> len (+ col (string-length sharp-define)))
-                   (string=? sharp-define (substring line col (+ col (string-length sharp-define)))))
-          (let* ((start (+ col (string-length sharp-define)))
-                 (col (skip-whitespace line start: start)))
-            (when (and (> col start) (< col len))
-              (let* ((start col)
-                     (col (skip (lambda (c) (or (c-constituent? c))) line start: start)))
-                (when (and (> col start) (<= col len))
-                  (new C-Define-Entry (subseq line start col) n start n col))))))))
+        (and (and (> len (+ col (string-length sharp-define)))
+                  (string=? sharp-define (substring line col (+ col (string-length sharp-define)))))
+             (let* ((start (+ col (string-length sharp-define)))
+                    (col (skip-whitespace line start: start)))
+               (and (and (> col start) (< col len))
+                    (let* ((start col)
+                           (col (skip (lambda (c) (or (c-constituent? c))) line start: start)))
+                      (and (and (> col start) (<= col len))
+                           (new C-Define-Entry (subseq line start col) n start n col))))))))
     
     ;;;
     ;;;; Sharp Include
@@ -107,15 +107,15 @@
     (define (find-sharp-include line n)
       (let ((len (string-length line))
             (col (skip-whitespace line)))
-        (when (and (> len (+ col (string-length sharp-include)))
-                   (string=? sharp-include (substring line col (+ col (string-length sharp-include)))))
-          (let* ((start (+ col (string-length sharp-include)))
-                 (col (skip-whitespace line start: start)))
-            (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
-              (let* ((start (+ col 1))
-                     (col (skip (lambda (c) (or (c-constituent? c) (eqv? c #\period))) line start: start)))
-                (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
-                  (new C-Include-Entry (subseq line start col) n start n col))))))))
+        (and (and (> len (+ col (string-length sharp-include)))
+                  (string=? sharp-include (substring line col (+ col (string-length sharp-include)))))
+             (let* ((start (+ col (string-length sharp-include)))
+                    (col (skip-whitespace line start: start)))
+               (and (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
+                    (let* ((start (+ col 1))
+                           (col (skip (lambda (c) (or (c-constituent? c) (eqv? c #\period))) line start: start)))
+                      (and (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
+                           (new C-Include-Entry (subseq line start col) n start n col))))))))
     
     ;;;
     ;;;; Open-Brace Heuristic
@@ -123,18 +123,17 @@
     
     (define (find-open-brace-function lines line n)
       (let ((len (string-length line)))
-        (when (and (> len 0)
-                   (eqv? (string-ref line 0) #\{))
-          (continuation-capture
-            (lambda (return)
-              (loop (for i from (- n 1) downto 0)
-                    (do
-                          (let ((line (vector-ref lines i)))
-                            (let ((end (skip c-constituent? line)))
-                              (when (> end 0)
-                                (continuation-return return
-                                                     (new C-Export-Entry (subseq line 0 end) i 0 i end)))))))
-              #f)))))
+        (and (and (> len 0)
+                  (eqv? (string-ref line 0) #\{))
+             (continuation-capture
+               (lambda (return)
+                 (loop (for i from (- n 1) downto 0)
+                       (do (let ((line (vector-ref lines i)))
+                             (let ((end (skip c-constituent? line)))
+                               (when (> end 0)
+                                 (continuation-return return
+                                                      (new C-Export-Entry (subseq line 0 end) i 0 i end)))))))
+                 #f)))))
     
     ;;;
     ;;;; Gambit Heuristic
@@ -146,14 +145,14 @@
     (define (find-gambit-function lines line n)
       (let ((len (string-length line))
             (col (skip-whitespace line)))
-        (when (and (> len (+ col (string-length gambit-function)))
-                   (string=? gambit-function (substring line col (+ col (string-length gambit-function)))))
-          (let* ((start (+ col (string-length gambit-function)))
-                 (col (skip (lambda (c) (not (eqv? c #\comma))) line start: start)))
-            (when (and col (< col len))
-              (let* ((start (skip-whitespace line start: (+ col 1)))
-                     (end (skip c-constituent? line start: start)))
-                (when (> end start)
-                  (new C-Export-Entry (subseq line start end) n start n end))))))))
+        (and (and (> len (+ col (string-length gambit-function)))
+                  (string=? gambit-function (substring line col (+ col (string-length gambit-function)))))
+             (let* ((start (+ col (string-length gambit-function)))
+                    (col (skip (lambda (c) (not (eqv? c #\comma))) line start: start)))
+               (and (and col (< col len))
+                    (let* ((start (skip-whitespace line start: (+ col 1)))
+                           (end (skip c-constituent? line start: start)))
+                      (and (> end start)
+                           (new C-Export-Entry (subseq line start end) n start n end))))))))
     
     (new C-File-Entry catalog file digest dialect (parse-definitions)))))

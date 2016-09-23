@@ -114,9 +114,9 @@
   
   (method public virtual (effective-client)
     (let ((info (edit #f visible?: #f activate-focus?: #f)))
-      (when info
-        (receive (frame new?) info
-          (get-text-view~ (get-guest~ frame))))))
+      (and info
+           (receive (frame new?) info
+             (get-text-view~ (get-guest~ frame))))))
   
   
   ;;;
@@ -125,7 +125,7 @@
   
   
   (method public (get-boundaries)
-    (when (and beginning ending)
+    (and beginning ending
       (new Range$Cell$ beginning ending)))
   
   
@@ -138,16 +138,16 @@
     (let ((client (or client (effective-client))))
       (if (and client (find-next client))
           #t
-        (when follow?
-          (follow-forward)))))
+        (and follow?
+             (follow-forward)))))
   
   
   (method protected (find-backward (client: client #f) (follow?: follow? #t))
     (let ((client (or client (effective-client))))
       (if (and client (find-previous client))
           #t
-        (when follow?
-          (follow-backward)))))
+        (and follow?
+             (follow-backward)))))
   
   
   (method protected (find-next client)
@@ -160,14 +160,14 @@
   
   (method protected (follow-forward)
     (let ((results (get-results)))
-      (when (same-search? results)
-        (edit-next~ results))))
+      (and (same-search? results)
+           (edit-next~ results))))
   
   
   (method protected (follow-backward)
     (let ((results (get-results)))
-      (when (same-search? results)
-        (edit-previous~ results))))
+      (and (same-search? results)
+           (edit-previous~ results))))
   
   
   (method protected virtual (install-indicators beginning-indicator ending-indicator)
@@ -240,9 +240,10 @@
         (let* ((str (get-selected-string~ client))
                (repl (and str repl-list (if expression? (car repl-list) (get-replacement str find-list repl-list)))))
           (if (not play-recording?)
-              (when repl
-                (insert-string~ client (if preserve-case? (convert-case repl (determine-case str)) repl))
-                #t)
+              (and repl
+                   (begin
+                     (insert-string~ client (if preserve-case? (convert-case repl (determine-case str)) repl))
+                     #t))
             ;; temp... should not be necessary. play-recording should be
             ;; made to work even if the window doesn't have the focus.
             (acquire-focus~ client)

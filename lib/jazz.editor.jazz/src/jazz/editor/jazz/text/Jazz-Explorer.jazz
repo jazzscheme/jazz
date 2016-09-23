@@ -183,24 +183,24 @@
           (forward-modifiers (expression-syntax-modifiers 'module))
           (forward-name)
           (forward-name)
-          (when include-invoices?
-            (forward-invoices))))
+          (and include-invoices?
+               (forward-invoices))))
   
   
   (method (forward-submodule include-invoices?)
     (list 'submodule
           (forward-modifiers (expression-syntax-modifiers 'submodule))
           (forward-name)
-          (when include-invoices?
-            (forward-invoices))))
+          (and include-invoices?
+               (forward-invoices))))
   
   
   (method (forward-script include-invoices?)
     (list 'script
           (forward-modifiers (expression-syntax-modifiers 'module))
           (forward-name)
-          (when include-invoices?
-            (forward-invoices))))
+          (and include-invoices?
+               (forward-invoices))))
   
   
   (method (forward-class)
@@ -254,12 +254,13 @@
         (set-end e))
       
       (define (forward)
-        (when (enter-list)
-          (forward-expr)
-          (when (and (eq? kind 'symbol)
-                     (memq? (intern-marked-symbol) '(export import)))
-            (exit-list)
-            (read-marked))))
+        (and (enter-list)
+             (forward-expr)
+             (and (eq? kind 'symbol)
+                  (memq? (intern-marked-symbol) '(export import))
+                  (begin
+                    (exit-list)
+                    (read-marked)))))
       
       (let ((invoices (forward)))
         (or invoices
@@ -394,15 +395,16 @@
     (if (not (enter-import))
         (error "Unable to find import declaration")
       (receive (found? first? none?) (find-import-invoice unit #f)
-        (when found?
-          (with-atomic-undo~ (get-undoer~ model)
-            (lambda ()
-              (let ((text <Lisp-Text-View+> (single-client~ model)))
-                (allege text
-                  (delete-range~ model (get-range))
-                  (when first?
-                    (remove-spaces~ text (get-start) keep: 'one))))))
-          #t))))
+        (and found?
+             (begin
+               (with-atomic-undo~ (get-undoer~ model)
+                 (lambda ()
+                   (let ((text <Lisp-Text-View+> (single-client~ model)))
+                     (allege text
+                       (delete-range~ model (get-range))
+                       (when first?
+                         (remove-spaces~ text (get-start) keep: 'one))))))
+               #t)))))
 
 
   ;;;

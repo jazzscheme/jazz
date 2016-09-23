@@ -53,26 +53,28 @@
   
   (method meta protected virtual (iterate-references name <string> proc <procedure>)
     (define (parse-tag)
-      (when (tag-string? name)
-        (call-proc name 0)
-        (call-proc (tag->name name) 1)
-        #t))
+      (and (tag-string? name)
+           (begin
+             (call-proc name 0)
+             (call-proc (tag->name name) 1)
+             #t)))
     
     (define (parse-composite-colon)
       (let ((parts (split-string name #\:)))
-        (when (and (not (null? (cdr parts)))
+        (and (and (not (null? (cdr parts)))
                    (not (empty-string? (first parts)))
                    (not (empty-string? (last parts))))
-          (call-proc name 0)
-          (let ((pos 0))
-            (when (equal? (first parts) "jazz")
-              (set! parts (cdr parts))
-              (set! pos (+ (cardinality "jazz") 1)))
-            (for-each (lambda (part)
-                        (call-proc part pos)
-                        (increase! pos (+ (cardinality part) 1)))
-                      parts))
-          #t)))
+             (begin
+               (call-proc name 0)
+               (let ((pos 0))
+                 (when (equal? (first parts) "jazz")
+                   (set! parts (cdr parts))
+                   (set! pos (+ (cardinality "jazz") 1)))
+                 (for-each (lambda (part)
+                             (call-proc part pos)
+                             (increase! pos (+ (cardinality part) 1)))
+                           parts))
+               #t))))
     
     (define (call-proc ref pos)
       (unless (or (empty-string? ref) (eqv? (string-ref ref 0) #\'))
@@ -162,12 +164,12 @@
               (define (mangle-declaration name signature)
                 (let ((name-mangle (mangle-name name))
                       (signature-mangle (and signature (mangle-signature signature))))
-                  (when (or name-mangle signature-mangle)
-                    (cond ((and name-mangle signature-mangle)
-                           (append name-mangle signature-mangle))
-                          (else
-                           (or signature-mangle
-                               name-mangle))))))
+                  (and (or name-mangle signature-mangle)
+                       (cond ((and name-mangle signature-mangle)
+                              (append name-mangle signature-mangle))
+                             (else
+                              (or signature-mangle
+                                  name-mangle))))))
               
               (let* ((name (reference->name (if (pair? marked) (car marked) marked)))
                      (signature (mangle-declaration name (if (pair? marked) (cdr marked) #f))))

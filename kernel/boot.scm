@@ -83,23 +83,44 @@
       (define (load-files files)
         (for-each load-file files))
       
+      (define (print-version)
+        (let ((output (open-output-string)))
+          (##write-string "Gambit" output)
+          (##write-string " " output)
+          (##write-string (system-version-string) output)
+          (##write-string " " output)
+          (##write (system-stamp) output)
+          (##write-string " " output)
+          (##write-string (system-type-string) output)
+          (##write-string " " output)
+          (##write (configure-command-string) output)
+          (##newline output)
+          (get-output-string output)))
+      
       ;; hack around loading header being very
       ;; time consuming because of gambit's header
       (let ((path (string-append jazz:source "kernel/syntax/header"))
             (src (string-append jazz:source "kernel/syntax/header.scm"))
-            (o1 (string-append jazz:source "kernel/syntax/header.o1")))
+            (o1 (string-append jazz:source "kernel/syntax/header.o1"))
+            (ver (string-append jazz:source "kernel/syntax/header.ver"))
+            (version (print-version)))
         (define (compile-header)
+          ;; delete it first so gambit doesn't generate .o2 .o3 ...
+          (if (file-exists? o1)
+              (delete-file o1))
           (compile-file path)
-          (file-last-access-and-modification-times-set! o1 (file-last-access-time o1) (file-last-modification-time src)))
+          (file-last-access-and-modification-times-set! o1 (file-last-access-time o1) (file-last-modification-time src))
+          (call-with-output-file ver
+            (lambda (output)
+              (write version output)
+              (newline output))))
         
-        (if (not (file-exists? o1))
-            (compile-header)
-          (if (not (= (time->seconds (file-last-modification-time src))
-                      (time->seconds (file-last-modification-time o1))))
-              (begin
-                ;; delete it first so gambit doesn't generate .o2 .o3 ...
-                (delete-file o1)
-                (compile-header)))))
+        (if (or (not (file-exists? o1))
+                (not (file-exists? ver))
+                (not (= (time->seconds (file-last-modification-time src))
+                        (time->seconds (file-last-modification-time o1))))
+                (not (equal? version (call-with-input-file ver read))))
+            (compile-header)))
       
       (if (not loaded?)
           (begin

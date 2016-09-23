@@ -86,7 +86,8 @@
                    (jazz:generate-symbol-context unit-name)
                    (jazz:generate-symbol-counter 0)
                    (jazz:requested-unit-name unit-name)
-                   (jazz:requested-unit-resource src))
+                   (jazz:requested-unit-resource src)
+                   (jazz:requested-pathname #f))
       (thunk))))
 
 

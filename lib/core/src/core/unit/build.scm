@@ -116,7 +116,8 @@
       (lambda (src obj bin lib obj-uptodate? bin-uptodate? lib-uptodate? manifest)
         (if src
             (parameterize ((jazz:requested-unit-name unit-name)
-                           (jazz:requested-unit-resource src))
+                           (jazz:requested-unit-resource src)
+                           (jazz:requested-pathname #f))
               (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? unit-name output-language: output-language options: options custom-cc: custom-cc custom-cc-options: custom-cc-options cc-options: cc-options ld-options: ld-options force?: force?))
           (%%unless (and bin (file-exists? (jazz:resource-pathname (jazz:bin->otl bin))))
             (jazz:error "Unable to find source for: {s}" unit-name)))))))

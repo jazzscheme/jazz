@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(##actlog-stop)
+
+
 ;; put here to be as early as possible in the boot
 (define jazz:kernel-boot
   (let ((f64vec (##make-f64vector 1)))

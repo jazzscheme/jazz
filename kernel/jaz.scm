@@ -1,5 +1,7 @@
 #!gsc -:dq-
 
+(##actlog-stop)
+
 (define jazz:source
   (path-directory (path-strip-trailing-directory-separator (path-directory (path-normalize (car (command-line)))))))
 

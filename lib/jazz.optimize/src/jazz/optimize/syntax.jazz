@@ -277,7 +277,7 @@
                    (register-global/input (list (get-locator~ binding) (get-type~ binding) name))
                    (emit-tail name tail?))))
               ((is? binding Slot-Declaration)
-               (register-input (list 'self (get-parent~ binding) 'self))
+               (register-input (list 'self 'category @too-much (get-parent~ binding) 'self))
                (emit-slot-reference binding 'self env tail?))
               (else
                (bailout `(unsupported-reference ,binding))))))
@@ -725,6 +725,9 @@
 
 
 (definition (type->lisp type)
+  ;; quick hack
+  (if (eq? type 'category)
+      'scheme-object
   (typecase type
     ((Fixnum-Class) 'int)
     ((Flonum-Class) 'double)
@@ -742,10 +745,13 @@
     ((F64Vector-Class) 'scheme-object)
     ((Category-Declaration) 'scheme-object)
     ((Procedure-Class) 'scheme-object)
-    (else #f)))
+    (else #f))))
 
 
 (definition (type->c type)
+  ;; quick hack
+  (if (eq? type 'category)
+      '___SCMOBJ
   (typecase type
     ((Boolean-Class) 'int)
     ((Fixnum-Class) 'int)
@@ -765,7 +771,7 @@
     ((Category-Declaration) '___SCMOBJ)
     ((Procedure-Class) '___SCMOBJ)
     ((Void-Class) 'void)
-    (else #f)))
+    (else #f))))
 
 
 (definition (lisp->c type expr)
@@ -787,6 +793,9 @@
 
 
 (definition (arg->c type expr)
+  ;; quick hack
+  (if (eq? type 'category)
+      expr
   (typecase type
     ((Fixnum-Class) expr)
     ((Flonum-Class) expr)
@@ -803,7 +812,7 @@
     ((F64Vector-Class) `(___CAST ___F64* (___BODY ,expr)))
     ((Category-Declaration) expr)
     ((Procedure-Class) expr)
-    (else #f)))
+    (else #f))))
 
 
 (definition (argument->lisp type expr)

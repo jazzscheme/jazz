@@ -114,6 +114,7 @@
 (native atan <number^opt<number>:number>)
 (native sqrt <number:number>)
 (native expt <number^number:number>)
+(native square <number:number>)
 (native make-rectangular <number^number:number>)
 (native make-polar <number^number:number>)
 (native real-part <number:number>)

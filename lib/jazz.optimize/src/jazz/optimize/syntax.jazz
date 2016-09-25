@@ -289,6 +289,14 @@
             (register-global/input (list offset-locator Fixnum c-name))
             (emit-tail (safe-lisp->c (get-type~ binding) `(vector-ref (___BODY ,object) ,c-name)) tail?)))))
     
+    (define (emit-slot-assignment binding object value env tail?)
+      (let ((name (get-name~ binding)))
+        ;; the _set is a mega quick hack around duplication problems because of no linking yet
+        (let ((c-name (string->symbol (string-append (symbol->string (name->c name)) "_offset_set"))))
+          (let ((offset-locator (compose-helper (get-locator~ binding) 'offset)))
+            (register-global/input (list offset-locator Fixnum c-name))
+            (emit-tail `(vector-set! (___BODY ,object) ,c-name ,(argument->lisp (get-type~ binding) value)) tail?)))))
+    
     (define (emit-call expr env tail?)
       (define (emit-export-call binding arguments env tail?)
         (define (vector-reference symbol)
@@ -426,16 +434,27 @@
                   (rest-arguments (cdr arguments)))
               (let ((object-type (get-type~ (call-emit-expression object-argument declaration env backend)))
                     (str (symbol->string name)))
-                ;; quick solution for getter
-                (if (and (starts-with? str "get-") (null? rest-arguments))
-                    (let ((slot-name (string->symbol (substring str 4 (string-length str)))))
-                      (if (is? object-type Namespace-Declaration)
-                          (let ((slot-declaration (find-declaration-child object-type slot-name)))
-                            (if (is? slot-declaration Slot-Declaration)
-                                (emit-slot-reference slot-declaration (emit object-argument env #f) env tail?)
-                              #f))
-                        #f))
-                  #f))))
+                (cond ;; quick solution for getter
+                      ((and (starts-with? str "get-") (null? rest-arguments))
+                       (let ((slot-name (string->symbol (substring str 4 (string-length str)))))
+                         (if (is? object-type Namespace-Declaration)
+                             (let ((slot-declaration (find-declaration-child object-type slot-name)))
+                               (if (is? slot-declaration Slot-Declaration)
+                                   (emit-slot-reference slot-declaration (emit object-argument env #f) env tail?)
+                                 #f))
+                           #f)))
+                      ;; quick solution for setter
+                      ((and (starts-with? str "set-") (not-null? rest-arguments) (null? (cdr rest-arguments)))
+                       (let ((slot-name (string->symbol (substring str 4 (string-length str)))))
+                         (if (is? object-type Namespace-Declaration)
+                             (let ((slot-declaration (find-declaration-child object-type slot-name)))
+                               (if (is? slot-declaration Slot-Declaration)
+                                   (let ((value-argument (car rest-arguments)))
+                                     (emit-slot-assignment slot-declaration (emit object-argument env #f) (emit value-argument env #f) env tail?))
+                                 #f))
+                           #f)))
+                      (else
+                       #f)))))
           (bailout `(todo-dispatch ,(get-name~ expr))))
       @todo
       (let ((object-argument (car (get-arguments~ expr))))
@@ -845,7 +864,7 @@
         (if (< n len)
             (begin
               (let ((c (string-ref str n)))
-                (cond ((eqv? c #\-) (write-char #\_ output))
+                (cond ((memv? c '(#\- #\/)) (write-char #\_ output))
                       ((eqv? c #\!))
                       ((eqv? c #\?))
                       (else (write-char c output))))

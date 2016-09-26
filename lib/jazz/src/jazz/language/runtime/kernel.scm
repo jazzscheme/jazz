@@ -440,7 +440,7 @@
 (native u8vector <:u8vector>)
 (native make-u8vector <fx^opt<int>:u8vector>)
 (native u8vector-length)
-(native u8vector-ref)
+(native u8vector-ref <u8vector^fb:fx>)
 (native u8vector-set!)
 (native u8vector?)
 (native u8vector->list)

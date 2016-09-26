@@ -330,7 +330,7 @@
                     cc-options
                     ""
                     ld-options
-                    #f))))
+                    options))))
           (if (not (= exit-status 0))
               (jazz:error "C compilation failed while linking module"))
           (if ios?

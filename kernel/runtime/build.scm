@@ -53,13 +53,14 @@
                          cc-options
                          ld-options-prelude
                          ld-options
-                         verbose?)
+                         options)
   (##gambcomp 'C
               op
               output-dir
               input-filenames
               output-filename
-              verbose?
+              (assq 'verbose options)
+              (assq 'hide-console options)
               (%%list (%%cons "CC_OPTIONS" cc-options)
                       (%%cons "LD_OPTIONS_PRELUDE" ld-options-prelude)
                       (%%cons "LD_OPTIONS" ld-options))))
@@ -877,7 +878,7 @@
                                      ,@(resource-files)
                                      ,@(link-options))
                                    " ")
-                #f))
+                '()))
             (case windowing
               ((cocoa)
                (jazz:call-process

@@ -59,8 +59,8 @@
               output-dir
               input-filenames
               output-filename
-              (assq 'verbose options)
-              (assq 'hide-console options)
+              (%%memq 'verbose options)
+              (%%memq 'hide-console options)
               (%%list (%%cons "CC_OPTIONS" cc-options)
                       (%%cons "LD_OPTIONS_PRELUDE" ld-options-prelude)
                       (%%cons "LD_OPTIONS" ld-options))))

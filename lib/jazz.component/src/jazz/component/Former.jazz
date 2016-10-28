@@ -107,6 +107,14 @@
   
   
   (method (save-to-file file)
+    (if (and (exists?~ file) (read-only?~ file))
+        (modal-feedback (format "Unable to save to read-only file: {s}" file))
+      (call-with-output-file (path-settings file char-encoding: 'UTF-8)
+        (lambda (output)
+          (save-to-port output)))))
+  
+  
+  (method (save-to-port output)
     (define (super-class-reference form)
       (or (get-reference~ form (get-model~ form))
           (runtime-class-reference (class-ascendant (get-origin~ form)))))
@@ -117,34 +125,30 @@
         (set-model~ adjusted-form super-class-symbol)
         adjusted-form))
     
-    (if (and (exists?~ file) (read-only?~ file))
-        (modal-feedback (format "Unable to save to read-only file: {s}" file))
-      (call-with-output-file (path-settings file char-encoding: 'UTF-8)
-        (lambda (output)
-          (let ((form (get-form)))
-            (bind (super-class-unit super-class-symbol) (parse-runtime-reference (super-class-reference form))
-              (let ((data (get-data~ form))
-                    (adjusted-form (if (class? (get-origin~ form))
-                                       (adjust-form form super-class-symbol)
-                                     form)))
-                (output-header (get-model~ adjusted-form) output)
-                (format output "{%}{%}")
-                (format output "(data {a}{%}" (if data (get-dialect~ data) 'jazz))
-                (format output "{%}{%}")
-                (let ((version (and data (get-version~ data))))
-                  (when version
-                    (format output "(version {a}){%}" (present-string~ version))))
-                (let ((imports (if data
-                                   (get-imports~ data)
-                                 (imports-to-insert form (list super-class-unit) '()))))
-                  (when (and imports (not-null? imports))
-                    (format output "(import {s}" (car imports))
-                    (for-each (lambda (import)
-                                (format output "{%}        {s}" import))
-                              (cdr imports))
-                    (format output  "){%}{%}{%}")))
-                (print-file-form adjusted-form 1 output)
-                (format output "){%}"))))))))
+    (let ((form (get-form)))
+      (bind (super-class-unit super-class-symbol) (parse-runtime-reference (super-class-reference form))
+        (let ((data (get-data~ form))
+              (adjusted-form (if (class? (get-origin~ form))
+                                 (adjust-form form super-class-symbol)
+                               form)))
+          (output-header (get-model~ adjusted-form) output)
+          (format output "{%}{%}")
+          (format output "(data {a}{%}" (if data (get-dialect~ data) 'jazz))
+          (format output "{%}{%}")
+          (let ((version (and data (get-version~ data))))
+            (when version
+              (format output "(version {a}){%}" (present-string~ version))))
+          (let ((imports (if data
+                             (get-imports~ data)
+                           (imports-to-insert form (list super-class-unit) '()))))
+            (when (and imports (not-null? imports))
+              (format output "(import {s}" (car imports))
+              (for-each (lambda (import)
+                          (format output "{%}        {s}" import))
+                        (cdr imports))
+              (format output  "){%}{%}{%}")))
+          (print-file-form adjusted-form 1 output)
+          (format output "){%}")))))
   
   
   (method protected virtual (imports-to-insert form include-modules exclude-modules)
@@ -209,7 +213,7 @@
               (receive (form restore) (find-form component branch restore?: #t)
                 (receive (next-form next-restore) (find-next-branch branch component property)
                   (let ((old-value (or old-value (read-property component property)))
-                        (remove?   (not (has-property?~ form property))))
+                        (remove? (not (has-property?~ form property))))
                     (set-property~ form property value)
                     (when undoable?
                       (register-undo

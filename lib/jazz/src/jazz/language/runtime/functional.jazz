@@ -3522,6 +3522,22 @@
     list))
 
 
+(definition public (subtract! target <Object> list <Object>)
+  (cond ((null? list)
+         '())
+        ((eq? (car list) target)
+         (cdr list))
+        (else
+         (let (iter (previous list) (scan (cdr list)))
+           (cond ((null? scan)
+                  list)
+                 ((eq? (car scan) target)
+                  (set-cdr! previous (cdr scan))
+                  list)
+                 (else
+                  (iter scan (cdr scan))))))))
+
+
 (definition public (getprop plist <Object> target <Object> (key: key #f) (test: test #f))
   (let (iter (scan plist))
     (cond ((null? scan)
@@ -3799,11 +3815,22 @@
 
 
 (definition public (table-add table <table> key value)
-  (table-set! table key (cons value (table-ref table key '()))))
+  (let ((lst (cons value (table-ref table key '()))))
+    (table-set! table key lst)))
 
 
-(definition public (table-remove! table <table> name value)
-  (table-set! table name (remove! value (table-ref table name '()))))
+(definition public (table-remove! table <table> key value)
+  (let ((lst (remove! value (table-ref table key '()))))
+    (if (null? lst)
+        (table-clear table key)
+      (table-set! table key lst))))
+
+
+(definition public (table-subtract! table <table> key value)
+  (let ((lst (subtract! value (table-ref table key '()))))
+    (if (null? lst)
+        (table-clear table key)
+      (table-set! table key lst))))
 
 
 (definition public (empty-table table <table>)

@@ -118,8 +118,8 @@
   (method override (get-merge-date mode)
     ; the date is used even in backup mode
     (let ((date (get-base-date)))
-      (when date
-        (get-time~ date))))
+      (and date
+           (get-time~ date))))
   
   
   (method override (scan-feedback left right)
@@ -164,31 +164,31 @@
   
   
   (method override (merge-action local-date left left-date right right-date)
-    (when local-date
-      (let ((base-date (date-local->universal local-date)))
-        (cond ((and (not left) right)
-               (if (> right-date base-date)
-                   'copy-left
-                 'copy-right))
-              ((and left (not right))
-               (if (> left-date base-date)
-                   'copy-right
-                 'copy-left))
-              (else
-               (let ((l (compare left-date base-date))
-                     (r (compare right-date base-date)))
-                 (cond ((and (eq? l :greater) (eq? r :greater))
-                        'merge)
-                       ((and (eq? l :greater) (memq? r '(:less :equal)))
-                        'copy-right)
-                       ((and (memq? l '(:less :equal)) (eq? r :greater))
-                        'copy-left)
-                       @convert/wait
-                       ((and (is? left Depot-Moniker) (eq? l :not-equal))
-                        'copy-right)
-                       (else
-                        (debug-line (format "File {s} was modified before the base date on both sides!" (get-name~ left)))
-                        'merge))))))))
+    (and local-date
+         (let ((base-date (date-local->universal local-date)))
+           (cond ((and (not left) right)
+                  (if (> right-date base-date)
+                      'copy-left
+                    'copy-right))
+                 ((and left (not right))
+                  (if (> left-date base-date)
+                      'copy-right
+                    'copy-left))
+                 (else
+                  (let ((l (compare left-date base-date))
+                        (r (compare right-date base-date)))
+                    (cond ((and (eq? l :greater) (eq? r :greater))
+                           'merge)
+                          ((and (eq? l :greater) (memq? r '(:less :equal)))
+                           'copy-right)
+                          ((and (memq? l '(:less :equal)) (eq? r :greater))
+                           'copy-left)
+                          @convert/wait
+                          ((and (is? left Depot-Moniker) (eq? l :not-equal))
+                           'copy-right)
+                          (else
+                           (debug-line (format "File {s} was modified before the base date on both sides!" (get-name~ left)))
+                           'merge))))))))
 
   
   ;;;

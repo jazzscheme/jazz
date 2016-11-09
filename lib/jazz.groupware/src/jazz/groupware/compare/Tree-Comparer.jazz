@@ -76,9 +76,10 @@
     (leaf-feedback leaf1 leaf2 feedback)
     (let ((value1 (get-value~ leaf1))
           (value2 (get-value~ leaf2)))
-      (when (and leaf1 leaf2 (different? leaf1 leaf2 check-algorithm))
-        (set-car! has-differences? #t)
-        (new-entry parent 'leaf leaf1 value1 leaf2 value2))))
+      (and (and leaf1 leaf2 (different? leaf1 leaf2 check-algorithm))
+           (begin
+             (set-car! has-differences? #t)
+             (new-entry parent 'leaf leaf1 value1 leaf2 value2)))))
   
   
   (method (compare-items parent kind items1 content1 items2 content2 ignored-nodes ignored-leaves ignored-extensions proc check-algorithm feedback fact has-differences?)
@@ -90,8 +91,8 @@
     (merge-ordered (lambda (what key left right)
                      (when (or left right)
                        (case what
-                         ((:left)  (set-car! has-differences? #t) (put~ fact (new-entry parent kind left (when (eq? kind 'leaf) (get-value~ left)) #f #f)))
-                         ((:right) (set-car! has-differences? #t) (put~ fact (new-entry parent kind #f #f right (when (eq? kind 'leaf) (get-value~ right)))))
+                         ((:left)  (set-car! has-differences? #t) (put~ fact (new-entry parent kind left (and (eq? kind 'leaf) (get-value~ left)) #f #f)))
+                         ((:right) (set-car! has-differences? #t) (put~ fact (new-entry parent kind #f #f right (and (eq? kind 'leaf) (get-value~ right)))))
                          ((:same)  (let ((result (proc parent left (content-find left content1) right (content-find right content2) ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)))
                                    (when result
                                      (put~ fact result)))))))

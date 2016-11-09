@@ -723,13 +723,13 @@
   
   
   (method public (move-forward pos word?)
-    (when pos
-      (if word? (next-word pos) (next-cell pos))))
+    (and pos
+         (if word? (next-word pos) (next-cell pos))))
   
   
   (method public (move-backward pos word?)
-    (when pos
-      (if word? (previous-word pos) (previous-cell pos))))
+    (and pos
+         (if word? (previous-word pos) (previous-cell pos))))
   
   
   ;;;
@@ -1521,20 +1521,20 @@
   (method public (push-style range style-name)
     (modify-style range
       (lambda (s)
-        (unless (inherits?~ s style-name)
-          (let ((style (extend~ s)))
-            (set-base~ style (cons style-name (get-base~ style)))
-            style)))))
+        (and (not (inherits?~ s style-name))
+             (let ((style (extend~ s)))
+               (set-base~ style (cons style-name (get-base~ style)))
+               style)))))
   
   
   (method public (pop-style range style-name)
     (modify-style range
       (lambda (s)
         (let ((base (get-base~ s)))
-          (when (memq? style-name base)
-            (let ((style (extend~ s)))
-              (set-base~ style (remove style-name (get-base~ style)))
-              style))))))
+          (and (memq? style-name base)
+               (let ((style (extend~ s)))
+                 (set-base~ style (remove style-name (get-base~ style)))
+                 style))))))
   
   
   (method public (set-text-alignment range <Range$Cell$> alignment)
@@ -1966,9 +1966,9 @@
                  (get-contexts~ search-set))
           (let ((content (get-string-content)))
             (let ((found (regular-search content search-set match-test: match-test constituent-test: constituent-test start: (position-offset start) reversed?: reversed?)))
-              (when found
-                (bind (from . to) found
-                  (cons (offset-position from) (offset-position to))))))
+              (and found
+                   (bind (from . to) found
+                     (cons (offset-position from) (offset-position to))))))
         (let ((pos (or start (if reversed? (text-ending) (text-beginning))))
               (end (or end (if reversed? (text-beginning) (text-ending)))))
           (let ((line (get-line~ pos))

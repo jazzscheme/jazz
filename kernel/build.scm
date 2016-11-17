@@ -1765,7 +1765,7 @@
     (if jazz:display-backtrace?
         (continuation-capture
           (lambda (cont)
-            (display-continuation-backtrace cont console #t #t 0 1000)))))
+            (display-continuation-backtrace cont console #t #t 100 100)))))
   
   (let ((console (console-port)))
     (jazz:print (jazz:format "JazzScheme Build System v{a}" (jazz:present-version (jazz:get-jazz-version-number))) console)

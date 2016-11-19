@@ -43,7 +43,6 @@
         (jazz.document)
         (jazz.feedback)
         (jazz.graphic)
-        (jazz.ide)
         (jazz.io)
         (jazz.jml)
         (jazz.preferences)
@@ -56,7 +55,69 @@
         (jazz.workspace))
 
 
-(class Command-Text-View extends IDE-Text-View
+(import (jazz.editor)
+        (jazz.editor.jazz))
+
+(class Copy-of-IDE-Text-View-quick-hack extends Code-Text-View
+  
+  
+  (method override (new-model)
+    (new Text-Model base-style: {Text-Style Text-User}))
+
+  
+  (method override (new-syntax)
+    (new Jazz-Syntax model colorize?: #f))
+   
+  
+  ;;;
+  ;;;; History
+  ;;;
+  
+  
+  (method override (current-history-item)
+    #f)
+
+
+  ;;;
+  ;;;; Match
+  ;;;
+  
+  
+  (method override (match-backwards? char)
+    (typecase syntax
+      ((Jazz-Syntax) (memq? char '(#\close-parenthesis #\close-bracket #\close-brace)))
+      (else (nextmethod char))))
+  
+  
+  (method override (match-forwards? char)
+    (typecase syntax
+      ((Jazz-Syntax) (memq? char '(#\open-parenthesis #\open-bracket #\open-brace)))
+      (else (nextmethod char))))
+
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+
+
+  (method override (context-menu evt)
+    (when (and (view-enabled?) editable?)
+      (let ((pos (get-position~ evt)))
+        (receive (shift? control? alt? meta?) (get-down~ evt)
+          (let ((definition? (and (not control?) shift? (not alt?)))
+                (references? (and control? shift? (not alt?))))
+            (when (or definition? references?)
+              (context-menu-click pos))
+            (cond (definition? (edit-definitions pos))
+                  (references? (edit-references pos))
+                  (else (nextmethod evt))))))))
+  
+  
+  (method override (get-context-menu)
+    (new-text-context-menu)))
+
+
+(class Command-Text-View extends Copy-of-IDE-Text-View-quick-hack
   
   
   (slot mode             initialize #f accessors generate)

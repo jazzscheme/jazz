@@ -1,0 +1,295 @@
+;;;===============
+;;;  JazzScheme
+;;;===============
+;;;
+;;;; OpenGL Sample
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2016
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.opengl.sample jazz
+
+
+(import (jazz.geometry)
+        (jazz.io)
+        (jazz.opengl.glew)
+        (jazz.opengl.window)
+        (jazz.window)
+        (jazz.opengl.sample.syntax (phase syntax)))
+
+
+;;;
+;;;; Vertex
+;;;
+
+
+(definition public (vertex x <fl> y <fl> z <fl>) <vertex>
+  (f64vector x y z))
+
+
+(definition public (make-vertex) <vertex>
+  (f64vector 0. 0. 0.))
+
+
+(definition public (vertex-x vert <vertex>) <fl>
+  (f64vector-ref vert 0))
+
+(definition public (vertex-y vert <vertex>) <fl>
+  (f64vector-ref vert 1))
+
+(definition public (vertex-z vert <vertex>) <fl>
+  (f64vector-ref vert 2))
+
+
+(definition public (vertex-x-set! vert <vertex> x <fl>) <void>
+  (f64vector-set! vert 0 x))
+
+(definition public (vertex-y-set! vert <vertex> y <fl>) <void>
+  (f64vector-set! vert 1 y))
+
+(definition public (vertex-z-set! vert <vertex> z <fl>) <void>
+  (f64vector-set! vert 2 z))
+
+
+(definition public (vertex-copy! dst <vertex> src <vertex>) <vertex>
+  (vertex-x-set! dst (vertex-x src))
+  (vertex-y-set! dst (vertex-y src))
+  (vertex-z-set! dst (vertex-z src))
+  dst)
+
+
+(definition public (vertex+ v1 <vertex> v2 <vertex>) <vertex>
+  (vertex
+    (+ (vertex-x v1) (vertex-x v2))
+    (+ (vertex-y v1) (vertex-y v2))
+    (+ (vertex-z v1) (vertex-z v2))))
+
+
+(definition public (vertex- v1 <vertex> v2 <vertex>) <vertex>
+  (vertex
+    (- (vertex-x v1) (vertex-x v2))
+    (- (vertex-y v1) (vertex-y v2))
+    (- (vertex-z v1) (vertex-z v2))))
+
+
+(definition public (vertex-scalar* v <vertex> r <fv>) <vertex>
+  (vertex
+    (* r (vertex-x v))
+    (* r (vertex-y v))
+    (* r (vertex-z v))))
+
+
+(definition public (vertex-norm v <vertex>) <fl>
+  (let ((x (vertex-x v))
+        (y (vertex-y v))
+        (z (vertex-z v)))
+    (sqrt (+ (* x x)
+             (* y y)
+             (* z z)))))
+
+
+(definition public (vertex-normalize v <vertex>) <vertex>
+  (vertex-scalar* v (/ (vertex-norm v))))
+
+
+(definition public (cross-product u <vertex> v <vertex>) <vertex>
+  (let ((a (vertex-x u))
+        (b (vertex-y u))
+        (c (vertex-z u))
+        (d (vertex-x v))
+        (e (vertex-y v))
+        (f (vertex-z v)))
+    (vertex (- (* b f) (* c e))
+            (- (* c d) (* a f))
+            (- (* a e) (* b d)))))
+
+
+;;;
+;;;; LookAt
+;;;
+
+
+(class LookAt extends Object
+  
+  
+  (slot sight <vertex> initialize (make-vertex) getter generate)
+  (slot up    <vertex> initialize (make-vertex) getter generate)
+  (slot right <vertex> initialize (make-vertex) getter generate)
+  
+  
+  (method public inline (set-sight sight <vertex>) <void>
+    (vertex-copy! sight~self sight))
+  
+  (method public inline (set-up up <vertex>) <void>
+    (vertex-copy! up~self up))
+  
+  (method public inline (set-right right <vertex>) <void>
+    (vertex-copy! right~self right)))
+
+
+(definition public (lookat sight <vertex> up <vertex> right <vertex>) <LookAt>
+  (let ((lookat (new LookAt)))
+    (set-sight~ lookat sight)
+    (set-up~ lookat up)
+    (set-right~ lookat right)
+    lookat))
+
+
+;;;
+;;;; Matrix
+;;;
+
+
+(definition public (make-matrix) <matrix>
+  (f64vector 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.))
+
+
+(definition public (matrix-ref mat <matrix> ind <fx>) <fl>
+  (f64vector-ref mat ind))
+
+
+(definition public (matrix-set! mat <matrix> ind <fx> val <object>) <void>
+  (f64vector-set! mat ind val))
+
+
+(definition public (make-identity-matrix! res <matrix>) <matrix>
+  (matrix-set! res  0 1.)
+  (matrix-set! res  1 0.)
+  (matrix-set! res  2 0.)
+  (matrix-set! res  3 0.)
+  (matrix-set! res  4 0.)
+  (matrix-set! res  5 1.)
+  (matrix-set! res  6 0.)
+  (matrix-set! res  7 0.)
+  (matrix-set! res  8 0.)
+  (matrix-set! res  9 0.)
+  (matrix-set! res 10 1.)
+  (matrix-set! res 11 0.)
+  (matrix-set! res 12 0.)
+  (matrix-set! res 13 0.)
+  (matrix-set! res 14 0.)
+  (matrix-set! res 15 1.)
+  res)
+
+
+(definition public (make-perspective-matrix! res <matrix> fov <fl> ratio <fl> near <fl> far <fl>) <matrix>
+  (make-identity-matrix! res)
+  (let ((f (/ 1.0 (tan (* fov (/ PI 360.))))))
+    (matrix-set! res  0 (/ f ratio))
+    (matrix-set! res  5 f)
+    (matrix-set! res 10 (/ (+ far near) (- near far)))
+    (matrix-set! res 14 (/ (* 2. far near) (- near far)))
+    (matrix-set! res 11 -1.)
+    (matrix-set! res 15 0.))
+  res)
+
+
+(definition public (make-orthographic-matrix! res <matrix> left <fl> right <fl> bottom <fl> top <fl> near <fl> far <fl>) <matrix>
+  (make-identity-matrix! res)
+  (let ((width (- right left))
+        (height (- top bottom))
+        (depth (- far near)))
+    (matrix-set! res  0 (/ 2. width))
+    (matrix-set! res  5 (/ 2. height))
+    (matrix-set! res 10 (/ -2. depth))
+    (matrix-set! res 12 (- (/ (+ right left) width)))
+    (matrix-set! res 13 (- (/ (+ top bottom) height)))
+    (matrix-set! res 14 (- (/ (+ far near) depth)))
+    (matrix-set! res 15 1.)
+    res))
+
+
+(definition public (make-view-matrix! res <matrix> position <vertex> lookat <LookAt>) <matrix>
+  (let ((sight (get-sight~ lookat))
+        (up (get-up~ lookat))
+        (right (get-right~ lookat)))
+    (let ((b12 (- (vertex-x position)))
+          (b13 (- (vertex-y position)))
+          (b14 (- (vertex-z position)))
+          (a0 (vertex-x right))
+          (a1 (vertex-x up))
+          (a2 (- (vertex-x sight)))
+          (a4 (vertex-y right))
+          (a5 (vertex-y up))
+          (a6 (- (vertex-y sight)))
+          (a8 (vertex-z right))
+          (a9 (vertex-z up))
+          (a10 (- (vertex-z sight))))
+      (matrix-set! res  0 a0)
+      (matrix-set! res  1 a1)
+      (matrix-set! res  2 a2)
+      (matrix-set! res  3 0.)
+      (matrix-set! res  4 a4)
+      (matrix-set! res  5 a5)
+      (matrix-set! res  6 a6)
+      (matrix-set! res  7 0.)
+      (matrix-set! res  8 a8)
+      (matrix-set! res  9 a9)
+      (matrix-set! res 10 a10)
+      (matrix-set! res 11 0.)
+      (matrix-set! res 12 (+ (* a0 b12) (* a4 b13) (* a8 b14)))
+      (matrix-set! res 13 (+ (* a1 b12) (* a5 b13) (* a9 b14)))
+      (matrix-set! res 14 (+ (* a2 b12) (* a6 b13) (* a10 b14)))
+      (matrix-set! res 15 1.)
+      res)))
+
+
+;;;
+;;;; Plane
+;;;
+
+
+(definition public (plane-normal v1 <vertex> v2 <vertex> v3 <vertex>) <vertex>
+  (vertex-normalize (cross-product (vertex- v2 v1)
+                                   (vertex- v3 v1))))
+
+
+
+
+;;;
+;;;; OpenGL
+;;;
+
+
+(definition public (gl-plane-normal v1 v2 v3)
+  (let ((normal (plane-normal v1 v2 v3)))
+    (glNormal3f (vertex-x normal)
+                (vertex-y normal)
+                (vertex-z normal))))
+
+
+;;;
+;;;; Boot
+;;;
+
+
+(definition public (boot-sample application-class)
+  (boot-environment~ (new application-class))))

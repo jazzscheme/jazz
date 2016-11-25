@@ -49,13 +49,13 @@
 
 (definition public (with-jrm-exception-handler process thunk)
   (define (abort-connect?)
-    (when (eq? (call-event
-                 (lambda ()
-                   (message-box "Connection failed previously. Do you want to retry?" type: 'question yes: "Retry" no: "Cancel")))
-               'no)
-      (if (event-thread?)
-          (signal-cancel)
-        #t)))
+    (and (eq? (call-event
+                (lambda ()
+                  (message-box "Connection failed previously. Do you want to retry?" type: 'question yes: "Retry" no: "Cancel")))
+              'no)
+         (if (event-thread?)
+             (signal-cancel)
+           #t)))
   
   (define (process-jrm-exception exc)
     (execute-event
@@ -65,12 +65,12 @@
           (set-alive?~ (get-debugger-manager) process #f))
         (signal-cancel))))
   
-  (when (not (and process
-                  (not (get-alive?~ (get-debugger-manager) process))
-                  (abort-connect?)))
-    (catch (connection-problem? exc
-             (process-jrm-exception exc))
-      (thunk))))
+  (and (not (and process
+                 (not (get-alive?~ (get-debugger-manager) process))
+                 (abort-connect?)))
+       (catch (connection-problem? exc
+                (process-jrm-exception exc))
+         (thunk))))
 
 
 ;;;
@@ -239,8 +239,8 @@
 (definition public (registered-processes target)
   (collect (lambda (info)
              (bind (process . configuration) info
-               (when (equal? configuration target)
-                 process)))
+               (and (equal? configuration target)
+                    process)))
            (table->list *process-configurations*)))
 
 

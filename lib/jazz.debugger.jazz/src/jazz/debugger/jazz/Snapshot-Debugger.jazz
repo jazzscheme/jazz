@@ -339,8 +339,16 @@
         (lambda ()
           (setup-values process)
           (set! processes (append! processes (list process)))
-          (let ((debugged-process (new Debugged-Process self process process)))
-            (attach-process~ (get-debugger-manager) debugged-process focus?)
+          (let ((manager (get-debugger-manager))
+                (debugged-process (new Debugged-Process self process process)))
+            (attach-process~ manager debugged-process focus?)
+            ;; thread that invoked snapshot is always first
+            (let ((threads (process-threads process)))
+              (when (not-null? threads)
+                (let ((thread (car threads)))
+                  (let ((debugged-thread (new Debugged-Thread self process thread))
+                        (debugged-stop (new Debugged-Stop self process 'stop)))
+                    (register-stop~ manager debugged-process debugged-thread debugged-stop sound?: #f)))))
             debugged-process)))))
   
   

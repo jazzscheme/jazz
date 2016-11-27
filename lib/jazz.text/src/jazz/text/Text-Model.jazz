@@ -41,12 +41,14 @@
 
 (import (jazz.application)
         (jazz.document)
+        (jazz.event)
         (jazz.exemplar)
         (jazz.geometry)
         (jazz.graphic)
         (jazz.io)
         (jazz.jml)
         (jazz.outline)
+        (jazz.platform)
         (jazz.skin)
         (jazz.text)
         (jazz.tree)
@@ -869,25 +871,26 @@
   (method protected (replace-text range <Range$Cell$> strings)
     (receive (syntax syntax-style) (replace-syntax~ syntax range)
       (let ((start (get-start~ range))
-            (end   (get-end~ range))
+            (end (get-end~ range))
             (count (length strings))
-            (old   (range-strings range))
+            (undo-strings (range-strings range))
             (caret (replace-range range strings)))
         (let ((start-line (get-line~ start)))
           (update-displayed-from start-line)
           (recolorize~ syntax syntax-style start (- (+ start-line count) 1)))
         (set-modified? #t)
-        (register-undo~ undoer
-          (let ((new-range (new Range$Cell$ start caret))
-                (old-range (copy range)))
-            (lambda ()
-              (replace new-range old)
-              (for-each-client
-                (lambda (client)
-                  (set-selection~ client old-range))))))
-        (for-each-client
-          (lambda (client)
-            (call-content-change~ client #f)))
+        (let ((undo-range (new Range$Cell$ start caret)))
+          (register-undo~ undoer
+            (let ((old-range (copy range)))
+              (lambda ()
+                (replace undo-range undo-strings)
+                (for-each-client
+                  (lambda (client)
+                    (set-selection~ client old-range))))))
+          (for-each-client
+            (lambda (client)
+              (let ((event (new Replace-Event :replace self (modifiers-mask) range strings undo-range undo-strings)))
+                (call-content-change~ client #f event: event)))))
         (let ((appl (get-application)))
           (when appl
             (update-focus-actions~ appl)))
@@ -1411,27 +1414,28 @@
     
     (receive (syntax syntax-style) (replace-syntax~ syntax range)
       (let* ((start (get-start~ range))
-             (end   (get-end~ range))
+             (end (get-end~ range))
              (count (length strings))
-             (old   (range-formatted-text range))
+             (undo-strings (range-formatted-text range))
              (caret (replace-range range strings))
-             (appl  (get-application)))
+             (appl (get-application)))
         (apply-formats/styles (new Range$Cell$ start caret))
         (let ((start-line (get-line~ start)))
           (update-displayed-from start-line)
           (recolorize~ syntax syntax-style start (- (+ start-line count) 1)))
         (set-modified? #t)
-        (register-undo~ undoer
-          (let ((new-range (new Range$Cell$ start caret))
-                (old-range (copy range)))
-            (lambda ()
-              (replace-formatted new-range old)
-              (for-each-client
-                (lambda (client)
-                  (set-selection~ client old-range))))))
-        (for-each-client
-          (lambda (client)
-            (call-content-change~ client #f)))
+        (let ((undo-range (new Range$Cell$ start caret)))
+          (register-undo~ undoer
+            (let ((old-range (copy range)))
+              (lambda ()
+                (replace-formatted undo-range undo-strings)
+                (for-each-client
+                  (lambda (client)
+                    (set-selection~ client old-range))))))
+          (for-each-client
+            (lambda (client)
+              (let ((event (new Replace-Event :replace self (modifiers-mask) range strings undo-range undo-strings)))
+                (call-content-change~ client #f event: event)))))
         (let ((appl (get-application)))
           (when appl
             (update-focus-actions~ appl)))
@@ -2033,4 +2037,26 @@
   
   
   (method meta override (get-class-descriptor (context: context #f))
-    (new jazz.text.descriptors:Text-Model-Descriptor))))
+    (new jazz.text.descriptors:Text-Model-Descriptor)))
+
+
+;;;
+;;;; Replace-Event
+;;;
+
+
+(class Replace-Event extends Event
+  
+  
+  (slot range        getter generate)
+  (slot strings      getter generate)
+  (slot undo-range   getter generate)
+  (slot undo-strings getter generate)
+
+
+  (method override (initialize kind sender modifiers range strings undo-range undo-strings)
+    (nextmethod kind sender modifiers)
+    (set! range~self range)
+    (set! strings~self strings)
+    (set! undo-range~self undo-range)
+    (set! undo-strings~self undo-strings))))

@@ -70,6 +70,7 @@
   (property background                           initialize #f accessors explicit)
   (property auto-size?                           initialize #f accessors explicit)
   (property tooltip?                             initialize #f accessors explicit)
+  (property tooltip-in?                          initialize #f accessors explicit)
   (property tooltip-text                         initialize #f accessors explicit)
   (property draggable?                           initialize #f accessors explicit)
   (property drag-tolerance                       initialize 5  accessors generate)
@@ -2080,6 +2081,8 @@
                 (set-mouse-in view)
                 (when (get-mouse-in)
                   (dispatch-mouse-enter~ (get-mouse-in)))
+                (when (get-tooltip-in?~ (get-mouse-in))
+                  (popup-tooltip~ (get-mouse-in) pos force?: #t))
                 (track-mouse-leave (get-handle~ player)))
               (unless (or *current-tooltip-context* (current-drag-drop))
                 (track-tooltip~ (get-mouse-in)))
@@ -2471,9 +2474,6 @@
   ;;;
   
   
-  (definition package *current-tooltip-context*
-    #f)
-  
   (definition *recent-tooltip-close*
     #f)
   
@@ -2519,7 +2519,7 @@
             (reset-tooltip))))))
   
   
-  (method (popup-tooltip pos)
+  (method (popup-tooltip pos (force?: force? #f))
     (define (same-position?)
       (and *last-tooltip-position* (nu=? pos *last-tooltip-position*)))
     
@@ -2549,10 +2549,10 @@
           ((:ibeam) 9)
           (else 21))))
     
-    (unless (or mouse-down? (current-drag-drop) (in-tooltip? pos))
+    (unless (and (or mouse-down? (current-drag-drop) (in-tooltip? pos)) (not force?))
       (close-tooltip)
-      (unless (same-position?)
-        (set! *current-tooltip-context* (get-tooltip-context pos))
+      (unless (and (same-position?) (not force?))
+        (set-current-tooltip-context (get-tooltip-context pos))
         (if *current-tooltip-context*
             (let ((text (get-text~ *current-tooltip-context*))
                   (font (get-font~ *current-tooltip-context*))
@@ -2589,7 +2589,7 @@
       (let ((tooltip (get-tooltip~ *current-tooltip-context*)))
         (when (and tooltip (opened?~ tooltip))
           (close-popup tooltip)))
-      (set! *current-tooltip-context* #f)
+      (set-current-tooltip-context #f)
       (set! *recent-tooltip-close* (+ (current-seconds) 0.5))))
 
 
@@ -3304,8 +3304,15 @@
 
 
   (method public (set-tooltip? flag)
-    (when (neq? flag tooltip?)
-      (set! tooltip? flag)))
+    (set! tooltip? flag))
+
+
+  (method public virtual (get-tooltip-in?)
+    tooltip-in?)
+
+
+  (method public (set-tooltip-in? flag)
+    (set! tooltip-in? flag))
 
 
   (method public virtual (get-tooltip-text)

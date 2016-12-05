@@ -36,22 +36,28 @@
 
 
 ;; OVERVIEW
+;;   Socket is persistent between two connected processes
+;;   and messages and responses travel through the bidirectional
+;;   socket pipe. Initial connection is done with connect-uuid.
+;;
+;; LEXICON
 ;;   uuid
 ;;     used to uniquely identify processes
 ;;   ior
 ;;     marshalled object sent remotely
 ;;   listener
-;;     tcp server receiving requests
-;;   switchboard
-;;     handles client and server side requests
+;;     tcp server receiving a connection request
+;;     and that starts the pump called jrm-connection
 ;;   pumps
 ;;     waits on socket for messages client and server side
+;;   switchboard
+;;     handles client and server side requests
 ;;   stub
 ;;     interface common to local and remote objects
 ;;   proxy local / remote
 ;;     objects implementing transparent communication
 ;;   register
-;;     an object to register remotely accessible objects
+;;     used to register remotely accessible objects
 ;;
 ;; CALL
 ;;   local <-> remote call
@@ -212,65 +218,8 @@
 
 
 ;;;
-;;;; Persistence
+;;;; Connection
 ;;;
-
-
-(definition *jrm-mutex*
-  (make-mutex 'jrm))
-
-
-(definition (with-jrm-mutex thunk)
-  (dynamic-wind
-    (lambda ()
-      (mutex-lock! *jrm-mutex*))
-    thunk
-    (lambda ()
-      (mutex-unlock! *jrm-mutex*))))
-
-
-(definition *jrm-switchboard*
-  #f)
-
-
-(definition public (require-remote-switchboard)
-  (if (not *jrm-switchboard*)
-      (error "Unable to complete operation because the remote switchboard is not running")
-    *jrm-switchboard*))
-
-
-(definition public (start-remote-switchboard)
-  (unless *jrm-switchboard*
-    ;; main thread has load-lock on jazz.debuggee.setup
-    ;; switchboard-thread will need to load jazz.jrm.register.Register
-    (load-unit 'jazz.jrm.register.Register)
-    (set! *jrm-switchboard*
-          (new-thread (lambda ()
-                        (process-switchboard))
-                      'jrm-switchboard))
-    (thread-start! *jrm-switchboard*)))
-
-
-(definition public (flush-remote-switchboard)
-  (when *jrm-switchboard*
-    (let ((invoke-thread (current-thread)))
-      (thread-send (require-remote-switchboard) (values 'flush #f invoke-thread))
-      (catch (Connection-Broke exc
-               #f)
-        (wait-for-result 'flush invoke-thread)))))
-
-
-(definition *jrm-pumps*
-  (make-table))
-
-
-(definition protected (jrm-pumps)
-  *jrm-pumps*)
-
-
-(definition public (require-jrm-port uuid)
-  (or (table-ref *jrm-pumps* uuid #f)
-      (throw-connection-broke)))
 
 
 (definition public (connect-uuid host service (slave? #f))
@@ -296,7 +245,7 @@
                            (lambda ()
                              (process-pump uuid port slave?))
                            'jrm-pump))
-          (table-set! *jrm-pumps* uuid port)
+          (set-pump-port uuid port)
           (debug-jrm '-pump- 'started (list host service port))
           uuid)))))
 
@@ -396,7 +345,7 @@
   (set! remote-problem-handler problem-handler))
 
 
-(definition package (process-remote port)
+(definition package (connect-remote port)
   (define (receive-remote-message port)
     (let ((timeout (receive-timeout)))
       (when timeout
@@ -413,9 +362,7 @@
       (case (car message)
         ((connect)
          (bind (kind uuid) message
-           (with-jrm-mutex
-             (lambda ()
-               (table-set! *jrm-pumps* uuid port)))
+           (set-pump-port uuid port)
            (let ((local-uuid (listening-uuid)))
              (write-port port local-uuid))
            (process-pump uuid port))))))
@@ -430,6 +377,43 @@
 ;;;
 
 
+(definition pump-mutex
+  (make-mutex 'pump))
+
+
+(definition (with-pump-mutex thunk)
+  (dynamic-wind
+    (lambda ()
+      (mutex-lock! pump-mutex))
+    thunk
+    (lambda ()
+      (mutex-unlock! pump-mutex))))
+
+
+(definition protected pump-ports
+  (make-table))
+
+
+(definition protected (require-pump-port uuid)
+  (or (with-pump-mutex
+        (lambda ()
+          (table-ref pump-ports uuid #f)))
+      (throw-connection-broke)))
+
+
+(definition protected (set-pump-port uuid port)
+  (with-pump-mutex
+    (lambda ()
+      (table-set! pump-ports uuid port))))
+
+
+(definition protected (close-pump-port uuid port)
+  (with-pump-mutex
+    (lambda ()
+      (table-clear pump-ports uuid)
+      (close-port port))))
+
+
 (definition (process-pump uuid port (slave? #f))
   (declare (proper-tail-calls))
   (let (loop)
@@ -442,10 +426,7 @@
       (debug-jrm '-pump- 'read message)
       (thread-send (require-remote-switchboard) (values 'pump uuid message))
       (if (eof-object? message)
-          (with-jrm-mutex
-            (lambda ()
-              (table-clear *jrm-pumps* uuid)
-              (close-port port)))
+          (close-pump-port uuid port)
         (loop)))))
 
 
@@ -508,10 +489,8 @@
         ((live?)
          (bind (kind cookie method-name proxy-ior arguments) message
            (catch Connection-Broke
-             (with-jrm-mutex
-               (lambda ()
-                 (let ((port (require-jrm-port uuid)))
-                   (send-remote-message (list 'result cookie live-response) port)))))))
+             (let ((port (require-pump-port uuid)))
+               (send-remote-message (list 'result cookie live-response) port)))))
         ((post)
          (thread-start!
            (new-thread (lambda ()
@@ -523,11 +502,9 @@
                          (let ((reply (execute-remote message)))
                            (debug-jrm 'server 'reply message)
                            (debug-jrm 'server 'reply reply)
-                           (with-jrm-mutex
-                             (lambda ()
-                               (let ((port (require-jrm-port uuid)))
-                                 (when port
-                                   (send-remote-message reply port)))))))
+                           (let ((port (require-pump-port uuid)))
+                             (when port
+                               (send-remote-message reply port)))))
                        (case kind
                          ((exec) 'jrm-exec)
                          ((call) 'jrm-call)))))))))
@@ -536,6 +513,37 @@
 ;;;
 ;;;; Switchboard
 ;;;
+
+
+(definition *jrm-switchboard*
+  #f)
+
+
+(definition public (require-remote-switchboard)
+  (if (not *jrm-switchboard*)
+      (error "Unable to complete operation because the remote switchboard is not running")
+    *jrm-switchboard*))
+
+
+(definition public (start-remote-switchboard)
+  (unless *jrm-switchboard*
+    ;; main thread has load-lock on jazz.debuggee.setup
+    ;; switchboard-thread will need to load jazz.jrm.register.Register
+    (load-unit 'jazz.jrm.register.Register)
+    (set! *jrm-switchboard*
+          (new-thread (lambda ()
+                        (process-switchboard))
+                      'jrm-switchboard))
+    (thread-start! *jrm-switchboard*)))
+
+
+(definition public (flush-remote-switchboard)
+  (when *jrm-switchboard*
+    (let ((invoke-thread (current-thread)))
+      (thread-send (require-remote-switchboard) (values 'flush #f invoke-thread))
+      (catch (Connection-Broke exc
+               #f)
+        (wait-for-result 'flush invoke-thread)))))
 
 
 (definition (process-switchboard)
@@ -589,7 +597,7 @@
                                    (throw exc))))
                            (invocation-broke invoke-thread exc)))
                        (lambda ()
-                         (let ((port (require-jrm-port uuid))
+                         (let ((port (require-pump-port uuid))
                                (message (list kind cookie method-name proxy-ior arguments)))
                            (send-remote-message message port))
                          (when timeout
@@ -742,7 +750,7 @@
          (get-ior~ y)))
 
 
-(definition public (connect-remote proxy)
+(definition public (connect-remote-proxy proxy)
   (let ((ior (get-ior~ proxy)))
     (let ((uuid (get-uuid~ ior))
           (host (get-host~ ior))

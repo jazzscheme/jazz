@@ -394,10 +394,14 @@
   (make-table))
 
 
+(definition protected (find-pump-port uuid)
+  (with-pump-mutex
+    (lambda ()
+      (table-ref pump-ports uuid #f))))
+
+
 (definition protected (require-pump-port uuid)
-  (or (with-pump-mutex
-        (lambda ()
-          (table-ref pump-ports uuid #f)))
+  (or (find-pump-port uuid)
       (throw-connection-broke)))
 
 
@@ -752,11 +756,13 @@
 
 (definition public (connect-remote-proxy proxy)
   (let ((ior (get-ior~ proxy)))
-    (let ((uuid (get-uuid~ ior))
-          (host (get-host~ ior))
-          (service (get-service~ ior)))
-      (assert (uuid=? (connect-uuid (or host localhost) service)
-                      uuid)))))
+    (let ((uuid (get-uuid~ ior)))
+      ;; already connected
+      (unless (find-pump-port uuid)
+        (let ((host (get-host~ ior))
+              (service (get-service~ ior)))
+          (assert (uuid=? (connect-uuid (or host localhost) service)
+                          uuid)))))))
 
 
 ;;;

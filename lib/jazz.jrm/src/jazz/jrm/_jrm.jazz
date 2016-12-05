@@ -239,15 +239,17 @@
         (let ((local-uuid (listening-uuid)))
           (send-remote-message (list 'connect local-uuid) port))
         (let ((uuid (read-port port)))
-          (when (eof-object? uuid)
-            (throw-connection-broke))
-          (thread-start! (new-thread
-                           (lambda ()
-                             (process-pump uuid port slave?))
-                           'jrm-pump))
-          (set-pump-port uuid port)
-          (debug-jrm '-pump- 'started (list host service port))
-          uuid)))))
+          (if (eq? uuid 'already-connected)
+              (error "Already connected to {a} {a}" host service)
+            (when (eof-object? uuid)
+              (throw-connection-broke))
+            (thread-start! (new-thread
+                             (lambda ()
+                               (process-pump uuid port slave?))
+                             'jrm-pump))
+            (set-pump-port uuid port)
+            (debug-jrm '-pump- 'started (list host service port))
+            uuid))))))
 
 
 ;;;
@@ -362,10 +364,13 @@
       (case (car message)
         ((connect)
          (bind (kind uuid) message
-           (set-pump-port uuid port)
-           (let ((local-uuid (listening-uuid)))
-             (write-port port local-uuid))
-           (process-pump uuid port))))))
+           ;; already connected!
+           (if (find-pump-port uuid)
+               (write-port port 'already-connected)
+             (set-pump-port uuid port)
+             (let ((local-uuid (listening-uuid)))
+               (write-port port local-uuid))
+             (process-pump uuid port)))))))
   
   (if remote-problem-handler
       (remote-problem-handler process)

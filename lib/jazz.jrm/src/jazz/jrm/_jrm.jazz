@@ -86,6 +86,7 @@
 (export (jazz.jrm.autoload))
 (import (jazz.jrm.autoload)
         (jazz.jrm.protocol)
+        (jazz.jrm.transmission)
         (jazz.event)
         (jazz.network)
         (jazz.settings)
@@ -237,19 +238,20 @@
         (throw exc))
       (lambda ()
         (let ((local-uuid (listening-uuid)))
-          (send-remote-message (list 'connect local-uuid) port))
+          (send-remote-message (list 'connect local-uuid simulated-protocol) port))
         (let ((uuid (read-port port)))
+          (when (eof-object? uuid)
+            (throw-connection-broke))
           (if (eq? uuid 'already-connected)
               (error "Already connected to {a} {a}" host service)
-            (when (eof-object? uuid)
-              (throw-connection-broke))
-            (thread-start! (new-thread
-                             (lambda ()
-                               (process-pump uuid port slave?))
-                             'jrm-pump))
-            (set-pump-port uuid port)
-            (debug-jrm '-pump- 'started (list host service port))
-            uuid))))))
+            (let ((protocol (read-port port)))
+              (thread-start! (new-thread
+                               (lambda ()
+                                 (process-pump uuid protocol port slave?))
+                               'jrm-pump))
+              (set-pump-port uuid port)
+              (debug-jrm '-pump- 'started (list host service port))
+              uuid)))))))
 
 
 ;;;
@@ -280,7 +282,7 @@
   (let ((timeout (send-timeout)))
     (when timeout
       (output-port-timeout-set! port timeout throw-connection-broke)))
-  (write-port port info))
+  (write-port port (cons (current-seconds) info)))
 
 
 (definition (wait-for-result method-name invoke-thread)
@@ -358,19 +360,21 @@
         info)))
   
   (define (process)
-    (let ((message (receive-remote-message port)))
+    (bind (sent . message) (receive-remote-message port)
       ;; connect-uuid might already have created a pump
       ;; when both processes invoke simultaneously
       (case (car message)
         ((connect)
-         (bind (kind uuid) message
+         (bind (kind uuid protocol) message
            ;; already connected!
            (if (find-pump-port uuid)
                (write-port port 'already-connected)
              (set-pump-port uuid port)
-             (let ((local-uuid (listening-uuid)))
-               (write-port port local-uuid))
-             (process-pump uuid port)))))))
+             (let ((local-uuid (listening-uuid))
+                   (local-protocol simulated-protocol))
+               (write-port port local-uuid)
+               (write-port port local-protocol))
+             (process-pump uuid protocol port)))))))
   
   (if remote-problem-handler
       (remote-problem-handler process)
@@ -423,20 +427,30 @@
       (close-port port))))
 
 
-(definition (process-pump uuid port (slave? #f))
+(definition (process-pump uuid protocol port (slave? #f))
   (declare (proper-tail-calls))
-  (let (loop)
-    (input-port-timeout-set! port +inf.0)
-    (let ((message (catch (connection-problem? exc
-                            (when slave?
-                              (delay-event (lambda () (quit))))
-                            (eof-object))
-                     (read-port port))))
-      (debug-jrm '-pump- 'read message)
-      (thread-send (require-remote-switchboard) (values 'pump uuid message))
-      (if (eof-object? message)
-          (close-pump-port uuid port)
-        (loop)))))
+  (let ((wait-port (open-vector)))
+    (let (loop)
+      (input-port-timeout-set! port +inf.0)
+      (let ((data (catch (connection-problem? exc
+                           (when slave?
+                             (delay-event (lambda () (quit))))
+                           (eof-object))
+                    (read-port port))))
+        ;; simulated protocol
+        (when (and protocol (not (eof-object? data)))
+          (let ((lag protocol)
+                (sent (car data)))
+            (let ((wait (- (+ sent lag) (current-seconds))))
+              (when (> wait 0.)
+                (input-port-timeout-set! wait-port wait)
+                (read wait-port)))))
+        (let ((message (if (eof-object? data) data (cdr data))))
+          (debug-jrm '-pump- 'read message)
+          (thread-send (require-remote-switchboard) (values 'pump uuid message))
+          (if (eof-object? message)
+              (close-pump-port uuid port)
+            (loop)))))))
 
 
 (definition (process-pump-message invocations uuid message)

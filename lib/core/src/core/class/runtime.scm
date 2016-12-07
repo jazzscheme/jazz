@@ -2334,8 +2334,8 @@
 (jazz:define-class-runtime jazz:Call-Site)
 
 
-(define (jazz:new-call-site name identifier parent properties procedure)
-  (jazz:allocate-call-site name identifier parent properties procedure #f #f))
+(define (jazz:new-call-site name identifier id parent properties procedure)
+  (jazz:allocate-call-site name identifier id parent properties procedure #f #f))
 
 
 ;;;

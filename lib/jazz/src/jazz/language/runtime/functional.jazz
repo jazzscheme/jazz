@@ -350,6 +350,7 @@
   
   (slot name       accessors generate)
   (slot identifier accessors generate)
+  (slot id         accessors generate)
   (slot parent     accessors generate)
   (slot properties accessors generate)
   (slot procedure  accessors generate)
@@ -5878,6 +5879,22 @@
 ;;;
 
 
+(definition protected siteids <vector>
+  (make-vector 256 #f))
+
+
+(definition public inline (id->site id <fx>) <Call-Site>
+  (vector-ref siteids id))
+
+
+(definition next-site-id <fx>
+  0)
+
+(definition (next-site-id!) <fx>
+  (prog1 next-site-id
+    (increase! next-site-id)))
+
+
 (definition call-sites <table>
   (make-table test: eq?))
 
@@ -5891,8 +5908,10 @@
 (definition public (register-site pathname parent-pathname properties)
   (let ((name (car pathname))
         (identifier (apply compose-identifier pathname))
+        (id (next-site-id!))
         (parent (and (not-null? parent-pathname) (apply compose-identifier parent-pathname))))
-    (let ((site (new-call-site name identifier parent properties (lambda (site thunk) (thunk)))))
+    (let ((site (new-call-site name identifier id parent properties (lambda (site thunk) (thunk)))))
+      (vector-set! siteids id site)
       (table-set! call-sites identifier site)
       (when site-callback
         (site-callback site))

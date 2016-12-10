@@ -1377,6 +1377,7 @@
 (native jazz:thread-continuation)
 (native jazz:pristine-thread-continuation)
 (native jazz:make-thread-group)
+(native jazz:thread-mutexes)
 (native jazz:mutex?)
 (native jazz:make-mutex)
 (native jazz:mutex-name)

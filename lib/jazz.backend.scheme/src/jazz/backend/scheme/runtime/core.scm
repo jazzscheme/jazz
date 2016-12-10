@@ -1483,7 +1483,16 @@
             (if (%%not (%%eqv? (##vector-ref cont 0) 0))
                 cont
               #f))
-        #f)))
+        #f))
+    
+    
+    (define (jazz:thread-mutexes thread)
+      (declare (not interrupts-enabled))
+      (let ((mutexes '()))
+        (let iter ((mutex (%%vector-ref thread 2)) (mutexes '()))
+             (if (%%eq? mutex thread)
+                 mutexes
+               (iter (%%vector-ref mutex 2) (cons mutex mutexes)))))))
   
   (else))
 

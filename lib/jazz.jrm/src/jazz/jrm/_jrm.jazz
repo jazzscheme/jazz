@@ -245,13 +245,14 @@
           (if (eq? uuid 'already-connected)
               (error "Already connected to {a} {a}" host service)
             (let ((protocol (read-port port)))
-              (thread-start! (new-thread
-                               (lambda ()
-                                 (process-pump uuid protocol port slave?))
-                               'jrm-pump))
-              (set-pump-port uuid port)
-              (debug-jrm '-pump- 'started (list host service port))
-              uuid)))))))
+              (let ((connection (new Pump-Connection port protocol)))
+                (thread-start! (new-thread
+                                 (lambda ()
+                                   (process-pump uuid connection port slave?))
+                                 'jrm-pump))
+                (setup-pump-connection uuid connection)
+                (debug-jrm '-pump- 'started (list host service port))
+                uuid))))))))
 
 
 ;;;
@@ -367,14 +368,15 @@
         ((connect)
          (bind (kind uuid protocol) message
            ;; already connected!
-           (if (find-pump-port uuid)
+           (if (find-pump-connection uuid)
                (write-port port 'already-connected)
-             (set-pump-port uuid port)
-             (let ((local-uuid (listening-uuid))
-                   (local-protocol simulated-protocol))
-               (write-port port local-uuid)
-               (write-port port local-protocol))
-             (process-pump uuid protocol port)))))))
+             (let ((connection (new Pump-Connection port simulated-protocol)))
+               (setup-pump-connection uuid connection)
+               (let ((local-uuid (listening-uuid))
+                     (local-protocol simulated-protocol))
+                 (write-port port local-uuid)
+                 (write-port port local-protocol))
+               (process-pump uuid connection port))))))))
   
   (if remote-problem-handler
       (remote-problem-handler process)
@@ -384,6 +386,18 @@
 ;;;
 ;;;; Pump
 ;;;
+
+
+(class Pump-Connection extends Object
+  
+  
+  (slot port     getter generate)
+  (slot protocol accessors generate)
+  
+  
+  (method override (initialize port protocol)
+    (set! port~self port)
+    (set! protocol~self protocol)))
 
 
 (definition pump-mutex
@@ -399,35 +413,39 @@
       (mutex-unlock! pump-mutex))))
 
 
-(definition protected pump-ports
+(definition protected pump-connections
   (make-table))
 
 
-(definition protected (find-pump-port uuid)
+(definition protected (find-pump-connection uuid)
   (with-pump-mutex
     (lambda ()
-      (table-ref pump-ports uuid #f))))
+      (table-ref pump-connections uuid #f))))
 
 
-(definition protected (require-pump-port uuid)
-  (or (find-pump-port uuid)
+(definition protected (require-pump-connection uuid)
+  (or (find-pump-connection uuid)
       (throw-connection-broke)))
 
 
-(definition protected (set-pump-port uuid port)
-  (with-pump-mutex
-    (lambda ()
-      (table-set! pump-ports uuid port))))
+(definition protected (require-pump-port uuid)
+  (get-port~ (require-pump-connection uuid)))
 
 
-(definition protected (close-pump-port uuid port)
+(definition protected (setup-pump-connection uuid connection)
   (with-pump-mutex
     (lambda ()
-      (table-clear pump-ports uuid)
+      (table-set! pump-connections uuid connection))))
+
+
+(definition protected (close-pump-connection uuid port)
+  (with-pump-mutex
+    (lambda ()
+      (table-clear pump-connections uuid)
       (close-port port))))
 
 
-(definition (process-pump uuid protocol port (slave? #f))
+(definition (process-pump uuid connection port (slave? #f))
   (declare (proper-tail-calls))
   (let ((wait-port (open-vector)))
     (let (loop)
@@ -438,18 +456,19 @@
                            (eof-object))
                     (read-port port))))
         ;; simulated protocol
-        (when (and protocol (not (eof-object? data)))
-          (let ((lag protocol)
-                (sent (car data)))
-            (let ((wait (- (+ sent lag) (current-seconds))))
-              (when (> wait 0.)
-                (input-port-timeout-set! wait-port wait)
-                (read wait-port)))))
+        (let ((protocol (get-protocol~ connection)))
+          (when (and protocol (not (eof-object? data)))
+            (let ((lag protocol)
+                  (sent (car data)))
+              (let ((wait (- (+ sent lag) (current-seconds))))
+                (when (> wait 0.)
+                  (input-port-timeout-set! wait-port wait)
+                  (read wait-port))))))
         (let ((message (if (eof-object? data) data (cdr data))))
           (debug-jrm '-pump- 'read message)
           (thread-send (require-remote-switchboard) (values 'pump uuid message))
           (if (eof-object? message)
-              (close-pump-port uuid port)
+              (close-pump-connection uuid port)
             (loop)))))))
 
 
@@ -777,7 +796,7 @@
   (let ((ior (get-ior~ proxy)))
     (let ((uuid (get-uuid~ ior)))
       ;; already connected
-      (unless (find-pump-port uuid)
+      (unless (find-pump-connection uuid)
         (let ((host (get-host~ ior))
               (service (get-service~ ior)))
           (assert (uuid=? (connect-uuid (or host localhost) service)

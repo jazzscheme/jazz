@@ -237,22 +237,25 @@
             (close-port port)))
         (throw exc))
       (lambda ()
-        (let ((local-uuid (listening-uuid)))
-          (send-remote-message (list 'connect local-uuid simulated-protocol) port))
-        (let ((uuid (read-port port)))
-          (when (eof-object? uuid)
-            (throw-connection-broke))
-          (if (eq? uuid 'already-connected)
-              (error "Already connected to {a} {a}" host service)
-            (let ((protocol (read-port port)))
-              (let ((connection (new Pump-Connection port protocol)))
-                (thread-start! (new-thread
-                                 (lambda ()
-                                   (process-pump uuid connection port slave?))
-                                 'jrm-pump))
-                (setup-pump-connection uuid connection)
-                (debug-jrm '-pump- 'started (list host service port))
-                uuid))))))))
+        (let ((local-uuid (listening-uuid))
+              (before (current-seconds)))
+          (send-remote-message (list 'connect local-uuid simulated-protocol) port)
+          (let ((uuid (read-port port)))
+            (when (eof-object? uuid)
+              (throw-connection-broke))
+            (if (eq? uuid 'already-connected)
+                (error "Already connected to {a} {a}" host service)
+              (let ((protocol (read-port port)))
+                (let ((lag (- (current-seconds) before)))
+                  (write-port port 'handshake)
+                  (let ((connection (new Pump-Connection port protocol lag)))
+                    (thread-start! (new-thread
+                                     (lambda ()
+                                       (process-pump uuid connection port slave?))
+                                     'jrm-pump))
+                    (setup-pump-connection uuid connection)
+                    (debug-jrm '-pump- 'started (list host service port))
+                    uuid))))))))))
 
 
 ;;;
@@ -370,13 +373,16 @@
            ;; already connected!
            (if (find-pump-connection uuid)
                (write-port port 'already-connected)
-             (let ((connection (new Pump-Connection port protocol)))
-               (setup-pump-connection uuid connection)
                (let ((local-uuid (listening-uuid))
-                     (local-protocol simulated-protocol))
+                     (local-protocol simulated-protocol)
+                     (before (current-seconds)))
                  (write-port port local-uuid)
-                 (write-port port local-protocol))
-               (process-pump uuid connection port))))))))
+                 (write-port port local-protocol)
+                 (assert (eq? (read-port port) 'handshake)
+                   (let ((lag (- (current-seconds) before)))
+                     (let ((connection (new Pump-Connection port protocol lag)))
+                       (setup-pump-connection uuid connection)
+                       (process-pump uuid connection port)))))))))))
   
   (if remote-problem-handler
       (remote-problem-handler process)
@@ -393,11 +399,13 @@
   
   (slot port     getter generate)
   (slot protocol accessors generate)
+  (slot lag      accessors generate)
   
   
-  (method override (initialize port protocol)
+  (method override (initialize port protocol lag)
     (set! port~self port)
-    (set! protocol~self protocol)))
+    (set! protocol~self protocol)
+    (set! lag~self lag)))
 
 
 (definition pump-mutex

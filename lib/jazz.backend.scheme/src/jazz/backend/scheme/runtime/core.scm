@@ -482,6 +482,8 @@
   (gambit
     (define jazz:open-tcp-client open-tcp-client)
     (define jazz:open-tcp-server open-tcp-server)
+    (define jazz:tcp-client-self-socket-info tcp-client-self-socket-info)
+    (define jazz:tcp-client-peer-socket-info tcp-client-peer-socket-info)
     (define jazz:tcp-server-socket-info tcp-server-socket-info)
     
     (define (jazz:call-with-tcp-client settings proc)

@@ -140,86 +140,7 @@
 
 
 ;;;
-;;;; Server
-;;;
-
-
-(definition Remote-Listener-Host
-  localhost)
-
-(definition Remote-Listener-Service
-  'any)
-
-
-(definition remote-listener
-  #f)
-
-
-(definition public (get-remote-listener)
-  remote-listener)
-
-(definition public (set-remote-listener server)
-  (set! remote-listener server))
-
-
-(definition public (require-remote-listener)
-  (if (not remote-listener)
-      (error "Unable to complete operation because the remote listener is not running")
-    remote-listener))
-
-
-(definition public (listen-parameter)
-  (host/service-parameter "listen" 'listen (values #f #f #f)))
-
-
-(definition public (host/service-parameter arg setting (default (unspecified)))
-  (get-parameter arg parse-host/service setting parse-host/service default))
-
-
-(definition public (start-remote-listener (host: host #f) (service: service #f) (alternate-service: alternate-service #f))
-  (unless remote-listener
-    (receive (listen-host listen-service listen-alternate-service) (listen-parameter)
-      (let ((host (or host listen-host Remote-Listener-Host))
-            (service (or service listen-service Remote-Listener-Service))
-            (alternate-service (or alternate-service listen-alternate-service)))
-        (let ((server (new Remote-Listener host: host service: service alternate-service: alternate-service)))
-          (start~ server)
-          (set-remote-listener server)
-          (start-remote-switchboard))))))
-
-
-(definition public (stop-remote-listener)
-  (when remote-listener
-    (stop~ remote-listener)
-    (set-remote-listener #f)))
-
-
-;;;
-;;;; Liveliness
-;;;
-
-
-(definition public live-timeout
-  0.5)
-
-(definition live-request
-  'live?)
-
-(definition live-response
-  'alive)
-
-
-(definition package (remote-proxy-live? remote-proxy)
-  (catch (Connection-Broke exc
-           #f)
-    (parameterize ((send-timeout live-timeout)
-                   (receive-timeout live-timeout))
-      (let ((result (invoke-remote 'live? 'live? remote-proxy '())))
-        (eq? result live-response)))))
-
-
-;;;
-;;;; Connection
+;;;; Connect
 ;;;
 
 
@@ -238,110 +159,30 @@
         (throw exc))
       (lambda ()
         (let ((local-uuid (listening-uuid))
+              (local-title (current-process-title))
               (before (current-seconds)))
-          (send-remote-message (list 'connect local-uuid simulated-protocol) port)
+          (send-remote-message (list 'connect local-uuid local-title simulated-protocol) port)
           (let ((uuid (read-port port)))
             (when (eof-object? uuid)
               (throw-connection-broke))
             (if (eq? uuid 'already-connected)
                 (error "Already connected to {a} {a}" host service)
-              (let ((protocol (read-port port)))
-                (let ((lag (- (current-seconds) before)))
-                  (write-port port 'handshake)
-                  (let ((connection (new Pump-Connection port protocol lag)))
-                    (thread-start! (new-thread
-                                     (lambda ()
-                                       (process-pump uuid connection port slave?))
-                                     'jrm-pump))
-                    (setup-pump-connection uuid connection)
-                    (debug-jrm '-pump- 'started (list host service port))
-                    uuid))))))))))
+              (let ((title (read-port port)))
+                (let ((protocol (read-port port)))
+                  (let ((lag (- (current-seconds) before)))
+                    (write-port port 'handshake)
+                    (let ((connection (new Remote-Connection port title protocol lag)))
+                      (thread-start! (new-thread
+                                       (lambda ()
+                                         (process-pump uuid connection port slave?))
+                                       'jrm-pump))
+                      (setup-remote-connection uuid connection)
+                      (debug-jrm '-pump- 'started (list host service port))
+                      uuid)))))))))))
 
 
 ;;;
-;;;; Client
-;;;
-
-
-(definition public send-timeout
-  (make-parameter 2))
-
-(definition public receive-timeout
-  (make-parameter 10))
-
-
-(definition public (post-remote method-name remote-proxy . arguments)
-  (invoke-remote 'post method-name remote-proxy arguments))
-
-
-(definition public (exec-remote method-name remote-proxy . arguments)
-  (invoke-remote 'exec method-name remote-proxy arguments))
-
-
-(definition public (call-remote method-name remote-proxy . arguments)
-  (invoke-remote 'call method-name remote-proxy arguments))
-
-
-(definition (send-remote-message info port)
-  (let ((timeout (send-timeout)))
-    (when timeout
-      (output-port-timeout-set! port timeout throw-connection-broke)))
-  (write-port port (cons (current-seconds) info)))
-
-
-(definition (wait-for-result method-name invoke-thread)
-  (define (skip-to-message)
-    (declare (proper-tail-calls))
-    (let (iter)
-      (let ((next (thread-mailbox-next)))
-        (cond ((and (pair? next) (eq? (car next) *jrm-marker*))
-               (thread-mailbox-extract-and-rewind)
-               (cdr next))
-              (else
-               (iter))))))
-  
-  (let ((message (skip-to-message)))
-    (debug-jrm 'client 'read (list method-name (object->serial invoke-thread)))
-    (debug-jrm 'client 'read message)
-    (bind (kind cookie result) message
-      (case kind
-        ((result)
-         result)
-        ((broke)
-         (throw-connection-broke))
-        ((error)
-         (error "Remote error while executing {s}: {a}" method-name result))))))
-
-
-;; quick hack to improve
-(definition public post-problem-handler
-  (make-parameter #f))
-
-
-(definition (invoke-remote kind method-name remote-proxy arguments)
-  (define (make-absolute-timeout timeout)
-    (+ (current-seconds) timeout))
-  
-  (let ((proxy-ior (proxy->ior remote-proxy))
-        (invoke-thread (current-thread))
-        (post-problem-handler (post-problem-handler)))
-    (let ((uuid (get-uuid~ proxy-ior))
-          (cookie (object->serial invoke-thread))
-          (timeout (and (neq? kind 'post) (make-absolute-timeout (receive-timeout)))))
-      (debug-jrm 'client 'send (list kind cookie method-name (get-ior~ remote-proxy) (and *debug-arguments?* arguments)))
-      (thread-send (require-remote-switchboard) (values 'invoke uuid (values invoke-thread post-problem-handler timeout kind method-name proxy-ior arguments)))
-      (case kind
-        ((post)
-         (unspecified))
-        ((call live?)
-         (wait-for-result method-name invoke-thread))
-        ((exec)
-         (wait-for-result method-name invoke-thread)
-         (unspecified))))))
-
-
-;;;
-;;;; Remote
+;;;; Accept
 ;;;
 
 
@@ -353,7 +194,7 @@
   (set! remote-problem-handler problem-handler))
 
 
-(definition package (connect-remote port)
+(definition package (accept-remote port)
   (define (receive-remote-message port)
     (let ((timeout (receive-timeout)))
       (when timeout
@@ -369,19 +210,21 @@
       ;; when both processes invoke simultaneously
       (case (car message)
         ((connect)
-         (bind (kind uuid protocol) message
+         (bind (kind uuid title protocol) message
            ;; already connected!
-           (if (find-pump-connection uuid)
+           (if (find-remote-connection uuid)
                (write-port port 'already-connected)
                (let ((local-uuid (listening-uuid))
+                     (local-title (current-process-title))
                      (local-protocol simulated-protocol)
                      (before (current-seconds)))
                  (write-port port local-uuid)
+                 (write-port port local-title)
                  (write-port port local-protocol)
                  (assert (eq? (read-port port) 'handshake)
                    (let ((lag (- (current-seconds) before)))
-                     (let ((connection (new Pump-Connection port protocol lag)))
-                       (setup-pump-connection uuid connection)
+                     (let ((connection (new Remote-Connection port title protocol lag)))
+                       (setup-remote-connection uuid connection)
                        (process-pump uuid connection port)))))))))))
   
   (if remote-problem-handler
@@ -390,67 +233,80 @@
 
 
 ;;;
-;;;; Pump
+;;;; Connection
 ;;;
 
 
-(class Pump-Connection extends Object
+(class Remote-Connection extends Object
   
   
   (slot port     getter generate)
+  (slot title    getter generate)
   (slot protocol accessors generate)
   (slot lag      accessors generate)
   
   
-  (method override (initialize port protocol lag)
+  (method override (initialize port title protocol lag)
     (set! port~self port)
+    (set! title~self title)
     (set! protocol~self protocol)
-    (set! lag~self lag)))
+    (set! lag~self lag))
+  
+  
+  (method override (print output readably)
+    (print-unreadable self output
+      (lambda (output)
+        (format output "{a}" title)))))
 
 
-(definition pump-mutex
-  (make-mutex 'pump))
+(definition connections-mutex
+  (make-mutex 'connections))
 
 
-(definition (with-pump-mutex thunk)
+(definition (with-connections-mutex thunk)
   (dynamic-wind
     (lambda ()
-      (mutex-lock! pump-mutex))
+      (mutex-lock! connections-mutex))
     thunk
     (lambda ()
-      (mutex-unlock! pump-mutex))))
+      (mutex-unlock! connections-mutex))))
 
 
-(definition protected pump-connections
+(definition protected remote-connections
   (make-table))
 
 
-(definition protected (find-pump-connection uuid)
-  (with-pump-mutex
+(definition protected (find-remote-connection uuid)
+  (with-connections-mutex
     (lambda ()
-      (table-ref pump-connections uuid #f))))
+      (table-ref remote-connections uuid #f))))
 
 
-(definition protected (require-pump-connection uuid)
-  (or (find-pump-connection uuid)
+(definition protected (require-remote-connection uuid)
+  (or (find-remote-connection uuid)
       (throw-connection-broke)))
 
 
-(definition protected (require-pump-port uuid)
-  (get-port~ (require-pump-connection uuid)))
+(definition protected (require-connection-port uuid)
+  (get-port~ (require-remote-connection uuid)))
 
 
-(definition protected (setup-pump-connection uuid connection)
-  (with-pump-mutex
+(definition protected (setup-remote-connection uuid connection)
+  (with-connections-mutex
     (lambda ()
-      (table-set! pump-connections uuid connection))))
+      (table-set! remote-connections uuid connection))))
 
 
-(definition protected (close-pump-connection uuid port)
-  (with-pump-mutex
+(definition protected (close-remote-connection uuid port)
+  (with-connections-mutex
     (lambda ()
-      (table-clear pump-connections uuid)
+      (table-clear remote-connections uuid)
       (close-port port))))
+
+
+;;;
+;;;; Pump
+;;;
 
 
 (definition (process-pump uuid connection port (slave? #f))
@@ -476,7 +332,7 @@
           (debug-jrm '-pump- 'read message)
           (thread-send (require-remote-switchboard) (values 'pump uuid message))
           (if (eof-object? message)
-              (close-pump-connection uuid port)
+              (close-remote-connection uuid port)
             (loop)))))))
 
 
@@ -539,7 +395,7 @@
         ((live?)
          (bind (kind cookie method-name proxy-ior arguments) message
            (catch Connection-Broke
-             (let ((port (require-pump-port uuid)))
+             (let ((port (require-connection-port uuid)))
                (send-remote-message (list 'result cookie live-response) port)))))
         ((post)
          (thread-start!
@@ -552,9 +408,8 @@
                          (let ((reply (execute-remote message)))
                            (debug-jrm 'server 'reply message)
                            (debug-jrm 'server 'reply reply)
-                           (let ((port (require-pump-port uuid)))
-                             (when port
-                               (send-remote-message reply port)))))
+                           (let ((port (require-connection-port uuid)))
+                             (send-remote-message reply port))))
                        (case kind
                          ((exec) 'jrm-exec)
                          ((call) 'jrm-call)))))))))
@@ -647,7 +502,7 @@
                                    (throw exc))))
                            (invocation-broke invoke-thread exc)))
                        (lambda ()
-                         (let ((port (require-pump-port uuid))
+                         (let ((port (require-connection-port uuid))
                                (message (list kind cookie method-name proxy-ior arguments)))
                            (send-remote-message message port))
                          (when timeout
@@ -664,6 +519,167 @@
 
 
 ;;;
+;;;; Liveliness
+;;;
+
+
+(definition public live-timeout
+  0.5)
+
+(definition live-request
+  'live?)
+
+(definition live-response
+  'alive)
+
+
+(definition package (remote-proxy-live? remote-proxy)
+  (catch (Connection-Broke exc
+           #f)
+    (parameterize ((send-timeout live-timeout)
+                   (receive-timeout live-timeout))
+      (let ((result (invoke-remote 'live? 'live? remote-proxy '())))
+        (eq? result live-response)))))
+
+
+;;;
+;;;; Server
+;;;
+
+
+(definition Remote-Listener-Host
+  localhost)
+
+(definition Remote-Listener-Service
+  'any)
+
+
+(definition remote-listener
+  #f)
+
+
+(definition public (get-remote-listener)
+  remote-listener)
+
+(definition public (set-remote-listener server)
+  (set! remote-listener server))
+
+
+(definition public (require-remote-listener)
+  (if (not remote-listener)
+      (error "Unable to complete operation because the remote listener is not running")
+    remote-listener))
+
+
+(definition public (listen-parameter)
+  (host/service-parameter "listen" 'listen (values #f #f #f)))
+
+
+(definition public (host/service-parameter arg setting (default (unspecified)))
+  (get-parameter arg parse-host/service setting parse-host/service default))
+
+
+(definition public (start-remote-listener (host: host #f) (service: service #f) (alternate-service: alternate-service #f))
+  (unless remote-listener
+    (receive (listen-host listen-service listen-alternate-service) (listen-parameter)
+      (let ((host (or host listen-host Remote-Listener-Host))
+            (service (or service listen-service Remote-Listener-Service))
+            (alternate-service (or alternate-service listen-alternate-service)))
+        (let ((server (new Remote-Listener host: host service: service alternate-service: alternate-service)))
+          (start~ server)
+          (set-remote-listener server)
+          (start-remote-switchboard))))))
+
+
+(definition public (stop-remote-listener)
+  (when remote-listener
+    (stop~ remote-listener)
+    (set-remote-listener #f)))
+
+
+;;;
+;;;; Client
+;;;
+
+
+(definition public send-timeout
+  (make-parameter 2))
+
+(definition public receive-timeout
+  (make-parameter 10))
+
+
+(definition public (post-remote method-name remote-proxy . arguments)
+  (invoke-remote 'post method-name remote-proxy arguments))
+
+
+(definition public (exec-remote method-name remote-proxy . arguments)
+  (invoke-remote 'exec method-name remote-proxy arguments))
+
+
+(definition public (call-remote method-name remote-proxy . arguments)
+  (invoke-remote 'call method-name remote-proxy arguments))
+
+
+(definition (send-remote-message info port)
+  (let ((timeout (send-timeout)))
+    (when timeout
+      (output-port-timeout-set! port timeout throw-connection-broke)))
+  (write-port port (cons (current-seconds) info)))
+
+
+(definition (wait-for-result method-name invoke-thread)
+  (define (skip-to-message)
+    (declare (proper-tail-calls))
+    (let (iter)
+      (let ((next (thread-mailbox-next)))
+        (cond ((and (pair? next) (eq? (car next) *jrm-marker*))
+               (thread-mailbox-extract-and-rewind)
+               (cdr next))
+              (else
+               (iter))))))
+  
+  (let ((message (skip-to-message)))
+    (debug-jrm 'client 'read (list method-name (object->serial invoke-thread)))
+    (debug-jrm 'client 'read message)
+    (bind (kind cookie result) message
+      (case kind
+        ((result)
+         result)
+        ((broke)
+         (throw-connection-broke))
+        ((error)
+         (error "Remote error while executing {s}: {a}" method-name result))))))
+
+
+;; quick hack to improve
+(definition public post-problem-handler
+  (make-parameter #f))
+
+
+(definition (invoke-remote kind method-name remote-proxy arguments)
+  (define (make-absolute-timeout timeout)
+    (+ (current-seconds) timeout))
+  
+  (let ((proxy-ior (get-ior~ remote-proxy))
+        (invoke-thread (current-thread))
+        (post-problem-handler (post-problem-handler)))
+    (let ((uuid (get-uuid~ proxy-ior))
+          (cookie (object->serial invoke-thread))
+          (timeout (and (neq? kind 'post) (make-absolute-timeout (receive-timeout)))))
+      (debug-jrm 'client 'send (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
+      (thread-send (require-remote-switchboard) (values 'invoke uuid (values invoke-thread post-problem-handler timeout kind method-name proxy-ior arguments)))
+      (case kind
+        ((post)
+         (unspecified))
+        ((call live?)
+         (wait-for-result method-name invoke-thread))
+        ((exec)
+         (wait-for-result method-name invoke-thread)
+         (unspecified))))))
+
+
+;;;
 ;;;; IOR
 ;;;
 
@@ -677,14 +693,12 @@
 
 
 (definition public (ior=? x y)
-  (and (host=? (get-host~ x) (get-host~ y))
-       (service=? (get-service~ x) (get-service~ y))
+  (and (uuid=? (get-uuid~ x) (get-uuid~ y))
        (reference=? (get-reference~ x) (get-reference~ y))))
 
 
 (definition public (ior-server=? x y)
-  (and (host=? (get-host~ x) (get-host~ y))
-       (service=? (get-service~ x) (get-service~ y))))
+  (uuid=? (get-uuid~ x) (get-uuid~ y)))
 
 
 (definition public (host=? x y)
@@ -746,32 +760,6 @@
          #f)))
 
 
-(definition public (proxy->ior proxy)
-  (define (local->ior local-proxy)
-    (define (local-proxy->reference local-proxy)
-      (if (proxy=? local-proxy (get-local-register))
-          #f
-        (let ((object (get-object~ local-proxy)))
-          (gc-protect object)
-          (object->serial object))))
-    
-    (let ((server (require-remote-listener)))
-      (new IOR
-        (listening-uuid)
-        (listening-host~ server)
-        (listening-port~ server)
-        (serialize-runtime-reference (stub-reference~ local-proxy))
-        (local-proxy->reference local-proxy)
-        (proxy-values~ local-proxy))))
-  
-  (define (remote->ior proxy)
-    (get-ior~ proxy))
-  
-  (if (remote-proxy? proxy)
-      (remote->ior proxy)
-    (local->ior proxy)))
-
-
 ;;;
 ;;;; Local Proxy
 ;;;
@@ -800,17 +788,6 @@
          (get-ior~ y)))
 
 
-(definition public (connect-remote-proxy proxy)
-  (let ((ior (get-ior~ proxy)))
-    (let ((uuid (get-uuid~ ior)))
-      ;; already connected
-      (unless (find-pump-connection uuid)
-        (let ((host (get-host~ ior))
-              (service (get-service~ ior)))
-          (assert (uuid=? (connect-uuid (or host localhost) service)
-                          uuid)))))))
-
-
 ;;;
 ;;;; Register
 ;;;
@@ -826,18 +803,18 @@
   *local-register*)
 
 
-(definition public (get-remote-register remote-proxy)
-  (let ((ior (get-ior~ remote-proxy)))
-    (new-remote-register (get-uuid~ ior) (get-host~ ior) (get-service~ ior))))
-
-
-(definition public (new-remote-register uuid host port)
-  (ior->proxy (new IOR uuid host port (serialize-runtime-reference (reference Register-Stub)) #f '())))
+(definition public (new-remote-register uuid)
+  (ior->proxy (new IOR uuid (serialize-runtime-reference (reference Register-Stub)) #f '())))
 
 
 (definition public (connect-remote-register host port (slave? #f))
   (let ((uuid (connect-uuid host port slave?)))
-    (new-remote-register uuid host port)))
+    (new-remote-register uuid)))
+
+
+(definition public (get-remote-register remote-proxy)
+  (let ((ior (get-ior~ remote-proxy)))
+    (new-remote-register (get-uuid~ ior))))
 
 
 ;;;
@@ -873,16 +850,13 @@
         (gc-protect object)
         (object->serial object))))
   
-  (let ((server (require-remote-listener)))
-    (let ((ior
-            (new IOR
-              (listening-uuid)
-              (listening-host~ server)
-              (listening-port~ server)
-              (serialize-runtime-reference (stub-reference~ proxy))
-              (local-proxy->reference)
-              (proxy-values~ proxy))))
-      (serialize-object (class-of proxy) (encode-ior ior)))))
+  (let ((ior
+          (new IOR
+            (listening-uuid)
+            (serialize-runtime-reference (stub-reference~ proxy))
+            (local-proxy->reference)
+            (proxy-values~ proxy))))
+    (serialize-object (class-of proxy) (encode-ior ior))))
 
 
 (definition protected (marshall-remote-proxy proxy)
@@ -891,8 +865,6 @@
 
 (definition (encode-ior ior)
   (vector (get-uuid~ ior)
-          (get-host~ ior)
-          (get-service~ ior)
           (get-stub-interface~ ior)
           (get-reference~ ior)
           (get-values~ ior)))
@@ -912,9 +884,7 @@
     (vector-ref content 0)
     (vector-ref content 1)
     (vector-ref content 2)
-    (vector-ref content 3)
-    (vector-ref content 4)
-    (vector-ref content 5)))
+    (vector-ref content 3)))
 
 
 ;;;

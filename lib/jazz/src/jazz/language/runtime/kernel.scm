@@ -911,6 +911,8 @@
 
 (native jazz:open-tcp-client)
 (native jazz:open-tcp-server)
+(native jazz:tcp-client-self-socket-info)
+(native jazz:tcp-client-peer-socket-info)
 (native jazz:tcp-server-socket-info)
 (native jazz:call-with-tcp-client)
 

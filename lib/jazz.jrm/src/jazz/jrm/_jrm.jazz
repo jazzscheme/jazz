@@ -144,7 +144,7 @@
 ;;;
 
 
-(definition public (connect-uuid host service (slave? #f))
+(definition public (connect-remote host service (slave? #f))
   (debug-jrm '-pump- 'start (list host service))
   (let ((port (open-tcp-client (list server-address: host port-number: service readtable: jazz-readtable))))
     (with-exception-catcher
@@ -160,25 +160,38 @@
       (lambda ()
         (let ((local-uuid (listening-uuid))
               (local-title (current-process-title))
+              (local-listener (and remote-listener (listening-port~ remote-listener)))
               (before (current-seconds)))
-          (send-remote-message (list 'connect local-uuid local-title simulated-protocol) port)
+          (send-remote-message (list 'connect local-uuid local-title local-listener simulated-protocol) port)
           (let ((uuid (read-port port)))
             (when (eof-object? uuid)
               (throw-connection-broke))
             (if (eq? uuid 'already-connected)
                 (error "Already connected to {a} {a}" host service)
               (let ((title (read-port port)))
-                (let ((protocol (read-port port)))
-                  (let ((lag (- (current-seconds) before)))
-                    (write-port port 'handshake)
-                    (let ((connection (new Remote-Connection port title protocol lag)))
-                      (thread-start! (new-thread
-                                       (lambda ()
-                                         (process-pump uuid connection port slave?))
-                                       'jrm-pump))
-                      (setup-remote-connection uuid connection)
-                      (debug-jrm '-pump- 'started (list host service port))
-                      uuid)))))))))))
+                (let ((listener (read-port port)))
+                  (let ((protocol (read-port port)))
+                    (let ((lag (- (current-seconds) before)))
+                      (write-port port 'handshake)
+                      (let ((connection (new Remote-Connection port title listener protocol lag)))
+                        (thread-start! (new-thread
+                                         (lambda ()
+                                           (process-pump uuid connection port slave?))
+                                         'jrm-pump))
+                        (setup-remote-connection uuid connection)
+                        (debug-jrm '-pump- 'started (list host service port))
+                        uuid))))))))))))
+
+
+(definition public (connect-remote-proxy info)
+  (bind (proxy host port) info
+    (let ((ior (get-ior~ proxy)))
+      (let ((uuid (get-uuid~ ior)))
+        ;; already connected
+        (unless (find-remote-connection uuid)
+          (assert (uuid=? (connect-remote host port)
+                          uuid)))
+        proxy))))
 
 
 ;;;
@@ -206,24 +219,26 @@
   
   (define (process)
     (bind (sent . message) (receive-remote-message port)
-      ;; connect-uuid might already have created a pump
+      ;; connect-remote might already have created a pump
       ;; when both processes invoke simultaneously
       (case (car message)
         ((connect)
-         (bind (kind uuid title protocol) message
+         (bind (kind uuid title listener protocol) message
            ;; already connected!
            (if (find-remote-connection uuid)
                (write-port port 'already-connected)
                (let ((local-uuid (listening-uuid))
                      (local-title (current-process-title))
+                     (local-listener (listening-port~ remote-listener))
                      (local-protocol simulated-protocol)
                      (before (current-seconds)))
                  (write-port port local-uuid)
                  (write-port port local-title)
+                 (write-port port local-listener)
                  (write-port port local-protocol)
                  (assert (eq? (read-port port) 'handshake)
                    (let ((lag (- (current-seconds) before)))
-                     (let ((connection (new Remote-Connection port title protocol lag)))
+                     (let ((connection (new Remote-Connection port title listener protocol lag)))
                        (setup-remote-connection uuid connection)
                        (process-pump uuid connection port)))))))))))
   
@@ -242,13 +257,15 @@
   
   (slot port     getter generate)
   (slot title    getter generate)
+  (slot listener getter generate)
   (slot protocol accessors generate)
   (slot lag      accessors generate)
   
   
-  (method override (initialize port title protocol lag)
+  (method override (initialize port title listener protocol lag)
     (set! port~self port)
     (set! title~self title)
+    (set! listener~self listener)
     (set! protocol~self protocol)
     (set! lag~self lag))
   
@@ -808,13 +825,30 @@
 
 
 (definition public (connect-remote-register host port (slave? #f))
-  (let ((uuid (connect-uuid host port slave?)))
+  (let ((uuid (connect-remote host port slave?)))
     (new-remote-register uuid)))
 
 
 (definition public (get-remote-register remote-proxy)
   (let ((ior (get-ior~ remote-proxy)))
     (new-remote-register (get-uuid~ ior))))
+
+
+(definition public (proxy-connection-info proxy)
+  (if (local-proxy? proxy)
+      (let ((host (or (listening-host~ (get-remote-listener)) "localhost"))
+            (port (listening-port~ (get-remote-listener))))
+        (list proxy host port))
+    (let ((uuid (get-uuid~ (get-ior~ proxy))))
+      (let ((connection (require-remote-connection uuid)))
+        (let ((port (get-port~ connection))
+              (listener (get-listener~ connection)))
+          ;; we cannot use the peer port number because if it was it that connected
+          ;; to us then it will have a distinct port from its process remote listener
+          (assert listener
+            (let ((host (socket-info-address (tcp-client-peer-socket-info port)))
+                  (port listener))
+              (list proxy host port))))))))
 
 
 ;;;

@@ -227,20 +227,20 @@
            ;; already connected!
            (if (find-remote-connection uuid)
                (write-port port 'already-connected)
-               (let ((local-uuid (listening-uuid))
-                     (local-title (current-process-title))
-                     (local-listener (listening-port~ remote-listener))
-                     (local-protocol simulated-protocol)
-                     (before (current-seconds)))
-                 (write-port port local-uuid)
-                 (write-port port local-title)
-                 (write-port port local-listener)
-                 (write-port port local-protocol)
-                 (assert (eq? (read-port port) 'handshake)
-                   (let ((lag (- (current-seconds) before)))
-                     (let ((connection (new Remote-Connection port title listener protocol lag)))
-                       (setup-remote-connection uuid connection)
-                       (process-pump uuid connection port)))))))))))
+             (let ((local-uuid (listening-uuid))
+                   (local-title (current-process-title))
+                   (local-listener (listening-port~ remote-listener))
+                   (local-protocol simulated-protocol)
+                   (before (current-seconds)))
+               (write-port port local-uuid)
+               (write-port port local-title)
+               (write-port port local-listener)
+               (write-port port local-protocol)
+               (assert (eq? (read-port port) 'handshake)
+                 (let ((lag (- (current-seconds) before)))
+                   (let ((connection (new Remote-Connection port title listener protocol lag)))
+                     (setup-remote-connection uuid connection)
+                     (process-pump uuid connection port)))))))))))
   
   (if remote-problem-handler
       (remote-problem-handler process)
@@ -359,85 +359,6 @@
             (loop)))))))
 
 
-(definition (process-pump-message invocations uuid message)
-  (define (dispatch-remote message)
-    (bind (kind cookie method-name proxy-ior arguments) message
-      (debug-jrm 'server 'dispatch (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
-      (let ((local-proxy (ior->proxy proxy-ior)))
-        (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments))))
-  
-  (define (execute-remote message)
-    (bind (kind cookie method-name proxy-ior arguments) message
-      (define (dispatch-result message)
-        (let ((result (dispatch-remote message)))
-          (case kind
-            ((exec) (list 'result cookie (unspecified)))
-            ((call) (list 'result cookie result)))))
-      
-      (if (or (not transmit-exceptions?)
-              (jazz.debuggee:get-controller-debugger))
-          (dispatch-result message)
-        (continuation-capture
-          (lambda (return)
-            (with-exception-handler
-              (lambda (exc)
-                (continuation-capture
-                  (lambda (cont)
-                    (debug-jrm 'server 'exception
-                      (lambda ()
-                        (list method-name
-                              (with-output-to-string ""
-                                (lambda ()
-                                  (display-exception exc)))
-                              (with-output-to-string ""
-                                (lambda ()
-                                  (display-continuation-backtrace cont))))))
-                    (continuation-return return (list 'error cookie (exception-reason exc))))))
-              (lambda ()
-                (dispatch-result message))))))))
-  
-  (define (cleanup-pump-invocations invocations pump-uuid)
-    (table-for-each
-      (lambda (thread rest)
-        (bind (timeout uuid message) rest
-          (when (equal? uuid pump-uuid)
-            (invocation-broke thread 'connection-closed))))
-      invocations))
-  
-  (debug-jrm 'server 'pump message)
-  (if (eof-object? message)
-      (cleanup-pump-invocations invocations uuid)
-    (let ((kind (car message)))
-      (case kind
-        ((error result)
-         (bind (kind cookie result) message
-           (let ((thread (serial->object cookie)))
-             (when (table-ref invocations thread #f)
-               (table-clear invocations thread)
-               (thread-send thread (cons *jrm-marker* message))))))
-        ((live?)
-         (bind (kind cookie method-name proxy-ior arguments) message
-           (catch Connection-Broke
-             (let ((port (require-connection-port uuid)))
-               (send-remote-message (list 'result cookie live-response) port)))))
-        ((post)
-         (thread-start!
-           (new-thread (lambda ()
-                         (dispatch-remote message))
-                       'jrm-post)))
-        ((exec call)
-         (thread-start!
-           (new-thread (lambda ()
-                         (let ((reply (execute-remote message)))
-                           (debug-jrm 'server 'reply message)
-                           (debug-jrm 'server 'reply reply)
-                           (let ((port (require-connection-port uuid)))
-                             (send-remote-message reply port))))
-                       (case kind
-                         ((exec) 'jrm-exec)
-                         ((call) 'jrm-call)))))))))
-
-
 ;;;
 ;;;; Switchboard
 ;;;
@@ -475,25 +396,108 @@
 
 
 (definition (process-switchboard)
-  (define (find-best-timeout invocations)
-    (let ((best-thread #f)
-          (best-timeout +inf.0)
-          (best-message #f))
-      (table-for-each
-        (lambda (thread data)
-          (bind (timeout uuid message) data
-            (when (or (not best-thread)
-                      (> best-timeout timeout))
-              (set! best-thread thread)
-              (set! best-timeout timeout)
-              (set! best-message message))))
-        invocations)
-      (values best-thread best-timeout best-message)))
-  
   (declare (proper-tail-calls))
   (let ((invocations (make-table)))
+    (define (find-best-timeout)
+      (let ((best-thread #f)
+            (best-timeout +inf.0)
+            (best-message #f))
+        (table-for-each
+          (lambda (thread data)
+            (bind (timeout uuid message) data
+              (when (or (not best-thread)
+                        (> best-timeout timeout))
+                (set! best-thread thread)
+                (set! best-timeout timeout)
+                (set! best-message message))))
+          invocations)
+        (values best-thread best-timeout best-message)))
+    
+    (define (process-pump-message uuid message)
+      (define (dispatch-remote message)
+        (bind (kind cookie method-name proxy-ior arguments) message
+          (debug-jrm 'server 'dispatch (list kind cookie method-name proxy-ior (and *debug-arguments?* arguments)))
+          (let ((local-proxy (ior->proxy proxy-ior)))
+            (apply (dispatch (class-of local-proxy) method-name) local-proxy arguments))))
+      
+      (define (execute-remote message)
+        (bind (kind cookie method-name proxy-ior arguments) message
+          (define (dispatch-result message)
+            (let ((result (dispatch-remote message)))
+              (case kind
+                ((exec) (list 'result cookie (unspecified)))
+                ((call) (list 'result cookie result)))))
+          
+          (if (or (not transmit-exceptions?)
+                  (jazz.debuggee:get-controller-debugger))
+              (dispatch-result message)
+            (continuation-capture
+              (lambda (return)
+                (with-exception-handler
+                  (lambda (exc)
+                    (continuation-capture
+                      (lambda (cont)
+                        (debug-jrm 'server 'exception
+                          (lambda ()
+                            (list method-name
+                                  (with-output-to-string ""
+                                    (lambda ()
+                                      (display-exception exc)))
+                                  (with-output-to-string ""
+                                    (lambda ()
+                                      (display-continuation-backtrace cont))))))
+                        (continuation-return return (list 'error cookie (exception-reason exc))))))
+                  (lambda ()
+                    (dispatch-result message))))))))
+      
+      (define (cleanup-pump-invocations invocations pump-uuid)
+        (table-for-each
+          (lambda (thread rest)
+            (bind (timeout uuid message) rest
+              (when (equal? uuid pump-uuid)
+                (invocation-broke thread 'connection-closed))))
+          invocations))
+      
+      (debug-jrm 'server 'pump message)
+      (if (eof-object? message)
+          (cleanup-pump-invocations invocations uuid)
+        (let ((kind (car message)))
+          (case kind
+            ((error result)
+             (bind (kind cookie result) message
+               (let ((thread (serial->object cookie)))
+                 (when (table-ref invocations thread #f)
+                   (table-clear invocations thread)
+                   (thread-send thread (cons *jrm-marker* message))))))
+            ((live?)
+             (bind (kind cookie method-name proxy-ior arguments) message
+               (catch Connection-Broke
+                 (let ((port (require-connection-port uuid)))
+                   (send-remote-message (list 'result cookie live-response) port)))))
+            ((post)
+             (thread-start!
+               (new-thread (lambda ()
+                             (dispatch-remote message))
+                           'jrm-post)))
+            ((exec call)
+             (thread-start!
+               (new-thread (lambda ()
+                             (let ((reply (execute-remote message)))
+                               (debug-jrm 'server 'reply message)
+                               (debug-jrm 'server 'reply reply)
+                               (let ((port (require-connection-port uuid)))
+                                 (send-remote-message reply port))))
+                           (case kind
+                             ((exec) 'jrm-exec)
+                             ((call) 'jrm-call)))))))))
+    
+    (define (invocation-broke thread exception)
+      (debug-jrm 'server 'broke (list thread exception))
+      (let ((cookie (object->serial thread)))
+        (thread-send thread (cons *jrm-marker* (list 'broke cookie exception)))))
+    
     (let (loop)
-      (receive (best-thread best-timeout best-message) (find-best-timeout invocations)
+      (receive (best-thread best-timeout best-message) (find-best-timeout)
         (let ((msg (thread-receive best-timeout (eof-object))))
           (if (eof-object? msg)
               (begin
@@ -502,7 +506,7 @@
             (receive (origin uuid message) msg
               (case origin
                 ((pump)
-                 (process-pump-message invocations uuid message))
+                 (process-pump-message uuid message))
                 ((flush)
                  (let ((timeout 0)
                        (invoke-thread message))
@@ -533,12 +537,6 @@
                 (else
                  (error "Unknown origin: {s}" origin)))))))
       (loop))))
-
-
-(definition (invocation-broke thread exception)
-  (debug-jrm 'server 'broke (list thread exception))
-  (let ((cookie (object->serial thread)))
-    (thread-send thread (cons *jrm-marker* (list 'broke cookie exception)))))
 
 
 ;;;

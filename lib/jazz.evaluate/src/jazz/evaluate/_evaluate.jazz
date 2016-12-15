@@ -65,7 +65,7 @@
     evaluation-mode))
 
 
-(definition public (evaluate-forms syntax str container line col evaluation-mode (file: file #f) (evaluate?: evaluate? #t) (outline?: outline? #t))
+(definition public (evaluate-forms syntax str container line col evaluation-mode (file: file #f) (evaluate?: evaluate? #t) (scripting?: scripting? #f))
   (let ((evaluation-mode (effective-evaluation-mode (or evaluation-mode (find-setting 'jazz.evaluation-mode 'interpret)))))
     (define (toplevel-form? expr)
       (and (pair? (source-code expr))
@@ -102,11 +102,10 @@
             (let ((expression first))
               (receive (kind unit-name access) (parse-toplevel first)
                 (let ((effective-name (if (eq? kind 'script) (gensym) unit-name)))
-                  (unless (eq? kind 'script)
+                  (unless (or (eq? kind 'script) scripting?)
                     (when evaluate?
                       (load-unit effective-name))
-                    (when outline?
-                      (outline-unit effective-name)))
+                    (outline-unit effective-name))
                   (case evaluation-mode
                     ((interpret live)
                      (if (not evaluate?)

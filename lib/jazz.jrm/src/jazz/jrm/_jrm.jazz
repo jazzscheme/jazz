@@ -162,7 +162,7 @@
               (local-title (current-process-title))
               (local-listener (and remote-listener (listening-port~ remote-listener)))
               (before (current-seconds)))
-          (send-remote-message (list 'connect local-uuid local-title local-listener simulated-protocol) port)
+          (write-port port (list 'connect local-uuid local-title local-listener simulated-protocol))
           (let ((message (read-port port)))
             (when (eof-object? message)
               (throw-connection-broke))
@@ -216,7 +216,7 @@
         info)))
   
   (define (process)
-    (bind (sent . message) (receive-remote-message port)
+    (let ((message (receive-remote-message port)))
       ;; connect-remote might already have created a pump
       ;; when both processes invoke simultaneously
       (case (car message)
@@ -250,15 +250,19 @@
 (class Remote-Connection extends Object
   
   
-  (slot port     getter generate)
-  (slot title    getter generate)
-  (slot listener getter generate)
-  (slot protocol accessors generate)
-  (slot lag      accessors generate)
+  (slot port        getter generate)
+  (slot read-mutex  getter generate)
+  (slot write-mutex getter generate)
+  (slot title       getter generate)
+  (slot listener    getter generate)
+  (slot protocol    accessors generate)
+  (slot lag         accessors generate)
   
   
   (method override (initialize port title listener protocol lag)
     (set! port~self port)
+    (set! read-mutex~self (make-mutex 'read))
+    (set! write-mutex~self (make-mutex 'write))
     (set! title~self title)
     (set! listener~self listener)
     (set! protocol~self protocol)
@@ -331,12 +335,11 @@
   (declare (proper-tail-calls))
   (let ((wait-port (open-vector)))
     (let (loop)
-      (input-port-timeout-set! port +inf.0)
       (let ((data (catch (connection-problem? exc
                            (when slave?
                              (delay-event (lambda () (quit))))
                            (eof-object))
-                    (read-port port))))
+                    (read-remote-message connection))))
         ;; simulated protocol
         (let ((protocol (get-protocol~ connection)))
           (when (and protocol (not (eof-object? data)))
@@ -467,8 +470,8 @@
             ((live?)
              (bind (kind cookie method-name proxy-ior arguments) message
                (catch Connection-Broke
-                 (let ((port (require-connection-port uuid)))
-                   (send-remote-message (list 'result cookie live-response) port)))))
+                 (let ((connection (require-remote-connection uuid)))
+                   (send-remote-message (list 'result cookie live-response) connection)))))
             ((post)
              (thread-start!
                (new-thread (lambda ()
@@ -480,8 +483,8 @@
                              (let ((reply (execute-remote message)))
                                (debug-jrm 'server 'reply message)
                                (debug-jrm 'server 'reply reply)
-                               (let ((port (require-connection-port uuid)))
-                                 (send-remote-message reply port))))
+                               (let ((connection (require-remote-connection uuid)))
+                                 (send-remote-message reply connection))))
                            (case kind
                              ((exec) 'jrm-exec)
                              ((call) 'jrm-call)))))))))
@@ -524,9 +527,9 @@
                                    (throw exc))))
                            (invocation-broke invoke-thread exc)))
                        (lambda ()
-                         (let ((port (require-connection-port uuid))
+                         (let ((connection (require-remote-connection uuid))
                                (message (list kind cookie method-name proxy-ior arguments)))
-                           (send-remote-message message port))
+                           (send-remote-message message connection))
                          (when timeout
                            (table-set! invocations invoke-thread (list timeout uuid message))))))))
                 (else
@@ -637,11 +640,22 @@
   (invoke-remote 'call method-name remote-proxy arguments))
 
 
-(definition (send-remote-message info port)
-  (let ((timeout (send-timeout)))
-    (when timeout
-      (output-port-timeout-set! port timeout throw-connection-broke)))
-  (write-port port (cons (current-seconds) info)))
+(definition (read-remote-message connection)
+  (with-read-mutex connection
+    (lambda ()
+      (let ((port (get-port~ connection)))
+        (input-port-timeout-set! port +inf.0)
+        (read-port port)))))
+
+
+(definition (send-remote-message info connection)
+  (with-write-mutex connection
+    (lambda ()
+      (let ((port (get-port~ connection)))
+        (let ((timeout (send-timeout)))
+          (when timeout
+            (output-port-timeout-set! port timeout throw-connection-broke)))
+        (write-port port (cons (current-seconds) info))))))
 
 
 (definition (wait-for-result method-name invoke-thread)
@@ -932,12 +946,30 @@
   {Version 2 0 0})
 
 
+(definition (with-write-mutex connection thunk)
+  (let ((mutex (get-write-mutex~ connection)))
+    (unwind-protect
+        (begin
+          (mutex-lock! mutex)
+          (thunk))
+      (mutex-unlock! mutex))))
+
+
 (definition (write-port port info)
   (with-connection
     (lambda ()
       (write-header *jazz-code* *jazz-version* port)
       (write-data info port)
       (force-output port))))
+
+
+(definition (with-read-mutex connection thunk)
+  (let ((mutex (get-read-mutex~ connection)))
+    (unwind-protect
+        (begin
+          (mutex-lock! mutex)
+          (thunk))
+      (mutex-unlock! mutex))))
 
 
 (definition (read-port port)

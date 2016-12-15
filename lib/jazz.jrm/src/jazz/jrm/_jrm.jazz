@@ -161,17 +161,18 @@
         (let ((local-uuid (listening-uuid))
               (local-title (current-process-title))
               (local-listener (and remote-listener (listening-port~ remote-listener)))
+              (local-address (socket-info-address (tcp-client-peer-socket-info port)))
               (before (current-seconds)))
-          (write-port port (list 'connect local-uuid local-title local-listener simulated-protocol))
+          (write-port port (list 'connect local-uuid local-title local-listener local-address simulated-protocol))
           (let ((message (read-port port)))
             (when (eof-object? message)
               (throw-connection-broke))
             (if (eq? message 'already-connected)
                 (error "Already connected to {a} {a}" host service)
-              (bind (uuid title listener protocol) message
+              (bind (uuid title listener address protocol) message
                 (let ((lag (- (current-seconds) before)))
                   (write-port port 'handshake)
-                  (let ((connection (new Remote-Connection port title listener protocol lag)))
+                  (let ((connection (new Remote-Connection port title listener address protocol lag)))
                     (thread-start! (new-thread
                                      (lambda ()
                                        (process-pump uuid connection port slave?))
@@ -221,19 +222,20 @@
       ;; when both processes invoke simultaneously
       (case (car message)
         ((connect)
-         (bind (kind uuid title listener protocol) message
+         (bind (kind uuid title listener address protocol) message
            ;; already connected!
            (if (find-remote-connection uuid)
                (write-port port 'already-connected)
              (let ((local-uuid (listening-uuid))
                    (local-title (current-process-title))
                    (local-listener (listening-port~ remote-listener))
+                   (local-address (socket-info-address (tcp-client-peer-socket-info port)))
                    (local-protocol simulated-protocol)
                    (before (current-seconds)))
-               (write-port port (list local-uuid local-title local-listener local-protocol))
+               (write-port port (list local-uuid local-title local-listener local-address local-protocol))
                (assert (eq? (read-port port) 'handshake)
                  (let ((lag (- (current-seconds) before)))
-                   (let ((connection (new Remote-Connection port title listener protocol lag)))
+                   (let ((connection (new Remote-Connection port title listener address protocol lag)))
                      (setup-remote-connection uuid connection)
                      (process-pump uuid connection port)))))))))))
   
@@ -254,17 +256,19 @@
   (slot read-mutex  getter generate)
   (slot write-mutex getter generate)
   (slot title       getter generate)
-  (slot listener    getter generate)
+  (slot listener    getter generate)   ; the peer's listener port
+  (slot address     getter generate)   ; the peer's address of us
   (slot protocol    accessors generate)
   (slot lag         accessors generate)
   
   
-  (method override (initialize port title listener protocol lag)
+  (method override (initialize port title listener address protocol lag)
     (set! port~self port)
     (set! read-mutex~self (make-mutex 'read))
     (set! write-mutex~self (make-mutex 'write))
     (set! title~self title)
     (set! listener~self listener)
+    (set! address~self address)
     (set! protocol~self protocol)
     (set! lag~self lag))
   
@@ -853,21 +857,21 @@
     (new-remote-register (get-uuid~ ior))))
 
 
-(definition public (proxy-connection-info proxy)
-  (if (local-proxy? proxy)
-      (let ((host (or (listening-host~ (get-remote-listener)) "localhost"))
-            (port (listening-port~ (get-remote-listener))))
-        (list proxy host port))
-    (let ((uuid (get-uuid~ (get-ior~ proxy))))
-      (let ((connection (require-remote-connection uuid)))
-        (let ((port (get-port~ connection))
-              (listener (get-listener~ connection)))
-          ;; we cannot use the peer port number because if it was it that connected
-          ;; to us then it will have a distinct port from its process remote listener
-          (assert listener
-            (let ((host (socket-info-address (tcp-client-peer-socket-info port)))
-                  (port listener))
-              (list proxy host port))))))))
+(definition public (proxy-connection-info client proxy)
+  (let ((client-uuid (get-uuid~ (get-ior~ client))))
+    (let ((client-connection (require-remote-connection client-uuid)))
+      (let ((host (get-address~ client-connection)))
+        (if (local-proxy? proxy)
+            (let ((port (listening-port~ (get-remote-listener))))
+              (list proxy host port))
+          (let ((proxy-uuid (get-uuid~ (get-ior~ proxy))))
+            (let ((proxy-connection (require-remote-connection proxy-uuid)))
+              (let ((listener (get-listener~ proxy-connection)))
+                ;; we cannot use the peer port number because if it was him that connected
+                ;; to us then it will have a distinct port from its process remote listener
+                (assert listener
+                  (let ((port listener))
+                    (list proxy host port)))))))))))
 
 
 ;;;

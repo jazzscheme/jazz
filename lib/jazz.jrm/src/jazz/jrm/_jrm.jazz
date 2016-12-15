@@ -641,21 +641,27 @@
 
 
 (definition (read-remote-message connection)
-  (with-read-mutex connection
-    (lambda ()
-      (let ((port (get-port~ connection)))
-        (input-port-timeout-set! port +inf.0)
-        (read-port port)))))
+  (let ((mutex (get-read-mutex~ connection)))
+    (unwind-protect
+        (begin
+          (mutex-lock! mutex)
+          (let ((port (get-port~ connection)))
+            (input-port-timeout-set! port +inf.0)
+            (read-port port)))
+      (mutex-unlock! mutex))))
 
 
 (definition (send-remote-message info connection)
-  (with-write-mutex connection
-    (lambda ()
-      (let ((port (get-port~ connection)))
-        (let ((timeout (send-timeout)))
-          (when timeout
-            (output-port-timeout-set! port timeout throw-connection-broke)))
-        (write-port port (cons (current-seconds) info))))))
+  (let ((mutex (get-write-mutex~ connection)))
+    (unwind-protect
+        (begin
+          (mutex-lock! mutex)
+          (let ((port (get-port~ connection)))
+            (let ((timeout (send-timeout)))
+              (when timeout
+                (output-port-timeout-set! port timeout throw-connection-broke)))
+            (write-port port (cons (current-seconds) info))))
+      (mutex-unlock! mutex))))
 
 
 (definition (wait-for-result method-name invoke-thread)
@@ -946,30 +952,12 @@
   {Version 2 0 0})
 
 
-(definition (with-write-mutex connection thunk)
-  (let ((mutex (get-write-mutex~ connection)))
-    (unwind-protect
-        (begin
-          (mutex-lock! mutex)
-          (thunk))
-      (mutex-unlock! mutex))))
-
-
 (definition (write-port port info)
   (with-connection
     (lambda ()
       (write-header *jazz-code* *jazz-version* port)
       (write-data info port)
       (force-output port))))
-
-
-(definition (with-read-mutex connection thunk)
-  (let ((mutex (get-read-mutex~ connection)))
-    (unwind-protect
-        (begin
-          (mutex-lock! mutex)
-          (thunk))
-      (mutex-unlock! mutex))))
 
 
 (definition (read-port port)

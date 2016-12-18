@@ -60,10 +60,10 @@
         (build (%%get-repository-directory jazz:Build-Repository)))
     (define (source-file path)
       (string-append source path))
-    
+
     (define (build-file path)
       (string-append build path))
-    
+
     (for-each (lambda (info)
                 (let ((source (car info))
                       (build (cdr info)))
@@ -92,6 +92,11 @@
             (glew-lib-path     (jazz:quote-jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/lib")))
         `((jazz.opengl.glew.foreign cc-options: ,(string-append "-I" glew-include-path " -fpermissive") ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))
           (jazz.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path " -fpermissive") ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))))))
+  (x11
+    (define jazz:opengl-units
+      `((jazz.opengl.glew.foreign cc-options: "" ld-options: "-lGLEW -lGLU -lGL")
+        (jazz.opengl.glew.x11     cc-options: "" ld-options: "-lGLEW -lGLU -lGL")
+        (jazz.opengl.glew.header  cc-options: "" ld-options: "-lGLEW -lGLU -lGL"))))
   (else
     (define jazz:opengl-units
       '())))
@@ -112,6 +117,8 @@
     (cocoa
       (let ((glew-lib-path (jazz:jazz-pathname "lib/jazz.opengl/foreign/mac/opengl/glew/lib")))
         (list (string-append "-L" glew-lib-path) "-framework" "OpenGL" "-lglew")))
+    (x11
+      (list "-lGLEW" "-lGLU" "-lGL"))
     (else
      '())))
 

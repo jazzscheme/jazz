@@ -76,7 +76,7 @@
                                     needed-minor)
                             type: 'error)
             (quit))))
-      
+
       (let ((window (create-opengl-window class: class position: position size: size fullscreen?: fullscreen? render?: render?)))
         (initialize-glew)
         (let ((major (glGetInteger GL_MAJOR_VERSION))
@@ -88,7 +88,7 @@
             (validate-version)))
         ;; at the moment vsync is a really bad thing as it blocks
         ;; the thread scheduler by having control remain in C...
-        (disable-vsync)
+        (disable-vsync window)
         (setup-opengl~ window)
         (when visible?
           (set-visible?~ window #t)
@@ -120,8 +120,8 @@
 
 
 (class OpenGL-Window extends Toplevel
-  
-  
+
+
   (slot device             initialize #f accessors generate)
   (slot context            initialize #f accessors generate)
   (slot previous-placement initialize #f getter generate)
@@ -130,13 +130,13 @@
 
   (method override (opengl?)
     #t)
-  
-  
+
+
   (method override (prepare rest)
     (nextmethod rest)
     (set! window-mode (if (request-fullscreen?) 'fullscreen 'windowed)))
-  
-  
+
+
   (method override (size-change state size)
     (nextmethod state size)
     (when (opened?)
@@ -145,12 +145,12 @@
         (resize-scene (cast <fl> width) (cast <fl> height)))
       @interesting-but-can-get-called-too-early
       (render-scene)))
-  
-  
+
+
   (method protected virtual (resize-scene width <fl> height <fl>)
     (glViewport 0 0 (fxround width) (fxround height)))
-  
-  
+
+
   (method protected virtual (setup-opengl)
     (glClearColor 0.0 0.0 0.0 1.0)
     (glClearDepth 1.0)
@@ -159,21 +159,21 @@
     (glEnable GL_DEPTH_TEST)
     (glDepthFunc GL_LEQUAL)
     (glPolygonMode GL_FRONT_AND_BACK GL_FILL))
-  
-  
+
+
   (cond-expand
     (windows
      (method (pulse-scene)
        (when (get-visible?)
          (render-scene))))
     (else))
-  
-  
+
+
   ;;;
   ;;;; Fullscreen
   ;;;
-  
-  
+
+
   ;; quicky
   (cond-expand
     (cocoa
@@ -194,49 +194,49 @@
     (set! previous-placement (get-placement))
     (platform-set-fullscreen-windowed-mode handle)
     (set! window-mode 'fullscreen-windowed))
-  
-  
+
+
   (method public (restore-from-fullscreen)
     (platform-restore-from-fullscreen handle)
     (set! window-mode 'windowed))
-  
-  
+
+
   (method public (restore-windowed-mode)
     (when previous-placement
       (set-window-placement handle previous-placement))
     (platform-restore-windowed-mode handle)
     (set! window-mode 'windowed))
-  
-  
+
+
   (method public (set-fullscreen-mode)
     (platform-set-fullscreen-mode handle))
-  
-  
+
+
   ;;;
   ;;;; Render
   ;;;
-  
-  
+
+
   (method override (paint update-region . platform-data)
     (with-platform-painting self platform-data
       (lambda (surface)
         (render-scene))))
-  
-  
+
+
   (method protected virtual (render-ready?)
     #t)
-  
-  
+
+
   (method protected virtual (render-scene)
     (when (render-ready?)
       (draw-scene)
       (render-sync)))
-  
-  
+
+
   (method protected virtual (draw-scene)
     )
-  
-  
+
+
   (method public (render-sync)
     (swap-buffers handle device))
 
@@ -244,7 +244,7 @@
   (method override (scroll-window delta rect clip-rect)
     (assert handle)
     (invalidate-rect clip-rect))
-  
-  
+
+
   (method override (close-window)
     (close-requested))))

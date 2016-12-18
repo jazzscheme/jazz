@@ -38,21 +38,61 @@
 (module protected jazz.opengl.window.x11 jazz
 
 
-(definition package (swap-buffers handle device)
-  (unimplemented))
+;;;;;
 
+(import (jazz.event)
+        (jazz.opengl)
+        (jazz.opengl.glew)
+        (jazz.opengl.glew.x11)
+        (jazz.platform)
+        (jazz.window))
 
-(definition package (swap-interval interval)
-  )
+(definition package (platform-set-fullscreen-windowed-mode handle)
+  (error "NYI.3"))
 
+(definition package (platform-restore-from-fullscreen handle)
+  (error "NYI.4"))
 
-(definition package (make-context-current device context)
-  (unimplemented))
+(definition package (platform-restore-windowed-mode handle)
+  (error "NYI"))
 
+(definition package (platform-set-fullscreen-mode handle)
+  (error "NYI"))
+
+;;;;;
+
+(definition package (create-opengl-window (class: class #f) (position: position #f) (size: size #f) (fullscreen?: fullscreen? #f) (render?: render? #t))
+  (let ((class (or class OpenGL-Window))
+        (position (or position {Point 50 50}))
+        (size (or size {Dimension 640 480})))
+    (let ((window (parameterize ((request-fullscreen? fullscreen?)) (new class fullscreen?: fullscreen? visible?: #f))))
+      (let ((context (make-context)))
+        (make-context-current (get-handle~ window) context)
+        window))))
+
+(definition package (enable-vsync window)
+  (glx-swap-interval 1))
+
+(definition package (disable-vsync window)
+  (glx-swap-interval 0))
+
+(definition package (make-context)
+  (let* ((display x11-default-display)
+         (screen  (XDefaultScreen display))
+         (visual  (XDefaultVisual display screen)))
+    (glx-make-context display visual screen)))
+
+(definition package (make-context-current handle context)
+  (glXMakeCurrent x11-default-display handle context))
 
 (definition package (release-current-context)
-  (unimplemented))
-
+  )
 
 (definition package (delete-context context)
-  (unimplemented)))
+  (glXDestroyContext x11-default-display context))
+
+(definition package (swap-buffers handle device)
+  (glXSwapBuffers x11-default-display handle))
+
+(definition package (adjust-opengl-context window major minor)
+  ))

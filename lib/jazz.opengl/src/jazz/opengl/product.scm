@@ -94,9 +94,9 @@
           (jazz.opengl.glew.header cc-options: ,(string-append "-I" glew-include-path " -fpermissive") ld-options: ,(string-append "-L" glew-lib-path " -framework OpenGL -lglew"))))))
   (x11
     (define jazz:opengl-units
-      `((jazz.opengl.glew.foreign cc-options: "" ld-options: "-lGLEW -lGLU -lGL")
-        (jazz.opengl.glew.x11     cc-options: "" ld-options: "-lGLEW -lGLU -lGL")
-        (jazz.opengl.glew.header  cc-options: "" ld-options: "-lGLEW -lGLU -lGL"))))
+      `((jazz.opengl.glew.foreign cc-options: "-fpermissive" ld-options: "-lGLEW -lGLU -lGL")
+        (jazz.opengl.glew.x11     cc-options: "-fpermissive" ld-options: "-lGLEW -lGLU -lGL")
+        (jazz.opengl.glew.header  cc-options: "-fpermissive" ld-options: "-lGLEW -lGLU -lGL"))))
   (else
     (define jazz:opengl-units
       '())))

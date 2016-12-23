@@ -1610,62 +1610,64 @@
   
   
   (method public virtual (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (sort?: sort? #t) (sort-type?: sort-type? #t) (sort-test: sort-test #f) (recursive?: recursive? #t) (ignored-toplevel-dirnames: ignored-toplevel-dirnames #f) (ignored-toplevel-filenames: ignored-toplevel-filenames #f) (ignored-dirnames: ignored-dirnames #f))
-    (define (iterate-directory-content files? directories? sort? recursive? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames prefix base proc)
-      (if (not sort-type?)
-          (iterate-content base #f sort? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames
+    (declare (proper-tail-calls))
+    (let ()
+      (define (iterate-directory-content files? directories? sort? recursive? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames prefix base proc)
+        (if (not sort-type?)
+            (iterate-content base #f sort? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames
+              (lambda (name type)
+                (case type
+                  ((file)
+                   (when files?
+                     (proc (concatenate prefix (list name)) 'file)))
+                  ((directory)
+                   (when recursive?
+                     (iterate-directory-content files? directories? sort? recursive? #f #f ignored-dirnames (append prefix (list name)) (concatenate base "/" name) proc))
+                   (when directories?
+                     (proc (append prefix (list name)) 'directory))))))
+          (iterate-content base 'directories sort? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames
             (lambda (name type)
-              (case type
-                ((file)
-                 (when files?
-                   (proc (concatenate prefix (list name)) 'file)))
-                ((directory)
-                 (when recursive?
-                   (iterate-directory-content files? directories? sort? recursive? #f #f ignored-dirnames (append prefix (list name)) (concatenate base "/" name) proc))
-                 (when directories?
-                   (proc (append prefix (list name)) 'directory))))))
-        (iterate-content base 'directories sort? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames
-          (lambda (name type)
-            (when recursive?
-              (iterate-directory-content files? directories? sort? recursive? #f #f ignored-dirnames (append prefix (list name)) (concatenate base "/" name) proc))
-            (when directories?
-              (proc (append prefix (list name)) 'directory))))
-        (iterate-content base 'files sort? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames
-          (lambda (name type)
-            (when files?
-              (proc (concatenate prefix (list name)) 'file))))))
-    
-    (define (iterate-content base kind sort? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames proc)
-      (if (not sort?)
-          (iterate-content-unsorted base kind ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames proc)
-        (let ((list '()))
-          (iterate-content-unsorted base kind ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames
-            (lambda (object type)
-              (set! list (cons (cons object type) list))))
-          (let ((sorted (sort (or sort-test ci<?) list key: car)))
-            (for-each (lambda (pair)
-                        (proc (car pair) (cdr pair)))
-                      sorted)))))
-    
-    (define (iterate-content-unsorted base kind ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames proc)
-      (define (ignored-name? name names)
-        (and names (member? name names)))
+              (when recursive?
+                (iterate-directory-content files? directories? sort? recursive? #f #f ignored-dirnames (append prefix (list name)) (concatenate base "/" name) proc))
+              (when directories?
+                (proc (append prefix (list name)) 'directory))))
+          (iterate-content base 'files sort? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames
+            (lambda (name type)
+              (when files?
+                (proc (concatenate prefix (list name)) 'file))))))
       
-      (for-each (lambda (name)
-                  (let ((path (string-append base "/" name)))
-                    ;; this extra test fixes problems on Windows with system files like C:/pagefile.sys
-                    (when (file-exists? path)
-                      (let ((type (pathname-type path)))
-                        (when (or (and (or (not kind) (eq? kind 'files)) (eq? type 'file) (not (ignored-name? name ignored-toplevel-filenames)))
-                                  (and (or (not kind) (eq? kind 'directories)) (eq? type 'directory) (not (ignored-name? name ignored-toplevel-dirnames)) (not (ignored-name? name ignored-dirnames))))
-                          (proc name type))))))
-                (directory-content-patch base)))
-    
-    (let ((directory (if full? (get-list) #f)))
-      (iterate-directory-content files? directories? sort? recursive? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames '() (parse)
-        (lambda (lst type)
-          (case type
-            ((file) (if full? (proc (new-file lst)) (proc lst 'file)))
-            ((directory) (if full? (proc (new-directory lst)) (proc lst 'directory))))))))
+      (define (iterate-content base kind sort? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames proc)
+        (if (not sort?)
+            (iterate-content-unsorted base kind ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames proc)
+          (let ((list '()))
+            (iterate-content-unsorted base kind ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames
+              (lambda (object type)
+                (set! list (cons (cons object type) list))))
+            (let ((sorted (sort (or sort-test ci<?) list key: car)))
+              (for-each (lambda (pair)
+                          (proc (car pair) (cdr pair)))
+                        sorted)))))
+      
+      (define (iterate-content-unsorted base kind ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames proc)
+        (define (ignored-name? name names)
+          (and names (member? name names)))
+        
+        (for-each (lambda (name)
+                    (let ((path (string-append base "/" name)))
+                      ;; this extra test fixes problems on Windows with system files like C:/pagefile.sys
+                      (when (file-exists? path)
+                        (let ((type (pathname-type path)))
+                          (when (or (and (or (not kind) (eq? kind 'files)) (eq? type 'file) (not (ignored-name? name ignored-toplevel-filenames)))
+                                    (and (or (not kind) (eq? kind 'directories)) (eq? type 'directory) (not (ignored-name? name ignored-toplevel-dirnames)) (not (ignored-name? name ignored-dirnames))))
+                            (proc name type))))))
+                  (directory-content-patch base)))
+      
+      (let ((directory (if full? (get-list) #f)))
+        (iterate-directory-content files? directories? sort? recursive? ignored-toplevel-dirnames ignored-toplevel-filenames ignored-dirnames '() (parse)
+          (lambda (lst type)
+            (case type
+              ((file) (if full? (proc (new-file lst)) (proc lst 'file)))
+              ((directory) (if full? (proc (new-directory lst)) (proc lst 'directory)))))))))
   
   
   ;; quicky because showing .* files in the open dialog creates problems

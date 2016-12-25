@@ -950,6 +950,21 @@
   (jazz:allocate-jazz-walker #f #f '() '() '() (jazz:new-queue) (jazz:new-queue) (%%make-table test: eq?) (%%make-table test: eq?) '()))
 
 
+(jazz:define-virtual-syntax (jazz:jazz-walker-supports-tilde? (jazz:Jazz-Walker walker)))
+(jazz:define-virtual-syntax (jazz:jazz-walker-supports-composite? (jazz:Jazz-Walker walker)))
+
+
+(jazz:define-virtual (jazz:jazz-walker-supports-tilde? (jazz:Jazz-Walker walker)))
+(jazz:define-virtual (jazz:jazz-walker-supports-composite? (jazz:Jazz-Walker walker)))
+
+
+(jazz:define-method (jazz:jazz-walker-supports-tilde? (jazz:Jazz-Walker walker))
+  #t)
+
+(jazz:define-method (jazz:jazz-walker-supports-composite? (jazz:Jazz-Walker walker))
+  #t)
+
+
 (jazz:define-method (jazz:runtime-export (jazz:Jazz-Walker walker) declaration)
   (or (nextmethod walker declaration)
       (if (or (%%is? declaration jazz:Definition-Declaration)
@@ -1041,7 +1056,7 @@
         (jazz:walk-enumerator walker symbol)
       (jazz:split-tilde symbol
         (lambda (tilde? name self/class-name)
-          (if tilde?
+          (if (and tilde? (jazz:jazz-walker-supports-tilde? walker))
               (cond ((and name self/class-name)
                      (if (%%eq? self/class-name 'self)
                          (let ((slot-declaration (jazz:lookup-declaration (jazz:find-class-declaration declaration) name jazz:private-access declaration)))
@@ -1088,7 +1103,7 @@
                 autoload-decl)
             (jazz:walk-error walker resume declaration symbol-src "Unable to find {s} in unit {s}" name module-name))))))
   
-    (if (jazz:composite-reference? symbol)
+    (if (and (jazz:composite-reference? symbol) (jazz:jazz-walker-supports-composite? walker))
         (lookup-composite walker environment symbol)
       (nextmethod walker resume declaration environment symbol-src symbol)))
 
@@ -1111,7 +1126,7 @@
 (jazz:define-method (jazz:walk-symbol-assignment (jazz:Jazz-Walker walker) resume declaration environment symbol-src value)
   (jazz:split-tilde (jazz:source-code symbol-src)
     (lambda (tilde? name self/class-name)
-      (if tilde?
+      (if (and tilde? (jazz:jazz-walker-supports-tilde? walker))
           (if (and name (%%eq? self/class-name 'self))
               (let ((slot-declaration (jazz:lookup-declaration (jazz:find-class-declaration declaration) name jazz:private-access declaration)))
                 (%%assert (%%class-is? slot-declaration jazz:Slot-Declaration)
@@ -1127,7 +1142,7 @@
 
 (jazz:define-method (jazz:walk-form (jazz:Jazz-Walker walker) resume declaration environment form-src)
   (let ((procedure-expr (jazz:source-code (%%car (jazz:source-code form-src)))))
-    (if (jazz:dispatch? procedure-expr)
+    (if (and (jazz:dispatch? procedure-expr) (jazz:jazz-walker-supports-tilde? walker))
         (jazz:walk-dispatch walker resume declaration environment form-src)
       (nextmethod walker resume declaration environment form-src))))
 

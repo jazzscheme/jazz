@@ -634,6 +634,11 @@
        (%%eq? (jazz:source-code (%%car (jazz:source-code form))) 'define)))
 
 
+(define (jazz:declare-form? form)
+  (and (%%pair? (jazz:source-code form))
+       (%%eq? (jazz:source-code (%%car (jazz:source-code form))) 'declare)))
+
+
 ;;;
 ;;;; Declaration Reference
 ;;;
@@ -4922,7 +4927,8 @@
                                    (jazz:error "Inconsistant internal defines")))))
                          (%%cdr (jazz:source-code form)))
                state))
-            ((jazz:define-form? form)
+            ((or (jazz:define-form? form)
+                 (jazz:declare-form? form))
              (set! internal-defines (%%cons form internal-defines))
              'defines)
             (else
@@ -4937,22 +4943,26 @@
                   (augmented-environment environment)
                   (internal-defines (jazz:reverse! internal-defines)))
               (for-each (lambda (internal-define)
-                          (let ((internal (%%cdr (jazz:source-code internal-define))))
-                            (%%assertion (%%pair? internal) (jazz:walk-error walker resume declaration internal-define "Ill-formed define")
-                              (let ((signature (%%desourcify (%%car internal))))
-                                (let ((name (if (%%symbol? signature)
-                                                signature
-                                              (%%car signature))))
-                                  (let ((variable (jazz:new-variable name #f #f)))
-                                    (jazz:enqueue variables variable)
-                                    (set! augmented-environment (%%cons variable augmented-environment))))))))
+                          (if (jazz:declare-form? internal-define)
+                              (jazz:enqueue variables #f)
+                            (let ((internal (%%cdr (jazz:source-code internal-define))))
+                              (%%assertion (%%pair? internal) (jazz:walk-error walker resume declaration internal-define "Ill-formed define")
+                                (let ((signature (%%desourcify (%%car internal))))
+                                  (let ((name (if (%%symbol? signature)
+                                                  signature
+                                                (%%car signature))))
+                                    (let ((variable (jazz:new-variable name #f #f)))
+                                      (jazz:enqueue variables variable)
+                                      (set! augmented-environment (%%cons variable augmented-environment)))))))))
                         internal-defines)
               (jazz:new-body (map (lambda (internal-define variable)
-                                    (let ((internal-define (walk-internal-define augmented-environment internal-define variable)))
-                                      ;; ideally we should specify the type when creating the variable
-                                      ;; we could then remove the generated lexical-binding type setter
-                                      (jazz:set-lexical-binding-type variable (jazz:get-expression-type internal-define))
-                                      internal-define))
+                                    (if (jazz:declare-form? internal-define)
+                                        (jazz:walk walker resume declaration environment internal-define)
+                                      (let ((internal-define (walk-internal-define augmented-environment internal-define variable)))
+                                        ;; ideally we should specify the type when creating the variable
+                                        ;; we could then remove the generated lexical-binding type setter
+                                        (jazz:set-lexical-binding-type variable (jazz:get-expression-type internal-define))
+                                        internal-define)))
                                   internal-defines
                                   (jazz:queue-list variables))
                              (jazz:walk-list walker resume declaration augmented-environment scan))))

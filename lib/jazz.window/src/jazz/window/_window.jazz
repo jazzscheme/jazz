@@ -183,6 +183,7 @@
 
 
 (definition public (process-events (done? #f))
+  (declare (proper-tail-calls))
   (define (present-event-loop-restart)
     (let ((loop (current-loop)))
       (and loop
@@ -192,26 +193,24 @@
                          ""
                        (format " {a}" level)))))))
   
-  (let ()
-    (declare (proper-tail-calls))
-    (let ((process (get-process))
-          (preserved-pump (message-thread)))
-      (let ((pump (process-messages)))
-        (thread-start-loop pump)
-        (thread-start! pump)
-        (set-message-thread pump)
-        (unwind-protect
-            (let (restart-loop)
-              (with-restart-catcher 'resume-loop (present-event-loop-restart)
-                (lambda ()
-                  (catch Cancel-Signal
-                    (with-exception-debugger (get-exception-debugger)
-                      (lambda ()
-                        (thread-process-loop~ process done?))))))
-              (unless (and done? (done?))
-                (restart-loop)))
-          (set-message-thread preserved-pump)
-          (thread-stop-loop pump))))))
+  (let ((process (get-process))
+        (preserved-pump (message-thread)))
+    (let ((pump (process-messages)))
+      (thread-start-loop pump)
+      (thread-start! pump)
+      (set-message-thread pump)
+      (unwind-protect
+          (let (restart-loop)
+            (with-restart-catcher 'resume-loop (present-event-loop-restart)
+              (lambda ()
+                (catch Cancel-Signal
+                  (with-exception-debugger (get-exception-debugger)
+                    (lambda ()
+                      (thread-process-loop~ process done?))))))
+            (unless (and done? (done?))
+              (restart-loop)))
+        (set-message-thread preserved-pump)
+        (thread-stop-loop pump)))))
 
 
 ;;;

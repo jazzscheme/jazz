@@ -280,8 +280,8 @@
     (define jazz:display-continuation-backtrace
       display-continuation-backtrace)
     
-    (define (jazz:raise obj)
-      (raise obj)))
+    (define jazz:raise
+      raise))
   
   (else))
 

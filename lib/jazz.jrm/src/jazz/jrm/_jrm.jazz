@@ -161,7 +161,12 @@
         (let ((local-uuid (listening-uuid))
               (local-title (current-process-title))
               (local-listener (and remote-listener (listening-port~ remote-listener)))
-              (local-address (socket-info-address (tcp-client-peer-socket-info port)))
+              (local-address (socket-info-address (with-exception-catcher
+                                                    (lambda (exc)
+                                                      (throw (new Connection-Exception exc)))
+                                                    (lambda ()
+                                                      ;; may fail when not connected
+                                                      (tcp-client-peer-socket-info port)))))
               (before (current-seconds)))
           (write-port port (list 'connect local-uuid local-title local-listener local-address simulated-protocol))
           (let ((message (read-port port)))

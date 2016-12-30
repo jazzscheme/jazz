@@ -708,10 +708,6 @@
 
 
 (define (jazz:save-digest filepath manifest)
-  (define (delete-digest-file)
-    (if (file-exists? filepath)
-        (delete-file filepath)))
-  
   (define (save-digest digests)
     (jazz:create-directories (jazz:pathname-dir filepath))
     (call-with-output-file (list path: filepath eol-encoding: (jazz:platform-eol-encoding jazz:kernel-platform))
@@ -734,9 +730,9 @@
   (let ((existing-files-digests (filter (lambda (digest)
                                           (file-exists? (%%get-digest-pathname digest)))
                                         (%%get-manifest-source-digests manifest))))
-    (if (%%null? existing-files-digests)
-        (delete-digest-file)
-      (save-digest existing-files-digests))))
+    ;; not deleting the digest when there is no existing files makes
+    ;; it more robust when multiple processes access the same digest
+    (save-digest existing-files-digests)))
 
 
 (define (jazz:find-source-digest src-pathname manifest)

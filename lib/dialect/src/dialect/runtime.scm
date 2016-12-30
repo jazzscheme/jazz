@@ -557,13 +557,16 @@
   
   (define (walk-declaration resume form-src)
     (if (%%pair? (jazz:unwrap-syntactic-closure form-src))
-        (let ((first (jazz:unwrap-syntactic-closure (%%car (jazz:unwrap-syntactic-closure form-src))))
-              (declaration-environment (jazz:walker-declaration-environment walker)))
-          (let ((frame (%%car declaration-environment))) ;; unique frame for now
-            (let ((binding (jazz:walk-binding-lookup frame first #f)))
-              (if binding
-                  (let ((walk (jazz:get-declaration-form-walk binding)))
-                    (walk walker resume declaration environment form-src))))))))
+        (let ((first-src (%%car (jazz:unwrap-syntactic-closure form-src))))
+          (let ((first (jazz:unwrap-syntactic-closure first-src))
+                (declaration-environment (jazz:walker-declaration-environment walker)))
+            (let ((frame (%%car declaration-environment))) ;; unique frame for now
+              (let ((binding (jazz:walk-binding-lookup frame first #f)))
+                (if binding
+                    (let ((walk (jazz:get-declaration-form-walk binding)))
+                      (walk walker resume declaration environment form-src))
+                  #; ;; todo validate outline errors
+                  (jazz:walk-free-reference walker resume declaration first-src))))))))
   
   (walk forms))
 
@@ -1291,7 +1294,10 @@
         (let* ((dialect-invoice (and dialect-invoice? (jazz:load-dialect-invoice dialect-name)))
                (dialect (jazz:require-dialect dialect-name))
                (walker (jazz:dialect-walker dialect)))
-          (jazz:walk-module-declaration walker #f name access dialect-name dialect-invoice body))))))
+          (let ((declaration (jazz:walk-module-declaration walker #f name access dialect-name dialect-invoice body)))
+            #; ;; todo validate outline errors
+            (jazz:validate-walk-problems walker)
+            declaration))))))
 
 
 (define (jazz:walk-module-declaration walker actual name access dialect-name dialect-invoice body)

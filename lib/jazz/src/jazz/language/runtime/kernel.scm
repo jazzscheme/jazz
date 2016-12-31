@@ -873,6 +873,7 @@
 (native jazz:gc-statistics)
 (native jazz:gc-report-set!)
 (native jazz:add-gc-interrupt-job!)
+(native jazz:clear-gc-interrupt-jobs!)
 (native jazz:last-gc-real-time)
 (native jazz:get-min-heap)
 (native jazz:set-min-heap!)

@@ -307,6 +307,10 @@
   (##add-gc-interrupt-job! thunk))
 
 
+(define (jazz:clear-gc-interrupt-jobs!)
+  (##clear-gc-interrupt-jobs!))
+
+
 (define (jazz:last-gc-real-time)
   (f64vector-ref (##process-statistics) 14))
 

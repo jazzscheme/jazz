@@ -693,6 +693,7 @@
 (native jazz:split-version)
 (native jazz:present-version)
 (native jazz:load-package)
+(native jazz:load-debuggee)
 (native jazz:register-run)
 (native jazz:registered-run)
 (native jazz:run-registered)

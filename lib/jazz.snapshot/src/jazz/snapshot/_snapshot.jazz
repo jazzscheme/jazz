@@ -124,6 +124,10 @@
 ;;;
 
 
+(definition snapshot-mutex
+  (make-mutex 'snapshot))
+
+
 (definition (create-timestamped-file directory prefix extension)
   (with-exception-catcher
     (lambda (exc)
@@ -145,13 +149,17 @@
 
 
 (definition public (snapshot-process . rest)
+  ;; disabling interrupts is not enough because if we block on some operation then
+  ;; control could go to another thread that could end up calling snapshot-process again
+  (mutex-lock! snapshot-mutex)
   (disable-interrupts!)
   (prog1 (continuation-capture
            (lambda (continuation)
              (call-with-snapshot-output-file rest
                (lambda (output . rest)
                  (apply print-process-snapshot continuation output rest)))))
-    (enable-interrupts!)))
+    (enable-interrupts!)
+    (mutex-unlock! snapshot-mutex)))
 
 
 (definition public (snapshot-current-thread . rest)

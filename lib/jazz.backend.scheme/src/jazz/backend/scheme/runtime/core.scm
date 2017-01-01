@@ -1268,7 +1268,10 @@
 (cond-expand
   (gambit
     (define jazz:process-status process-status)
-    (define jazz:exit exit))
+    (define jazz:exit exit)
+    (define (jazz:exit-no-jobs #!optional (status 1))
+      (##clear-exit-jobs!)
+      (##exit status)))
   
   (else))
 

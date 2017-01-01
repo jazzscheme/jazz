@@ -149,18 +149,23 @@
 
 
 (definition public (snapshot-process . rest)
-  ;; disabling interrupts is not enough because if we block on some operation then
-  ;; control could go to another thread that could end up calling snapshot-process again
-  (mutex-lock! snapshot-mutex)
-  (disable-interrupts!)
-  (clear-gc-interrupt-jobs!)
-  (prog1 (continuation-capture
-           (lambda (continuation)
-             (call-with-snapshot-output-file rest
-               (lambda (output . rest)
-                 (apply print-process-snapshot continuation output rest)))))
-    (enable-interrupts!)
-    (mutex-unlock! snapshot-mutex)))
+  (let ((base-priority (thread-base-priority (current-thread))))
+    ;; this should stop any other thread from running
+    (thread-base-priority-set! (current-thread) +infinity)
+    ;; disabling interrupts is not enough because if we block on some operation then
+    ;; control could go to another thread that could end up calling snapshot-process again
+    (mutex-lock! snapshot-mutex)
+    (disable-interrupts!)
+    ;; todo these won't get restored if we are not exiting
+    (clear-gc-interrupt-jobs!)
+    (prog1 (continuation-capture
+             (lambda (continuation)
+               (call-with-snapshot-output-file rest
+                 (lambda (output . rest)
+                   (apply print-process-snapshot continuation output rest)))))
+      (enable-interrupts!)
+      (mutex-unlock! snapshot-mutex)
+      (thread-base-priority-set! (current-thread) base-priority))))
 
 
 (definition public (snapshot-current-thread . rest)

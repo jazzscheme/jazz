@@ -1496,7 +1496,7 @@
       (if (jazz:thread-state-active? (jazz:thread-state thread))
           (let ((cont (jazz:thread-cont thread)))
             ;; hack - gambit thread init with dummy continuation
-            (if (%%not (%%eqv? (##vector-ref cont 0) 0))
+            (if (##not (##eq? (##vector-ref cont 0) #!void))
                 cont
               #f))
         #f))

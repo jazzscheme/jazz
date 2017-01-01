@@ -573,7 +573,14 @@
     (define jazz:random-real random-real)
     (define jazz:random-source-randomize! random-source-randomize!)
     (define jazz:random-source-pseudo-randomize! random-source-pseudo-randomize!)
-    (define jazz:default-random-source default-random-source))
+    (define jazz:default-random-source default-random-source)
+    
+    (define jazz:random-integer-65536
+      (let* ((rs (make-random-source))
+             (ri (random-source-make-integers rs)))
+        (random-source-randomize! rs)
+        (lambda ()
+          (ri 65536)))))
   
   (else))
 

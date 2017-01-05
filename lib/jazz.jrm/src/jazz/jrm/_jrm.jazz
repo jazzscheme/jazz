@@ -173,7 +173,7 @@
           (write-port port (list 'connect local-uuid local-title local-listener local-address simulated-protocol))
           (let ((message (read-port port)))
             (when (eof-object? message)
-              (throw-connection-broke))
+              (throw-connection-broke "Connect remote received eof"))
             (if (eq? message 'already-connected)
                 (error "Already connected to {a} {a}" host service)
               (bind (uuid title listener address protocol) message
@@ -220,7 +220,7 @@
         (input-port-timeout-set! port timeout)))
     (let ((info (read-port port)))
       (if (eof-object? info)
-          (throw-connection-broke)
+          (throw-connection-broke "Accept remote received eof")
         info)))
   
   (define (process)
@@ -311,7 +311,7 @@
 
 (definition protected (require-remote-connection uuid)
   (or (find-remote-connection uuid)
-      (throw-connection-broke)))
+      (throw-connection-broke (format "Unable to find uuid: {a}" uuid))))
 
 
 (definition protected (require-connection-port uuid)
@@ -466,7 +466,7 @@
           (lambda (thread rest)
             (bind (timeout uuid message) rest
               (when (equal? uuid pump-uuid)
-                (invocation-broke thread 'connection-closed))))
+                (invocation-broke thread "Switchboard connection closed"))))
           invocations))
       
       (debug-jrm 'server 'pump message)
@@ -502,10 +502,10 @@
                              ((exec) 'jrm-exec)
                              ((call) 'jrm-call)))))))))
     
-    (define (invocation-broke thread exception)
-      (debug-jrm 'server 'broke (list thread exception))
+    (define (invocation-broke thread reason)
+      (debug-jrm 'server 'broke (list thread reason))
       (let ((cookie (object->serial thread)))
-        (thread-send thread (cons *jrm-marker* (list 'broke cookie exception)))))
+        (thread-send thread (cons *jrm-marker* (list 'broke cookie reason)))))
     
     (let (loop)
       (receive (best-thread best-timeout best-message) (find-best-timeout)
@@ -513,7 +513,7 @@
           (if (eof-object? msg)
               (begin
                 (table-clear invocations best-thread)
-                (invocation-broke best-thread 'timeout))
+                (invocation-broke best-thread "Switchboard timeout"))
             (receive (origin uuid message) msg
               (case origin
                 ((pump)
@@ -538,7 +538,7 @@
                                (post-event
                                  (lambda ()
                                    (throw exc))))
-                           (invocation-broke invoke-thread exc)))
+                           (invocation-broke invoke-thread (exception-reason exc))))
                        (lambda ()
                          (let ((connection (require-remote-connection uuid))
                                (message (list kind cookie method-name proxy-ior arguments)))
@@ -672,7 +672,7 @@
           (let ((port (get-port~ connection)))
             (let ((timeout (send-timeout)))
               (when timeout
-                (output-port-timeout-set! port timeout throw-connection-broke)))
+                (output-port-timeout-set! port timeout (lambda () (throw-connection-broke "Send remote timeout")))))
             (write-port port (cons (current-seconds) info))))
       (mutex-unlock! mutex))))
 
@@ -696,7 +696,7 @@
         ((result)
          result)
         ((broke)
-         (throw-connection-broke))
+         (throw-connection-broke result))
         ((error)
          (error "Remote error while executing {s}: {a}" method-name result))))))
 

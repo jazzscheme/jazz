@@ -81,14 +81,28 @@
 ;;;
 
 
-(class Connection-Broke extends Exception)
+(class Connection-Broke extends Exception
+  
+  
+  (slot reason getter generate)
+  
+  
+  (method override (initialize rs)
+    (nextmethod)
+    (set! reason rs))
+  
+  
+  (method override (print printer readably)
+    (print-unreadable self printer
+      (lambda (printer)
+        (format printer "{a}" reason)))))
 
 
 ;; be very carefull because at this moment quitting the debuggee ends up
 ;; throwing a connection broke that gets caught and everything works correctly
 ;; this is probably a bug that should be fixed at some point
-(definition public (throw-connection-broke)
-  (throw (new Connection-Broke)))
+(definition public (throw-connection-broke reason)
+  (throw (new Connection-Broke reason)))
 
 
 ;;;
@@ -218,7 +232,7 @@
 (definition public (read-binary-data port)
   (let ((data (read-binary port)))
     (if (eof-object? data)
-        (throw-connection-broke)
+        (throw-connection-broke "Read data received eof")
       data)))
 
 
@@ -236,7 +250,7 @@
          (b11 (read-u8 port))
          (b12 (read-u8 port)))
     (if (eof-object? b12)
-        (throw-connection-broke)
+        (throw-connection-broke "Read header received eof")
       (let ((application-code (bytes->32-bit-integer b1 b2 b3 b4))
             (version-code (bytes->64-bit-integer b5 b6 b7 b8 b9 b10 b11 b12)))
         (values application-code (64-bit-integer->version version-code))))))

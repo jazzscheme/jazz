@@ -483,8 +483,12 @@
             ((live?)
              (bind (kind cookie method-name proxy-ior arguments) message
                (catch Connection-Broke
-                 (let ((connection (require-remote-connection uuid)))
-                   (send-remote-message (list 'result cookie live-response) connection)))))
+                 ;; calling find-remote-connection is a quick solution that needs proper thinking
+                 ;; to the problem of receiving invocations after the connection has been closed
+                 ;; note that the catch Connection-Broke above is probably there for exactly that
+                 (let ((connection (find-remote-connection uuid) @wait (require-remote-connection uuid)))
+                   (when connection
+                     (send-remote-message (list 'result cookie live-response) connection))))))
             ((post)
              (thread-start!
                (new-thread (lambda ()
@@ -496,8 +500,11 @@
                              (let ((reply (execute-remote message)))
                                (debug-jrm 'server 'reply message)
                                (debug-jrm 'server 'reply reply)
-                               (let ((connection (require-remote-connection uuid)))
-                                 (send-remote-message reply connection))))
+                               ;; calling find-remote-connection is a quick solution that needs proper thinking
+                               ;; to the problem of receiving invocations after the connection has been closed
+                               (let ((connection (find-remote-connection uuid) @wait (require-remote-connection uuid)))
+                                 (when connection
+                                   (send-remote-message reply connection)))))
                            (case kind
                              ((exec) 'jrm-exec)
                              ((call) 'jrm-call)))))))))

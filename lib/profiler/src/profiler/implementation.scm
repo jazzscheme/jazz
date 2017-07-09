@@ -53,7 +53,6 @@
   (%%list
     ##dynamic-env-bind
     ##call-with-values
-    ##thread-start-action!
     ##primordial-exception-handler-hook))
 
 (jazz:define-setting default-profiler-ignored-modules

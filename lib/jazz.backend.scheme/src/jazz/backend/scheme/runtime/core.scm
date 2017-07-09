@@ -921,8 +921,7 @@
     
     (define jazz:hidden-frames
       (%%list
-        ##dynamic-env-bind
-        ##thread-start-action!))
+        ##dynamic-env-bind))
     
     (define (jazz:hidden-frame? frame)
       (%%memq frame jazz:hidden-frames))
@@ -1483,9 +1482,12 @@
     (define jazz:thread-state thread-state)
     (define jazz:thread-state-abnormally-terminated-reason thread-state-abnormally-terminated-reason)
     (define jazz:thread-state-abnormally-terminated? thread-state-abnormally-terminated?)
-    (define jazz:thread-state-active-timeout thread-state-active-timeout)
-    (define jazz:thread-state-active-waiting-for thread-state-active-waiting-for)
-    (define jazz:thread-state-active? thread-state-active?)
+    ;; quicky need to fix this correctly
+    (define jazz:thread-state-active-timeout (lambda (state) #f) #; thread-state-active-timeout)
+    ;; quicky need to fix this correctly
+    (define jazz:thread-state-active-waiting-for (lambda (state) #f) #; thread-state-active-waiting-for)
+    ;; quicky need to fix this correctly
+    (define jazz:thread-state-active? (lambda (state) #t) #; thread-state-active?)
     (define jazz:thread-state-initialized? thread-state-initialized?)
     (define jazz:thread-state-normally-terminated-result thread-state-normally-terminated-result)
     (define jazz:thread-state-normally-terminated? thread-state-normally-terminated?)

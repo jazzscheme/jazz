@@ -1472,7 +1472,17 @@
     (define jazz:thread-mailbox-next thread-mailbox-next)
     (define jazz:thread-mailbox-rewind thread-mailbox-rewind)
     (define jazz:thread-mailbox-extract-and-rewind thread-mailbox-extract-and-rewind)
-    (define jazz:thread-interrupt! thread-interrupt!)
+    ;; quicky need to fix this correctly
+    (define jazz:thread-interrupt! (lambda rest
+                                     (jazz:with-exception-filter
+                                       (lambda (exc)
+                                         #t)
+                                       (lambda (exc)
+                                         #t)
+                                       (lambda ()
+                                         (apply thread-interrupt! rest))))
+            #; thread-interrupt!
+            )
     (define jazz:make-thread-group make-thread-group)
     (define jazz:thread-thread-group thread-thread-group)
     (define jazz:thread-group->thread-group-list thread-group->thread-group-list)

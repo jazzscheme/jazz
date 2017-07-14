@@ -805,7 +805,9 @@
                        '("-mconsole")
                      '("-mwindows"))))
             ((mac)
-             '("-headerpad_max_install_names"))
+             ;; the macosx-version-min=10.12 is a quick patch around what appears to be
+             ;; a new problem due to objective-c's garbage collector being removed in 10.12
+             '("-headerpad_max_install_names" "-mmacosx-version-min=10.12"))
             (else
              '()))))
       

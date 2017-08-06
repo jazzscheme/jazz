@@ -386,10 +386,14 @@
       (let ((id-string (symbol->string id)))
         (let ((getter-string
                 (if size
-                    (if (or (eq? expansion 'char)
-                            (eq? expansion 'wchar_t))
-                        (string-append "___result = ___arg1->" id-string ";")
-                      (string-append "___result_voidstar = ___arg1->" id-string ";"))
+                    (cond ;; quick hack for jazz.sound
+                          ((eq? type 'int)
+                           #f)
+                          ((or (eq? expansion 'char)
+                               (eq? expansion 'wchar_t))
+                           (string-append "___result = ___arg1->" id-string ";"))
+                          (else
+                           (string-append "___result_voidstar = ___arg1->" id-string ";")))
                   (case kind
                     ((native)
                      (string-append "___result = ___arg1->" id-string ";"))
@@ -402,7 +406,10 @@
                         (let ((size-string (if (integer? size)
                                                (number->string size)
                                              (symbol->string size))))
-                          (cond ((eq? expansion 'char)
+                          (cond ;; quick hack for jazz.sound
+                                ((eq? type 'int)
+                                 #f)
+                                ((eq? expansion 'char)
                                  (string-append "strncpy(___arg1->" id-string ", ___arg2, " size-string ");"))
                                 ((eq? expansion 'wchar_t)
                                  (string-append "wcsncpy(___arg1->" id-string ", ___arg2, " size-string ");"))
@@ -412,7 +419,7 @@
                       ((or (eq? kind 'struct)
                            (eq? kind 'union)
                            (eq? kind 'type))
-                       #f)
+                       (string-append "___arg1->" id-string " = *___arg2;"))
                       (else
                        (string-append "___arg1->" id-string " = ___arg2;")))))
           (let* ((struct* (build-pointer-symbol struct))
@@ -422,9 +429,10 @@
                              (size type*)
                              ((memq kind '(type struct union)) type*)
                              (else type))))
-            (let ((getter (let ((name (build-method-symbol struct id '-ref)))
-                            `(definition public ,name
-                               (c-function ,name (,struct*) ,type ,getter-string))))
+            (let ((getter (and getter-string
+                               (let ((name (build-method-symbol struct id '-ref)))
+                                 `(definition public ,name
+                                    (c-function ,name (,struct*) ,type ,getter-string)))))
                   (setter (and setter-string
                                (let ((name (build-method-symbol struct id '-set!)))
                                  `(definition public ,name
@@ -444,9 +452,11 @@
           (tag*-rest (if (null? tag-rest) '() (cons (build-pointer-symbol (car tag-rest)) (cdr tag-rest)))))
       (define (expand-acc clause)
         (receive (getter setter) (expand-accessor walker resume declaration environment clause struct)
-          (if setter
-              (list getter setter)
-            (list getter))))
+          (cond ((and getter setter) (list getter setter))
+                (getter (list getter))
+                (setter (list setter))
+                (else '()))))
+      
       (let ((make-name (build-method-symbol struct 'make))
             (free-name (build-method-symbol struct 'free))
             (sizeof-name (build-method-symbol struct 'sizeof)))

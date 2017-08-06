@@ -146,6 +146,7 @@ end-of-code
 ;;;
 
 (define-macro (macro-case-type obj)
+  #f #; ;; fix gambit 4.8.8 undefined warnings
   `(let ((obj ,obj))
      (if (##not (##mem-allocated? obj))
 
@@ -311,6 +312,7 @@ end-of-code
 ;;;
 
 (define (##walk-interned-symbols proc)
+  #f #; ;; fix gambit 4.8.8 undefined warnings
   (let ((tbl (##symbol-table)))
     (let loop1 ((i (##fx- (##vector-length tbl) 1)))
       (if (##fx> i 0)
@@ -323,6 +325,7 @@ end-of-code
           (macro-walk-continue)))))
 
 (define (##walk-interned-keywords proc)
+  #f #; ;; fix gambit 4.8.8 undefined warnings
   (let ((tbl (##keyword-table)))
     (let loop1 ((i (##fx- (##vector-length tbl) 1)))
       (if (##fx> i 0)
@@ -668,6 +671,7 @@ end-of-code
 (define alloc-bvector ##alloc-bvector)
 
 (define (symbol-name s)
+  #f #; ;; fix gambit 4.8.8 undefined warnings
   (macro-symbol-name s))
 
 ;;;

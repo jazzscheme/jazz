@@ -1,0 +1,329 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Sound Foreign
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module protected jazz.sound.foreign jazz
+
+
+(import (jazz.foreign)
+        (jazz.platform.types))
+
+
+(c-include "<soundio/soundio.h>")
+
+
+(c-enumerant SoundIoErrorNone)
+(c-enumerant SoundIoErrorNoMem)
+
+
+(c-enumerant SoundIoFormatFloat32NE)
+(c-enumerant SoundIoFormatFloat32FE)
+(c-enumerant SoundIoFormatS32NE)
+(c-enumerant SoundIoFormatS32FE)
+(c-enumerant SoundIoFormatS24NE)
+(c-enumerant SoundIoFormatS24FE)
+(c-enumerant SoundIoFormatS16NE)
+(c-enumerant SoundIoFormatS16FE)
+(c-enumerant SoundIoFormatFloat64NE)
+(c-enumerant SoundIoFormatFloat64FE)
+(c-enumerant SoundIoFormatU32NE)
+(c-enumerant SoundIoFormatU32FE)
+(c-enumerant SoundIoFormatU24NE)
+(c-enumerant SoundIoFormatU24FE)
+(c-enumerant SoundIoFormatU16NE)
+(c-enumerant SoundIoFormatU16FE)
+(c-enumerant SoundIoFormatS8)
+(c-enumerant SoundIoFormatU8)
+
+
+(c-structure SoundIo)
+
+
+(c-structure SoundIoChannelLayout
+  (char* name)
+  (int channel_count)
+  (@enum SoundIoChannelId int channels @constant SOUNDIO_MAX_CHANNELS 24))
+
+
+(c-structure SoundIoFormat)
+
+
+(c-structure SoundIoSampleRateRange)
+
+
+(c-structure SoundIoDevice
+  (SoundIo* soundio)
+  (char* id)
+  (char* name)
+  (@enum SoundIoDeviceAim int aim)
+  (SoundIoChannelLayout* layouts)
+  (int layout_count)
+  (SoundIoChannelLayout current_layout)
+  (@enum SoundIoFormat int formats)
+  (int format_count)
+  (@enum SoundIoFormat int current_format)
+  (SoundIoSampleRateRange* sample_rates)
+  (int sample_rate_count)
+  (int sample_rate_current)
+  (double software_latency_min)
+  (double software_latency_max)
+  (double software_latency_current)
+  (bool is_raw)
+  (int ref_count)
+  (int probe_error))
+
+
+@test
+(c-structure SoundIoInStream
+  (SoundIoDevice* device)
+  (@enum SoundIoFormat int format)
+  (int sample_rate)
+  (SoundIoChannelLayout layout))
+
+
+;(c-type SoundIoReadCallback (function (SoundIoInStream* int int) void))
+;(c-type SoundIoOverflowCallback (function (SoundIoInStream*) void))
+;(c-type SoundIoInputErrorCallback (function (SoundIoInStream* int) void))
+
+;(c-type SoundIoWriteCallback (function (SoundIoOutStream* int int) void))
+;(c-type SoundIoUnderflowCallback (function (SoundIoOutStream*) void))
+;(c-type SoundIoOutputErrorCallback (function (SoundIoOutStream* int) void))
+
+
+(c-structure SoundIoInStream
+  (SoundIoDevice* device)
+  (@enum SoundIoFormat int format)
+  (int sample_rate)
+  (SoundIoChannelLayout layout)
+  (double software_latency)
+  (void* userdata)
+  (void* read_callback)
+  (void* overflow_callback)
+  (void* error_callback)
+  (char* name)
+  (bool non_terminal_hint)
+  (int bytes_per_frame)
+  (int bytes_per_sample)
+  (int layout_error))
+
+
+(c-structure SoundIoOutStream
+  (SoundIoDevice* device)
+  (@enum SoundIoFormat int format)
+  (int sample_rate)
+  (SoundIoChannelLayout layout)
+  (double software_latency)
+  (void* userdata)
+  (void* write_callback)
+  (void* underflow_callback)
+  (void* error_callback)
+  (char* name)
+  (bool non_terminal_hint)
+  (int bytes_per_frame)
+  (int bytes_per_sample)
+  (int layout_error))
+
+
+(c-type SoundIoRingBuffer  (native "SoundIoRingBuffer"))
+(c-type SoundIoRingBuffer* (pointer SoundIoRingBuffer SoundIoRingBuffer*))
+
+
+(c-declare world.foreign #/C/
+#include <string.h>
+
+struct SoundIoRingBuffer *ring_buffer = NULL;
+
+static void panic(const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    vfprintf(stderr, format, ap);
+    fprintf(stderr, "\n");
+    va_end(ap);
+    abort();
+}
+
+static int min_int(int a, int b) {
+    return (a < b) ? a : b;
+}
+
+static void setup_ring_buffers(SoundIo* soundio, SoundIoInStream* instream, SoundIoOutStream* outstream, double microphone_latency)
+{
+    int capacity = microphone_latency * 2 * instream->sample_rate * instream->bytes_per_frame;
+    ring_buffer = soundio_ring_buffer_create(soundio, capacity);
+    if (!ring_buffer)
+        panic("unable to create ring buffer: out of memory");
+    char *buf = soundio_ring_buffer_write_ptr(ring_buffer);
+    int fill_count = microphone_latency * outstream->sample_rate * outstream->bytes_per_frame;
+    memset(buf, 0, fill_count);
+    soundio_ring_buffer_advance_write_ptr(ring_buffer, fill_count);
+}
+
+static void read_callback(struct SoundIoInStream *instream, int frame_count_min, int frame_count_max)
+{
+    struct SoundIoChannelArea *areas;
+    int err;
+    char *write_ptr = soundio_ring_buffer_write_ptr(ring_buffer);
+    int free_bytes = soundio_ring_buffer_free_count(ring_buffer);
+    int free_count = free_bytes / instream->bytes_per_frame;
+    if (frame_count_min > free_count)
+        panic("ring buffer overflow");
+    int write_frames = min_int(free_count, frame_count_max);
+    int frames_left = write_frames;
+    for (;;) {
+        int frame_count = frames_left;
+        if ((err = soundio_instream_begin_read(instream, &areas, &frame_count)))
+            panic("begin read error: %s", soundio_strerror(err));
+        if (!frame_count)
+            break;
+        if (!areas) {
+            // Due to an overflow there is a hole. Fill the ring buffer with
+            // silence for the size of the hole.
+            memset(write_ptr, 0, frame_count * instream->bytes_per_frame);
+            fprintf(stderr, "Dropped %d frames due to internal overflow\n", frame_count);
+        } else {
+            for (int frame = 0; frame < frame_count; frame += 1) {
+                for (int ch = 0; ch < instream->layout.channel_count; ch += 1) {
+                    memcpy(write_ptr, areas[ch].ptr, instream->bytes_per_sample);
+                    areas[ch].ptr += areas[ch].step;
+                    write_ptr += instream->bytes_per_sample;
+                }
+            }
+        }
+        if ((err = soundio_instream_end_read(instream)))
+            panic("end read error: %s", soundio_strerror(err));
+        frames_left -= frame_count;
+        if (frames_left <= 0)
+            break;
+    }
+    int advance_bytes = write_frames * instream->bytes_per_frame;
+    soundio_ring_buffer_advance_write_ptr(ring_buffer, advance_bytes);
+}
+
+static void write_callback(struct SoundIoOutStream *outstream, int frame_count_min, int frame_count_max)
+{
+    struct SoundIoChannelArea *areas;
+    int frame_count;
+    int err;
+    char *read_ptr = soundio_ring_buffer_read_ptr(ring_buffer);
+    int fill_bytes = soundio_ring_buffer_fill_count(ring_buffer);
+    int fill_count = fill_bytes / outstream->bytes_per_frame;
+    if (frame_count_min > fill_count) {
+        // Ring buffer does not have enough data, fill with zeroes.
+        for (;;) {
+            if ((err = soundio_outstream_begin_write(outstream, &areas, &frame_count)))
+                panic("begin write error: %s", soundio_strerror(err));
+            if (frame_count <= 0)
+                return;
+            for (int frame = 0; frame < frame_count; frame += 1) {
+                for (int ch = 0; ch < outstream->layout.channel_count; ch += 1) {
+                    memset(areas[ch].ptr, 0, outstream->bytes_per_sample);
+                    areas[ch].ptr += areas[ch].step;
+                }
+            }
+            if ((err = soundio_outstream_end_write(outstream)))
+                panic("end write error: %s", soundio_strerror(err));
+        }
+    }
+    int read_count = min_int(frame_count_max, fill_count);
+    int frames_left = read_count;
+    while (frames_left > 0) {
+        int frame_count = frames_left;
+        if ((err = soundio_outstream_begin_write(outstream, &areas, &frame_count)))
+            panic("begin write error: %s", soundio_strerror(err));
+        if (frame_count <= 0)
+            break;
+        for (int frame = 0; frame < frame_count; frame += 1) {
+            for (int ch = 0; ch < outstream->layout.channel_count; ch += 1) {
+                memcpy(areas[ch].ptr, read_ptr, outstream->bytes_per_sample);
+                areas[ch].ptr += areas[ch].step;
+                read_ptr += outstream->bytes_per_sample;
+            }
+        }
+        if ((err = soundio_outstream_end_write(outstream)))
+            panic("end write error: %s", soundio_strerror(err));
+        frames_left -= frame_count;
+    }
+    soundio_ring_buffer_advance_read_ptr(ring_buffer, read_count * outstream->bytes_per_frame);
+}
+
+static void underflow_callback(struct SoundIoOutStream *outstream)
+{
+    static int count = 0;
+    fprintf(stderr, "underflow %d\n", ++count);
+}
+
+static SoundIoInStream* soundio_instream_create_aux(SoundIoDevice* device)
+{
+    SoundIoInStream* instream = soundio_instream_create(device);
+    instream->read_callback = read_callback;
+    return instream;
+}
+
+static SoundIoOutStream* soundio_outstream_create_aux(SoundIoDevice* device)
+{
+    SoundIoOutStream* outstream = soundio_outstream_create(device);
+    outstream->write_callback = write_callback;
+    outstream->underflow_callback = underflow_callback;
+    return outstream;
+}
+//#)
+
+
+(c-external (soundio_create) SoundIo*)
+(c-external (soundio_connect SoundIo*) int)
+(c-external (soundio_flush_events SoundIo*) void)
+(c-external (soundio_default_input_device_index SoundIo*) int)
+(c-external (soundio_default_output_device_index SoundIo*) int)
+(c-external (soundio_get_input_device SoundIo* int) SoundIoDevice*)
+(c-external (soundio_get_output_device SoundIo* int) SoundIoDevice*)
+(c-external (soundio_device_sort_channel_layouts SoundIoDevice*) void)
+(c-external (soundio_best_matching_channel_layout SoundIoChannelLayout* int SoundIoChannelLayout* int) SoundIoChannelLayout*)
+(c-external (soundio_instream_create SoundIoDevice*) SoundIoInStream* "soundio_instream_create_aux")
+(c-external (soundio_outstream_create SoundIoDevice*) SoundIoOutStream* "soundio_outstream_create_aux")
+(c-external (soundio_device_supports_sample_rate SoundIoDevice* int) bool)
+(c-external (soundio_device_supports_format SoundIoDevice* int) bool)
+(c-external (soundio_instream_open SoundIoInStream*) int)
+(c-external (soundio_outstream_open SoundIoOutStream*) int)
+(c-external (soundio_setup_ring_buffers SoundIo* SoundIoInStream* SoundIoOutStream* double) void "setup_ring_buffers")
+(c-external (soundio_ring_buffer_create SoundIo* int) SoundIoRingBuffer*)
+(c-external (soundio_ring_buffer_write_ptr SoundIoRingBuffer*) char*)
+(c-external (soundio_instream_start SoundIoInStream*) int)
+(c-external (soundio_outstream_start SoundIoOutStream*) int)
+(c-external (soundio_instream_destroy SoundIoInStream*) void)
+(c-external (soundio_outstream_destroy SoundIoOutStream*) void)
+(c-external (soundio_device_unref SoundIoDevice*) void)
+(c-external (soundio_destroy SoundIo*) void))

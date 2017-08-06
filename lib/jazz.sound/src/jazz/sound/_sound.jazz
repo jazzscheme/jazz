@@ -1,0 +1,188 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Sound
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2015
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(module jazz.sound jazz
+
+
+(import (jazz.sound.foreign)
+        (jazz.foreign)
+        (jazz.platform.types))
+
+(export (jazz.sound.foreign))
+
+
+;;;
+;;;; Library
+;;;
+
+
+(definition public soundio
+  #f)
+
+
+(definition public (startup-sound)
+  (unless soundio
+    (set! soundio (soundio_create))
+    (soundio_connect soundio)
+    (soundio_flush_events soundio)))
+
+
+(definition public (shutdown-sound)
+  (when soundio
+    (soundio_destroy soundio)
+    (set! soundio #f)))
+
+
+(definition public (update-sound)
+  (when soundio
+    ))
+
+
+(add-exit-job!
+  (lambda ()
+    (shutdown-sound)))
+
+
+;;;
+;;;; Interface
+;;;
+
+
+(definition public (sound-default-input-device)
+  (soundio_get_input_device soundio (soundio_default_input_device_index soundio)))
+
+
+(definition public (sound-default-output-device)
+  (soundio_get_output_device soundio (soundio_default_output_device_index soundio)))
+
+
+(definition public (sound-create/open-instream in-device format rate layout latency)
+  (let ((in-stream (soundio_instream_create in-device)))
+    (SoundIoInStream-format-set! in-stream format)
+    (SoundIoInStream-sample_rate-set! in-stream rate)
+    (SoundIoInStream-layout-set! in-stream layout)
+    (SoundIoInStream-software_latency-set! in-stream latency)
+    (soundio_instream_open in-stream)
+    in-stream))
+
+
+(definition public (sound-create/open-outstream out-device format rate layout latency)
+  (let ((out-stream (soundio_outstream_create out-device)))
+    (SoundIoOutStream-format-set! out-stream format)
+    (SoundIoOutStream-sample_rate-set! out-stream rate)
+    (SoundIoOutStream-layout-set! out-stream layout)
+    (SoundIoOutStream-software_latency-set! out-stream latency)
+    (soundio_outstream_open out-stream)
+    out-stream))
+
+
+(definition public (sound-setup-buffers in-stream out-stream latency)
+  (soundio_setup_ring_buffers soundio in-stream out-stream latency))
+
+
+(definition public (sound-start-instream in-stream)
+  (soundio_instream_start in-stream))
+
+
+(definition public (sound-start-outstream out-stream)
+  (soundio_outstream_start out-stream))
+
+
+(definition public (sound-destroy/unref-instream in-device in-stream)
+  (soundio_instream_destroy in-stream)
+  (soundio_device_unref in-device))
+
+
+(definition public (sound-destroy/unref-outstream out-device out-stream)
+  (soundio_outstream_destroy out-stream)
+  (soundio_device_unref out-device))
+
+
+;;;
+;;;; Utility
+;;;
+
+
+(definition public (determine-best-sound-layout in-device out-device)
+  (soundio_device_sort_channel_layouts out-device)
+  (soundio_best_matching_channel_layout (SoundIoDevice-layouts-ref out-device)
+                                        (SoundIoDevice-layout_count-ref out-device)
+                                        (SoundIoDevice-layouts-ref in-device)
+                                        (SoundIoDevice-layout_count-ref in-device)))
+
+
+(constant prioritized-sample-rates
+  '(48000
+    44100
+    96000
+    24000))
+
+
+(definition public (determine-best-sound-rate in-device out-device)
+  (find-if (lambda (sample-rate)
+             (and (soundio_device_supports_sample_rate in-device sample-rate)
+                  (soundio_device_supports_sample_rate out-device sample-rate)))
+           prioritized-sample-rates))
+
+
+(constant prioritized-formats
+  (list
+    SoundIoFormatFloat32NE
+    SoundIoFormatFloat32FE
+    SoundIoFormatS32NE
+    SoundIoFormatS32FE
+    SoundIoFormatS24NE
+    SoundIoFormatS24FE
+    SoundIoFormatS16NE
+    SoundIoFormatS16FE
+    SoundIoFormatFloat64NE
+    SoundIoFormatFloat64FE
+    SoundIoFormatU32NE
+    SoundIoFormatU32FE
+    SoundIoFormatU24NE
+    SoundIoFormatU24FE
+    SoundIoFormatU16NE
+    SoundIoFormatU16FE
+    SoundIoFormatS8
+    SoundIoFormatU8))
+
+
+(definition public (determine-best-sound-format in-device out-device)
+  (find-if (lambda (format)
+             (and (soundio_device_supports_format in-device format)
+                  (soundio_device_supports_format out-device format)))
+           prioritized-formats)))

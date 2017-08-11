@@ -67,14 +67,62 @@
     (set! soundio #f)))
 
 
-(definition public (update-sound)
-  (when soundio
-    ))
-
-
+@wait
 (add-exit-job!
   (lambda ()
     (shutdown-sound)))
+
+
+;;;
+;;;; Input
+;;;
+
+
+(definition input-device
+  #f)
+
+(definition input-stream
+  #f)
+
+
+(definition public (start-sound-input in-device rate format layout latency)
+  (let ((in-stream (sound-create/open-instream in-device format rate layout latency)))
+    (sound-setup-input-ring in-stream latency)
+    (sound-start-instream in-stream)
+    (set! input-device in-device)
+    (set! input-stream in-stream)))
+
+
+(definition public (stop-sound-input)
+  (sound-destroy/unref-instream input-device input-stream)
+  (set! input-device #f)
+  (set! input-stream #f))
+
+
+;;;
+;;;; Output
+;;;
+
+
+(definition output-device
+  #f)
+
+(definition output-stream
+  #f)
+
+
+(definition public (start-sound-output out-device rate format layout latency)
+  (let ((out-stream (sound-create/open-outstream out-device format rate layout latency)))
+    (sound-setup-output-ring out-stream latency)
+    (sound-start-outstream out-stream)
+    (set! output-device out-device)
+    (set! output-stream out-stream)))
+
+
+(definition public (stop-sound-output)
+  (sound-destroy/unref-outstream output-device output-stream)
+  (set! output-device #f)
+  (set! output-stream #f))
 
 
 ;;;
@@ -88,6 +136,10 @@
 
 (definition public (sound-default-output-device)
   (soundio_get_output_device soundio (soundio_default_output_device_index soundio)))
+
+
+(definition public (sound-get-default-layout channel-count)
+  (soundio_channel_layout_get_default channel-count))
 
 
 (definition public (sound-create/open-instream in-device format rate layout latency)
@@ -110,8 +162,12 @@
     out-stream))
 
 
-(definition public (sound-setup-buffers in-stream out-stream latency)
-  (soundio_setup_ring_buffers soundio in-stream out-stream latency))
+(definition public (sound-setup-input-ring in-stream latency)
+  (soundio_setup_input_ring soundio in-stream latency))
+
+
+(definition public (sound-setup-output-ring out-stream latency)
+  (soundio_setup_output_ring soundio out-stream latency))
 
 
 (definition public (sound-start-instream in-stream)
@@ -120,6 +176,10 @@
 
 (definition public (sound-start-outstream out-stream)
   (soundio_outstream_start out-stream))
+
+
+(definition public (sound-wait-events)
+  (soundio_wait_events soundio))
 
 
 (definition public (sound-destroy/unref-instream in-device in-stream)

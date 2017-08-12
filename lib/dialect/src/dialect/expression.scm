@@ -737,6 +737,10 @@
     #f))
 
 
+(jazz:define-variable-override jazz:declare-class
+  jazz:Declare)
+
+
 ;;;
 ;;;; Parameterize
 ;;;

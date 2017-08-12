@@ -4047,12 +4047,13 @@
 
 
 (define (jazz:annotate-internal-defines internal-defines)
-  (map (lambda (internal-define)
-         (let ((variable (jazz:get-internal-define-variable internal-define)))
-           (let ((declared-type (jazz:get-lexical-binding-type variable)))
-             (let ((type (or declared-type jazz:Any)))
-               (jazz:new-annotated-variable variable declared-type type)))))
-       internal-defines))
+  (jazz:collect (lambda (internal-define)
+                  (and (%%is-not? internal-define jazz:declare-class)
+                       (let ((variable (jazz:get-internal-define-variable internal-define)))
+                         (let ((declared-type (jazz:get-lexical-binding-type variable)))
+                           (let ((type (or declared-type jazz:Any)))
+                             (jazz:new-annotated-variable variable declared-type type))))))
+                internal-defines))
 
 
 (define (jazz:with-annotated-frame variables proc)
@@ -4513,6 +4514,14 @@
         (down expression seed environment)
         environment)
       environment))
+
+
+;;;
+;;;; Declare
+;;;
+
+
+(jazz:define-variable jazz:declare-class)
 
 
 ;;;

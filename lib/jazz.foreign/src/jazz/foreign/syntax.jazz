@@ -580,10 +580,18 @@
     (assertion (and (list? form) (= 5 (length form))) (walk-error walker resume declaration form-src "Ill-formed c-function")
       (bind (name types result-type c-name-or-code) (cdr form)
         (define (resolve-reference type)
-          (resolve-c-type-reference walker resume declaration environment type))
+          (if (or (literal-type? type)
+                  (homogeneous-type? type))
+              type
+            (resolve-c-type-reference walker resume declaration environment type)))
         
         (define (resolve-access type)
           (expand-c-type-reference walker resume declaration environment type))
+        
+        (define literal-types
+          '(NULL
+            FALSE
+            TRUE))
         
         (define homogeneous-types
           '(u8vector
@@ -598,7 +606,11 @@
             f64vector))
         
         (define (enum-type? resolved-type)
-          (eq? (get-c-type~ resolved-type) 'enum))
+          (and (is? resolved-type C-Type-Declaration)
+               (eq? (get-c-type~ resolved-type) 'enum)))
+        
+        (define (literal-type? type)
+          (memq? type literal-types))
         
         (define (homogeneous-type? type)
           (memq? type homogeneous-types))
@@ -609,33 +621,39 @@
         (define (convert-types has-special? types resolved-types)
           (if (not has-special?)
               types
-            (map (lambda (type resolved-type)
-                   (cond ((enum-type? resolved-type)
-                          'int)
-                         ((homogeneous-type? type)
-                          'scheme-object)
-                         (else
-                          type)))
-                 types
-                 resolved-types)))
+            (remove-false
+              (map (lambda (type resolved-type)
+                     (cond ((enum-type? resolved-type)
+                            'int)
+                           ((literal-type? type)
+                            #f)
+                           ((homogeneous-type? type)
+                            'scheme-object)
+                           (else
+                            type)))
+                   types
+                   resolved-types))))
         
         (define (convert-code has-special? types resolved-types c-name-or-code)
           (define (convert-type type resolved-type arg)
-            (if (enum-type? resolved-type)
-                (let ((name (get-name~ resolved-type)))
-                  (string-append "(" (symbol->string name) ")" arg))
-              (case type
-                ((u8vector) (string-append "(unsigned char*)___BODY(" arg ")"))
-                ((s8vector) (string-append "(signed char*)___BODY(" arg ")"))
-                ((u16vector) (string-append "(unsigned short*)___BODY(" arg ")"))
-                ((s16vector) (string-append "(short*)___BODY(" arg ")"))
-                ((u32vector) (string-append "(unsigned int*)___BODY(" arg ")"))
-                ((s32vector) (string-append "(int*)___BODY(" arg ")"))
-                ((u64vector) (string-append "(unsigned long long*)___BODY(" arg ")"))
-                ((s64vector) (string-append "(long long*)___BODY(" arg ")"))
-                ((f32vector) (string-append "(float*)___BODY(" arg ")"))
-                ((f64vector) (string-append "(double*)___BODY(" arg ")"))
-                (else arg))))
+            (cond ((enum-type? resolved-type)
+                   (let ((name (get-name~ resolved-type)))
+                     (string-append "(" (symbol->string name) ")" arg)))
+                  ((literal-type? type)
+                   type)
+                  (else
+                   (case type
+                     ((u8vector) (string-append "(unsigned char*)___BODY(" arg ")"))
+                     ((s8vector) (string-append "(signed char*)___BODY(" arg ")"))
+                     ((u16vector) (string-append "(unsigned short*)___BODY(" arg ")"))
+                     ((s16vector) (string-append "(short*)___BODY(" arg ")"))
+                     ((u32vector) (string-append "(unsigned int*)___BODY(" arg ")"))
+                     ((s32vector) (string-append "(int*)___BODY(" arg ")"))
+                     ((u64vector) (string-append "(unsigned long long*)___BODY(" arg ")"))
+                     ((s64vector) (string-append "(long long*)___BODY(" arg ")"))
+                     ((f32vector) (string-append "(float*)___BODY(" arg ")"))
+                     ((f64vector) (string-append "(double*)___BODY(" arg ")"))
+                     (else arg)))))
           
           (if (or (not has-special?)
                   (not (c-identifier? c-name-or-code)))
@@ -661,6 +679,7 @@
         
         (let ((resolved-types (map resolve-reference types)))
           (let ((has-special? (or (some? enum-type? resolved-types)
+                                  (some? literal-type? types)
                                   (some? homogeneous-type? types))))
             (let ((converted-types (convert-types has-special? types resolved-types)))
               (let ((final-code (convert-code has-special? types resolved-types c-name-or-code)))

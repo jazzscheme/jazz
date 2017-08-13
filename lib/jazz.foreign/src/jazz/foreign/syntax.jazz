@@ -578,8 +578,88 @@
         (define (resolve-access type)
           (expand-c-type-reference walker resume declaration environment type))
         
-        (new C-Function
-          `(c-function ,name ,(map resolve-access types) ,(resolve-access result-type) ,c-name-or-code))))))
+        (define homogeneous-types
+          '(u8vector
+            s8vector
+            u16vector
+            s16vector
+            u32vector
+            s32vector
+            s64vector
+            u64vector
+            f32vector
+            f64vector))
+        
+        (define (enum-type? type)
+          (and (pair? type)
+               (eq? (car type) 'enum)))
+        
+        (define (homogeneous-type? type)
+          (memq? type homogeneous-types))
+        
+        (define (special-type? type)
+          (or (enum-type? type)
+              (homogeneous-type? type)))
+        
+        (define (c-identifier? str)
+          (every? c-constituent? str))
+        
+        (define (convert-types has-special? types)
+          (if (not has-special?)
+              types
+            (map (lambda (type)
+                   (cond ((enum-type? type)
+                          'int)
+                         ((homogeneous-type? type)
+                          'scheme-object)
+                         (else
+                          type)))
+                 types)))
+        
+        (define (convert-code has-special? types c-name-or-code)
+          (define (convert-type type arg)
+            (if (enum-type? type)
+                (let ((name (cadr type)))
+                  (string-append "(" (symbol->string name) ")" arg))
+              (case type
+                ((u8vector) (string-append "(unsigned char*)___BODY(" arg ")"))
+                ((s8vector) (string-append "(signed char*)___BODY(" arg ")"))
+                ((u16vector) (string-append "(unsigned short*)___BODY(" arg ")"))
+                ((s16vector) (string-append "(short*)___BODY(" arg ")"))
+                ((u32vector) (string-append "(unsigned int*)___BODY(" arg ")"))
+                ((s32vector) (string-append "(int*)___BODY(" arg ")"))
+                ((u64vector) (string-append "(unsigned long long*)___BODY(" arg ")"))
+                ((s64vector) (string-append "(long long*)___BODY(" arg ")"))
+                ((f32vector) (string-append "(float*)___BODY(" arg ")"))
+                ((f64vector) (string-append "(double*)___BODY(" arg ")"))
+                (else arg))))
+          
+          (if (or (not has-special?)
+                  (not (c-identifier? c-name-or-code)))
+              c-name-or-code
+            (let ((output (open-output-string))
+                  (first? #t)
+                  (void? (eq? result-type 'void)))
+              (format output "{a}" (if void? "" "___return("))
+              (format output "{a}(" c-name-or-code)
+              (for-each (lambda (type n)
+                          (let ((rank (+ n 1)))
+                            (if first?
+                                (set! first? #f)
+                              (format output ", "))
+                            (let ((arg (format "___arg{a}" rank)))
+                              (format output "{a}" (convert-type type arg)))))
+                        types
+                        (naturals 0 (length types)))
+              (format output "{a}" (if void? "" ")"))
+              (format output ");")
+              (get-output-string output))))
+        
+        (let ((has-special? (some? special-type? types)))
+          (let ((converted-types (convert-types has-special? types))
+                (converted-code (convert-code has-special? types c-name-or-code)))
+            (new C-Function
+              `(c-function ,name ,(map resolve-access converted-types) ,(resolve-access result-type) ,converted-code))))))))
 
 
 (special-form (c-function walker resume declaration environment form-src)
@@ -744,101 +824,18 @@
         (proc (car rest) (cdr rest))
       (proc #f rest)))
   
-  (define homogeneous-types
-    '(u8vector
-      s8vector
-      u16vector
-      s16vector
-      u32vector
-      s32vector
-      s64vector
-      u64vector
-      f32vector
-      f64vector))
-  
-  (define (enum-type? type)
-    (and (symbol? type)
-         (starts-with? (symbol->string type) "enum<")))
-  
-  (define (homogeneous-type? type)
-    (memq? type homogeneous-types))
-  
-  (define (special-type? type)
-    (or (enum-type? type)
-        (homogeneous-type? type)))
-  
-  (define (convert-types has-special? types)
-    (if (not has-special?)
-        types
-      (map (lambda (type)
-             (cond ((enum-type? type)
-                    'int)
-                   ((homogeneous-type? type)
-                    'scheme-object)
-                   (else
-                    type)))
-           types)))
-  
-  (define (convert-code has-special? types name)
-    (define (convert-type type arg)
-      (if (enum-type? type)
-          (let ((name (symbol->string type)))
-            (string-append "(" (substring name 5 (- (string-length name) 1)) ")" arg))
-        (case type
-          ((u8vector) (string-append "(unsigned char*)___BODY(" arg ")"))
-          ((s8vector) (string-append "(signed char*)___BODY(" arg ")"))
-          ((u16vector) (string-append "(unsigned short*)___BODY(" arg ")"))
-          ((s16vector) (string-append "(short*)___BODY(" arg ")"))
-          ((u32vector) (string-append "(unsigned int*)___BODY(" arg ")"))
-          ((s32vector) (string-append "(int*)___BODY(" arg ")"))
-          ((u64vector) (string-append "(unsigned long long*)___BODY(" arg ")"))
-          ((s64vector) (string-append "(long long*)___BODY(" arg ")"))
-          ((f32vector) (string-append "(float*)___BODY(" arg ")"))
-          ((f64vector) (string-append "(double*)___BODY(" arg ")"))
-          (else arg))))
-    
-    (if (not has-special?)
-        name
-      (let ((output (open-output-string))
-            (first? #t))
-        (format output "{a}" (let ((result (and (pair? rest) (car rest))))
-                               (let ((effective-result (if (and (eq? result-type 'void)
-                                                                (or (not result)
-                                                                    (eq? result 'void)))
-                                                           'void
-                                                         result)))
-                                 (case effective-result
-                                   ((void) "")
-                                   ((value) "___result = ")
-                                   ((pointer) "___result_voidstar = ")
-                                   (else (error "Unknown result kind: {s}" result))))))
-        (format output "{a}(" name)
-        (for-each (lambda (type n)
-                    (let ((rank (+ n 1)))
-                      (if first?
-                          (set! first? #f)
-                        (format output ", "))
-                      (let ((arg (format "___arg{a}" rank)))
-                        (format output "{a}" (convert-type type arg)))))
-                  types
-                  (naturals 0 (length types)))
-        (format output ");")
-        (get-output-string output))))
-  
   (parse-specifier
     (lambda (specifier rest)
       (let ((name (car signature))
             (types (cdr signature)))
-        (let ((has-special? (some? special-type? types)))
-          (let ((converted-types (convert-types has-special? types))
-                (c-name-or-code (if (or (null? rest) (symbol? (car rest))) (convert-code has-special? types (symbol->string name)) (car rest))))
-            (define (specifier->function-type)
-              (let ((str (symbol->string specifier)))
-                (let ((len (string-length str)))
-                  (string->symbol (string-append "<:" (substring str 1 (- len 1)) ">")))))
-            
-            `(definition public ,name ,@(if specifier (list (specifier->function-type)) '())
-               (c-function ,name ,converted-types ,result-type ,c-name-or-code))))))))
+        (define (specifier->function-type)
+          (let ((str (symbol->string specifier)))
+            (let ((len (string-length str)))
+              (string->symbol (string-append "<:" (substring str 1 (- len 1)) ">")))))
+        
+        (let ((c-name-or-code (if (null? rest) (symbol->string name) (car rest))))
+          `(definition public ,name ,@(if specifier (list (specifier->function-type)) '())
+             (c-function ,name ,types ,result-type ,c-name-or-code)))))))
 
 
 ;;;

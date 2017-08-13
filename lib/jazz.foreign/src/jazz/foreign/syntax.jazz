@@ -211,6 +211,7 @@
   
   (slot form          getter generate)
   (slot kind          getter generate)
+  (slot c-type        getter generate)
   (slot expansion     getter generate)
   (slot base-type     getter generate)
   (slot pointer-types accessors generate)
@@ -222,10 +223,11 @@
 
   
   (method override (initialize form . rest)
-    (bind-keywords ((kind #f) (expansion #f) (base-type #f) (inclusions #f) (c-to-scheme #f) (scheme-to-c #f) (cleanup #t) (declare-name #f) . others) rest
+    (bind-keywords ((kind #f) (c-type #f) (expansion #f) (base-type #f) (inclusions #f) (c-to-scheme #f) (scheme-to-c #f) (cleanup #t) (declare-name #f) . others) rest
       (apply nextmethod others)
       (set! form~self form)
       (set! kind~self kind)
+      (set! c-type~self c-type)
       (set! expansion~self expansion)
       (set! base-type~self base-type)
       (set! pointer-types~self '())
@@ -280,7 +282,7 @@
                                   (walk-error walker resume declaration form-src "{s} defined with c-to-scheme and scheme-to-c but expansion is not a string: {s}" name expansion))
                               inclusions)))
             (let ((new-declaration (or (find-declaration-child declaration name)
-                                       (new C-Type-Declaration (desourcify-all form-src) name: name type: type access: access compatibility: compatibility attributes: '() parent: declaration kind: kind expansion: expansion base-type: base-type-declaration inclusions: inclusions c-to-scheme: c-to-scheme scheme-to-c: scheme-to-c cleanup: cleanup declare-name: declare-name))))
+                                       (new C-Type-Declaration (desourcify-all form-src) name: name type: type access: access compatibility: compatibility attributes: '() parent: declaration kind: kind c-type: c-type expansion: expansion base-type: base-type-declaration inclusions: inclusions c-to-scheme: c-to-scheme scheme-to-c: scheme-to-c cleanup: cleanup declare-name: declare-name))))
               (when base-type-declaration
                 (set-pointer-types~ base-type-declaration (cons new-declaration (get-pointer-types~ base-type-declaration))))
               (let ((effective-declaration (add-declaration-child walker resume declaration new-declaration)))
@@ -298,9 +300,11 @@
   (let ((queue (new-queue)))
     (define (resolve type)
       (cond ((symbol? type)
-             (let ((c-type-declaration (resolve-c-type-reference walker resume declaration environment type)))
-               (enqueue queue c-type-declaration)
-               (values 'alias (get-locator~ c-type-declaration) #f)))
+             (if (eq? type 'enum)
+                 (values 'native 'int #f)
+               (let ((c-type-declaration (resolve-c-type-reference walker resume declaration environment type)))
+                 (enqueue queue c-type-declaration)
+                 (values 'alias (get-locator~ c-type-declaration) #f))))
             ((string? type)
              (values 'type type #f))
             ((pair? type)
@@ -575,6 +579,9 @@
   (let ((form (strip-syntactic-closures form-src)))
     (assertion (and (list? form) (= 5 (length form))) (walk-error walker resume declaration form-src "Ill-formed c-function")
       (bind (name types result-type c-name-or-code) (cdr form)
+        (define (resolve-reference type)
+          (resolve-c-type-reference walker resume declaration environment type))
+        
         (define (resolve-access type)
           (expand-c-type-reference walker resume declaration environment type))
         
@@ -590,36 +597,32 @@
             f32vector
             f64vector))
         
-        (define (enum-type? type)
-          (and (pair? type)
-               (eq? (car type) 'enum)))
+        (define (enum-type? resolved-type)
+          (eq? (get-c-type~ resolved-type) 'enum))
         
         (define (homogeneous-type? type)
           (memq? type homogeneous-types))
         
-        (define (special-type? type)
-          (or (enum-type? type)
-              (homogeneous-type? type)))
-        
         (define (c-identifier? str)
           (every? c-constituent? str))
         
-        (define (convert-types has-special? types)
+        (define (convert-types has-special? types resolved-types)
           (if (not has-special?)
               types
-            (map (lambda (type)
-                   (cond ((enum-type? type)
+            (map (lambda (type resolved-type)
+                   (cond ((enum-type? resolved-type)
                           'int)
                          ((homogeneous-type? type)
                           'scheme-object)
                          (else
                           type)))
-                 types)))
+                 types
+                 resolved-types)))
         
-        (define (convert-code has-special? types c-name-or-code)
-          (define (convert-type type arg)
-            (if (enum-type? type)
-                (let ((name (cadr type)))
+        (define (convert-code has-special? types resolved-types c-name-or-code)
+          (define (convert-type type resolved-type arg)
+            (if (enum-type? resolved-type)
+                (let ((name (get-name~ resolved-type)))
                   (string-append "(" (symbol->string name) ")" arg))
               (case type
                 ((u8vector) (string-append "(unsigned char*)___BODY(" arg ")"))
@@ -642,24 +645,27 @@
                   (void? (eq? result-type 'void)))
               (format output "{a}" (if void? "" "___return("))
               (format output "{a}(" c-name-or-code)
-              (for-each (lambda (type n)
+              (for-each (lambda (type resolved-type n)
                           (let ((rank (+ n 1)))
                             (if first?
                                 (set! first? #f)
                               (format output ", "))
                             (let ((arg (format "___arg{a}" rank)))
-                              (format output "{a}" (convert-type type arg)))))
+                              (format output "{a}" (convert-type type resolved-type arg)))))
                         types
+                        resolved-types
                         (naturals 0 (length types)))
               (format output "{a}" (if void? "" ")"))
               (format output ");")
               (get-output-string output))))
         
-        (let ((has-special? (some? special-type? types)))
-          (let ((converted-types (convert-types has-special? types))
-                (converted-code (convert-code has-special? types c-name-or-code)))
-            (new C-Function
-              `(c-function ,name ,(map resolve-access converted-types) ,(resolve-access result-type) ,converted-code))))))))
+        (let ((resolved-types (map resolve-reference types)))
+          (let ((has-special? (or (some? enum-type? resolved-types)
+                                  (some? homogeneous-type? types))))
+            (let ((converted-types (convert-types has-special? types resolved-types)))
+              (let ((final-code (convert-code has-special? types resolved-types c-name-or-code)))
+                (new C-Function
+                  `(c-function ,name ,(map resolve-access converted-types) ,(resolve-access result-type) ,final-code))))))))))
 
 
 (special-form (c-function walker resume declaration environment form-src)

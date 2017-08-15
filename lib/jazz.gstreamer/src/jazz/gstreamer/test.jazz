@@ -38,4 +38,63 @@
 (module jazz.gstreamer.test jazz
 
 
-(import (jazz.gstreamer)))
+(import (jazz.gstreamer))
+
+
+(startup-gstreamer)
+
+@playbin
+(let ((pipeline (gst_parse_launch "playbin uri=https://www.freedesktop.org/software/gstreamer-sdk/data/media/sintel_trailer-480p.webm")))
+  (gst_element_set_state pipeline GST_STATE_PLAYING)
+  (let ((bus (gst_element_get_bus pipeline)))
+    (gst_bus_timed_pop_filtered bus GST_CLOCK_TIME_NONE (bitwise-ior GST_MESSAGE_ERROR GST_MESSAGE_EOS))))
+
+@wav
+(begin
+(define (play-explosion)
+  (let ((loop (g_main_loop_new)))
+    (let ((pipeline (gst_pipeline_new "audio-player")))
+      (let ((source  (gst_element_factory_make "filesrc"       "file-source"))
+            (decoder (gst_element_factory_make "wavparse"      "wavparse"))
+            (conv    (gst_element_factory_make "audioconvert"  "converter"))
+            (sink    (gst_element_factory_make "autoaudiosink" "audio-output")))
+        (g_object_set source "location" "/Users/cartier/Devel/media/test.wav")
+        (let ((bus (gst_pipeline_get_bus pipeline)))
+          (let ((bus-watch-id (gst_bus_add_watch bus loop)))
+            (gst_object_unref bus)
+            (gst_bin_add pipeline source)
+            (gst_bin_add pipeline decoder)
+            (gst_bin_add pipeline conv)
+            (gst_bin_add pipeline sink)
+            (gst_element_link source decoder)
+            (gst_element_link decoder conv)
+            (gst_element_link conv sink)
+            (gst_element_set_state pipeline GST_STATE_PLAYING)))))))
+(loop (repeat 100)
+      (play-explosion)
+      (sleep .1))
+(sleep 5))
+
+@ogg
+(let ((loop (g_main_loop_new)))
+  (let ((pipeline (gst_pipeline_new "audio-player")))
+    (let ((source  (gst_element_factory_make "filesrc"       "file-source"))
+          (demuxer (gst_element_factory_make "oggdemux"      "ogg-demuxer"))
+          (decoder (gst_element_factory_make "vorbisdec"     "vorbis-decoder"))
+          (conv    (gst_element_factory_make "audioconvert"  "converter"))
+          (sink    (gst_element_factory_make "autoaudiosink" "audio-output")))
+      (g_object_set source "location" "/Users/cartier/Devel/media/test.ogg")
+      (let ((bus (gst_pipeline_get_bus pipeline)))
+        (let ((bus-watch-id (gst_bus_add_watch bus loop)))
+          (gst_object_unref bus)
+          (gst_bin_add pipeline source)
+          (gst_bin_add pipeline demuxer)
+          (gst_bin_add pipeline decoder)
+          (gst_bin_add pipeline conv)
+          (gst_bin_add pipeline sink)
+          (gst_element_link source demuxer)
+          (gst_element_link decoder conv)
+          (gst_element_link conv sink)
+          (g_signal_connect demuxer "pad-added" decoder)
+          (gst_element_set_state pipeline GST_STATE_PLAYING)
+          (g_main_loop_run loop)))))))

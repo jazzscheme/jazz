@@ -264,6 +264,15 @@
 
 
 ;;;
+;;;; Port
+;;;
+
+
+(define (jazz:character-port-output-width-set! port proc)
+  (macro-character-port-output-width-set! port proc))
+
+
+;;;
 ;;;; Thread
 ;;;
 

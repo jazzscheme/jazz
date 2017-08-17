@@ -331,8 +331,7 @@
 
 
 (define (jazz:output-port-width-set! port width)
-  #; ;; breaks in gambit 4.8.8
-  (##vector-set! port 36 (lambda (port) width))
+  (jazz:character-port-output-width-set! port (lambda (port) width))
   (void))
 
 

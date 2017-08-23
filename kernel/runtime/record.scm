@@ -62,11 +62,15 @@
     (jazz:define-macro (%%jazz? expr)
       (jazz:with-uniqueness expr
         (lambda (expr)
-          `(or (##jazz? ,expr) (##jazzstruct? ,expr)))))
+          (if (##global-var? '##jazzstruct?)
+              `(or (##jazz? ,expr) (##jazzstruct? ,expr))
+            `(##jazz? ,expr)))))
     
     ;; this function is here for structure / class unification
     (jazz:define-macro (%%jazzstruct? expr)
-      `(##jazzstruct? ,expr))
+      (if (##global-var? '##jazzstruct?)
+          `(##jazzstruct? ,expr)
+        #f))
     
     ;; this function is here for structure / class unification
     (jazz:define-macro (%%jazzify expr)

@@ -123,6 +123,7 @@ end-of-c-code
         signal(SIGBUS,  SIG_DFL);
         signal(SIGSEGV, SIG_DFL);
         signal(SIGSYS,  SIG_DFL);
+        signal(SIGTRAP, SIG_DFL);
         }
 
       static void error_signal_handler(int sig_num)
@@ -143,6 +144,7 @@ end-of-c-code
         signal(SIGBUS,  error_signal_handler);
         signal(SIGSEGV, error_signal_handler);
         signal(SIGSYS,  error_signal_handler);
+        signal(SIGTRAP, error_signal_handler);
       }
 end-of-c-code
    )

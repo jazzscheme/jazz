@@ -1435,6 +1435,7 @@
 ;;;
 
 
+#; ;; convert
 (cond-expand
   (gambit
     (define jazz:thread-heartbeat-interval-set! ##thread-heartbeat-interval-set!))

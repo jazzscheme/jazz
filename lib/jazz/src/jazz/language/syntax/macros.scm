@@ -49,8 +49,7 @@
         catch
         ~
         local-context
-        hook
-        expand-body)
+        hook)
 
 (import (jazz.language.runtime.kernel)
         (scheme.syntax-rules (phase syntax)))
@@ -95,7 +94,7 @@
     ((_)
      (unspecified))
     ((_ expr ...)
-     (begin expr ...))))
+     (begin expr ... (unspecified)))))
 
 
 (define-syntax when
@@ -115,7 +114,7 @@
   (syntax-rules ()
     ((prog1 returned expr ...)
      (let ((value returned))
-       (expand-body expr ...)
+       expr ...
        value))))
 
 

@@ -94,7 +94,7 @@
     ((_)
      (unspecified))
     ((_ expr ...)
-     (begin expr ... (unspecified)))))
+     (unspecific expr ...))))
 
 
 (define-syntax when

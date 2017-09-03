@@ -231,6 +231,15 @@
 
 
 ;;;
+;;;; Unspecific
+;;;
+
+
+(jazz:define-emit (unspecific (scheme backend) expression declaration environment code)
+  `(begin ,@(jazz:sourcified-form code) (%%unspecified)))
+
+
+;;;
 ;;;; Time
 ;;;
 

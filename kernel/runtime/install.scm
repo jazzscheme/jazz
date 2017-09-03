@@ -57,12 +57,12 @@
              uint32_t pathLength = 1023;
              _NSGetExecutablePath(path,&pathLength);
              path[1023] = 0;
-             ___result = path;"))
+             ___return(path);"))
   (windows
     (c-external (jazz:platform-executable-path) wchar_t-string
             "wchar_t buf[MAX_PATH];
              GetModuleFileNameW(NULL, buf, 300);
-              ___result = buf;"))
+              ___return(buf);"))
   (unix
     (c-external (jazz:platform-executable-path) char-string
             "char link[64];
@@ -74,14 +74,14 @@
              if (result >= 0) {
                result = readlink(link, path, sizeof(path));
                if( result < 0 || result >= (int)sizeof(path) )
-                 ___result = 0;
+                 ___return(0);
                else {
                  path[result] = 0;
-                 ___result = path;
+                 ___return(path);
                }
              }
              else
-               ___result = 0;"))
+               ___return(0);"))
   (else))
 
 

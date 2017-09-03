@@ -439,14 +439,14 @@ end-of-code
   ((c-function ##alloc-pair (scheme-object) scheme-object
              "___SCMOBJ r = ___EXT(___make_pair) (___ps, ___FIX(0), ___FIX(0));
               ___EXT(___release_scmobj)(r);
-              ___result = r;")
+              ___return(r);")
    kind))
 
 (define (##alloc-ovector len kind)
   ((c-function ##alloc-ovector (scheme-object scheme-object) scheme-object
              "___SCMOBJ r = ___EXT(___make_vector) (___ps, ___INT(___arg1), ___FIX(0));
               ___EXT(___release_scmobj)(r);
-              ___result = r;")
+              ___return(r);")
    len
    kind))
 
@@ -454,7 +454,7 @@ end-of-code
   ((c-function ##alloc-bvector (scheme-object scheme-object scheme-object) scheme-object
              "___SCMOBJ r = ___EXT(___alloc_scmobj) (___ps, ___INT(___arg1), ___INT(___arg2));
               ___EXT(___release_scmobj)(r);
-              ___result = r;")
+              ___return(r);")
    subtype
    len
    kind))

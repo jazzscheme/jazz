@@ -73,14 +73,14 @@ C-END
 (c-external (%%-sqlite3-database-error-message sqlite3-database-connection) char-string
   #<<C-END
     const char *text = sqlite3_errmsg(___arg1);
-    ___result = (char *)text;
+    ___return((char *)text);
 C-END
 )
 
 (c-external (%%-sqlite3-statement-error-code sqlite3-prepared-statement) int
   #<<C-END
     sqlite3 *db = sqlite3_db_handle(___arg1);
-    ___result = sqlite3_errcode(db);
+    ___return(sqlite3_errcode(db));
 C-END
 )
 
@@ -88,7 +88,7 @@ C-END
   #<<C-END
     sqlite3 *db = sqlite3_db_handle(___arg1);
     const char *text = sqlite3_errmsg(db);
-    ___result = (char *)text;
+    ___return((char *)text);
 C-END
 )
 
@@ -131,10 +131,10 @@ C-END
     int res = sqlite3_open(___arg1, &db);
     if (res) {
        sqlite3_close(db);
-       ___result = ___FIX(res);
+       ___return(___FIX(res));
     }
     else {
-       ___result = database_connection(db);
+       ___return(database_connection(db));
     }
 C-END
 )
@@ -183,10 +183,10 @@ C-END
     int res = sqlite3_prepare_v2(___arg1, ___arg2, -1, &stmt, &rest);
     if (res) {
        sqlite3_finalize(stmt);
-       ___result = ___FIX(res);
+       ___return(___FIX(res));
     }
     else {
-       ___result = prepared_statement(stmt);
+       ___return(prepared_statement(stmt));
     }
 C-END
 )
@@ -249,7 +249,7 @@ C-END
   (c-function sqlite3_column_name (sqlite3-prepared-statement int) char-string
     #<<C-END
       const char *text = sqlite3_column_name(___arg1, ___arg2);
-      ___result = (char *)text;
+      ___return((char *)text);
 C-END
 ))
 
@@ -262,7 +262,7 @@ C-END
 (c-external (sqlite3-column-text sqlite3-prepared-statement int) char-string
   #<<C-END
     const char *text = sqlite3_column_text(___arg1, ___arg2);
-    ___result = (char *)text;
+    ___return((char *)text);
 C-END
 )
 
@@ -284,7 +284,7 @@ C-END
 (c-external (sqlite3-bind-parameter-name sqlite3-prepared-statement int) char-string
   #<<C-END
     const char *name = sqlite3_bind_parameter_name(___arg1, ___arg2);
-    ___result = (char *)name;
+    ___return((char *)name);
 C-END
 )
 
@@ -324,7 +324,7 @@ C-END
 
 (c-external (%%-sqlite3-bind-text sqlite3-prepared-statement int char-string) int
   #<<C-END
-    ___result = sqlite3_bind_text(___arg1, ___arg2, ___arg3, -1, SQLITE_TRANSIENT);
+    ___return(sqlite3_bind_text(___arg1, ___arg2, ___arg3, -1, SQLITE_TRANSIENT));
 C-END
 )
 
@@ -356,7 +356,7 @@ C-END
   #<<C-END
     void *buf = ___BODY_AS(___arg3,___tSUBTYPED);
     int n = ___HD_BYTES(___HEADER(___arg3));
-    ___result = sqlite3_bind_blob(___arg1, ___arg2, buf, n, SQLITE_TRANSIENT);
+    ___return(sqlite3_bind_blob(___arg1, ___arg2, buf, n, SQLITE_TRANSIENT));
 C-END
 )
 
@@ -376,34 +376,34 @@ C-END
 )
 
 (c-external (sqlite3-column-u8vector-or-code sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sU8VECTOR,1);")
+   "___return(resqlite3_column_blob(___arg1,___arg2,___sU8VECTOR,1));")
 
 (c-external (sqlite3-column-s8vector-or-code sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sS8VECTOR,1);")
+   "___return(resqlite3_column_blob(___arg1,___arg2,___sS8VECTOR,1));")
 
 (c-external (sqlite3-column-u16vector-or-code sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sU16VECTOR,2);")
+   "___return(resqlite3_column_blob(___arg1,___arg2,___sU16VECTOR,2));")
 
 (c-external (sqlite3-column-s16vector-or-code sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sS16VECTOR,2);")
+   "___return(resqlite3_column_blob(___arg1,___arg2,___sS16VECTOR,2));")
 
 (c-external (sqlite3-column-u32vector-or-code sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sU32VECTOR,4);")
+   "___return(resqlite3_column_blob(___arg1,___arg2,___sU32VECTOR,4));")
 
 (c-external (sqlite3-column-s32vector-or-code sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sS32VECTOR,4);")
+   "___return(resqlite3_column_blob(___arg1,___arg2,___sS32VECTOR,4));")
 
 (c-external (sqlite3-column-f32vector-or-code sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sF32VECTOR,4);")
+   "___return(resqlite3_column_blob(___arg1,___arg2,___sF32VECTOR,4));")
 
 (c-external (sqlite3-column-u64vector-or-code sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sU64VECTOR,8);")
+   "___return(resqlite3_column_blob(___arg1,___arg2,___sU64VECTOR,8));")
 
 (c-external (sqlite3-column-s64vector-or-code sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sS64VECTOR,8);")
+   "___return(resqlite3_column_blob(___arg1,___arg2,___sS64VECTOR,8));")
 
 (c-external (sqlite3-column-f64vector-or-code sqlite3-prepared-statement int) scheme-object
-   "___result = resqlite3_column_blob(___arg1,___arg2,___sF64VECTOR,8);")
+   "___return(resqlite3_column_blob(___arg1,___arg2,___sF64VECTOR,8));")
 
 ;;; --- The mid-level interface ---
 

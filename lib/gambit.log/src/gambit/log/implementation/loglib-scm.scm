@@ -29,12 +29,12 @@ end-of-c-declare
 (c-define-type log-context*/release-rc (pointer log-context (log-context*) "release_rc_log_context"))
 
 (c-external (log-context-alloc) log-context*/release-rc
-  "___result_voidstar = ___EXT(___alloc_rc) (sizeof (struct log_context));")
+  "___return(___EXT(___alloc_rc) (sizeof (struct log_context)));")
 
 ;;;---------------------------------------------------------------------------
 
 (c-external (log-RGBCOLOR int int int) scheme-object
-  "___result = ___FIX(RGBCOLOR(___arg1,___arg2,___arg3));")
+  "___return(___FIX(RGBCOLOR(___arg1,___arg2,___arg3)));")
 
 (define log-BLACK    (log-RGBCOLOR   0   0   0))
 (define log-WHITE    (log-RGBCOLOR 255 255 255))

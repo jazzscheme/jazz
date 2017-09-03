@@ -119,7 +119,7 @@ END-OF-DECLARE
 
 (define jazz:logging?
   (c-lambda () bool
-    "___result = is_logging;"))
+    "___return(is_logging);"))
 
 (define jazz:set-logging?
   (c-lambda (bool) void

@@ -1054,6 +1054,43 @@
 
 
 ;;;
+;;;; Unspecific
+;;;
+
+
+(jazz:define-class jazz:Unspecific jazz:Expression (constructor: jazz:allocate-unspecific)
+  ((expressions getter: generate)))
+
+
+(define (jazz:new-unspecific source expressions)
+  (jazz:allocate-unspecific #f source expressions))
+
+
+(jazz:define-method (jazz:emit-expression (jazz:Unspecific expression) declaration environment backend)
+  (let ((expressions (jazz:get-unspecific-expressions expression)))
+    (let ((code (jazz:emit-statements-code expressions declaration environment backend)))
+      (jazz:new-code
+        (jazz:emit 'unspecific backend expression declaration environment code)
+        (jazz:get-code-type code)
+        (jazz:get-expression-source expression)))))
+
+
+(jazz:define-method (jazz:tree-fold (jazz:Unspecific expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz:tree-fold-list
+        (jazz:get-unspecific-expressions expression) down up here
+        (down expression seed environment)
+        environment)
+      environment))
+
+
+(define (jazz:walk-unspecific walker resume declaration environment form-src)
+  (let ((body (%%cdr (jazz:source-code form-src))))
+    (jazz:new-unspecific form-src (jazz:walk-list walker resume declaration environment body))))
+
+
+;;;
 ;;;; Reference Reification
 ;;;
 
@@ -1147,4 +1184,5 @@
 (jazz:define-walker-special     do                  scheme jazz:walk-do)
 (jazz:define-walker-special     delay               scheme jazz:walk-delay)
 (jazz:define-walker-special     quasiquote          scheme jazz:walk-quasiquote)
+(jazz:define-walker-special     unspecific          scheme jazz:walk-unspecific)
 (jazz:define-walker-special     reference           scheme jazz:walk-reference))

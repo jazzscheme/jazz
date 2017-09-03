@@ -2407,16 +2407,6 @@
 
 
 ;;;
-;;;; Unspecific
-;;;
-
-
-(define (jazz:walk-unspecific walker resume declaration environment form-src)
-  (let ((body (%%cdr (jazz:source-code form-src))))
-    (jazz:new-unspecific form-src (jazz:walk-list walker resume declaration environment body))))
-
-
-;;;
 ;;;; With Slots
 ;;;
 
@@ -2464,7 +2454,6 @@
 (jazz:define-walker-macro       specialize           jazz jazz:expand-specialize)
 (jazz:define-walker-declaration %specialize          jazz jazz:walk-%specialize-declaration jazz:walk-%specialize)
 (jazz:define-walker-special     parameterize         jazz jazz:walk-parameterize)
-(jazz:define-walker-special     unspecific           jazz jazz:walk-unspecific)
 (jazz:define-walker-special     with-slots           jazz jazz:walk-with-slots)
 (jazz:define-walker-special     with-self            jazz jazz:walk-with-self)
 (jazz:define-walker-declaration with-dynamic-self    jazz jazz:walk-with-dynamic-self-declaration jazz:walk-with-dynamic-self)

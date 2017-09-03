@@ -986,8 +986,8 @@
   
   
   (method (profile-extension-frame-class ext)
-    (when profile
-      (extension-frame-class~ profile ext)))
+    (and profile
+         (extension-frame-class~ profile ext)))
 
 
   (method public virtual (known-extension-frame-class ext)
@@ -2090,50 +2090,50 @@
                                 (visible?: visible? #t)
                                 (activate-focus?: activate-focus? #t)
                                 (return-new?: return-new? #f))
-    (when moniker
-      (if (not (exists?~ moniker))
-          (error "Unable to locate document: {t}" moniker)
-        (let ((file moniker))
-          (let ((frame (if force-new? #f (find-document file class: class))))
-            (define (return frame new?)
-              (if return-new?
-                  (values frame new?)
-                frame))
-            
-            (if (not frame)
-                (let ((class (or class (file-frame-class file))))
-                  (with-cursor :wait
-                    (lambda ()
-                      (let ((frame (new-frame class
-                                              kind: kind
-                                              host-workspace: workspace
-                                              host-visible?: visible?
-                                              host-focus?: activate-focus?
-                                              initialize: (lambda (document)
-                                                            (let ((text? (is? document Text-View)))
-                                                              (when text?
-                                                                (set-char-encoding~ (get-model~ document) char-encoding))
-                                                              (set-moniker~ (get-document-controller~ document) moniker)
-                                                              (when (and text? wrap?)
-                                                                (set-wrap?~ (get-model~ document) #t)))))))
-                        (when selection
-                          (let ((document (get-guest~ frame)))
-                            (when (is? document Text-View)
-                              (end-completion~ document)
-                              (set-selection-safe~ document selection reposition: 'vertical ensure-displayed?: 'center-caret force?: force-selection? generate-event?: generate-event?))))
-                        (return frame #t)))))
-              (when selection
-                (let ((document (get-guest~ frame)))
-                  (end-completion~ document)
-                  (set-selection-safe~ document selection ensure-displayed?: #f force?: force-selection? generate-event?: generate-event?)
-                  (ensure-displayed~ document force-vertical: 'head)))
-              (when (and workspace (neq? workspace (get-workspace~ frame)))
-                (set-workspace~ frame workspace)
-                (apply-preferences~ (get-workspace workspace) restore-focus?: #f))
-              (when (and visible? activate-focus?)
-                (focus-host~ frame))
-              (verify-reload~ (get-document-controller~ (get-guest~ frame)))
-              (return frame #f)))))))
+    (and moniker
+         (if (not (exists?~ moniker))
+             (error "Unable to locate document: {t}" moniker)
+           (let ((file moniker))
+             (let ((frame (if force-new? #f (find-document file class: class))))
+               (define (return frame new?)
+                 (if return-new?
+                     (values frame new?)
+                   frame))
+               
+               (if (not frame)
+                   (let ((class (or class (file-frame-class file))))
+                     (with-cursor :wait
+                       (lambda ()
+                         (let ((frame (new-frame class
+                                                 kind: kind
+                                                 host-workspace: workspace
+                                                 host-visible?: visible?
+                                                 host-focus?: activate-focus?
+                                                 initialize: (lambda (document)
+                                                               (let ((text? (is? document Text-View)))
+                                                                 (when text?
+                                                                   (set-char-encoding~ (get-model~ document) char-encoding))
+                                                                 (set-moniker~ (get-document-controller~ document) moniker)
+                                                                 (when (and text? wrap?)
+                                                                   (set-wrap?~ (get-model~ document) #t)))))))
+                           (when selection
+                             (let ((document (get-guest~ frame)))
+                               (when (is? document Text-View)
+                                 (end-completion~ document)
+                                 (set-selection-safe~ document selection reposition: 'vertical ensure-displayed?: 'center-caret force?: force-selection? generate-event?: generate-event?))))
+                           (return frame #t)))))
+                 (when selection
+                   (let ((document (get-guest~ frame)))
+                     (end-completion~ document)
+                     (set-selection-safe~ document selection ensure-displayed?: #f force?: force-selection? generate-event?: generate-event?)
+                     (ensure-displayed~ document force-vertical: 'head)))
+                 (when (and workspace (neq? workspace (get-workspace~ frame)))
+                   (set-workspace~ frame workspace)
+                   (apply-preferences~ (get-workspace workspace) restore-focus?: #f))
+                 (when (and visible? activate-focus?)
+                   (focus-host~ frame))
+                 (verify-reload~ (get-document-controller~ (get-guest~ frame)))
+                 (return frame #f)))))))
   
   
   (method public (edit-help-document moniker)

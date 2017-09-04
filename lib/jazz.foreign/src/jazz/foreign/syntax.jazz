@@ -379,69 +379,70 @@
                (loop (car inclusions))
              (values kind expansion)))))
   
-  (let ((type (car clause))
-        (id   (cadr clause))
-        (size (let ((clause-rest (cddr clause)))
-                (and (not (null? clause-rest))
-                     (car clause-rest)))))
-    (when (and size (not (integer? size)) (not (symbol? size)))
-      (walk-error walker resume declaration #f "Illegal clause size in {a}: {a}" struct clause))
-    (receive (kind expansion) (kind+type type)
-      (let ((id-string (symbol->string id)))
-        (let ((getter-string
-                (if size
-                    (cond ;; quick hack for jazz.sound
-                          ((eq? type 'int)
-                           #f)
-                          ((or (eq? expansion 'char)
-                               (eq? expansion 'wchar_t))
-                           (string-append "___return(___arg1->" id-string ");"))
+  (bind (type id . rest) clause
+    (bind-optionals ((size #f) (getter-cast #f) (setter-cast #f)) rest
+      (when (and size (not (integer? size)) (not (symbol? size)))
+        (walk-error walker resume declaration #f "Illegal clause size in {a}: {a}" struct clause))
+      (if (eq? size 'none)
+          (values #f #f)
+        (receive (kind expansion) (kind+type type)
+          (let ((id-string (symbol->string id))
+                (getter-cast-string (if getter-cast (format "({a}) " getter-cast) ""))
+                (setter-cast-string (if setter-cast (format "({a}) " setter-cast) "")))
+            (let ((getter-string
+                    (if size
+                        (cond ;; quick hack for jazz.sound
+                              ((eq? type 'int)
+                               #f)
+                              ((or (eq? expansion 'char)
+                                   (eq? expansion 'wchar_t))
+                               (string-append "___return(" getter-cast-string "___arg1->" id-string ");"))
+                              (else
+                               (string-append "___return(" getter-cast-string "___arg1->" id-string ");")))
+                      (case kind
+                        ((native)
+                         (string-append "___return(" getter-cast-string "___arg1->" id-string ");"))
+                        ((pointer function)
+                         (string-append "___return(" getter-cast-string "___arg1->" id-string ");"))
+                        ((type struct union)
+                         (string-append "___return(" getter-cast-string "&___arg1->" id-string ");")))))
+                  (setter-string
+                    (cond (size
+                           (let ((size-string (if (integer? size)
+                                                  (number->string size)
+                                                (symbol->string size))))
+                             (cond ;; quick hack for jazz.sound
+                                   ((eq? type 'int)
+                                    #f)
+                                   ((eq? expansion 'char)
+                                    (string-append "strncpy(___arg1->" id-string ", ___arg2, " size-string ");"))
+                                   ((eq? expansion 'wchar_t)
+                                    (string-append "wcsncpy(___arg1->" id-string ", ___arg2, " size-string ");"))
+                                   (else
+                                    ;; We need to adjust this to get the real c-type in the expansion
+                                    (string-append "memcpy(___arg1->" id-string ", ___arg2, " size-string "*" "sizeof(" (symbol->string type) "));")))))
+                          ((or (eq? kind 'struct)
+                               (eq? kind 'union)
+                               (eq? kind 'type))
+                           (string-append "___arg1->" id-string " = " setter-cast-string "*___arg2;"))
                           (else
-                           (string-append "___return(___arg1->" id-string ");")))
-                  (case kind
-                    ((native)
-                     (string-append "___return(___arg1->" id-string ");"))
-                    ((pointer function)
-                     (string-append "___return(___arg1->" id-string ");"))
-                    ((type struct union)
-                     (string-append "___return(&___arg1->" id-string ");")))))
-              (setter-string
-                (cond (size
-                        (let ((size-string (if (integer? size)
-                                               (number->string size)
-                                             (symbol->string size))))
-                          (cond ;; quick hack for jazz.sound
-                                ((eq? type 'int)
-                                 #f)
-                                ((eq? expansion 'char)
-                                 (string-append "strncpy(___arg1->" id-string ", ___arg2, " size-string ");"))
-                                ((eq? expansion 'wchar_t)
-                                 (string-append "wcsncpy(___arg1->" id-string ", ___arg2, " size-string ");"))
-                                (else
-                                 ;; We need to adjust this to get the real c-type in the expansion
-                                 (string-append "memcpy(___arg1->" id-string ", ___arg2, " size-string "*" "sizeof(" (symbol->string type) "));")))))
-                      ((or (eq? kind 'struct)
-                           (eq? kind 'union)
-                           (eq? kind 'type))
-                       (string-append "___arg1->" id-string " = *___arg2;"))
-                      (else
-                       (string-append "___arg1->" id-string " = ___arg2;")))))
-          (let* ((struct* (build-pointer-symbol struct))
-                 (type* (build-pointer-symbol type))
-                 (type (cond ((and size (eq? expansion 'char)) '(native char-string))
-                             ((and size (eq? expansion 'wchar_t)) '(native wchar_t-string))
-                             (size type*)
-                             ((memq kind '(type struct union)) type*)
-                             (else type))))
-            (let ((getter (and getter-string
-                               (let ((name (build-method-symbol struct id '-ref)))
-                                 `(definition public ,name
-                                    (c-function ,name (,struct*) ,type ,getter-string)))))
-                  (setter (and setter-string
-                               (let ((name (build-method-symbol struct id '-set!)))
-                                 `(definition public ,name
-                                    (c-function ,name (,struct* ,type) (native void) ,setter-string))))))
-              (values getter setter))))))))
+                           (string-append "___arg1->" id-string " = " setter-cast-string "___arg2;")))))
+              (let* ((struct* (build-pointer-symbol struct))
+                     (type* (build-pointer-symbol type))
+                     (type (cond ((and size (eq? expansion 'char)) '(native char-string))
+                                 ((and size (eq? expansion 'wchar_t)) '(native wchar_t-string))
+                                 (size type*)
+                                 ((memq kind '(type struct union)) type*)
+                                 (else type))))
+                (let ((getter (and getter-string
+                                   (let ((name (build-method-symbol struct id '-ref)))
+                                     `(definition public ,name
+                                        (c-function ,name (,struct*) ,type ,getter-string)))))
+                      (setter (and setter-string
+                                   (let ((name (build-method-symbol struct id '-set!)))
+                                     `(definition public ,name
+                                        (c-function ,name (,struct* ,type) (native void) ,setter-string))))))
+                  (values getter setter))))))))))
 
 
 (define (expand-structure/union walker resume declaration environment name clauses)

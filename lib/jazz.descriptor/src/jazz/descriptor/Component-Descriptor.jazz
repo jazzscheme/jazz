@@ -271,20 +271,21 @@
   
   
   (method public virtual (component-determine-paster component (try-parent? #t))
-    (when (and (can-paste-component? component) (clipboard-format-available? 'jazz-parcels))
-      (let* ((parcels (get-jazz-parcels))
-             (models (remove-duplicates (map get-master-model~ parcels))))
-        (cond ((memq? #f models)
-               #f)
-              ((every? (lambda (class)
-                         (addable-class? component class))
-                       models)
-               component)
-              (else
-               (when try-parent?
-                 (let ((parent (get-parent~ component)))
-                   (when parent
-                     (determine-paster parent #f)))))))))
+    (and (can-paste-component? component)
+         (clipboard-format-available? 'jazz-parcels)
+         (let* ((parcels (get-jazz-parcels))
+                (models (remove-duplicates (map get-master-model~ parcels))))
+           (cond ((memq? #f models)
+                  #f)
+                 ((every? (lambda (class)
+                            (addable-class? component class))
+                          models)
+                  component)
+                 (else
+                  (and try-parent?
+                       (let ((parent (get-parent~ component)))
+                         (and parent
+                              (determine-paster parent #f)))))))))
   
   
   (method public virtual (component-can-send-before? component types father before)
@@ -372,8 +373,8 @@
   
   (method public virtual (component-get-addable-details component)
     (let ((base (get-addable-base component)))
-      (when base
-        '((name-info 100 #t)))))
+      (and base
+           '((name-info 100 #t)))))
   
   
   (method public virtual (component-get-recursive-details? component)

@@ -52,7 +52,7 @@
             (freetype-lib-path       (jazz:quote-jazz-pathname "lib/jazz.freetype/foreign/mac/freetype/lib"))
             (png-include-path        (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/png/include"))
             (png-lib-path            (jazz:quote-jazz-pathname "lib/jazz.cairo/foreign/mac/png/lib")))
-        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path " -fpermissive"))
+        (let ((cc-flags (string-append "-I" fontconfig-include-path " -I" freetype-include-path " -I" png-include-path))
               (ld-flags (string-append "-L" fontconfig-lib-path " -L" freetype-lib-path " -L" png-lib-path " -lfontconfig.1")))
           (list cc-flags ld-flags)))))
   (windows

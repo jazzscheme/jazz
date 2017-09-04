@@ -46,7 +46,7 @@
 (cond-expand
   (cocoa
     (define jazz:gstreamer-flags
-      (let ((cc-flags (string-append (jazz:pkg-config-cflags "gstreamer-1.0") " -fpermissive"))
+      (let ((cc-flags (jazz:pkg-config-cflags "gstreamer-1.0"))
             (ld-flags (jazz:pkg-config-libs "gstreamer-1.0")))
         (list cc-flags ld-flags)))
     #; ;; brew-based-private-deployment
@@ -58,7 +58,7 @@
             (glib-lib-path           (jazz:quote-jazz-pathname "lib/jazz.gstreamer/foreign/mac/glib/lib"))
             (gettext-include-path    (jazz:quote-jazz-pathname "lib/jazz.gstreamer/foreign/mac/gettext/include"))
             (gettext-lib-path        (jazz:quote-jazz-pathname "lib/jazz.gstreamer/foreign/mac/gettext/lib")))
-        (let ((cc-flags (string-append "-I" gstreamer-include-path " -I" glib-include-path " -I" glibconfig-include-path " -I" gettext-include-path " -fpermissive"))
+        (let ((cc-flags (string-append "-I" gstreamer-include-path " -I" glib-include-path " -I" glibconfig-include-path " -I" gettext-include-path))
               (ld-flags (string-append "-L" gstreamer-lib-path " -L" glib-lib-path " -L" gettext-lib-path " -lgstreamer-1.0.0 -lgobject-2.0.0 -lglib-2.0.0 -lintl.8 -Wl,-framework -Wl,CoreFoundation")))
           (list cc-flags ld-flags)))))
   (windows
@@ -70,12 +70,12 @@
             (glib-lib-path           (jazz:quote-jazz-pathname "lib/jazz.gstreamer/foreign/windows/glib/lib"))
             (gettext-include-path    (jazz:quote-jazz-pathname "lib/jazz.gstreamer/foreign/windows/gettext/include"))
             (gettext-lib-path        (jazz:quote-jazz-pathname "lib/jazz.gstreamer/foreign/windows/gettext/lib")))
-        (let ((cc-flags (string-append "-I" gstreamer-include-path " -I" glib-include-path " -I" glibconfig-include-path " -I" gettext-include-path " -fpermissive"))
+        (let ((cc-flags (string-append "-I" gstreamer-include-path " -I" glib-include-path " -I" glibconfig-include-path " -I" gettext-include-path))
               (ld-flags (string-append "-L" gstreamer-lib-path " -L" glib-lib-path " -L" gettext-lib-path " -lgstreamer")))
           (list cc-flags ld-flags)))))
   (else
     (define jazz:gstreamer-flags
-      (let ((cc-flags (string-append (jazz:pkg-config-cflags "gstreamer-1.0") " -fpermissive"))
+      (let ((cc-flags (jazz:pkg-config-cflags "gstreamer-1.0"))
             (ld-flags (jazz:pkg-config-libs "gstreamer-1.0")))
         (list cc-flags ld-flags)))))
 
@@ -134,7 +134,7 @@
 (define (jazz:gstreamer-library-options descriptor add-language)
   (cond-expand
     (cocoa
-      (string-append (jazz:pkg-config-libs "gstreamer-1.0") " -fpermissive")
+     (jazz:pkg-config-libs "gstreamer-1.0")
       #; ;; brew-based-private-deployment
       (let ((gstreamer-lib-path (jazz:jazz-pathname "lib/jazz.gstreamer/foreign/mac/gstreamer/lib"))
             (glib-lib-path (jazz:jazz-pathname "lib/jazz.gstreamer/foreign/mac/glib/lib"))

@@ -42,8 +42,8 @@
         (jazz.platform.types))
 
 
-(c-include "<gst/gst.h>")
 (c-include "<glib.h>")
+(c-include "<gst/gst.h>")
 
 
 ;;;
@@ -58,7 +58,25 @@
 (c-type gpointer void*)
 
 
-(c-external (g_object_set (call G_OBJECT GstElement*) char-string char-string NULL) void)
+(c-type GstValue  (native "GstValue"))
+(c-type GstValue* (pointer GstValue GstValue*))
+
+
+(c-external (g_value_new) GstValue*
+  #/C/
+    GValue* value = (GValue*) malloc(sizeof(GValue));
+    ___return(value);
+//#)
+
+(c-external (g_object_set_string (call G_OBJECT GstElement*) char-string char-string NULL) void "g_object_set")
+(c-external (g_object_get_boolean (call G_OBJECT GstElement*) char-string) bool
+  #/C/
+    gboolean value;
+    g_object_get(___arg1,
+        ___arg2, &value,
+        NULL);
+    ___return((value != 0));
+//#)
 
 
 ;;;
@@ -73,6 +91,7 @@
 (c-enumerant GST_CLOCK_TIME_NONE)
 (c-enumerant GST_MESSAGE_ERROR)
 (c-enumerant GST_MESSAGE_EOS)
+(c-enumerant GST_MESSAGE_STATE_CHANGED)
 
 
 (c-type GstClockTime         int64)
@@ -89,12 +108,51 @@
 (c-type GstPipeline* (pointer GstPipeline GstPipeline*))
 (c-type GstBus       (native "GstBus"))
 (c-type GstBus*      (pointer GstBus GstBus*))
+(c-type GstClock     (native "GstClock"))
+(c-type GstClock*    (pointer GstClock GstClock*))
 (c-type GstMessage   (native "GstMessage"))
 (c-type GstMessage*  (pointer GstMessage GstMessage*))
+(c-type GstIterator  (native "GstIterator"))
+(c-type GstIterator* (pointer GstIterator GstIterator*))
 
 
 (c-declare jazz.gstreamer.foreign #/C/
-static void on_pad_added (GstElement *element, GstPad     *pad, gpointer    data)
+static GstStateChangeReturn gst_element_set_state_aux(GstElement* elem, GstState state)
+{
+    GstStateChangeReturn state_change;
+  
+    ___mask_heartbeat_interrupts_state heartbeat_interrupts;
+    ___mask_heartbeat_interrupts_begin (&heartbeat_interrupts);
+    state_change = gst_element_set_state(elem, state);
+    ___mask_heartbeat_interrupts_end (&heartbeat_interrupts);
+  
+    return state_change;
+}
+
+static GstElement* gst_iterator_next_element(GstIterator *it)
+{
+    GValue elem = G_VALUE_INIT;
+    GstIteratorResult result = gst_iterator_next(it, &elem);
+    if (result == GST_ITERATOR_DONE)
+        return NULL;
+    else
+        return (GstElement*) g_value_get_object(&elem);
+}
+
+static GstElement* gst_test(GstElement *bin)
+{
+    GstIterator *it;
+    GValue elem = G_VALUE_INIT;
+    it = gst_bin_iterate_elements(GST_BIN(bin));
+    GstIteratorResult result = gst_iterator_next(it, &elem);
+    printf("%d \n", G_VALUE_TYPE(&elem));
+    if (result == GST_ITERATOR_OK)
+        return (GstElement*) g_value_get_object(&elem);
+    else
+        return NULL;
+}
+
+static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
 {
     GstPad *sinkpad;
     GstElement *decoder = (GstElement *) data;
@@ -127,17 +185,30 @@ static void gst_print_error(GstMessage *msg)
 
 (c-external (gst_init NULL NULL) void)
 (c-external (gst_parse_launch char-string NULL) GstElement*)
+(c-external (gst_object_get_name (call GST_OBJECT GstElement*)) char-string)
+(c-external (gst_object_set_name (call GST_OBJECT GstElement*) char-string) gboolean)
 (c-external (gst_object_unref gpointer) void)
-(c-external (gst_element_set_state GstElement* GstState) GstStateChangeReturn)
+(c-external (gst_element_set_state GstElement* GstState) GstStateChangeReturn "gst_element_set_state_aux")
 (c-external (gst_element_get_bus GstElement*) GstBus*)
+(c-external (gst_element_get_base_time GstElement*) GstClockTime)
 (c-external (gst_element_factory_make char-string char-string) GstElement*)
 (c-external (gst_element_link GstElement* GstElement*) gboolean)
+(c-external (gst_iterator_next_element GstIterator*) GstElement*)
 (c-external (gst_signal_connect_to gpointer char-string gpointer) gulong)
 (c-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
 (c-external (gst_bus_pop GstBus*) GstMessage*)
 (c-external (gst_bin_add (call GST_BIN GstElement*) GstElement*) gboolean)
 (c-external (gst_bin_get_by_name (call GST_BIN GstElement*) char-string) GstElement*)
+(c-external (gst_bin_iterate_elements (call GST_BIN GstElement*)) GstIterator*)
+(c-external (gst_test GstElement*) GstElement*)
 (c-external (gst_pipeline_new char-string) GstElement*)
 (c-external (gst_pipeline_get_bus (call GST_PIPELINE GstElement*)) GstBus*)
+(c-external (gst_pipeline_get_clock (call GST_PIPELINE GstElement*)) GstClock*)
+(c-external (gst_pipeline_get_latency (call GST_PIPELINE GstElement*)) GstClockTime)
+(c-external (gst_pipeline_set_latency (call GST_PIPELINE GstElement*) GstClockTime) void)
+;(c-external (gst_caps_set_value GstCaps* char-string
+(c-external (gst_message_unref GstMessage*) void)
+(c-external (gst_clock_get_time GstClock*) GstClockTime)
 (c-external (gst_print_error GstMessage*) void)
-(c-external (GST_MESSAGE_TYPE GstMessage*) GstMessageType))
+(c-external (GST_MESSAGE_TYPE GstMessage*) GstMessageType)
+(c-external (GST_MESSAGE_SRC GstMessage*) GstElement*))

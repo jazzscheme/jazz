@@ -36,6 +36,7 @@
 
 
 (define (start-statprof profile)
+  #; ;; fix me regression
   (##heartbeat-interval-set! heartbeat-interval)
   (set! *statprof-running?* #t)
   (%%interrupt-vector-set! 1 profile-heartbeat!))

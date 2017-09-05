@@ -147,7 +147,7 @@
   (jazz:unspecified-option))
 
 (jazz:define-option jazz:default-compiler
-  'c++)
+  'c)
 
 (jazz:define-option jazz:default-processor
   (jazz:unspecified-option))
@@ -675,7 +675,7 @@
 
 
 (define (jazz:guess-compiler)
-  'c++)
+  'c)
 
 
 (define (jazz:require-compiler compiler template)
@@ -1947,7 +1947,7 @@
   #f)
 
 (define jazz:kernel-compiler
-  'c++)
+  'c)
 
 (define jazz:kernel-processor
   #f)

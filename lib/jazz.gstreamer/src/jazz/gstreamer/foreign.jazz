@@ -42,8 +42,12 @@
         (jazz.platform.types))
 
 
+(c-include "<string.h>")
+(c-include "<stdlib.h>")
 (c-include "<glib.h>")
 (c-include "<gst/gst.h>")
+(c-include "<gst/app/gstappsrc.h>")
+(c-include "<gst/app/gstappsink.h>")
 
 
 ;;;
@@ -56,27 +60,36 @@
 (c-type gulong   ulong)
 (c-type gboolean gint)
 (c-type gpointer void*)
+(c-type GType    enum)
 
 
-(c-type GstValue  (native "GstValue"))
-(c-type GstValue* (pointer GstValue GstValue*))
+(c-type GValue   (native "GValue"))
+(c-type GValue*  (pointer "GValue" GValue*))
+(c-type GObject  (native "GObject"))
+(c-type GObject* (pointer GObject #f))
 
 
-(c-external (g_value_new) GstValue*
+(c-enumerant G_TYPE_INT)
+(c-enumerant G_TYPE_UINT64)
+(c-enumerant G_TYPE_STRING)
+
+
+(c-external (g_value_new GType) GValue*
   #/C/
-    GValue* value = (GValue*) malloc(sizeof(GValue));
+    GValue* value = (GValue*) calloc(sizeof(GValue), 1);
+    g_value_init(value, ___arg1);
     ___return(value);
 //#)
 
-(c-external (g_object_set_string (call G_OBJECT GstElement*) char-string char-string NULL) void "g_object_set")
-(c-external (g_object_get_boolean (call G_OBJECT GstElement*) char-string) bool
-  #/C/
-    gboolean value;
-    g_object_get(___arg1,
-        ___arg2, &value,
-        NULL);
-    ___return((value != 0));
-//#)
+(c-external (g_value_get_int GValue*) int)
+(c-external (g_value_set_int GValue* int) void)
+(c-external (g_value_get_uint64 GValue*) uint64)
+(c-external (g_value_set_uint64 GValue* uint64) void)
+(c-external (g_value_get_string GValue*) (cast char-string))
+(c-external (g_value_set_string GValue* char-string) void)
+(c-external (g_object_get_property (call G_OBJECT GObject*) char-string GValue*) void)
+(c-external (g_object_set_property (call G_OBJECT GObject*) char-string GValue*) void)
+(c-external (g_object_set_string (call G_OBJECT GObject*) char-string char-string NULL) void "g_object_set")
 
 
 ;;;
@@ -92,16 +105,27 @@
 (c-enumerant GST_MESSAGE_ERROR)
 (c-enumerant GST_MESSAGE_EOS)
 (c-enumerant GST_MESSAGE_STATE_CHANGED)
+(c-enumerant GST_FORMAT_TIME)
+(c-enumerant GST_EVENT_CAPS)
+(c-enumerant GST_APP_STREAM_TYPE_STREAM)
+(c-enumerant GST_APP_STREAM_TYPE_SEEKABLE)
+(c-enumerant GST_APP_STREAM_TYPE_RANDOM_ACCESS)
 
 
 (c-type GstClockTime         int64)
 (c-type GstStateChangeReturn enum)
 (c-type GstState             enum)
 (c-type GstMessageType       enum)
+(c-type GstFlowReturn        enum)
+(c-type GstAppStreamType     enum)
 
 
 (c-type GstElement   (native "GstElement"))
 (c-type GstElement*  (pointer GstElement GstElement*))
+(c-type GstPad       (native "GstPad"))
+(c-type GstPad*      (pointer GstPad GstPad*))
+(c-type GstCaps      (native "GstCaps"))
+(c-type GstCaps*     (pointer GstCaps GstCaps*))
 (c-type GstBin       (native "GstBin"))
 (c-type GstBin*      (pointer GstBin GstBin*))
 (c-type GstPipeline  (native "GstPipeline"))
@@ -122,11 +146,18 @@ static GstStateChangeReturn gst_element_set_state_aux(GstElement* elem, GstState
     GstStateChangeReturn state_change;
   
     ___mask_heartbeat_interrupts_state heartbeat_interrupts;
-    ___mask_heartbeat_interrupts_begin (&heartbeat_interrupts);
+    ___mask_heartbeat_interrupts_begin(&heartbeat_interrupts);
     state_change = gst_element_set_state(elem, state);
-    ___mask_heartbeat_interrupts_end (&heartbeat_interrupts);
+    ___mask_heartbeat_interrupts_end(&heartbeat_interrupts);
   
     return state_change;
+}
+
+static GstState gst_message_state_changed_get_new_state(GstMessage *msg)
+{
+    GstState old_state, new_state;
+    gst_message_parse_state_changed(msg, &old_state, &new_state, NULL);
+    return new_state;
 }
 
 static GstElement* gst_iterator_next_element(GstIterator *it)
@@ -139,29 +170,26 @@ static GstElement* gst_iterator_next_element(GstIterator *it)
         return (GstElement*) g_value_get_object(&elem);
 }
 
-static GstElement* gst_test(GstElement *bin)
+static GstPad* gst_iterator_next_pad(GstIterator *it)
 {
-    GstIterator *it;
     GValue elem = G_VALUE_INIT;
-    it = gst_bin_iterate_elements(GST_BIN(bin));
     GstIteratorResult result = gst_iterator_next(it, &elem);
-    printf("%d \n", G_VALUE_TYPE(&elem));
-    if (result == GST_ITERATOR_OK)
-        return (GstElement*) g_value_get_object(&elem);
-    else
+    if (result == GST_ITERATOR_DONE)
         return NULL;
+    else
+        return (GstPad*) g_value_get_object(&elem);
 }
 
-static void on_pad_added (GstElement *element, GstPad *pad, gpointer data)
+static void on_pad_added(GstElement *element, GstPad *pad, gpointer data)
 {
     GstPad *sinkpad;
     GstElement *decoder = (GstElement *) data;
 
-    sinkpad = gst_element_get_static_pad (decoder, "sink");
+    sinkpad = gst_element_get_static_pad(decoder, "sink");
 
-    gst_pad_link (pad, sinkpad);
+    gst_pad_link(pad, sinkpad);
 
-    gst_object_unref (sinkpad);
+    gst_object_unref(sinkpad);
 }
 
 static gulong gst_signal_connect_to(gpointer instance, char* signal, gpointer data)
@@ -174,11 +202,240 @@ static void gst_print_error(GstMessage *msg)
     gchar  *debug;
     GError *error;
 
-    gst_message_parse_error (msg, &error, &debug);
-    g_free (debug);
+    gst_message_parse_error(msg, &error, &debug);
+    g_free(debug);
 
-    g_printerr ("Error: %s\n", error->message);
-    g_error_free (error);
+    g_printerr("Error: %s\n", error->message);
+    g_error_free(error);
+}
+
+static int gst_app_sink_pull(GstElement* elem, void* data, ___SCMOBJ info)
+{
+    int size = -1;
+    ___U64 *info_ptr = ___CAST(___U64*, ___BODY(info));
+    GstSample *sample;
+    sample = gst_app_sink_try_pull_sample(GST_APP_SINK(elem), 0);
+    if (sample)
+    {
+        GstBuffer* buffer = gst_sample_get_buffer(sample);
+        if (buffer)
+        {
+            GstMapInfo map;
+            gst_buffer_map(buffer, &map, GST_MAP_READ);
+            memmove(data, map.data, map.size);
+            size = map.size;
+            gst_buffer_unmap(buffer, &map);
+            
+            info_ptr[0] = GST_BUFFER_PTS(buffer);
+            info_ptr[1] = GST_BUFFER_DURATION(buffer);
+            GstClock* clock = gst_element_get_clock(elem);
+            GstClockTime base_time = gst_element_get_base_time(elem);
+            GstClockTime abs_time = gst_clock_get_time(clock);
+            GstPipeline* pipeline = (GstPipeline*) GST_ELEMENT_PARENT(elem);
+        }
+        gst_sample_unref(sample);
+    }
+    return size;
+}
+
+static int gst_app_sink_read(GstElement* elem, ___SCMOBJ vec, ___SCMOBJ info)
+{
+    ___U8 *ptr = ___CAST(___U8*, ___BODY(vec));
+    return gst_app_sink_pull(elem, (void*) ptr, info);
+}
+
+static GstFlowReturn gst_app_src_write(GstElement* elem, ___SCMOBJ vec, int size, ___U64 timestamp, ___U64 duration)
+{
+    // static GstClockTime timestamp = 0;
+    ___U8 *ptr = ___CAST(___U8*, ___BODY(vec));
+    GstBuffer *buffer = gst_buffer_new_allocate(NULL, size, NULL);
+    GstMapInfo map;
+    gst_buffer_map(buffer, &map, GST_MAP_WRITE);
+    memmove(map.data, ptr, size);
+    gst_buffer_unmap(buffer, &map);
+    GST_BUFFER_PTS(buffer) = timestamp;
+    GST_BUFFER_DTS(buffer) = timestamp;
+    GST_BUFFER_DURATION(buffer) = duration;
+    // GST_BUFFER_PTS(buffer) = timestamp;
+    // GST_BUFFER_DTS(buffer) = timestamp;
+    // GST_BUFFER_DURATION(buffer) = 200000000;
+    // timestamp += GST_BUFFER_DURATION(buffer);
+    return gst_app_src_push_buffer(GST_APP_SRC(elem), buffer);
+}
+
+static double present_time(GstClockTime time)
+{
+    if (time == GST_CLOCK_TIME_NONE)
+        return -1;
+    else
+        return GST_TIME_AS_SECONDS((double) time);
+}
+
+static void gst_print_pipeline(GstPipeline* pipeline)
+{
+    GstClockTime delay, latency;
+    delay = gst_pipeline_get_delay(pipeline);
+    latency = gst_pipeline_get_latency(pipeline);
+    printf("INFO pipeline delay %.3f latency %.3f\n", present_time(delay), present_time(latency));
+}
+
+static void gst_print_pad(GstElement* elem, char* name)
+{
+    GstPad *pad = gst_element_get_static_pad(elem, name);
+    printf("INFO pad caps %p\n", gst_pad_get_current_caps(pad));
+}
+
+static void gst_print_message(char* pipeline_name, GstMessage *msg)
+{
+    switch (GST_MESSAGE_TYPE(msg)) {
+
+        case GST_MESSAGE_EOS: {
+            g_print("MESSAGE eos\n");
+            break;
+        }
+        case GST_MESSAGE_ERROR: {
+            gchar  *debug;
+            GError *error;
+            gst_message_parse_error(msg, &error, &debug);
+            g_free(debug);
+            g_printerr("MESSAGE error %s\n", error->message);
+            g_error_free(error);
+            break;
+        }
+        case GST_MESSAGE_STATE_CHANGED: {
+            GstState old_state, new_state;
+            gst_message_parse_state_changed(msg, &old_state, &new_state, NULL);
+            g_print("MESSAGE state-changed %s %s from %s to %s\n",
+                pipeline_name,
+                GST_OBJECT_NAME(msg->src),
+                gst_element_state_get_name(old_state),
+                gst_element_state_get_name(new_state));
+            break;
+        }
+        case GST_MESSAGE_STREAM_STATUS: {
+            const char* const names[] = { "CREATE", "ENTER", "LEAVE", "DESTROY", "START", "PAUSE", "STOP" };
+            GstStreamStatusType type;
+            GstElement *owner;
+            gst_message_parse_stream_status(msg, &type, &owner);
+            g_print("MESSAGE stream-status %s %s %s\n",
+                pipeline_name,
+                GST_OBJECT_NAME(owner),
+                names[type]);
+            break;
+        }
+        case GST_MESSAGE_QOS: {
+            GstFormat format;
+            guint64 rendered, dropped;
+        
+            gst_message_parse_qos_stats(msg, &format, &rendered, &dropped);
+            if (format == GST_FORMAT_UNDEFINED)
+                printf("MESSAGE qos UNDEFINED\n");
+            else
+                printf("MESSAGE qos %s %s %llu %llu\n",
+                    pipeline_name,
+                    GST_OBJECT_NAME(msg->src),
+                    rendered,
+                    dropped);
+        }
+        default: {
+            printf("MESSAGE %s %s %s\n",
+                GST_MESSAGE_TYPE_NAME(msg),
+                pipeline_name,
+                GST_OBJECT_NAME(msg->src));
+            break;
+        }
+    }
+}
+
+static GstPadProbeReturn
+cb_have_data (GstPad          *pad,
+              GstPadProbeInfo *info,
+              gpointer         user_data)
+{
+    GstBuffer* buffer;
+    GstPipeline* pipeline;
+    GstElement* element;
+    gchar* pipeline_name;
+    gchar* element_name;
+    gchar* name;
+    
+    buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+    pipeline = (GstPipeline*) user_data;
+    pipeline_name = gst_element_get_name(pipeline);
+    element = gst_pad_get_parent_element(pad);
+    element_name = gst_element_get_name(element);
+    name = gst_pad_get_name(pad);
+    GstClockTime timestamp = GST_BUFFER_PTS(buffer);
+    GstClockTime clockstamp = gst_clock_get_time(gst_pipeline_get_clock(pipeline)) - gst_element_get_base_time(GST_ELEMENT(pipeline));
+    // printf("DATA %s %s %s %d %.3f %.3f %.3f\n", pipeline_name, element_name, name, gst_buffer_get_size(buffer), present_time(gst_element_get_start_time(element)), present_time(GST_BUFFER_PTS(buffer)), present_time(GST_BUFFER_DURATION(buffer)));
+    // printf("DATA %s %s %s %.3f %.3f %.3f\n", pipeline_name, element_name, name, present_time(gst_element_get_start_time(element)), present_time(GST_BUFFER_PTS(buffer)), present_time(GST_BUFFER_DURATION(buffer)));
+    printf("DATA %s %s %s %.3f %.3f %.3f\n", pipeline_name, element_name, name, present_time(timestamp), present_time(clockstamp), present_time(timestamp) - present_time(clockstamp));
+    g_free(name);
+    g_free(element_name);
+    gst_object_unref(element);
+
+    return GST_PAD_PROBE_OK;
+}
+
+static GstPadProbeReturn
+cb_have_event (GstPad          *pad,
+               GstPadProbeInfo *info,
+               gpointer         user_data)
+{
+    GstEvent* event;
+    GstPipeline* pipeline;
+    GstElement* element;
+    gchar* pipeline_name;
+    gchar* element_name;
+    gchar* name;
+    
+    event = GST_PAD_PROBE_INFO_EVENT(info);
+    pipeline = (GstPipeline*) user_data;
+    pipeline_name = gst_element_get_name(pipeline);
+    element = gst_pad_get_parent_element(pad);
+    element_name = gst_element_get_name(element);
+    name = gst_pad_get_name(pad);
+    if (GST_EVENT_TYPE(event) == GST_EVENT_CAPS)
+    {
+        GstCaps *caps;
+        gst_event_parse_caps(event, &caps);
+        printf("EVENT %s %s %s caps %s\n", pipeline_name, element_name, name, gst_caps_to_string(caps));
+    }
+    else if (GST_EVENT_TYPE(event) == GST_EVENT_QOS)
+    {
+        const char* const names[] = { "OVERFLOW", "UNDERFLOW", "THROTTLE" };
+        GstQOSType type;
+        gdouble proportion;
+        GstClockTimeDiff diff;
+        GstClockTime timestamp;
+        gst_event_parse_qos(event, &type, &proportion, &diff, &timestamp);
+        printf("EVENT %s %s %s qos %s %lld %.3f %.3f\n", pipeline_name, element_name, name, names[type], proportion, present_time(diff), present_time(timestamp));
+    }
+    else if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT)
+    {
+        const GstSegment* segment;
+        gst_event_parse_segment (event, &segment);
+        printf("EVENT %s %s %s segment %.3f %.3f %.3f\n", pipeline_name, element_name, name, present_time(segment->start), present_time(segment->stop), present_time(segment->duration));
+    }
+    else if (GST_EVENT_TYPE(event) == GST_EVENT_LATENCY)
+    {
+        GstClockTime latency;
+        gst_event_parse_latency (event, &latency);
+        printf("EVENT %s %s %s latency %.3f\n", pipeline_name, element_name, name, present_time(latency));
+    }
+    else
+        printf("EVENT %s %s %s %s\n", pipeline_name, element_name, name, GST_EVENT_TYPE_NAME(event));
+    g_free(name);
+    g_free(element_name);
+    gst_object_unref(element);
+
+    return GST_PAD_PROBE_OK;
+}
+
+static void gst_monitor_pad(GstPipeline* pipeline, GstPad* pad)
+{
+    gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_have_data, pipeline, NULL);
+    gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_EVENT_BOTH, (GstPadProbeCallback) cb_have_event, pipeline, NULL);
 }
 //#)
 
@@ -188,27 +445,44 @@ static void gst_print_error(GstMessage *msg)
 (c-external (gst_object_get_name (call GST_OBJECT GstElement*)) char-string)
 (c-external (gst_object_set_name (call GST_OBJECT GstElement*) char-string) gboolean)
 (c-external (gst_object_unref gpointer) void)
+(c-external (gst_value_get_fraction_numerator GValue*) int)
+(c-external (gst_value_get_fraction_denominator GValue*) int)
+(c-external (gst_value_set_fraction GValue* int int) void)
+(c-external (gst_caps_new_empty_simple char-string) GstCaps*)
+(c-external (gst_caps_set_value GstCaps* char-string GValue*) void)
 (c-external (gst_element_set_state GstElement* GstState) GstStateChangeReturn "gst_element_set_state_aux")
 (c-external (gst_element_get_bus GstElement*) GstBus*)
 (c-external (gst_element_get_base_time GstElement*) GstClockTime)
 (c-external (gst_element_factory_make char-string char-string) GstElement*)
 (c-external (gst_element_link GstElement* GstElement*) gboolean)
+(c-external (gst_element_iterate_pads GstElement*) GstIterator*)
 (c-external (gst_iterator_next_element GstIterator*) GstElement*)
+(c-external (gst_iterator_next_pad GstIterator*) GstPad*)
 (c-external (gst_signal_connect_to gpointer char-string gpointer) gulong)
 (c-external (gst_bus_timed_pop_filtered GstBus* GstClockTime GstMessageType) GstMessage*)
 (c-external (gst_bus_pop GstBus*) GstMessage*)
 (c-external (gst_bin_add (call GST_BIN GstElement*) GstElement*) gboolean)
 (c-external (gst_bin_get_by_name (call GST_BIN GstElement*) char-string) GstElement*)
 (c-external (gst_bin_iterate_elements (call GST_BIN GstElement*)) GstIterator*)
-(c-external (gst_test GstElement*) GstElement*)
 (c-external (gst_pipeline_new char-string) GstElement*)
 (c-external (gst_pipeline_get_bus (call GST_PIPELINE GstElement*)) GstBus*)
 (c-external (gst_pipeline_get_clock (call GST_PIPELINE GstElement*)) GstClock*)
 (c-external (gst_pipeline_get_latency (call GST_PIPELINE GstElement*)) GstClockTime)
 (c-external (gst_pipeline_set_latency (call GST_PIPELINE GstElement*) GstClockTime) void)
-;(c-external (gst_caps_set_value GstCaps* char-string
+(c-external (gst_message_state_changed_get_new_state GstMessage*) GstState)
 (c-external (gst_message_unref GstMessage*) void)
 (c-external (gst_clock_get_time GstClock*) GstClockTime)
+(c-external (gst_present_time GstClockTime) double "present_time")
+(c-external (gst_print_pipeline (call GST_PIPELINE GstElement*)) void)
+(c-external (gst_print_pad GstElement* char-string) void)
+(c-external (gst_print_message char-string GstMessage*) void)
 (c-external (gst_print_error GstMessage*) void)
+(c-external (gst_monitor_pad (call GST_PIPELINE GstElement*) GstPad*) void)
+(c-external (gst_app_src_set_caps (call GST_APP_SRC GstElement*) GstCaps*) void)
+(c-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)
+(c-external (gst_app_src_write GstElement* scheme-object int uint64 uint64) GstFlowReturn)
+(c-external (gst_app_sink_pull GstElement* void* scheme-object) int)
+(c-external (gst_app_sink_read GstElement* scheme-object scheme-object) int)
+(c-external (GST_TYPE_FRACTION) GType "___return(GST_TYPE_FRACTION);")
 (c-external (GST_MESSAGE_TYPE GstMessage*) GstMessageType)
 (c-external (GST_MESSAGE_SRC GstMessage*) GstElement*))

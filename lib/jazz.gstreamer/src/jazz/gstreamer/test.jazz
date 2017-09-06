@@ -35,7 +35,6 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;; identity to debug
 ;; GST_DEBUG="*:2" cache/release/jazz -test gstreamer
 ;; G_DEBUG=fatal-criticals ...
 ;; G_DEBUG=fatal-warnings ...
@@ -44,286 +43,72 @@
 (module jazz.gstreamer.test jazz
 
 
-;;;
-;;;; Src
-;;;
-
-
-(import (jazz.crash)
-        (jazz.gstreamer)
+(import (jazz.gstreamer)
         (jazz.io)
-        (jazz.snapshot)
+        (jazz.syntax)
         (world.foreign.gstreamer))
 
 
-(initialize-aliases)
-(setup-crash-handler #f)
-
 (startup-gstreamer)
 
-@src
-(let ((width 320)
-      (height 180)
-      (framerate 5))
-  (let ((pipeline (gst_parse_launch (format "appsrc name=appsrc ! videoconvert name=convert ! osxvideosink name=gl"))))
-    (let ((appsrc (gst_bin_get_by_name pipeline "appsrc"))
-          (bus (gst_pipeline_get_bus pipeline)))
-      (define (messages)
-        (let (loop)
-           (let ((msg (gst_bus_pop bus)))
-             (when msg
-               (gst_present_message msg)
-               (loop)))))
-      
-      (messages)
-      (gst_monitor_pad pipeline appsrc "src")
-      (gst_monitor_element pipeline (gst_bin_get_by_name pipeline "convert"))
-      (gst_monitor_pad pipeline (gst_bin_get_by_name pipeline "gl") "sink")
-      (messages)
-      (gst_setup_app_src2 appsrc "video/x-raw" "I420" 320 180 5)
-      (gst_element_set_state pipeline GST_STATE_PLAYING)
-      (let ((size (* width height 4)))
-        (let ((buffer (make-u8vector size)))
-          (let (loop)
-            (messages)
-            (gst_write_app_src appsrc buffer size)
-            (debug 'YO)
-            (sleep .2)
-            (loop)))))))
-
 
 ;;;
-;;;; Dec
-;;;
-
-
-@dec
-(let @w ((width 320)
-      (height 180)
-      (framerate 5))
-    ((width 1280)
-     (height 720)
-     (framerate 30))
-  (let ((pipeline (gst_parse_launch (format "avfvideosrc name=video ! videoscale ! videoconvert ! video/x-raw, width={a}, height={a}, framerate={a}/1 ! x264enc pass=qual quantizer=20 tune=zerolatency name=enc ! avdec_h264 name=dec ! videoconvert ! osxvideosink name=appsink" width height framerate))))
-    (let ((appsrc (gst_bin_get_by_name pipeline "appsrc"))
-          (appsink (gst_bin_get_by_name pipeline "appsink"))
-          (bus (gst_pipeline_get_bus pipeline)))
-      (define (messages)
-        (let (loop)
-           (let ((msg (gst_bus_pop bus)))
-             (when msg
-               (gst_present_message msg)
-               (loop)))))
-      
-      ;(messages)
-      ;(gst_monitor_pad pipeline (gst_bin_get_by_name pipeline "dec") "sink")
-      (messages)
-      (gst_element_set_state pipeline GST_STATE_PLAYING)
-      (messages)
-      (let (loop)
-        (messages)
-        (sleep .01)
-        (loop)))))
-
-
-;;;
-;;;; Test
-;;;
-
-
-@test
-(let ((width 640)
-      (height 360)
-      (framerate 10)) ;; ! identity sleep-time=5000000 
-  (let ((input-pipeline (gst_parse_launch (format "avfvideosrc name=src ! videoscale ! videoconvert ! video/x-raw, format=I420, width={a}, height={a}, framerate={a}/1 ! appsink name=sink" width height framerate))))
-    (gst_object_set_name input-pipeline "input")
-    (let ((input-sink (gst_bin_get_by_name input-pipeline "sink"))
-          (input-bus (gst_pipeline_get_bus input-pipeline)))
-      (define (messages)
-        (define (empty bus)
-          (let (loop)
-            (let ((msg (gst_bus_pop bus)))
-              (when msg
-                (gst_present_message msg)
-                (let ((type (GST_MESSAGE_TYPE msg)))
-                  (ecase type
-                    ((GST_MESSAGE_EOS)
-                     (exit))
-                    ((GST_MESSAGE_ERROR)
-                     (exit 1))))
-                (loop)))))
-        
-        (empty input-bus))
-      
-      ;(messages)
-      (gst_monitor_pad input-pipeline (gst_bin_get_by_name input-pipeline "src") "src")
-      ;(gst_monitor_element input-pipeline (gst_bin_get_by_name input-pipeline "enc"))
-      (gst_monitor_pad input-pipeline input-sink "sink")
-      ;(messages)
-      (gst_element_set_state input-pipeline GST_STATE_PAUSED)
-      (messages)
-      (gst_element_set_state input-pipeline GST_STATE_PLAYING)
-      (messages)
-      ;(debug 'base_time (gst_present_time (gst_element_get_base_time input-pipeline)))
-      ;(debug 'clock (gst_present_time (gst_clock_get_time (gst_pipeline_get_clock input-pipeline))))
-      @this-works-but-ya
-      (let ((all-elements(gst_bin_elements input-pipeline)))
-        (let (loop (lst all-elements))
-          (when (not (null? lst))
-            (debug (gst_object_get_name (car lst)))
-            (loop (cdr lst)))))
-      @better-but
-      (for-each (lambda (elem)
-                  (debug (gst_object_get_name elem)))
-                (gst_bin_elements input-pipeline))
-      (debug (map gst_object_get_name (gst_bin_elements input-pipeline)))
-      (exit)
-      
-      ;(gst_debug_pipeline input-pipeline)
-      (let ((buffer (make-u8vector (* width height 4)))
-            (info (make-u64vector 2)))
-        (let (loop)
-          (messages)
-          (let ((size (gst_read_app_sink input-sink buffer info))
-                (timestamp (u64vector-ref info 0))
-                (duration (u64vector-ref info 1)))
-            (when (/= size -1)
-              (debug 'info info)
-              @w
-              (gst_write_app_src output-src buffer size timestamp duration)))
-          (sleep .0001)
-          (loop))))))
-
-
-;;;
-;;;; Appsrc
+;;;; App
 ;;;
 
 
 ; try with different output pipelines
 ; why is it now ok with a high framerate when before it wasnt
 
-; ! x264enc pass=qual quantizer=20 tune=zerolatency
-; ! avdec_h264
 
-
-;@appsrc
+;@app
 (let ((width 1280 @w 320)
       (height 720 @w 180)
       (framerate 30)
-      (debug? #f))
-  (let ((input-pipeline (gst_parse_launch (format "avfvideosrc name=src ! videoscale ! videoconvert ! video/x-raw, format=I420, width={a}, height={a}, framerate={a}/1 ! appsink name=sink" width height framerate)))
-        (output-pipeline (gst_parse_launch (format "appsrc name=src ! videoconvert name=convert ! video/x-raw, format=UYVY, width={a}, height={a}, framerate={a}/1 ! osxvideosink name=sink" width height framerate))))
+      (debug? #t))
+  (let ((input-pipeline (gst_parse_launch (pipeline "avfvideosrc name=src" "videoscale name=scale" "videoconvert name=convert" (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1") @w "x264enc pass=qual quantizer=20 tune=zerolatency" "appsink name=sink")))
+        (output-pipeline (gst_parse_launch (pipeline "appsrc name=src" "videoconvert name=convert" @w "avdec_h264" (tie "video/x-raw, format=UYVY, width={width}, height={height}, framerate={framerate}/1") "osxvideosink name=sink"))))
     (gst_object_set_name input-pipeline "input")
     (gst_object_set_name output-pipeline "output")
     (let ((input-sink (gst_bin_get_by_name input-pipeline "sink"))
-          (input-bus (gst_pipeline_get_bus input-pipeline))
           (output-src (gst_bin_get_by_name output-pipeline "src"))
-          (output-convert (gst_bin_get_by_name output-pipeline "convert"))
           (output-sink (gst_bin_get_by_name output-pipeline "sink"))
-          (output-bus (gst_pipeline_get_bus output-pipeline)))
-      (define (messages)
-        (define (empty bus)
-          (let (loop)
-            (let ((msg (gst_bus_pop bus)))
-              (when msg
-                (when debug?
-                  (when (and (= (GST_MESSAGE_TYPE msg) GST_MESSAGE_STATE_CHANGED)
-                             (equal? (gst_object_get_name (GST_MESSAGE_SRC msg)) "output"))
-                    (debug 'diff (- (gst_clock_get_time (gst_pipeline_get_clock output-pipeline))
-                                    (gst_clock_get_time (gst_pipeline_get_clock input-pipeline))))
-                    (debug 'base_time (gst_element_get_base_time input-pipeline)
-                      (gst_element_get_base_time output-pipeline))
-                    ;(gst_debug_pipeline input-pipeline)
-                    )
-                  (gst_present_message msg))
-                (let ((type (GST_MESSAGE_TYPE msg)))
-                  (ecase type
-                    ((GST_MESSAGE_EOS)
-                     (exit))
-                    ((GST_MESSAGE_ERROR)
-                     (exit 1))))
-                (loop)))))
-        
-        (empty input-bus)
-        (empty output-bus))
+          (process-input (pipeline-messages-processor input-pipeline debug?))
+          (process-output (pipeline-messages-processor output-pipeline debug?)))
+      (define (process-messages)
+        (process-input)
+        (process-output))
       
       (when debug?
-        ;(messages)
-        ;(gst_monitor_pad input-pipeline (gst_bin_get_by_name input-pipeline "src") "src")
-        ;(gst_monitor_element input-pipeline (gst_bin_get_by_name input-pipeline "enc"))
-        ;(gst_monitor_pad input-pipeline input-sink "sink")
-        ;(messages)
-        ;(gst_monitor_pad output-pipeline output-src "src")
-        ;(gst_monitor_element output-pipeline output-convert)
-        (gst_monitor_pad output-pipeline output-sink "sink")
-        (messages)
-        ;(gst_setup_app_src output-src "video/x-h264" width height framerate)
-        ;(debug 'LATENCY (gst_pipeline_get_latency output-pipeline))
-        ;(gst_pipeline_set_latency output-pipeline 200000000)
-        ;(debug 'LATENCY (gst_pipeline_get_latency output-pipeline))
-        )
-      (gst_setup_app_src2 output-src "video/x-raw" "I420" width height framerate)
-      (messages)
+        (gst_monitor input-pipeline "src" "sink")
+        (gst_monitor output-pipeline "src" "convert" "sink"))
+      (when debug?
+        (debug 'INFO 'latency (gst_pipeline_get_latency output-pipeline)))
+      (gst_app_src_set_caps output-src
+        (gst_caps "video/x-raw"
+          "format"    (g_value_string "I420")
+          "width"     (g_value_int width)
+          "height"    (g_value_int height)
+          "framerate" (g_value_fraction framerate 1)))
+      (g_object_set output-src
+        "stream-type" (g_value_int GST_APP_STREAM_TYPE_STREAM)
+        "format"      (g_value_int GST_FORMAT_TIME))
       (gst_element_set_state input-pipeline GST_STATE_PAUSED)
       (gst_element_set_state output-pipeline GST_STATE_PAUSED)
-      (messages)
       (gst_element_set_state input-pipeline GST_STATE_PLAYING)
       (gst_element_set_state output-pipeline GST_STATE_PLAYING)
-      (messages)
+      (process-messages)
       (let ((buffer (make-u8vector (* width height 4)))
             (info (make-u64vector 2)))
         (let (loop)
-          (messages)
-          (let ((size (gst_read_app_sink input-sink buffer info))
+          (let ((size (gst_app_sink_read input-sink buffer info))
                 (timestamp (u64vector-ref info 0))
                 (duration (u64vector-ref info 1)))
             (when (/= size -1)
-              ;(debug 'info info)
-              (gst_write_app_src output-src buffer size timestamp duration)))
-          (sleep .0001)
+              (gst_app_src_write output-src buffer size timestamp duration)))
+          (process-messages)
+          (sleep .001)
           (loop))))))
-
-
-;;;
-;;;; Playbin
-;;;
-
-
-@playbin
-(let ((pipeline (gst_parse_launch "playbin uri=https://www.freedesktop.org/software/gstreamer-sdk/data/media/sintel_trailer-480p.webm")))
-  (gst_element_set_state pipeline GST_STATE_PLAYING)
-  (let ((bus (gst_element_get_bus pipeline)))
-    (gst_bus_timed_pop_filtered bus GST_CLOCK_TIME_NONE (bitwise-ior GST_MESSAGE_ERROR GST_MESSAGE_EOS))))
-
-
-;;;
-;;;; WAV
-;;;
-
-
-@wav
-(begin
-(define (play-explosion)
-  (let ((pipeline (gst_pipeline_new "audio-player")))
-    (let ((source  (gst_element_factory_make "filesrc"       "file-source"))
-          (decoder (gst_element_factory_make "wavparse"      "wavparse"))
-          (conv    (gst_element_factory_make "audioconvert"  "converter"))
-          (sink    (gst_element_factory_make "autoaudiosink" "audio-output")))
-      (g_object_set_string source "location" "/Users/cartier/Devel/media/test.wav")
-      (let ((bus (gst_pipeline_get_bus pipeline)))
-        (gst_bin_add pipeline source)
-        (gst_bin_add pipeline decoder)
-        (gst_bin_add pipeline conv)
-        (gst_bin_add pipeline sink)
-        (gst_element_link source decoder)
-        (gst_element_link decoder conv)
-        (gst_element_link conv sink)
-        (gst_element_set_state pipeline GST_STATE_PLAYING)))))
-(loop (repeat 100)
-      (play-explosion)
-      (sleep .1))
-(sleep 5))
 
 
 ;;;
@@ -358,4 +143,33 @@
             (let ((type (GST_MESSAGE_TYPE msg)))
               (unless (= type GST_MESSAGE_EOS)
                 (sleep .01)
-                (loop))))))))))
+                (loop)))))))))
+
+
+;;;
+;;;; WAV
+;;;
+
+
+@wav
+(begin
+(define (play-explosion)
+  (let ((pipeline (gst_pipeline_new "audio-player")))
+    (let ((source  (gst_element_factory_make "filesrc"       "file-source"))
+          (decoder (gst_element_factory_make "wavparse"      "wavparse"))
+          (conv    (gst_element_factory_make "audioconvert"  "converter"))
+          (sink    (gst_element_factory_make "autoaudiosink" "audio-output")))
+      (g_object_set_string source "location" "/Users/cartier/Devel/media/test.wav")
+      (let ((bus (gst_pipeline_get_bus pipeline)))
+        (gst_bin_add pipeline source)
+        (gst_bin_add pipeline decoder)
+        (gst_bin_add pipeline conv)
+        (gst_bin_add pipeline sink)
+        (gst_element_link source decoder)
+        (gst_element_link decoder conv)
+        (gst_element_link conv sink)
+        (gst_element_set_state pipeline GST_STATE_PLAYING)))))
+(loop (repeat 100)
+      (play-explosion)
+      (sleep .1))
+(sleep 5)))

@@ -46,7 +46,42 @@
 
 
 ;;;
-;;;; Library
+;;;; GLib
+;;;
+
+
+(definition public (g_value_string str)
+  (let ((value (g_value_new G_TYPE_STRING)))
+    (g_value_set_string value str)
+    value))
+
+
+(definition public (g_value_int n)
+  (let ((value (g_value_new G_TYPE_INT)))
+    (g_value_set_int value n)
+    value))
+
+
+(definition public (g_value_uint64 n)
+  (let ((value (g_value_new G_TYPE_UINT64)))
+    (g_value_set_uint64 value n)
+    value))
+
+
+(definition public (g_value_fraction n d)
+  (let ((value (g_value_new (GST_TYPE_FRACTION))))
+    (gst_value_set_fraction value n d)
+    value))
+
+
+(definition public (g_object_set obj . rest)
+  (for-each-property (lambda (name value)
+                       (g_object_set_property obj name value))
+                     rest))
+
+
+;;;
+;;;; GStreamer
 ;;;
 
 
@@ -66,6 +101,63 @@
 
 
 ;;;
+;;;; Pipeline
+;;;
+
+
+(definition public (pipeline . elements)
+  (join elements " ! "))
+
+
+(definition public (pipeline-messages-processor pipeline debug?)
+  (let ((name (gst_object_get_name pipeline))
+        (bus (gst_pipeline_get_bus pipeline)))
+    (lambda ()
+      (let (loop)
+        (let ((msg (gst_bus_pop bus)))
+          (when msg
+            (when (and (= (GST_MESSAGE_TYPE msg) GST_MESSAGE_STATE_CHANGED)
+                       (= (gst_message_state_changed_get_new_state msg) GST_STATE_PLAYING)
+                       (equal? (gst_object_get_name (GST_MESSAGE_SRC msg)) "output"))
+              @convert
+              (when debug?
+                (debug 'diff
+                       (- (gst_clock_get_time (gst_pipeline_get_clock output-pipeline))
+                          (gst_clock_get_time (gst_pipeline_get_clock input-pipeline))))
+                ;(gst_debug_pipeline input-pipeline)
+                )
+              @convert
+              (let ((input-base (gst_element_get_base_time input-pipeline))
+                    (output-base (gst_element_get_base_time output-pipeline)))
+                (let ((delta (- output-base input-base)))
+                  (when debug?
+                    (debug '******** (gst_present_time input-base) (gst_present_time output-base) (gst_present_time delta)))
+                  (set! correction delta))))
+            (when debug?
+              (gst_print_message name msg))
+            (let ((type (GST_MESSAGE_TYPE msg)))
+              (ecase type
+                ((GST_MESSAGE_EOS)
+                 (exit))
+                ((GST_MESSAGE_ERROR)
+                 (exit 1))))
+            (loop)))))))
+
+
+;;;
+;;;; Caps
+;;;
+
+
+(definition public (gst_caps type . rest)
+  (let ((caps (gst_caps_new_empty_simple type)))
+    (for-each-property (lambda (name value)
+                         (gst_caps_set_value caps name value))
+                       rest)
+    caps))
+
+
+;;;
 ;;;; Bin
 ;;;
 
@@ -78,4 +170,31 @@
         (if (not elem)
             (queue-list queue)
           (enqueue queue elem)
-          (loop)))))))
+          (loop))))))
+
+
+;;;
+;;;; Element
+;;;
+
+
+(definition public (gst_element_pads elem)
+  (let ((it (gst_element_iterate_pads elem))
+        (queue (new-queue)))
+    (let (loop)
+      (let ((pad (gst_iterator_next_pad it)))
+        (if (not pad)
+            (queue-list queue)
+          (enqueue queue pad)
+          (loop))))))
+
+
+(definition public (gst_monitor pipeline . names)
+  (for-each (lambda (name)
+              (let ((elem (gst_bin_get_by_name pipeline name)))
+                (if (not elem)
+                    (error "Unable to find element {a}" name)
+                  (for-each (lambda (pad)
+                              (gst_monitor_pad pipeline pad))
+                            (gst_element_pads elem)))))
+            names)))

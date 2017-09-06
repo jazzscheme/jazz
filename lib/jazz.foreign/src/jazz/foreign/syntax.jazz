@@ -326,7 +326,12 @@
                   (values 'struct `(struct ,c-string ,@tag-rest) #f)))
                ((union)
                 (bind (c-string . tag-rest) (cdr type)
-                  (values 'union `(union ,c-string ,@tag-rest) #f)))))
+                  (values 'union `(union ,c-string ,@tag-rest) #f)))
+               ((cast)
+                (bind (type) (cdr type)
+                  (values 'cast type #f)))
+               (else
+                (walk-error walker resume declaration #f "Ill-formed c-type: {s}" type))))
             (else
              (walk-error walker resume declaration #f "Ill-formed c-type: {s}" type))))
     
@@ -617,11 +622,15 @@
           (and (pair? type)
                (eq? (car type) 'call)))
         
+        (define (cast-type? type)
+          (and (pair? type)
+               (eq? (car type) 'cast)))
+        
         (define (c-identifier? str)
           (every? c-constituent? str))
         
-        (define (convert-types has-special? types resolved-types)
-          (if (not has-special?)
+        (define (convert-types special-types? types resolved-types)
+          (if (not special-types?)
               types
             (remove-false
               (map (lambda (type resolved-type)
@@ -638,7 +647,7 @@
                    types
                    resolved-types))))
         
-        (define (convert-code has-special? types resolved-types c-name-or-code)
+        (define (convert-code special-types? types resolved-types c-name-or-code)
           (define (convert-type type resolved-type arg)
             (cond ((enum-type? resolved-type)
                    (let ((name (get-name~ resolved-type)))
@@ -663,13 +672,17 @@
                      ((f64vector) (string-append "(double*)___BODY(" arg ")"))
                      (else arg)))))
           
-          (if (or (not has-special?)
+          (if (or (not special-types?)
                   (not (c-identifier? c-name-or-code)))
               c-name-or-code
             (let ((output (open-output-string))
                   (first? #t)
                   (void? (eq? result-type 'void)))
               (format output "{a}" (if void? "" "___return("))
+              (when (cast-type? result-type)
+                (format output "({a}) " (case (cadr result-type)
+                                                ((char-string) "char*")
+                                                (else (error "Unknown cast: {a}" result-type)))))
               (format output "{a}(" c-name-or-code)
               (for-each (lambda (type resolved-type n)
                           (let ((rank (+ n 1)))
@@ -686,12 +699,13 @@
               (get-output-string output))))
         
         (let ((resolved-types (map resolve-reference types)))
-          (let ((has-special? (or (some? enum-type? resolved-types)
-                                  (some? literal-type? types)
-                                  (some? homogeneous-type? types)
-                                  (some? call-type? types))))
-            (let ((converted-types (convert-types has-special? types resolved-types)))
-              (let ((final-code (convert-code has-special? types resolved-types c-name-or-code)))
+          (let ((special-types? (or (some? enum-type? resolved-types)
+                                    (some? literal-type? types)
+                                    (some? homogeneous-type? types)
+                                    (some? call-type? types)))
+                (special-result? (cast-type? result-type)))
+            (let ((converted-types (convert-types special-types? types resolved-types)))
+              (let ((final-code (convert-code (or special-types? special-result?) types resolved-types c-name-or-code)))
                 (new C-Function
                   `(c-function ,name ,(map resolve-access converted-types) ,(resolve-access result-type) ,final-code))))))))))
 

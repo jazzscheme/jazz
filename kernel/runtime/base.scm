@@ -370,11 +370,11 @@
        (%%equal? (jazz:option-name arg) option)))
 
 
-(define (jazz:get-option name options)
+(define (jazz:get-option name options #!optional (default #f))
   (let ((pair (%%assoc name options)))
     (if pair
         (%%cdr pair)
-      #f)))
+      default)))
 
 
 (define jazz:*command-arguments*

@@ -450,6 +450,7 @@
 (native u8vector-shrink!)
 (native append-u8vectors)
 (native u8vector-append)
+(native u8vector-copy)
 (native u8vector-fill!)
 (native subu8vector)
 (native subu8vector-move!)

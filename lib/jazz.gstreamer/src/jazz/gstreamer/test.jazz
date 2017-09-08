@@ -51,6 +51,7 @@
 (startup-gstreamer)
 
 
+;; none
 ;; video
 ;; app
 ;; ogg
@@ -132,16 +133,13 @@
 
 
 (definition public (test-gstreamer)
-  (thread-start!
-    (new-thread
-      (lambda ()
-        (case script
-          ((video) (test-video))
-          ((app) (test-app))
-          ((ogg) (test-ogg))
-          ((wav) (test-wav))
-          (else (error "Unknown script: {a}" script))))
-      'gstreamer)))
+  (case script
+    ((none))
+    ((video) (test-video))
+    ((app) (test-app))
+    ((ogg) (test-ogg))
+    ((wav) (test-wav))
+    (else (error "Unknown script: {a}" script))))
 
 
 ;;;
@@ -150,49 +148,53 @@
 
 
 (definition public (test-video)
-  (let ((width (get-width~ size))
-        (height (get-height~ size)))
-    (let ((pipeline (gst_parse_launch (pipeline "avfvideosrc name=src"
-                                                "videoscale name=scale"
-                                                "videoconvert name=convert"
-                                                (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
-                                                (and (eq? codec 'h265) "??? name=enc")
-                                                (and (eq? codec 'h264) (tie "x264enc pass=qual quantizer=20 bitrate={bitrate} tune=zerolatency speed-preset=ultrafast name=enc"))
-                                                (and (eq? codec 'h263) "avenc_h263 name=enc")
-                                                (and (eq? codec 'flv) "avenc_flv name=enc")
-                                                (and (eq? codec 'mpeg4) "avenc_mpeg4 name=enc")
-                                                (and (eq? codec 'mpeg2) "avenc_mpeg2video name=enc")
-                                                (and (eq? codec 'mpeg1) "avenc_mpeg1video name=enc")
-                                                (and (eq? codec 'vp9) "vp9enc deadline=1 name=enc")
-                                                (and (eq? codec 'vp8) "vp8enc deadline=1 name=enc")
-                                                (and (eq? codec 'theora) "theoraenc name=enc")
-                                                (and (neq? codec 'none) "identity name=identity")
-                                                (and (eq? codec 'h265) "avdec_h265 name=dec")
-                                                (and (eq? codec 'h264) "avdec_h264 name=dec")
-                                                (and (eq? codec 'h263) "avdec_h263 name=dec")
-                                                (and (eq? codec 'flv) "avdec_flv name=dec")
-                                                (and (eq? codec 'mpeg4) "avdec_mpeg4 name=dec")
-                                                (and (eq? codec 'mpeg2) "avdec_mpeg2video name=dec")
-                                                (and (eq? codec 'mpeg1) "avdec_mpegvideo name=dec")
-                                                (and (eq? codec 'vp9) "vp9dec name=dec")
-                                                (and (eq? codec 'vp8) "vp8dec name=dec")
-                                                (and (eq? codec 'theora) "theoradec name=dec")
-                                                "videoconvert name=convert2"
-                                                (tie "video/x-raw, format=UYVY, width={width}, height={height}, framerate={framerate}/1")
-                                                "osxvideosink name=sink"))))
-      (gst_object_set_name pipeline "pipeline")
-      (let ((process-messages (pipeline-messages-processor pipeline debug?)))
-        (when debug?
-          (when (neq? codec 'none)
-            (gst_monitor pipeline "enc" "identity" "dec"))
-          (gst_monitor pipeline "convert2" "sink"))
-        (gst_element_set_state pipeline GST_STATE_PAUSED)
-        (gst_element_set_state pipeline GST_STATE_PLAYING)
-        (process-messages)
-        (let (loop)
-          (process-messages)
-          (sleep .001)
-          (loop))))))
+  (thread-start!
+    (new-thread
+      (lambda ()
+        (let ((width (get-width~ size))
+              (height (get-height~ size)))
+          (let ((pipeline (gst_parse_launch (pipeline "avfvideosrc name=src"
+                                                      "videoscale name=scale"
+                                                      "videoconvert name=convert"
+                                                      (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
+                                                      (and (eq? codec 'h265) "??? name=enc")
+                                                      (and (eq? codec 'h264) (tie "x264enc pass=qual quantizer=20 bitrate={bitrate} tune=zerolatency speed-preset=ultrafast name=enc"))
+                                                      (and (eq? codec 'h263) "avenc_h263 name=enc")
+                                                      (and (eq? codec 'flv) "avenc_flv name=enc")
+                                                      (and (eq? codec 'mpeg4) "avenc_mpeg4 name=enc")
+                                                      (and (eq? codec 'mpeg2) "avenc_mpeg2video name=enc")
+                                                      (and (eq? codec 'mpeg1) "avenc_mpeg1video name=enc")
+                                                      (and (eq? codec 'vp9) "vp9enc deadline=1 name=enc")
+                                                      (and (eq? codec 'vp8) "vp8enc deadline=1 name=enc")
+                                                      (and (eq? codec 'theora) "theoraenc name=enc")
+                                                      (and (neq? codec 'none) "identity name=identity")
+                                                      (and (eq? codec 'h265) "avdec_h265 name=dec")
+                                                      (and (eq? codec 'h264) "avdec_h264 name=dec")
+                                                      (and (eq? codec 'h263) "avdec_h263 name=dec")
+                                                      (and (eq? codec 'flv) "avdec_flv name=dec")
+                                                      (and (eq? codec 'mpeg4) "avdec_mpeg4 name=dec")
+                                                      (and (eq? codec 'mpeg2) "avdec_mpeg2video name=dec")
+                                                      (and (eq? codec 'mpeg1) "avdec_mpegvideo name=dec")
+                                                      (and (eq? codec 'vp9) "vp9dec name=dec")
+                                                      (and (eq? codec 'vp8) "vp8dec name=dec")
+                                                      (and (eq? codec 'theora) "theoradec name=dec")
+                                                      "videoconvert name=convert2"
+                                                      (tie "video/x-raw, format=UYVY, width={width}, height={height}, framerate={framerate}/1")
+                                                      "osxvideosink name=sink"))))
+            (gst_object_set_name pipeline "pipeline")
+            (let ((process-messages (pipeline-messages-processor pipeline debug?)))
+              (when debug?
+                (when (neq? codec 'none)
+                  (gst_monitor pipeline "enc" "identity" "dec"))
+                (gst_monitor pipeline "convert2" "sink"))
+              (gst_element_set_state pipeline GST_STATE_PAUSED)
+              (gst_element_set_state pipeline GST_STATE_PLAYING)
+              (process-messages)
+              (let (loop)
+                (process-messages)
+                (sleep .001)
+                (loop))))))
+      'video)))
 
 
 ;;;
@@ -201,88 +203,92 @@
 
 
 (definition public (test-app)
-  (let ((width (get-width~ size))
-        (height (get-height~ size))
-        (ready? #f))
-    (let ((input-pipeline (gst_parse_launch (pipeline "avfvideosrc name=src"
-                                                      "videoscale name=scale"
-                                                      "videoconvert name=convert"
-                                                      (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
-                                                      (and (eq? codec 'h264) (tie "x264enc pass=qual quantizer=20 bitrate={bitrate} tune=zerolatency speed-preset=ultrafast name=enc"))
-                                                      (and (eq? codec 'vp8) "vp8enc deadline=1 name=enc")
-                                                      "appsink name=sink")))
-          (output-pipeline (gst_parse_launch (pipeline "appsrc name=src"
-                                                       (and (eq? codec 'h264) "avdec_h264 name=dec")
-                                                       (and (eq? codec 'vp8) "vp8dec name=dec")
-                                                       "videoconvert name=convert"
-                                                       "videoflip video-direction=horiz"
-                                                       (tie "video/x-raw, format=UYVY, width={width}, height={height}, framerate={framerate}/1")
-                                                       "osxvideosink name=sink"))))
-      (gst_object_set_name input-pipeline "input")
-      (gst_object_set_name output-pipeline "output")
-      (let ((input-sink (gst_bin_get_by_name input-pipeline "sink"))
-            (output-src (gst_bin_get_by_name output-pipeline "src"))
-            (output-sink (gst_bin_get_by_name output-pipeline "sink"))
-            (process-input (pipeline-messages-processor input-pipeline debug?))
-            (process-output (pipeline-messages-processor output-pipeline debug?
-                              (lambda ()
-                                (set! ready? #t)))))
-        (define (process-messages)
-          (process-input)
-          (process-output))
-        
-        (when debug?
-          (gst_monitor input-pipeline "src" "sink")
-          (gst_monitor output-pipeline "src" "convert" "sink")
-          (when (neq? codec 'none)
-            (gst_monitor output-pipeline "dec")))
-        ;(gst_pipeline_set_latency output-pipeline 200000000)
-        ;(debug 'INFO 'latency (gst_pipeline_get_latency output-pipeline))
-        (case codec
-          ((h264)
-           (gst_app_src_set_caps output-src
-             (gst_caps "video/x-h264"
-               "width"         (g_value_int width)
-               "height"        (g_value_int height)
-               "framerate"     (g_value_fraction framerate 1)
-               "stream-format" (g_value_string "avc")
-               "alignment"     (g_value_string "au"))))
-          ((vp8)
-           (gst_app_src_set_caps output-src
-             (gst_caps "video/x-vp8"
-               "width"         (g_value_int width)
-               "height"        (g_value_int height)
-               "framerate"     (g_value_fraction framerate 1)
-               "stream-format" (g_value_string "avc")
-               "alignment"     (g_value_string "au"))))
-          (else
-           (gst_app_src_set_caps output-src
-             (gst_caps "video/x-raw"
-               "format"    (g_value_string "I420")
-               "width"     (g_value_int width)
-               "height"    (g_value_int height)
-               "framerate" (g_value_fraction framerate 1)))))
-        (g_object_set output-src
-          "stream-type" (g_value_int GST_APP_STREAM_TYPE_STREAM)
-          "format"      (g_value_int GST_FORMAT_TIME))
-        (gst_element_set_state input-pipeline GST_STATE_PAUSED)
-        (gst_element_set_state output-pipeline GST_STATE_PAUSED)
-        (gst_element_set_state input-pipeline GST_STATE_PLAYING)
-        (when lag
-          (sleep lag))
-        (gst_element_set_state output-pipeline GST_STATE_PLAYING)
-        (process-messages)
-        (let ((buffer (make-u8vector (* width height 4)))
-              (info (make-u64vector 2)))
-          (let (loop)
-            (let ((size (gst_app_sink_read input-sink buffer info)))
-              (when (/= size -1)
-                (let ((timestamp (u64vector-ref info 0))
-                      (duration (u64vector-ref info 1)))
-                  (gst_app_src_write2 output-src buffer size timestamp duration))))
-            (process-messages)
-            (sleep .001)
-            (loop)))))))
+  (thread-start!
+    (new-thread
+      (lambda ()
+        (let ((width (get-width~ size))
+              (height (get-height~ size))
+              (ready? #f))
+          (let ((input-pipeline (gst_parse_launch (pipeline "avfvideosrc name=src"
+                                                            "videoscale name=scale"
+                                                            "videoconvert name=convert"
+                                                            (tie "video/x-raw, format=I420, width={width}, height={height}, framerate={framerate}/1")
+                                                            (and (eq? codec 'h264) (tie "x264enc pass=qual quantizer=20 bitrate={bitrate} tune=zerolatency speed-preset=ultrafast name=enc"))
+                                                            (and (eq? codec 'vp8) "vp8enc deadline=1 name=enc")
+                                                            "appsink name=sink")))
+                (output-pipeline (gst_parse_launch (pipeline "appsrc name=src"
+                                                             (and (eq? codec 'h264) "avdec_h264 name=dec")
+                                                             (and (eq? codec 'vp8) "vp8dec name=dec")
+                                                             "videoconvert name=convert"
+                                                             "videoflip video-direction=horiz"
+                                                             (tie "video/x-raw, format=UYVY, width={width}, height={height}, framerate={framerate}/1")
+                                                             "osxvideosink name=sink"))))
+            (gst_object_set_name input-pipeline "input")
+            (gst_object_set_name output-pipeline "output")
+            (let ((input-sink (gst_bin_get_by_name input-pipeline "sink"))
+                  (output-src (gst_bin_get_by_name output-pipeline "src"))
+                  (output-sink (gst_bin_get_by_name output-pipeline "sink"))
+                  (process-input (pipeline-messages-processor input-pipeline debug?))
+                  (process-output (pipeline-messages-processor output-pipeline debug?
+                                    (lambda ()
+                                      (set! ready? #t)))))
+              (define (process-messages)
+                (process-input)
+                (process-output))
+              
+              (when debug?
+                (gst_monitor input-pipeline "src" "sink")
+                (gst_monitor output-pipeline "src" "convert" "sink")
+                (when (neq? codec 'none)
+                  (gst_monitor output-pipeline "dec")))
+              ;(gst_pipeline_set_latency output-pipeline 200000000)
+              ;(debug 'INFO 'latency (gst_pipeline_get_latency output-pipeline))
+              (case codec
+                ((h264)
+                 (gst_app_src_set_caps output-src
+                   (gst_caps "video/x-h264"
+                     "width"         (g_value_int width)
+                     "height"        (g_value_int height)
+                     "framerate"     (g_value_fraction framerate 1)
+                     "stream-format" (g_value_string "avc")
+                     "alignment"     (g_value_string "au"))))
+                ((vp8)
+                 (gst_app_src_set_caps output-src
+                   (gst_caps "video/x-vp8"
+                     "width"         (g_value_int width)
+                     "height"        (g_value_int height)
+                     "framerate"     (g_value_fraction framerate 1)
+                     "stream-format" (g_value_string "avc")
+                     "alignment"     (g_value_string "au"))))
+                (else
+                 (gst_app_src_set_caps output-src
+                   (gst_caps "video/x-raw"
+                     "format"    (g_value_string "I420")
+                     "width"     (g_value_int width)
+                     "height"    (g_value_int height)
+                     "framerate" (g_value_fraction framerate 1)))))
+              (g_object_set output-src
+                "stream-type" (g_value_int GST_APP_STREAM_TYPE_STREAM)
+                "format"      (g_value_int GST_FORMAT_TIME))
+              (gst_element_set_state input-pipeline GST_STATE_PAUSED)
+              (gst_element_set_state output-pipeline GST_STATE_PAUSED)
+              (gst_element_set_state input-pipeline GST_STATE_PLAYING)
+              (when lag
+                (sleep lag))
+              (gst_element_set_state output-pipeline GST_STATE_PLAYING)
+              (process-messages)
+              (let ((buffer (make-u8vector (* width height 4)))
+                    (info (make-u64vector 2)))
+                (let (loop)
+                  (let ((size (gst_app_sink_read input-sink buffer info)))
+                    (when (/= size -1)
+                      (let ((timestamp (u64vector-ref info 0))
+                            (duration (u64vector-ref info 1)))
+                        (gst_app_src_write2 output-src buffer size timestamp duration))))
+                  (process-messages)
+                  (sleep .001)
+                  (loop)))))))
+      'app)))
 
 
 ;;;
@@ -291,33 +297,37 @@
 
 
 (definition public (test-ogg)
-  (let ((pipeline (gst_pipeline_new "audio-player")))
-    (let ((source  (gst_element_factory_make "filesrc"       "file-source"))
-          (demuxer (gst_element_factory_make "oggdemux"      "ogg-demuxer"))
-          (decoder (gst_element_factory_make "vorbisdec"     "vorbis-decoder"))
-          (conv    (gst_element_factory_make "audioconvert"  "converter"))
-          (sink    (gst_element_factory_make "autoaudiosink" "audio-output")))
-      (g_object_set_string source "location" "/Users/cartier/Devel/gstreamer/media/test.ogg")
-      (let ((bus (gst_pipeline_get_bus pipeline)))
-        (gst_bin_add pipeline source)
-        (gst_bin_add pipeline demuxer)
-        (gst_bin_add pipeline decoder)
-        (gst_bin_add pipeline conv)
-        (gst_bin_add pipeline sink)
-        (gst_element_link source demuxer)
-        (gst_element_link demuxer decoder)
-        (gst_element_link decoder conv)
-        (gst_element_link conv sink)
-        (gst_signal_connect_to demuxer "pad-added" decoder)
-        (gst_element_set_state pipeline GST_STATE_PLAYING)
-        (let (loop)
-          (let ((msg (gst_bus_pop bus)))
-            (if (not msg)
-                (loop)
-              (let ((type (GST_MESSAGE_TYPE msg)))
-                (unless (= type GST_MESSAGE_EOS)
-                  (sleep .01)
-                  (loop))))))))))
+  (thread-start!
+    (new-thread
+      (lambda ()
+        (let ((pipeline (gst_pipeline_new "audio-player")))
+          (let ((source  (gst_element_factory_make "filesrc"       "file-source"))
+                (demuxer (gst_element_factory_make "oggdemux"      "ogg-demuxer"))
+                (decoder (gst_element_factory_make "vorbisdec"     "vorbis-decoder"))
+                (conv    (gst_element_factory_make "audioconvert"  "converter"))
+                (sink    (gst_element_factory_make "autoaudiosink" "audio-output")))
+            (g_object_set_string source "location" "/Users/cartier/Devel/gstreamer/media/test.ogg")
+            (let ((bus (gst_pipeline_get_bus pipeline)))
+              (gst_bin_add pipeline source)
+              (gst_bin_add pipeline demuxer)
+              (gst_bin_add pipeline decoder)
+              (gst_bin_add pipeline conv)
+              (gst_bin_add pipeline sink)
+              (gst_element_link source demuxer)
+              (gst_element_link demuxer decoder)
+              (gst_element_link decoder conv)
+              (gst_element_link conv sink)
+              (gst_signal_connect_to demuxer "pad-added" decoder)
+              (gst_element_set_state pipeline GST_STATE_PLAYING)
+              (let (loop)
+                (let ((msg (gst_bus_pop bus)))
+                  (if (not msg)
+                      (loop)
+                    (let ((type (GST_MESSAGE_TYPE msg)))
+                      (unless (= type GST_MESSAGE_EOS)
+                        (sleep .01)
+                        (loop))))))))))
+      'ogg)))
 
 
 ;;;
@@ -344,7 +354,10 @@
 
 
 (definition public (test-wav)
-  (loop (repeat 100)
-        (play-explosion)
-        (sleep .1))
-  (sleep 5)))
+  (thread-start!
+    (new-thread
+      (lambda ()
+        (loop (repeat 20)
+              (play-explosion)
+              (sleep .1)))
+      'wav))))

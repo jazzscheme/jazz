@@ -1295,10 +1295,6 @@
       (%%substring arg start len))))
 
 
-(define jazz:kernel-runtime-options-with-no-args
-  '("nosource"))
-
-
 (define (jazz:command-argument name #!key (error? #t))
   (define (skip-scripts arguments)
     (let iter ((arguments arguments))
@@ -1313,7 +1309,7 @@
           (if (%%null? arguments)
               #f
             (let ((arg (%%car arguments)))
-              (cond ((%%member (jazz:switch-name arg) jazz:kernel-runtime-options-with-no-args)
+              (cond ((%%member (jazz:switch-name arg) jazz:kernel-runtime-switches)
                      (iter (%%cdr arguments)))
                     ((or (%%not (jazz:switch? arg))
                          (%%null? (%%cdr arguments)))

@@ -1341,6 +1341,12 @@
         (%%cdr pair)
       #f)))
 
+(define (jazz:product-descriptor-switches descriptor)
+  (let ((pair (%%assq 'switches (%%cdr descriptor))))
+    (if pair
+        (%%cdr pair)
+      #f)))
+
 (define (jazz:product-descriptor-product descriptor)
   (let ((pair (%%assq 'product (%%cdr descriptor))))
     (if pair
@@ -1530,7 +1536,10 @@
       (set! jazz:process-product name)
       (set! jazz:process-name name)
       (set! jazz:process-title (or (%%get-product-title product) (jazz:product-descriptor-title descriptor)))
-      (set! jazz:process-icon (or (%%get-product-icon product) (jazz:product-descriptor-icon descriptor))))
+      (set! jazz:process-icon (or (%%get-product-icon product) (jazz:product-descriptor-icon descriptor)))
+      (let ((switches (jazz:product-descriptor-switches descriptor)))
+        (if switches
+            (jazz:add-kernel-runtime-switches switches))))
     (if jazz:debugger
         (jazz:load-debuggee))
     product))

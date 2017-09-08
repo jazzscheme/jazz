@@ -401,7 +401,19 @@
         arguments)))
 
 
-(define (jazz:split-command-line arguments options-with-no-args options-with-args missing-argument-for-option cont)
+(define jazz:kernel-runtime-switches
+  '("nosource"))
+
+
+(define (jazz:add-kernel-runtime-switch switch)
+  (set! jazz:kernel-runtime-switches (%%cons switch jazz:kernel-runtime-switches)))
+
+
+(define (jazz:add-kernel-runtime-switches switches)
+  (set! jazz:kernel-runtime-switches (%%append switches jazz:kernel-runtime-switches)))
+
+
+(define (jazz:split-command-line arguments switches options missing-argument-for-option cont)
   (declare (proper-tail-calls))
   (define (split-commands arguments)
     (let iter ((commands '()) (arguments arguments))
@@ -417,10 +429,10 @@
                (jazz:option? (%%car args)))
           (let ((opt (jazz:option-name (%%car args)))
                 (rest (%%cdr args)))
-            (cond ((%%member opt options-with-no-args)
+            (cond ((%%member opt switches)
                    (loop rest
                          (%%cons (%%cons opt #t) rev-options)))
-                  ((%%member opt options-with-args)
+                  ((%%member opt options)
                    (if (%%pair? rest)
                        (loop (%%cdr rest)
                              (%%cons (%%cons opt (%%car rest)) rev-options))

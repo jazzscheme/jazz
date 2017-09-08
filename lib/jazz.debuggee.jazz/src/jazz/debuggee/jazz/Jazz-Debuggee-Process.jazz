@@ -261,15 +261,18 @@
                 (when resource
                   (enqueue queue (resource-pathname resource)))))
             
-            ;; immediately transmit properties before doing
-            ;; the potentially long computation of filenames
-            (transmit-information #f #f '())
-            (when kernel-source-access?
-              (when (remote-proxy? (get-controller-debugger))
-                (for-each add-unit (product-units product))))
-            (let ((filenames (queue-list queue))
-                  (processes (list (get-local-process))))
-              (transmit-information filenames processes '()))))
+            (if (eq? what 'properties)
+                (transmit-information '() '() '())
+              ;; immediately transmit properties before doing
+              ;; the potentially long computation of filenames
+              (transmit-information #f #f '())
+              (when kernel-source-access?
+                (when (remote-proxy? (get-controller-debugger))
+                  (for-each add-unit (product-units product))))
+              (let ((filenames (queue-list queue))
+                    (processes (list (get-local-process))))
+                (terminal filenames processes)
+                (transmit-information filenames processes '())))))
         'runtime-information)))
   
   

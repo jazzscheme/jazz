@@ -155,5 +155,6 @@
 
 
 (jazz:register-product 'jazz.gstreamer
+  title: "GStreamer"
   build: jazz:build-gstreamer
   library-options: jazz:gstreamer-library-options))

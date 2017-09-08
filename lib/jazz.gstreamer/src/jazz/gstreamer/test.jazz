@@ -45,8 +45,7 @@
 
 (import (jazz.gstreamer)
         (jazz.io)
-        (jazz.syntax)
-        (world.foreign.gstreamer))
+        (jazz.syntax))
 
 
 (startup-gstreamer)
@@ -97,7 +96,7 @@
   #f)
 
 
-(jazz:split-command-line (command-arguments) '("debug") '("test" "script" "size" "framerate" "codec" "bitrate" "lag") #f
+(jazz:split-command-line (command-arguments) '("debug") '("debugger" "run" "script" "size" "framerate" "codec" "bitrate" "lag") #f
   (lambda (commands options remain)
     (define (number-argument arg)
       (if (string? arg)
@@ -132,12 +131,25 @@
 (debug script size framerate codec bitrate lag debug? remaining)
 
 
+(definition public (test-gstreamer)
+  (thread-start!
+    (new-thread
+      (lambda ()
+        (case script
+          ((video) (test-video))
+          ((app) (test-app))
+          ((ogg) (test-ogg))
+          ((wav) (test-wav))
+          (else (error "Unknown script: {a}" script))))
+      'gstreamer)))
+
+
 ;;;
 ;;;; Video
 ;;;
 
 
-(when (eq? script 'video)
+(definition public (test-video)
   (let ((width (get-width~ size))
         (height (get-height~ size)))
     (let ((pipeline (gst_parse_launch (pipeline "avfvideosrc name=src"
@@ -188,7 +200,7 @@
 ;;;
 
 
-(when (eq? script 'app)
+(definition public (test-app)
   (let ((width (get-width~ size))
         (height (get-height~ size))
         (ready? #f))
@@ -278,7 +290,7 @@
 ;;;
 
 
-(when (eq? script 'ogg)
+(definition public (test-ogg)
   (let ((pipeline (gst_pipeline_new "audio-player")))
     (let ((source  (gst_element_factory_make "filesrc"       "file-source"))
           (demuxer (gst_element_factory_make "oggdemux"      "ogg-demuxer"))
@@ -330,7 +342,8 @@
         (gst_element_link conv sink)
         (gst_element_set_state pipeline GST_STATE_PLAYING)))))
 
-(when (eq? script 'wav)
+
+(definition public (test-wav)
   (loop (repeat 100)
         (play-explosion)
         (sleep .1))

@@ -94,7 +94,10 @@
     ((_)
      (unspecified))
     ((_ expr ...)
-     (unspecific expr ...))))
+     ;; useful to find code using the return value
+     ;; but incorrect as it breaks proper tail call
+     ;; (unspecific expr ...)
+     (begin expr ...))))
 
 
 (define-syntax when

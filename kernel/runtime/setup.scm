@@ -318,7 +318,7 @@ c-end
   ;; f -> force
   (jazz:with-quit
     (lambda ()
-      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "w" "walk" "x" "expand" "c" "compile" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect") missing-argument-for-option
+      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "w" "walk" "x" "expand" "c" "compile" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect" "listen") missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
                 (nosource? (jazz:get-option "nosource" options))

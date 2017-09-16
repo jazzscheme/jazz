@@ -170,7 +170,7 @@ end-of-code
                   ;; before bvector.
                   (macro-handle-type-mixed-vector
                    foreign
-                   (macro-foreign-tags macro-foreign-tags-set!)))
+                    (##foreign-tags macro-foreign-tags-set!)))
 
                  ((macro-subtype-bvector? subtype)
                   (macro-handle-type-mixed-vector

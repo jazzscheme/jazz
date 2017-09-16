@@ -69,7 +69,7 @@
           (list cc-flags ld-flags)))))
   (else
     (define jazz:fontconfig-flags
-      (let ((cc-flags (string-append (jazz:pkg-config-cflags "fontconfig") " -fpermissive"))
+      (let ((cc-flags (jazz:pkg-config-cflags "fontconfig"))
             (ld-flags (jazz:pkg-config-libs "fontconfig")))
         (list cc-flags ld-flags)))))
 

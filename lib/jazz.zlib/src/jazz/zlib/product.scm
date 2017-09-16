@@ -56,12 +56,12 @@
            ld-options: ,(string-append "-L" zlib-lib-path " -lz"))))))
   (x11
    (define jazz:zlib-units
-     (let ((cc-flags (string-append (jazz:pkg-config-cflags "zlib") " -fpermissive"))
+     (let ((cc-flags (jazz:pkg-config-cflags "zlib"))
            (ld-flags (jazz:pkg-config-libs "zlib")))
        `((jazz.zlib.foreign cc-options: ,cc-flags ld-options: ,ld-flags)))))
   (else
    (define jazz:zlib-units
-     '((jazz.zlib.foreign cc-options: "-fpermissive")))))
+     '((jazz.zlib.foreign)))))
 
 
 (cond-expand

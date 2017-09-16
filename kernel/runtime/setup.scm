@@ -400,6 +400,7 @@ c-end
               (setup-target))
             
             (define (setup-build #!optional (make? #f))
+              (jazz:setup-kernel-source)
               (setup-kernel)
               (jazz:process-buildini #t)
               (setup-repositories make?)

@@ -267,7 +267,7 @@
 
 
 (define jazz:kernel-source-access?
-  (or jazz:source-access? (and (eq? jazz:image 'executable) (not jazz:product))))
+  jazz:source-access?)
 
 
 (define jazz:kernel-jazzini-access?
@@ -281,6 +281,13 @@
 
 
 (set! jazz:jazz-source jazz:kernel-source)
+
+
+;; quick solution to build needing source
+(define (jazz:setup-kernel-source)
+  (set! jazz:kernel-source-access? #t)
+  (set! jazz:kernel-source (jazz:absolutize-directory jazz:kernel-install jazz:source))
+  (set! jazz:jazz-source jazz:kernel-source))
 
 
 (define jazz:kernel-binary-repositories

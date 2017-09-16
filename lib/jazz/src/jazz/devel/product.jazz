@@ -1,0 +1,85 @@
+;;;=========
+;;;  Yownu
+;;;=========
+;;;
+;;;; Jazz Devel Product
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 2012-2016
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+
+
+(module jazz.devel.product jazz
+
+
+(import (jazz.io)
+        (jazz.product))
+
+
+;;;
+;;;; Build
+;;;
+
+
+(definition (build descriptor (unit: unit #f) (force?: force? #f))
+  (build-product-descriptor descriptor unit: unit force?: force?))
+
+
+;;;
+;;;; Install
+;;;
+
+
+(definition install-dir
+  (cond-expand
+    (windows
+     {Directory Home "jazz" "install"})
+    (else
+     {Directory Home "Devel" "jazz" "install"})))
+
+
+(definition install-name
+  "devel")
+
+
+(definition (install descriptor)
+  (initialize-aliases)
+  (let ((src-root {Directory Build})
+        (dst-root (new-directory~ install-dir install-name))
+        (source-access? #f)
+        (scriptable? #t))
+    (install-directory~ src-root dst-root
+      filter: (let ((ignored-extensions (ignored-extensions source-access? scriptable?)))
+                (lambda (action pathname)
+                  (and (not (and (directory? pathname)
+                                 (filename=? (get-name~ pathname) ".git")))
+                       (not (and (file? pathname)
+                                 (member? (get-extension~ pathname) ignored-extensions test: extension=?))))))
+      feedback: (lambda (action pathname)
+                  (build-feedback "; {a} {a}..." action (get-name~ pathname))))))
+
+
+;;;
+;;;; Deploy
+;;;
+
+
+(definition (deploy descriptor)
+  (initialize-aliases)
+  (deploy-application descriptor
+                      (new-directory~ install-dir install-name)
+                      make: 'jazz.devel
+                      install: 'jazz.devel))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(register-product 'jazz.devel
+  build: build
+  install: install
+  deploy: deploy))

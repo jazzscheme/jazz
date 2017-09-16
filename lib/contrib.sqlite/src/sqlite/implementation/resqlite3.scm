@@ -367,7 +367,7 @@ resqlite3_column_blob(sqlite3_stmt* stmt, int col, int type, int size)
    const void *buf = sqlite3_column_blob(stmt, col);
    int n = sqlite3_column_bytes(stmt, col);
    if (n % size) return ___FIX(___UNKNOWN_ERR);
-   ___SCMOBJ result = ___EXT(___alloc_scmobj)(___ps,type,n);
+   ___SCMOBJ result = ___EXT(___alloc_scmobj)(___PSTATE,type,n);
    if (___FIXNUMP(result)) return result;
    memcpy(___BODY(result), buf, n);
    return result;

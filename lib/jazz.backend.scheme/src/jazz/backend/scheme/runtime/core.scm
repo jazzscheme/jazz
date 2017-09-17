@@ -659,15 +659,9 @@
 ;;;
 
 
-(define jazz.language.runtime.debug:get-console-port
-  #f)
-
-(set! jazz.language.runtime.debug:get-console-port #f)
-
-
 (define (jazz:get-console-port)
-  (if jazz.language.runtime.debug:get-console-port
-      (jazz.language.runtime.debug:get-console-port)
+  (if (jazz:global-bound? 'jazz.language.runtime.debug:get-console-port)
+      ((jazz:global-ref 'jazz.language.runtime.debug:get-console-port))
     #f))
 
 

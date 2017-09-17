@@ -40,6 +40,10 @@
 
 (export submodule
         constant
+        ;; this is a quick hack around when generating
+        ;; Unresolved symbol: expand-body in binaries,
+        ;; but not in Yownu scripting for some reason!
+        expand-body
         when
         jazzdoc
         unless

@@ -2469,7 +2469,7 @@
       (begin
         (jazz:set-environment-unit unit-name jazz:Unloaded-State)
         (mutex-unlock! jazz:Load-Mutex))
-    ;; reacquire mutex
+    ;; reaquire mutex
     (jazz:unload-unit unit-name)))
 
 

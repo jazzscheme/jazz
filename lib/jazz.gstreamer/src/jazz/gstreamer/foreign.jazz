@@ -69,6 +69,7 @@
 (c-type GObject* (pointer GObject #f))
 
 
+(c-enumerant G_TYPE_BOOLEAN)
 (c-enumerant G_TYPE_INT)
 (c-enumerant G_TYPE_UINT64)
 (c-enumerant G_TYPE_STRING)
@@ -81,6 +82,8 @@
     ___return(value);
 //#)
 
+(c-external (g_value_get_boolean GValue*) bool)
+(c-external (g_value_set_boolean GValue* bool) void)
 (c-external (g_value_get_int GValue*) int)
 (c-external (g_value_set_int GValue* int) void)
 (c-external (g_value_get_uint64 GValue*) uint64)
@@ -416,7 +419,7 @@ cb_have_data (GstPad          *pad,
     GstClockTime clockstamp = gst_clock_get_time(gst_pipeline_get_clock(pipeline)) - gst_element_get_base_time(GST_ELEMENT(pipeline));
     // printf("DATA %s %s %s %d %.3f %.3f %.3f\n", pipeline_name, element_name, name, gst_buffer_get_size(buffer), present_time(gst_element_get_start_time(element)), present_time(GST_BUFFER_PTS(buffer)), present_time(GST_BUFFER_DURATION(buffer)));
     // printf("DATA %s %s %s %.3f %.3f %.3f\n", pipeline_name, element_name, name, present_time(gst_element_get_start_time(element)), present_time(GST_BUFFER_PTS(buffer)), present_time(GST_BUFFER_DURATION(buffer)));
-    printf("DATA %s %s %s %.3f %.3f %.3f\n", pipeline_name, element_name, name, present_time(timestamp), present_time(clockstamp), present_time(timestamp) - present_time(clockstamp));
+    printf("DATA %s %s %s %d %.3f %.3f %.3f\n", pipeline_name, element_name, name, gst_buffer_get_size(buffer), present_time(timestamp), present_time(clockstamp), present_time(timestamp) - present_time(clockstamp));
     g_free(name);
     g_free(element_name);
     gst_object_unref(element);
@@ -462,7 +465,7 @@ cb_have_event (GstPad          *pad,
     {
         const GstSegment* segment;
         gst_event_parse_segment (event, &segment);
-        printf("EVENT %s %s %s segment %.3f %.3f %.3f\n", pipeline_name, element_name, name, present_time(segment->start), present_time(segment->stop), present_time(segment->duration));
+        printf("EVENT %s %s %s segment %.3f %.3f %.3f %.3f\n", pipeline_name, element_name, name, segment->rate, present_time(segment->start), present_time(segment->stop), present_time(segment->duration));
     }
     else if (GST_EVENT_TYPE(event) == GST_EVENT_LATENCY)
     {
@@ -479,9 +482,13 @@ cb_have_event (GstPad          *pad,
     return GST_PAD_PROBE_OK;
 }
 
-static void gst_monitor_pad(GstPipeline* pipeline, GstPad* pad)
+static void gst_monitor_data(GstPipeline* pipeline, GstPad* pad)
 {
     gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_BUFFER, (GstPadProbeCallback) cb_have_data, pipeline, NULL);
+}
+
+static void gst_monitor_events(GstPipeline* pipeline, GstPad* pad)
+{
     gst_pad_add_probe(pad, GST_PAD_PROBE_TYPE_EVENT_BOTH, (GstPadProbeCallback) cb_have_event, pipeline, NULL);
 }
 //#)
@@ -524,7 +531,8 @@ static void gst_monitor_pad(GstPipeline* pipeline, GstPad* pad)
 (c-external (gst_print_pad GstElement* char-string) void)
 (c-external (gst_print_message char-string GstMessage*) void)
 (c-external (gst_print_error GstMessage*) void)
-(c-external (gst_monitor_pad (call GST_PIPELINE GstElement*) GstPad*) void)
+(c-external (gst_monitor_data (call GST_PIPELINE GstElement*) GstPad*) void)
+(c-external (gst_monitor_events (call GST_PIPELINE GstElement*) GstPad*) void)
 (c-external (gst_app_src_set_caps (call GST_APP_SRC GstElement*) GstCaps*) void)
 (c-external (gst_app_src_set_stream_type (call GST_APP_SRC GstElement*) GstAppStreamType) void)
 (c-external (gst_app_src_write GstElement* scheme-object int uint64 uint64) GstFlowReturn)

@@ -189,7 +189,7 @@
       (let ((compile-args (assq unit unit-specs)))
         (if compile-args
             (apply jazz:compile-unit `(,@compile-args force?: ,force?))
-          (jazz:error "Unable to find unit in custom build: {s}" unit)))
+          (jazz:compile-unit unit force?: force?)))
     (begin
       (if pre-build
           (pre-build))

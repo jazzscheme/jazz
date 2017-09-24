@@ -112,7 +112,26 @@
 
 
 (definition public (gst-launch . elements)
-  (gst_parse_launch (join (remove-false elements) " ! ")))
+  (gst_parse_launch (gst-parse elements)))
+
+
+(definition public (gst-parse elements)
+  (define (parse elem)
+    (cond ((not elem)
+           elem)
+          ((string? elem)
+           (string-append " ! " elem))
+          ((pair? elem)
+           (string-append " " (parse-list elem)))
+          (else
+           (error "Unable to parse {s}" elem))))
+  
+  (define (parse-list elem)
+    (let ((elem (remove-false elem)))
+      (string-append (car elem)
+        (apply string-append (map parse (cdr elem))))))
+  
+  (parse-list elements))
 
 
 (definition public (pipeline-messages-processor pipeline debug? (ready-proc #f))

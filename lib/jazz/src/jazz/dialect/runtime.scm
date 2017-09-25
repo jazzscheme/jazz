@@ -1341,27 +1341,27 @@
 
 
 (jazz:define-class jazz:Static jazz:Expression (constructor: jazz:allocate-static)
-  ((static getter: generate)))
+  ((expression getter: generate)))
 
 
-(define (jazz:new-static static)
-  (jazz:allocate-static #f #f static))
+(define (jazz:new-static expression)
+  (jazz:allocate-static #f #f expression))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Static expression) declaration environment backend)
-  (let ((static (jazz:get-static-static expression)))
-    (let ((code (jazz:emit-expression (%%cdr static) declaration environment backend)))
-      (jazz:new-code
-        (jazz:emit 'static backend expression declaration environment static)
-        (jazz:get-code-type code)
-        #f))))
+  (let ((expr (jazz:get-static-expression expression)))
+    (let ((static (jazz:register-static declaration "static" expr)))
+      (let ((code (jazz:emit-expression (%%cdr static) declaration environment backend)))
+        (jazz:new-code
+          (jazz:emit 'static backend expression declaration environment static)
+          (jazz:get-code-type code)
+          #f)))))
 
 
 (define (jazz:walk-static walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
-    (let ((expression (%%cadr form)))
-      (let ((static (jazz:register-static declaration "static" (jazz:walk walker resume declaration environment expression))))
-        (jazz:new-static static)))))
+    (let ((expression (jazz:walk walker resume declaration environment (%%cadr form))))
+      (jazz:new-static expression))))
 
 
 ;;;

@@ -364,10 +364,10 @@
          `(- ,@rest)
        `(jazz:unsafe (##fx- ,@rest))))
    
-   (jazz:define-macro (%%fx* x y)
+   (jazz:define-macro (%%fx* . rest)
      (if jazz:debug-core?
-         `(* ,x ,y)
-       `(jazz:unsafe (##fx* ,x ,y))))
+         `(* ,@rest)
+       `(jazz:unsafe (##fx* ,@rest))))
    
    (jazz:define-macro (%%fxquotient x y)
      (if jazz:debug-core?
@@ -460,30 +460,30 @@
    (jazz:define-macro (%%flonum->fixnum x)
      `(jazz:unsafe (##flonum->fixnum ,x)))
    
-   (jazz:define-macro (%%fl= x y)
+   (jazz:define-macro (%%fl= . rest)
      (if jazz:debug-core?
-         `(= ,x ,y)
-       `(jazz:unsafe (##fl= ,x ,y))))
+         `(= ,@rest)
+       `(jazz:unsafe (##fl= ,@rest))))
    
-   (jazz:define-macro (%%fl< x y)
+   (jazz:define-macro (%%fl< . rest)
      (if jazz:debug-core?
-         `(< ,x ,y)
-       `(jazz:unsafe (##fl< ,x ,y))))
+         `(< ,@rest)
+       `(jazz:unsafe (##fl< ,@rest))))
    
-   (jazz:define-macro (%%fl<= x y)
+   (jazz:define-macro (%%fl<= . rest)
      (if jazz:debug-core?
-         `(<= ,x ,y)
-       `(jazz:unsafe (##fl<= ,x ,y))))
+         `(<= ,@rest)
+       `(jazz:unsafe (##fl<= ,@rest))))
    
-   (jazz:define-macro (%%fl> x y)
+   (jazz:define-macro (%%fl> . rest)
      (if jazz:debug-core?
-         `(> ,x ,y)
-       `(jazz:unsafe (##fl> ,x ,y))))
+         `(> ,@rest)
+       `(jazz:unsafe (##fl> ,@rest))))
    
-   (jazz:define-macro (%%fl>= x y)
+   (jazz:define-macro (%%fl>= . rest)
      (if jazz:debug-core?
-         `(>= ,x ,y)
-       `(jazz:unsafe (##fl>= ,x ,y))))
+         `(>= ,@rest)
+       `(jazz:unsafe (##fl>= ,@rest))))
    
    (jazz:define-macro (%%fl+ . rest)
      (if jazz:debug-core?

@@ -641,11 +641,13 @@
 (define (jazz:present-source obj)
   (define (present-src src)
     (let ((code (jazz:source-code src))
-          (pos (%%locat-position (%%source-locat src))))
-      (%%vector 'source
-                (jazz:present-source code)
-                (%%fx+ (%%filepos-line pos) 1)
-                (%%fx+ (%%filepos-col pos) 1))))
+          (locat (%%source-locat src)))
+      (let ((pos (%%locat-position locat)))
+        (%%vector 'source
+                  (jazz:present-source code)
+                  (%%locat-container locat)
+                  (%%fx+ (%%filepos-line pos) 1)
+                  (%%fx+ (%%filepos-col pos) 1)))))
 
   (define (present-list lst)
     (cond ((%%pair? lst)

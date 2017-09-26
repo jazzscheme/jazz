@@ -100,9 +100,7 @@
                        (not optimize-dead-local-variables)))
                  
                  ,@(if jazz:debug-user?
-                       ;; safe and inlining primitives at the same time
-                       ;; is really costly on compilation time
-                       '((not inline-primitives))
+                       '()
                      '((not safe)))))))
   
   (else)))

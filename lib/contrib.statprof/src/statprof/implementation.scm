@@ -36,8 +36,7 @@
 
 
 (define (start-statprof profile)
-  #; ;; fix me regression
-  (##heartbeat-interval-set! heartbeat-interval)
+  (##set-heartbeat-interval! heartbeat-interval)
   (set! *statprof-running?* #t)
   (%%interrupt-vector-set! 1 profile-heartbeat!))
 
@@ -62,7 +61,7 @@
       (%%continuation-capture
         (lambda (cont)
           (parameterize ((*in-profile-heartbeat?* #t))
-            (##thread-heartbeat!)            
+            (##thread-heartbeat!)
             (let ((profile (active-profile)))
               (%%when profile
                 (profile-register-call profile

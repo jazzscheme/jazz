@@ -1425,10 +1425,16 @@
 ;;;
 
 
-#; ;; convert
 (cond-expand
   (gambit
-    (define jazz:thread-heartbeat-interval-set! ##thread-heartbeat-interval-set!))
+    (define jazz:get-heartbeat-interval
+      (let ((vec (##f64vector 0.)))
+        (lambda ()
+          (declare (not interrupts-enabled))
+          (##get-heartbeat-interval! vec 0)
+          (##f64vector-ref vec 0))))
+    
+    (define jazz:set-heartbeat-interval! ##set-heartbeat-interval!))
   
   (else))
 

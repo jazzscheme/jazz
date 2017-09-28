@@ -165,29 +165,10 @@
                 (%%cdr pair))))))
 
 
-#; ;; test is pretty much obsolete and also doesn't consult gambc-cc to find the actual CC used
-(cond-expand
-  (windows
-   (define (jazz:gcc-unuse-single-host?)
-     #f))
-  (else
-   (define (jazz:gcc-unuse-single-host?)
-     (zero? (shell-command "gcc --version | grep -q 4.2.")))))
-
-(define (jazz:gcc-unuse-single-host?)
-  #f)
-
-
-(define jazz:wrap-single-host-cc-options
-  (let ((gcc-unuse-single-host? (jazz:gcc-unuse-single-host?)))
-    (lambda (str)
-      (if (or jazz:debug-user? gcc-unuse-single-host?) (string-append "-U___SINGLE_HOST " str) str))))
-
-
 (define (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (output-language #f) (options #f) (custom-cc #f) (custom-cc-options #f) (cc-options #f) (ld-options #f) (force? #f))
   (let ((references-valid? (and (or obj-uptodate? bin-uptodate?) (jazz:manifest-references-valid? (or obj bin)))))
     (let ((options (or options jazz:compile-options))
-          (cc-options (jazz:wrap-single-host-cc-options (or cc-options "")))
+          (cc-options (or cc-options ""))
           (ld-options (or ld-options ""))
           (update-obj? (or force? (not obj-uptodate?) (not references-valid?)))
           (update-bin? (or force? (not bin-uptodate?) (not references-valid?))))

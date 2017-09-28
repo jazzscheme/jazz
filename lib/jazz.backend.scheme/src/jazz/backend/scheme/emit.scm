@@ -563,7 +563,7 @@
 ;; in Jazz code, the + would get captured as we have no way of safely saying scheme.+ in Scheme...
 
 
-;; To make this alot more clean would necessitate moving the specializer into the walk phase so that the
+;; To make this a lot more clean would necessitate moving the specializer into the walk phase so that the
 ;; result of inlining can be Jazz code. With this we could specialize for instance (##length x) and ##length
 ;; would simply be an external typed as <list:int> which would do all type propagation automatically.
 ;; This is really difficult to achieve because as inlining can impact type inference it also needs

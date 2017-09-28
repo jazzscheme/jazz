@@ -558,11 +558,6 @@
 ;;;
 
 
-;; We should really expand using %% primitives but this cannot be used directly as we want for
-;; instance %%+ to expand into ##+ or + depending on safety level but because the code is expanded
-;; in Jazz code, the + would get captured as we have no way of safely saying scheme.+ in Scheme...
-
-
 ;; To make this a lot more clean would necessitate moving the specializer into the walk phase so that the
 ;; result of inlining can be Jazz code. With this we could specialize for instance (##length x) and ##length
 ;; would simply be an external typed as <list:int> which would do all type propagation automatically.

@@ -58,7 +58,7 @@ end-of-c-declare
 ;;;---------------------------------------------------------------------------
 
 (define (setup-logging-heartbeat! parameter state)
-  (%%interrupt-vector-set! 1 (logging-heartbeat! parameter state)))
+  (%%interrupt-vector-set! HEARTBEAT-INTERRUPT (logging-heartbeat! parameter state)))
 
 (define (logging-heartbeat! parameter state)
   (lambda ()

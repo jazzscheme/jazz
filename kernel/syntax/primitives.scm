@@ -716,6 +716,12 @@
 
 (cond-expand
   (gambit
+    (define TERMINATE-INTERRUPT  1)
+    (define HEARTBEAT-INTERRUPT  2)
+    (define USER-INTERRUPT       3)
+    (define GC-INTERRUPT         4)
+    (define HIGH-LEVEL-INTERRUPT 5)
+    
     (jazz:define-macro (%%interrupt-handler code)
       `(jazz:unsafe (##interrupt-handler ,code)))
     

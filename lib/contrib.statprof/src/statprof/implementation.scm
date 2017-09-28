@@ -38,11 +38,11 @@
 (define (start-statprof profile)
   (##set-heartbeat-interval! heartbeat-interval)
   (set! *statprof-running?* #t)
-  (%%interrupt-vector-set! 1 profile-heartbeat!))
+  (%%interrupt-vector-set! HEARTBEAT-INTERRUPT profile-heartbeat!))
 
 
 (define (stop-statprof profile)
-  (%%interrupt-vector-set! 1 ##thread-heartbeat!)
+  (%%interrupt-vector-set! HEARTBEAT-INTERRUPT ##thread-heartbeat!)
   (set! *statprof-running?* #f))
 
 

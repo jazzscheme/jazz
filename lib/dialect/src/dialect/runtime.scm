@@ -1186,6 +1186,9 @@
 (define jazz:all-warnings
   '(optimizations))
 
+(define jazz:all-generates
+  '(register))
+
 
 (define (jazz:proclaim module-declaration clause)
   (define (parse-not not? clause)
@@ -1216,12 +1219,29 @@
                               (if (%%memq warning module-warnings)
                                   (jazz:set-module-proclaim module-declaration 'warn (jazz:remove! warning module-warnings)))))))
                    warnings)))
-       (else
-        (jazz:error "Ill-formed proclaim: {s}" clause)))))
+      ((generate)
+       (let ((generates (if (%%null? parameters) jazz:all-generates parameters)))
+         (for-each (lambda (generate)
+                     (cond ((%%not (%%memq generate jazz:all-generates))
+                            (jazz:error "Unknown generate: {s}" generate))
+                           ((%%not not?)
+                            (let ((module-generates (jazz:get-module-proclaim module-declaration 'generate '())))
+                              (if (%%not (%%memq generate module-generates))
+                                  (jazz:set-module-proclaim module-declaration 'generate (%%cons generate module-generates)))))
+                           (else
+                            (let ((module-generates (jazz:get-module-proclaim module-declaration 'generate '())))
+                              (if (%%memq generate module-generates)
+                                  (jazz:set-module-proclaim module-declaration 'generate (jazz:remove! generate module-generates)))))))
+                   generates)))
+      (else
+       (jazz:error "Ill-formed proclaim: {s}" clause)))))
 
 
 (define (jazz:get-module-warn? module-declaration warning-name)
   (%%memq warning-name (jazz:get-module-proclaim module-declaration 'warn '())))
+
+(define (jazz:get-module-generate? module-declaration generate-name)
+  (%%memq generate-name (jazz:get-module-proclaim module-declaration 'generate '())))
 
 
 (define (jazz:keyword->symbol keyword)

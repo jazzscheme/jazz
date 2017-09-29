@@ -46,14 +46,17 @@
 (jazz:define-emit (definition (scheme backend) declaration environment expression)
   (jazz:sourcify-if
     (let ((locator (jazz:get-declaration-locator declaration)))
-      `(begin
-         (define ,locator
-           ,expression)
-         ,(let ((name (jazz:get-lexical-binding-name declaration))
-                (parent (jazz:get-declaration-parent declaration)))
-            (if (%%is? parent jazz:Module-Declaration)
-                `(jazz:register-definition ',(jazz:get-lexical-binding-name parent) ',name ',locator)
-              `(jazz:add-field ,(jazz:get-declaration-locator parent) (jazz:new-definition ',name ',locator))))))
+      (jazz:simplify-begin
+        `(begin
+           (define ,locator
+             ,expression)
+           ,@(let ((name (jazz:get-lexical-binding-name declaration))
+                   (parent (jazz:get-declaration-parent declaration)))
+               (if (%%is? parent jazz:Module-Declaration)
+                   (if (jazz:get-module-generate? parent 'register)
+                       `((jazz:register-definition ',(jazz:get-lexical-binding-name parent) ',name ',locator))
+                     '())
+                 `((jazz:add-field ,(jazz:get-declaration-locator parent) (jazz:new-definition ',name ',locator))))))))
     (jazz:get-declaration-source declaration)))
 
 

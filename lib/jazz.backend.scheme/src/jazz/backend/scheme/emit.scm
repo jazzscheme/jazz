@@ -122,8 +122,10 @@
                              (jazz:global-ref ',locator)
                            (jazz:new-class ,metaclass-access ',locator ,ascendant-access (%%list ,@interface-accesses))))
                        (define ,level-locator (%%get-class-level ,locator)))))))
-           ,(let ((toplevel-declaration (jazz:get-declaration-toplevel declaration)))
-              `(jazz:register-module-entry ',(jazz:get-lexical-binding-name toplevel-declaration) ',name ,locator))
+           ,@(let ((toplevel-declaration (jazz:get-declaration-toplevel declaration)))
+               (if (jazz:get-module-generate? toplevel-declaration 'register)
+                   `((jazz:register-module-entry ',(jazz:get-lexical-binding-name toplevel-declaration) ',name ,locator))
+                 '()))
            ,@(jazz:emit-namespace-statements body declaration environment backend))
         (jazz:get-declaration-source declaration)))))
 
@@ -148,8 +150,10 @@
            (jazz:new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
          (define ,rank-locator
            (%%get-interface-rank ,locator))
-         ,(let ((toplevel-declaration (jazz:get-declaration-toplevel declaration)))
-            `(jazz:register-module-entry ',(jazz:get-lexical-binding-name toplevel-declaration) ',name ,locator))
+         ,@(let ((toplevel-declaration (jazz:get-declaration-toplevel declaration)))
+             (if (jazz:get-module-generate? toplevel-declaration 'register)
+                 `((jazz:register-module-entry ',(jazz:get-lexical-binding-name toplevel-declaration) ',name ,locator))
+               '()))
          ,@(jazz:emit-namespace-statements body declaration environment backend))
       (jazz:get-declaration-source declaration))))
 

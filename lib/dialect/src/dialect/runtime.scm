@@ -1700,7 +1700,9 @@
         (symbol (jazz:get-export-declaration-symbol declaration))
         (parent (jazz:get-declaration-parent declaration)))
     (%%assert (%%is? parent jazz:Module-Declaration))
-    `(jazz:register-native ',(jazz:get-lexical-binding-name parent) ',name ',symbol)))
+    (if (jazz:get-module-generate? parent 'register)
+        `(jazz:register-native ',(jazz:get-lexical-binding-name parent) ',name ',symbol)
+      `(begin))))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Export-Declaration declaration) source-declaration environment backend)

@@ -165,10 +165,18 @@
                 (%%cdr pair))))))
 
 
+;; at the moment building large files like functional in debug is much too
+;; slow because of the safe declare, hence this least of two evils solution
+(define (jazz:wrap-single-host-cc-options str)
+  (if jazz:debug-user?
+      (string-append "-U___SINGLE_HOST " str)
+    str))
+
+
 (define (jazz:compile-source src obj bin obj-uptodate? bin-uptodate? manifest-name #!key (output-language #f) (options #f) (custom-cc #f) (custom-cc-options #f) (cc-options #f) (ld-options #f) (force? #f))
   (let ((references-valid? (and (or obj-uptodate? bin-uptodate?) (jazz:manifest-references-valid? (or obj bin)))))
     (let ((options (or options jazz:compile-options))
-          (cc-options (or cc-options ""))
+          (cc-options (jazz:wrap-single-host-cc-options (or cc-options "")))
           (ld-options (or ld-options ""))
           (update-obj? (or force? (not obj-uptodate?) (not references-valid?)))
           (update-bin? (or force? (not bin-uptodate?) (not references-valid?))))

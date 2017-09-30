@@ -105,8 +105,8 @@
       (jazz:with-uniqueness object
         (lambda (obj)
           `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-             (##vector-length ,obj))))
-    `(##vector-length ,object)))
+             (%%vector-length ,obj))))
+    `(%%vector-length ,object)))
 
 
 (jazz:define-macro (%%object-ref object n)
@@ -116,11 +116,11 @@
           (jazz:with-uniqueness n
             (lambda (rnk)
               `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-                 (##vector-ref ,obj ,rnk)
+                 (%%vector-ref ,obj ,rnk)
                  #; ;; costly test for a very low probability class of bugs
-                 (%%core-assertion (%%fx< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
-                   (##vector-ref ,obj ,rnk)))))))
-    `(##vector-ref ,object ,n)))
+                 (%%core-assertion (%%fx< ,rnk (%%vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
+                   (%%vector-ref ,obj ,rnk)))))))
+    `(%%vector-ref ,object ,n)))
 
 
 (jazz:define-syntax %%object-set!
@@ -134,11 +134,11 @@
               (jazz:with-uniqueness n
                 (lambda (rnk)
                   `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-                     (##vector-set! ,obj ,rnk ,value)
+                     (%%vector-set! ,obj ,rnk ,value)
                      #; ;; costly test for a very low probability class of bugs
-                     (%%core-assertion (%%fx< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
-                       (##vector-set! ,obj ,rnk ,value)))))))
-        `(##vector-set! ,object ,n ,value)))))
+                     (%%core-assertion (%%fx< ,rnk (%%vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
+                       (%%vector-set! ,obj ,rnk ,value)))))))
+        `(%%vector-set! ,object ,n ,value)))))
 
 
 (jazz:define-macro (%%assert-class object class . body)

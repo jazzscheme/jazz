@@ -646,7 +646,7 @@
 
 
 (define (jazz:unsafe-vector-set! vector index object)
-  (##vector-set! vector index object))
+  (%%vector-set! vector index object))
 
 
 (define (jazz:vector-for-each proc vector)

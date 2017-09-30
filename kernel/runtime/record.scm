@@ -81,9 +81,9 @@
 #; ;; defined as functions until structure / class unification
 (jazz:define-macro (%%record? expr)
   `(or (%%jazz? ,expr)
-       (and (##vector? ,expr)
-            (##fx> (##vector-length ,expr) 0)
-            (##symbol? (##vector-ref ,expr 0)))))
+       (and (%%vector? ,expr)
+            (%%fx> (%%vector-length ,expr) 0)
+            (%%symbol? (%%vector-ref ,expr 0)))))
 
 #; ;; defined as functions until structure / class unification
 (jazz:define-macro (%%record structure . rest)
@@ -97,7 +97,7 @@
        ,record)))
 
 (jazz:define-macro (%%record-length record)
-  `(##vector-length ,record))
+  `(%%vector-length ,record))
 
 (jazz:define-macro (%%record-ref record n)
   (if jazz:debug-core?
@@ -105,8 +105,8 @@
         (lambda (rec)
           `(if (%%not (%%record? ,rec))
                (jazz:not-record-error ,rec)
-             (##vector-ref ,rec ,n))))
-    `(##vector-ref ,record ,n)))
+             (%%vector-ref ,rec ,n))))
+    `(%%vector-ref ,record ,n)))
 
 (jazz:define-macro (%%record-set! record n value)
   (if jazz:debug-core?
@@ -114,8 +114,8 @@
         (lambda (rec)
           `(if (%%not (%%record? ,rec))
                (jazz:not-record-error ,rec)
-             (##vector-set! ,rec ,n ,value))))
-    `(##vector-set! ,record ,n ,value)))
+             (%%vector-set! ,rec ,n ,value))))
+    `(%%vector-set! ,record ,n ,value)))
 
 
 (jazz:define-macro (%%get-record-structure record)
@@ -140,9 +140,9 @@
 
 ;; defined as functions until structure / class unification
 (define (%%record-structure? expr)
-  (and (##pair? expr)
+  (and (%%pair? expr)
        ;; eq? doesn't work probably due to records read by the reader
-       (##equal? (##cdr expr) jazz:structure-marker)))
+       (%%equal? (%%cdr expr) jazz:structure-marker)))
 
 
 ;; defined as functions until structure / class unification
@@ -151,15 +151,15 @@
 
 
 (jazz:define-macro (%%record-structure-name expr)
-  `(##car (%%get-record-structure ,expr)))
+  `(%%car (%%get-record-structure ,expr)))
 
 
 ;; defined as functions until structure / class unification
 (define (%%record? expr)
   (or (%%jazz? expr)
-      (and (##vector? expr)
-           (##fx> (##vector-length expr) 0)
-           (%%record-structure? (##vector-ref expr 0)))))
+      (and (%%vector? expr)
+           (%%fx> (%%vector-length expr) 0)
+           (%%record-structure? (%%vector-ref expr 0)))))
 
 
 (jazz:define-macro (%%record name . rest)

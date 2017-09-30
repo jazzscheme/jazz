@@ -504,12 +504,12 @@
 
 (define (jazz:fixnum->flonum n)
   (if (%%fixnum? n)
-      (##fixnum->flonum n)
+      (%%fixnum->flonum n)
     (jazz:type-error n jazz:Fixnum)))
 
 (define (jazz:flonum->fixnum n)
   (if (%%flonum? n)
-      (##flonum->fixnum n)
+      (%%flonum->fixnum n)
     (jazz:type-error n jazz:Flonum)))
 
 
@@ -532,10 +532,10 @@
 
 
 (define (flalloc)
-  (##subtype-set! (##f64vector .0) 30))
+  (##subtype-set! (%%f64vector .0) 30))
 
 (define (flset! fl ignore val)
-  (##f64vector-set! fl 0 val))
+  (%%f64vector-set! fl 0 val))
 
 
 ;;;
@@ -1383,11 +1383,11 @@
 
 
 (define jazz:get-heartbeat-interval
-  (let ((vec (##f64vector 0.)))
+  (let ((vec (%%f64vector 0.)))
     (lambda ()
       (declare (not interrupts-enabled))
       (##get-heartbeat-interval! vec 0)
-      (##f64vector-ref vec 0))))
+      (%%f64vector-ref vec 0))))
 
 (define jazz:set-heartbeat-interval! ##set-heartbeat-interval!)
 
@@ -1456,7 +1456,7 @@
   (if (jazz:thread-state-active? (jazz:thread-state thread))
       (let ((cont (jazz:thread-cont thread)))
         ;; hack - gambit thread init with dummy continuation
-        (if (##not (##eq? (##vector-ref cont 0) #!void))
+        (if (%%not (%%eq? (%%vector-ref cont 0) #!void))
             cont
           #f))
     #f))
@@ -1476,25 +1476,27 @@
 ;;;
 
 
-(define word-size (##u8vector-length '#(0)))
+(define word-size
+  (%%u8vector-length '#(0)))
+
 
 (define (header-get obj)
   (if (= word-size 4)
-      (##u32vector-ref obj -1)
-      (##u64vector-ref obj -1)))
+      (%%u32vector-ref obj -1)
+    (%%u64vector-ref obj -1)))
 
 (define (header-set! obj h)
   (if (= word-size 4)
-      (##u32vector-set! obj -1 h)
-      (##u64vector-set! obj -1 h)))
+      (%%u32vector-set! obj -1 h)
+    (%%u64vector-set! obj -1 h)))
 
 
 (define (make-thread-with-stack stack-len thunk)
   (let* ((pt ##primordial-thread)
-         (thread-len (##vector-length pt))
+         (thread-len (%%vector-length pt))
          (total-len (+ thread-len stack-len))
          (thread (make-vector total-len #f)))
-    (##vector-set! thread 0 (##vector-ref pt 0))
+    (%%vector-set! thread 0 (%%vector-ref pt 0))
     (header-set! thread
                  (+ (bitwise-and (header-get pt) -4)
                     (bitwise-and (header-get thread) 3)))
@@ -1563,22 +1565,22 @@
 
 
 (define jazz:current-seconds
-  (let ((f64vec (##f64vector 0.)))
+  (let ((f64vec (%%f64vector 0.)))
     (lambda ()
       (declare (not interrupts-enabled))
-      (##get-current-time! f64vec 0)
-      (##f64vector-ref f64vec 0))))
+      (%%get-current-time! f64vec 0)
+      (%%f64vector-ref f64vec 0))))
 
 ;; for backward compatibility
 (define current-seconds jazz:current-seconds)
 
 
 (define jazz:current-monotonic
-  (let ((u64vec (##u64vector 0.)))
+  (let ((u64vec (%%u64vector 0.)))
     (lambda ()
       (declare (not interrupts-enabled))
       (##get-monotonic-time! u64vec 0)
-      (##u64vector-ref u64vec 0))))
+      (%%u64vector-ref u64vec 0))))
 
 
 ;;;

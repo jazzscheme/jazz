@@ -152,15 +152,15 @@
 
 
 (define (jazz:object->vector obj)
-  (##vector-copy obj))
+  (%%vector-copy obj))
 
 
 (define (jazz:vector->object vec)
-  (%%jazzify (##vector-copy vec)))
+  (%%jazzify (%%vector-copy vec)))
 
 
 (define (jazz:object-copy obj)
-  (%%jazzify (##vector-copy obj)))
+  (%%jazzify (%%vector-copy obj)))
 
 
 ;;;

@@ -369,6 +369,11 @@
          `(* ,@rest)
        `(jazz:unsafe (##fx* ,@rest))))
    
+   (jazz:define-macro (%%fxabs x)
+     (if jazz:debug-core?
+         `(fxabs ,x)
+       `(jazz:unsafe (##fxabs ,x))))
+   
    (jazz:define-macro (%%fxquotient x y)
      (if jazz:debug-core?
          `(quotient ,x ,y)

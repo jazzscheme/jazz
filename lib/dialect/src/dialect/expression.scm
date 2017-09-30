@@ -208,6 +208,16 @@
 
 
 ;;;
+;;;; Unsafe Call
+;;;
+
+
+(jazz:define-variable-override jazz:emit-unsafe-call
+  (lambda (operator locator arguments arguments-codes declaration environment backend)
+    (jazz:emit 'unsafe-call backend operator locator arguments arguments-codes declaration environment)))
+
+
+;;;
 ;;;; Signature
 ;;;
 

@@ -171,6 +171,10 @@
               (%%substring str (%%fx+ n 1) (%%string-length str))))))
 
 
+(define (jazz:unsafe-locator locator)
+  (%%string->symbol (%%string-append "%%" (%%symbol->string locator))))
+
+
 ;;;
 ;;;; Pathname
 ;;;

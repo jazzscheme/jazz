@@ -377,6 +377,42 @@
   (jazz:allocate-lambda type source signature body))
 
 
+(define (jazz:emit-unsafe expression declaration environment backend)
+  (let ((type (jazz:get-expression-type expression))
+        (signature (jazz:get-lambda-signature expression))
+        (body (jazz:get-lambda-body expression)))
+    (jazz:with-annotated-frame (jazz:annotate-signature signature)
+      (lambda (frame)
+        (let ((augmented-environment (%%cons frame environment)))
+          (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend)))
+            (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
+              (let ((body-emit (jazz:emit 'begin backend expression declaration environment body-code)))
+                (let ((body (jazz:simplify-begin (jazz:sourcified-form (jazz:new-code body-emit (jazz:get-code-type body-code) #f)))))
+                  (jazz:new-code
+                    (jazz:emit 'lambda backend expression declaration environment signature-emit '() body)
+                    (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
+                    (jazz:get-expression-source expression)))))))))))
+
+
+(define (jazz:emit-safe expression declaration environment backend)
+  (let ((type (jazz:get-expression-type expression))
+        (signature (jazz:get-lambda-signature expression))
+        (body (jazz:get-lambda-body expression)))
+    (jazz:with-annotated-frame (jazz:annotate-signature signature)
+      (lambda (frame)
+        (let ((augmented-environment (%%cons frame environment)))
+          (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend)))
+            (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
+              (let ((signature-casts (jazz:emit-signature-casts signature declaration augmented-environment backend))
+                    (unsafe-locator (jazz:unsafe-locator (jazz:get-declaration-locator declaration))))
+                (let ((call-expression `(,unsafe-locator ,@(map jazz:get-lexical-binding-name (jazz:get-signature-positional signature)))))
+                  (let ((call-body (jazz:simplify-begin (jazz:emit-return-check (jazz:new-code call-expression (jazz:get-code-type body-code) #f) type declaration environment backend))))
+                    (jazz:new-code
+                      (jazz:emit 'lambda backend expression declaration environment signature-emit signature-casts call-body)
+                      (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
+                      (jazz:get-expression-source expression))))))))))))
+
+
 (jazz:define-method (jazz:emit-expression (jazz:Lambda expression) declaration environment backend)
   (let ((type (jazz:get-expression-type expression))
         (signature (jazz:get-lambda-signature expression))

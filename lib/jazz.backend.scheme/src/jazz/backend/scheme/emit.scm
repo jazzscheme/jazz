@@ -43,20 +43,25 @@
 ;;;
 
 
-(jazz:define-emit (definition (scheme backend) declaration environment expression)
+(jazz:define-emit (definition (scheme backend) declaration environment expression unsafe-expression)
   (jazz:sourcify-if
     (let ((locator (jazz:get-declaration-locator declaration)))
-      (jazz:simplify-begin
-        `(begin
-           (define ,locator
-             ,expression)
-           ,@(let ((name (jazz:get-lexical-binding-name declaration))
-                   (parent (jazz:get-declaration-parent declaration)))
-               (if (%%is? parent jazz:Module-Declaration)
-                   (if (jazz:get-module-generate? parent 'register)
-                       `((jazz:register-definition ',(jazz:get-lexical-binding-name parent) ',name ',locator))
-                     '())
-                 `((jazz:add-field ,(jazz:get-declaration-locator parent) (jazz:new-definition ',name ',locator))))))))
+      (let ((unsafe-locator (and unsafe-expression (jazz:unsafe-locator locator))))
+        (jazz:simplify-begin
+          `(begin
+             ,@(if unsafe-locator
+                   `((define ,unsafe-locator
+                       ,unsafe-expression))
+                 '())
+             (define ,locator
+               ,expression)
+             ,@(let ((name (jazz:get-lexical-binding-name declaration))
+                     (parent (jazz:get-declaration-parent declaration)))
+                 (if (%%is? parent jazz:Module-Declaration)
+                     (if (jazz:get-module-generate? parent 'register)
+                         `((jazz:register-definition ',(jazz:get-lexical-binding-name parent) ',name ',locator))
+                       '())
+                   `((jazz:add-field ,(jazz:get-declaration-locator parent) (jazz:new-definition ',name ',locator)))))))))
     (jazz:get-declaration-source declaration)))
 
 
@@ -491,6 +496,7 @@
             (jazz:emit-new-call operator locator arguments arguments-codes declaration environment backend)
             (jazz:emit-primitive-call operator locator arguments arguments-codes declaration environment backend)
             (jazz:emit-inlined-call operator arguments-codes expression declaration environment backend)
+            (jazz:emit-unsafe-call operator locator arguments arguments-codes declaration environment backend)
             (jazz:emit-call operator arguments-codes declaration environment backend))
         (jazz:get-expression-source expression)))))
 
@@ -810,6 +816,40 @@
 
 (jazz:define-emit (inlined-call (scheme backend) expression declaration operator arguments)
   #f)
+
+
+;;;
+;;;; Unsafe Call
+;;;
+
+
+(jazz:define-emit (unsafe-call (scheme backend) operator locator arguments arguments-codes declaration environment)
+  (and jazz:debug-user?
+       (and (%%class-is? operator jazz:Binding-Reference)
+            (let ((binding (jazz:get-binding-reference-binding operator)))
+              (and (%%class-is? binding jazz:Definition-Declaration)
+                   (let ((function-type (jazz:get-lexical-binding-type binding)))
+                     (and (%%is? function-type jazz:Function-Type)
+                          ;; fail safe as this should never occur as inlined-call is before
+                          (%%neq? (jazz:get-definition-declaration-expansion binding) 'inline)
+                          ;; safe first iteration simplification
+                          (jazz:only-positional-function-type? function-type)
+                          (jazz:typed-function-type? function-type)
+                          (let ((types (jazz:codes-types arguments-codes))
+                                (function-type (jazz:get-lexical-binding-type binding)))
+                            (if (jazz:match-signature? arguments types function-type)
+                                (jazz:new-code
+                                  (let ((locator (jazz:unsafe-locator (jazz:get-declaration-locator binding))))
+                                    `(,locator ,@(jazz:codes-forms arguments-codes)))
+                                  (jazz:get-function-type-result function-type)
+                                  #f)
+                              (begin
+                                (%%when (and (jazz:warnings?) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
+                                  (jazz:feedback "Warning: In {a}{a}: Unsafe call to {a}"
+                                                 (jazz:get-declaration-locator declaration)
+                                                 (jazz:present-expression-location operator)
+                                                 (jazz:reference-name locator)))
+                                #f))))))))))
 
 
 ;;;

@@ -2083,6 +2083,26 @@
        (jazz:type-error ,value jazz:Procedure)))
 
 
+(define (jazz:only-positional-function-type? function-type)
+  (and (%%null? (jazz:get-function-type-optional function-type))
+       (%%null? (jazz:get-function-type-named function-type))
+       (%%not (jazz:get-function-type-rest function-type))))
+
+
+(define (jazz:typed-function-type? function-type)
+  (define (typed? type)
+    (%%neq? type jazz:Any))
+  
+  (let ((positional (jazz:get-function-type-positional function-type))
+        (optional (jazz:get-function-type-optional function-type))
+        (named (jazz:get-function-type-named function-type))
+        (rest (jazz:get-function-type-rest function-type)))
+    (or (jazz:some? typed? positional)
+        (jazz:some? typed? optional)
+        (jazz:some? typed? named)
+        (and rest (typed? rest)))))
+
+
 ;;;
 ;;;; Category
 ;;;
@@ -2349,8 +2369,8 @@
          (jazz:sourcified-form code)
        (let ((value (jazz:generate-symbol "val")))
          `(let ((,value (let () ,(jazz:sourcified-form code))))
-              ,(jazz:emit-check type value source-declaration environment backend)
-              ,value))))))
+            ,(jazz:emit-check type value source-declaration environment backend)
+            ,value))))))
 
 
 (cond-expand
@@ -3373,10 +3393,24 @@
     (jazz:allocate-signature mandatory positional optional named rest)))
 
 
-(define (jazz:only-positional? signature)
+(define (jazz:only-positional-signature? signature)
   (and (%%null? (jazz:get-signature-optional signature))
        (%%null? (jazz:get-signature-named signature))
        (%%not (jazz:get-signature-rest signature))))
+
+
+(define (jazz:typed-signature? signature)
+  (define (typed? parameter)
+    (jazz:get-lexical-binding-type parameter))
+  
+  (let ((positional (jazz:get-signature-positional signature))
+        (optional (jazz:get-signature-optional signature))
+        (named (jazz:get-signature-named signature))
+        (rest (jazz:get-signature-rest signature)))
+    (or (jazz:some? typed? positional)
+        (jazz:some? typed? optional)
+        (jazz:some? typed? named)
+        (and rest (typed? rest)))))
 
 
 ;;;
@@ -4553,6 +4587,7 @@
 (jazz:define-variable jazz:emit-new-call)
 (jazz:define-variable jazz:emit-primitive-call)
 (jazz:define-variable jazz:emit-inlined-call)
+(jazz:define-variable jazz:emit-unsafe-call)
 
 
 (jazz:define-class jazz:Call jazz:Expression (constructor: jazz:allocate-call)

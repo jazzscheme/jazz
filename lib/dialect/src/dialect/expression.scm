@@ -239,6 +239,8 @@
           (cond ;; fixbound
                 ((%%eq? expect jazz:Fixbound)
                  ;; UNIFICATION
+                 (%%subtype? type jazz:Fixnum)
+                 #; ;; TEMPORARY PATCH FOR UNIFICATION TESTS UNTIL A SATISFACTORY SOLUTION TO FIXBOUND IN DEBUG
                  (cond-expand
                    (release
                     (%%subtype? type jazz:Fixnum))

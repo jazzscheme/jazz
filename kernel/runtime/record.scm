@@ -41,121 +41,81 @@
 (jazz:kernel-declares)
 
 
-(cond-expand
-  (gambit
-    (define jazz:structure-offset
-      0)
-    
-    (define jazz:structure-marker
-      (list 'structure))
-    
-    (define jazz:record-offset
-      (%%fx+ jazz:structure-offset 1))
-    
-    (jazz:define-macro (%%subtype-jazz)
-      7)
-    
-    (jazz:define-macro (%%subtype-jazzstruct)
-      16)
-    
-    ;; this function is here for structure / class unification
-    (jazz:define-macro (%%jazz? expr)
-      (jazz:with-uniqueness expr
-        (lambda (expr)
-          (if (##global-var? '##jazzstruct?)
-              `(or (##jazz? ,expr) (##jazzstruct? ,expr))
-            `(##jazz? ,expr)))))
-    
-    ;; this function is here for structure / class unification
-    (jazz:define-macro (%%jazzstruct? expr)
+(define jazz:structure-offset
+  0)
+
+(define jazz:structure-marker
+  (list 'structure))
+
+(define jazz:record-offset
+  (%%fx+ jazz:structure-offset 1))
+
+(jazz:define-macro (%%subtype-jazz)
+  7)
+
+(jazz:define-macro (%%subtype-jazzstruct)
+  16)
+
+;; this function is here for structure / class unification
+(jazz:define-macro (%%jazz? expr)
+  (jazz:with-uniqueness expr
+    (lambda (expr)
       (if (##global-var? '##jazzstruct?)
-          `(##jazzstruct? ,expr)
-        #f))
-    
-    ;; this function is here for structure / class unification
-    (jazz:define-macro (%%jazzify expr)
-      `(##subtype-set! ,expr (%%subtype-jazz)))
-    
-    ;; this function is here for structure / class unification
-    (jazz:define-macro (%%jazzstructify expr)
-      `(##subtype-set! ,expr (%%subtype-jazzstruct)))
-    
-    #; ;; defined as functions until structure / class unification
-    (jazz:define-macro (%%record? expr)
-      `(or (%%jazz? ,expr)
-           (and (##vector? ,expr)
-                (##fx> (##vector-length ,expr) 0)
-                (##symbol? (##vector-ref ,expr 0)))))
-    
-    #; ;; defined as functions until structure / class unification
-    (jazz:define-macro (%%record structure . rest)
-      `(%%jazzify (%%vector ,structure ,@rest)))
-    
-    #; ;; defined as functions until structure / class unification
-    (jazz:define-macro (%%make-record structure size)
-      (let ((record (jazz:generate-symbol "record")))
-        `(let ((,record (%%jazzify (%%make-vector ,size (%%unspecified)))))
-           (%%set-record-structure ,record ,structure)
-           ,record)))
-    
-    (jazz:define-macro (%%record-length record)
-      `(##vector-length ,record))
-    
-    (jazz:define-macro (%%record-ref record n)
-      (if jazz:debug-core?
-          (jazz:with-uniqueness record
-            (lambda (rec)
-              `(if (%%not (%%record? ,rec))
-                   (jazz:not-record-error ,rec)
-                 (##vector-ref ,rec ,n))))
-        `(##vector-ref ,record ,n)))
-    
-    (jazz:define-macro (%%record-set! record n value)
-      (if jazz:debug-core?
-          (jazz:with-uniqueness record
-            (lambda (rec)
-              `(if (%%not (%%record? ,rec))
-                   (jazz:not-record-error ,rec)
-                 (##vector-set! ,rec ,n ,value))))
-        `(##vector-set! ,record ,n ,value))))
-  
-  (else
-    (define %%record-marker
-      'record)
-    
-    (define jazz:marker-offset
-      0)
-    
-    (define jazz:structure-offset
-      (%%fx+ jazz:marker-offset 1))
-    
-    (define jazz:record-offset
-      (%%fx+ jazz:structure-offset 1))
-    
-    (jazz:define-macro (%%record? expr)
-      `(or (%%jazz? ,expr)
-           (and (%%vector? ,expr)
-                (%%fx> (%%record-length ,expr) 0)
-                (%%eq? (%%record-ref expr 0) %%record-marker))))
-    
-    (jazz:define-macro (%%record structure . rest)
-      `(%%vector %%record-marker structure ,@rest))
-    
-    (jazz:define-macro (%%make-record structure size)
-      (let ((record (jazz:generate-symbol "record")))
-        `(let ((,record (%%make-vector ,size (%%unspecified))))
-           (%%record-set! ,record jazz:marker-offset %%record-marker)
-           (%%set-record-structure ,record ,structure)
-           ,record)))
-    
-    (jazz:define-macro (%%record-length record)
-      `(##vector-length ,record))
-    
-    (jazz:define-macro (%%record-ref record n)
-      `(##vector-ref ,record ,n))
-    
-    (jazz:define-macro (%%record-set! record n value)
-      `(##vector-set! ,record ,n ,value))))
+          `(or (##jazz? ,expr) (##jazzstruct? ,expr))
+        `(##jazz? ,expr)))))
+
+;; this function is here for structure / class unification
+(jazz:define-macro (%%jazzstruct? expr)
+  (if (##global-var? '##jazzstruct?)
+      `(##jazzstruct? ,expr)
+    #f))
+
+;; this function is here for structure / class unification
+(jazz:define-macro (%%jazzify expr)
+  `(##subtype-set! ,expr (%%subtype-jazz)))
+
+;; this function is here for structure / class unification
+(jazz:define-macro (%%jazzstructify expr)
+  `(##subtype-set! ,expr (%%subtype-jazzstruct)))
+
+#; ;; defined as functions until structure / class unification
+(jazz:define-macro (%%record? expr)
+  `(or (%%jazz? ,expr)
+       (and (##vector? ,expr)
+            (##fx> (##vector-length ,expr) 0)
+            (##symbol? (##vector-ref ,expr 0)))))
+
+#; ;; defined as functions until structure / class unification
+(jazz:define-macro (%%record structure . rest)
+  `(%%jazzify (%%vector ,structure ,@rest)))
+
+#; ;; defined as functions until structure / class unification
+(jazz:define-macro (%%make-record structure size)
+  (let ((record (jazz:generate-symbol "record")))
+    `(let ((,record (%%jazzify (%%make-vector ,size (%%unspecified)))))
+       (%%set-record-structure ,record ,structure)
+       ,record)))
+
+(jazz:define-macro (%%record-length record)
+  `(##vector-length ,record))
+
+(jazz:define-macro (%%record-ref record n)
+  (if jazz:debug-core?
+      (jazz:with-uniqueness record
+        (lambda (rec)
+          `(if (%%not (%%record? ,rec))
+               (jazz:not-record-error ,rec)
+             (##vector-ref ,rec ,n))))
+    `(##vector-ref ,record ,n)))
+
+(jazz:define-macro (%%record-set! record n value)
+  (if jazz:debug-core?
+      (jazz:with-uniqueness record
+        (lambda (rec)
+          `(if (%%not (%%record? ,rec))
+               (jazz:not-record-error ,rec)
+             (##vector-set! ,rec ,n ,value))))
+    `(##vector-set! ,record ,n ,value)))
 
 
 (jazz:define-macro (%%get-record-structure record)

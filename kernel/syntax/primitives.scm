@@ -52,17 +52,13 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-   (jazz:define-macro (%%boolean? obj)
-     `(boolean? ,obj))
-   
-   (jazz:define-macro (%%not expr)
-     (if jazz:debug-core?
-         `(not ,expr)
-       `(jazz:unsafe (##not ,expr)))))
-  
-  (else))
+(jazz:define-macro (%%boolean? obj)
+  `(boolean? ,obj))
+
+(jazz:define-macro (%%not expr)
+  (if jazz:debug-core?
+      `(not ,expr)
+    `(jazz:unsafe (##not ,expr))))
 
 
 ;;;
@@ -70,24 +66,20 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-   (jazz:define-macro (%%box? obj)
-     (if jazz:debug-core?
-         `(box? ,obj)
-       `(jazz:unsafe (##box? ,obj))))
-   
-   (jazz:define-macro (%%box obj)
-     (if jazz:debug-core?
-         `(box ,obj)
-       `(jazz:unsafe (##box ,obj))))
-   
-   (jazz:define-macro (%%unbox box)
-     (if jazz:debug-core?
-         `(unbox ,box)
-       `(jazz:unsafe (##unbox ,box)))))
-  
-  (else))
+(jazz:define-macro (%%box? obj)
+  (if jazz:debug-core?
+      `(box? ,obj)
+    `(jazz:unsafe (##box? ,obj))))
+
+(jazz:define-macro (%%box obj)
+  (if jazz:debug-core?
+      `(box ,obj)
+    `(jazz:unsafe (##box ,obj))))
+
+(jazz:define-macro (%%unbox box)
+  (if jazz:debug-core?
+      `(unbox ,box)
+    `(jazz:unsafe (##unbox ,box))))
 
 
 ;;;
@@ -95,24 +87,20 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%char? obj)
-      (if jazz:debug-core?
-          `(char? ,obj)
-        `(jazz:unsafe (##char? ,obj))))
-    
-    (jazz:define-macro (%%char=? c1 c2)
-      (if jazz:debug-core?
-          `(char=? ,c1 ,c2)
-        `(jazz:unsafe (##char=? ,c1 ,c2))))
-    
-    (jazz:define-macro (%%char<=? c1 c2)
-      (if jazz:debug-core?
-          `(char<=? ,c1 ,c2)
-        `(jazz:unsafe (##char<=? ,c1 ,c2)))))
+(jazz:define-macro (%%char? obj)
+  (if jazz:debug-core?
+      `(char? ,obj)
+    `(jazz:unsafe (##char? ,obj))))
 
-  (else))
+(jazz:define-macro (%%char=? c1 c2)
+  (if jazz:debug-core?
+      `(char=? ,c1 ,c2)
+    `(jazz:unsafe (##char=? ,c1 ,c2))))
+
+(jazz:define-macro (%%char<=? c1 c2)
+  (if jazz:debug-core?
+      `(char<=? ,c1 ,c2)
+    `(jazz:unsafe (##char<=? ,c1 ,c2))))
 
 
 ;;;
@@ -120,29 +108,25 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-syntax %%closure?
-      (lambda (src)
-        (let ((obj (##cadr (##source-code src))))
-          `(jazz:unsafe (##closure? ,obj)))))
-    
-    (jazz:define-macro (%%closure-code closure)
-      (%%force-uniqueness (closure)
-        `(%%check-closure ,closure 1 (%%closure-code ,closure)
-           (jazz:unsafe (##closure-code ,closure)))))
-    
-    (jazz:define-macro (%%closure-length closure)
-      (%%force-uniqueness (closure)
-        `(%%check-closure ,closure 1 (%%closure-length ,closure)
-           (jazz:unsafe (##closure-length ,closure)))))
-    
-    (jazz:define-macro (%%closure-ref closure n)
-      (%%force-uniqueness (closure)
-        `(%%check-closure ,closure 1 (%%closure-length ,closure ,n)
-           (jazz:unsafe (##closure-ref ,closure ,n))))))
-  
-  (else))
+(jazz:define-syntax %%closure?
+  (lambda (src)
+    (let ((obj (##cadr (##source-code src))))
+      `(jazz:unsafe (##closure? ,obj)))))
+
+(jazz:define-macro (%%closure-code closure)
+  (%%force-uniqueness (closure)
+    `(%%check-closure ,closure 1 (%%closure-code ,closure)
+       (jazz:unsafe (##closure-code ,closure)))))
+
+(jazz:define-macro (%%closure-length closure)
+  (%%force-uniqueness (closure)
+    `(%%check-closure ,closure 1 (%%closure-length ,closure)
+       (jazz:unsafe (##closure-length ,closure)))))
+
+(jazz:define-macro (%%closure-ref closure n)
+  (%%force-uniqueness (closure)
+    `(%%check-closure ,closure 1 (%%closure-length ,closure ,n)
+       (jazz:unsafe (##closure-ref ,closure ,n)))))
 
 
 ;;;
@@ -150,14 +134,10 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%complex? obj)
-      (if jazz:debug-core?
-          `(complex? ,obj)
-        `(jazz:unsafe (##complex? ,obj)))))
-
-  (else))
+(jazz:define-macro (%%complex? obj)
+  (if jazz:debug-core?
+      `(complex? ,obj)
+    `(jazz:unsafe (##complex? ,obj))))
 
 
 ;;;
@@ -165,89 +145,85 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-   (jazz:define-syntax %%continuation?
-     (lambda (src)
-       (let ((obj (##cadr (##source-code src))))
-         (if jazz:debug-core?
-             `(continuation? ,obj)
-           `(jazz:unsafe (##continuation? ,obj))))))
-   
-   (jazz:define-syntax %%continuation-capture
-     (lambda (src)
-       (let ((proc (##cadr (##source-code src))))
-         (if jazz:debug-core?
-             `(continuation-capture ,proc)
-           `(jazz:unsafe (##continuation-capture ,proc))))))
-   
-   (jazz:define-syntax %%continuation-graft
-     (lambda (src)
-       (let ((cont (##cadr (##source-code src)))
-             (proc (##car (##cddr (##source-code src)))))
-         (if jazz:debug-core?
-             `(continuation-graft ,cont ,proc)
-           `(jazz:unsafe (##continuation-graft ,cont ,proc))))))
-   
-   (jazz:define-syntax %%continuation-return
-     (lambda (src)
-       (let ((cont (##cadr (##source-code src)))
-             (values (##cddr (##source-code src))))
-         (if jazz:debug-core?
-             `(continuation-return ,cont ,@values)
-           `(jazz:unsafe (##continuation-return ,cont ,@values))))))
-   
-   (jazz:define-macro (%%continuation-graft-no-winding cont values)
-     (%%force-uniqueness (cont values)
-       `(%%check-continuation ,cont 1 (%%continuation-graft-no-winding ,cont ,values)
-          (jazz:unsafe (##continuation-graft-no-winding ,cont ,values)))))
-   
-   (jazz:define-macro (%%continuation-return-no-winding cont values)
-     (%%force-uniqueness (cont values)
-       `(%%check-continuation ,cont 1 (%%continuation-return-no-winding ,cont ,values)
-          (jazz:unsafe (##continuation-return-no-winding ,cont ,values)))))
-   
-   (jazz:define-macro (%%continuation-parent cont)
-     (%%force-uniqueness (cont)
-       `(%%check-continuation ,cont 1 (%%continuation-parent ,cont)
-          (jazz:unsafe (##continuation-parent ,cont)))))
-   
-   (jazz:define-macro (%%continuation-creator cont)
-     (%%force-uniqueness (cont)
-       `(%%check-continuation ,cont 1 (%%continuation-creator ,cont)
-          (jazz:unsafe (##continuation-creator ,cont)))))
-   
-   (jazz:define-macro (%%continuation-locat cont)
-     (%%force-uniqueness (cont)
-       `(%%check-continuation ,cont 1 (%%continuation-locat ,cont)
-          (jazz:unsafe (##continuation-locat ,cont)))))
-   
-   (jazz:define-macro (%%continuation-locals cont)
-     (%%force-uniqueness (cont)
-       `(%%check-continuation ,cont 1 (%%continuation-locals ,cont)
-          (jazz:unsafe (##continuation-locals ,cont)))))
-   
-   (jazz:define-macro (%%continuation-next cont)
-     (%%force-uniqueness (cont)
-       `(%%check-continuation ,cont 1 (%%continuation-next ,cont)
-          (jazz:unsafe (##continuation-next ,cont)))))
-   
-   (jazz:define-macro (%%continuation-first-frame cont all-frames?)
-     (%%force-uniqueness (cont all-frames?)
-       `(%%check-continuation ,cont 1 (%%continuation-first-frame ,cont ,all-frames?)
-          (jazz:unsafe (##continuation-first-frame ,cont ,all-frames?)))))
-   
-   (jazz:define-macro (%%continuation-next-frame cont all-frames?)
-     (%%force-uniqueness (cont all-frames?)
-       `(%%check-continuation ,cont 1 (%%continuation-next-frame ,cont ,all-frames?)
-          (jazz:unsafe (##continuation-next-frame ,cont ,all-frames?)))))
-   
-   (jazz:define-macro (%%interp-continuation? cont)
-     (%%force-uniqueness (cont)
-       `(%%check-continuation ,cont 1 (%%interp-continuation? ,cont)
-          (jazz:unsafe (##interp-continuation? ,cont))))))
-  
-  (else))
+(jazz:define-syntax %%continuation?
+  (lambda (src)
+    (let ((obj (##cadr (##source-code src))))
+      (if jazz:debug-core?
+          `(continuation? ,obj)
+        `(jazz:unsafe (##continuation? ,obj))))))
+
+(jazz:define-syntax %%continuation-capture
+  (lambda (src)
+    (let ((proc (##cadr (##source-code src))))
+      (if jazz:debug-core?
+          `(continuation-capture ,proc)
+        `(jazz:unsafe (##continuation-capture ,proc))))))
+
+(jazz:define-syntax %%continuation-graft
+  (lambda (src)
+    (let ((cont (##cadr (##source-code src)))
+          (proc (##car (##cddr (##source-code src)))))
+      (if jazz:debug-core?
+          `(continuation-graft ,cont ,proc)
+        `(jazz:unsafe (##continuation-graft ,cont ,proc))))))
+
+(jazz:define-syntax %%continuation-return
+  (lambda (src)
+    (let ((cont (##cadr (##source-code src)))
+          (values (##cddr (##source-code src))))
+      (if jazz:debug-core?
+          `(continuation-return ,cont ,@values)
+        `(jazz:unsafe (##continuation-return ,cont ,@values))))))
+
+(jazz:define-macro (%%continuation-graft-no-winding cont values)
+  (%%force-uniqueness (cont values)
+    `(%%check-continuation ,cont 1 (%%continuation-graft-no-winding ,cont ,values)
+       (jazz:unsafe (##continuation-graft-no-winding ,cont ,values)))))
+
+(jazz:define-macro (%%continuation-return-no-winding cont values)
+  (%%force-uniqueness (cont values)
+    `(%%check-continuation ,cont 1 (%%continuation-return-no-winding ,cont ,values)
+       (jazz:unsafe (##continuation-return-no-winding ,cont ,values)))))
+
+(jazz:define-macro (%%continuation-parent cont)
+  (%%force-uniqueness (cont)
+    `(%%check-continuation ,cont 1 (%%continuation-parent ,cont)
+       (jazz:unsafe (##continuation-parent ,cont)))))
+
+(jazz:define-macro (%%continuation-creator cont)
+  (%%force-uniqueness (cont)
+    `(%%check-continuation ,cont 1 (%%continuation-creator ,cont)
+       (jazz:unsafe (##continuation-creator ,cont)))))
+
+(jazz:define-macro (%%continuation-locat cont)
+  (%%force-uniqueness (cont)
+    `(%%check-continuation ,cont 1 (%%continuation-locat ,cont)
+       (jazz:unsafe (##continuation-locat ,cont)))))
+
+(jazz:define-macro (%%continuation-locals cont)
+  (%%force-uniqueness (cont)
+    `(%%check-continuation ,cont 1 (%%continuation-locals ,cont)
+       (jazz:unsafe (##continuation-locals ,cont)))))
+
+(jazz:define-macro (%%continuation-next cont)
+  (%%force-uniqueness (cont)
+    `(%%check-continuation ,cont 1 (%%continuation-next ,cont)
+       (jazz:unsafe (##continuation-next ,cont)))))
+
+(jazz:define-macro (%%continuation-first-frame cont all-frames?)
+  (%%force-uniqueness (cont all-frames?)
+    `(%%check-continuation ,cont 1 (%%continuation-first-frame ,cont ,all-frames?)
+       (jazz:unsafe (##continuation-first-frame ,cont ,all-frames?)))))
+
+(jazz:define-macro (%%continuation-next-frame cont all-frames?)
+  (%%force-uniqueness (cont all-frames?)
+    `(%%check-continuation ,cont 1 (%%continuation-next-frame ,cont ,all-frames?)
+       (jazz:unsafe (##continuation-next-frame ,cont ,all-frames?)))))
+
+(jazz:define-macro (%%interp-continuation? cont)
+  (%%force-uniqueness (cont)
+    `(%%check-continuation ,cont 1 (%%interp-continuation? ,cont)
+       (jazz:unsafe (##interp-continuation? ,cont)))))
 
 
 ;;;
@@ -255,19 +231,15 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-   (jazz:define-macro (%%procedure? obj)
-     (if jazz:debug-core?
-         `(procedure? ,obj)
-       `(jazz:unsafe (##procedure? ,obj))))
-   
-   (jazz:define-macro (%%apply proc lst)
-     (if jazz:debug-core?
-         `(apply ,proc ,lst)
-       `(jazz:unsafe (##apply ,proc ,lst)))))
-  
-  (else))
+(jazz:define-macro (%%procedure? obj)
+  (if jazz:debug-core?
+      `(procedure? ,obj)
+    `(jazz:unsafe (##procedure? ,obj))))
+
+(jazz:define-macro (%%apply proc lst)
+  (if jazz:debug-core?
+      `(apply ,proc ,lst)
+    `(jazz:unsafe (##apply ,proc ,lst))))
 
 
 ;;;
@@ -275,29 +247,23 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-   (jazz:define-macro (%%eq? x y)
-     (if jazz:debug-core?
-         `(eq? ,x ,y)
-       `(jazz:unsafe (##eq? ,x ,y))))
-   
-   (jazz:define-macro (%%neq? x y)
-     `(%%not (%%eq? ,x ,y)))
-   
-   (jazz:define-macro (%%eqv? x y)
-     (if jazz:debug-core?
-         `(eqv? ,x ,y)
-       `(jazz:unsafe (##eqv? ,x ,y))))
-   
-   (jazz:define-macro (%%equal? x y)
-     (if jazz:debug-core?
-         `(equal? ,x ,y)
-       `(jazz:unsafe (##equal? ,x ,y)))))
-  
-  (else
-   (jazz:define-macro (%%eq? x y)
-     `(eq? ,x ,y))))
+(jazz:define-macro (%%eq? x y)
+  (if jazz:debug-core?
+      `(eq? ,x ,y)
+    `(jazz:unsafe (##eq? ,x ,y))))
+
+(jazz:define-macro (%%neq? x y)
+  `(%%not (%%eq? ,x ,y)))
+
+(jazz:define-macro (%%eqv? x y)
+  (if jazz:debug-core?
+      `(eqv? ,x ,y)
+    `(jazz:unsafe (##eqv? ,x ,y))))
+
+(jazz:define-macro (%%equal? x y)
+  (if jazz:debug-core?
+      `(equal? ,x ,y)
+    `(jazz:unsafe (##equal? ,x ,y))))
 
 
 ;;;
@@ -305,13 +271,9 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-   (jazz:define-macro (%%load path script-callback clone-cte? raise-os-exception? quiet?)
-     (%%force-uniqueness (path script-callback clone-cte? raise-os-exception? quiet?)
-       `(jazz:unsafe (##load ,path ,script-callback ,clone-cte? ,raise-os-exception? ,quiet?)))))
-  
-  (else))
+(jazz:define-macro (%%load path script-callback clone-cte? raise-os-exception? quiet?)
+  (%%force-uniqueness (path script-callback clone-cte? raise-os-exception? quiet?)
+    `(jazz:unsafe (##load ,path ,script-callback ,clone-cte? ,raise-os-exception? ,quiet?))))
 
 
 ;;;
@@ -319,130 +281,128 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-   (jazz:define-macro (%%fixnum? obj)
-     (if jazz:debug-core?
-         `(fixnum? ,obj)
-       `(jazz:unsafe (##fixnum? ,obj))))
-   
-   (jazz:define-macro (%%fixnum->flonum x)
-     `(jazz:unsafe (##fixnum->flonum ,x)))
-   
-   (jazz:define-macro (%%fx= . rest)
-     (if jazz:debug-core?
-         `(= ,@rest)
-       `(jazz:unsafe (##fx= ,@rest))))
-   
-   (jazz:define-macro (%%fx< . rest)
-     (if jazz:debug-core?
-         `(< ,@rest)
-       `(jazz:unsafe (##fx< ,@rest))))
-   
-   (jazz:define-macro (%%fx<= . rest)
-     (if jazz:debug-core?
-         `(<= ,@rest)
-       `(jazz:unsafe (##fx<= ,@rest))))
-   
-   (jazz:define-macro (%%fx> . rest)
-     (if jazz:debug-core?
-         `(> ,@rest)
-       `(jazz:unsafe (##fx> ,@rest))))
-   
-   (jazz:define-macro (%%fx>= . rest)
-     (if jazz:debug-core?
-         `(>= ,@rest)
-       `(jazz:unsafe (##fx>= ,@rest))))
-   
-   (jazz:define-macro (%%fx+ . rest)
-     (if jazz:debug-core?
-         `(+ ,@rest)
-       `(jazz:unsafe (##fx+ ,@rest))))
-   
-   (jazz:define-macro (%%fx- . rest)
-     (if jazz:debug-core?
-         `(- ,@rest)
-       `(jazz:unsafe (##fx- ,@rest))))
-   
-   (jazz:define-macro (%%fx* . rest)
-     (if jazz:debug-core?
-         `(* ,@rest)
-       `(jazz:unsafe (##fx* ,@rest))))
-   
-   (jazz:define-macro (%%fxabs x)
-     (if jazz:debug-core?
-         `(fxabs ,x)
-       `(jazz:unsafe (##fxabs ,x))))
-   
-   (jazz:define-macro (%%fxquotient x y)
-     (if jazz:debug-core?
-         `(quotient ,x ,y)
-       `(jazz:unsafe (##fxquotient ,x ,y))))
-   
-   (jazz:define-macro (%%fxmin . rest)
-     (if jazz:debug-core?
-         `(fxmin ,@rest)
-       `(jazz:unsafe (##fxmin ,@rest))))
-   
-   (jazz:define-macro (%%fxmax . rest)
-     (if jazz:debug-core?
-         `(fxmax ,@rest)
-       `(jazz:unsafe (##fxmax ,@rest))))
-   
-   (jazz:define-macro (%%fxmodulo . rest)
-     (if jazz:debug-core?
-         `(fxmodulo ,@rest)
-       `(jazz:unsafe (##fxmodulo ,@rest))))
-   
-   (jazz:define-macro (%%fxeven? . rest)
-     (if jazz:debug-core?
-         `(fxeven? ,@rest)
-       `(jazz:unsafe (##fxeven? ,@rest))))
-   
-   (jazz:define-macro (%%fxodd? . rest)
-     (if jazz:debug-core?
-         `(fxodd? ,@rest)
-       `(jazz:unsafe (##fxodd? ,@rest))))
-   
-   (jazz:define-macro (%%fxnot . rest)
-     (if jazz:debug-core?
-         `(fxnot ,@rest)
-       `(jazz:unsafe (##fxnot ,@rest))))
-   
-   (jazz:define-macro (%%fxand . rest)
-     (if jazz:debug-core?
-         `(fxand ,@rest)
-       `(jazz:unsafe (##fxand ,@rest))))
-   
-   (jazz:define-macro (%%fxior . rest)
-     (if jazz:debug-core?
-         `(fxior ,@rest)
-       `(jazz:unsafe (##fxior ,@rest))))
-   
-   (jazz:define-macro (%%fxxor . rest)
-     (if jazz:debug-core?
-         `(fxxor ,@rest)
-       `(jazz:unsafe (##fxxor ,@rest))))
-   
-   (jazz:define-macro (%%fxarithmetic-shift . rest)
-     (if jazz:debug-core?
-         `(fxarithmetic-shift ,@rest)
-       `(jazz:unsafe (##fxarithmetic-shift ,@rest))))
-   
-   (jazz:define-macro (%%fxarithmetic-shift-left . rest)
-     (if jazz:debug-core?
-         `(fxarithmetic-shift-left ,@rest)
-       `(jazz:unsafe (##fxarithmetic-shift-left ,@rest))))
-   
-   (jazz:define-macro (%%fxarithmetic-shift-right . rest)
-     (if jazz:debug-core?
-         `(fxarithmetic-shift-right ,@rest)
-       `(jazz:unsafe (##fxarithmetic-shift-right ,@rest))))
-   
-   (jazz:define-macro (%%fxbetween? n lower upper)
-     (%%force-uniqueness (n)
-       `(and (>= ,n ,lower)
-             (<= ,n ,upper))))))
+(jazz:define-macro (%%fixnum? obj)
+  (if jazz:debug-core?
+      `(fixnum? ,obj)
+    `(jazz:unsafe (##fixnum? ,obj))))
+
+(jazz:define-macro (%%fixnum->flonum x)
+  `(jazz:unsafe (##fixnum->flonum ,x)))
+
+(jazz:define-macro (%%fx= . rest)
+  (if jazz:debug-core?
+      `(= ,@rest)
+    `(jazz:unsafe (##fx= ,@rest))))
+
+(jazz:define-macro (%%fx< . rest)
+  (if jazz:debug-core?
+      `(< ,@rest)
+    `(jazz:unsafe (##fx< ,@rest))))
+
+(jazz:define-macro (%%fx<= . rest)
+  (if jazz:debug-core?
+      `(<= ,@rest)
+    `(jazz:unsafe (##fx<= ,@rest))))
+
+(jazz:define-macro (%%fx> . rest)
+  (if jazz:debug-core?
+      `(> ,@rest)
+    `(jazz:unsafe (##fx> ,@rest))))
+
+(jazz:define-macro (%%fx>= . rest)
+  (if jazz:debug-core?
+      `(>= ,@rest)
+    `(jazz:unsafe (##fx>= ,@rest))))
+
+(jazz:define-macro (%%fx+ . rest)
+  (if jazz:debug-core?
+      `(+ ,@rest)
+    `(jazz:unsafe (##fx+ ,@rest))))
+
+(jazz:define-macro (%%fx- . rest)
+  (if jazz:debug-core?
+      `(- ,@rest)
+    `(jazz:unsafe (##fx- ,@rest))))
+
+(jazz:define-macro (%%fx* . rest)
+  (if jazz:debug-core?
+      `(* ,@rest)
+    `(jazz:unsafe (##fx* ,@rest))))
+
+(jazz:define-macro (%%fxabs x)
+  (if jazz:debug-core?
+      `(fxabs ,x)
+    `(jazz:unsafe (##fxabs ,x))))
+
+(jazz:define-macro (%%fxquotient x y)
+  (if jazz:debug-core?
+      `(quotient ,x ,y)
+    `(jazz:unsafe (##fxquotient ,x ,y))))
+
+(jazz:define-macro (%%fxmin . rest)
+  (if jazz:debug-core?
+      `(fxmin ,@rest)
+    `(jazz:unsafe (##fxmin ,@rest))))
+
+(jazz:define-macro (%%fxmax . rest)
+  (if jazz:debug-core?
+      `(fxmax ,@rest)
+    `(jazz:unsafe (##fxmax ,@rest))))
+
+(jazz:define-macro (%%fxmodulo . rest)
+  (if jazz:debug-core?
+      `(fxmodulo ,@rest)
+    `(jazz:unsafe (##fxmodulo ,@rest))))
+
+(jazz:define-macro (%%fxeven? . rest)
+  (if jazz:debug-core?
+      `(fxeven? ,@rest)
+    `(jazz:unsafe (##fxeven? ,@rest))))
+
+(jazz:define-macro (%%fxodd? . rest)
+  (if jazz:debug-core?
+      `(fxodd? ,@rest)
+    `(jazz:unsafe (##fxodd? ,@rest))))
+
+(jazz:define-macro (%%fxnot . rest)
+  (if jazz:debug-core?
+      `(fxnot ,@rest)
+    `(jazz:unsafe (##fxnot ,@rest))))
+
+(jazz:define-macro (%%fxand . rest)
+  (if jazz:debug-core?
+      `(fxand ,@rest)
+    `(jazz:unsafe (##fxand ,@rest))))
+
+(jazz:define-macro (%%fxior . rest)
+  (if jazz:debug-core?
+      `(fxior ,@rest)
+    `(jazz:unsafe (##fxior ,@rest))))
+
+(jazz:define-macro (%%fxxor . rest)
+  (if jazz:debug-core?
+      `(fxxor ,@rest)
+    `(jazz:unsafe (##fxxor ,@rest))))
+
+(jazz:define-macro (%%fxarithmetic-shift . rest)
+  (if jazz:debug-core?
+      `(fxarithmetic-shift ,@rest)
+    `(jazz:unsafe (##fxarithmetic-shift ,@rest))))
+
+(jazz:define-macro (%%fxarithmetic-shift-left . rest)
+  (if jazz:debug-core?
+      `(fxarithmetic-shift-left ,@rest)
+    `(jazz:unsafe (##fxarithmetic-shift-left ,@rest))))
+
+(jazz:define-macro (%%fxarithmetic-shift-right . rest)
+  (if jazz:debug-core?
+      `(fxarithmetic-shift-right ,@rest)
+    `(jazz:unsafe (##fxarithmetic-shift-right ,@rest))))
+
+(jazz:define-macro (%%fxbetween? n lower upper)
+  (%%force-uniqueness (n)
+    `(and (>= ,n ,lower)
+          (<= ,n ,upper))))
 
 
 ;;;
@@ -450,152 +410,143 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-   (jazz:define-macro (%%flonum? obj)
-     (if jazz:debug-core?
-         `(flonum? ,obj)
-       `(jazz:unsafe (##flonum? ,obj))))
-   
-   (jazz:define-macro (%%flnan? obj)
-     (if jazz:debug-core?
-         `(flnan? ,obj)
-       `(jazz:unsafe (##flnan? ,obj))))
-   
-   (jazz:define-macro (%%flonum->fixnum x)
-     `(jazz:unsafe (##flonum->fixnum ,x)))
-   
-   (jazz:define-macro (%%fl= . rest)
-     (if jazz:debug-core?
-         `(= ,@rest)
-       `(jazz:unsafe (##fl= ,@rest))))
-   
-   (jazz:define-macro (%%fl< . rest)
-     (if jazz:debug-core?
-         `(< ,@rest)
-       `(jazz:unsafe (##fl< ,@rest))))
-   
-   (jazz:define-macro (%%fl<= . rest)
-     (if jazz:debug-core?
-         `(<= ,@rest)
-       `(jazz:unsafe (##fl<= ,@rest))))
-   
-   (jazz:define-macro (%%fl> . rest)
-     (if jazz:debug-core?
-         `(> ,@rest)
-       `(jazz:unsafe (##fl> ,@rest))))
-   
-   (jazz:define-macro (%%fl>= . rest)
-     (if jazz:debug-core?
-         `(>= ,@rest)
-       `(jazz:unsafe (##fl>= ,@rest))))
-   
-   (jazz:define-macro (%%fl+ . rest)
-     (if jazz:debug-core?
-         `(+ ,@rest)
-       `(jazz:unsafe (##fl+ ,@rest))))
-   
-   (jazz:define-macro (%%fl- . rest)
-     (if jazz:debug-core?
-         `(- ,@rest)
-       `(jazz:unsafe (##fl- ,@rest))))
-   
-   (jazz:define-macro (%%fl* . rest)
-     (if jazz:debug-core?
-         `(* ,@rest)
-       `(jazz:unsafe (##fl* ,@rest))))
-   
-   (jazz:define-macro (%%fl/ . rest)
-     (if jazz:debug-core?
-         `(/ ,@rest)
-       `(jazz:unsafe (##fl/ ,@rest))))
-   
-   (jazz:define-macro (%%flfloor x)
-     (if jazz:debug-core?
-         `(flfloor ,x)
-       `(jazz:unsafe (##flfloor ,x))))
-   
-   (jazz:define-macro (%%flceiling x)
-     (if jazz:debug-core?
-         `(flceiling ,x)
-       `(jazz:unsafe (##flceiling ,x))))
-   
-   (jazz:define-macro (%%fltruncate x)
-     (if jazz:debug-core?
-         `(fltruncate ,x)
-       `(jazz:unsafe (##fltruncate ,x))))
-   
-   (jazz:define-macro (%%flround x)
-     (if jazz:debug-core?
-         `(flround ,x)
-       `(jazz:unsafe (##flround ,x))))
-   
-   (jazz:define-macro (%%flabs x)
-     (if jazz:debug-core?
-         `(flabs ,x)
-       `(jazz:unsafe (##flabs ,x))))
-   
-   (jazz:define-macro (%%flsqrt x)
-     (if jazz:debug-core?
-         `(flsqrt ,x)
-       `(jazz:unsafe (##flsqrt ,x))))
-   
-   (jazz:define-macro (%%flexpt x y)
-     (if jazz:debug-core?
-         `(flexpt ,x ,y)
-       `(jazz:unsafe (##flexpt ,x ,y))))
-   
-   (jazz:define-macro (%%flsquare x)
-     (if jazz:debug-core?
-         `(flsquare ,x)
-       `(jazz:unsafe (##flsquare ,x))))
-   
-   (jazz:define-macro (%%flsin x)
-     (if jazz:debug-core?
-         `(flsin ,x)
-       `(jazz:unsafe (##flsin ,x))))
-   
-   (jazz:define-macro (%%flcos x)
-     (if jazz:debug-core?
-         `(flcos ,x)
-       `(jazz:unsafe (##flcos ,x))))
-   
-   (jazz:define-macro (%%fltan x)
-     (if jazz:debug-core?
-         `(fltan ,x)
-       `(jazz:unsafe (##fltan ,x))))
-   
-   (jazz:define-macro (%%flasin x)
-     (if jazz:debug-core?
-         `(flasin ,x)
-       `(jazz:unsafe (##flasin ,x))))
-   
-   (jazz:define-macro (%%flacos x)
-     (if jazz:debug-core?
-         `(flacos ,x)
-       `(jazz:unsafe (##flacos ,x))))
-   
-   (jazz:define-macro (%%flatan . rest)
-     (if jazz:debug-core?
-         `(flatan ,@rest)
-       `(jazz:unsafe (##flatan ,@rest))))
-   
-   (jazz:define-macro (%%flmin . rest)
-     (if jazz:debug-core?
-         `(flmin ,@rest)
-       `(jazz:unsafe (##flmin ,@rest))))
-   
-   (jazz:define-macro (%%flmax . rest)
-     (if jazz:debug-core?
-         `(flmax ,@rest)
-       `(jazz:unsafe (##flmax ,@rest)))))
+(jazz:define-macro (%%flonum? obj)
+  (if jazz:debug-core?
+      `(flonum? ,obj)
+    `(jazz:unsafe (##flonum? ,obj))))
 
-  (else
-   (jazz:define-macro (%%fl> x y)
-     `(> ,x ,y))
-   
-   (jazz:define-macro (%%fl+ x y)
-     `(+ ,x ,y))))
+(jazz:define-macro (%%flnan? obj)
+  (if jazz:debug-core?
+      `(flnan? ,obj)
+    `(jazz:unsafe (##flnan? ,obj))))
+
+(jazz:define-macro (%%flonum->fixnum x)
+  `(jazz:unsafe (##flonum->fixnum ,x)))
+
+(jazz:define-macro (%%fl= . rest)
+  (if jazz:debug-core?
+      `(= ,@rest)
+    `(jazz:unsafe (##fl= ,@rest))))
+
+(jazz:define-macro (%%fl< . rest)
+  (if jazz:debug-core?
+      `(< ,@rest)
+    `(jazz:unsafe (##fl< ,@rest))))
+
+(jazz:define-macro (%%fl<= . rest)
+  (if jazz:debug-core?
+      `(<= ,@rest)
+    `(jazz:unsafe (##fl<= ,@rest))))
+
+(jazz:define-macro (%%fl> . rest)
+  (if jazz:debug-core?
+      `(> ,@rest)
+    `(jazz:unsafe (##fl> ,@rest))))
+
+(jazz:define-macro (%%fl>= . rest)
+  (if jazz:debug-core?
+      `(>= ,@rest)
+    `(jazz:unsafe (##fl>= ,@rest))))
+
+(jazz:define-macro (%%fl+ . rest)
+  (if jazz:debug-core?
+      `(+ ,@rest)
+    `(jazz:unsafe (##fl+ ,@rest))))
+
+(jazz:define-macro (%%fl- . rest)
+  (if jazz:debug-core?
+      `(- ,@rest)
+    `(jazz:unsafe (##fl- ,@rest))))
+
+(jazz:define-macro (%%fl* . rest)
+  (if jazz:debug-core?
+      `(* ,@rest)
+    `(jazz:unsafe (##fl* ,@rest))))
+
+(jazz:define-macro (%%fl/ . rest)
+  (if jazz:debug-core?
+      `(/ ,@rest)
+    `(jazz:unsafe (##fl/ ,@rest))))
+
+(jazz:define-macro (%%flfloor x)
+  (if jazz:debug-core?
+      `(flfloor ,x)
+    `(jazz:unsafe (##flfloor ,x))))
+
+(jazz:define-macro (%%flceiling x)
+  (if jazz:debug-core?
+      `(flceiling ,x)
+    `(jazz:unsafe (##flceiling ,x))))
+
+(jazz:define-macro (%%fltruncate x)
+  (if jazz:debug-core?
+      `(fltruncate ,x)
+    `(jazz:unsafe (##fltruncate ,x))))
+
+(jazz:define-macro (%%flround x)
+  (if jazz:debug-core?
+      `(flround ,x)
+    `(jazz:unsafe (##flround ,x))))
+
+(jazz:define-macro (%%flabs x)
+  (if jazz:debug-core?
+      `(flabs ,x)
+    `(jazz:unsafe (##flabs ,x))))
+
+(jazz:define-macro (%%flsqrt x)
+  (if jazz:debug-core?
+      `(flsqrt ,x)
+    `(jazz:unsafe (##flsqrt ,x))))
+
+(jazz:define-macro (%%flexpt x y)
+  (if jazz:debug-core?
+      `(flexpt ,x ,y)
+    `(jazz:unsafe (##flexpt ,x ,y))))
+
+(jazz:define-macro (%%flsquare x)
+  (if jazz:debug-core?
+      `(flsquare ,x)
+    `(jazz:unsafe (##flsquare ,x))))
+
+(jazz:define-macro (%%flsin x)
+  (if jazz:debug-core?
+      `(flsin ,x)
+    `(jazz:unsafe (##flsin ,x))))
+
+(jazz:define-macro (%%flcos x)
+  (if jazz:debug-core?
+      `(flcos ,x)
+    `(jazz:unsafe (##flcos ,x))))
+
+(jazz:define-macro (%%fltan x)
+  (if jazz:debug-core?
+      `(fltan ,x)
+    `(jazz:unsafe (##fltan ,x))))
+
+(jazz:define-macro (%%flasin x)
+  (if jazz:debug-core?
+      `(flasin ,x)
+    `(jazz:unsafe (##flasin ,x))))
+
+(jazz:define-macro (%%flacos x)
+  (if jazz:debug-core?
+      `(flacos ,x)
+    `(jazz:unsafe (##flacos ,x))))
+
+(jazz:define-macro (%%flatan . rest)
+  (if jazz:debug-core?
+      `(flatan ,@rest)
+    `(jazz:unsafe (##flatan ,@rest))))
+
+(jazz:define-macro (%%flmin . rest)
+  (if jazz:debug-core?
+      `(flmin ,@rest)
+    `(jazz:unsafe (##flmin ,@rest))))
+
+(jazz:define-macro (%%flmax . rest)
+  (if jazz:debug-core?
+      `(flmax ,@rest)
+    `(jazz:unsafe (##flmax ,@rest))))
 
 
 ;;;
@@ -603,22 +554,18 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-   (jazz:define-macro (%%foreign? obj)
-     `(jazz:unsafe (##foreign? ,obj)))
-   
-   (jazz:define-macro (%%still-obj-refcount-dec! foreign)
-     (%%force-uniqueness (foreign)
-       `(%%check-foreign ,foreign 1 (%%still-obj-refcount-dec! ,foreign)
-          (jazz:unsafe (##still-obj-refcount-dec! ,foreign)))))
-   
-   (jazz:define-macro (%%still-obj-refcount-inc! foreign)
-     (%%force-uniqueness (foreign)
-       `(%%check-foreign ,foreign 1 (%%still-obj-refcount-inc! ,foreign)
-          (jazz:unsafe (##still-obj-refcount-inc! ,foreign))))))
-  
-  (else))
+(jazz:define-macro (%%foreign? obj)
+  `(jazz:unsafe (##foreign? ,obj)))
+
+(jazz:define-macro (%%still-obj-refcount-dec! foreign)
+  (%%force-uniqueness (foreign)
+    `(%%check-foreign ,foreign 1 (%%still-obj-refcount-dec! ,foreign)
+       (jazz:unsafe (##still-obj-refcount-dec! ,foreign)))))
+
+(jazz:define-macro (%%still-obj-refcount-inc! foreign)
+  (%%force-uniqueness (foreign)
+    `(%%check-foreign ,foreign 1 (%%still-obj-refcount-inc! ,foreign)
+       (jazz:unsafe (##still-obj-refcount-inc! ,foreign)))))
 
 
 ;;;
@@ -719,21 +666,17 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (define TERMINATE-INTERRUPT  1)
-    (define HEARTBEAT-INTERRUPT  2)
-    (define USER-INTERRUPT       3)
-    (define GC-INTERRUPT         4)
-    (define HIGH-LEVEL-INTERRUPT 5)
-    
-    (jazz:define-macro (%%interrupt-handler code)
-      `(jazz:unsafe (##interrupt-handler ,code)))
-    
-    (jazz:define-macro (%%interrupt-vector-set! code handler)
-      `(jazz:unsafe (##interrupt-vector-set! ,code ,handler))))
-  
-  (else))
+(define TERMINATE-INTERRUPT  1)
+(define HEARTBEAT-INTERRUPT  2)
+(define USER-INTERRUPT       3)
+(define GC-INTERRUPT         4)
+(define HIGH-LEVEL-INTERRUPT 5)
+
+(jazz:define-macro (%%interrupt-handler code)
+  `(jazz:unsafe (##interrupt-handler ,code)))
+
+(jazz:define-macro (%%interrupt-vector-set! code handler)
+  `(jazz:unsafe (##interrupt-vector-set! ,code ,handler)))
 
 
 ;;;
@@ -741,15 +684,11 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%get-current-time! . rest)
-      `(jazz:unsafe (##get-current-time! ,@rest)))
-    
-    (jazz:define-macro (%%get-bytes-allocated! . rest)
-      `(jazz:unsafe (##get-bytes-allocated! ,@rest))))
-  
-  (else))
+(jazz:define-macro (%%get-current-time! . rest)
+  `(jazz:unsafe (##get-current-time! ,@rest)))
+
+(jazz:define-macro (%%get-bytes-allocated! . rest)
+  `(jazz:unsafe (##get-bytes-allocated! ,@rest)))
 
 
 ;;;
@@ -757,24 +696,20 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%keyword? obj)
-      (if jazz:debug-core?
-          `(keyword? ,obj)
-        `(jazz:unsafe (##keyword? ,obj))))
-   
-    (jazz:define-macro (%%string->keyword str)
-      (if jazz:debug-core?
-          `(string->keyword ,str)
-        `(jazz:unsafe (##string->keyword ,str))))
-   
-   (jazz:define-macro (%%keyword->string keyword)
-     (if jazz:debug-core?
-         `(keyword->string ,keyword)
-       `(jazz:unsafe (##keyword->string ,keyword)))))
+(jazz:define-macro (%%keyword? obj)
+  (if jazz:debug-core?
+      `(keyword? ,obj)
+    `(jazz:unsafe (##keyword? ,obj))))
 
-  (else))
+(jazz:define-macro (%%string->keyword str)
+  (if jazz:debug-core?
+      `(string->keyword ,str)
+    `(jazz:unsafe (##string->keyword ,str))))
+
+(jazz:define-macro (%%keyword->string keyword)
+  (if jazz:debug-core?
+      `(keyword->string ,keyword)
+    `(jazz:unsafe (##keyword->string ,keyword))))
 
 
 ;;;
@@ -782,124 +717,118 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%null? obj)
-      (if jazz:debug-core?
-          `(null? ,obj)
-        `(jazz:unsafe (##null? ,obj))))
-    
-    (jazz:define-macro (%%pair? obj)
-      (if jazz:debug-core?
-          `(pair? ,obj)
-        `(jazz:unsafe (##pair? ,obj))))
-    
-    (jazz:define-macro (%%car pair)
-      (if jazz:debug-core?
-          `(car ,pair)
-        `(jazz:unsafe (##car ,pair))))
-    
-    (jazz:define-macro (%%cdr pair)
-      (if jazz:debug-core?
-          `(cdr ,pair)
-        `(jazz:unsafe (##cdr ,pair))))
-    
-    (jazz:define-macro (%%set-car! pair val)
-      (if jazz:debug-core?
-          `(set-car! ,pair ,val)
-        `(jazz:unsafe (##set-car! ,pair ,val))))
-    
-    (jazz:define-macro (%%set-cdr! pair val)
-      (if jazz:debug-core?
-          `(set-cdr! ,pair ,val)
-        `(jazz:unsafe (##set-cdr! ,pair ,val))))
-    
-    (jazz:define-macro (%%caar pair)
-      (if jazz:debug-core?
-          `(caar ,pair)
-        `(jazz:unsafe (##caar ,pair))))
-    
-    (jazz:define-macro (%%cadr pair)
-      (if jazz:debug-core?
-          `(cadr ,pair)
-        `(jazz:unsafe (##cadr ,pair))))
-    
-    (jazz:define-macro (%%cdar pair)
-      (if jazz:debug-core?
-          `(cdar ,pair)
-        `(jazz:unsafe (##cdar ,pair))))
-    
-    (jazz:define-macro (%%cddr pair)
-      (if jazz:debug-core?
-          `(cddr ,pair)
-        `(jazz:unsafe (##cddr ,pair))))
-    
-    (jazz:define-macro (%%length lst)
-      (if jazz:debug-core?
-          `(length ,lst)
-        `(jazz:unsafe (##length ,lst))))
-    
-    (jazz:define-macro (%%memq obj lst)
-      (if jazz:debug-core?
-          `(memq ,obj ,lst)
-        `(jazz:unsafe (##memq ,obj ,lst))))
-    
-    (jazz:define-macro (%%memv obj lst)
-      `(memv ,obj ,lst))
-    
-    (jazz:define-macro (%%member obj lst)
-      (if jazz:debug-core?
-          `(member ,obj ,lst)
-        `(jazz:unsafe (##member ,obj ,lst))))
-    
-    (jazz:define-macro (%%assq obj alist)
-      (if jazz:debug-core?
-          `(assq ,obj ,alist)
-        `(jazz:unsafe (##assq ,obj ,alist))))
-    
-    (jazz:define-macro (%%assv obj alist)
-      (if jazz:debug-core?
-          `(assv ,obj ,alist)
-        `(jazz:unsafe (##assv ,obj ,alist))))
-    
-    (jazz:define-macro (%%assoc obj alist)
-      (if jazz:debug-core?
-          `(assoc ,obj ,alist)
-        `(jazz:unsafe (##assoc ,obj ,alist))))
-    
-    (jazz:define-macro (%%cons x y)
-      (if jazz:debug-core?
-          `(cons ,x ,y)
-        `(jazz:unsafe (##cons ,x ,y))))
-    
-    (jazz:define-macro (%%list . rest)
-      (if jazz:debug-core?
-          `(list ,@rest)
-        `(jazz:unsafe (##list ,@rest))))
-    
-    (jazz:define-macro (%%append x y)
-      (if jazz:debug-core?
-          `(append ,x ,y)
-        `(jazz:unsafe (##append ,x ,y))))
-    
-    (jazz:define-macro (%%remove elem lst)
-      (%%force-uniqueness (elem lst)
-       `(%%check-list ,lst 2 (%%remove ,elem ,lst)
-          (jazz:unsafe (##remove ,elem ,lst)))))
-    
-    (jazz:define-macro (%%reverse lst)
-      (if jazz:debug-core?
-          `(reverse ,lst)
-        `(jazz:unsafe (##reverse ,lst))))
-    
-    (jazz:define-macro (%%list->vector lst)
-      (if jazz:debug-core?
-          `(list->vector ,lst)
-        `(jazz:unsafe (##list->vector ,lst)))))
-  
-  (else
-   (jazz:define-macro (%%memq obj lst)
-     `(memq ,obj ,lst))))
+(jazz:define-macro (%%null? obj)
+  (if jazz:debug-core?
+      `(null? ,obj)
+    `(jazz:unsafe (##null? ,obj))))
+
+(jazz:define-macro (%%pair? obj)
+  (if jazz:debug-core?
+      `(pair? ,obj)
+    `(jazz:unsafe (##pair? ,obj))))
+
+(jazz:define-macro (%%car pair)
+  (if jazz:debug-core?
+      `(car ,pair)
+    `(jazz:unsafe (##car ,pair))))
+
+(jazz:define-macro (%%cdr pair)
+  (if jazz:debug-core?
+      `(cdr ,pair)
+    `(jazz:unsafe (##cdr ,pair))))
+
+(jazz:define-macro (%%set-car! pair val)
+  (if jazz:debug-core?
+      `(set-car! ,pair ,val)
+    `(jazz:unsafe (##set-car! ,pair ,val))))
+
+(jazz:define-macro (%%set-cdr! pair val)
+  (if jazz:debug-core?
+      `(set-cdr! ,pair ,val)
+    `(jazz:unsafe (##set-cdr! ,pair ,val))))
+
+(jazz:define-macro (%%caar pair)
+  (if jazz:debug-core?
+      `(caar ,pair)
+    `(jazz:unsafe (##caar ,pair))))
+
+(jazz:define-macro (%%cadr pair)
+  (if jazz:debug-core?
+      `(cadr ,pair)
+    `(jazz:unsafe (##cadr ,pair))))
+
+(jazz:define-macro (%%cdar pair)
+  (if jazz:debug-core?
+      `(cdar ,pair)
+    `(jazz:unsafe (##cdar ,pair))))
+
+(jazz:define-macro (%%cddr pair)
+  (if jazz:debug-core?
+      `(cddr ,pair)
+    `(jazz:unsafe (##cddr ,pair))))
+
+(jazz:define-macro (%%length lst)
+  (if jazz:debug-core?
+      `(length ,lst)
+    `(jazz:unsafe (##length ,lst))))
+
+(jazz:define-macro (%%memq obj lst)
+  (if jazz:debug-core?
+      `(memq ,obj ,lst)
+    `(jazz:unsafe (##memq ,obj ,lst))))
+
+(jazz:define-macro (%%memv obj lst)
+  `(memv ,obj ,lst))
+
+(jazz:define-macro (%%member obj lst)
+  (if jazz:debug-core?
+      `(member ,obj ,lst)
+    `(jazz:unsafe (##member ,obj ,lst))))
+
+(jazz:define-macro (%%assq obj alist)
+  (if jazz:debug-core?
+      `(assq ,obj ,alist)
+    `(jazz:unsafe (##assq ,obj ,alist))))
+
+(jazz:define-macro (%%assv obj alist)
+  (if jazz:debug-core?
+      `(assv ,obj ,alist)
+    `(jazz:unsafe (##assv ,obj ,alist))))
+
+(jazz:define-macro (%%assoc obj alist)
+  (if jazz:debug-core?
+      `(assoc ,obj ,alist)
+    `(jazz:unsafe (##assoc ,obj ,alist))))
+
+(jazz:define-macro (%%cons x y)
+  (if jazz:debug-core?
+      `(cons ,x ,y)
+    `(jazz:unsafe (##cons ,x ,y))))
+
+(jazz:define-macro (%%list . rest)
+  (if jazz:debug-core?
+      `(list ,@rest)
+    `(jazz:unsafe (##list ,@rest))))
+
+(jazz:define-macro (%%append x y)
+  (if jazz:debug-core?
+      `(append ,x ,y)
+    `(jazz:unsafe (##append ,x ,y))))
+
+(jazz:define-macro (%%remove elem lst)
+  (%%force-uniqueness (elem lst)
+    `(%%check-list ,lst 2 (%%remove ,elem ,lst)
+       (jazz:unsafe (##remove ,elem ,lst)))))
+
+(jazz:define-macro (%%reverse lst)
+  (if jazz:debug-core?
+      `(reverse ,lst)
+    `(jazz:unsafe (##reverse ,lst))))
+
+(jazz:define-macro (%%list->vector lst)
+  (if jazz:debug-core?
+      `(list->vector ,lst)
+    `(jazz:unsafe (##list->vector ,lst))))
 
 
 ;;;
@@ -907,10 +836,8 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%gc)
-      `(jazz:unsafe (##gc)))))
+(jazz:define-macro (%%gc)
+  `(jazz:unsafe (##gc)))
 
 
 ;;;
@@ -918,59 +845,55 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%number? obj)
-      (if jazz:debug-core?
-          `(number? ,obj)
-        `(jazz:unsafe (##number? ,obj))))
-    
-    (jazz:define-macro (%%integer? obj)
-      (if jazz:debug-core?
-          `(integer? ,obj)
-        `(jazz:unsafe (##integer? ,obj))))
-    
-    (jazz:define-macro (%%real? obj)
-      (if jazz:debug-core?
-          `(real? ,obj)
-        `(jazz:unsafe (##real? ,obj))))
-    
-    (jazz:define-macro (%%= x y)
-      (if jazz:debug-core?
-          `(= ,x ,y)
-        `(jazz:unsafe (##= ,x ,y))))
-    
-    (jazz:define-macro (%%+ x y)
-      (if jazz:debug-core?
-          `(+ ,x ,y)
-        `(jazz:unsafe (##+ ,x ,y))))
-    
-    (jazz:define-macro (%%- . rest)
-      (if jazz:debug-core?
-          `(- ,@rest)
-        `(jazz:unsafe (##- ,@rest))))
-    
-    (jazz:define-macro (%%* x y)
-      (if jazz:debug-core?
-          `(* ,x ,y)
-        `(jazz:unsafe (##* ,x ,y))))
-    
-    (jazz:define-macro (%%/ x y)
-      (if jazz:debug-core?
-          `(/ ,x ,y)
-        `(jazz:unsafe (##/ ,x ,y))))
-  
-    (jazz:define-macro (%%number->string n)
-      (if jazz:debug-core?
-          `(number->string ,n)
-        `(jazz:unsafe (##number->string ,n))))
-   
-    (jazz:define-macro (%%string->number str)
-      (if jazz:debug-core?
-          `(string->number ,str)
-        `(jazz:unsafe (##string->number ,str)))))
+(jazz:define-macro (%%number? obj)
+  (if jazz:debug-core?
+      `(number? ,obj)
+    `(jazz:unsafe (##number? ,obj))))
 
-  (else))
+(jazz:define-macro (%%integer? obj)
+  (if jazz:debug-core?
+      `(integer? ,obj)
+    `(jazz:unsafe (##integer? ,obj))))
+
+(jazz:define-macro (%%real? obj)
+  (if jazz:debug-core?
+      `(real? ,obj)
+    `(jazz:unsafe (##real? ,obj))))
+
+(jazz:define-macro (%%= x y)
+  (if jazz:debug-core?
+      `(= ,x ,y)
+    `(jazz:unsafe (##= ,x ,y))))
+
+(jazz:define-macro (%%+ x y)
+  (if jazz:debug-core?
+      `(+ ,x ,y)
+    `(jazz:unsafe (##+ ,x ,y))))
+
+(jazz:define-macro (%%- . rest)
+  (if jazz:debug-core?
+      `(- ,@rest)
+    `(jazz:unsafe (##- ,@rest))))
+
+(jazz:define-macro (%%* x y)
+  (if jazz:debug-core?
+      `(* ,x ,y)
+    `(jazz:unsafe (##* ,x ,y))))
+
+(jazz:define-macro (%%/ x y)
+  (if jazz:debug-core?
+      `(/ ,x ,y)
+    `(jazz:unsafe (##/ ,x ,y))))
+
+(jazz:define-macro (%%number->string n)
+  (if jazz:debug-core?
+      `(number->string ,n)
+    `(jazz:unsafe (##number->string ,n))))
+
+(jazz:define-macro (%%string->number str)
+  (if jazz:debug-core?
+      `(string->number ,str)
+    `(jazz:unsafe (##string->number ,str))))
 
 
 ;;;
@@ -978,12 +901,9 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%make-parameter . rest)
-      `(%%tracking
-         (make-parameter ,@rest))))
-  (else))
+(jazz:define-macro (%%make-parameter . rest)
+  `(%%tracking
+     (make-parameter ,@rest)))
 
 
 ;;;
@@ -991,47 +911,43 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%port? obj)
-      (if jazz:debug-core?
-          `(port? ,obj)
-        `(jazz:unsafe (##port? ,obj))))
-    
-    (jazz:define-macro (%%eof-object? obj)
-      (if jazz:debug-core?
-          `(eof-object? ,obj)
-        `(jazz:unsafe (##eof-object? ,obj))))
-    
-    (jazz:define-macro (%%input-port-names-set! port names)
-      (%%force-uniqueness (port names)
-        `(%%check-port ,port 1 (%%input-port-names-set! ,port ,names)
-           ;; hack to set the names of the port until there is a setter
-           (jazz:unsafe (##vector-set! ,port 4 ,names)))))
-    
-    (jazz:define-macro (%%input-port-line-set! port line)
-      (%%force-uniqueness (port line)
-        `(%%check-port ,port 1 (%%input-port-line-set! ,port ,line)
-          (jazz:unsafe (##input-port-line-set! ,port ,line)))))
-    
-    (jazz:define-macro (%%input-port-column-set! port col)
-      (%%force-uniqueness (port col)
-        `(%%check-port ,port 1 (%%input-port-column-set! ,port ,col)
-           (jazz:unsafe (##input-port-column-set! ,port ,col)))))
-    
-    (jazz:define-macro (%%read-all-as-a-begin-expr-from-port port readtable wrap unwrap start-syntax close-port?)
-      (%%force-uniqueness (port readtable wrap unwrap start-syntax close-port?)
-        `(%%check-port ,port 1 (%%read-all-as-a-begin-expr-from-port ,port ,readtable ,wrap ,unwrap ,start-syntax ,close-port?)
-           (%%check-readtable ,readtable 2 (%%read-all-as-a-begin-expr-from-port ,port ,readtable ,wrap ,unwrap ,start-syntax ,close-port?)
-             (jazz:unsafe (##read-all-as-a-begin-expr-from-port ,port ,readtable ,wrap ,unwrap ,start-syntax ,close-port?))))))
-    
-    (jazz:define-macro (%%write-string str port)
-      (%%force-uniqueness (str port)
-        `(%%check-string ,str 1 (%%write-string ,str ,port)
-           (%%check-port ,port 2 (%%write-string ,str ,port)
-             (jazz:unsafe (##write-string ,str ,port)))))))
-  
-  (else))
+(jazz:define-macro (%%port? obj)
+  (if jazz:debug-core?
+      `(port? ,obj)
+    `(jazz:unsafe (##port? ,obj))))
+
+(jazz:define-macro (%%eof-object? obj)
+  (if jazz:debug-core?
+      `(eof-object? ,obj)
+    `(jazz:unsafe (##eof-object? ,obj))))
+
+(jazz:define-macro (%%input-port-names-set! port names)
+  (%%force-uniqueness (port names)
+    `(%%check-port ,port 1 (%%input-port-names-set! ,port ,names)
+       ;; hack to set the names of the port until there is a setter
+       (jazz:unsafe (##vector-set! ,port 4 ,names)))))
+
+(jazz:define-macro (%%input-port-line-set! port line)
+  (%%force-uniqueness (port line)
+    `(%%check-port ,port 1 (%%input-port-line-set! ,port ,line)
+       (jazz:unsafe (##input-port-line-set! ,port ,line)))))
+
+(jazz:define-macro (%%input-port-column-set! port col)
+  (%%force-uniqueness (port col)
+    `(%%check-port ,port 1 (%%input-port-column-set! ,port ,col)
+       (jazz:unsafe (##input-port-column-set! ,port ,col)))))
+
+(jazz:define-macro (%%read-all-as-a-begin-expr-from-port port readtable wrap unwrap start-syntax close-port?)
+  (%%force-uniqueness (port readtable wrap unwrap start-syntax close-port?)
+    `(%%check-port ,port 1 (%%read-all-as-a-begin-expr-from-port ,port ,readtable ,wrap ,unwrap ,start-syntax ,close-port?)
+       (%%check-readtable ,readtable 2 (%%read-all-as-a-begin-expr-from-port ,port ,readtable ,wrap ,unwrap ,start-syntax ,close-port?)
+         (jazz:unsafe (##read-all-as-a-begin-expr-from-port ,port ,readtable ,wrap ,unwrap ,start-syntax ,close-port?))))))
+
+(jazz:define-macro (%%write-string str port)
+  (%%force-uniqueness (str port)
+    `(%%check-string ,str 1 (%%write-string ,str ,port)
+       (%%check-port ,port 2 (%%write-string ,str ,port)
+         (jazz:unsafe (##write-string ,str ,port))))))
 
 
 ;;;
@@ -1039,19 +955,15 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%procedure-name procedure)
-      (%%force-uniqueness (procedure)
-        `(%%check-procedure ,procedure 1 (%%procedure-name ,procedure)
-           (jazz:unsafe (##procedure-name ,procedure)))))
-    
-    (jazz:define-macro (%%procedure-locat procedure)
-      (%%force-uniqueness (procedure)
-        `(%%check-procedure ,procedure 1 (%%procedure-locat ,procedure)
-           (jazz:unsafe (##procedure-locat ,procedure))))))
-  
-  (else))
+(jazz:define-macro (%%procedure-name procedure)
+  (%%force-uniqueness (procedure)
+    `(%%check-procedure ,procedure 1 (%%procedure-name ,procedure)
+       (jazz:unsafe (##procedure-name ,procedure)))))
+
+(jazz:define-macro (%%procedure-locat procedure)
+  (%%force-uniqueness (procedure)
+    `(%%check-procedure ,procedure 1 (%%procedure-locat ,procedure)
+       (jazz:unsafe (##procedure-locat ,procedure)))))
 
 
 ;;;
@@ -1059,14 +971,10 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%rational? obj)
-      (if jazz:debug-core?
-          `(rational? ,obj)
-        `(jazz:unsafe (##rational? ,obj)))))
-
-  (else))
+(jazz:define-macro (%%rational? obj)
+  (if jazz:debug-core?
+      `(rational? ,obj)
+    `(jazz:unsafe (##rational? ,obj))))
 
 
 ;;;
@@ -1074,27 +982,23 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%readenv? obj)
-      `(macro-readenv? ,obj))
-    
-    (jazz:define-macro (%%readenv-current-filepos readenv)
-      (%%force-uniqueness (readenv)
-        `(%%check-readenv ,readenv 1 (%%readenv-current-filepos ,readenv)
-           (jazz:unsafe (##readenv-current-filepos ,readenv)))))
-    
-    (jazz:define-macro (%%build-list readenv allow-improper? start-pos close)
-      (%%force-uniqueness (readenv allow-improper? start-pos close)
-        `(%%check-readenv ,readenv 1 (%%build-list ,readenv ,allow-improper? ,start-pos ,close)
-           (jazz:unsafe (##build-list ,readenv ,allow-improper? ,start-pos ,close)))))
-    
-    (jazz:define-macro (%%read-datum-or-label-or-none-or-dot readenv)
-      (%%force-uniqueness (readenv)
-        `(%%check-readenv ,readenv 1 (%%read-datum-or-label-or-none-or-dot ,readenv)
-           (jazz:unsafe (##read-datum-or-label-or-none-or-dot ,readenv))))))
+(jazz:define-macro (%%readenv? obj)
+  `(macro-readenv? ,obj))
 
-  (else))
+(jazz:define-macro (%%readenv-current-filepos readenv)
+  (%%force-uniqueness (readenv)
+    `(%%check-readenv ,readenv 1 (%%readenv-current-filepos ,readenv)
+       (jazz:unsafe (##readenv-current-filepos ,readenv)))))
+
+(jazz:define-macro (%%build-list readenv allow-improper? start-pos close)
+  (%%force-uniqueness (readenv allow-improper? start-pos close)
+    `(%%check-readenv ,readenv 1 (%%build-list ,readenv ,allow-improper? ,start-pos ,close)
+       (jazz:unsafe (##build-list ,readenv ,allow-improper? ,start-pos ,close)))))
+
+(jazz:define-macro (%%read-datum-or-label-or-none-or-dot readenv)
+  (%%force-uniqueness (readenv)
+    `(%%check-readenv ,readenv 1 (%%read-datum-or-label-or-none-or-dot ,readenv)
+       (jazz:unsafe (##read-datum-or-label-or-none-or-dot ,readenv)))))
 
 
 ;;;
@@ -1102,72 +1006,68 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%readtable? obj)
-      (if jazz:debug-core?
-          `(readtable? ,obj)
-        `(jazz:unsafe (##readtable? ,obj))))
-    
-    (jazz:define-macro (%%current-readtable)
-      `(jazz:unsafe (##current-readtable)))
-    
-    (jazz:define-macro (%%make-standard-readtable)
-      `(jazz:unsafe (##make-standard-readtable)))
-    
-    (jazz:define-macro (%%readtable-copy readtable)
-      (%%force-uniqueness (readtable)
-        `(%%check-readtable ,readtable 1 (%%readtable-copy ,readtable)
-           (jazz:unsafe (##readtable-copy ,readtable)))))
-    
-    (jazz:define-macro (%%readtable-char-delimiter? readtable c)
-      (%%force-uniqueness (readtable c)
-        `(%%check-readtable ,readtable 1 (%%readtable-char-delimiter? ,readtable ,c)
-           (jazz:unsafe (##readtable-char-delimiter? ,readtable ,c)))))
-    
-    (jazz:define-macro (%%readtable-char-delimiter?-set! readtable c delimiter?)
-      (%%force-uniqueness (readtable c delimiter?)
-        `(%%check-readtable ,readtable 1 (%%readtable-char-delimiter?-set! ,readtable ,c ,delimiter?)
-           (jazz:unsafe (##readtable-char-delimiter?-set! ,readtable ,c ,delimiter?)))))
-    
-    (jazz:define-macro (%%readtable-char-handler readtable c)
-      (%%force-uniqueness (readtable c)
-        `(%%check-readtable ,readtable 1 (%%readtable-char-handler ,readtable ,c)
-           (jazz:unsafe (##readtable-char-handler ,readtable ,c)))))
-    
-    (jazz:define-macro (%%readtable-char-handler-set! readtable c handler)
-      (%%force-uniqueness (readtable c handler)
-        `(%%check-readtable ,readtable 1 (%%readtable-char-handler-set! ,readtable ,c ,handler)
-           (jazz:unsafe (##readtable-char-handler-set! ,readtable ,c ,handler)))))
-    
-    (jazz:define-macro (%%readtable-char-sharp-handler readtable c)
-      (%%force-uniqueness (readtable c)
-        `(%%check-readtable ,readtable 1 (%%readtable-char-sharp-handler ,readtable ,c)
-           (jazz:unsafe (##readtable-char-sharp-handler ,readtable ,c)))))
-    
-    (jazz:define-macro (%%readtable-char-sharp-handler-set! readtable c handler)
-      (%%force-uniqueness (readtable c handler)
-        `(%%check-readtable ,readtable 1 (%%readtable-char-sharp-handler-set! ,readtable ,c ,handler)
-           (jazz:unsafe (##readtable-char-sharp-handler-set! ,readtable ,c ,handler)))))
-    
-    (jazz:define-macro (%%readtable-char-class-set! readtable c delimiter? handler)
-      (%%force-uniqueness (readtable c delimiter? handler)
-        `(%%check-readtable ,readtable 1 (%%readtable-char-class-set! ,readtable ,c ,delimiter? ,handler)
-           (jazz:unsafe (##readtable-char-class-set! ,readtable ,c ,delimiter? ,handler)))))
-    
-    ;; FIXME : Temporary until proper primitive exists
-    (jazz:define-macro (%%readtable-escaped-char-table readtable)
-      (%%force-uniqueness (readtable)
-        `(%%check-readtable ,readtable 1 (%%readtable-escaped-char-table ,readtable)
-           (jazz:unsafe (##vector-ref ,readtable 3)))))
-    
-    ;; FIXME : Temporary until proper primitive exists
-    (jazz:define-macro (%%readtable-escaped-char-table-set! readtable table)
-      (%%force-uniqueness (readtable table)
-        `(%%check-readtable ,readtable 1 (%%readtable-escaped-char-table-set! ,readtable ,table)
-           (jazz:unsafe (##vector-set! ,readtable 3 ,table))))))
+(jazz:define-macro (%%readtable? obj)
+  (if jazz:debug-core?
+      `(readtable? ,obj)
+    `(jazz:unsafe (##readtable? ,obj))))
 
-  (else))
+(jazz:define-macro (%%current-readtable)
+  `(jazz:unsafe (##current-readtable)))
+
+(jazz:define-macro (%%make-standard-readtable)
+  `(jazz:unsafe (##make-standard-readtable)))
+
+(jazz:define-macro (%%readtable-copy readtable)
+  (%%force-uniqueness (readtable)
+    `(%%check-readtable ,readtable 1 (%%readtable-copy ,readtable)
+       (jazz:unsafe (##readtable-copy ,readtable)))))
+
+(jazz:define-macro (%%readtable-char-delimiter? readtable c)
+  (%%force-uniqueness (readtable c)
+    `(%%check-readtable ,readtable 1 (%%readtable-char-delimiter? ,readtable ,c)
+       (jazz:unsafe (##readtable-char-delimiter? ,readtable ,c)))))
+
+(jazz:define-macro (%%readtable-char-delimiter?-set! readtable c delimiter?)
+  (%%force-uniqueness (readtable c delimiter?)
+    `(%%check-readtable ,readtable 1 (%%readtable-char-delimiter?-set! ,readtable ,c ,delimiter?)
+       (jazz:unsafe (##readtable-char-delimiter?-set! ,readtable ,c ,delimiter?)))))
+
+(jazz:define-macro (%%readtable-char-handler readtable c)
+  (%%force-uniqueness (readtable c)
+    `(%%check-readtable ,readtable 1 (%%readtable-char-handler ,readtable ,c)
+       (jazz:unsafe (##readtable-char-handler ,readtable ,c)))))
+
+(jazz:define-macro (%%readtable-char-handler-set! readtable c handler)
+  (%%force-uniqueness (readtable c handler)
+    `(%%check-readtable ,readtable 1 (%%readtable-char-handler-set! ,readtable ,c ,handler)
+       (jazz:unsafe (##readtable-char-handler-set! ,readtable ,c ,handler)))))
+
+(jazz:define-macro (%%readtable-char-sharp-handler readtable c)
+  (%%force-uniqueness (readtable c)
+    `(%%check-readtable ,readtable 1 (%%readtable-char-sharp-handler ,readtable ,c)
+       (jazz:unsafe (##readtable-char-sharp-handler ,readtable ,c)))))
+
+(jazz:define-macro (%%readtable-char-sharp-handler-set! readtable c handler)
+  (%%force-uniqueness (readtable c handler)
+    `(%%check-readtable ,readtable 1 (%%readtable-char-sharp-handler-set! ,readtable ,c ,handler)
+       (jazz:unsafe (##readtable-char-sharp-handler-set! ,readtable ,c ,handler)))))
+
+(jazz:define-macro (%%readtable-char-class-set! readtable c delimiter? handler)
+  (%%force-uniqueness (readtable c delimiter? handler)
+    `(%%check-readtable ,readtable 1 (%%readtable-char-class-set! ,readtable ,c ,delimiter? ,handler)
+       (jazz:unsafe (##readtable-char-class-set! ,readtable ,c ,delimiter? ,handler)))))
+
+;; FIXME : Temporary until proper primitive exists
+(jazz:define-macro (%%readtable-escaped-char-table readtable)
+  (%%force-uniqueness (readtable)
+    `(%%check-readtable ,readtable 1 (%%readtable-escaped-char-table ,readtable)
+       (jazz:unsafe (##vector-ref ,readtable 3)))))
+
+;; FIXME : Temporary until proper primitive exists
+(jazz:define-macro (%%readtable-escaped-char-table-set! readtable table)
+  (%%force-uniqueness (readtable table)
+    `(%%check-readtable ,readtable 1 (%%readtable-escaped-char-table-set! ,readtable ,table)
+       (jazz:unsafe (##vector-set! ,readtable 3 ,table)))))
 
 
 ;;;
@@ -1175,24 +1075,20 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%repl #!optional (write-reason #f))
-      `(jazz:unsafe (##repl ,write-reason)))
-    
-    (jazz:define-macro (%%repl-debug #!optional (write-reason #f) (toplevel? #f))
-      `(jazz:unsafe (##repl-debug ,write-reason ,toplevel?)))
-    
-    (jazz:define-macro (%%thread-repl-context-get!)
-      `(jazz:unsafe (##thread-repl-context-get!)))
-    
-    (jazz:define-macro (%%thread-repl-channel-get! thread)
-      `(jazz:unsafe (##thread-repl-channel-get! ,thread)))
-    
-    (jazz:define-macro (%%repl-channel-result-history-add channel result)
-      `(jazz:unsafe (##repl-channel-result-history-add ,channel ,result))))
-  
-  (else))
+(jazz:define-macro (%%repl #!optional (write-reason #f))
+  `(jazz:unsafe (##repl ,write-reason)))
+
+(jazz:define-macro (%%repl-debug #!optional (write-reason #f) (toplevel? #f))
+  `(jazz:unsafe (##repl-debug ,write-reason ,toplevel?)))
+
+(jazz:define-macro (%%thread-repl-context-get!)
+  `(jazz:unsafe (##thread-repl-context-get!)))
+
+(jazz:define-macro (%%thread-repl-channel-get! thread)
+  `(jazz:unsafe (##thread-repl-channel-get! ,thread)))
+
+(jazz:define-macro (%%repl-channel-result-history-add channel result)
+  `(jazz:unsafe (##repl-channel-result-history-add ,channel ,result)))
 
 
 ;;;
@@ -1200,63 +1096,59 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%string? obj)
-      (if jazz:debug-core?
-          `(string? ,obj)
-        `(jazz:unsafe (##string? ,obj))))
-    
-    (jazz:define-macro (%%make-string size . rest)
-      `(%%tracking
-         (make-string ,size ,@rest)))
-    
-    (jazz:define-macro (%%string=? str1 str2)
-      (if jazz:debug-core?
-          `(string=? ,str1 ,str2)
-        `(jazz:unsafe (##string=? ,str1 ,str2))))
-    
-    (jazz:define-macro (%%string-ci=? str1 str2)
-      (if jazz:debug-core?
-          `(string-ci=? ,str1 ,str2)
-        `(jazz:unsafe (##string-ci=? ,str1 ,str2))))
-    
-    (jazz:define-macro (%%string<? str1 str2)
-      (if jazz:debug-core?
-          `(string<? ,str1 ,str2)
-        `(jazz:unsafe (##string<? ,str1 ,str2))))
-   
-    (jazz:define-macro (%%string-length str)
-      (if jazz:debug-core?
-          `(string-length ,str)
-        `(jazz:unsafe (##string-length ,str))))
-   
-   (jazz:define-macro (%%string-ref str pos)
-     (if jazz:debug-core?
-         `(string-ref ,str ,pos)
-       `(jazz:unsafe (##string-ref ,str ,pos))))
-   
-   (jazz:define-macro (%%string-set! str pos val)
-     (if jazz:debug-core?
-         `(string-set! ,str ,pos ,val)
-       `(jazz:unsafe (##string-set! ,str ,pos ,val))))
-   
-   (jazz:define-macro (%%substring str start end)
-     (if jazz:debug-core?
-         `(substring ,str ,start ,end)
-       `(jazz:unsafe (##substring ,str ,start ,end))))
-   
-   (jazz:define-macro (%%string-append . rest)
-     (if jazz:debug-core?
-         `(string-append ,@rest)
-       `(jazz:unsafe (##string-append ,@rest))))
-   
-   (jazz:define-macro (%%string-shrink! str len)
-     (%%force-uniqueness (str len)
-       `(%%check-string ,str 1 (%%string-shrink! ,str ,len)
-          (jazz:unsafe (##string-shrink! ,str ,len))))))
+(jazz:define-macro (%%string? obj)
+  (if jazz:debug-core?
+      `(string? ,obj)
+    `(jazz:unsafe (##string? ,obj))))
 
-  (else))
+(jazz:define-macro (%%make-string size . rest)
+  `(%%tracking
+     (make-string ,size ,@rest)))
+
+(jazz:define-macro (%%string=? str1 str2)
+  (if jazz:debug-core?
+      `(string=? ,str1 ,str2)
+    `(jazz:unsafe (##string=? ,str1 ,str2))))
+
+(jazz:define-macro (%%string-ci=? str1 str2)
+  (if jazz:debug-core?
+      `(string-ci=? ,str1 ,str2)
+    `(jazz:unsafe (##string-ci=? ,str1 ,str2))))
+
+(jazz:define-macro (%%string<? str1 str2)
+  (if jazz:debug-core?
+      `(string<? ,str1 ,str2)
+    `(jazz:unsafe (##string<? ,str1 ,str2))))
+
+(jazz:define-macro (%%string-length str)
+  (if jazz:debug-core?
+      `(string-length ,str)
+    `(jazz:unsafe (##string-length ,str))))
+
+(jazz:define-macro (%%string-ref str pos)
+  (if jazz:debug-core?
+      `(string-ref ,str ,pos)
+    `(jazz:unsafe (##string-ref ,str ,pos))))
+
+(jazz:define-macro (%%string-set! str pos val)
+  (if jazz:debug-core?
+      `(string-set! ,str ,pos ,val)
+    `(jazz:unsafe (##string-set! ,str ,pos ,val))))
+
+(jazz:define-macro (%%substring str start end)
+  (if jazz:debug-core?
+      `(substring ,str ,start ,end)
+    `(jazz:unsafe (##substring ,str ,start ,end))))
+
+(jazz:define-macro (%%string-append . rest)
+  (if jazz:debug-core?
+      `(string-append ,@rest)
+    `(jazz:unsafe (##string-append ,@rest))))
+
+(jazz:define-macro (%%string-shrink! str len)
+  (%%force-uniqueness (str len)
+    `(%%check-string ,str 1 (%%string-shrink! ,str ,len)
+       (jazz:unsafe (##string-shrink! ,str ,len)))))
 
 
 ;;;
@@ -1264,15 +1156,11 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%structure? obj)
-      `(jazz:unsafe (##structure? ,obj)))
-    
-    (jazz:define-macro (%%structure-type structure)
-      `(jazz:unsafe (##structure-type ,structure))))
-  
-  (else))
+(jazz:define-macro (%%structure? obj)
+  `(jazz:unsafe (##structure? ,obj)))
+
+(jazz:define-macro (%%structure-type structure)
+  `(jazz:unsafe (##structure-type ,structure)))
 
 
 ;;;
@@ -1280,47 +1168,43 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%symbol? obj)
-      (if jazz:debug-core?
-          `(symbol? ,obj)
-        `(jazz:unsafe (##symbol? ,obj))))
-   
-    (jazz:define-macro (%%string->symbol str)
-      (if jazz:debug-core?
-          `(string->symbol ,str)
-        `(jazz:unsafe (##string->symbol ,str))))
-   
-   (jazz:define-macro (%%symbol->string symbol)
-     (if jazz:debug-core?
-         `(symbol->string ,symbol)
-       `(jazz:unsafe (##symbol->string ,symbol))))
-   
-   (jazz:define-macro (%%unbound? obj)
-     `(jazz:unsafe (##unbound? ,obj)))
-   
-   (jazz:define-macro (%%global-var? symbol)
-     (%%force-uniqueness (symbol)
-       `(%%check-symbol ,symbol 1 (%%global-var? ,symbol)
-          (jazz:unsafe (##global-var? ,symbol)))))
-   
-   (jazz:define-macro (%%global-var-ref symbol)
-     (%%force-uniqueness (symbol)
-       `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol)
-          (jazz:unsafe (##global-var-ref ,symbol)))))
-   
-   (jazz:define-macro (%%global-var-set! symbol value)
-     (%%force-uniqueness (symbol)
-       `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol ,value)
-          (jazz:unsafe (##global-var-set! ,symbol ,value)))))
-   
-   (jazz:define-macro (%%global-var-unbind! symbol)
-     (%%force-uniqueness (symbol)
-       `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol)
-          (jazz:unsafe (##global-var-set! ,symbol #!unbound))))))
+(jazz:define-macro (%%symbol? obj)
+  (if jazz:debug-core?
+      `(symbol? ,obj)
+    `(jazz:unsafe (##symbol? ,obj))))
 
-  (else))
+(jazz:define-macro (%%string->symbol str)
+  (if jazz:debug-core?
+      `(string->symbol ,str)
+    `(jazz:unsafe (##string->symbol ,str))))
+
+(jazz:define-macro (%%symbol->string symbol)
+  (if jazz:debug-core?
+      `(symbol->string ,symbol)
+    `(jazz:unsafe (##symbol->string ,symbol))))
+
+(jazz:define-macro (%%unbound? obj)
+  `(jazz:unsafe (##unbound? ,obj)))
+
+(jazz:define-macro (%%global-var? symbol)
+  (%%force-uniqueness (symbol)
+    `(%%check-symbol ,symbol 1 (%%global-var? ,symbol)
+       (jazz:unsafe (##global-var? ,symbol)))))
+
+(jazz:define-macro (%%global-var-ref symbol)
+  (%%force-uniqueness (symbol)
+    `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol)
+       (jazz:unsafe (##global-var-ref ,symbol)))))
+
+(jazz:define-macro (%%global-var-set! symbol value)
+  (%%force-uniqueness (symbol)
+    `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol ,value)
+       (jazz:unsafe (##global-var-set! ,symbol ,value)))))
+
+(jazz:define-macro (%%global-var-unbind! symbol)
+  (%%force-uniqueness (symbol)
+    `(%%check-symbol ,symbol 1 (%%global-var-ref ,symbol)
+       (jazz:unsafe (##global-var-set! ,symbol #!unbound)))))
 
 
 ;;;
@@ -1328,65 +1212,63 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%source? expr)
-      `(jazz:unsafe (##source? ,expr)))
-    
-    (jazz:define-macro (%%source-code src)
-      (%%force-uniqueness (src)
-        `(%%check-source ,src 1 (%%source-code ,src)
-           (jazz:unsafe (##source-code ,src)))))
-    
-    (jazz:define-macro (%%source-locat src)
-      (%%force-uniqueness (src)
-        `(%%check-source ,src 1 (%%source-locat ,src)
-           (jazz:unsafe (##source-locat ,src)))))
-    
-    (jazz:define-macro (%%desourcify expr)
-      `(jazz:unsafe (##desourcify ,expr)))
-    
-    (jazz:define-macro (%%make-source code locat)
-      `(jazz:unsafe (##make-source ,code ,locat)))
-    
-    (jazz:define-macro (%%sourcify expr src)
-      (%%force-uniqueness (expr src)
-        `(%%check-source ,src 2 (%%sourcify ,expr ,src)
-           (jazz:unsafe (##sourcify ,expr ,src)))))
-    
-    (jazz:define-macro (%%sourcify-deep expr src)
-      (%%force-uniqueness (expr src)
-        `(%%check-source ,src 2 (%%sourcify-deep ,expr ,src)
-           (jazz:unsafe (##sourcify-deep ,expr ,src)))))
-    
-    (jazz:define-macro (%%locat? expr)
-      `(jazz:unsafe (##locat? ,expr)))
-    
-    (jazz:define-macro (%%locat-container locat)
-      (%%force-uniqueness (locat)
-        `(%%check-locat ,locat 1 (%%locat-container ,locat)
-           (jazz:unsafe (##locat-container ,locat)))))
-    
-    (jazz:define-macro (%%locat-position locat)
-      (%%force-uniqueness (locat)
-        `(%%check-locat ,locat 1 (%%locat-position ,locat)
-           (jazz:unsafe (##locat-position ,locat)))))
-    
-    (jazz:define-macro (%%container->path container)
-      `(jazz:unsafe (##container->path ,container)))
-    
-    (jazz:define-macro (%%position->filepos position)
-      `(jazz:unsafe (##position->filepos ,position)))
-    
-    (jazz:define-macro (%%filepos-line filepos)
-      (%%force-uniqueness (filepos)
-        `(%%check-fixnum ,filepos 1 (%%filepos-line ,filepos)
-           (jazz:unsafe (##filepos-line ,filepos)))))
-    
-    (jazz:define-macro (%%filepos-col filepos)
-      (%%force-uniqueness (filepos)
-        `(%%check-fixnum ,filepos 1 (%%filepos-col ,filepos)
-           (jazz:unsafe (##filepos-col ,filepos)))))))
+(jazz:define-macro (%%source? expr)
+  `(jazz:unsafe (##source? ,expr)))
+
+(jazz:define-macro (%%source-code src)
+  (%%force-uniqueness (src)
+    `(%%check-source ,src 1 (%%source-code ,src)
+       (jazz:unsafe (##source-code ,src)))))
+
+(jazz:define-macro (%%source-locat src)
+  (%%force-uniqueness (src)
+    `(%%check-source ,src 1 (%%source-locat ,src)
+       (jazz:unsafe (##source-locat ,src)))))
+
+(jazz:define-macro (%%desourcify expr)
+  `(jazz:unsafe (##desourcify ,expr)))
+
+(jazz:define-macro (%%make-source code locat)
+  `(jazz:unsafe (##make-source ,code ,locat)))
+
+(jazz:define-macro (%%sourcify expr src)
+  (%%force-uniqueness (expr src)
+    `(%%check-source ,src 2 (%%sourcify ,expr ,src)
+       (jazz:unsafe (##sourcify ,expr ,src)))))
+
+(jazz:define-macro (%%sourcify-deep expr src)
+  (%%force-uniqueness (expr src)
+    `(%%check-source ,src 2 (%%sourcify-deep ,expr ,src)
+       (jazz:unsafe (##sourcify-deep ,expr ,src)))))
+
+(jazz:define-macro (%%locat? expr)
+  `(jazz:unsafe (##locat? ,expr)))
+
+(jazz:define-macro (%%locat-container locat)
+  (%%force-uniqueness (locat)
+    `(%%check-locat ,locat 1 (%%locat-container ,locat)
+       (jazz:unsafe (##locat-container ,locat)))))
+
+(jazz:define-macro (%%locat-position locat)
+  (%%force-uniqueness (locat)
+    `(%%check-locat ,locat 1 (%%locat-position ,locat)
+       (jazz:unsafe (##locat-position ,locat)))))
+
+(jazz:define-macro (%%container->path container)
+  `(jazz:unsafe (##container->path ,container)))
+
+(jazz:define-macro (%%position->filepos position)
+  `(jazz:unsafe (##position->filepos ,position)))
+
+(jazz:define-macro (%%filepos-line filepos)
+  (%%force-uniqueness (filepos)
+    `(%%check-fixnum ,filepos 1 (%%filepos-line ,filepos)
+       (jazz:unsafe (##filepos-line ,filepos)))))
+
+(jazz:define-macro (%%filepos-col filepos)
+  (%%force-uniqueness (filepos)
+    `(%%check-fixnum ,filepos 1 (%%filepos-col ,filepos)
+       (jazz:unsafe (##filepos-col ,filepos)))))
 
 
 ;;;
@@ -1394,55 +1276,51 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%table? obj)
-      `(table? ,obj))
-    
-    (jazz:define-macro (%%make-table . rest)
-      `(%%tracking
-         (make-table ,@rest)))
-    
-    (jazz:define-macro (%%table-ref table key . rest)
-      (if jazz:debug-core?
-          `(table-ref ,table ,key ,@rest)
-        `(jazz:unsafe (##table-ref ,table ,key ,@rest))))
-    
-    (jazz:define-macro (%%table-set! table key value)
-      (if jazz:debug-core?
-          `(table-set! ,table ,key ,value)
-        `(jazz:unsafe (##table-set! ,table ,key ,value))))
-    
-    (jazz:define-macro (%%table-clear table key)
-      `(table-set! ,table ,key))
-    
-    (jazz:define-macro (%%table-keys table)
-      `(map car (table->list ,table)))
-    
-    (jazz:define-macro (%%table-length table)
-      `(table-length ,table))
-    
-    (jazz:define-macro (%%table-for-each proc table)
-      `(table-for-each ,proc ,table))
-    
-    (jazz:define-macro (%%table-merge! table additions #!optional (additions-takes-precedence? #f))
-      (if jazz:debug-core?
-          `(table-merge! ,table ,additions ,additions-takes-precedence?)
-        `(jazz:unsafe (##table-merge! ,table ,additions ,additions-takes-precedence?))))
-    
-    (jazz:define-macro (%%list->table alist . rest)
-      `(list->table ,alist ,@rest))
-    
-    (jazz:define-macro (%%table->list table)
-      `(table->list ,table))
-    
-    (jazz:define-macro (%%table-entries table)
-      `(map cdr (table->list ,table)))
-    
-    (jazz:define-macro (%%copy-table table)
-      `(table-copy ,table)))
-  
-  (else))
+(jazz:define-macro (%%table? obj)
+  `(table? ,obj))
+
+(jazz:define-macro (%%make-table . rest)
+  `(%%tracking
+     (make-table ,@rest)))
+
+(jazz:define-macro (%%table-ref table key . rest)
+  (if jazz:debug-core?
+      `(table-ref ,table ,key ,@rest)
+    `(jazz:unsafe (##table-ref ,table ,key ,@rest))))
+
+(jazz:define-macro (%%table-set! table key value)
+  (if jazz:debug-core?
+      `(table-set! ,table ,key ,value)
+    `(jazz:unsafe (##table-set! ,table ,key ,value))))
+
+(jazz:define-macro (%%table-clear table key)
+  `(table-set! ,table ,key))
+
+(jazz:define-macro (%%table-keys table)
+  `(map car (table->list ,table)))
+
+(jazz:define-macro (%%table-length table)
+  `(table-length ,table))
+
+(jazz:define-macro (%%table-for-each proc table)
+  `(table-for-each ,proc ,table))
+
+(jazz:define-macro (%%table-merge! table additions #!optional (additions-takes-precedence? #f))
+  (if jazz:debug-core?
+      `(table-merge! ,table ,additions ,additions-takes-precedence?)
+    `(jazz:unsafe (##table-merge! ,table ,additions ,additions-takes-precedence?))))
+
+(jazz:define-macro (%%list->table alist . rest)
+  `(list->table ,alist ,@rest))
+
+(jazz:define-macro (%%table->list table)
+  `(table->list ,table))
+
+(jazz:define-macro (%%table-entries table)
+  `(map cdr (table->list ,table)))
+
+(jazz:define-macro (%%copy-table table)
+  `(table-copy ,table))
 
 
 ;;;
@@ -1450,27 +1328,23 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%thread? obj)
-      `(thread? ,obj))
-    
-    (jazz:define-macro (%%make-thread . rest)
-      `(%%tracking
-         (make-thread ,@rest)))
-    
-    (jazz:define-macro (%%current-thread)
-      `(jazz:unsafe (##current-thread)))
-    
-    (jazz:define-macro (%%make-mutex . rest)
-      `(%%tracking
-         (make-mutex ,@rest)))
-    
-    (jazz:define-macro (%%make-condition . rest)
-      `(%%tracking
-         (make-condition-variable ,@rest))))
-  
-  (else))
+(jazz:define-macro (%%thread? obj)
+  `(thread? ,obj))
+
+(jazz:define-macro (%%make-thread . rest)
+  `(%%tracking
+     (make-thread ,@rest)))
+
+(jazz:define-macro (%%current-thread)
+  `(jazz:unsafe (##current-thread)))
+
+(jazz:define-macro (%%make-mutex . rest)
+  `(%%tracking
+     (make-mutex ,@rest)))
+
+(jazz:define-macro (%%make-condition . rest)
+  `(%%tracking
+     (make-condition-variable ,@rest)))
 
 
 ;;;
@@ -1478,14 +1352,8 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (define jazz:Unspecified-Value
-      (void)))
-  
-  (else
-    (define jazz:Unspecified-Value
-      (%%list 'jazz:unspecified))))
+(define jazz:Unspecified-Value
+  (void))
 
 
 (jazz:define-macro (%%unspecified)
@@ -1505,11 +1373,8 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%values? obj)
-      `(jazz:unsafe (##values? ,obj))))
-  (else))
+(jazz:define-macro (%%values? obj)
+  `(jazz:unsafe (##values? ,obj)))
 
 
 ;;;
@@ -1517,111 +1382,90 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%vector? obj)
-      (if jazz:debug-core?
-          `(vector? ,obj)
-        `(jazz:unsafe (##vector? ,obj))))
-   
-   (jazz:define-macro (%%vector . rest)
-     (if jazz:debug-core?
-         `(vector ,@rest)
-       `(jazz:unsafe (##vector ,@rest))))
-   
-   (jazz:define-macro (%%vector-length vector)
-     (if jazz:debug-core?
-         `(vector-length ,vector)
-       `(jazz:unsafe (##vector-length ,vector))))
-   
-   (jazz:define-macro (%%vector-ref vector n)
-     (if jazz:debug-core?
-         `(vector-ref ,vector ,n)
-       `(jazz:unsafe (##vector-ref ,vector ,n))))
-   
-   (jazz:define-macro (%%vector-set! vector n value)
-     (if jazz:debug-core?
-         `(vector-set! ,vector ,n ,value)
-       `(jazz:unsafe (##vector-set! ,vector ,n ,value))))
-   
-   (jazz:define-macro (%%vector-copy vector . rest)
-     (if jazz:debug-core?
-         `(vector-copy ,vector ,@rest)
-       `(jazz:unsafe (##vector-copy ,vector ,@rest))))
-   
-   (jazz:define-macro (%%vector->list vector)
-     (if jazz:debug-core?
-         `(vector->list ,vector)
-       `(jazz:unsafe (##vector->list ,vector))))
-   
-   (jazz:define-macro (%%s8vector? obj)
-     (if jazz:debug-core?
-         `(s8vector? ,obj)
-       `(jazz:unsafe (##s8vector? ,obj))))
-   
-   (jazz:define-macro (%%u8vector? obj)
-     (if jazz:debug-core?
-         `(u8vector? ,obj)
-       `(jazz:unsafe (##u8vector? ,obj))))
-   
-   (jazz:define-macro (%%s16vector? obj)
-     (if jazz:debug-core?
-         `(s16vector? ,obj)
-       `(jazz:unsafe (##s16vector? ,obj))))
-   
-   (jazz:define-macro (%%u16vector? obj)
-     (if jazz:debug-core?
-         `(u16vector? ,obj)
-       `(jazz:unsafe (##u16vector? ,obj))))
-   
-   (jazz:define-macro (%%s32vector? obj)
-     (if jazz:debug-core?
-         `(s32vector? ,obj)
-       `(jazz:unsafe (##s32vector? ,obj))))
-   
-   (jazz:define-macro (%%u32vector? obj)
-     (if jazz:debug-core?
-         `(u32vector? ,obj)
-       `(jazz:unsafe (##u32vector? ,obj))))
-   
-   (jazz:define-macro (%%s64vector? obj)
-     (if jazz:debug-core?
-         `(s64vector? ,obj)
-       `(jazz:unsafe (##s64vector? ,obj))))
-   
-   (jazz:define-macro (%%u64vector? obj)
-     (if jazz:debug-core?
-         `(u64vector? ,obj)
-       `(jazz:unsafe (##u64vector? ,obj))))
-   
-   (jazz:define-macro (%%f32vector? obj)
-     (if jazz:debug-core?
-         `(f32vector? ,obj)
-       `(jazz:unsafe (##f32vector? ,obj))))
-   
-   (jazz:define-macro (%%f64vector? obj)
-     (if jazz:debug-core?
-         `(f64vector? ,obj)
-       `(jazz:unsafe (##f64vector? ,obj)))))
+(jazz:define-macro (%%vector? obj)
+  (if jazz:debug-core?
+      `(vector? ,obj)
+    `(jazz:unsafe (##vector? ,obj))))
 
-  (else
-   (jazz:define-macro (%%vector? obj)
-     `(vector? ,obj))
-   
-   (jazz:define-macro (%%vector . rest)
-     `(vector ,@rest))
-   
-   (jazz:define-macro (%%vector-length vector)
-     `(vector-length ,vector))
-   
-   (jazz:define-macro (%%vector-ref vector n)
-     `(vector-ref ,vector ,n))
-   
-   (jazz:define-macro (%%vector-set! vector n value)
-     `(vector-set! ,vector ,n ,value))
-   
-   (jazz:define-macro (%%vector-copy vector . rest)
-     `(vector-copy ,vector ,@rest))))
+(jazz:define-macro (%%vector . rest)
+  (if jazz:debug-core?
+      `(vector ,@rest)
+    `(jazz:unsafe (##vector ,@rest))))
+
+(jazz:define-macro (%%vector-length vector)
+  (if jazz:debug-core?
+      `(vector-length ,vector)
+    `(jazz:unsafe (##vector-length ,vector))))
+
+(jazz:define-macro (%%vector-ref vector n)
+  (if jazz:debug-core?
+      `(vector-ref ,vector ,n)
+    `(jazz:unsafe (##vector-ref ,vector ,n))))
+
+(jazz:define-macro (%%vector-set! vector n value)
+  (if jazz:debug-core?
+      `(vector-set! ,vector ,n ,value)
+    `(jazz:unsafe (##vector-set! ,vector ,n ,value))))
+
+(jazz:define-macro (%%vector-copy vector . rest)
+  (if jazz:debug-core?
+      `(vector-copy ,vector ,@rest)
+    `(jazz:unsafe (##vector-copy ,vector ,@rest))))
+
+(jazz:define-macro (%%vector->list vector)
+  (if jazz:debug-core?
+      `(vector->list ,vector)
+    `(jazz:unsafe (##vector->list ,vector))))
+
+(jazz:define-macro (%%s8vector? obj)
+  (if jazz:debug-core?
+      `(s8vector? ,obj)
+    `(jazz:unsafe (##s8vector? ,obj))))
+
+(jazz:define-macro (%%u8vector? obj)
+  (if jazz:debug-core?
+      `(u8vector? ,obj)
+    `(jazz:unsafe (##u8vector? ,obj))))
+
+(jazz:define-macro (%%s16vector? obj)
+  (if jazz:debug-core?
+      `(s16vector? ,obj)
+    `(jazz:unsafe (##s16vector? ,obj))))
+
+(jazz:define-macro (%%u16vector? obj)
+  (if jazz:debug-core?
+      `(u16vector? ,obj)
+    `(jazz:unsafe (##u16vector? ,obj))))
+
+(jazz:define-macro (%%s32vector? obj)
+  (if jazz:debug-core?
+      `(s32vector? ,obj)
+    `(jazz:unsafe (##s32vector? ,obj))))
+
+(jazz:define-macro (%%u32vector? obj)
+  (if jazz:debug-core?
+      `(u32vector? ,obj)
+    `(jazz:unsafe (##u32vector? ,obj))))
+
+(jazz:define-macro (%%s64vector? obj)
+  (if jazz:debug-core?
+      `(s64vector? ,obj)
+    `(jazz:unsafe (##s64vector? ,obj))))
+
+(jazz:define-macro (%%u64vector? obj)
+  (if jazz:debug-core?
+      `(u64vector? ,obj)
+    `(jazz:unsafe (##u64vector? ,obj))))
+
+(jazz:define-macro (%%f32vector? obj)
+  (if jazz:debug-core?
+      `(f32vector? ,obj)
+    `(jazz:unsafe (##f32vector? ,obj))))
+
+(jazz:define-macro (%%f64vector? obj)
+  (if jazz:debug-core?
+      `(f64vector? ,obj)
+    `(jazz:unsafe (##f64vector? ,obj))))
 
 
 ;;;
@@ -1629,9 +1473,6 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%make-will . rest)
-      `(%%tracking
-         (make-will ,@rest))))
-  (else)))
+(jazz:define-macro (%%make-will . rest)
+  `(%%tracking
+     (make-will ,@rest))))

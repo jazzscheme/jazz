@@ -56,41 +56,16 @@
 ;;;
 
 
-(cond-expand
-  (chicken
-    (define (jazz:keyword? obj)
-      (keyword? obj))
-    
-    (define (jazz:keyword->string keyword)
-      (keyword->string keyword))
-    
-    (define (jazz:string->keyword string)
-      (string->keyword string)))
-  
-  (gambit
-    (define (jazz:keyword? obj)
-      (%%keyword? obj))
-    
-    (define (jazz:keyword->string keyword)
-      (%%keyword->string keyword))
-    
-    (define (jazz:string->keyword string)
-      (%%string->keyword string)))
-  
-  (else
-   (define (jazz:keyword? obj)
-     (and (%%symbol? obj)
-          (let ((str (%%symbol->string obj)))
-            (%%eqv? (%%string-ref str (%%fx- (%%string-length str) 1)) #\:))))
-   
-   
-   (define (jazz:keyword->string keyword)
-     (let ((str (%%symbol->string keyword)))
-       (%%substring str 0 (%%fx- (%%length str) 1))))
-   
-   
-   (define (jazz:string->keyword string)
-     (%%string->symbol (%%string-append string ":")))))
+(define (jazz:keyword? obj)
+  (%%keyword? obj))
+
+
+(define (jazz:keyword->string keyword)
+  (%%keyword->string keyword))
+
+
+(define (jazz:string->keyword string)
+  (%%string->keyword string))
 
 
 ;;;
@@ -243,47 +218,28 @@
 ;;;
 
 
-(cond-expand
-  (chicken
-    (define jazz:current-exception-handler
-      current-exception-handler)
-    
-    (define (jazz:with-exception-handler proc thunk)
-      (continuation-capture
-        (lambda (return)
-          (with-exception-handler
-            (lambda (exc)
-              (continuation-return return (proc exc)))
-            thunk))))
-    
-    (define (jazz:exception-reason exc)
-      (let ((location  ((condition-property-accessor 'exc 'location) exc))
-            (message   ((condition-property-accessor 'exc 'message) exc))
-            (arguments ((condition-property-accessor 'exc 'arguments) exc)))
-        (if (%%not location)
-            (jazz:format "{a}: {l}" message arguments)
-          (jazz:format "({a}) {a}: {l}" location message arguments)))))
-  
-  (gambit
-    (define jazz:current-exception-handler
-      current-exception-handler)
-    
-    (define jazz:with-exception-handler
-      with-exception-handler)
-    
-    (define jazz:with-exception-catcher
-      with-exception-catcher)
-    
-    (define jazz:display-exception
-      display-exception)
-    
-    (define jazz:display-continuation-backtrace
-      display-continuation-backtrace)
-    
-    (define jazz:raise
-      raise))
-  
-  (else))
+(define jazz:current-exception-handler
+  current-exception-handler)
+
+
+(define jazz:with-exception-handler
+  with-exception-handler)
+
+
+(define jazz:with-exception-catcher
+  with-exception-catcher)
+
+
+(define jazz:display-exception
+  display-exception)
+
+
+(define jazz:display-continuation-backtrace
+  display-continuation-backtrace)
+
+
+(define jazz:raise
+  raise)
 
 
 ;;;
@@ -340,45 +296,17 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (define (jazz:object->serial obj)
-      (object->serial-number obj))
-    
-    (define (jazz:serial->object number)
-      (serial-number->object number))
-    
-    ;; for debugging
-    (define (jazz:object->serial-symbol obj)
-      (%%string->symbol (%%string-append "#" (%%number->string (jazz:object->serial obj))))))
-  
-  (else
-   ;; Incorrect implementation that will not let the serialized objects be
-   ;; garbage collected. Weak tables are needed for a correct implementation...
-   
-   (define jazz:serial-number
-     1)
-   
-   (define jazz:serialized-objects
-     (%%make-table test: equal?))
-   
-   (define (jazz:object->serial obj)
-     (or (%%table-ref jazz:serialized-objects obj #f)
-         (let ((number jazz:serial-number))
-           (set! jazz:serial-number (%%fx+ jazz:serial-number 1))
-           (%%table-set! jazz:serialized-objects obj number)
-           number)))
-   
-   (define (jazz:serial->object number . rest)
-     (continuation-capture
-       (lambda (return)
-         (jazz:iterate-table jazz:serialized-objects
-           (lambda (key value)
-             (if (%%fx= value number)
-                 (continuation-return return key))))
-         (if (%%null? rest)
-             (jazz:error "Unbound serial number: {s}" number)
-           (%%car rest)))))))
+(define (jazz:object->serial obj)
+  (object->serial-number obj))
+
+
+(define (jazz:serial->object number)
+  (serial-number->object number))
+
+
+;; for debugging
+(define (jazz:object->serial-symbol obj)
+  (%%string->symbol (%%string-append "#" (%%number->string (jazz:object->serial obj)))))
 
 
 ;;;

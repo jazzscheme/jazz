@@ -1956,69 +1956,64 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (define jazz:subtypes
-      (%%make-vector 32 #f))
-    
-    (define jazz:specialtypes
-      (%%make-vector 16 #f))
-    
-    ;; quicky until we find a clean solution with Marc
-    (define jazz:table-type
-      (%%structure-type (make-table)))
-    
-    ;; quicky until we find a clean solution with Marc
-    (define jazz:port-type
-      (%%structure-type (open-output-string)))
-    
-    ;; quicky until we find a clean solution with Marc
-    (define jazz:thread-type
-      (%%structure-type (current-thread)))
-    
-    (%%vector-set! jazz:subtypes jazz:subtype-vector       jazz:Vector)
-    (%%vector-set! jazz:subtypes jazz:subtype-pair         jazz:Pair)
-    (%%vector-set! jazz:subtypes jazz:subtype-ratnum       jazz:Rational)
-    (%%vector-set! jazz:subtypes jazz:subtype-cpxnum       jazz:Complex)
-    (%%vector-set! jazz:subtypes jazz:subtype-symbol       jazz:Symbol)
-    (%%vector-set! jazz:subtypes jazz:subtype-keyword      jazz:Keyword)
-    (%%vector-set! jazz:subtypes jazz:subtype-continuation jazz:Continuation)
-    (%%vector-set! jazz:subtypes jazz:subtype-procedure    jazz:Procedure)
-    (%%vector-set! jazz:subtypes jazz:subtype-string       jazz:String)
-    (%%vector-set! jazz:subtypes jazz:subtype-flonum       jazz:Flonum)
-    (%%vector-set! jazz:subtypes jazz:subtype-bignum       jazz:Rational)
-    (%%vector-set! jazz:subtypes jazz:subtype-foreign      jazz:Foreign)
-    (%%vector-set! jazz:subtypes jazz:subtype-s8vector     jazz:S8Vector)
-    (%%vector-set! jazz:subtypes jazz:subtype-u8vector     jazz:U8Vector)
-    (%%vector-set! jazz:subtypes jazz:subtype-s16vector    jazz:S16Vector)
-    (%%vector-set! jazz:subtypes jazz:subtype-u16vector    jazz:U16Vector)
-    (%%vector-set! jazz:subtypes jazz:subtype-s32vector    jazz:S32Vector)
-    (%%vector-set! jazz:subtypes jazz:subtype-u32vector    jazz:U32Vector)
-    (%%vector-set! jazz:subtypes jazz:subtype-s64vector    jazz:S64Vector)
-    (%%vector-set! jazz:subtypes jazz:subtype-u64vector    jazz:U64Vector)
-    (%%vector-set! jazz:subtypes jazz:subtype-f32vector    jazz:F32Vector)
-    (%%vector-set! jazz:subtypes jazz:subtype-f64vector    jazz:F64Vector)
-    (%%vector-set! jazz:subtypes jazz:subtype-boxvalues    jazz:Values)
-    
-    (%%vector-set! jazz:specialtypes #x0 jazz:Boolean)
-    (%%vector-set! jazz:specialtypes #x1 jazz:Boolean)
-    (%%vector-set! jazz:specialtypes #x2 jazz:Null)
-    (%%vector-set! jazz:specialtypes #x3 jazz:EOF)
-    (%%vector-set! jazz:specialtypes #x4 jazz:Unspecified)
-    (%%vector-set! jazz:specialtypes #x5 jazz:Marker)   ;; absent
-    (%%vector-set! jazz:specialtypes #x6 jazz:Marker)   ;; unbound
-    (%%vector-set! jazz:specialtypes #x7 jazz:Marker)   ;; unbound2
-    (%%vector-set! jazz:specialtypes #x8 jazz:Marker)   ;; optional
-    (%%vector-set! jazz:specialtypes #x9 jazz:Marker)   ;; key
-    (%%vector-set! jazz:specialtypes #xA jazz:Marker)   ;; rest
-    (%%vector-set! jazz:specialtypes #xB jazz:Marker)   ;; unused
-    (%%vector-set! jazz:specialtypes #xC jazz:Marker)   ;; deleted
-    (%%vector-set! jazz:specialtypes #xD jazz:Marker)   ;; promise
-    (%%vector-set! jazz:specialtypes #xE jazz:Marker)   ;; unassigned1
-    (%%vector-set! jazz:specialtypes #xF jazz:Marker)   ;; unassigned2
-    )
-  
-  (else))
+(define jazz:subtypes
+  (%%make-vector 32 #f))
+
+(define jazz:specialtypes
+  (%%make-vector 16 #f))
+
+;; quicky until we find a clean solution with Marc
+(define jazz:table-type
+  (%%structure-type (make-table)))
+
+;; quicky until we find a clean solution with Marc
+(define jazz:port-type
+  (%%structure-type (open-output-string)))
+
+;; quicky until we find a clean solution with Marc
+(define jazz:thread-type
+  (%%structure-type (current-thread)))
+
+(%%vector-set! jazz:subtypes jazz:subtype-vector       jazz:Vector)
+(%%vector-set! jazz:subtypes jazz:subtype-pair         jazz:Pair)
+(%%vector-set! jazz:subtypes jazz:subtype-ratnum       jazz:Rational)
+(%%vector-set! jazz:subtypes jazz:subtype-cpxnum       jazz:Complex)
+(%%vector-set! jazz:subtypes jazz:subtype-symbol       jazz:Symbol)
+(%%vector-set! jazz:subtypes jazz:subtype-keyword      jazz:Keyword)
+(%%vector-set! jazz:subtypes jazz:subtype-continuation jazz:Continuation)
+(%%vector-set! jazz:subtypes jazz:subtype-procedure    jazz:Procedure)
+(%%vector-set! jazz:subtypes jazz:subtype-string       jazz:String)
+(%%vector-set! jazz:subtypes jazz:subtype-flonum       jazz:Flonum)
+(%%vector-set! jazz:subtypes jazz:subtype-bignum       jazz:Rational)
+(%%vector-set! jazz:subtypes jazz:subtype-foreign      jazz:Foreign)
+(%%vector-set! jazz:subtypes jazz:subtype-s8vector     jazz:S8Vector)
+(%%vector-set! jazz:subtypes jazz:subtype-u8vector     jazz:U8Vector)
+(%%vector-set! jazz:subtypes jazz:subtype-s16vector    jazz:S16Vector)
+(%%vector-set! jazz:subtypes jazz:subtype-u16vector    jazz:U16Vector)
+(%%vector-set! jazz:subtypes jazz:subtype-s32vector    jazz:S32Vector)
+(%%vector-set! jazz:subtypes jazz:subtype-u32vector    jazz:U32Vector)
+(%%vector-set! jazz:subtypes jazz:subtype-s64vector    jazz:S64Vector)
+(%%vector-set! jazz:subtypes jazz:subtype-u64vector    jazz:U64Vector)
+(%%vector-set! jazz:subtypes jazz:subtype-f32vector    jazz:F32Vector)
+(%%vector-set! jazz:subtypes jazz:subtype-f64vector    jazz:F64Vector)
+(%%vector-set! jazz:subtypes jazz:subtype-boxvalues    jazz:Values)
+
+(%%vector-set! jazz:specialtypes #x0 jazz:Boolean)
+(%%vector-set! jazz:specialtypes #x1 jazz:Boolean)
+(%%vector-set! jazz:specialtypes #x2 jazz:Null)
+(%%vector-set! jazz:specialtypes #x3 jazz:EOF)
+(%%vector-set! jazz:specialtypes #x4 jazz:Unspecified)
+(%%vector-set! jazz:specialtypes #x5 jazz:Marker)   ;; absent
+(%%vector-set! jazz:specialtypes #x6 jazz:Marker)   ;; unbound
+(%%vector-set! jazz:specialtypes #x7 jazz:Marker)   ;; unbound2
+(%%vector-set! jazz:specialtypes #x8 jazz:Marker)   ;; optional
+(%%vector-set! jazz:specialtypes #x9 jazz:Marker)   ;; key
+(%%vector-set! jazz:specialtypes #xA jazz:Marker)   ;; rest
+(%%vector-set! jazz:specialtypes #xB jazz:Marker)   ;; unused
+(%%vector-set! jazz:specialtypes #xC jazz:Marker)   ;; deleted
+(%%vector-set! jazz:specialtypes #xD jazz:Marker)   ;; promise
+(%%vector-set! jazz:specialtypes #xE jazz:Marker)   ;; unassigned1
+(%%vector-set! jazz:specialtypes #xF jazz:Marker)   ;; unassigned2
 
 
 ;;;
@@ -2435,22 +2430,18 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (jazz:define-variable jazz:print-hook
-      #f)
-    
-    
-    (set! ##wr
-          (lambda (we obj)
-            (cond ((and (%%not (%%jazz? obj)) (%%record? obj))
-                   (##default-wr we (jazz:record->vector obj)))
-                  ((and (%%jazz? obj) jazz:print-hook)
-                   (jazz:print-hook obj (jazz:writeenv-port we) (jazz:writeenv-style we)))
-                  (else
-                   (jazz:write-object (jazz:class-of obj) we obj))))))
-  
-  (else))
+(jazz:define-variable jazz:print-hook
+  #f)
+
+
+(set! ##wr
+  (lambda (we obj)
+    (cond ((and (%%not (%%jazz? obj)) (%%record? obj))
+           (##default-wr we (jazz:record->vector obj)))
+          ((and (%%jazz? obj) jazz:print-hook)
+           (jazz:print-hook obj (jazz:writeenv-port we) (jazz:writeenv-style we)))
+          (else
+           (jazz:write-object (jazz:class-of obj) we obj)))))
 
 
 ;;;
@@ -2565,19 +2556,8 @@
   (display (jazz:->string value) output))
 
 
-(cond-expand
-  (chicken
-    (define (jazz:pretty-print expr . rest)
-      (apply pretty-print expr rest)))
-
-  (gambit
-    (define (jazz:pretty-print expr . rest)
-      (apply pretty-print expr rest)))
-
-  (else
-   (define (jazz:pretty-print expr . rest)
-     (display expr)
-     (newline))))
+(define (jazz:pretty-print expr . rest)
+  (apply pretty-print expr rest))
 
 
 (define (jazz:print-value call-print we object)
@@ -2593,10 +2573,7 @@
     (jazz:print-serial object output)))
 
 
-(cond-expand
-  (gambit
-    (jazz:define-variable-override jazz:print-hook
-      (lambda (object port style)
-        (let ((detail (if (%%eq? style 'display) ':human ':reader)))
-          (jazz:print-jazz object port detail)))))
-  (else)))
+(jazz:define-variable-override jazz:print-hook
+  (lambda (object port style)
+    (let ((detail (if (%%eq? style 'display) ':human ':reader)))
+      (jazz:print-jazz object port detail)))))

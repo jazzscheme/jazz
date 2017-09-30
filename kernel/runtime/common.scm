@@ -46,42 +46,31 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (define (jazz:load-file pathname . rest)
-      (let ((quiet? (if (%%null? rest) #f (%%car rest))))
-        (%%load pathname (lambda rest #f) #f #t quiet?))
-      (void)))
+(define (jazz:load-file pathname . rest)
+  (let ((quiet? (if (%%null? rest) #f (%%car rest))))
+    (%%load pathname (lambda rest #f) #f #t quiet?))
+  (void))
+
+
+(define (jazz:load-binary pathname . rest)
+  ;; because we statically link the same .o into the .o1 and .l1
+  ;; we need to hack the module-descrs to remove the name conflict
+  ;; it might be possible to only register the most recent one..
+  (define (hack-module-descrs module-descrs)
+    (let loop ((i (%%fx- (%%vector-length module-descrs) 1)))
+         (if (%%fx>= i 0)
+             (let ((module-descr (%%vector-ref module-descrs i)))
+               (let ((name (%%symbol->string (%%vector-ref module-descr 0))))
+                 (if (jazz:string-starts-with? name jazz:bin-uniqueness-prefix)
+                     (%%vector-set! module-descr 0 (%%string->symbol (%%string-append jazz:lib-uniqueness-prefix (%%substring name (%%string-length jazz:bin-uniqueness-prefix) (%%string-length name)))))))
+               (loop (%%fx- i 1))))))
   
-  (else
-    (define (jazz:load-file pathname . rest)
-      (load pathname))))
-
-
-(cond-expand
-  (gambit
-    (define (jazz:load-binary pathname . rest)
-      ;; because we statically link the same .o into the .o1 and .l1
-      ;; we need to hack the module-descrs to remove the name conflict
-      ;; it might be possible to only register the most recent one..
-      (define (hack-module-descrs module-descrs)
-        (let loop ((i (%%fx- (%%vector-length module-descrs) 1)))
-          (if (%%fx>= i 0)
-              (let ((module-descr (%%vector-ref module-descrs i)))
-                (let ((name (%%symbol->string (%%vector-ref module-descr 0))))
-                  (if (jazz:string-starts-with? name jazz:bin-uniqueness-prefix)
-                      (%%vector-set! module-descr 0 (%%string->symbol (%%string-append jazz:lib-uniqueness-prefix (%%substring name (%%string-length jazz:bin-uniqueness-prefix) (%%string-length name)))))))
-                (loop (%%fx- i 1))))))
-      
-      (let ((quiet? (if (%%null? rest) #f (%%car rest))))
-        (let ((result (##load-object-file pathname quiet?)))
-          (let ((module-descrs (##vector-ref result 0)))
-            (hack-module-descrs module-descrs)
-            (##register-module-descrs-and-load! module-descrs))))
-      (void)))
-  (else
-    (define (jazz:load-binary pathname . rest)
-      (load pathname))))
+  (let ((quiet? (if (%%null? rest) #f (%%car rest))))
+    (let ((result (##load-object-file pathname quiet?)))
+      (let ((module-descrs (##vector-ref result 0)))
+        (hack-module-descrs module-descrs)
+        (##register-module-descrs-and-load! module-descrs))))
+  (void))
 
 
 ;;;
@@ -343,31 +332,18 @@
 ;;;
 
 
-(cond-expand
-  (chicken
-    (require 'lolevel)
+(define (jazz:global-bound? symbol)
+  (and (%%global-var? symbol)
+       (%%not (%%unbound? (%%global-var-ref symbol)))))
 
-    (define (jazz:global-bound? symbol)
-      (global-bound? symbol))
-    
-    (define (jazz:global-ref symbol)
-      (global-ref symbol)))
-  
-  (gambit
-    (define (jazz:global-bound? symbol)
-      (and (%%global-var? symbol)
-           (%%not (%%unbound? (%%global-var-ref symbol)))))
-    
-    (define (jazz:global-ref symbol)
-      (%%global-var-ref symbol))
-    
-    (define (jazz:global-set! symbol value)
-      (%%global-var-set! symbol value))
-    
-    (define (jazz:global-unbind! symbol)
-      (%%global-var-unbind! symbol)))
-  
-  (else))
+(define (jazz:global-ref symbol)
+  (%%global-var-ref symbol))
+
+(define (jazz:global-set! symbol value)
+  (%%global-var-set! symbol value))
+
+(define (jazz:global-unbind! symbol)
+  (%%global-var-unbind! symbol))
 
 
 (define (jazz:compose-identifier . rest)
@@ -589,12 +565,8 @@
   (path-expand (string-append jazz:kernel-source suffix)))
 
 
-(cond-expand
-  (gambit
-    (define jazz:file-exists?
-      file-exists?))
-  
-  (else))
+(define jazz:file-exists?
+  file-exists?)
 
 
 (define (jazz:build-dynamic-path destination-root source-path)

@@ -38,69 +38,61 @@
 (block kernel.declares
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (jazz:kernel-declares)
-      `(declare ,@(if (or jazz:debug-core? jazz:kernel-mutable-bindings?)
-                      '()
-                    '((block)))
-                
-                ,@(if jazz:kernel-mutable-bindings?
-                      '()
-                    '((standard-bindings)
-                      (extended-bindings)))
-                
-                (not inline)
-                
-                #; ;; don't think we need those for the kernel
-                ,@(if jazz:kernel-optimize?
-                       '()
-                     '((not proper-tail-calls)
-                       (not optimize-dead-local-variables)))
-                
-                ,@(if jazz:debug-user?
-                      '()
-                    '((not safe))))))
-  
-  (else))
+(jazz:define-macro (jazz:kernel-declares)
+  `(declare ,@(if (or jazz:debug-core? jazz:kernel-mutable-bindings?)
+                  '()
+                '((block)))
+            
+            ,@(if jazz:kernel-mutable-bindings?
+                  '()
+                '((standard-bindings)
+                  (extended-bindings)))
+            
+            (not inline)
+            
+            #; ;; don't think we need those for the kernel
+            ,@(if jazz:kernel-optimize?
+                  '()
+                '((not proper-tail-calls)
+                  (not optimize-dead-local-variables)))
+            
+            ,@(if jazz:debug-user?
+                  '()
+                '((not safe)))))
 
 
-(cond-expand
-  (gambit
-    (define (jazz:declares kind)
-      `((declare ;; block is only really usefull for units coded in a
-                 ;; style where control remains mostly inside the unit
-                 ,@(if (or jazz:kernel-optimize?
-                           (and (eq? kind 'unit)
-                                (eq? jazz:kernel-safety 'release)
-                                (not jazz:kernel-mutable-bindings?)))
-                       '((block))
-                     ;; using block can give an noticable performance gain
-                     ;; in certain cases but breaks dynamic code reevaluation
-                     '())
-                 
-                 ,@(if jazz:kernel-mutable-bindings?
-                       '()
-                     '((standard-bindings)
-                       (extended-bindings)))
-                 
-                 ;; inlining can have a huge impact on compilation time
-                 ;; and really bloat the size of the generated .o1 file
-                 (not inline)
-                 
-                 ;; those should be removed in a new distribution safety
-                 ;; where the code is fully debugged. or even better be
-                 ;; only be done in debug if we can obtain a close enough
-                 ;; performance between a built debug and a built release
-                 ;; (at the moment the difference is around 8 times due
-                 ;; mainly to the safe declare)
-                 ,@(if jazz:kernel-optimize?
-                       '()
-                     '((not proper-tail-calls)
-                       (not optimize-dead-local-variables)))
-                 
-                 ,@(if jazz:debug-user?
-                       '()
-                     '((not safe)))))))
-  
-  (else)))
+(define (jazz:declares kind)
+  `((declare ;; block is only really usefull for units coded in a
+      ;; style where control remains mostly inside the unit
+      ,@(if (or jazz:kernel-optimize?
+                (and (eq? kind 'unit)
+                     (eq? jazz:kernel-safety 'release)
+                     (not jazz:kernel-mutable-bindings?)))
+            '((block))
+          ;; using block can give an noticable performance gain
+          ;; in certain cases but breaks dynamic code reevaluation
+          '())
+      
+      ,@(if jazz:kernel-mutable-bindings?
+            '()
+          '((standard-bindings)
+            (extended-bindings)))
+      
+      ;; inlining can have a huge impact on compilation time
+      ;; and really bloat the size of the generated .o1 file
+      (not inline)
+      
+      ;; those should be removed in a new distribution safety
+      ;; where the code is fully debugged. or even better be
+      ;; only be done in debug if we can obtain a close enough
+      ;; performance between a built debug and a built release
+      ;; (at the moment the difference is around 8 times due
+      ;; mainly to the safe declare)
+      ,@(if jazz:kernel-optimize?
+            '()
+          '((not proper-tail-calls)
+            (not optimize-dead-local-variables)))
+      
+      ,@(if jazz:debug-user?
+            '()
+          '((not safe)))))))

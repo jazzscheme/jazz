@@ -63,17 +63,8 @@
 ;;;
 
 
-(cond-expand
-  (gambit
-    (define %%object-content
-      0))
-  
-  (else
-   (define %%object-marker
-     'jazz:object)
-   
-   (define %%object-content
-     1)))
+(define %%object-content
+  0)
 
 
 (define jazz:object-class
@@ -84,94 +75,75 @@
   (%%fx+ jazz:object-class 1))
 
 
-(cond-expand
-  (gambit
-    (jazz:define-macro (%%object? expr)
-      `(%%jazz? ,expr))
-    
-    (jazz:define-macro (%%object class . rest)
-      (jazz:with-uniqueness class
-        (lambda (cls)
-          `(%%jazzify (%%vector ,cls ,@rest)))))
-    
-    (define (jazz:new-object class . rest)
-      (let ((obj (%%list->vector (%%cons class rest))))
-        (%%jazzify obj)
-        obj))
-    
-    (jazz:define-macro (%%make-object class size)
-      (jazz:with-uniqueness class
-        (lambda (cls)
-          (let ((obj (jazz:generate-symbol "obj")))
-            `(let ((,obj (%%jazzify (%%make-vector ,size (%%unspecified)))))
-               (%%set-object-class ,obj ,cls)
-               ,obj)))))
-    
-    (jazz:define-macro (%%object-length object)
-      (if jazz:debug-core?
-          (jazz:with-uniqueness object
-            (lambda (obj)
+(jazz:define-macro (%%object? expr)
+  `(%%jazz? ,expr))
+
+
+(jazz:define-macro (%%object class . rest)
+  (jazz:with-uniqueness class
+    (lambda (cls)
+      `(%%jazzify (%%vector ,cls ,@rest)))))
+
+
+(define (jazz:new-object class . rest)
+  (let ((obj (%%list->vector (%%cons class rest))))
+    (%%jazzify obj)
+    obj))
+
+
+(jazz:define-macro (%%make-object class size)
+  (jazz:with-uniqueness class
+    (lambda (cls)
+      (let ((obj (jazz:generate-symbol "obj")))
+        `(let ((,obj (%%jazzify (%%make-vector ,size (%%unspecified)))))
+           (%%set-object-class ,obj ,cls)
+           ,obj)))))
+
+
+(jazz:define-macro (%%object-length object)
+  (if jazz:debug-core?
+      (jazz:with-uniqueness object
+        (lambda (obj)
+          `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
+             (##vector-length ,obj))))
+    `(##vector-length ,object)))
+
+
+(jazz:define-macro (%%object-ref object n)
+  (if jazz:debug-core?
+      (jazz:with-uniqueness object
+        (lambda (obj)
+          (jazz:with-uniqueness n
+            (lambda (rnk)
               `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-                 (##vector-length ,obj))))
-        `(##vector-length ,object)))
-    
-    (jazz:define-macro (%%object-ref object n)
+                 (##vector-ref ,obj ,rnk)
+                 #; ;; costly test for a very low probability class of bugs
+                 (%%core-assertion (%%fx< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
+                   (##vector-ref ,obj ,rnk)))))))
+    `(##vector-ref ,object ,n)))
+
+
+(jazz:define-syntax %%object-set!
+  (lambda (src)
+    (let ((object (%%cadr (%%source-code src)))
+          (n (%%car (%%cddr (%%source-code src))))
+          (value (%%cadr (%%cddr (%%source-code src)))))
       (if jazz:debug-core?
           (jazz:with-uniqueness object
             (lambda (obj)
               (jazz:with-uniqueness n
                 (lambda (rnk)
                   `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-                     (##vector-ref ,obj ,rnk)
+                     (##vector-set! ,obj ,rnk ,value)
                      #; ;; costly test for a very low probability class of bugs
                      (%%core-assertion (%%fx< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
-                       (##vector-ref ,obj ,rnk)))))))
-        `(##vector-ref ,object ,n)))
-    
-    (jazz:define-syntax %%object-set!
-      (lambda (src)
-        (let ((object (%%cadr (%%source-code src)))
-              (n (%%car (%%cddr (%%source-code src))))
-              (value (%%cadr (%%cddr (%%source-code src)))))
-          (if jazz:debug-core?
-              (jazz:with-uniqueness object
-                (lambda (obj)
-                  (jazz:with-uniqueness n
-                    (lambda (rnk)
-                      `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-                         (##vector-set! ,obj ,rnk ,value)
-                         #; ;; costly test for a very low probability class of bugs
-                         (%%core-assertion (%%fx< ,rnk (##vector-length ,obj)) (jazz:outside-object-error ,obj ,rnk)
-                           (##vector-set! ,obj ,rnk ,value)))))))
-            `(##vector-set! ,object ,n ,value)))))
-    
-    (jazz:define-macro (%%assert-class object class . body)
-      `(%%core-assertion (jazz:object-of-class? ,object ,class) (jazz:expected-error ,class ,object)
-         ,@body)))
-  
-  (else
-   (jazz:define-macro (%%object? expr)
-     `(and (%%vector? ,expr)
-           (%%fx> (%%object-length ,expr) 0)
-           (%%eq? (%%object-ref expr 0) %%object-marker)))
-   
-   (jazz:define-macro (%%object . rest)
-     `(%%vector %%object-marker ,@rest))
-   
-   (jazz:define-macro (%%make-object size)
-     (let ((object (jazz:generate-symbol "object")))
-       `(let ((,object (%%make-vector ,size (%%unspecified))))
-          (%%object-set! ,object 0 %%object-marker)
-          ,object)))
-   
-   (jazz:define-macro (%%object-length vector)
-     `(%%vector-length ,vector))
-   
-   (jazz:define-macro (%%object-ref vector n)
-     `(%%vector-ref ,vector ,n))
-   
-   (jazz:define-macro (%%object-set! vector n value)
-     `(%%vector-set! ,vector ,n ,value))))
+                       (##vector-set! ,obj ,rnk ,value)))))))
+        `(##vector-set! ,object ,n ,value)))))
+
+
+(jazz:define-macro (%%assert-class object class . body)
+  `(%%core-assertion (jazz:object-of-class? ,object ,class) (jazz:expected-error ,class ,object)
+     ,@body))
 
 
 (jazz:define-macro (%%get-object-class object)
@@ -496,22 +468,21 @@
   `(%%vector-ref (%%vector-ref (%%get-class-interface-table ,class) ,interface-rank) ,implementation-rank))
 
 
-(cond-expand
-  (gambit
-    ;; This macro enables jazz to bootstrap fully interpreted
-    ;; Note that we need in the pure scheme version to implement every type that can potentially be used by
-    ;; Jazz code so that really means every type if we want to be a superset of the underlying scheme system
-    (jazz:define-macro (%%class-of-impl obj)
-      (case (jazz:walk-for)
-        ((compile)
-         `(%%c-class-of-impl ,obj))
-        (else
-         `(%%scheme-class-of-impl ,obj))))
-    
-    (jazz:define-macro (%%c-class-of-impl obj)
-      `(or (let ()
-             (declare (extended-bindings))
-             (##c-code #<<end-of-c-code
+;; This macro enables jazz to bootstrap fully interpreted
+;; Note that we need in the pure scheme version to implement every type that can potentially be used by
+;; Jazz code so that really means every type if we want to be a superset of the underlying scheme system
+(jazz:define-macro (%%class-of-impl obj)
+  (case (jazz:walk-for)
+    ((compile)
+     `(%%c-class-of-impl ,obj))
+    (else
+     `(%%scheme-class-of-impl ,obj))))
+
+
+(jazz:define-macro (%%c-class-of-impl obj)
+  `(or (let ()
+         (declare (extended-bindings))
+         (##c-code #<<end-of-c-code
 {
     ___SCMOBJ obj = ___ARG1;
     if (___MEM_ALLOCATED(obj))
@@ -538,50 +509,47 @@ end-of-c-code
     jazz:Char               ;; ___ARG4
     jazz:specialtypes       ;; ___ARG5
     ))
-           (jazz:structure-type ,obj)))
-    
-    (jazz:define-macro (%%scheme-class-of-impl obj)
-      `(cond ((%%object? ,obj)       (%%get-object-class ,obj))
-             ((%%boolean? ,obj)      jazz:Boolean)
-             ((%%char? ,obj)         jazz:Char)
-             ((%%fixnum? ,obj)       jazz:Fixnum)
-             ((%%flonum? ,obj)       jazz:Flonum)
-             ((%%integer? ,obj)      jazz:Integer)
-             ((%%rational? ,obj)     jazz:Rational)
-             ((%%real? ,obj)         jazz:Real)
-             ((%%complex? ,obj)      jazz:Complex)
-             ((%%number? ,obj)       jazz:Number)
-             ((%%null? ,obj)         jazz:Null)
-             ((%%pair? ,obj)         jazz:Pair)
-             ((%%string? ,obj)       jazz:String)
-             ((%%vector? ,obj)       jazz:Vector)
-             ((%%s8vector? ,obj)     jazz:S8Vector)
-             ((%%u8vector? ,obj)     jazz:U8Vector)
-             ((%%s16vector? ,obj)    jazz:S16Vector)
-             ((%%u16vector? ,obj)    jazz:U16Vector)
-             ((%%s32vector? ,obj)    jazz:S32Vector)
-             ((%%u32vector? ,obj)    jazz:U32Vector)
-             ((%%s64vector? ,obj)    jazz:S64Vector)
-             ((%%u64vector? ,obj)    jazz:U64Vector)
-             ((%%f32vector? ,obj)    jazz:F32Vector)
-             ((%%f64vector? ,obj)    jazz:F64Vector)
-             ((%%symbol? ,obj)       jazz:Symbol)
-             ((%%keyword? ,obj)      jazz:Keyword)
-             ((%%port? ,obj)         jazz:Port)
-             ((%%continuation? ,obj) jazz:Continuation)
-             ((%%procedure? ,obj)    jazz:Procedure)
-             ((%%foreign? ,obj)      jazz:Foreign)
-             ((%%values? ,obj)       jazz:Values)
-             ((%%eof-object? ,obj)   jazz:EOF)
-             ((%%unspecified? ,obj)  jazz:Unspecified)
-             ((jazz:marker? ,obj)    jazz:Marker)
-             (else
-              (or (jazz:structure-type ,obj)
-                  (jazz:error "Unable to get class of {s}" ,obj))))))
-  
-  (else
-    (jazz:define-macro (%%class-of-impl obj)
-      `(%%scheme-class-of-impl ,obj))))
+       (jazz:structure-type ,obj)))
+
+
+(jazz:define-macro (%%scheme-class-of-impl obj)
+  `(cond ((%%object? ,obj)       (%%get-object-class ,obj))
+         ((%%boolean? ,obj)      jazz:Boolean)
+         ((%%char? ,obj)         jazz:Char)
+         ((%%fixnum? ,obj)       jazz:Fixnum)
+         ((%%flonum? ,obj)       jazz:Flonum)
+         ((%%integer? ,obj)      jazz:Integer)
+         ((%%rational? ,obj)     jazz:Rational)
+         ((%%real? ,obj)         jazz:Real)
+         ((%%complex? ,obj)      jazz:Complex)
+         ((%%number? ,obj)       jazz:Number)
+         ((%%null? ,obj)         jazz:Null)
+         ((%%pair? ,obj)         jazz:Pair)
+         ((%%string? ,obj)       jazz:String)
+         ((%%vector? ,obj)       jazz:Vector)
+         ((%%s8vector? ,obj)     jazz:S8Vector)
+         ((%%u8vector? ,obj)     jazz:U8Vector)
+         ((%%s16vector? ,obj)    jazz:S16Vector)
+         ((%%u16vector? ,obj)    jazz:U16Vector)
+         ((%%s32vector? ,obj)    jazz:S32Vector)
+         ((%%u32vector? ,obj)    jazz:U32Vector)
+         ((%%s64vector? ,obj)    jazz:S64Vector)
+         ((%%u64vector? ,obj)    jazz:U64Vector)
+         ((%%f32vector? ,obj)    jazz:F32Vector)
+         ((%%f64vector? ,obj)    jazz:F64Vector)
+         ((%%symbol? ,obj)       jazz:Symbol)
+         ((%%keyword? ,obj)      jazz:Keyword)
+         ((%%port? ,obj)         jazz:Port)
+         ((%%continuation? ,obj) jazz:Continuation)
+         ((%%procedure? ,obj)    jazz:Procedure)
+         ((%%foreign? ,obj)      jazz:Foreign)
+         ((%%values? ,obj)       jazz:Values)
+         ((%%eof-object? ,obj)   jazz:EOF)
+         ((%%unspecified? ,obj)  jazz:Unspecified)
+         ((jazz:marker? ,obj)    jazz:Marker)
+         (else
+          (or (jazz:structure-type ,obj)
+              (jazz:error "Unable to get class of {s}" ,obj)))))
 
 
 ;;;

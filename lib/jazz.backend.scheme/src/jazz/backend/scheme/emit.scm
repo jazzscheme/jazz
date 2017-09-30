@@ -768,6 +768,7 @@
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((%%f64vector-set! <fl^fb^fv:void>)))
 
+;; UNIFICATION
 (cond-expand
   (release
     (jazz:add-primitive-patterns 'jazz.language.runtime.functional:element            '((list-ref <list^int:any>) (%%vector-ref    <vector^int:any>)      (%%string-ref    <string^int:char>)))

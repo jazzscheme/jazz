@@ -2311,6 +2311,7 @@
 ;; difference is that we do not do the emit-check when in release
 
 
+;; UNIFICATION
 (cond-expand
   (release
     (define (jazz:emit-type-cast code type expression source-declaration environment backend)
@@ -2357,6 +2358,7 @@
               ,value)))))))
 
 
+;; UNIFICATION
 (cond-expand
   (release
     (define (jazz:emit-type-check code type source-declaration environment backend)
@@ -2373,6 +2375,7 @@
             ,value))))))
 
 
+;; UNIFICATION
 (cond-expand
   (release
    (define (jazz:emit-parameter-check code type source-declaration environment backend)

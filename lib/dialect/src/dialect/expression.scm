@@ -238,6 +238,7 @@
         (let ((type (or type jazz:Any)))
           (cond ;; fixbound
                 ((%%eq? expect jazz:Fixbound)
+                 ;; UNIFICATION
                  (cond-expand
                    (release
                     (%%subtype? type jazz:Fixnum))

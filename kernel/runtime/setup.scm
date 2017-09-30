@@ -318,7 +318,7 @@ c-end
   ;; f -> force
   (jazz:with-quit
     (lambda ()
-      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "w" "walk" "x" "expand" "c" "compile" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect" "listen") missing-argument-for-option
+      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "w" "walk" "x" "expand" "warnings" "c" "compile" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect" "listen") missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
                 (nosource? (jazz:get-option "nosource" options))
@@ -348,6 +348,7 @@ c-end
                 (deploy (jazz:get-option "deploy" options))
                 (walk (or (jazz:get-option "w" options) (jazz:get-option "walk" options)))
                 (expand (or (jazz:get-option "x" options) (jazz:get-option "expand" options)))
+                (warnings (jazz:get-option "warnings" options))
                 (compile (or (jazz:get-option "c" options) (jazz:get-option "compile" options)))
                 (target (symbol-argument (jazz:get-option "target" options)))
                 (debugger (jazz:get-option "debugger" options))
@@ -523,6 +524,11 @@ c-end
                    (jazz:load-unit 'foundation)
                    (jazz:load-unit 'dialect.development)
                    ((jazz:global-ref 'jazz:expand) (%%string->symbol expand)))
+                  (warnings
+                   (setup-build)
+                   (jazz:load-unit 'foundation)
+                   (jazz:load-unit 'dialect.development)
+                   ((jazz:global-ref 'jazz:warnings) (%%string->symbol warnings)))
                   (compile
                    (setup-build)
                    (for-each (lambda (name)

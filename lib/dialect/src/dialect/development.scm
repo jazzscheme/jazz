@@ -158,11 +158,11 @@
 
 
 ;;;
-;;;; Warnings
+;;;; Check
 ;;;
 
 
-(define (jazz:warnings unit-name)
+(define (jazz:check unit-name)
   (jazz:warnings? #t)
   (jazz:expand-unit unit-name))
 

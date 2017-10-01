@@ -147,7 +147,7 @@
   (method (open-warnings file)
     (let ((queue (new-queue)))
       (define (process line)
-        (let ((header "Warning: In "))
+        (define (process-header header icon)
           (when (starts-with? line header)
             (let ((start (string-length header)))
               (let ((at (find line #\@ start: start)))
@@ -158,7 +158,10 @@
                         (line (if at (- (string->number (substring line (+ at 1) period)) 1) 0))
                         (col (if at (- (string->number (substring line (+ period 1) message-colon)) 1) 0))
                         (message (substring line (+ message-colon 2) (string-length line))))
-                    (enqueue queue (new-exception-detail "Green" message (list container line col) '())))))))))
+                    (enqueue queue (new-exception-detail icon message (list container line col) '()))))))))
+        
+        (process-header "Unsafe: In " "Red")
+        (process-header "Warning: In " "Green"))
       
       (call-with-input-file (path-settings file)
         (lambda (port)

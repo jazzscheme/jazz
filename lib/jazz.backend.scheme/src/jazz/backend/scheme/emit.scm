@@ -798,7 +798,7 @@
           (let iter ((scan patterns))
                (if (%%null? scan)
                    (begin
-                     (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (%%not (%%null? patterns)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
+                     (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
                                   ;; a bit extreme for now
                                   (%%not (%%memq locator '(scheme.language.runtime.kernel:car
                                                            scheme.language.runtime.kernel:cdr))))

@@ -1254,15 +1254,17 @@
   (let ((message (apply jazz:format fmt-string rest)))
     (if (%%not (%%table-ref jazz:reported-warnings message #f))
         (begin
+          (if (%%not (jazz:reporting?))
+              (jazz:feedback "{a}" message))
           (jazz:report "{a}" message)
           (%%table-set! jazz:reported-warnings message #t)))))
 
 
-;; always display warnings about unsafe code
 (define (jazz:unsafe-warning fmt-string . rest)
   (let ((message (apply jazz:format fmt-string rest)))
     (if (%%not (%%table-ref jazz:reported-warnings message #f))
         (begin
+          ;; always display warnings about unsafe code
           (jazz:feedback "{a}" message)
           (jazz:report "{a}" message)
           (%%table-set! jazz:reported-warnings message #t)))))

@@ -711,8 +711,9 @@
                       (else (let ((last-type (jazz:get-code-type (jazz:last expressions))))
                               (if (jazz:every? (lambda (code)
                                                  (let ((type (jazz:get-code-type code)))
-                                                   (and (%%is? type jazz:Nillable-Type)
-                                                        (%%eq? (jazz:get-nillable-type-type type) last-type))))
+                                                   (or (%%eq? type last-type)
+                                                       (and (%%is? type jazz:Nillable-Type)
+                                                            (%%eq? (jazz:get-nillable-type-type type) last-type)))))
                                                (jazz:butlast expressions))
                                   last-type
                                 jazz:Any))))))

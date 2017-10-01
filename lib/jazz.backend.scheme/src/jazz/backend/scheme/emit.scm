@@ -346,10 +346,10 @@
         (if (%%not method-declaration)
             (begin
               (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
-                (jazz:report "Warning: In {a}{a}: Unable to find dispatch method {a}"
-                             (jazz:get-declaration-locator declaration)
-                             (jazz:present-expression-location expression)
-                             name))
+                (jazz:warning "Warning: In {a}{a}: Unable to find dispatch method {a}"
+                              (jazz:get-declaration-locator declaration)
+                              (jazz:present-expression-location expression)
+                              name))
               #f)
           (begin
             (jazz:add-to-module-references declaration method-declaration)
@@ -802,10 +802,10 @@
                                   ;; a bit extreme for now
                                   (%%not (%%memq locator '(scheme.language.runtime.kernel:car
                                                            scheme.language.runtime.kernel:cdr))))
-                       (jazz:report "Warning: In {a}{a}: Unmatched call to primitive {a}"
-                                    (jazz:get-declaration-locator declaration)
-                                    (jazz:present-expression-location operator)
-                                    (jazz:reference-name locator)))
+                       (jazz:warning "Warning: In {a}{a}: Unmatched call to primitive {a}"
+                                     (jazz:get-declaration-locator declaration)
+                                     (jazz:present-expression-location operator)
+                                     (jazz:reference-name locator)))
                      #f)
                  (jazz:bind (name function-type) (%%car scan)
                    (if (jazz:match-signature? arguments types function-type)
@@ -851,10 +851,10 @@
                                     #f)
                                 (begin
                                   (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
-                                    (jazz:report "Warning: In {a}{a}: Unmatched call to typed definition {a}"
-                                                 (jazz:get-declaration-locator declaration)
-                                                 (jazz:present-expression-location operator)
-                                                 (jazz:reference-name locator)))
+                                    (jazz:warning "Warning: In {a}{a}: Unmatched call to typed definition {a}"
+                                                  (jazz:get-declaration-locator declaration)
+                                                  (jazz:present-expression-location operator)
+                                                  (jazz:reference-name locator)))
                                   #f))))))
                     ((%%class-is? binding jazz:Internal-Define-Variable)
                      (let ((type (jazz:get-lexical-binding-type binding)))
@@ -869,16 +869,10 @@
                                     (jazz:get-function-type-result type)
                                     #f)
                                 (begin
-                                  ;; always display as this generates unsafe code contrary to other warnings
-                                  (jazz:feedback "Unsafe: In {a}{a}: Unmatched call to typed internal define {a}"
-                                                 (jazz:get-declaration-locator declaration)
-                                                 (jazz:present-expression-location operator)
-                                                 (jazz:get-lexical-binding-name binding))
-                                  (%%when (jazz:reporting?)
-                                    (jazz:report "Unsafe: In {a}{a}: Unmatched call to typed internal define {a}"
-                                                 (jazz:get-declaration-locator declaration)
-                                                 (jazz:present-expression-location operator)
-                                                 (jazz:get-lexical-binding-name binding)))
+                                  (jazz:unsafe-warning "Unsafe: In {a}{a}: Unmatched call to typed internal define {a}"
+                                                       (jazz:get-declaration-locator declaration)
+                                                       (jazz:present-expression-location operator)
+                                                       (jazz:get-lexical-binding-name binding))
                                   #f))))))
                     (else
                      #f))))))

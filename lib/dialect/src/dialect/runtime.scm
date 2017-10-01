@@ -1244,6 +1244,30 @@
   (%%memq generate-name (jazz:get-module-proclaim module-declaration 'generate '())))
 
 
+;; hack around warnings being reported more than once if a
+;; variable mutation triggers the annotation reset mecanism
+(define jazz:reported-warnings
+  (%%make-table test: equal?))
+
+
+(define (jazz:warning fmt-string . rest)
+  (let ((message (apply jazz:format fmt-string rest)))
+    (if (%%not (%%table-ref jazz:reported-warnings message #f))
+        (begin
+          (jazz:report "{a}" message)
+          (%%table-set! jazz:reported-warnings message #t)))))
+
+
+;; always display warnings about unsafe code
+(define (jazz:unsafe-warning fmt-string . rest)
+  (let ((message (apply jazz:format fmt-string rest)))
+    (if (%%not (%%table-ref jazz:reported-warnings message #f))
+        (begin
+          (jazz:feedback "{a}" message)
+          (jazz:report "{a}" message)
+          (%%table-set! jazz:reported-warnings message #t)))))
+
+
 (define (jazz:keyword->symbol keyword)
   (%%string->symbol (%%keyword->string keyword)))
 
@@ -2320,9 +2344,9 @@
       (cond ((or (%%not type) (%%subtype? (jazz:get-code-type code) type))
              #; ;; creates too many warnings due to loop generated casts
              (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel source-declaration) 'optimizations))
-               (jazz:report "Warning: In {a}{a}: Redundant cast"
-                            (jazz:get-declaration-locator source-declaration)
-                            (jazz:present-expression-location expression)))
+               (jazz:warning "Warning: In {a}{a}: Redundant cast"
+                             (jazz:get-declaration-locator source-declaration)
+                             (jazz:present-expression-location expression)))
              (jazz:sourcified-form code))
             ((%%subtype? (jazz:get-code-type code) jazz:Fixnum)
              `(%%fixnum->flonum ,(jazz:sourcified-form code)))
@@ -2332,9 +2356,9 @@
                (if (%%eq? type jazz:Flonum)
                    (begin
                      (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel source-declaration) 'optimizations))
-                       (jazz:report "Warning: In {a}{a}: Untyped cast <fl>"
-                                    (jazz:get-declaration-locator source-declaration)
-                                    (jazz:present-expression-location expression)))
+                       (jazz:warning "Warning: In {a}{a}: Untyped cast <fl>"
+                                     (jazz:get-declaration-locator source-declaration)
+                                     (jazz:present-expression-location expression)))
                      `(let ((,value (let () ,(jazz:sourcified-form code))))
                         (if (%%fixnum? ,value)
                             (%%fixnum->flonum ,value)

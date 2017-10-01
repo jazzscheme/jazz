@@ -603,7 +603,7 @@
 
 
 (define (jazz:get-primitive-patterns locator)
-  (%%table-ref jazz:*primitive-patterns* locator '()))
+  (%%table-ref jazz:*primitive-patterns* locator #f))
 
 
 (jazz:add-primitive-patterns     'scheme.language.runtime.kernel:=                    '((%%fx=  <fx*:bool>)  (%%fl=  <fv*:bool>)  (%%= <number^number:bool>)))
@@ -792,26 +792,28 @@
   (if (%%not locator)
       #f
     (let ((patterns (jazz:get-primitive-patterns locator)))
-      (let ((types (jazz:codes-types arguments-codes)))
-        (let iter ((scan patterns))
-             (if (%%null? scan)
-                 (begin
-                   (%%when (and (jazz:warnings?) (%%not (%%null? patterns)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
-                             ;; a bit extreme for now
-                             (%%not (%%memq locator '(scheme.language.runtime.kernel:car
-                                                      scheme.language.runtime.kernel:cdr))))
-                     (jazz:feedback "Warning: In {a}{a}: Unable to match call to primitive {a}"
+      (if (%%not patterns)
+          #f
+        (let ((types (jazz:codes-types arguments-codes)))
+          (let iter ((scan patterns))
+               (if (%%null? scan)
+                   (begin
+                     (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (%%not (%%null? patterns)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
+                                  ;; a bit extreme for now
+                                  (%%not (%%memq locator '(scheme.language.runtime.kernel:car
+                                                           scheme.language.runtime.kernel:cdr))))
+                       (jazz:report "Warning: In {a}{a}: Unmatched call to primitive {a}"
                                     (jazz:get-declaration-locator declaration)
                                     (jazz:present-expression-location operator)
                                     (jazz:reference-name locator)))
-                   #f)
-               (jazz:bind (name function-type) (%%car scan)
-                 (if (jazz:match-signature? arguments types function-type)
-                     (jazz:new-code
-                       `(,name ,@(jazz:codes-forms arguments-codes))
-                       (jazz:get-function-type-result function-type)
-                       #f)
-                   (iter (%%cdr scan))))))))))
+                     #f)
+                 (jazz:bind (name function-type) (%%car scan)
+                   (if (jazz:match-signature? arguments types function-type)
+                       (jazz:new-code
+                         `(,name ,@(jazz:codes-forms arguments-codes))
+                         (jazz:get-function-type-result function-type)
+                         #f)
+                     (iter (%%cdr scan)))))))))))
 
 
 ;;;

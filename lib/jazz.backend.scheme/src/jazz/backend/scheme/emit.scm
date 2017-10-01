@@ -345,11 +345,11 @@
       (let ((method-declaration (lookup-method object-code)))
         (if (%%not method-declaration)
             (begin
-              (%%when (and (jazz:warnings?) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
-                (jazz:feedback "Warning: In {a}{a}: Unable to find dispatch method {a}"
-                               (jazz:get-declaration-locator declaration)
-                               (jazz:present-expression-location expression)
-                               name))
+              (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
+                (jazz:report "Warning: In {a}{a}: Unable to find dispatch method {a}"
+                             (jazz:get-declaration-locator declaration)
+                             (jazz:present-expression-location expression)
+                             name))
               #f)
           (begin
             (jazz:add-to-module-references declaration method-declaration)

@@ -126,30 +126,30 @@
                              (begin
                                ;; a bit too much for now
                                #;
-                               (%%when (and (jazz:warnings?) (%%not (%%null? specializers)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
-                                         ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
-                                         (%%not (%%memq locator '(scheme.language.runtime.kernel:=
-                                                                   scheme.language.runtime.kernel:<
-                                                                   scheme.language.runtime.kernel:<=
-                                                                   scheme.language.runtime.kernel:>
-                                                                   scheme.language.runtime.kernel:>=
-                                                                   scheme.language.runtime.kernel:+
-                                                                   scheme.language.runtime.kernel:-
-                                                                   scheme.language.runtime.kernel:*
-                                                                   scheme.language.runtime.kernel:/))))
-                                 (jazz:feedback "Warning: In {a}{a}: Unable to match call to specialized {a}"
-                                                (jazz:get-declaration-locator declaration)
-                                                (jazz:present-expression-location operator)
-                                                (jazz:get-lexical-binding-name binding)))
+                               (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (%%not (%%null? specializers)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
+                                            ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
+                                            (%%not (%%memq locator '(scheme.language.runtime.kernel:=
+                                                                     scheme.language.runtime.kernel:<
+                                                                     scheme.language.runtime.kernel:<=
+                                                                     scheme.language.runtime.kernel:>
+                                                                     scheme.language.runtime.kernel:>=
+                                                                     scheme.language.runtime.kernel:+
+                                                                     scheme.language.runtime.kernel:-
+                                                                     scheme.language.runtime.kernel:*
+                                                                     scheme.language.runtime.kernel:/))))
+                                 (jazz:report "Warning: In {a}{a}: Unable to match call to specialized {a}"
+                                              (jazz:get-declaration-locator declaration)
+                                              (jazz:present-expression-location operator)
+                                              (jazz:get-lexical-binding-name binding)))
                                ;; for debugging
                                ;; a bit too much for now
                                #;
                                (%%when (%%memq (jazz:get-lexical-binding-name binding) (jazz:debug-specializers))
-                                 (jazz:feedback "Warning: In {a}{a}: Unable to match call to specialized {a} on {a}"
-                                                (jazz:get-declaration-locator declaration)
-                                                (jazz:present-expression-location operator)
-                                                (jazz:get-lexical-binding-name binding)
-                                                types))
+                                 (jazz:report "Warning: In {a}{a}: Unable to match call to specialized {a} on {a}"
+                                              (jazz:get-declaration-locator declaration)
+                                              (jazz:present-expression-location operator)
+                                              (jazz:get-lexical-binding-name binding)
+                                              types))
                                #f)
                            (let ((specializer (%%car scan)))
                              (let ((function-type (jazz:get-lexical-binding-type specializer)))

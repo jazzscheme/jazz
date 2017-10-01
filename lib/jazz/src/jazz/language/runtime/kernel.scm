@@ -817,6 +817,8 @@
 (native jazz:invoke-process)
 (native jazz:call-process)
 (native jazz:feedback)
+(native jazz:reporting?)
+(native jazz:report)
 (native jazz:unit-loadable?)
 (native jazz:unit-obj-uptodate?)
 (native jazz:load-foundation)

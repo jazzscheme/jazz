@@ -319,7 +319,7 @@ c-end
   ;; x -> expand
   (jazz:with-quit
     (lambda ()
-      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "w" "walk" "x" "expand" "k" "check" "c" "compile" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect" "listen") missing-argument-for-option
+      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "w" "walk" "x" "expand" "k" "check" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect" "listen") missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
                 (nosource? (jazz:get-option "nosource" options))
@@ -351,6 +351,7 @@ c-end
                 (expand (or (jazz:get-option "x" options) (jazz:get-option "expand" options)))
                 (check (or (jazz:get-option "k" options) (jazz:get-option "check" options)))
                 (compile (or (jazz:get-option "c" options) (jazz:get-option "compile" options)))
+                (report (jazz:get-option "report" options))
                 (target (symbol-argument (jazz:get-option "target" options)))
                 (debugger (jazz:get-option "debugger" options))
                 (link (symbol-argument (jazz:get-option "link" options)))
@@ -425,6 +426,8 @@ c-end
                   (jazz:save-emit? #t))
               (if dry?
                   (jazz:dry-run? #t))
+              (if report
+                  (jazz:setup-report report))
               (setup-target))
             
             (define (setup-target)
@@ -695,4 +698,12 @@ c-end
                  (%%sourcify
                    `(module ,jazz:expansion-module ,jazz:expansion-dialect ,src)
                    src)))))
-    src)))
+    src))
+
+
+(jazz:add-exit-job!
+  (lambda ()
+    (if jazz:report-port
+        (begin
+          (close-port jazz:report-port)
+          (set! jazz:report-port #f))))))

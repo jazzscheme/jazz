@@ -512,6 +512,31 @@
 
 
 ;;;
+;;;; Report
+;;;
+
+
+(define jazz:report-port
+  #f)
+
+
+(define (jazz:setup-report file)
+  (set! jazz:report-port (open-output-file file)))
+
+
+(define (jazz:reporting?)
+  jazz:report-port)
+
+
+(define (jazz:report fmt-string . rest)
+  (if jazz:report-port
+      (begin
+        (display (apply jazz:format fmt-string rest) jazz:report-port)
+        (newline jazz:report-port)
+        (force-output jazz:report-port))))
+
+
+;;;
 ;;;; Crash
 ;;;
 

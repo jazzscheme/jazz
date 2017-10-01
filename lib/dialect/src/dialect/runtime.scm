@@ -4514,6 +4514,10 @@
 ;;;
 
 
+(jazz:define-variable jazz:emit-unsafe)
+(jazz:define-variable jazz:emit-safe)
+
+
 (jazz:define-class jazz:Internal-Define jazz:Expression (constructor: jazz:allocate-internal-define)
   ((variable getter: generate)
    (value    getter: generate)))
@@ -4526,11 +4530,21 @@
 (jazz:define-method (jazz:emit-expression (jazz:Internal-Define expression) declaration environment backend)
   (let ((variable (jazz:get-internal-define-variable expression))
         (value (jazz:get-internal-define-value expression)))
-    (jazz:new-code
-      `(define ,(jazz:emit-binding-symbol variable declaration environment backend)
-         ,(jazz:sourcified-form (jazz:emit-expression value declaration environment backend)))
-      (jazz:get-expression-type expression)
-      (jazz:get-expression-source expression))))
+    (let ((type (jazz:get-lexical-binding-type variable)))
+      (if (and (%%is? type jazz:Function-Type)
+               ;; safe first iteration simplification
+               (jazz:only-positional-function-type? type)
+               (jazz:typed-function-type? type))
+          (jazz:new-code
+            `(define ,(jazz:emit-binding-symbol variable declaration environment backend)
+               ,(jazz:sourcified-form (jazz:emit-unsafe value declaration environment backend)))
+            (jazz:get-expression-type expression)
+            (jazz:get-expression-source expression))
+        (jazz:new-code
+          `(define ,(jazz:emit-binding-symbol variable declaration environment backend)
+             ,(jazz:sourcified-form (jazz:emit-expression value declaration environment backend)))
+          (jazz:get-expression-type expression)
+          (jazz:get-expression-source expression))))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Internal-Define expression) down up here seed environment)
@@ -4541,6 +4555,20 @@
         (down expression seed environment)
         environment)
       environment))
+
+
+;;;
+;;;; Internal-Define-Variable
+;;;
+
+
+(jazz:define-class jazz:Internal-Define-Variable jazz:Variable (constructor: jazz:allocate-internal-define-variable)
+  ())
+
+
+(define (jazz:new-internal-define-variable name type source)
+  (%%assertion (jazz:variable-name-valid? name) (jazz:error "Invalid variable name: {s}" (jazz:desourcify-all name))
+    (jazz:allocate-internal-define-variable name type #f #f source 0)))
 
 
 ;;;
@@ -5021,12 +5049,12 @@
                           (if (jazz:declare-form? internal-define)
                               (jazz:enqueue variables #f)
                             (let ((internal (%%cdr (jazz:source-code internal-define))))
-                              (%%assertion (%%pair? internal) (jazz:walk-error walker resume declaration internal-define "Ill-formed define")
+                              (%%assertion (%%pair? internal) (jazz:walk-error walker resume declaration internal-define "Ill-formed internal define")
                                 (let ((signature (%%desourcify (%%car internal))))
                                   (let ((name (if (%%symbol? signature)
                                                   signature
                                                 (%%car signature))))
-                                    (let ((variable (jazz:new-variable name #f #f)))
+                                    (let ((variable (jazz:new-internal-define-variable name #f #f)))
                                       (jazz:enqueue variables variable)
                                       (set! augmented-environment (%%cons variable augmented-environment)))))))))
                         internal-defines)

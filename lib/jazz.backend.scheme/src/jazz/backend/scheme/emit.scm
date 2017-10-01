@@ -832,29 +832,54 @@
   (and jazz:debug-user?
        (and (%%class-is? operator jazz:Binding-Reference)
             (let ((binding (jazz:get-binding-reference-binding operator)))
-              (and (%%class-is? binding jazz:Definition-Declaration)
-                   (let ((function-type (jazz:get-lexical-binding-type binding)))
-                     (and (%%is? function-type jazz:Function-Type)
-                          ;; fail safe as this should never occur as inlined-call is before
-                          (%%neq? (jazz:get-definition-declaration-expansion binding) 'inline)
-                          ;; safe first iteration simplification
-                          (jazz:only-positional-function-type? function-type)
-                          (jazz:typed-function-type? function-type)
-                          (let ((types (jazz:codes-types arguments-codes))
-                                (function-type (jazz:get-lexical-binding-type binding)))
-                            (if (jazz:match-signature? arguments types function-type)
-                                (jazz:new-code
-                                  (let ((locator (jazz:unsafe-locator (jazz:get-declaration-locator binding))))
-                                    `(,locator ,@(jazz:codes-forms arguments-codes)))
-                                  (jazz:get-function-type-result function-type)
-                                  #f)
-                              (begin
-                                (%%when (and (jazz:warnings?) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
-                                  (jazz:feedback "Warning: In {a}{a}: Unsafe call to {a}"
+              (cond ((%%class-is? binding jazz:Definition-Declaration)
+                     (let ((type (jazz:get-lexical-binding-type binding)))
+                       (and (%%is? type jazz:Function-Type)
+                            ;; fail safe as this should never occur as inlined-call is before
+                            (%%neq? (jazz:get-definition-declaration-expansion binding) 'inline)
+                            ;; safe first iteration simplification
+                            (jazz:only-positional-function-type? type)
+                            (jazz:typed-function-type? type)
+                            (let ((types (jazz:codes-types arguments-codes)))
+                              (if (jazz:match-signature? arguments types type)
+                                  (jazz:new-code
+                                    (let ((locator (jazz:unsafe-locator locator)))
+                                      `(,locator ,@(jazz:codes-forms arguments-codes)))
+                                    (jazz:get-function-type-result type)
+                                    #f)
+                                (begin
+                                  (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
+                                    (jazz:report "Warning: In {a}{a}: Unmatched call to typed definition {a}"
                                                  (jazz:get-declaration-locator declaration)
                                                  (jazz:present-expression-location operator)
                                                  (jazz:reference-name locator)))
-                                #f))))))))))
+                                  #f))))))
+                    ((%%class-is? binding jazz:Internal-Define-Variable)
+                     (let ((type (jazz:get-lexical-binding-type binding)))
+                       (and (%%is? type jazz:Function-Type)
+                            ;; safe first iteration simplification
+                            (jazz:only-positional-function-type? type)
+                            (jazz:typed-function-type? type)
+                            (let ((types (jazz:codes-types arguments-codes)))
+                              (if (jazz:match-signature? arguments types type)
+                                  (jazz:new-code
+                                    `(,(jazz:get-lexical-binding-name binding) ,@(jazz:codes-forms arguments-codes))
+                                    (jazz:get-function-type-result type)
+                                    #f)
+                                (begin
+                                  ;; always display as this generates unsafe code contrary to other warnings
+                                  (jazz:feedback "Unsafe: In {a}{a}: Unmatched call to typed internal define {a}"
+                                                 (jazz:get-declaration-locator declaration)
+                                                 (jazz:present-expression-location operator)
+                                                 (jazz:get-lexical-binding-name binding))
+                                  (%%when (jazz:reporting?)
+                                    (jazz:report "Unsafe: In {a}{a}: Unmatched call to typed internal define {a}"
+                                                 (jazz:get-declaration-locator declaration)
+                                                 (jazz:present-expression-location operator)
+                                                 (jazz:get-lexical-binding-name binding)))
+                                  #f))))))
+                    (else
+                     #f))))))
 
 
 ;;;

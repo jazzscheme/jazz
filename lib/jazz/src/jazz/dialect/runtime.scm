@@ -100,7 +100,8 @@
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Definition-Declaration declaration) environment backend)
-  (let ((value (jazz:get-definition-declaration-value declaration)))
+  (let ((value (jazz:get-definition-declaration-value declaration))
+        (type (jazz:get-lexical-binding-type declaration)))
     (if (and jazz:debug-user?
              (%%class-is? value jazz:Lambda)
              ;; no need to emit unsafe and safe when inline because as the checks are not included
@@ -110,10 +111,10 @@
              ;; safe first iteration simplification
              (jazz:only-positional-signature? (jazz:get-lambda-signature value))
              (jazz:typed-signature? (jazz:get-lambda-signature value)))
-        (let ((safe (jazz:emit-type-check (jazz:emit-safe value declaration environment backend) (jazz:get-lexical-binding-type declaration) declaration environment backend))
-              (unsafe (jazz:emit-type-check (jazz:emit-unsafe value declaration environment backend) (jazz:get-lexical-binding-type declaration) declaration environment backend)))
+        (let ((safe (jazz:emit-type-check (jazz:emit-safe value declaration environment backend) type declaration environment backend))
+              (unsafe (jazz:emit-type-check (jazz:emit-unsafe value declaration environment backend) type declaration environment backend)))
           (jazz:emit 'definition backend declaration environment safe unsafe))
-      (let ((expression (jazz:emit-type-check (jazz:emit-expression value declaration environment backend) (jazz:get-lexical-binding-type declaration) declaration environment backend)))
+      (let ((expression (jazz:emit-type-check (jazz:emit-expression value declaration environment backend) type declaration environment backend)))
         (jazz:emit 'definition backend declaration environment expression #f)))))
 
 

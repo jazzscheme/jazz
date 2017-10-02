@@ -1348,6 +1348,22 @@
 
 
 ;;;
+;;;; Unsafe
+;;;
+
+
+(jazz:define-macro (%%unsafe-vector-ref vector n)
+  `(jazz:unsafe (##vector-ref ,vector ,n)))
+
+(jazz:define-macro (%%unsafe-vector-set! vector n value)
+  `(jazz:unsafe (##vector-set! ,vector ,n ,value)))
+
+
+(jazz:define-macro (%%unsafe-u8vector-length vec)
+  `(jazz:unsafe (##u8vector-length ,vec)))
+
+
+;;;
 ;;;; Unspecified
 ;;;
 

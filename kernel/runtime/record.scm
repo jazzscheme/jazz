@@ -105,7 +105,7 @@
         (lambda (rec)
           `(if (%%not (%%record? ,rec))
                (jazz:not-record-error ,rec)
-             (%%vector-ref ,rec ,n))))
+             (%%unsafe-vector-ref ,rec ,n))))
     `(%%vector-ref ,record ,n)))
 
 (jazz:define-macro (%%record-set! record n value)
@@ -114,7 +114,7 @@
         (lambda (rec)
           `(if (%%not (%%record? ,rec))
                (jazz:not-record-error ,rec)
-             (%%vector-set! ,rec ,n ,value))))
+             (%%unsafe-vector-set! ,rec ,n ,value))))
     `(%%vector-set! ,record ,n ,value)))
 
 

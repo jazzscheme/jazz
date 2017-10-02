@@ -1477,7 +1477,7 @@
 
 
 (define word-size
-  (%%u8vector-length '#(0)))
+  (%%unsafe-u8vector-length '#(0)))
 
 
 (define (header-get obj)
@@ -1496,7 +1496,7 @@
          (thread-len (%%vector-length pt))
          (total-len (+ thread-len stack-len))
          (thread (make-vector total-len #f)))
-    (%%vector-set! thread 0 (%%vector-ref pt 0))
+    (%%unsafe-vector-set! thread 0 (%%vector-ref pt 0))
     (header-set! thread
                  (+ (bitwise-and (header-get pt) -4)
                     (bitwise-and (header-get thread) 3)))
@@ -1576,7 +1576,7 @@
 
 
 (define jazz:current-monotonic
-  (let ((u64vec (%%u64vector 0.)))
+  (let ((u64vec (%%u64vector 0)))
     (lambda ()
       (declare (not interrupts-enabled))
       (##get-monotonic-time! u64vec 0)

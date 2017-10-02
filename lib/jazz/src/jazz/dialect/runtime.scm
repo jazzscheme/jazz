@@ -1169,12 +1169,12 @@
   ((body getter: generate)))
 
 
-(define (jazz:new-with-self body)
-  (jazz:allocate-with-self #f #f body))
+(define (jazz:new-with-self type body)
+  (jazz:allocate-with-self type #f body))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:With-Self expression) declaration environment backend)
-  (let ((type (jazz:find-class-declaration declaration))
+  (let ((type (jazz:get-expression-type expression))
         (body (jazz:get-with-self-body expression)))
     (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code 'self type #f)))
                        (jazz:emit-expression body declaration environment backend))))
@@ -1201,12 +1201,13 @@
    (body getter: generate)))
 
 
-(define (jazz:new-with-dynamic-self code body)
-  (jazz:allocate-with-dynamic-self #f #f code body))
+(define (jazz:new-with-dynamic-self type code body)
+  (jazz:allocate-with-dynamic-self type #f code body))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:With-Dynamic-Self expression) declaration environment backend)
-  (let ((type (jazz:find-class-declaration declaration))
+  ;; should type be (jazz:get-expression-type expression) like for with-self
+  (let ((type declaration)
         (code (jazz:get-with-dynamic-self-code expression))
         (body (jazz:get-with-dynamic-self-body expression)))
     (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code code type #f)))
@@ -1232,6 +1233,8 @@
   (receive (code body) (jazz:parse-with-dynamic-self (%%cdr (%%desourcify form-src)))
     (let ((new-environment (%%cons (jazz:new-dynamic-self-binding #f code) environment)))
       (jazz:new-with-dynamic-self
+        ;; should type be (jazz:find-class-declaration declaration) like for walk-with-self
+        #f
         code
         (jazz:walk-list walker resume declaration new-environment body)))))
 
@@ -2335,6 +2338,7 @@
   (let ((form (%%desourcify form-src)))
     (let ((new-environment (%%cons (jazz:new-self-binding #f) environment)))
       (jazz:new-with-self
+        (jazz:find-class-declaration declaration)
         (let ((body (%%cdr form)))
           (jazz:walk-body walker resume declaration new-environment body))))))
 

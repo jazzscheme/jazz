@@ -407,10 +407,11 @@
         (process-expr (%%car expr-list) env)
       (let iter ((scan expr-list) (augmented env))
         (if (%%null? scan)
-            augmented
+            (%%cons (%%car augmented) (%%cdr env))
           (let ((expr (%%car scan)))
-            (let ((newenv (process-expr expr augmented)))
-              (iter (%%cdr scan) (%%cons (%%car newenv) (%%car newenv)))))))))
+            (let ((expr-env (process-expr expr augmented)))
+              (let ((yes (%%car expr-env)))
+                (iter (%%cdr scan) (%%cons yes yes)))))))))
   
   (define (process-or expr-list env)
     (if (and (%%not-null? expr-list)
@@ -418,10 +419,11 @@
         (process-expr (%%car expr-list) env)
       (let iter ((scan expr-list) (augmented env))
         (if (%%null? scan)
-            augmented
+            (%%cons (%%car env) (%%cdr augmented))
           (let ((expr (%%car scan)))
-            (let ((newenv (process-expr expr augmented)))
-              (iter (%%cdr scan) (%%cons (%%cdr newenv) (%%cdr newenv)))))))))
+            (let ((expr-env (process-expr expr augmented)))
+              (let ((no (%%cdr expr-env)))
+                (iter (%%cdr scan) (%%cons no no)))))))))
   
   (define (process-is expr type-expr env)
     (receive (origin actual-type) (extract-binding expr env)

@@ -169,14 +169,16 @@
        ,@(map (lambda (attribute)
                 (let ((name (cadr attribute))
                       (slot-name (slot-name attribute)))
-                  (let ((getter (string->symbol (system-format "get-{a}" name)))
-                        (setter (string->symbol (system-format "set-{a}" name))))
-                    `(begin
-                       (method public (,getter)
-                         (let ((,value (get-attribute-no-default ',name)))
-                           (if (specified? ,value)
-                               ,value
-                             (get-attribute-default ',name))))
-                       (method public (,setter ,value)
-                         (set! ,slot-name ,value))))))
+                  (parse-specifier (cddr attribute)
+                    (lambda (specifier rest)
+                      (let ((getter (string->symbol (system-format "get-{a}" name)))
+                            (setter (string->symbol (system-format "set-{a}" name))))
+                        `(begin
+                           (method public (,getter) ,@(if specifier (list specifier) '())
+                             (let ((,value (get-attribute-no-default ',name)))
+                               (if (specified? ,value)
+                                   ,value
+                                 (get-attribute-default ',name))))
+                           (method public (,setter ,value ,@(if specifier (list specifier) '()))
+                             (set! ,slot-name ,value))))))))
               attributes)))))

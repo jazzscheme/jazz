@@ -1174,12 +1174,13 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:With-Self expression) declaration environment backend)
-  (let ((body (jazz:get-with-self-body expression)))
-    (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code 'self declaration #f)))
+  (let ((type (jazz:find-class-declaration declaration))
+        (body (jazz:get-with-self-body expression)))
+    (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code 'self type #f)))
                        (jazz:emit-expression body declaration environment backend))))
       (jazz:new-code
         (jazz:emit 'with-self backend expression declaration environment body-emit)
-        jazz:Any
+        (jazz:get-code-type body-emit)
         #f))))
 
 
@@ -1205,13 +1206,14 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:With-Dynamic-Self expression) declaration environment backend)
-  (let ((code (jazz:get-with-dynamic-self-code expression))
+  (let ((type (jazz:find-class-declaration declaration))
+        (code (jazz:get-with-dynamic-self-code expression))
         (body (jazz:get-with-dynamic-self-body expression)))
-    (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code code declaration #f)))
+    (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code code type #f)))
                        (jazz:emit-statements-code body declaration environment backend))))
       (jazz:new-code
         (jazz:emit 'with-dynamic-self backend expression declaration environment body-emit)
-        jazz:Any
+        (jazz:get-code-type body-emit)
         #f))))
 
 

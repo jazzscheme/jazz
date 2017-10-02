@@ -2284,7 +2284,10 @@
 
 (jazz:define-method (jazz:of-subtype? (jazz:Nillable-Type type) subtype)
   (or (jazz:of-subtype? jazz:Boolean subtype)
-      (jazz:of-subtype? (jazz:get-nillable-type-type type) subtype)))
+      (jazz:of-subtype? (jazz:get-nillable-type-type type) subtype)
+      ;; quick solution to be thought through
+      (and (%%class-is? subtype jazz:Nillable-Type)
+           (%%eq? (jazz:get-nillable-type-type type) (jazz:get-nillable-type-type subtype)))))
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Nillable-Type type))

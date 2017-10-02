@@ -1839,7 +1839,11 @@
 
 (jazz:define-method (jazz:of-subtype? (jazz:Autoload-Declaration declaration) subtype)
   ;; not sure calling resolve here is correct
-  (jazz:of-subtype? (jazz:resolve-binding declaration) subtype))
+  (jazz:of-subtype? (jazz:resolve-binding declaration)
+                    ;; hack not sure this is the right way
+                    (if (%%class-is? subtype jazz:Autoload-Declaration)
+                        (jazz:resolve-binding subtype)
+                      subtype)))
 
 
 (jazz:define-method (jazz:specifiable? (jazz:Autoload-Declaration declaration))

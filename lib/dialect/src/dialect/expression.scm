@@ -121,14 +121,15 @@
               (let ((binding (jazz:get-binding-reference-binding operator)))
                 (let ((specializers (jazz:get-specializers binding)))
                   (let ((types (jazz:codes-types arguments-codes)))
-                    (let iter ((scan specializers))
+                    (let iter ((scan specializers) (least-mismatch #f))
                          (if (%%null? scan)
                              (begin
                                ;; a bit too much for now
                                #;
-                               (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (%%not (%%null? specializers)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
-                                            ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
-                                            (%%not (%%memq locator '(scheme.language.runtime.kernel:=
+                               (let ((expression (and (%%pair? least-mismatch) (%%car least-mismatch))))
+                                 (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (%%not (%%null? specializers)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
+                                           ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
+                                           (%%not (%%memq locator '(scheme.language.runtime.kernel:=
                                                                      scheme.language.runtime.kernel:<
                                                                      scheme.language.runtime.kernel:<=
                                                                      scheme.language.runtime.kernel:>
@@ -137,32 +138,34 @@
                                                                      scheme.language.runtime.kernel:-
                                                                      scheme.language.runtime.kernel:*
                                                                      scheme.language.runtime.kernel:/))))
-                                 (jazz:warning "Warning: In {a}{a}: Unable to match call to specialized {a}"
-                                               (jazz:get-declaration-locator declaration)
-                                               (jazz:present-expression-location operator)
-                                               (jazz:get-lexical-binding-name binding)))
-                               ;; for debugging
-                               ;; a bit too much for now
-                               #;
-                               (%%when (%%memq (jazz:get-lexical-binding-name binding) (jazz:debug-specializers))
-                                 (jazz:warning "Warning: In {a}{a}: Unable to match call to specialized {a} on {a}"
-                                               (jazz:get-declaration-locator declaration)
-                                               (jazz:present-expression-location operator)
-                                               (jazz:get-lexical-binding-name binding)
-                                               types))
+                                   (jazz:warning "Warning: In {a}{a}: Unable to match call to specialized {a}"
+                                                 (jazz:get-declaration-locator declaration)
+                                                 (jazz:present-expression-location expression operator)
+                                                 (jazz:get-lexical-binding-name binding)))
+                                 ;; for debugging
+                                 (%%when (%%memq (jazz:get-lexical-binding-name binding) (jazz:debug-specializers))
+                                   (jazz:warning "Warning: In {a}{a}: Unable to match call to specialized {a} on {a}"
+                                                 (jazz:get-declaration-locator declaration)
+                                                 (jazz:present-expression-location expression operator)
+                                                 (jazz:get-lexical-binding-name binding)
+                                                 types)))
                                #f)
                            (let ((specializer (%%car scan)))
                              (let ((function-type (jazz:get-lexical-binding-type specializer)))
-                               (if (jazz:match-signature? arguments types function-type)
-                                   (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration environment backend)
-                                       (begin
-                                         (jazz:add-to-module-references declaration specializer)
-                                         (jazz:new-code
-                                           (let ((locator (jazz:get-declaration-locator specializer)))
-                                             `(,locator ,@(jazz:codes-forms arguments-codes)))
-                                           (jazz:get-function-type-result function-type)
-                                           #f)))
-                                 (iter (%%cdr scan))))))))))
+                               (let ((mismatch (jazz:signature-mismatch arguments types function-type)))
+                                 (if (%%not mismatch)
+                                     (or (jazz:emit-inlined-binding-call specializer arguments-codes call declaration environment backend)
+                                         (begin
+                                           (jazz:add-to-module-references declaration specializer)
+                                           (jazz:new-code
+                                             (let ((locator (jazz:get-declaration-locator specializer)))
+                                               `(,locator ,@(jazz:codes-forms arguments-codes)))
+                                             (jazz:get-function-type-result function-type)
+                                             #f)))
+                                   (iter (%%cdr scan) (if (or (%%not least-mismatch)
+                                                              (%%fx< (%%length mismatch) (%%length least-mismatch)))
+                                                          mismatch
+                                                        least-mismatch)))))))))))
             #f)))))
 
 
@@ -222,7 +225,10 @@
 ;;;
 
 
-(define (jazz:match-signature? arguments argument-types function-type)
+;; #f -> no mismatch
+;; #t -> mismatch at the call level
+;; (arg ...) -> mismatched arguments
+(define (jazz:signature-mismatch arguments argument-types function-type)
   (let ((argcount (%%length argument-types))
         (mandatory (jazz:get-function-type-mandatory function-type))
         (positional (jazz:get-function-type-positional function-type))
@@ -254,33 +260,52 @@
                 (else
                  (%%subtype? type expect))))))
     
-    (define (match-positional?)
-      (and (%%fx>= argcount mandatory)
-           ;; this crude test for optional and named needs to be refined
-           (or (%%fx<= argcount mandatory) (%%not (%%null? optional)) (%%not (%%null? named)) rest)
-           (let iter ((args arguments)
-                      (types argument-types)
-                      (expected positional))
-                (cond ((%%null? expected)
-                       #t)
-                      ((match? (%%car args) (%%car types) (%%car expected))
-                       (iter (%%cdr args) (%%cdr types) (%%cdr expected)))
-                      (else
-                       #f)))))
+    (define (positional-mismatch)
+      (let iter ((args arguments)
+                 (types argument-types)
+                 (expected positional)
+                 (mismatched '()))
+           (if (%%null? expected)
+               (if (%%null? mismatched)
+                   #f
+                 (jazz:reverse! mismatched))
+             (let ((match? (match? (%%car args) (%%car types) (%%car expected))))
+               (iter (%%cdr args)
+                     (%%cdr types)
+                     (%%cdr expected)
+                     (if match? mismatched (%%cons (%%car args) mismatched)))))))
     
-    (define (match-rest?)
-      (or (%%not rest)
-          (let ((expect (jazz:get-rest-type-type rest)))
-            (jazz:every? (lambda (type)
-                           ;; should validate that type is not a category-type
-                           (match? #f type expect))
-                         (list-tail argument-types mandatory)))))
+    (define (rest-mismatch)
+      (let iter ((args (list-tail arguments mandatory))
+                 (types (list-tail argument-types mandatory))
+                 (expected (jazz:get-rest-type-type rest))
+                 (mismatched '()))
+           (if (%%null? args)
+               (if (%%null? mismatched)
+                   #f
+                 (jazz:reverse! mismatched))
+             (let ((match? (match? (%%car args) (%%car types) expected)))
+               (iter (%%cdr args)
+                     (%%cdr types)
+                     expected
+                     (if match? mismatched (%%cons (%%car args) mismatched)))))))
     
-    (and (match-positional?)
-         ;; testing the presence of optional named this way is a quicky that needs to be refined
-         (or (%%not (%%null? optional))
-             (%%not (%%null? named))
-             (match-rest?)))))
+    (cond ((%%fx< argcount mandatory)
+           #t)
+          ((%%fx= argcount mandatory)
+           (positional-mismatch))
+          ((and (%%null? optional)
+                (%%null? named)
+                rest)
+           (let ((positional-mismatch (positional-mismatch))
+                 (rest-mismatch (rest-mismatch)))
+             (if (and (%%not positional-mismatch)
+                      (%%not rest-mismatch))
+                 #f
+               (%%append (or positional-mismatch '())
+                         (or rest-mismatch '())))))
+          (else
+           #t))))
 
 
 ;;;

@@ -348,7 +348,7 @@
               (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
                 (jazz:warning "Warning: In {a}{a}: Unable to find dispatch method {a}"
                               (jazz:get-declaration-locator declaration)
-                              (jazz:present-expression-location expression)
+                              (jazz:present-expression-location expression #f)
                               name))
               #f)
           (begin
@@ -795,25 +795,30 @@
       (if (%%not patterns)
           #f
         (let ((types (jazz:codes-types arguments-codes)))
-          (let iter ((scan patterns))
+          (let iter ((scan patterns) (least-mismatch #f))
                (if (%%null? scan)
                    (begin
                      (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
                                   ;; a bit extreme for now
                                   (%%not (%%memq locator '(scheme.language.runtime.kernel:car
                                                            scheme.language.runtime.kernel:cdr))))
-                       (jazz:warning "Warning: In {a}{a}: Unmatched call to primitive {a}"
-                                     (jazz:get-declaration-locator declaration)
-                                     (jazz:present-expression-location operator)
-                                     (jazz:reference-name locator)))
+                       (let ((expression (and (%%pair? least-mismatch) (%%car least-mismatch))))
+                         (jazz:warning "Warning: In {a}{a}: Unmatched call to primitive {a}"
+                                       (jazz:get-declaration-locator declaration)
+                                       (jazz:present-expression-location expression operator)
+                                       (jazz:reference-name locator))))
                      #f)
                  (jazz:bind (name function-type) (%%car scan)
-                   (if (jazz:match-signature? arguments types function-type)
-                       (jazz:new-code
-                         `(,name ,@(jazz:codes-forms arguments-codes))
-                         (jazz:get-function-type-result function-type)
-                         #f)
-                     (iter (%%cdr scan)))))))))))
+                   (let ((mismatch (jazz:signature-mismatch arguments types function-type)))
+                     (if (%%not mismatch)
+                         (jazz:new-code
+                           `(,name ,@(jazz:codes-forms arguments-codes))
+                           (jazz:get-function-type-result function-type)
+                           #f)
+                       (iter (%%cdr scan) (if (or (%%not least-mismatch)
+                                                  (%%fx< (%%length mismatch) (%%length least-mismatch)))
+                                              mismatch
+                                            least-mismatch))))))))))))
 
 
 ;;;
@@ -843,19 +848,21 @@
                             (jazz:only-positional-function-type? type)
                             (jazz:typed-function-type? type)
                             (let ((types (jazz:codes-types arguments-codes)))
-                              (if (jazz:match-signature? arguments types type)
-                                  (jazz:new-code
-                                    (let ((locator (jazz:unsafe-locator locator)))
-                                      `(,locator ,@(jazz:codes-forms arguments-codes)))
-                                    (jazz:get-function-type-result type)
-                                    #f)
-                                (begin
-                                  (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
-                                    (jazz:warning "Warning: In {a}{a}: Unmatched call to typed definition {a}"
-                                                  (jazz:get-declaration-locator declaration)
-                                                  (jazz:present-expression-location operator)
-                                                  (jazz:reference-name locator)))
-                                  #f))))))
+                              (let ((mismatch (jazz:signature-mismatch arguments types type)))
+                                (if (%%not mismatch)
+                                    (jazz:new-code
+                                      (let ((locator (jazz:unsafe-locator locator)))
+                                        `(,locator ,@(jazz:codes-forms arguments-codes)))
+                                      (jazz:get-function-type-result type)
+                                      #f)
+                                  (begin
+                                    (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
+                                      (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
+                                        (jazz:warning "Warning: In {a}{a}: Unmatched call to typed definition {a}"
+                                                      (jazz:get-declaration-locator declaration)
+                                                      (jazz:present-expression-location expression operator)
+                                                      (jazz:reference-name locator))))
+                                    #f)))))))
                     ((%%class-is? binding jazz:Internal-Define-Variable)
                      (let ((type (jazz:get-lexical-binding-type binding)))
                        (and (%%is? type jazz:Function-Type)
@@ -863,17 +870,19 @@
                             (jazz:only-positional-function-type? type)
                             (jazz:typed-function-type? type)
                             (let ((types (jazz:codes-types arguments-codes)))
-                              (if (jazz:match-signature? arguments types type)
-                                  (jazz:new-code
-                                    `(,(jazz:get-lexical-binding-name binding) ,@(jazz:codes-forms arguments-codes))
-                                    (jazz:get-function-type-result type)
-                                    #f)
-                                (begin
-                                  (jazz:unsafe-warning "Unsafe: In {a}{a}: Unmatched call to typed internal define {a}"
-                                                       (jazz:get-declaration-locator declaration)
-                                                       (jazz:present-expression-location operator)
-                                                       (jazz:get-lexical-binding-name binding))
-                                  #f))))))
+                              (let ((mismatch (jazz:signature-mismatch arguments types type)))
+                                (if (%%not mismatch)
+                                    (jazz:new-code
+                                      `(,(jazz:get-lexical-binding-name binding) ,@(jazz:codes-forms arguments-codes))
+                                      (jazz:get-function-type-result type)
+                                      #f)
+                                  (begin
+                                    (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
+                                      (jazz:unsafe-warning "Unsafe: In {a}{a}: Unmatched call to typed internal define {a}"
+                                                           (jazz:get-declaration-locator declaration)
+                                                           (jazz:present-expression-location expression operator)
+                                                           (jazz:get-lexical-binding-name binding)))
+                                    #f)))))))
                     (else
                      #f))))))
 

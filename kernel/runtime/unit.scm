@@ -369,16 +369,16 @@
                                                source-repositories))
                     #; ;; dynamic-dependencies
                     (dynamic-binary-list (jazz:collect (lambda (entry)
-                                                         (let ((name (car entry))
-                                                               (branch (cadr entry)))
+                                                         (let ((name (%%car entry))
+                                                               (branch (%%cadr entry)))
                                                            ;; add source dynamic repositories in $SOURCE/$REPO/$BRANCH
                                                            (let ((path (%%string-append source-dynamic-root (jazz:join-strings (list name branch) #\/))))
                                                              (jazz:load-repository path name: name error?: #f))))
                                                        source-dynamic-repositories))
                     #; ;; dynamic-dependencies
                     (dynamic-source-list (jazz:collect (lambda (entry)
-                                                         (let ((name (car entry))
-                                                               (branch (cadr entry)))
+                                                         (let ((name (%%car entry))
+                                                               (branch (%%cadr entry)))
                                                            ;; add binary dynamic repositories in $BINARY/$REPO/$BRANCH
                                                            (let ((path (%%string-append binary-dynamic-root (jazz:join-strings (list name branch) #\/))))
                                                              (jazz:load-repository path name: name error?: #f))))
@@ -1720,6 +1720,11 @@
   0)
 
 
+;;;
+;;;; Master
+;;;
+
+
 (define (jazz:make-product name)
   (let ((subproduct-table (%%make-table test: eq?))
         (subproduct-table-mutex (%%make-mutex 'subproduct-table-mutex))
@@ -1788,6 +1793,7 @@
                                                    (if (jazz:file-exists? dependencies)
                                                        `("-dependencies" ,dependencies)
                                                      '()))
+                                               ,@(if (jazz:reporting?) `("-reporting") '())
                                                "-jobs" "1"
                                                "-port" ,(number->string (socket-info-port-number (tcp-server-socket-info listening-port))))
                                   stdin-redirection: #t
@@ -1835,10 +1841,20 @@
             (build-process-ended #f)
           (let ((established-port (%%car port/echo)))
             (send-build-command established-port name)
-            (let ((changes (read established-port)))
-              (if (eof-object? changes)
-                  (build-process-died)
-                (build-process-ended changes)))))))
+            (let iter ()
+                 (let ((form (read established-port)))
+                   (if (eof-object? form)
+                       (build-process-died)
+                     (let ((command (%%car form))
+                           (arguments (%%cdr form)))
+                       (case command
+                         ((changes)
+                          (build-process-ended arguments))
+                         ((report)
+                          (jazz:report "{a}" arguments)
+                          (iter))
+                         (else
+                          (error "Unknown master command" command)))))))))))
     
     (define (local-make name)
       (for-each (lambda (subname)
@@ -1891,23 +1907,32 @@
 ;;;
 
 
+(define jazz:worker-port
+  #f)
+
+(define jazz:worker-product
+  #f)
+
+
 (define (jazz:worker-process port)
   (declare (proper-tail-calls))
   (let ((established-port (open-tcp-client port)))
     (define (build product)
+      (set! jazz:worker-product product)
       (jazz:reset-changed-units)
       (jazz:build-product product)
-      (write (jazz:get-changed-units) established-port)
+      (write (cons 'changes (jazz:get-changed-units)) established-port)
       (force-output established-port))
     
+    (set! jazz:worker-port established-port)
     (let iter ()
          (let ((form (read established-port)))
            (if (or (eof-object? form)
                    (null? form))
                (close-port established-port)
-             (let ((command (car form))
-                   (arguments (cdr form)))
-               (with-exception-handler
+             (let ((command (%%car form))
+                   (arguments (%%cdr form)))
+               (with-exception-catcher
                  (lambda (exc)
                    (display-exception exc)
                    (force-output)
@@ -1915,7 +1940,7 @@
                  (lambda ()
                    (case command
                      ((build)
-                      (build (car arguments)))
+                      (build (%%car arguments)))
                      (else
                       (error "Unknown worker command" command)))
                    (iter)))))))))

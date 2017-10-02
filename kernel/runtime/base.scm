@@ -516,24 +516,39 @@
 ;;;
 
 
-(define jazz:report-port
+(define jazz:*reporting?*
   #f)
 
 
-(define (jazz:setup-report file)
-  (set! jazz:report-port (open-output-file file)))
+(define jazz:*report-port*
+  #f)
 
 
 (define (jazz:reporting?)
-  jazz:report-port)
+  jazz:*reporting?*)
+
+
+;; worker
+(define (jazz:setup-reporting)
+  (set! jazz:*reporting?* #t))
+
+
+;; master
+(define (jazz:setup-report file)
+  (set! jazz:*reporting?* #t)
+  (set! jazz:*report-port* (open-output-file file)))
 
 
 (define (jazz:report fmt-string . rest)
-  (if jazz:report-port
-      (begin
-        (display (apply jazz:format fmt-string rest) jazz:report-port)
-        (newline jazz:report-port)
-        (force-output jazz:report-port))))
+  (let ((message (apply jazz:format fmt-string rest)))
+    (cond (jazz:worker-port
+           (write (cons 'report message) jazz:worker-port)
+           (force-output jazz:worker-port))
+          (jazz:*report-port*
+           (let ((port jazz:*report-port*))
+             (display message port)
+             (newline port)
+             (force-output port))))))
 
 
 ;;;

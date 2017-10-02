@@ -1934,6 +1934,11 @@
                    (arguments (%%cdr form)))
                (with-exception-catcher
                  (lambda (exc)
+                   (if jazz:worker-product
+                       (begin
+                         (display "*** ERROR BUILDING ")
+                         (display jazz:worker-product)
+                         (display " -- ")))
                    (display-exception exc)
                    (force-output)
                    (exit))

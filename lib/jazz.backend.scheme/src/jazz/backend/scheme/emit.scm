@@ -881,7 +881,16 @@
                                       (jazz:unsafe-warning "Unsafe: In {a}{a}: Unmatched call to typed internal define {a}"
                                                            (jazz:get-declaration-locator declaration)
                                                            (jazz:present-expression-location expression operator)
-                                                           (jazz:get-lexical-binding-name binding)))
+                                                           (jazz:get-lexical-binding-name binding))
+                                      #; ;; waiting for warning tooltip
+                                      (display (jazz:format "  Unsafe: {l}{%}" (%%apply append (map (lambda (arg type)
+                                                                                                      (if (%%class-is? arg jazz:Binding-Reference)
+                                                                                                          (let ((variable (jazz:get-binding-reference-binding arg)))
+                                                                                                            (%%list (jazz:get-lexical-binding-name variable)
+                                                                                                                    (jazz:type->specifier type)))
+                                                                                                        '(unknown unknown)))
+                                                                                                    arguments
+                                                                                                    types)))))
                                     #f)))))))
                     (else
                      #f))))))

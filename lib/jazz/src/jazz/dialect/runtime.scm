@@ -2141,7 +2141,7 @@
   (receive (access compatibility propagation abstraction expansion remote synchronized rest) (jazz:parse-modifiers walker resume declaration jazz:method-modifiers rest)
     (%%assertion (and (%%pair? rest) (%%pair? (jazz:source-code (%%car rest)))) (jazz:walk-error walker resume declaration #f "Ill-formed method in {a}: {s}" (jazz:get-lexical-binding-name (jazz:get-declaration-toplevel declaration)) (%%cons 'method (jazz:desourcify-all rest)))
       (let ((name (jazz:source-code (%%car (jazz:source-code (%%car rest)))))
-            (parameters (jazz:wrap-parameters (%%cdr (%%desourcify (%%car rest))))))
+            (parameters (jazz:wrap-parameters declaration (%%cdr (%%desourcify (%%car rest))))))
         (jazz:parse-specifier (%%cdr rest)
           (lambda (specifier body)
             (let ((effective-body
@@ -2210,47 +2210,53 @@
                    (let ((data (jazz:get-analysis-data (jazz:get-declaration-locator new-declaration))))
                      (jazz:set-analysis-data-declaration-references data '())))
                (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
-                 (let ((body-expression
-                         (cond (root-category-declaration
-                                (jazz:walk walker resume new-declaration (%%cons (jazz:new-nextmethod-variable 'nextmethod (jazz:get-lexical-binding-type root-method-declaration) #f) augmented-environment) `(with-self ,@body)))
-                               (body
-                                (jazz:walk walker resume new-declaration augmented-environment `(with-self ,@body)))
-                               (else
-                                #f))))
-                   (%%when (%%not (and (%%eq? expansion 'inline) (%%neq? abstraction 'abstract)))
-                     #; ;; wait buggy if file is both loaded interpreted and compiled
-                     (%%when (and (%%neq? (jazz:walk-for) 'eval) (jazz:get-method-declaration-body new-declaration))
-                       (jazz:walk-error walker resume declaration form-src "Cannot redefine method: {s}" name))
-                     (jazz:set-method-declaration-signature new-declaration signature)
-                     (jazz:set-method-declaration-body new-declaration body-expression))
-                   (jazz:set-declaration-source new-declaration form-src)
-                   new-declaration))))))))
+                 (let ((with-self-body
+                         (if (%%class-is? category-declaration jazz:Interface-Declaration)
+                             body
+                           `(with-self ,@body))))
+                   (let ((body-expression
+                           (cond (root-category-declaration
+                                  (jazz:walk walker resume new-declaration (%%cons (jazz:new-nextmethod-variable 'nextmethod (jazz:get-lexical-binding-type root-method-declaration) #f) augmented-environment) with-self-body))
+                                 (body
+                                  (jazz:walk walker resume new-declaration augmented-environment with-self-body))
+                                 (else
+                                  #f))))
+                     (%%when (%%not (and (%%eq? expansion 'inline) (%%neq? abstraction 'abstract)))
+                       #; ;; wait buggy if file is both loaded interpreted and compiled
+                       (%%when (and (%%neq? (jazz:walk-for) 'eval) (jazz:get-method-declaration-body new-declaration))
+                         (jazz:walk-error walker resume declaration form-src "Cannot redefine method: {s}" name))
+                       (jazz:set-method-declaration-signature new-declaration signature)
+                       (jazz:set-method-declaration-body new-declaration body-expression))
+                     (jazz:set-declaration-source new-declaration form-src)
+                     new-declaration)))))))))
 
 
 ;; quick not elegant solution to wrap with-self around parameter code
-(define (jazz:wrap-parameters parameters)
-  (let ((queue (jazz:new-queue)))
-    (let iter ((scan parameters))
-      (cond ((%%null? scan))
-            ((%%symbol? scan)
-             (jazz:enqueue-list queue scan))
-            (else
-             (let ((parameter (%%car scan)))
-               (if (%%pair? parameter)
-                   (if (jazz:specifier? (%%car scan))
-                       (jazz:enqueue queue parameter)
-                     (if (%%keyword? (%%car parameter))
-                         (jazz:parse-specifier (%%cddr parameter)
-                           (lambda (specifier rest)
-                             (let ((specifier-list (if specifier (%%list specifier) '())))
-                               (jazz:enqueue queue `(,(%%car parameter) ,(%%cadr parameter) ,@specifier-list (with-self ,(%%car rest)))))))
-                       (jazz:parse-specifier (%%cdr parameter)
-                         (lambda (specifier rest)
-                           (let ((specifier-list (if specifier (%%list specifier) '())))
-                             (jazz:enqueue queue `(,(%%car parameter) ,@specifier-list (with-self ,(%%car rest)))))))))
-                 (jazz:enqueue queue parameter)))
-             (iter (%%cdr scan)))))
-    (jazz:queue-list queue)))
+(define (jazz:wrap-parameters declaration parameters)
+  (if (%%class-is? declaration jazz:Interface-Declaration)
+      parameters
+    (let ((queue (jazz:new-queue)))
+      (let iter ((scan parameters))
+           (cond ((%%null? scan))
+                 ((%%symbol? scan)
+                  (jazz:enqueue-list queue scan))
+                 (else
+                  (let ((parameter (%%car scan)))
+                    (if (%%pair? parameter)
+                        (if (jazz:specifier? (%%car scan))
+                            (jazz:enqueue queue parameter)
+                          (if (%%keyword? (%%car parameter))
+                              (jazz:parse-specifier (%%cddr parameter)
+                                (lambda (specifier rest)
+                                  (let ((specifier-list (if specifier (%%list specifier) '())))
+                                    (jazz:enqueue queue `(,(%%car parameter) ,(%%cadr parameter) ,@specifier-list (with-self ,(%%car rest)))))))
+                            (jazz:parse-specifier (%%cdr parameter)
+                              (lambda (specifier rest)
+                                (let ((specifier-list (if specifier (%%list specifier) '())))
+                                  (jazz:enqueue queue `(,(%%car parameter) ,@specifier-list (with-self ,(%%car rest)))))))))
+                      (jazz:enqueue queue parameter)))
+                  (iter (%%cdr scan)))))
+      (jazz:queue-list queue))))
 
 
 ;;;

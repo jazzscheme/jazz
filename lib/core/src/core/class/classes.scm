@@ -67,6 +67,7 @@
 (jazz:define-virtual-syntax (jazz:of-subtype? (jazz:Type type) subtype) #t)
 (jazz:define-virtual-syntax (jazz:specifiable? (jazz:Type type)) #t)
 (jazz:define-virtual-syntax (jazz:category-type? (jazz:Type type)) #t)
+(jazz:define-virtual-syntax (jazz:resolve-type (jazz:Type type)) #t)
 (jazz:define-virtual-syntax (jazz:emit-specifier (jazz:Type type)) #t)
 (jazz:define-virtual-syntax (jazz:emit-type (jazz:Type type) source-declaration environment backend) #t)
 (jazz:define-virtual-syntax (jazz:emit-test (jazz:Type type) value source-declaration environment backend) #t)

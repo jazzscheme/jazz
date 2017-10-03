@@ -515,6 +515,7 @@
 (jazz:define-virtual (jazz:of-subtype? (jazz:Type type) subtype))
 (jazz:define-virtual (jazz:specifiable? (jazz:Type type)))
 (jazz:define-virtual (jazz:category-type? (jazz:Type type)))
+(jazz:define-virtual (jazz:resolve-type (jazz:Type type)))
 (jazz:define-virtual (jazz:emit-specifier (jazz:Type type)))
 (jazz:define-virtual (jazz:emit-type (jazz:Type type) source-declaration environment backend))
 (jazz:define-virtual (jazz:emit-test (jazz:Type type) value source-declaration environment backend))
@@ -535,6 +536,10 @@
 
 (jazz:define-method (jazz:category-type? (jazz:Type type))
   #f)
+
+
+(jazz:define-method (jazz:resolve-type (jazz:Type type))
+  type)
 
 
 (jazz:define-method (jazz:emit-specifier (jazz:Type type))

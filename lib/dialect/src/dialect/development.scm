@@ -162,7 +162,7 @@
 ;;;
 
 
-(define (jazz:check unit-name)
+(define (jazz:check-unit unit-name)
   (jazz:warnings? #t)
   (jazz:expand-unit unit-name))
 

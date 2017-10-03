@@ -535,7 +535,7 @@ c-end
                    (setup-build)
                    (jazz:load-unit 'foundation)
                    (jazz:load-unit 'dialect.development)
-                   ((jazz:global-ref 'jazz:check) (%%string->symbol check)))
+                   ((jazz:global-ref 'jazz:check-unit) (%%string->symbol check)))
                   (compile
                    (setup-build)
                    (for-each (lambda (name)

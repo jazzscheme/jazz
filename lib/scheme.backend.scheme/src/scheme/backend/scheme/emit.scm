@@ -65,13 +65,8 @@
 
 
 (jazz:define-emit (lambda (scheme backend) expression declaration environment signature-emit signature-casts cast-body)
-  (if (%%not signature-casts)
-      `(lambda ,signature-emit
-         ,cast-body)
-    `(lambda ,signature-emit
-       ,@signature-casts
-       (let ()
-         ,cast-body))))
+  `(lambda ,signature-emit
+     ,@(jazz:add-signature-casts signature-casts cast-body)))
 
 
 ;;;

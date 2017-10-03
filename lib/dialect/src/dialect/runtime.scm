@@ -5627,6 +5627,14 @@
       (jazz:queue-list queue))))
 
 
+(define (jazz:add-signature-casts signature-casts body-emit)
+  (if (%%not signature-casts)
+      `(,body-emit)
+    `(,@signature-casts
+      (let ()
+        ,body-emit))))
+
+
 (define (jazz:emit-signature signature declaration environment backend)
   (let ((positional (jazz:get-signature-positional signature))
         (optional (jazz:get-signature-optional signature))

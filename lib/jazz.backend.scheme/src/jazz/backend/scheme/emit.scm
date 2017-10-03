@@ -257,18 +257,14 @@
         ((jazz:add-final-method)
          `(begin
             (define (,method-locator self ,@signature-emit)
-              ,@signature-casts
-              (let ()
-                ,body-emit))
+              ,@(jazz:add-signature-casts signature-casts body-emit))
             (,add-method-proc ,class-locator ',name ,method-locator)
             ,@(jazz:declaration-result)))
         ((jazz:add-virtual-method)
          `(begin
             ,@(if body-emit
                   `((define (,method-locator self ,@signature-emit)
-                      ,@signature-casts
-                      (let ()
-                        ,body-emit)))
+                      ,@(jazz:add-signature-casts signature-casts body-emit)))
                 (if (eq? abstraction 'abstract)
                     `((define (,method-locator self . rest)
                         (jazz:call-into-abstract ',class-locator ',name self rest)))

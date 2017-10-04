@@ -39,38 +39,42 @@
 
 
 (jazz:define-macro (jazz:kernel-declares)
-  `(declare ,@(if (or jazz:debug-core? jazz:kernel-mutable-bindings?)
-                  '()
-                '((block)))
-            
-            ,@(if jazz:kernel-mutable-bindings?
-                  '()
-                '((standard-bindings)
-                  (extended-bindings)))
-            
-            (not inline)
-            
-            #; ;; don't think we need those for the kernel
-            ,@(if jazz:kernel-optimize?
-                  '()
-                '((not proper-tail-calls)
-                  (not optimize-dead-local-variables)))
-            
-            ,@(if jazz:debug-user?
-                  '()
-                '((not safe)))))
+  `(declare
+     ,@(if (or jazz:debug-core? jazz:kernel-mutable-bindings?)
+           '()
+         '((block)))
+     
+     ,@(if jazz:kernel-mutable-bindings?
+           '()
+         '((standard-bindings)
+           (extended-bindings)))
+     
+     (not inline)
+     
+     #; ;; don't think we need those for the kernel
+     ,@(if jazz:kernel-optimize?
+           '()
+         '((not proper-tail-calls)
+           (not optimize-dead-local-variables)))
+     
+     ,@(if jazz:debug-user?
+           '()
+         '((not safe)))))
 
 
 (define (jazz:declares kind)
-  `((declare ;; block is only really usefull for units coded in a
+  `((declare
+      ;; block is only really usefull for units coded in a
       ;; style where control remains mostly inside the unit
-      ,@(if (or jazz:kernel-optimize?
-                (and (eq? kind 'unit)
-                     (eq? jazz:kernel-safety 'release)
-                     (not jazz:kernel-mutable-bindings?)))
+      ;; using block can give an noticable performance gain
+      ;; in certain cases but breaks dynamic code reevaluation
+      ,@(if (and (not jazz:kernel-mutable-bindings?)
+                 (or (and (eq? kind 'unit)
+                          (or (eq? jazz:kernel-safety 'release)
+                              (eq? jazz:kernel-safety 'sealed)))
+                     (and (eq? kind 'module)
+                          (eq? jazz:kernel-safety 'sealed))))
             '((block))
-          ;; using block can give an noticable performance gain
-          ;; in certain cases but breaks dynamic code reevaluation
           '())
       
       ,@(if jazz:kernel-mutable-bindings?

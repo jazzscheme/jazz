@@ -2390,73 +2390,43 @@
        (jazz:resolve-type type)))
 
 
-;; UNIFICATION
-(cond-expand
-  (release
-    (define (jazz:emit-type-cast code type expression source-declaration environment backend)
-      (let ((code-type (jazz:resolve-type-safe (jazz:get-code-type code)))
-            (type (jazz:resolve-type-safe type)))
-        (cond ((or (%%not type)
-                   (%%eq? type jazz:Void)
-                   (%%subtype? code-type type))
-               #; ;; creates too many warnings due to loop generated casts
-               (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel source-declaration) 'optimizations))
-                 (jazz:warning "Warning: In {a}{a}: Redundant cast"
-                               (jazz:get-declaration-locator source-declaration)
-                               (jazz:present-expression-location expression #f)))
-               (jazz:sourcified-form code))
-              ((and (%%eq? type jazz:Flonum)
-                    (%%subtype? code-type jazz:Fixnum))
-               `(%%fixnum->flonum ,(jazz:sourcified-form code)))
-              ((%%eq? type jazz:Flonum)
-               ;; coded the flonum case here for now has it is the only castable type
-               (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel source-declaration) 'optimizations))
-                 (jazz:warning "Warning: In {a}{a}: Untyped cast <fl>"
-                               (jazz:get-declaration-locator source-declaration)
-                               (jazz:present-expression-location expression #f)))
-               (let ((value (jazz:generate-symbol "val")))
-                 `(let ((,value (let () ,(jazz:sourcified-form code))))
-                    (if (%%fixnum? ,value)
-                        (%%fixnum->flonum ,value)
-                      ,value))))
-              (else
-               (jazz:sourcified-form code))))))
-  (else
-    (define (jazz:emit-type-cast code type expression source-declaration environment backend)
-      (let ((code-type (jazz:resolve-type-safe (jazz:get-code-type code)))
-            (type (jazz:resolve-type-safe type)))
-        (cond ((or (%%not type)
-                   (%%eq? type jazz:Void)
-                   (%%subtype? code-type type))
-               (jazz:sourcified-form code))
-              ((and (%%eq? type jazz:Flonum)
-                    (%%subtype? code-type jazz:Fixnum))
-               `(%%fixnum->flonum ,(jazz:sourcified-form code)))
-              ((%%eq? type jazz:Flonum)
-               ;; coded the flonum case here for now has it is the only castable type
-               (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel source-declaration) 'optimizations))
-                 (jazz:warning "Warning: In {a}{a}: Untyped cast <fl>"
-                               (jazz:get-declaration-locator source-declaration)
-                               (jazz:present-expression-location expression #f)))
-               (let ((value (jazz:generate-symbol "val")))
-                 `(let ((,value (let () ,(jazz:sourcified-form code))))
-                    (if (%%fixnum? ,value)
-                        (%%fixnum->flonum ,value)
-                      ,value))))
-              (else
+(define (jazz:emit-type-cast code type expression source-declaration environment backend)
+  (let ((code-type (jazz:resolve-type-safe (jazz:get-code-type code)))
+        (type (jazz:resolve-type-safe type)))
+    (cond ((or (%%not type)
+               (%%eq? type jazz:Void)
+               (%%subtype? code-type type))
+           #; ;; creates too many warnings due to loop generated casts
+           (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel source-declaration) 'optimizations))
+             (jazz:warning "Warning: In {a}{a}: Redundant cast"
+                           (jazz:get-declaration-locator source-declaration)
+                           (jazz:present-expression-location expression #f)))
+           (jazz:sourcified-form code))
+          ((and (%%eq? type jazz:Flonum)
+                (%%subtype? code-type jazz:Fixnum))
+           `(%%fixnum->flonum ,(jazz:sourcified-form code)))
+          ((%%eq? type jazz:Flonum)
+           ;; coded the flonum case here for now has it is the only castable type
+           (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel source-declaration) 'optimizations))
+             (jazz:warning "Warning: In {a}{a}: Untyped cast <fl>"
+                           (jazz:get-declaration-locator source-declaration)
+                           (jazz:present-expression-location expression #f)))
+           (let ((value (jazz:generate-symbol "val")))
+             `(let ((,value (let () ,(jazz:sourcified-form code))))
+                (if (%%fixnum? ,value)
+                    (%%fixnum->flonum ,value)
+                  ,value))))
+          (else
+           (if jazz:debug-user?
                (let ((value (jazz:generate-symbol "val")))
                  `(let ((,value (let () ,(jazz:sourcified-form code))))
                     ,(jazz:emit-check type value source-declaration environment backend)
-                    ,value))))))))
+                    ,value))
+             (jazz:sourcified-form code))))))
 
 
-;; UNIFICATION
-(cond-expand
-  (release
-    (define (jazz:emit-type-check code type source-declaration environment backend)
-      (jazz:sourcified-form code)))
-  (else
-    (define (jazz:emit-type-check code type source-declaration environment backend)
+(define (jazz:emit-type-check code type source-declaration environment backend)
+  (if jazz:debug-user?
       (let ((code-type (jazz:resolve-type-safe (jazz:get-code-type code)))
             (type (jazz:resolve-type-safe type)))
         (if (or (%%not type) 
@@ -2466,21 +2436,18 @@
           (let ((value (jazz:generate-symbol "val")))
             `(let ((,value (let () ,(jazz:sourcified-form code))))
                ,(jazz:emit-check type value source-declaration environment backend)
-               ,value)))))))
+               ,value))))
+    (jazz:sourcified-form code)))
 
 
-;; UNIFICATION
-(cond-expand
-  (release
-    (define (jazz:emit-parameter-check code type source-declaration environment backend)
-      #f))
-  (else
-    (define (jazz:emit-parameter-check code type source-declaration environment backend)
+(define (jazz:emit-parameter-check code type source-declaration environment backend)
+  (if jazz:debug-user?
       (let ((type (jazz:resolve-type-safe type)))
         (if (or (%%not type) (%%eq? type jazz:Any) (%%object-class? type) (jazz:object-declaration? type))
             #f
           (let ((parameter (jazz:sourcified-form code)))
-            (jazz:emit-check type parameter source-declaration environment backend)))))))
+            (jazz:emit-check type parameter source-declaration environment backend))))
+    #f))
 
 
 (define (jazz:emit-return-check code type source-declaration environment backend)

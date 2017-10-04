@@ -71,4 +71,4 @@
   (eq? jazz:kernel-safety 'core))
 
 (define jazz:debug-user?
-  (not (eq? jazz:kernel-safety 'release))))
+  (not (eq? jazz:kernel-safety 'sealed))))

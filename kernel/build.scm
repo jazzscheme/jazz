@@ -747,8 +747,9 @@
 
 (define jazz:valid-safeties
   '(core
-    debug
-    release))
+    devel
+    release
+    sealed))
 
 
 (define (jazz:require-safety safety template)
@@ -1956,7 +1957,7 @@
   #f)
 
 (define jazz:kernel-safety
-  'debug)
+  'devel)
 
 (define jazz:kernel-optimize?
   #t)
@@ -2062,7 +2063,7 @@
     features: (jazz:unspecified-option)
     properties: (jazz:unspecified-option)))
 
-(define jazz:debug-configuration
+(define jazz:devel-configuration
   (jazz:new-configuration
     name: 'd
     system: (jazz:unspecified-option)
@@ -2070,7 +2071,7 @@
     compiler: (jazz:unspecified-option)
     processor: (jazz:unspecified-option)
     windowing: (jazz:unspecified-option)
-    safety: 'debug
+    safety: 'devel
     optimize?: #f
     debug-environments?: #t
     debug-location?: #t
@@ -2079,7 +2080,7 @@
     track-memory?: (jazz:unspecified-option)
     mutable-bindings?: (jazz:unspecified-option)
     kernel-interpret?: #t
-    destination: "build/debug"
+    destination: "build/devel"
     features: (jazz:unspecified-option)
     properties: (jazz:unspecified-option)))
 
@@ -2128,7 +2129,7 @@
 
 (define jazz:configuration-templates
   `((c . ,jazz:core-configuration)
-    (d . ,jazz:debug-configuration)
+    (d . ,jazz:devel-configuration)
     (r . ,jazz:release-configuration)
     (s . ,jazz:sealed-configuration)))
 

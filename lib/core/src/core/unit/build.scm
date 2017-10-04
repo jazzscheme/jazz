@@ -165,10 +165,11 @@
                 (%%cdr pair))))))
 
 
-;; at the moment building large files like functional in debug is much too
+;; at the moment building large files like functional in devel is much too
 ;; slow because of the safe declare, hence this least of two evils solution
 (define (jazz:wrap-single-host-cc-options str)
-  (if jazz:debug-user?
+  (if (or (eq? kernel-safety 'core)
+          (eq? kernel-safety 'devel))
       (string-append "-U___SINGLE_HOST " str)
     str))
 

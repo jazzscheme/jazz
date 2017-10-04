@@ -775,12 +775,9 @@
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((%%f64vector-set! <fl^fb^fv:void>)))
 
-;; UNIFICATION
-(cond-expand
-  (release
-    (jazz:add-primitive-patterns 'jazz.language.runtime.functional:element            '((list-ref <list^int:any>) (%%vector-ref    <vector^int:any>)      (%%string-ref    <string^int:char>)))
-    (jazz:add-primitive-patterns 'jazz.language.runtime.functional:set-element!       '(                          (%%vector-set!   <vector^int^any:void>) (%%string-set!   <string^int^char:void>))))
-  (else))
+(%%when (%%not jazz:debug-user?)
+  (jazz:add-primitive-patterns 'jazz.language.runtime.functional:element            '((list-ref <list^int:any>) (%%vector-ref    <vector^int:any>)      (%%string-ref    <string^int:char>)))
+  (jazz:add-primitive-patterns 'jazz.language.runtime.functional:set-element!       '(                          (%%vector-set!   <vector^int^any:void>) (%%string-set!   <string^int^char:void>))))
 
 (jazz:add-primitive-patterns     'jazz.language.runtime.functional:between?           '((%%fxbetween? <fx^fx^fx:bool>)))
 

@@ -244,15 +244,13 @@
         (let ((type (or type jazz:Any)))
           (cond ;; fixbound
                 ((%%eq? expect jazz:Fixbound)
-                 ;; UNIFICATION
+                 ;; TEMPORARY PATCH FOR UNIFICATION TESTS UNTIL A SATISFACTORY SOLUTION TO FIXBOUND IN DEBUG
                  (%%subtype? type jazz:Fixnum)
-                 #; ;; TEMPORARY PATCH FOR UNIFICATION TESTS UNTIL A SATISFACTORY SOLUTION TO FIXBOUND IN DEBUG
-                 (cond-expand
-                   (release
-                    (%%subtype? type jazz:Fixnum))
-                   (else
-                    (and (%%class-is? arg jazz:Constant)
-                         (%%subtype? type jazz:Fixnum)))))
+                 #;
+                 (if jazz:debug-user?
+                     (and (%%class-is? arg jazz:Constant)
+                          (%%subtype? type jazz:Fixnum))
+                   (%%subtype? type jazz:Fixnum)))
                 ;; flovec
                 ((%%eq? expect jazz:Flovec)
                  (or (%%subtype? type jazz:Flonum)

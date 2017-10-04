@@ -872,6 +872,7 @@
   
   (let ((new-declaration (jazz:allocate-module-declaration name #f #f access 'uptodate '() #f parent #f #f (jazz:make-access-lookups jazz:public-access) (jazz:new-queue) #f walker (determine-package) dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (%%make-table test: eq?))))
     (jazz:setup-declaration new-declaration)
+    (jazz:setup-module-proclaim new-declaration)
     new-declaration))
 
 
@@ -1177,6 +1178,12 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Module-Declaration declaration) environment backend)
   (jazz:emit 'module backend declaration environment))
+
+
+(define (jazz:setup-module-proclaim module-declaration)
+  (let ((table (jazz:get-module-declaration-proclaims module-declaration)))
+    (if jazz:debug-user?
+        (%%table-set! table 'generate '(check)))))
 
 
 (define (jazz:get-module-proclaim module-declaration proclaim-name default)

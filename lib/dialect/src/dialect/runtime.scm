@@ -259,7 +259,7 @@
 (jazz:define-virtual (jazz:walk-binding-expand-form (jazz:Walk-Binding binding) walker resume declaration environment form-src))
 (jazz:define-virtual (jazz:emit-binding-symbol (jazz:Walk-Binding binding) source-declaration environment backend))
 (jazz:define-virtual (jazz:emit-binding-reference (jazz:Walk-Binding binding) source-declaration environment backend))
-(jazz:define-virtual (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments source-declaration environment backend))
+(jazz:define-virtual (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments arguments-codes source-declaration environment backend))
 (jazz:define-virtual (jazz:emit-inlined-binding-call (jazz:Walk-Binding binding) arguments call source-declaration environment backend))
 (jazz:define-virtual (jazz:emit-binding-assignment (jazz:Walk-Binding binding) value source-declaration environment backend))
 
@@ -309,11 +309,11 @@
   (jazz:error "Unable to emit binding reference for: {s}" binding))
 
 
-(jazz:define-method (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments source-declaration environment backend)
+(jazz:define-method (jazz:emit-binding-call (jazz:Walk-Binding binding) binding-src arguments arguments-codes source-declaration environment backend)
   (let ((type (jazz:get-lexical-binding-type binding))
         (operator (jazz:emit-binding-reference binding source-declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'walk-binding-binding-call backend binding binding-src operator arguments)
+      (jazz:emit 'walk-binding-binding-call backend binding binding-src operator arguments-codes)
       (jazz:call-return-type type)
       #f)))
 
@@ -4457,17 +4457,17 @@
 
 
 (jazz:define-virtual (jazz:emit-expression (jazz:Expression expression) declaration environment backend))
-(jazz:define-virtual (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend))
+(jazz:define-virtual (jazz:emit-call (jazz:Expression expression) arguments arguments-codes declaration environment backend))
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Expression expression) declaration environment backend)
   (jazz:error "Unable to emit code for: {s}" expression))
 
 
-(jazz:define-method (jazz:emit-call (jazz:Expression expression) arguments declaration environment backend)
+(jazz:define-method (jazz:emit-call (jazz:Expression expression) arguments arguments-codes declaration environment backend)
   (let ((operator (jazz:emit-expression expression declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'expression-call backend expression declaration operator arguments)
+      (jazz:emit 'expression-call backend expression declaration operator arguments-codes)
       jazz:Any
       #f)))
 
@@ -4496,7 +4496,7 @@
 (define (jazz:present-expression-location expression operator)
   (define (present expr)
     (and expr
-         (let ((src (jazz:get-expression-source expr)))
+         (let ((src (if (%%source? expr) expr (jazz:get-expression-source expr))))
            (let ((src (if (jazz:syntactic-closure? src)
                           (jazz:get-syntactic-closure-expression src)
                         src)))
@@ -4528,8 +4528,8 @@
                       (jazz:get-expression-source expression)))
 
 
-(jazz:define-method (jazz:emit-call (jazz:Binding-Reference expression) arguments declaration environment backend)
-  (jazz:sourcify-code (jazz:emit-binding-call (jazz:get-binding-reference-binding expression) (jazz:get-expression-source expression) arguments declaration environment backend)
+(jazz:define-method (jazz:emit-call (jazz:Binding-Reference expression) arguments arguments-codes declaration environment backend)
+  (jazz:sourcify-code (jazz:emit-binding-call (jazz:get-binding-reference-binding expression) (jazz:get-expression-source expression) arguments arguments-codes declaration environment backend)
                       (jazz:get-expression-source expression)))
 
 
@@ -4704,7 +4704,7 @@
             (arguments (jazz:get-call-arguments expression)))
         (let ((arguments-codes (jazz:emit-expressions arguments declaration environment backend)))
           (jazz:sourcify-code
-            (jazz:emit-call operator arguments-codes declaration environment backend)
+            (jazz:emit-call operator arguments arguments-codes declaration environment backend)
             (jazz:get-expression-source expression))))))
 
 
@@ -5081,7 +5081,7 @@
     (receive (name specifier value parameters) (jazz:parse-define walker resume declaration #t form-src)
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
             (signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
-        (let ((effective-type (if signature (jazz:build-function-type signature type) type)))
+        (let ((effective-type (if signature (jazz:signature->function-type signature type) type)))
           (jazz:new-internal-define form-src variable (jazz:walk walker resume declaration environment value) effective-type)))))
   
   (let ((internal-defines '()))
@@ -5164,7 +5164,7 @@
 
 ;; Until I unify signature and function type
 ;; Only positional parameters as a first draft
-(define (jazz:build-function-type signature result-type)
+(define (jazz:signature->function-type signature result-type)
   (define (parameter-type parameter)
     (or (jazz:get-lexical-binding-type parameter)
         jazz:Any))

@@ -234,7 +234,7 @@
 ;;;
 
 
-(jazz:define-emit (method (scheme backend) declaration environment signature-emit signature-casts body-emit)
+(jazz:define-emit (method (scheme backend) declaration environment signature-emit signature-casts body-emit unsafe-signature)
   (let* ((name (jazz:get-lexical-binding-name declaration))
          (abstraction (jazz:get-method-declaration-abstraction declaration))
          (propagation (jazz:get-method-declaration-propagation declaration))
@@ -245,6 +245,7 @@
          (method-locator (jazz:get-declaration-locator declaration))
          (method-rank-locator (%%compose-helper method-locator 'rank))
          (method-node-locator (%%compose-helper method-locator 'node))
+         (unsafe-locator (and unsafe-signature (jazz:unsafe-locator method-locator)))
          (add-method-proc (cond ((%%class-is? category-declaration jazz:Class-Declaration)     (case propagation
                                                                                                  ((override)        'jazz:add-method-node)
                                                                                                  ((final)           'jazz:add-final-method)
@@ -256,8 +257,14 @@
       (case add-method-proc
         ((jazz:add-final-method)
          `(begin
-            (define (,method-locator self ,@signature-emit)
-              ,@(jazz:add-signature-casts signature-casts body-emit))
+            ,@(if unsafe-locator
+                  `((define (,unsafe-locator self ,@signature-emit)
+                      ,body-emit)
+                    (define (,method-locator self ,@signature-emit)
+                      ,@signature-casts
+                      (,unsafe-locator self ,@(map jazz:get-lexical-binding-name (jazz:get-signature-positional unsafe-signature)))))
+                `((define (,method-locator self ,@signature-emit)
+                    ,@(jazz:add-signature-casts signature-casts body-emit))))
             (,add-method-proc ,class-locator ',name ,method-locator)
             ,@(jazz:declaration-result)))
         ((jazz:add-virtual-method)
@@ -320,7 +327,7 @@
 ;;;
 
 
-(jazz:define-emit (dispatch (scheme backend) expression declaration environment object-code rest-codes)
+(jazz:define-emit (dispatch (scheme backend) expression declaration environment object-code others-arguments others-codes)
   (let ((name (jazz:get-dispatch-name expression)))
     (define (resolve-type object-code)
       (let ((object-type (jazz:patch-type-until-unification (jazz:get-code-type object-code))))
@@ -365,14 +372,14 @@
     
     (let ((method-declaration (lookup-method/warn object-code)))
       (if method-declaration
-          (or (jazz:emit-inlined-final-dispatch expression method-declaration object-code rest-codes declaration environment backend)
+          (or (jazz:emit-inlined-final-dispatch expression method-declaration object-code others-codes declaration environment backend)
               (jazz:with-code-value object-code
                 (lambda (code)
-                  (let ((dispatch-code (jazz:emit-method-dispatch code method-declaration declaration environment backend)))
+                  (let ((dispatch-code (jazz:emit-method-dispatch code expression others-arguments others-codes method-declaration declaration environment backend)))
                     (jazz:new-code
                       `(,(jazz:sourcified-form dispatch-code)
                         ,(jazz:sourcified-form code)
-                        ,@(jazz:codes-forms rest-codes))
+                        ,@(jazz:codes-forms others-codes))
                       (jazz:get-code-type dispatch-code)
                       (jazz:get-expression-source expression))))))
         (let ((dv (jazz:register-variable declaration (%%string-append (%%symbol->string name) "!d") #f)))
@@ -381,7 +388,7 @@
             (jazz:new-code
               (jazz:with-uniqueness (jazz:sourcified-form object-code)
                 (lambda (object)
-                  `((,d ,object) ,object ,@(jazz:codes-forms rest-codes))))
+                  `((,d ,object) ,object ,@(jazz:codes-forms others-codes))))
               jazz:Any
               (jazz:get-expression-source expression))))))))
 
@@ -497,7 +504,7 @@
             (jazz:emit-primitive-call operator locator arguments arguments-codes declaration environment backend)
             (jazz:emit-inlined-call operator arguments-codes expression declaration environment backend)
             (jazz:emit-unsafe-call operator locator arguments arguments-codes declaration environment backend)
-            (jazz:emit-call operator arguments-codes declaration environment backend))
+            (jazz:emit-call operator arguments arguments-codes declaration environment backend))
         (jazz:get-expression-source expression)))))
 
 

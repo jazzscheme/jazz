@@ -154,7 +154,7 @@
         (jazz:walk-error walker resume declaration form-src "Ill-placed define")
       (let ((type (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any))
             (signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
-        (let ((effective-type (if signature (jazz:build-function-type signature type) type)))
+        (let ((effective-type (if signature (jazz:signature->function-type signature type) type)))
           (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                      (jazz:new-define-declaration name effective-type declaration signature))))
             (jazz:set-declaration-source new-declaration form-src)

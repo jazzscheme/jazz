@@ -105,8 +105,8 @@
     (if (and jazz:debug-user?
              (%%class-is? value jazz:Lambda)
              ;; no need to emit unsafe and safe when inline because as the checks are not included
-             ;; in the lambda's body it is possible to define the function itself with checks so it is
-             ;; safe used not inlined and only insert checks at call site when the types don't match
+             ;; in the body it is possible to define the function itself with checks so it is safe
+             ;; used not inlined and only insert checks at call site when the types don't match
              (%%neq? (jazz:get-definition-declaration-expansion declaration) 'inline)
              ;; safe first iteration simplification
              (jazz:only-positional-signature? (jazz:get-lambda-signature value))
@@ -751,7 +751,7 @@
   (%%neq? (jazz:get-category-declaration-implementor category-declaration) 'primitive))
 
 
-(define (jazz:emit-method-dispatch object declaration source-declaration environment backend)
+(define (jazz:emit-method-dispatch object operator arguments arguments-codes declaration source-declaration environment backend)
   (let ((name (jazz:get-lexical-binding-name declaration)))
     (receive (dispatch-type method-declaration) (jazz:method-dispatch-info declaration)
       (let ((category-declaration (jazz:get-declaration-parent method-declaration)))
@@ -760,8 +760,29 @@
           (jazz:new-code
             (case dispatch-type
               ((final)
-               (let ((implementation-locator (jazz:get-declaration-locator method-declaration)))
-                 `(%%final-dispatch (jazz:class-of ,object-cast) ,implementation-locator)))
+               (let ((type (jazz:get-lexical-binding-type method-declaration))
+                     (implementation-locator (jazz:get-declaration-locator method-declaration)))
+                 (if (and jazz:debug-user?
+                          arguments
+                          ;; fail safe as this should never occur as inlined-call is before
+                          (%%neq? (jazz:get-definition-declaration-expansion method-declaration) 'inline)
+                          ;; safe first iteration simplification
+                          (jazz:only-positional-function-type? type)
+                          (jazz:typed-function-type? type))
+                     (let ((types (jazz:codes-types arguments-codes)))
+                       (let ((mismatch (jazz:signature-mismatch arguments types type)))
+                         (if (%%not mismatch)
+                             (let ((locator (jazz:unsafe-locator implementation-locator)))
+                               `(%%final-dispatch (jazz:class-of ,object-cast) ,locator))
+                           (begin
+                             (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
+                               (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
+                                 (jazz:warning "Warning: In {a}{a}: Unmatched call to typed method {a}"
+                                               (jazz:get-declaration-locator declaration)
+                                               (jazz:present-expression-location expression operator)
+                                               (jazz:reference-name (jazz:get-declaration-locator declaration)))))
+                             `(%%final-dispatch (jazz:class-of ,object-cast) ,implementation-locator)))))
+                   `(%%final-dispatch (jazz:class-of ,object-cast) ,implementation-locator))))
               ((class)
                (let ((class-level-locator (%%compose-helper (jazz:get-declaration-locator category-declaration) 'level))
                      (method-rank-locator (%%compose-helper (jazz:get-declaration-locator method-declaration) 'rank)))
@@ -789,7 +810,7 @@
 (jazz:define-method (jazz:emit-binding-reference (jazz:Method-Declaration declaration) source-declaration environment backend)
   (let ((self (jazz:*self*)))
     (if self
-        (let ((dispatch-code (jazz:emit-method-dispatch self declaration source-declaration environment backend)))
+        (let ((dispatch-code (jazz:emit-method-dispatch self #f #f #f declaration source-declaration environment backend)))
           (jazz:new-code
             (jazz:emit 'method-reference backend declaration source-declaration environment self dispatch-code)
             (jazz:get-code-type dispatch-code)
@@ -833,14 +854,14 @@
     #f))
 
 
-(jazz:define-method (jazz:emit-binding-call (jazz:Method-Declaration declaration) binding-src arguments source-declaration environment backend)
+(jazz:define-method (jazz:emit-binding-call (jazz:Method-Declaration declaration) binding-src arguments arguments-codes source-declaration environment backend)
   (let ((self (jazz:*self*)))
     (if self
         (let ((type (jazz:get-lexical-binding-type declaration))
-              (arguments (jazz:codes-forms arguments))
-              (dispatch-code (jazz:emit-method-dispatch self declaration source-declaration environment backend)))
+              (arguments-codes (jazz:codes-forms arguments-codes))
+              (dispatch-code (jazz:emit-method-dispatch self binding-src arguments arguments-codes declaration source-declaration environment backend)))
           (jazz:new-code
-            (jazz:emit 'method-binding-call backend declaration binding-src dispatch-code self arguments)
+            (jazz:emit 'method-binding-call backend declaration binding-src dispatch-code self arguments-codes)
             (jazz:get-code-type dispatch-code)
             #f))
       (jazz:error "Methods can only be called directly from inside a method: {a} in {a}" (jazz:get-lexical-binding-name declaration) (jazz:get-declaration-locator source-declaration)))))
@@ -880,8 +901,17 @@
                (body-type (let ((type (jazz:get-lexical-binding-type declaration)))
                             (if (%%is? type jazz:Function-Type) (jazz:get-function-type-result type) jazz:Any)))
                (body-emit (and body (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
-                                      (jazz:emit-type-check body-code body-type declaration augmented-environment backend)))))
-          (jazz:emit 'method backend declaration environment signature-emit signature-casts body-emit))))))
+                                      (jazz:emit-type-check body-code body-type declaration augmented-environment backend))))
+               (generate-unsafe? (and jazz:debug-user?
+                                      ;; no need to emit unsafe and safe when inline because as the checks are not included
+                                      ;; in the body it is possible to define the function itself with checks so it is safe
+                                      ;; used not inlined and only insert checks at call site when the types don't match
+                                      (%%neq? (jazz:get-definition-declaration-expansion declaration) 'inline)
+                                      ;; safe first iteration simplification
+                                      (jazz:only-positional-signature? signature)
+                                      (jazz:typed-signature? signature)))
+               (unsafe-signature (and generate-unsafe? signature)))
+          (jazz:emit 'method backend declaration environment signature-emit signature-casts body-emit unsafe-signature))))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Method-Declaration expression) down up here seed environment)
@@ -925,10 +955,10 @@
       #f)))
 
 
-(jazz:define-method (jazz:emit-call (jazz:Method-Node-Reference expression) arguments declaration environment backend)
+(jazz:define-method (jazz:emit-call (jazz:Method-Node-Reference expression) arguments arguments-codes declaration environment backend)
   (let ((operator (jazz:emit-expression expression declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'method-node-call backend expression declaration operator arguments)
+      (jazz:emit 'method-node-call backend expression declaration operator arguments-codes)
       jazz:Any
       #f)))
 
@@ -1465,10 +1495,10 @@
 (define (jazz:emit-dispatch expression declaration environment backend)
   (let ((arguments (jazz:get-dispatch-arguments expression)))
     (let ((object-argument (%%car arguments))
-          (rest-arguments (%%cdr arguments)))
+          (others-arguments (%%cdr arguments)))
       (let ((object-code (jazz:emit-expression object-argument declaration environment backend))
-            (rest-codes (jazz:emit-expressions rest-arguments declaration environment backend)))
-        (jazz:emit 'dispatch backend expression declaration environment object-code rest-codes)))))
+            (others-codes (jazz:emit-expressions others-arguments declaration environment backend)))
+        (jazz:emit 'dispatch backend expression declaration environment object-code others-arguments others-codes)))))
 
 
 (define (jazz:emit-inlined-final-dispatch expression declaration object arguments source-declaration environment backend)
@@ -1555,7 +1585,7 @@
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
       (let ((type (jazz:specifier->type walker resume declaration environment specifier)))
         (let ((signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
-          (let ((effective-type (if signature (jazz:build-function-type signature type) type)))
+          (let ((effective-type (if signature (jazz:signature->function-type signature type) type)))
             (let ((new-declaration (or (jazz:find-declaration-child declaration name)
                                        (new-definition-declaration name effective-type access compatibility '() declaration expansion signature))))
               (jazz:set-declaration-source new-declaration form-src)
@@ -2162,8 +2192,7 @@
   
   (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz:parse-method walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Category-Declaration) (jazz:walk-error walker resume declaration form-src "Methods can only be defined inside categories: {s}" name)
-      (let ((type (jazz:new-function-type '() '() '() #f (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any)))
-            (inline? (and (%%eq? expansion 'inline) body)))
+      (let ((inline? (and (%%eq? expansion 'inline) body)))
         (receive (signature augmented-environment)
             ;; yuck. to clean
             (if inline?
@@ -2171,7 +2200,8 @@
               (values
                 (jazz:walk-parameters walker resume declaration environment parameters #t #f)
                 (jazz:unspecified)))
-          (let* ((root-declaration (find-root-declaration name))
+          (let* ((type (jazz:signature->function-type signature (if specifier (jazz:walk-specifier walker resume declaration environment specifier) jazz:Any)))
+                 (root-declaration (find-root-declaration name))
                  (new-declaration (or (jazz:find-declaration-child declaration name)
                                       (jazz:new-method-declaration name type access compatibility '() declaration root-declaration propagation abstraction expansion remote synchronized signature))))
             (jazz:set-declaration-source new-declaration form-src)
@@ -2286,11 +2316,11 @@
         (jazz:validate-arguments walker resume source-declaration declaration signature arguments form-src))))
 
 
-(jazz:define-method (jazz:emit-binding-call (jazz:NextMethod-Variable binding) binding-src arguments source-declaration environment backend)
+(jazz:define-method (jazz:emit-binding-call (jazz:NextMethod-Variable binding) binding-src arguments arguments-codes source-declaration environment backend)
   (let ((type (jazz:get-lexical-binding-type binding))
         (self (jazz:*self*)))
     (jazz:new-code
-      (jazz:emit 'nextmethod-binding-call backend binding binding-src self arguments)
+      (jazz:emit 'nextmethod-binding-call backend binding binding-src self arguments-codes)
       (jazz:call-return-type type)
       #f)))
 

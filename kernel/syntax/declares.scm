@@ -49,7 +49,9 @@
          '((standard-bindings)
            (extended-bindings)))
      
-     (not inline)
+     ,@(if (eq? jazz:kernel-safety 'sealed)
+           '()
+         '((not inline)))
      
      #; ;; don't think we need those for the kernel
      ,@(if jazz:kernel-optimize?
@@ -84,7 +86,9 @@
       
       ;; inlining can have a huge impact on compilation time
       ;; and really bloat the size of the generated .o1 file
-      (not inline)
+      ,@(if (eq? jazz:kernel-safety 'sealed)
+            '()
+          '((not inline)))
       
       ;; those should be removed in a new distribution safety
       ;; where the code is fully debugged. or even better be
@@ -92,7 +96,8 @@
       ;; performance between a built debug and a built release
       ;; (at the moment the difference is around 8 times due
       ;; mainly to the safe declare)
-      ,@(if jazz:kernel-optimize?
+      ,@(if (or jazz:kernel-optimize?
+                (eq? jazz:kernel-safety 'sealed))
             '()
           '((not proper-tail-calls)
             (not optimize-dead-local-variables)))

@@ -49,7 +49,10 @@
          '((standard-bindings)
            (extended-bindings)))
      
-     ,@(if (eq? jazz:kernel-safety 'sealed)
+     ,@(if #f
+           #; ;; this inline declaration or the one below breaks
+              ;; compilation of jazz.git.foreign for some reason
+           (eq? jazz:kernel-safety 'sealed)
            '()
          '((not inline)))
      
@@ -86,7 +89,10 @@
       
       ;; inlining can have a huge impact on compilation time
       ;; and really bloat the size of the generated .o1 file
-      ,@(if (eq? jazz:kernel-safety 'sealed)
+      ,@(if #f
+            #; ;; this inline declaration or the one below breaks
+            ;; compilation of jazz.git.foreign for some reason
+            (eq? jazz:kernel-safety 'sealed)
             '()
           '((not inline)))
       

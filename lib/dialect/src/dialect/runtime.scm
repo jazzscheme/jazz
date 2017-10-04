@@ -2494,9 +2494,9 @@
 
 ;; <any>
 ;; <Point+>                            ;; Nillable
-;; <Point<fx/pair>>                    ;; Template
 ;; <category<Cell>>                    ;; Category
 ;; <fx^fx^opt<fx>^key<k:fx>^fx*:pair>  ;; Function with positional, optional, named and rest parameters
+;; <vector<fx>>                        ;; Template
 ;; <values<fx/fl>>                     ;; Values
 ;; <Object>
 ;; <Point>

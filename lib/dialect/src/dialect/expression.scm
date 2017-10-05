@@ -52,11 +52,8 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Proclaim expression) declaration environment backend)
-  (let ((clauses (jazz:get-proclaim-clauses expression))
-        (module-declaration (jazz:get-declaration-toplevel declaration)))
-    (for-each (lambda (clause)
-                (jazz:proclaim module-declaration clause))
-              clauses))
+  (let ((clauses (jazz:get-proclaim-clauses expression)))
+    (for-each jazz:proclaim clauses))
   #f)
 
 
@@ -127,7 +124,7 @@
                                ;; a bit too much for now
                                #;
                                (let ((expression (and (%%pair? least-mismatch) (%%car least-mismatch))))
-                                 (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (%%not (%%null? specializers)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
+                                 (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (%%not (%%null? specializers)) (jazz:get-warn? 'optimizations)
                                            ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
                                            (%%not (%%memq locator '(scheme.language.runtime.kernel:=
                                                                      scheme.language.runtime.kernel:<

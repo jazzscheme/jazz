@@ -58,7 +58,7 @@
              ,@(let ((name (jazz:get-lexical-binding-name declaration))
                      (parent (jazz:get-declaration-parent declaration)))
                  (if (%%is? parent jazz:Module-Declaration)
-                     (if (jazz:get-module-generate? parent 'register)
+                     (if (jazz:get-generate? 'register)
                          `((jazz:register-definition ',(jazz:get-lexical-binding-name parent) ',name ',locator))
                        '())
                    `((jazz:add-field ,(jazz:get-declaration-locator parent) (jazz:new-definition ',name ',locator)))))))))
@@ -123,7 +123,7 @@
                            (jazz:new-class ,metaclass-access ',locator ,ascendant-access (%%list ,@interface-accesses))))
                        (define ,level-locator (%%get-class-level ,locator)))))))
            ,@(let ((toplevel-declaration (jazz:get-declaration-toplevel declaration)))
-               (if (jazz:get-module-generate? toplevel-declaration 'register)
+               (if (jazz:get-generate? 'register)
                    `((jazz:register-module-entry ',(jazz:get-lexical-binding-name toplevel-declaration) ',name ,locator))
                  '()))
            ,@(jazz:emit-namespace-statements body declaration environment backend))
@@ -151,7 +151,7 @@
          (define ,rank-locator
            (%%get-interface-rank ,locator))
          ,@(let ((toplevel-declaration (jazz:get-declaration-toplevel declaration)))
-             (if (jazz:get-module-generate? toplevel-declaration 'register)
+             (if (jazz:get-generate? 'register)
                  `((jazz:register-module-entry ',(jazz:get-lexical-binding-name toplevel-declaration) ',name ,locator))
                '()))
          ,@(jazz:emit-namespace-statements body declaration environment backend))
@@ -348,7 +348,7 @@
       (let ((method-declaration (lookup-method object-code)))
         (if (%%not method-declaration)
             (begin
-              (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
+              (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
                 (jazz:warning "Warning: In {a}{a}: Unable to find dispatch method {a}"
                               (jazz:get-declaration-locator declaration)
                               (jazz:present-expression-location expression #f)
@@ -798,7 +798,7 @@
           (let iter ((scan patterns) (least-mismatch #f))
                (if (%%null? scan)
                    (begin
-                     (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations)
+                     (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations)
                                   ;; a bit extreme for now
                                   (%%not (%%memq locator '(scheme.language.runtime.kernel:car
                                                            scheme.language.runtime.kernel:cdr))))
@@ -856,7 +856,7 @@
                                       (jazz:get-function-type-result type)
                                       #f)
                                   (begin
-                                    (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
+                                    (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
                                       (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
                                         (jazz:warning "Warning: In {a}{a}: Unmatched call to typed definition {a}"
                                                       (jazz:get-declaration-locator declaration)

@@ -775,7 +775,7 @@
                              (let ((locator (jazz:unsafe-locator implementation-locator)))
                                `(%%final-dispatch (jazz:class-of ,object-cast) ,locator))
                            (begin
-                             (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel declaration) 'optimizations))
+                             (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
                                (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
                                  (jazz:warning "Warning: In {a}{a}: Unmatched call to typed method {a}"
                                                (jazz:get-declaration-locator declaration)

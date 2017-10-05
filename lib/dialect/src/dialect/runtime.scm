@@ -859,7 +859,6 @@
    (requires        getter: generate setter: generate)
    (exports         getter: generate setter: generate)
    (imports         getter: generate setter: generate)
-   (proclaims       getter: generate)
    (inclusions      getter: generate setter: generate)
    (local-macros    getter: generate)))
 
@@ -870,9 +869,8 @@
       (and resource
            (%%get-resource-package resource))))
   
-  (let ((new-declaration (jazz:allocate-module-declaration name #f #f access 'uptodate '() #f parent #f #f (jazz:make-access-lookups jazz:public-access) (jazz:new-queue) #f walker (determine-package) dialect-name dialect-invoice '() '() '() (%%make-table test: eq?) '() (%%make-table test: eq?))))
+  (let ((new-declaration (jazz:allocate-module-declaration name #f #f access 'uptodate '() #f parent #f #f (jazz:make-access-lookups jazz:public-access) (jazz:new-queue) #f walker (determine-package) dialect-name dialect-invoice '() '() '() '() (%%make-table test: eq?))))
     (jazz:setup-declaration new-declaration)
-    (jazz:setup-module-proclaim new-declaration)
     new-declaration))
 
 
@@ -1178,107 +1176,6 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Module-Declaration declaration) environment backend)
   (jazz:emit 'module backend declaration environment))
-
-
-(define (jazz:setup-module-proclaim module-declaration)
-  (let ((table (jazz:get-module-declaration-proclaims module-declaration)))
-    (if jazz:debug-user?
-        (%%table-set! table 'generate '(check)))))
-
-
-(define (jazz:get-module-proclaim module-declaration proclaim-name default)
-  (%%table-ref (jazz:get-module-declaration-proclaims module-declaration) proclaim-name default))
-
-
-(define (jazz:set-module-proclaim module-declaration proclaim-name value)
-  (%%table-set! (jazz:get-module-declaration-proclaims module-declaration) proclaim-name value))
-
-
-(define jazz:all-warnings
-  '(optimizations))
-
-(define jazz:all-generates
-  '(check register))
-
-
-(define (jazz:proclaim module-declaration clause)
-  (define (parse-clause clause)
-    (%%assert (%%pair? clause)
-      (case (%%car clause)
-        ((default)
-         (parse-value 'default (%%cdr clause)))
-        ((not)
-         (parse-value 'off (%%cdr clause)))
-        (else
-         (parse-value 'on clause)))))
-  
-  (define (parse-value value clause)
-    (%%assert (%%pair? clause)
-      (let ((kind (%%car clause))
-            (arguments (%%cdr clause)))
-        (values value kind arguments))))
-  
-  (receive (value kind arguments) (parse-clause clause)
-    (case kind
-      ((warn)
-       (let ((warnings (if (%%null? arguments) jazz:all-warnings arguments)))
-         (for-each (lambda (warning)
-                     (define (proclaim on?)
-                       (if on?
-                           (let ((module-warnings (jazz:get-module-proclaim module-declaration 'warn '())))
-                             (if (%%not (%%memq warning module-warnings))
-                                 (jazz:set-module-proclaim module-declaration 'warn (%%cons warning module-warnings))))
-                         (let ((module-warnings (jazz:get-module-proclaim module-declaration 'warn '())))
-                           (if (%%memq warning module-warnings)
-                               (jazz:set-module-proclaim module-declaration 'warn (jazz:remove! warning module-warnings))))))
-                     
-                     (if (%%not (%%memq warning jazz:all-warnings))
-                         (jazz:error "Unknown warning: {s}" warning)
-                       (case value
-                         ((default)
-                          (proclaim (case warning
-                                      ((optimizations)
-                                       #f))))
-                         ((on)
-                          (proclaim #t))
-                         ((off)
-                          (proclaim #f)))))
-                   warnings)))
-      ((generate)
-       (let ((generates (if (%%null? arguments) jazz:all-generates arguments)))
-         (for-each (lambda (generate)
-                     (define (proclaim on?)
-                       (if on?
-                           (let ((module-generates (jazz:get-module-proclaim module-declaration 'generate '())))
-                             (if (%%not (%%memq generate module-generates))
-                                 (jazz:set-module-proclaim module-declaration 'generate (%%cons generate module-generates))))
-                         (let ((module-generates (jazz:get-module-proclaim module-declaration 'generate '())))
-                           (if (%%memq generate module-generates)
-                               (jazz:set-module-proclaim module-declaration 'generate (jazz:remove! generate module-generates))))))
-                     
-                     (if (%%not (%%memq generate jazz:all-generates))
-                         (jazz:error "Unknown generate: {s}" generate)
-                       (case value
-                         ((default)
-                          (proclaim (case generate
-                                      ((check)
-                                       jazz:debug-user?)
-                                      ((register)
-                                       #f))))
-                         ((on)
-                          (proclaim #t))
-                         ((off)
-                          (proclaim #f)))))
-                   generates)))
-      (else
-       (jazz:error "Ill-formed proclaim: {s}" clause)))))
-
-
-(define (jazz:get-module-warn? module-declaration warning-name)
-  (%%memq warning-name (jazz:get-module-proclaim module-declaration 'warn '())))
-
-(define (jazz:get-module-generate? module-declaration generate-name)
-  (%%memq generate-name (jazz:get-module-proclaim module-declaration 'generate '())))
 
 
 ;; hack around warnings being reported more than once if a
@@ -1763,7 +1660,7 @@
         (symbol (jazz:get-export-declaration-symbol declaration))
         (parent (jazz:get-declaration-parent declaration)))
     (%%assert (%%is? parent jazz:Module-Declaration))
-    (if (jazz:get-module-generate? parent 'register)
+    (if (jazz:get-generate? 'register)
         `(jazz:register-native ',(jazz:get-lexical-binding-name parent) ',name ',symbol)
       `(begin))))
 
@@ -2397,7 +2294,7 @@
                (%%eq? type jazz:Void)
                (%%subtype? code-type type))
            #; ;; creates too many warnings due to loop generated casts
-           (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel source-declaration) 'optimizations))
+           (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
              (jazz:warning "Warning: In {a}{a}: Redundant cast"
                            (jazz:get-declaration-locator source-declaration)
                            (jazz:present-expression-location expression #f)))
@@ -2407,7 +2304,7 @@
            `(%%fixnum->flonum ,(jazz:sourcified-form code)))
           ((%%eq? type jazz:Flonum)
            ;; coded the flonum case here for now has it is the only castable type
-           (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-module-warn? (jazz:get-declaration-toplevel source-declaration) 'optimizations))
+           (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
              (jazz:warning "Warning: In {a}{a}: Untyped cast <fl>"
                            (jazz:get-declaration-locator source-declaration)
                            (jazz:present-expression-location expression #f)))
@@ -3234,18 +3131,127 @@
 
 
 ;;;
+;;;; Proclaims
+;;;
+
+
+(define (jazz:setup-proclaims context)
+  (let ((table (jazz:get-walk-context-proclaims context)))
+    (if jazz:debug-user?
+        (%%table-set! table 'generate '(check)))))
+
+
+(define (jazz:get-proclaim proclaim-name default)
+  (%%table-ref (jazz:get-walk-proclaims) proclaim-name default))
+
+
+(define (jazz:set-proclaim proclaim-name value)
+  (%%table-set! (jazz:get-walk-proclaims) proclaim-name value))
+
+
+(define jazz:all-warnings
+  '(optimizations))
+
+(define jazz:all-generates
+  '(check register))
+
+
+(define (jazz:proclaim clause)
+  (define (parse-clause clause)
+    (%%assert (%%pair? clause)
+      (case (%%car clause)
+        ((default)
+         (parse-value 'default (%%cdr clause)))
+        ((not)
+         (parse-value 'off (%%cdr clause)))
+        (else
+         (parse-value 'on clause)))))
+  
+  (define (parse-value value clause)
+    (%%assert (%%pair? clause)
+      (let ((kind (%%car clause))
+            (arguments (%%cdr clause)))
+        (values value kind arguments))))
+  
+  (receive (value kind arguments) (parse-clause clause)
+    (case kind
+      ((warn)
+       (let ((warnings (if (%%null? arguments) jazz:all-warnings arguments)))
+         (for-each (lambda (warning)
+                     (define (proclaim on?)
+                       (if on?
+                           (let ((proclaimed-warnings (jazz:get-proclaim 'warn '())))
+                             (if (%%not (%%memq warning proclaimed-warnings))
+                                 (jazz:set-proclaim 'warn (%%cons warning proclaimed-warnings))))
+                         (let ((proclaimed-warnings (jazz:get-proclaim 'warn '())))
+                           (if (%%memq warning proclaimed-warnings)
+                               (jazz:set-proclaim 'warn (jazz:remove! warning proclaimed-warnings))))))
+                     
+                     (if (%%not (%%memq warning jazz:all-warnings))
+                         (jazz:error "Unknown warning: {s}" warning)
+                       (case value
+                         ((default)
+                          (proclaim (case warning
+                                      ((optimizations)
+                                       #f))))
+                         ((on)
+                          (proclaim #t))
+                         ((off)
+                          (proclaim #f)))))
+                   warnings)))
+      ((generate)
+       (let ((generates (if (%%null? arguments) jazz:all-generates arguments)))
+         (for-each (lambda (generate)
+                     (define (proclaim on?)
+                       (if on?
+                           (let ((proclaimed-generates (jazz:get-proclaim 'generate '())))
+                             (if (%%not (%%memq generate proclaimed-generates))
+                                 (jazz:set-proclaim 'generate (%%cons generate proclaimed-generates))))
+                         (let ((proclaimed-generates (jazz:get-proclaim 'generate '())))
+                           (if (%%memq generate proclaimed-generates)
+                               (jazz:set-proclaim 'generate (jazz:remove! generate proclaimed-generates))))))
+                     
+                     (if (%%not (%%memq generate jazz:all-generates))
+                         (jazz:error "Unknown generate: {s}" generate)
+                       (case value
+                         ((default)
+                          (proclaim (case generate
+                                      ((check)
+                                       jazz:debug-user?)
+                                      ((register)
+                                       #f))))
+                         ((on)
+                          (proclaim #t))
+                         ((off)
+                          (proclaim #f)))))
+                   generates)))
+      (else
+       (jazz:error "Ill-formed proclaim: {s}" clause)))))
+
+
+(define (jazz:get-warn? warning-name)
+  (%%memq warning-name (jazz:get-proclaim 'warn '())))
+
+(define (jazz:get-generate? generate-name)
+  (%%memq generate-name (jazz:get-proclaim 'generate '())))
+
+
+;;;
 ;;;; Walk Context
 ;;;
 
 
 (jazz:define-class jazz:Walk-Context jazz:Object (constructor: jazz:allocate-walk-context)
-  ((policy   getter: generate)
-   (locator  getter: generate)
-   (pathname getter: generate)))
+  ((policy    getter: generate)
+   (locator   getter: generate)
+   (pathname  getter: generate)
+   (proclaims getter: generate)))
 
 
 (define (jazz:new-walk-context policy locator pathname)
-  (jazz:allocate-walk-context policy locator pathname))
+  (let ((context (jazz:allocate-walk-context policy locator pathname (%%make-table test: eq?))))
+    (jazz:setup-proclaims context)
+    context))
 
 
 (define jazz:walk-context
@@ -3280,6 +3286,11 @@
     (if (%%not context)
         #f
       (jazz:get-walk-context-pathname context))))
+
+
+(define (jazz:get-walk-proclaims)
+  (let ((context (jazz:need-walk-context)))
+    (jazz:get-walk-context-proclaims context)))
 
 
 ;;;

@@ -52,7 +52,7 @@
          ,@(let ((name (jazz:get-lexical-binding-name declaration))
                  (parent (jazz:get-declaration-parent declaration)))
              (if (%%is? parent jazz:Module-Declaration)
-                 (if (jazz:get-module-generate? parent 'register)
+                 (if (jazz:get-generate? 'register)
                      `((jazz:register-define ',(jazz:get-lexical-binding-name parent) ',name ',locator))
                    '())
                `((jazz:add-field ,(jazz:get-declaration-locator parent) (jazz:new-define ',name ',locator)))))))

@@ -771,7 +771,8 @@
                           (jazz:typed-function-type? type))
                      (let ((types (jazz:codes-types arguments-codes)))
                        (let ((mismatch (jazz:signature-mismatch arguments types type)))
-                         (if (%%not mismatch)
+                         (if (or (%%not mismatch)
+                                 (%%not (jazz:get-generate? 'check)))
                              (let ((locator (jazz:unsafe-locator implementation-locator)))
                                `(%%final-dispatch (jazz:class-of ,object-cast) ,locator))
                            (begin

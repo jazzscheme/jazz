@@ -849,7 +849,8 @@
                             (jazz:typed-function-type? type)
                             (let ((types (jazz:codes-types arguments-codes)))
                               (let ((mismatch (jazz:signature-mismatch arguments types type)))
-                                (if (%%not mismatch)
+                                (if (or (%%not mismatch)
+                                        (%%not (jazz:get-generate? 'check)))
                                     (jazz:new-code
                                       (let ((locator (jazz:unsafe-locator locator)))
                                         `(,locator ,@(jazz:codes-forms arguments-codes)))
@@ -871,7 +872,8 @@
                             (jazz:typed-function-type? type)
                             (let ((types (jazz:codes-types arguments-codes)))
                               (let ((mismatch (jazz:signature-mismatch arguments types type)))
-                                (if (%%not mismatch)
+                                (if (or (%%not mismatch)
+                                        (%%not (jazz:get-generate? 'check)))
                                     (jazz:new-code
                                       `(,(jazz:get-lexical-binding-name binding) ,@(jazz:codes-forms arguments-codes))
                                       (jazz:get-function-type-result type)

@@ -2314,7 +2314,7 @@
                     (%%fixnum->flonum ,value)
                   ,value))))
           (else
-           (if jazz:debug-user?
+           (if (jazz:get-generate? 'check)
                (let ((value (jazz:generate-symbol "val")))
                  `(let ((,value (let () ,(jazz:sourcified-form code))))
                     ,(jazz:emit-check type value source-declaration environment backend)
@@ -2323,7 +2323,7 @@
 
 
 (define (jazz:emit-type-check code type source-declaration environment backend)
-  (if jazz:debug-user?
+  (if (jazz:get-generate? 'check)
       (let ((code-type (jazz:resolve-type-safe (jazz:get-code-type code)))
             (type (jazz:resolve-type-safe type)))
         (if (or (%%not type) 
@@ -2338,7 +2338,7 @@
 
 
 (define (jazz:emit-parameter-check code type source-declaration environment backend)
-  (if jazz:debug-user?
+  (if (jazz:get-generate? 'check)
       (let ((type (jazz:resolve-type-safe type)))
         (if (or (%%not type) (%%eq? type jazz:Any) (%%object-class? type) (jazz:object-declaration? type))
             #f

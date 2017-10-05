@@ -424,7 +424,7 @@
         (let ((augmented-environment (%%cons frame environment)))
           (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend)))
             (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
-              (let ((signature-casts (and (jazz:get-generate? 'check) (jazz:emit-signature-casts signature declaration augmented-environment backend)))
+              (let ((signature-casts (and (jazz:get-generate? 'lambda-check) (jazz:emit-signature-casts signature declaration augmented-environment backend)))
                     (body-emit (jazz:emit 'begin backend expression declaration environment body-code)))
                 (let ((cast-body (jazz:simplify-begin (jazz:emit-return-check (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type declaration environment backend))))
                   (jazz:new-code

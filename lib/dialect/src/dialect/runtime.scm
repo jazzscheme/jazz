@@ -3138,7 +3138,7 @@
 (define (jazz:setup-proclaims context)
   (let ((table (jazz:get-walk-context-proclaims context)))
     (if jazz:debug-user?
-        (%%table-set! table 'generate '(check)))))
+        (%%table-set! table 'generate '(check lambda-check)))))
 
 
 (define (jazz:get-proclaim proclaim-name default)
@@ -3153,7 +3153,7 @@
   '(optimizations))
 
 (define jazz:all-generates
-  '(check register))
+  '(check lambda-check register))
 
 
 (define (jazz:proclaim clause)
@@ -3216,7 +3216,7 @@
                        (case value
                          ((default)
                           (proclaim (case generate
-                                      ((check)
+                                      ((check lambda-check)
                                        jazz:debug-user?)
                                       ((register)
                                        #f))))

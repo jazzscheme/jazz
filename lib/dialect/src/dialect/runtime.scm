@@ -1589,6 +1589,21 @@
     (jazz:format output "){%}")))
 
 
+(define (jazz:iterate-module-declaration module-declaration proc)
+  (jazz:tree-fold
+    module-declaration
+    (lambda (obj seed env)
+      (proc obj)
+      env)
+    (lambda (obj seed child-seed env)
+      seed)
+    (lambda (obj seed env)
+      (proc obj)
+      seed)
+    #f
+    #f))
+
+
 ;;;
 ;;;; Require Invoice
 ;;;

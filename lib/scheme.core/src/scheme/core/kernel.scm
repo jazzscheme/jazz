@@ -97,6 +97,14 @@
 
 
 ;;;
+;;;; Module
+;;;
+
+
+(native jazz:iterate-module-declaration)
+
+
+;;;
 ;;;; Walker
 ;;;
 

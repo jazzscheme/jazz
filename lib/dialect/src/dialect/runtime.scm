@@ -607,6 +607,13 @@
       declaration)))
 
 
+(define (jazz:require-declaration-of-type type namespace-declaration name)
+  (let ((decl (jazz:require-declaration namespace-declaration name)))
+    (if (%%is? decl type)
+        decl
+      (jazz:error "Found conflicting declarations for {a}" name))))
+
+
 (define (jazz:find-declaration namespace-declaration name)
   (%%table-ref (jazz:get-private-lookup namespace-declaration) name #f))
 
@@ -619,6 +626,14 @@
   (jazz:find-if (lambda (decl)
                   (%%eq? (jazz:get-lexical-binding-name decl) name))
                 (jazz:queue-list (jazz:get-namespace-declaration-children namespace-declaration))))
+
+
+(define (jazz:find-declaration-child-of-type type namespace-declaration name)
+  (let ((decl (jazz:find-declaration-child namespace-declaration name)))
+    (if (or (%%not decl)
+            (%%is? decl type))
+        decl
+      (jazz:error "Found conflicting declarations for {a}" name))))
 
 
 (define (jazz:remove-declaration-child namespace-declaration name)

@@ -1587,7 +1587,7 @@
       (let ((type (jazz:specifier->type walker resume declaration environment specifier)))
         (let ((signature (and parameters (jazz:walk-parameters walker resume declaration environment parameters #t #f))))
           (let ((effective-type (if signature (jazz:signature->function-type signature type) type)))
-            (let ((new-declaration (or (jazz:find-declaration-child declaration name)
+            (let ((new-declaration (or (jazz:find-declaration-child-of-type jazz:Definition-Declaration declaration name)
                                        (new-definition-declaration name effective-type access compatibility '() declaration expansion signature))))
               (jazz:set-declaration-source new-declaration form-src)
               (let ((effective-declaration (jazz:add-declaration-child walker resume declaration new-declaration)))
@@ -1602,7 +1602,7 @@
 (define (jazz:walk-extended-definition walker resume declaration environment form-src)
   (receive (name specifier access compatibility expansion value parameters) (jazz:parse-definition walker resume declaration (%%cdr (jazz:source-code form-src)))
     (%%assertion (%%class-is? declaration jazz:Namespace-Declaration) (jazz:walk-error walker resume declaration form-src "Definitions can only be defined inside namespaces: {s}" name)
-      (let ((new-declaration (jazz:require-declaration declaration name)))
+      (let ((new-declaration (jazz:require-declaration-of-type jazz:Definition-Declaration declaration name)))
         (%%when (%%neq? expansion 'inline)
           #; ;; wait buggy if file is both loaded interpreted and compiled
           (%%when (and (%%neq? (jazz:walk-for) 'eval) (jazz:get-definition-declaration-value new-declaration))

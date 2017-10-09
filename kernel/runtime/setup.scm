@@ -91,7 +91,7 @@ c-end
 
 
 ;;;
-;;;; Hooks
+;;;; Container
 ;;;
 
 
@@ -166,6 +166,9 @@ c-end
                         (##readenv-current-filepos re)))))
 
 
+(define (jazz:source&? src)
+  (##fx= (##vector-length src) 5))
+
 (define (jazz:make-source& code locat)
   (##vector ##source1-marker
             code
@@ -173,8 +176,29 @@ c-end
             (if locat (jazz:locat-start& locat) #f)
             (if locat (jazz:locat-end& locat) #f)))
 
-(define (jazz:source&? src)
-  (##fx= (##vector-length src) 5))
+(define (jazz:sourcify-aux1& code src)
+  (if (jazz:source&? src)
+      (##vector ##source1-marker
+                code
+                (##vector-ref src 2)
+                (##vector-ref src 3)
+                (##vector-ref src 4))
+    (##vector ##source1-marker
+              code
+              (##vector-ref src 2)
+              (##vector-ref src 3))))
+
+(define (jazz:sourcify-aux2& code src)
+  (if (jazz:source&? src)
+      (##vector ##source2-marker
+                code
+                (##vector-ref src 2)
+                (##vector-ref src 3)
+                (##vector-ref src 4))
+    (##vector ##source2-marker
+              code
+              (##vector-ref src 2)
+              (##vector-ref src 3))))
 
 (define (jazz:source-locat& src)
   (let ((container (##vector-ref src 2)))
@@ -203,6 +227,8 @@ c-end
 
 (set! ##wrap-datum jazz:wrap-datum&)
 (set! ##unwrap-datum jazz:unwrap-datum&)
+(set! ##sourcify-aux1 jazz:sourcify-aux1&)
+(set! ##sourcify-aux2 jazz:sourcify-aux2&)
 
 
 ;;;

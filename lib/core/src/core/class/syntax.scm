@@ -105,7 +105,7 @@
       (jazz:with-uniqueness object
         (lambda (obj)
           `(%%core-assertion (%%object? ,obj) (jazz:not-object-error ,obj)
-             (%%vector-length ,obj))))
+             (%%unsafe-vector-length ,obj))))
     `(%%vector-length ,object)))
 
 

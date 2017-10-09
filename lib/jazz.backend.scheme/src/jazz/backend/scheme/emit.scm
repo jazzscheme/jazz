@@ -773,7 +773,7 @@
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-will              '((%%make-will      <any*:any>)))
 (jazz:add-primitive-patterns     'jazz.language.runtime.kernel:make-parameter         '((%%make-parameter <any*:any>)))
 
-(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((%%f64vector-set! <fl^fb^fv:void>)))
+(jazz:add-primitive-patterns     'jazz.language.runtime.kernel:flset!                 '((%%unsafe-f64vector-set! <fl^fb^fv:void>)))
 
 (%%when (%%not jazz:debug-user?)
   (jazz:add-primitive-patterns 'jazz.language.runtime.functional:element            '((list-ref <list^int:any>) (%%vector-ref    <vector^int:any>)      (%%string-ref    <string^int:char>)))

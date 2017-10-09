@@ -1352,6 +1352,9 @@
 ;;;
 
 
+(jazz:define-macro (%%unsafe-vector-length vector)
+  `(jazz:unsafe (##vector-length ,vector)))
+
 (jazz:define-macro (%%unsafe-vector-ref vector n)
   `(jazz:unsafe (##vector-ref ,vector ,n)))
 
@@ -1361,6 +1364,10 @@
 
 (jazz:define-macro (%%unsafe-u8vector-length vec)
   `(jazz:unsafe (##u8vector-length ,vec)))
+
+
+(jazz:define-macro (%%unsafe-f64vector-set! vec n value)
+  `(jazz:unsafe (##f64vector-set! ,vec ,n ,value)))
 
 
 ;;;

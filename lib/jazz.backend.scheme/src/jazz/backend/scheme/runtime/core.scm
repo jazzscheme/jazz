@@ -535,7 +535,7 @@
   (##subtype-set! (%%f64vector .0) 30))
 
 (define (flset! fl ignore val)
-  (%%f64vector-set! fl 0 val))
+  (%%unsafe-f64vector-set! fl 0 val))
 
 
 ;;;

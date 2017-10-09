@@ -900,6 +900,15 @@
 
 
 ;;;
+;;;; Constant
+;;;
+
+
+(jazz:define-emit (constant (scheme backend) expression)
+  (jazz:get-constant-expansion expression))
+
+
+;;;
 ;;;; Assignment
 ;;;
 

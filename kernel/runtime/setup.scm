@@ -138,6 +138,74 @@ c-end
 
 
 ;;;
+;;;; Source
+;;;
+
+
+(define (jazz:wrap-datum& re x)
+  (if (##source? x)
+      x
+    (jazz:make-source& x (jazz:readenv->locat& re))))
+
+(define (jazz:unwrap-datum& re x)
+  (##source-code x))
+
+
+(define (jazz:readenv->locat& re)
+  (let ((container
+          (or (jazz:readenv-container re)
+              (let ((c
+                      (##port-name->container
+                        (##port-name (jazz:readenv-port re)))))
+                (jazz:readenv-container-set! re c)
+                c))))
+    (jazz:make-locat& container
+                      (##filepos->position
+                        (jazz:readenv-filepos re))
+                      (##filepos->position
+                        (##readenv-current-filepos re)))))
+
+
+(define (jazz:make-source& code locat)
+  (##vector ##source1-marker
+            code
+            (if locat (##locat-container locat) #f)
+            (if locat (jazz:locat-start& locat) #f)
+            (if locat (jazz:locat-end& locat) #f)))
+
+(define (jazz:source&? src)
+  (##fx= (##vector-length src) 5))
+
+(define (jazz:source-locat& src)
+  (let ((container (##vector-ref src 2)))
+    (if container
+        (jazz:make-locat& container
+                          (##vector-ref src 3)
+                          (##vector-ref src 4))
+        #f)))
+
+
+(define (jazz:locat&? locat)
+  (##fx= (##vector-length locat) 3))
+
+(define (jazz:make-locat& container start end)
+  (##vector container start end))
+
+(define (jazz:locat-start& locat)
+  (##locat-position locat))
+
+(define (jazz:locat-end& locat)
+  (let ((container (##vector-ref locat 0)))
+    (if (##source? container)
+        (jazz:locat-end& (##source-locat container))
+      (##vector-ref locat 2))))
+
+
+(set! ##wrap-datum jazz:wrap-datum&)
+(set! ##unwrap-datum jazz:unwrap-datum&)
+
+
+;;;
 ;;;; Common
 ;;;
 

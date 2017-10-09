@@ -270,8 +270,8 @@
           (%%read-all-as-a-begin-expr-from-port
             port
             (%%current-readtable)
-            ##wrap-datum
-            ##unwrap-datum
+            jazz:wrap-datum&
+            jazz:unwrap-datum&
             (jazz:readtable-start-syntax (%%current-readtable))
             #f)))
     (%%cdr (%%source-code (%%vector-ref begin-vector 1)))))
@@ -568,14 +568,25 @@
 
 (define (jazz:present-source obj)
   (define (present-src src)
-    (let ((code (jazz:source-code src))
-          (locat (%%source-locat src)))
-      (let ((pos (%%locat-position locat)))
-        (%%vector 'source
-                  (jazz:present-source code)
-                  (%%locat-container locat)
-                  (%%fx+ (%%filepos-line pos) 1)
-                  (%%fx+ (%%filepos-col pos) 1)))))
+    (let ((code (jazz:source-code src)))
+      (if (jazz:source&? src)
+          (let ((locat (jazz:source-locat& src)))
+            (let ((start (jazz:locat-start& locat))
+                  (end (jazz:locat-end& locat)))
+              (%%vector 'source
+                        (jazz:present-source code)
+                        (%%locat-container locat)
+                        (%%fx+ (%%filepos-line start) 1)
+                        (%%fx+ (%%filepos-col start) 1)
+                        (%%fx+ (%%filepos-line end) 1)
+                        (%%fx+ (%%filepos-col end) 1))))
+        (let ((locat (%%source-locat src)))
+          (let ((pos (%%locat-position locat)))
+            (%%vector 'source
+                      (jazz:present-source code)
+                      (%%locat-container locat)
+                      (%%fx+ (%%filepos-line pos) 1)
+                      (%%fx+ (%%filepos-col pos) 1)))))))
 
   (define (present-list lst)
     (cond ((%%pair? lst)

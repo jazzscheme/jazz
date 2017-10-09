@@ -250,6 +250,15 @@
 (define (jazz:readenv-wrap re x)
   (macro-readenv-wrap re x))
 
+(define (jazz:readenv-container re)
+  (macro-readenv-container re))
+
+(define (jazz:readenv-container-set! re c)
+  (macro-readenv-container-set! re c))
+
+(define (jazz:readenv-filepos re)
+  (macro-readenv-filepos re))
+
 
 ;;;
 ;;;; Writeenv

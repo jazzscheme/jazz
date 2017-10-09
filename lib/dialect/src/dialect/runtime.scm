@@ -3131,14 +3131,14 @@
 
 
 ;;;
-;;;; Proclaims
+;;;; Proclaim
 ;;;
 
 
 (define (jazz:setup-proclaims context)
   (let ((table (jazz:get-walk-context-proclaims context)))
     (if jazz:debug-user?
-        (%%table-set! table 'generate '(check lambda-check)))))
+        (%%table-set! table 'generate (list 'check 'lambda-check)))))
 
 
 (define (jazz:get-proclaim proclaim-name default)

@@ -439,7 +439,7 @@
 
 (define (jazz:source-locat expr)
   (if (%%source? expr)
-      (%%source-locat expr)
+      (jazz:source-locat& expr)
     #f))
 
 
@@ -564,6 +564,26 @@
 ;;;
 ;;;; Debug
 ;;;
+
+
+(define (jazz:extract-location src)
+  (cond ((%%not src)
+         src)
+        ((jazz:source&? src)
+         (let ((locat (jazz:source-locat& src)))
+           (let ((start (jazz:locat-start& locat))
+                 (end (jazz:locat-end& locat)))
+             (%%vector (%%locat-container locat)
+                       (%%fx+ (%%filepos-line start) 1)
+                       (%%fx+ (%%filepos-col start) 1)
+                       (%%fx+ (%%filepos-line end) 1)
+                       (%%fx+ (%%filepos-col end) 1)))))
+        (else
+         (let ((locat (%%source-locat src)))
+           (let ((pos (%%locat-position locat)))
+             (%%vector (%%locat-container locat)
+                       (%%fx+ (%%filepos-line pos) 1)
+                       (%%fx+ (%%filepos-col pos) 1)))))))
 
 
 (define (jazz:present-source obj)

@@ -397,6 +397,7 @@
 (native jazz:sourcify-if)
 (native jazz:sourcify-deep)
 (native jazz:sourcify-deep-if)
+(native jazz:extract-location)
 (native jazz:present-source)
 (native jazz:locat-container)
 (native jazz:locat-position)

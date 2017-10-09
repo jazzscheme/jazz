@@ -201,12 +201,18 @@ c-end
               (##vector-ref src 3))))
 
 (define (jazz:source-locat& src)
-  (let ((container (##vector-ref src 2)))
-    (if container
-        (jazz:make-locat& container
-                          (##vector-ref src 3)
-                          (##vector-ref src 4))
-        #f)))
+  (if (jazz:source&? src)
+      (let ((container (##vector-ref src 2)))
+        (if container
+            (jazz:make-locat& container
+                              (##vector-ref src 3)
+                              (##vector-ref src 4))
+          #f))
+    (let ((container (##vector-ref src 2)))
+      (if container
+          (##make-locat container
+                        (##vector-ref src 3))
+        #f))))
 
 
 (define (jazz:locat&? locat)

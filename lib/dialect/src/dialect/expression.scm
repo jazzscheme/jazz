@@ -85,7 +85,7 @@
 (jazz:define-method (jazz:emit-expression (jazz:Delay expression) declaration environment backend)
   (let ((expr (jazz:emit-expression (jazz:get-delay-expression expression) declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'delay backend expression declaration environment expr)
+      (jazz:emit backend 'delay expression declaration environment expr)
       jazz:Any
       #f)))
 
@@ -193,7 +193,7 @@
 
 (jazz:define-variable-override jazz:emit-primitive-call
   (lambda (operator locator arguments arguments-codes declaration environment backend)
-    (jazz:emit 'primitive-call backend operator locator arguments arguments-codes declaration environment)))
+    (jazz:emit backend 'primitive-call operator locator arguments arguments-codes declaration environment)))
 
 
 ;;;
@@ -216,7 +216,7 @@
 
 (jazz:define-variable-override jazz:emit-unsafe-call
   (lambda (operator locator arguments arguments-codes declaration environment backend)
-    (jazz:emit 'unsafe-call backend operator locator arguments arguments-codes declaration environment)))
+    (jazz:emit backend 'unsafe-call operator locator arguments arguments-codes declaration environment)))
 
 
 ;;;
@@ -532,7 +532,7 @@
             (yes (jazz:emit-expression yes declaration yes-environment backend))
             (no (and no (jazz:emit-expression no declaration no-environment backend))))
         (jazz:new-code
-          (jazz:emit 'if backend expression declaration environment test yes no)
+          (jazz:emit backend 'if expression declaration environment test yes no)
           (jazz:extend-type (jazz:get-code-type yes) (and no (jazz:get-code-type no)))
           (jazz:get-expression-source expression))))))
 
@@ -601,7 +601,7 @@
                                          (else jazz:Any))))
                              (%%cons (%%cons output type) (recurse (%%cdr clauses) no-environment)))))))))))
       (jazz:new-code
-        (jazz:emit 'cond backend expression declaration environment (map car clauses))
+        (jazz:emit backend 'cond expression declaration environment (map car clauses))
         (jazz:extend-types (map cdr clauses))
         (jazz:get-expression-source expression)))))
 
@@ -647,7 +647,7 @@
                                  (jazz:emit-expression body declaration environment backend)))
                              clauses)))
       (jazz:new-code
-        (jazz:emit 'case backend expression declaration environment target-emit clauses clauses-emit)
+        (jazz:emit backend 'case expression declaration environment target-emit clauses clauses-emit)
         (jazz:extend-types (map (lambda (emited-clause)
                                   (jazz:get-code-type emited-clause))
                                 clauses-emit))
@@ -694,7 +694,7 @@
                                   jazz:Any
                                 (jazz:new-nillable-type last-type)))))))
       (jazz:new-code
-        (jazz:emit 'and backend expression declaration environment expressions)
+        (jazz:emit backend 'and expression declaration environment expressions)
         type
         (jazz:get-expression-source expression)))))
 
@@ -742,7 +742,7 @@
                                   last-type
                                 jazz:Any))))))
       (jazz:new-code
-        (jazz:emit 'or backend expression declaration environment expressions)
+        (jazz:emit backend 'or expression declaration environment expressions)
         type
         (jazz:get-expression-source expression)))))
 
@@ -770,7 +770,7 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:Declare expression) declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'declare backend expression declaration environment)
+    (jazz:emit backend 'declare expression declaration environment)
     jazz:Any
     #f))
 
@@ -797,7 +797,7 @@
   (let ((body (jazz:get-parameterize-body expression)))
     (let ((body-code (jazz:emit-expression body declaration environment backend)))
       (jazz:new-code
-        (jazz:emit 'parameterize backend expression declaration environment body-code)
+        (jazz:emit backend 'parameterize expression declaration environment body-code)
         (jazz:get-code-type body-code)
         #f))))
 

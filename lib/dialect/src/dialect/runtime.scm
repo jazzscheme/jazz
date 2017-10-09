@@ -313,7 +313,7 @@
   (let ((type (jazz:get-lexical-binding-type binding))
         (operator (jazz:emit-binding-reference binding source-declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'walk-binding-binding-call backend binding binding-src operator arguments-codes)
+      (jazz:emit backend 'walk-binding-binding-call binding binding-src operator arguments-codes)
       (jazz:call-return-type type)
       #f)))
 
@@ -381,7 +381,7 @@
 
 
 (jazz:define-method (jazz:emit-binding-symbol (jazz:Lexical-Binding binding) declaration environment backend)
-  (jazz:emit 'lexical-binding-reference backend binding))
+  (jazz:emit backend 'lexical-binding-reference binding))
 
 
 ;;;
@@ -1190,7 +1190,7 @@
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Module-Declaration declaration) environment backend)
-  (jazz:emit 'module backend declaration environment))
+  (jazz:emit backend 'module declaration environment))
 
 
 ;; hack around warnings being reported more than once if a
@@ -1682,7 +1682,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Export-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'export-reference backend declaration)
+    (jazz:emit backend 'export-reference declaration)
     jazz:Any
     #f))
 
@@ -1760,7 +1760,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Export-Syntax-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'export-syntax-reference backend declaration)
+    (jazz:emit backend 'export-syntax-reference declaration)
     jazz:Any
     #f))
 
@@ -1815,7 +1815,7 @@
 (jazz:define-method (jazz:emit-binding-reference (jazz:Autoload-Declaration declaration) source-declaration environment backend)
   (let ((referenced-declaration (jazz:resolve-binding declaration)))
     (jazz:new-code
-      (jazz:emit 'autoload-reference backend declaration environment referenced-declaration)
+      (jazz:emit backend 'autoload-reference declaration environment referenced-declaration)
       referenced-declaration
       #f)))
 
@@ -3514,7 +3514,7 @@
 
 
 (jazz:define-method (jazz:emit-binding-symbol (jazz:Symbol-Binding binding) declaration environment backend)
-  (jazz:emit 'symbol-reference backend binding))
+  (jazz:emit backend 'symbol-reference binding))
 
 
 ;;;
@@ -3549,7 +3549,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Variable binding) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'variable-reference backend binding source-declaration environment)
+    (jazz:emit backend 'variable-reference binding source-declaration environment)
     (jazz:find-annotated-type binding environment)
     #f))
 
@@ -3565,7 +3565,7 @@
         (jazz:extend-annotated-type annotated-frame annotated-variable (jazz:get-code-type value-code))))
     (let ((binding-code (jazz:emit-binding-symbol binding source-declaration environment backend)))
       (jazz:new-code
-        (jazz:emit 'variable-assignment backend binding source-declaration environment binding-code value-code)
+        (jazz:emit backend 'variable-assignment binding source-declaration environment binding-code value-code)
         jazz:Any
         #f))))
 
@@ -3662,7 +3662,7 @@
 
 
 (jazz:define-method (jazz:emit-binding-symbol (jazz:Named-Parameter parameter) declaration environment backend)
-  (jazz:emit 'named-parameter-reference backend parameter))
+  (jazz:emit backend 'named-parameter-reference parameter))
 
 
 ;;;
@@ -3697,7 +3697,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Local-Variable-Binding declaration) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'local-variable-reference backend declaration)
+    (jazz:emit backend 'local-variable-reference declaration)
     jazz:Any
     #f))
 
@@ -3788,7 +3788,7 @@
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Special-Form binding) source-declaration environment backend)
-  (jazz:emit 'special-form-reference backend binding))
+  (jazz:emit backend 'special-form-reference binding))
 
 
 (jazz:define-method (jazz:walk-binding-walk-form (jazz:Special-Form binding) walker resume declaration environment form-src)
@@ -4493,7 +4493,7 @@
 (jazz:define-method (jazz:emit-call (jazz:Expression expression) arguments arguments-codes declaration environment backend)
   (let ((operator (jazz:emit-expression expression declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'expression-call backend expression declaration operator arguments-codes)
+      (jazz:emit backend 'expression-call expression declaration operator arguments-codes)
       jazz:Any
       #f)))
 
@@ -4679,7 +4679,7 @@
   (let ((expressions (jazz:get-begin-expressions expression)))
     (let ((code (jazz:emit-statements-code expressions declaration environment backend)))
       (jazz:new-code
-        (jazz:emit 'begin backend expression declaration environment code)
+        (jazz:emit backend 'begin expression declaration environment code)
         (jazz:get-code-type code)
         (jazz:get-expression-source expression)))))
 
@@ -4724,7 +4724,7 @@
 
 
 (jazz:define-method (jazz:emit-expression (jazz:Call expression) declaration environment backend)
-  (or (jazz:emit 'call backend expression declaration environment)
+  (or (jazz:emit backend 'call expression declaration environment)
       (let ((operator (jazz:get-call-operator expression))
             (arguments (jazz:get-call-arguments expression)))
         (let ((arguments-codes (jazz:emit-expressions arguments declaration environment backend)))
@@ -4786,7 +4786,7 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:Constant expression) declaration environment backend)
   (jazz:new-code
-    (jazz:get-constant-expansion expression)
+    (jazz:emit backend 'constant expression)
     (jazz:get-expression-type expression)
     #f))
 
@@ -4911,7 +4911,7 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:Quasiquote expression) declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'quasiquote backend expression declaration environment)
+    (jazz:emit backend 'quasiquote expression declaration environment)
     jazz:List
     #f))
 

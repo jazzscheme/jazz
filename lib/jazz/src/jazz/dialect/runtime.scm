@@ -113,9 +113,9 @@
              (jazz:typed-signature? (jazz:get-lambda-signature value)))
         (let ((safe (jazz:emit-type-check (jazz:emit-safe value declaration environment backend) type declaration environment backend))
               (unsafe (jazz:emit-type-check (jazz:emit-unsafe value declaration environment backend) type declaration environment backend)))
-          (jazz:emit 'definition backend declaration environment safe unsafe))
+          (jazz:emit backend 'definition declaration environment safe unsafe))
       (let ((expression (jazz:emit-type-check (jazz:emit-expression value declaration environment backend) type declaration environment backend)))
-        (jazz:emit 'definition backend declaration environment expression #f)))))
+        (jazz:emit backend 'definition declaration environment expression #f)))))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Definition-Declaration declaration) source-declaration environment backend)
@@ -124,7 +124,7 @@
       (if (and (%%eq? (jazz:get-definition-declaration-expansion declaration) 'inline)
                (%%is? value jazz:Constant))
           (jazz:get-code-form (jazz:emit-expression value declaration environment backend))
-        (jazz:emit 'definition-reference backend declaration)))
+        (jazz:emit backend 'definition-reference declaration)))
     (or (jazz:find-annotated-type declaration environment)
         jazz:Any)
     #f))
@@ -143,7 +143,7 @@
 (jazz:define-method (jazz:emit-binding-assignment (jazz:Definition-Declaration declaration) value source-declaration environment backend)
   (let ((value (jazz:emit-expression value source-declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'definition-assignment backend declaration source-declaration environment value)
+      (jazz:emit backend 'definition-assignment declaration source-declaration environment value)
       jazz:Any
       #f)))
 
@@ -174,7 +174,7 @@
 
 (jazz:define-method (jazz:emit-expression (jazz:Specialize expression) declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'specialize backend expression declaration environment)
+    (jazz:emit backend 'specialize expression declaration environment)
     jazz:Any
     #f))
 
@@ -209,13 +209,13 @@
           (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend))
                 (body-emit (jazz:emit-expression body declaration augmented-environment backend)))
             (jazz:sourcify-if
-              (jazz:emit 'generic backend declaration environment signature-emit body-emit)
+              (jazz:emit backend 'generic declaration environment signature-emit body-emit)
               (jazz:get-declaration-source declaration))))))))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Generic-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'generic-reference backend declaration)
+    (jazz:emit backend 'generic-reference declaration)
     jazz:Any
     #f))
 
@@ -258,7 +258,7 @@
           (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend))
                 (body-emit (jazz:emit-expression body declaration augmented-environment backend)))
             (jazz:sourcify-if
-              (jazz:emit 'specific backend declaration environment signature-emit body-emit)
+              (jazz:emit backend 'specific declaration environment signature-emit body-emit)
               (jazz:get-declaration-source declaration))))))))
 
 
@@ -275,7 +275,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Category-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'category-reference backend declaration)
+    (jazz:emit backend 'category-reference declaration)
     jazz:Category-Declaration
     #f))
 
@@ -347,7 +347,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Class-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'class-reference backend declaration)
+    (jazz:emit backend 'class-reference declaration)
     (or (jazz:get-category-declaration-metaclass declaration)
         jazz:Class-Declaration)
     #f))
@@ -371,7 +371,7 @@
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Class-Declaration declaration) environment backend)
-  (jazz:emit 'class backend declaration environment))
+  (jazz:emit backend 'class declaration environment))
 
 
 (define (jazz:emit-ascendant-access declaration environment backend)
@@ -559,7 +559,7 @@
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Interface-Declaration declaration) environment backend)
-  (jazz:emit 'interface backend declaration environment))
+  (jazz:emit backend 'interface declaration environment))
 
 
 (jazz:define-method (jazz:outline-generate (jazz:Interface-Declaration declaration) output)
@@ -626,14 +626,14 @@
          (initialize (jazz:get-slot-declaration-initialize declaration))
          (initialize? (and allocate? (%%not core?) initialize))
          (initialize-emit (and initialize? (jazz:emit-expression initialize declaration environment backend))))
-    (jazz:emit 'slot backend declaration environment initialize-emit)))
+    (jazz:emit backend 'slot declaration environment initialize-emit)))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Slot-Declaration declaration) source-declaration environment backend)
   (let ((self (jazz:*self*)))
     (if self
         (jazz:new-code
-          (jazz:emit 'slot-reference backend declaration self)
+          (jazz:emit backend 'slot-reference declaration self)
           (jazz:find-annotated-type declaration environment)
           #f)
       (jazz:error "Illegal reference to a slot: {s}" (jazz:get-declaration-locator declaration)))))
@@ -648,7 +648,7 @@
     (if self
         (let ((value (jazz:emit-expression value source-declaration environment backend)))
           (jazz:new-code
-            (jazz:emit 'slot-assignment backend declaration source-declaration environment self value)
+            (jazz:emit backend 'slot-assignment declaration source-declaration environment self value)
             jazz:Any
             #f))
       (jazz:error "Illegal assignment to a slot: {s}" (jazz:get-declaration-locator declaration)))))
@@ -694,7 +694,7 @@
          (initialize (jazz:get-slot-declaration-initialize declaration))
          (initialize? (and allocate? (%%not core?) initialize))
          (initialize-emit (and initialize? (jazz:emit-expression initialize declaration environment backend))))
-    (jazz:emit 'property backend declaration environment initialize-emit)))
+    (jazz:emit backend 'property declaration environment initialize-emit)))
 
 
 (define (jazz:expand-property walker resume declaration environment form-src)
@@ -815,7 +815,7 @@
     (if self
         (let ((dispatch-code (jazz:emit-method-dispatch self #f #f #f declaration source-declaration environment backend)))
           (jazz:new-code
-            (jazz:emit 'method-reference backend declaration source-declaration environment self dispatch-code)
+            (jazz:emit backend 'method-reference declaration source-declaration environment self dispatch-code)
             (jazz:get-code-type dispatch-code)
             #f))
       (jazz:error "Methods can only be called directly from inside a method: {a} in {a}" (jazz:get-lexical-binding-name declaration) (jazz:get-declaration-locator source-declaration)))))
@@ -864,7 +864,7 @@
               (arguments-codes (jazz:codes-forms arguments-codes))
               (dispatch-code (jazz:emit-method-dispatch self binding-src arguments arguments-codes declaration source-declaration environment backend)))
           (jazz:new-code
-            (jazz:emit 'method-binding-call backend declaration binding-src dispatch-code self arguments-codes)
+            (jazz:emit backend 'method-binding-call declaration binding-src dispatch-code self arguments-codes)
             (jazz:get-code-type dispatch-code)
             #f))
       (jazz:error "Methods can only be called directly from inside a method: {a} in {a}" (jazz:get-lexical-binding-name declaration) (jazz:get-declaration-locator source-declaration)))))
@@ -914,7 +914,7 @@
                                       (jazz:only-positional-signature? signature)
                                       (jazz:typed-signature? signature)))
                (unsafe-signature (and generate-unsafe? signature)))
-          (jazz:emit 'method backend declaration environment signature-emit signature-casts body-emit unsafe-signature))))))
+          (jazz:emit backend 'method declaration environment signature-emit signature-casts body-emit unsafe-signature))))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Method-Declaration expression) down up here seed environment)
@@ -952,7 +952,7 @@
 (jazz:define-method (jazz:emit-expression (jazz:Method-Node-Reference expression) declaration environment backend)
   (let ((method-declaration (jazz:get-binding-reference-binding expression)))
     (jazz:new-code
-      (jazz:emit 'method-node-reference backend expression declaration environment)
+      (jazz:emit backend 'method-node-reference expression declaration environment)
       (or (jazz:get-lexical-binding-type method-declaration)
           jazz:Any)
       #f)))
@@ -961,7 +961,7 @@
 (jazz:define-method (jazz:emit-call (jazz:Method-Node-Reference expression) arguments arguments-codes declaration environment backend)
   (let ((operator (jazz:emit-expression expression declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'method-node-call backend expression declaration operator arguments-codes)
+      (jazz:emit backend 'method-node-call expression declaration operator arguments-codes)
       jazz:Any
       #f)))
 
@@ -1073,7 +1073,7 @@
 
 (define (jazz:emit-specialized-class-of object environment backend)
   (jazz:new-code
-    (jazz:emit 'specialized-class-of-call backend object)
+    (jazz:emit backend 'specialized-class-of-call object)
     (let ((type (jazz:get-code-type object)))
       (if (%%class-is? type jazz:Class-Declaration)
           (jazz:get-category-declaration-metaclass type)
@@ -1088,7 +1088,7 @@
 
 (jazz:define-variable-override jazz:emit-new-call
   (lambda (operator locator arguments arguments-codes declaration environment backend)
-    (jazz:emit 'new-call backend operator locator arguments arguments-codes declaration environment)))
+    (jazz:emit backend 'new-call operator locator arguments arguments-codes declaration environment)))
 
 
 ;;;
@@ -1212,7 +1212,7 @@
     (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code 'self type #f)))
                        (jazz:emit-expression body declaration environment backend))))
       (jazz:new-code
-        (jazz:emit 'with-self backend expression declaration environment body-emit)
+        (jazz:emit backend 'with-self expression declaration environment body-emit)
         (jazz:get-code-type body-emit)
         #f))))
 
@@ -1246,7 +1246,7 @@
     (let ((body-emit (parameterize ((jazz:*self* (jazz:new-code code type #f)))
                        (jazz:emit-statements-code body declaration environment backend))))
       (jazz:new-code
-        (jazz:emit 'with-dynamic-self backend expression declaration environment body-emit)
+        (jazz:emit backend 'with-dynamic-self expression declaration environment body-emit)
         (jazz:get-code-type body-emit)
         #f))))
 
@@ -1290,7 +1290,7 @@
         (expression (jazz:get-cast-expression expression)))
     (let ((expression-emit (jazz:emit-expression expression declaration environment backend)))
       (jazz:new-code
-        (jazz:emit 'cast backend expression declaration environment type expression-emit)
+        (jazz:emit backend 'cast expression declaration environment type expression-emit)
         type
         #f))))
 
@@ -1373,7 +1373,7 @@
     (let ((class-emit (jazz:emit-expression class declaration environment backend))
           (values-emit (jazz:emit-expressions values declaration environment backend)))
       (jazz:new-code
-        (jazz:emit 'allocate backend expression declaration environment class-emit values-emit)
+        (jazz:emit backend 'allocate expression declaration environment class-emit values-emit)
         jazz:Any
         #f))))
 
@@ -1404,7 +1404,7 @@
     (let ((static (jazz:register-static declaration "static" expr)))
       (let ((code (jazz:emit-expression (%%cdr static) declaration environment backend)))
         (jazz:new-code
-          (jazz:emit 'static backend expression declaration environment static)
+          (jazz:emit backend 'static expression declaration environment static)
           (jazz:get-code-type code)
           #f)))))
 
@@ -1503,7 +1503,7 @@
           (others-arguments (%%cdr arguments)))
       (let ((object-code (jazz:emit-expression object-argument declaration environment backend))
             (others-codes (jazz:emit-expressions others-arguments declaration environment backend)))
-        (jazz:emit 'dispatch backend name source declaration environment object-code others-arguments others-codes)))))
+        (jazz:emit backend 'dispatch name source declaration environment object-code others-arguments others-codes)))))
 
 
 (define (jazz:emit-inlined-final-dispatch source declaration object arguments source-declaration environment backend)
@@ -1608,7 +1608,7 @@
   (let ((others-arguments (%%cdr arguments))
         (object-code (%%car arguments-codes))
         (others-codes (%%cdr arguments-codes)))
-    (jazz:emit 'dispatch backend (jazz:get-lexical-binding-name declaration) binding-src source-declaration environment object-code others-arguments others-codes)))
+    (jazz:emit backend 'dispatch (jazz:get-lexical-binding-name declaration) binding-src source-declaration environment object-code others-arguments others-codes)))
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Hub-Declaration declaration) meta)
@@ -2587,7 +2587,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:NextMethod-Variable binding) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'nextmethod-variable-reference backend binding)
+    (jazz:emit backend 'nextmethod-variable-reference binding)
     jazz:Any
     #f))
 
@@ -2602,7 +2602,7 @@
   (let ((type (jazz:get-lexical-binding-type binding))
         (self (jazz:*self*)))
     (jazz:new-code
-      (jazz:emit 'nextmethod-binding-call backend binding binding-src self arguments-codes)
+      (jazz:emit backend 'nextmethod-binding-call binding binding-src self arguments-codes)
       (jazz:call-return-type type)
       #f)))
 
@@ -2623,7 +2623,7 @@
 (jazz:define-method (jazz:emit-binding-reference (jazz:Self-Binding declaration) source-declaration environment backend)
   (jazz:new-code
     'self
-    (jazz:emit 'self-reference backend declaration source-declaration)
+    (jazz:emit backend 'self-reference declaration source-declaration)
     #f))
 
 
@@ -2642,7 +2642,7 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Dynamic-Self-Binding declaration) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'dynamic-self-reference backend declaration)
+    (jazz:emit backend 'dynamic-self-reference declaration)
     (jazz:get-declaration-parent source-declaration)
     #f))
 

@@ -116,12 +116,12 @@
 (jazz:define-method (jazz:emit-declaration (jazz:Define-Declaration declaration) environment backend)
   (let ((value (jazz:get-define-declaration-value declaration)))
     (let ((expression (jazz:emit-type-check (jazz:emit-expression value declaration environment backend) (jazz:get-lexical-binding-type declaration) declaration environment backend)))
-      (jazz:emit 'define backend declaration environment expression))))
+      (jazz:emit backend 'define declaration environment expression))))
 
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Define-Declaration declaration) source-declaration environment backend)
   (jazz:new-code
-    (jazz:emit 'define-reference backend declaration)
+    (jazz:emit backend 'define-reference declaration)
     jazz:Any
     #f))
 
@@ -139,7 +139,7 @@
 (jazz:define-method (jazz:emit-binding-assignment (jazz:Define-Declaration declaration) value source-declaration environment backend)
   (let ((value (jazz:emit-expression value source-declaration environment backend)))
     (jazz:new-code
-      (jazz:emit 'define-assignment backend declaration source-declaration environment value)
+      (jazz:emit backend 'define-assignment declaration source-declaration environment value)
       jazz:Any
       #f)))
 
@@ -387,10 +387,10 @@
           (let ((augmented-environment (%%cons frame environment)))
             (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend)))
               (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
-                (let ((body-emit (jazz:emit 'begin backend expression declaration environment body-code)))
+                (let ((body-emit (jazz:emit backend 'begin expression declaration environment body-code)))
                   (let ((body (jazz:simplify-begin (jazz:sourcified-form (jazz:new-code body-emit (jazz:get-code-type body-code) #f)))))
                     (jazz:new-code
-                      (jazz:emit 'lambda backend expression declaration environment signature-emit '() body)
+                      (jazz:emit backend 'lambda expression declaration environment signature-emit '() body)
                       (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
                       (jazz:get-expression-source expression))))))))))))
 
@@ -410,7 +410,7 @@
                   (let ((call-expression `(,unsafe-locator ,@(map jazz:get-lexical-binding-name (jazz:get-signature-positional signature)))))
                     (let ((call-body (jazz:simplify-begin (jazz:emit-return-check (jazz:new-code call-expression (jazz:get-code-type body-code) #f) type declaration environment backend))))
                       (jazz:new-code
-                        (jazz:emit 'lambda backend expression declaration environment signature-emit signature-casts call-body)
+                        (jazz:emit backend 'lambda expression declaration environment signature-emit signature-casts call-body)
                         (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
                         (jazz:get-expression-source expression)))))))))))))
 
@@ -425,10 +425,10 @@
           (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend)))
             (let ((body-code (jazz:emit-expression body declaration augmented-environment backend)))
               (let ((signature-casts (and (jazz:get-generate? 'lambda-check) (jazz:emit-signature-casts signature declaration augmented-environment backend)))
-                    (body-emit (jazz:emit 'begin backend expression declaration environment body-code)))
+                    (body-emit (jazz:emit backend 'begin expression declaration environment body-code)))
                 (let ((cast-body (jazz:simplify-begin (jazz:emit-return-check (jazz:new-code body-emit (jazz:get-code-type body-code) #f) type declaration environment backend))))
                   (jazz:new-code
-                    (jazz:emit 'lambda backend expression declaration environment signature-emit signature-casts cast-body)
+                    (jazz:emit backend 'lambda expression declaration environment signature-emit signature-casts cast-body)
                     (jazz:new-function-type '() '() '() #f (jazz:get-code-type body-code))
                     (jazz:get-expression-source expression)))))))))))
 
@@ -522,7 +522,7 @@
                        variables))
                 (body-code (jazz:emit-expression body declaration augmented-environment backend)))
             (jazz:new-code
-              (jazz:emit 'let backend expression declaration environment bindings-output body-code)
+              (jazz:emit backend 'let expression declaration environment bindings-output body-code)
               (jazz:get-code-type body-code)
               (jazz:get-expression-source expression))))))))
 
@@ -597,7 +597,7 @@
                        (%%cdr variables)))
                 (body-code (jazz:emit-expression body declaration augmented-environment backend)))
             (jazz:new-code
-              (jazz:emit 'named-let backend expression declaration environment variable-emit bindings-output body-code)
+              (jazz:emit backend 'named-let expression declaration environment variable-emit bindings-output body-code)
               (jazz:get-code-type body-code)
               (jazz:get-expression-source expression))))))))
 
@@ -675,7 +675,7 @@
                        variables))
                 (body-code (jazz:emit-expression body declaration augmented-environment backend)))
             (jazz:new-code
-              (jazz:emit 'letstar backend expression declaration environment bindings-output body-code)
+              (jazz:emit backend 'letstar expression declaration environment bindings-output body-code)
               (jazz:get-code-type body-code)
               (jazz:get-expression-source expression))))))))
 
@@ -744,7 +744,7 @@
                        variables))
                 (body-code (jazz:emit-expression body declaration augmented-environment backend)))
             (jazz:new-code
-              (jazz:emit 'letrec backend expression declaration environment bindings-output body-code)
+              (jazz:emit backend 'letrec expression declaration environment bindings-output body-code)
               (jazz:get-code-type body-code)
               (jazz:get-expression-source expression))))))))
 
@@ -804,7 +804,7 @@
                                         variables))
                   (body-code (jazz:emit-expression body declaration augmented-environment backend)))
               (jazz:new-code
-                (jazz:emit 'receive backend expression declaration environment bindings-output (jazz:sourcified-form expression-output) body-code)
+                (jazz:emit backend 'receive expression declaration environment bindings-output (jazz:sourcified-form expression-output) body-code)
                 (jazz:get-code-type body-code)
                 (jazz:get-expression-source expression)))))))))
 
@@ -1035,7 +1035,7 @@
                 (result-code (jazz:emit-expression result declaration augmented-environment backend))
                 (body-code (jazz:emit-expression body declaration augmented-environment backend)))
             (jazz:new-code
-              (jazz:emit 'do backend expression declaration environment bindings-output test-code result-code body-code)
+              (jazz:emit backend 'do expression declaration environment bindings-output test-code result-code body-code)
               (jazz:get-code-type result-code)
               #f)))))))
 
@@ -1108,7 +1108,7 @@
   (let ((expressions (jazz:get-unspecific-expressions expression)))
     (let ((code (jazz:emit-statements-code expressions declaration environment backend)))
       (jazz:new-code
-        (jazz:emit 'unspecific backend expression declaration environment code)
+        (jazz:emit backend 'unspecific expression declaration environment code)
         (jazz:get-code-type code)
         (jazz:get-expression-source expression)))))
 

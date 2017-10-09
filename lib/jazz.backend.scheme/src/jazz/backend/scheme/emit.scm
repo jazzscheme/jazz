@@ -327,70 +327,69 @@
 ;;;
 
 
-(jazz:define-emit (dispatch (scheme backend) expression declaration environment object-code others-arguments others-codes)
-  (let ((name (jazz:get-dispatch-name expression)))
-    (define (resolve-type object-code)
-      (let ((object-type (jazz:patch-type-until-unification (jazz:get-code-type object-code))))
-        (if (%%class-is? object-type jazz:Autoload-Declaration)
-            (jazz:resolve-binding object-type)
-          object-type)))
-    
-    (define (lookup-method object-code)
-      (let ((object-type (resolve-type object-code)))
-        (if (%%class-is? object-type jazz:Category-Declaration)
-            (let ((declaration (jazz:lookup-declaration object-type name jazz:public-access declaration)))
-              (if (and declaration (%%class-is? declaration jazz:Method-Declaration))
-                  declaration
-                #f))
-          #f)))
-    
-    (define (lookup-method/warn object-code)
-      (let ((method-declaration (lookup-method object-code)))
-        (if (%%not method-declaration)
-            (begin
-              (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
-                (jazz:warning "Warning: In {a}{a}: Unable to find dispatch method {a}"
-                              (jazz:get-declaration-locator declaration)
-                              (jazz:present-expression-location expression #f)
-                              name))
-              #f)
+(jazz:define-emit (dispatch (scheme backend) name source declaration environment object-code others-arguments others-codes)
+  (define (resolve-type object-code)
+    (let ((object-type (jazz:patch-type-until-unification (jazz:get-code-type object-code))))
+      (if (%%class-is? object-type jazz:Autoload-Declaration)
+          (jazz:resolve-binding object-type)
+        object-type)))
+  
+  (define (lookup-method object-code)
+    (let ((object-type (resolve-type object-code)))
+      (if (%%class-is? object-type jazz:Category-Declaration)
+          (let ((declaration (jazz:lookup-declaration object-type name jazz:public-access declaration)))
+            (if (and declaration (%%class-is? declaration jazz:Method-Declaration))
+                declaration
+              #f))
+        #f)))
+  
+  (define (lookup-method/warn object-code)
+    (let ((method-declaration (lookup-method object-code)))
+      (if (%%not method-declaration)
           (begin
-            (jazz:add-to-module-references declaration method-declaration)
-            method-declaration))))
-    
-    (define (jazz:with-code-value code proc)
-      (let ((form (jazz:get-code-form code)))
-        (if (%%symbol? form)
-            (proc code)
-          (let ((value (jazz:generate-symbol "val")))
-            (let ((code (proc (jazz:new-code value (jazz:get-code-type code) #f))))
-              (jazz:new-code
-                `(let ((,value ,form))
-                   ,(jazz:get-code-form code))
-                (jazz:get-code-type code)
-                (jazz:get-code-source code)))))))
-    
-    (let ((method-declaration (lookup-method/warn object-code)))
-      (if method-declaration
-          (or (jazz:emit-inlined-final-dispatch expression method-declaration object-code others-codes declaration environment backend)
-              (jazz:with-code-value object-code
-                (lambda (code)
-                  (let ((dispatch-code (jazz:emit-method-dispatch code expression others-arguments others-codes method-declaration declaration environment backend)))
-                    (jazz:new-code
-                      `(,(jazz:sourcified-form dispatch-code)
-                        ,(jazz:sourcified-form code)
-                        ,@(jazz:codes-forms others-codes))
-                      (jazz:get-code-type dispatch-code)
-                      (jazz:get-expression-source expression))))))
-        (let ((dv (jazz:register-variable declaration (%%string-append (%%symbol->string name) "!d") #f)))
-          (let ((d (%%car dv)))
-            (%%set-cdr! dv `(jazz:cache-dispatch ',name (lambda (d) (set! ,d d))))
+            (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
+              (jazz:warning "Warning: In {a}{a}: Unable to find dispatch method {a}"
+                            (jazz:get-declaration-locator declaration)
+                            (jazz:present-expression-location source #f)
+                            name))
+            #f)
+        (begin
+          (jazz:add-to-module-references declaration method-declaration)
+          method-declaration))))
+  
+  (define (jazz:with-code-value code proc)
+    (let ((form (jazz:get-code-form code)))
+      (if (%%symbol? form)
+          (proc code)
+        (let ((value (jazz:generate-symbol "val")))
+          (let ((code (proc (jazz:new-code value (jazz:get-code-type code) #f))))
             (jazz:new-code
-              (jazz:with-uniqueness (jazz:sourcified-form object-code)
-                (lambda (object)
-                  `((,d ,object) ,object ,@(jazz:codes-forms others-codes))))
-              jazz:Any
-              (jazz:get-expression-source expression))))))))
+              `(let ((,value ,form))
+                 ,(jazz:get-code-form code))
+              (jazz:get-code-type code)
+              (jazz:get-code-source code)))))))
+  
+  (let ((method-declaration (lookup-method/warn object-code)))
+    (if method-declaration
+        (or (jazz:emit-inlined-final-dispatch source method-declaration object-code others-codes declaration environment backend)
+            (jazz:with-code-value object-code
+              (lambda (code)
+                (let ((dispatch-code (jazz:emit-method-dispatch code source others-arguments others-codes method-declaration declaration environment backend)))
+                  (jazz:new-code
+                    `(,(jazz:sourcified-form dispatch-code)
+                      ,(jazz:sourcified-form code)
+                      ,@(jazz:codes-forms others-codes))
+                    (jazz:get-code-type dispatch-code)
+                    source)))))
+      (let ((dv (jazz:register-variable declaration (%%string-append (%%symbol->string name) "!d") #f)))
+        (let ((d (%%car dv)))
+          (%%set-cdr! dv `(jazz:cache-dispatch ',name (lambda (d) (set! ,d d))))
+          (jazz:new-code
+            (jazz:with-uniqueness (jazz:sourcified-form object-code)
+              (lambda (object)
+                `((,d ,object) ,object ,@(jazz:codes-forms others-codes))))
+            jazz:Any
+            source))))))
 
 
 ;;;
@@ -805,7 +804,7 @@
                        (let ((expression (and (%%pair? least-mismatch) (%%car least-mismatch))))
                          (jazz:warning "Warning: In {a}{a}: Unmatched call to primitive {a}"
                                        (jazz:get-declaration-locator declaration)
-                                       (jazz:present-expression-location expression operator)
+                                       (jazz:present-expression-location (jazz:get-expression-source expression) (jazz:get-expression-source operator))
                                        (jazz:reference-name locator))))
                      #f)
                  (jazz:bind (name function-type) (%%car scan)
@@ -863,7 +862,7 @@
                                       (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
                                         (jazz:warning "Warning: In {a}{a}: Unmatched call to typed definition {a}"
                                                       (jazz:get-declaration-locator declaration)
-                                                      (jazz:present-expression-location expression operator)
+                                                      (jazz:present-expression-location (jazz:get-expression-source expression) (jazz:get-expression-source operator))
                                                       (jazz:reference-name locator))))
                                     #f)))))))
                     ((%%class-is? binding jazz:Internal-Define-Variable)
@@ -884,7 +883,7 @@
                                     (let ((expression (and (%%pair? mismatch) (%%car mismatch))))
                                       (jazz:unsafe-warning "Unsafe: In {a}{a}: Unmatched call to typed internal define {a}"
                                                            (jazz:get-declaration-locator declaration)
-                                                           (jazz:present-expression-location expression operator)
+                                                           (jazz:present-expression-location (jazz:get-expression-source expression) (jazz:get-expression-source operator))
                                                            (jazz:get-lexical-binding-name binding))
                                       #; ;; waiting for warning tooltip
                                       (display (jazz:format "  Unsafe: {l}{%}" (%%apply append (map (lambda (arg type)

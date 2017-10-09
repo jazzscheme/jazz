@@ -2312,7 +2312,7 @@
            (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
              (jazz:warning "Warning: In {a}{a}: Redundant cast"
                            (jazz:get-declaration-locator source-declaration)
-                           (jazz:present-expression-location expression #f)))
+                           (jazz:present-expression-location (jazz:get-expression-source expression) #f)))
            (jazz:sourcified-form code))
           ((and (%%eq? type jazz:Flonum)
                 (%%subtype? code-type jazz:Fixnum))
@@ -2322,7 +2322,7 @@
            (%%when (and (or (jazz:reporting?) (jazz:warnings?)) (jazz:get-warn? 'optimizations))
              (jazz:warning "Warning: In {a}{a}: Untyped cast <fl>"
                            (jazz:get-declaration-locator source-declaration)
-                           (jazz:present-expression-location expression #f)))
+                           (jazz:present-expression-location (jazz:get-expression-source expression) #f)))
            (let ((value (jazz:generate-symbol "val")))
              `(let ((,value (let () ,(jazz:sourcified-form code))))
                 (if (%%fixnum? ,value)
@@ -4519,20 +4519,19 @@
     (jazz:tree-fold-list (cdr ls) down up here (jazz:tree-fold (car ls) down up here seed environment) environment)))
 
 
-(define (jazz:present-expression-location expression operator)
-  (define (present expr)
-    (and expr
-         (let ((src (if (%%source? expr) expr (jazz:get-expression-source expr))))
-           (let ((src (if (jazz:syntactic-closure? src)
-                          (jazz:get-syntactic-closure-expression src)
-                        src)))
-             (if (%%source? src)
-                 (let ((location (jazz:locat->container/line/col (jazz:source-locat src))))
-                   (%%string->symbol (%%string-append "@" (%%number->string (%%fx+ (%%cadr location) 1)) "." (%%number->string (%%fx+ (%%car (%%cddr location)) 1)))))
-               #f)))))
+(define (jazz:present-expression-location expression-src operator-src)
+  (define (present expr-src)
+    (and expr-src
+         (let ((src (if (jazz:syntactic-closure? expr-src)
+                        (jazz:get-syntactic-closure-expression expr-src)
+                      expr-src)))
+           (if (%%source? src)
+               (let ((location (jazz:locat->container/line/col (jazz:source-locat src))))
+                 (%%string->symbol (%%string-append "@" (%%number->string (%%fx+ (%%cadr location) 1)) "." (%%number->string (%%fx+ (%%car (%%cddr location)) 1)))))
+             #f))))
   
-  (or (present expression)
-      (present operator)
+  (or (present expression-src)
+      (present operator-src)
       ""))
 
 
@@ -5669,6 +5668,7 @@
         (queue (jazz:new-queue)))
     (define (emit parameter)
       (jazz:enqueue queue (jazz:emit-parameter parameter declaration environment backend)))
+    
     (for-each emit positional)
     (%%when (%%not (%%null? optional))
       (jazz:enqueue queue #!optional)

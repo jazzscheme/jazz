@@ -137,13 +137,13 @@
                                                                      scheme.language.runtime.kernel:/))))
                                    (jazz:warning "Warning: In {a}{a}: Unable to match call to specialized {a}"
                                                  (jazz:get-declaration-locator declaration)
-                                                 (jazz:present-expression-location expression operator)
+                                                 (jazz:present-expression-location (jazz:get-expression-source expression) (jazz:get-expression-source operator))
                                                  (jazz:get-lexical-binding-name binding)))
                                  ;; for debugging
                                  (%%when (%%memq (jazz:get-lexical-binding-name binding) (jazz:debug-specializers))
                                    (jazz:warning "Warning: In {a}{a}: Unable to match call to specialized {a} on {a}"
                                                  (jazz:get-declaration-locator declaration)
-                                                 (jazz:present-expression-location expression operator)
+                                                 (jazz:present-expression-location (jazz:get-expression-source expression) (jazz:get-expression-source operator))
                                                  (jazz:get-lexical-binding-name binding)
                                                  types)))
                                #f)

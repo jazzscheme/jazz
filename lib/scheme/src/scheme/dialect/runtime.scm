@@ -208,6 +208,10 @@
             (special-form walker resume declaration environment form-src)))))))
 
 
+(jazz:define-method (jazz:tree-fold (jazz:Define-Special-Form-Declaration declaration) down up here seed environment)
+  (jazz:tree-fold (jazz:get-define-special-form-declaration-body declaration) down up here seed environment))
+
+
 (jazz:define-method (jazz:outline-extract (jazz:Define-Special-Form-Declaration declaration) meta)
   #f)
 
@@ -357,6 +361,10 @@
           (jazz:walk-body walker resume new-declaration augmented-environment body))
         (jazz:set-declaration-source new-declaration form-src)
         new-declaration))))
+
+
+(jazz:define-method (jazz:tree-fold (jazz:Define-Macro-Declaration declaration) down up here seed environment)
+  (jazz:tree-fold (jazz:get-define-macro-declaration-body declaration) down up here seed environment))
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Define-Macro-Declaration declaration) meta)

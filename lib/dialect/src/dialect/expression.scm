@@ -90,6 +90,13 @@
       #f)))
 
 
+(jazz:define-method (jazz:tree-fold (jazz:Assignment expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz:tree-fold (jazz:get-delay-expression expression) down up here (down expression seed environment) environment)
+      environment))
+
+
 ;;;
 ;;;; Specialized Call
 ;;;

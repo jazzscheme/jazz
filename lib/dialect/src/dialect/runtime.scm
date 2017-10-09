@@ -2776,6 +2776,10 @@
       binding)))
 
 
+(jazz:define-method (jazz:tree-fold (jazz:Macro-Declaration declaration) down up here seed environment)
+  (jazz:tree-fold (jazz:get-macro-declaration-body declaration) down up here seed environment))
+
+
 (jazz:define-method (jazz:outline-extract (jazz:Macro-Declaration declaration) meta)
   `(macro ,(jazz:get-declaration-access declaration)
           (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-macro-declaration-signature declaration)))))
@@ -2816,6 +2820,10 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Local-Macro-Declaration declaration) environment backend)
   `(begin))
+
+
+(jazz:define-method (jazz:tree-fold (jazz:Local-Macro-Declaration declaration) down up here seed environment)
+  (jazz:tree-fold (jazz:get-local-macro-declaration-body declaration) down up here seed environment))
 
 
 (define (jazz:register-local-macro module-declaration name macro)
@@ -2902,6 +2910,10 @@
 
 (jazz:define-method (jazz:walk-binding-expandable? (jazz:Syntax-Declaration declaration))
   #t)
+
+
+(jazz:define-method (jazz:tree-fold (jazz:Syntax-Declaration declaration) down up here seed environment)
+  (jazz:tree-fold (jazz:get-syntax-declaration-body declaration) down up here seed environment))
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Syntax-Declaration declaration) meta)

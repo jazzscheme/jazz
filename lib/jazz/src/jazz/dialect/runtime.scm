@@ -148,8 +148,8 @@
       #f)))
 
 
-(jazz:define-method (jazz:tree-fold (jazz:Definition-Declaration expression) down up here seed environment)
-  (jazz:tree-fold (jazz:get-definition-declaration-value expression) down up here seed environment))
+(jazz:define-method (jazz:tree-fold (jazz:Definition-Declaration declaration) down up here seed environment)
+  (jazz:tree-fold (jazz:get-definition-declaration-value declaration) down up here seed environment))
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Definition-Declaration declaration) meta)
@@ -220,6 +220,10 @@
     #f))
 
 
+(jazz:define-method (jazz:tree-fold (jazz:Generic-Declaration declaration) down up here seed environment)
+  (jazz:tree-fold (jazz:get-generic-declaration-body declaration) down up here seed environment))
+
+
 (jazz:define-method (jazz:outline-extract (jazz:Generic-Declaration declaration) meta)
   `(generic (,(jazz:get-lexical-binding-name declaration) ,@(jazz:outline-generate-signature (jazz:get-generic-declaration-signature declaration)))))
 
@@ -260,6 +264,10 @@
             (jazz:sourcify-if
               (jazz:emit backend 'specific declaration environment signature-emit body-emit)
               (jazz:get-declaration-source declaration))))))))
+
+
+(jazz:define-method (jazz:tree-fold (jazz:Specific-Declaration declaration) down up here seed environment)
+  (jazz:tree-fold (jazz:get-specific-declaration-body declaration) down up here seed environment))
 
 
 ;;;
@@ -1295,6 +1303,13 @@
         #f))))
 
 
+(jazz:define-method (jazz:tree-fold (jazz:Cast expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz:tree-fold (jazz:get-cast-expression expression) down up here (down expression seed environment) environment)
+      environment))
+
+
 (define (jazz:walk-cast walker resume declaration environment form-src)
   (let ((form (jazz:source-code form-src)))
     (let ((specifier (%%desourcify (%%cadr form)))
@@ -1338,6 +1353,17 @@
             (jazz:get-expression-source expression)))))))
 
 
+(jazz:define-method (jazz:tree-fold (jazz:Allege expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz:tree-fold
+        (jazz:get-allege-expr expression) down up here
+        (jazz:tree-fold
+          (jazz:get-allege-test expression) down up here (down expression seed environment) environment)
+        environment)
+      environment))
+
+
 (define (jazz:walk-%allege walker resume declaration environment form-src)
   (let ((form (jazz:source-code form-src)))
     (let ((test (%%cadr form))
@@ -1378,6 +1404,18 @@
         #f))))
 
 
+(jazz:define-method (jazz:tree-fold (jazz:Allocate expression) down up here seed environment)
+  (let ((class (jazz:get-allocate-class expression))
+        (values (jazz:get-allocate-values expression)))
+    (up expression
+        seed
+        (jazz:tree-fold-list
+          (%%cons class values) down up here
+          (down expression seed environment)
+          environment)
+        environment)))
+
+
 (define (jazz:walk-allocate walker resume declaration environment form-src)
   (let ((form (%%desourcify form-src)))
     (let ((class (%%cadr form))
@@ -1407,6 +1445,13 @@
           (jazz:emit backend 'static expression declaration environment static)
           (jazz:get-code-type code)
           #f)))))
+
+
+(jazz:define-method (jazz:tree-fold (jazz:Static expression) down up here seed environment)
+  (up expression
+      seed
+      (jazz:tree-fold (jazz:get-static-expression expression) down up here (down expression seed environment) environment)
+      environment))
 
 
 (define (jazz:walk-static walker resume declaration environment form-src)

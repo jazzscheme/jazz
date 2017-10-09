@@ -413,9 +413,10 @@ c-end
   ;; v -> version
   ;; w -> walk
   ;; x -> expand
+  ;; y -> verify
   (jazz:with-quit
     (lambda ()
-      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect" "listen") missing-argument-for-option
+      (jazz:split-command-line (jazz:command-arguments) '("v" "version" "nosource" "debug" "f" "force" "sweep" "worker" "reporting" "keep-c" "track-scheme" "expansion" "gvm" "emit" "dry" "g" "gambit") '("build-repository" "jazz-repository" "repositories" "dependencies" "e" "eval" "l" "load" "t" "test" "r" "run" "update" "make" "build" "install" "deploy" "p" "parse" "s" "sourcify" "w" "walk" "x" "expand" "k" "check" "y" "verify" "c" "compile" "report" "target" "debugger" "link" "j" "jobs" "port" "m" "module" "dialect" "listen") missing-argument-for-option
         (lambda (commands options remaining)
           (let ((version? (or (jazz:get-option "v" options) (jazz:get-option "version" options)))
                 (nosource? (jazz:get-option "nosource" options))
@@ -448,6 +449,7 @@ c-end
                 (walk (or (jazz:get-option "w" options) (jazz:get-option "walk" options)))
                 (expand (or (jazz:get-option "x" options) (jazz:get-option "expand" options)))
                 (check (or (jazz:get-option "k" options) (jazz:get-option "check" options)))
+                (verify (or (jazz:get-option "y" options) (jazz:get-option "verify" options)))
                 (compile (or (jazz:get-option "c" options) (jazz:get-option "compile" options)))
                 (report (jazz:get-option "report" options))
                 (reporting? (jazz:get-option "reporting" options))
@@ -644,6 +646,11 @@ c-end
                    (jazz:load-unit 'foundation)
                    (jazz:load-unit 'dialect.development)
                    ((jazz:global-ref 'jazz:check-unit) (%%string->symbol check)))
+                  (verify
+                   (setup-build)
+                   (jazz:load-unit 'foundation)
+                   (jazz:load-unit 'dialect.development)
+                   ((jazz:global-ref 'jazz:verify-unit) (%%string->symbol verify)))
                   (compile
                    (setup-build)
                    (for-each (lambda (name)

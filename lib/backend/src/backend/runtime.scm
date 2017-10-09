@@ -45,11 +45,12 @@
 
 (jazz:define-class jazz:Backend jazz:Object (constructor: jazz:allocate-backend)
   ((name     getter: generate)
-   (bindings getter: generate)))
+   (bindings getter: generate)
+   (hook     getter: generate setter: generate)))
 
 
 (define (jazz:new-backend name)
-  (jazz:allocate-backend name (%%make-table test: eq?)))
+  (jazz:allocate-backend name (%%make-table test: eq?) #f))
 
 
 (define (jazz:get-backend-binding backend name)
@@ -64,7 +65,10 @@
   (%%table-set! (jazz:get-backend-bindings backend) name binding))
 
 
-(define (jazz:emit binding backend . rest)
+(define (jazz:emit backend binding . rest)
+  (let ((hook (jazz:get-backend-hook backend)))
+    (%%when hook
+      (hook backend binding rest)))
   (apply (jazz:require-backend-binding backend binding) backend rest))
 
 
@@ -81,9 +85,11 @@
   (%%table-ref jazz:Backends name #f))
 
 
-(define (jazz:require-backend name)
-  (or (jazz:get-backend name)
-      (jazz:error "Unknown backend: {s}" name)))
+(define (jazz:require-backend backend/name)
+  (if (%%class-is? backend/name jazz:Backend)
+      backend/name
+    (or (jazz:get-backend backend/name)
+        (jazz:error "Unknown backend: {s}" backend/name))))
 
 
 (define (jazz:register-backend backend)

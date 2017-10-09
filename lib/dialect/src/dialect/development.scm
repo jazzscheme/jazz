@@ -168,6 +168,43 @@
 
 
 ;;;
+;;;; Verify
+;;;
+
+
+(define (jazz:verify-unit unit-name)
+  (define (collect-emits)
+    (let ((emits '()))
+      (define (backend-hook backend binding rest)
+        (%%when (eq? binding 'dispatch)
+          (set! emits (cons (car rest) emits))))
+      
+      (let ((module-declaration (jazz:expand-unit unit-name backend: #f))
+            (backend (jazz:require-backend 'scheme)))
+        (jazz:set-backend-hook backend backend-hook)
+        (parameterize ((jazz:walk-context (jazz:new-walk-context #f unit-name #f))
+                       (jazz:generate-symbol-for "%")
+                       (jazz:generate-symbol-context (or unit-name (gensym)))
+                       (jazz:generate-symbol-counter 0))
+          (jazz:emit-declaration module-declaration '() backend))
+        (jazz:set-backend-hook backend #f))
+      emits))
+    
+  (define (collect-forms)
+    (let ((forms '()))
+      (jazz:iterate-module-declaration (jazz:walk-unit unit-name)
+        (lambda (obj)
+          (if (%%is? obj jazz:Dispatch)
+              (set! forms (cons (jazz:get-dispatch-name obj) forms)))))
+      forms))
+  
+  ;; there will be more emits as they emit inlined and specialized
+  (let ((emits (collect-emits))
+        (forms (collect-forms)))
+    (pp (list 'emits (length emits) 'forms (length forms)))))
+
+
+;;;
 ;;;; Lookup
 ;;;
 

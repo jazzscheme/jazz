@@ -177,7 +177,7 @@
     (let ((emits '()))
       (define (backend-hook backend binding rest)
         (%%when (eq? binding 'dispatch)
-          (set! emits (cons (car rest) emits))))
+          (set! emits (%%cons (%%car rest) emits))))
       
       (let ((module-declaration (jazz:expand-unit unit-name backend: #f))
             (backend (jazz:require-backend 'scheme)))
@@ -195,13 +195,29 @@
       (jazz:iterate-module-declaration (jazz:walk-unit unit-name)
         (lambda (obj)
           (if (%%is? obj jazz:Dispatch)
-              (set! forms (cons (jazz:get-dispatch-name obj) forms)))))
+              (set! forms (%%cons (jazz:get-dispatch-name obj) forms)))))
       forms))
+  
+  (define (difference x y)
+    (let ((diff '()))
+      (for-each (lambda (e)
+                  (%%when (%%not (%%memq e y))
+                    (set! diff (%%cons e diff))))
+                x)
+      diff))
   
   ;; there will be more emits as they emit inlined and specialized
   (let ((emits (collect-emits))
         (forms (collect-forms)))
-    (pp (list 'emits (length emits) 'forms (length forms)))))
+    (pp (list 'emits (length emits) 'forms (length forms)))
+    (%%when (jazz:command-argument "list")
+      (let ((emits (jazz:remove-duplicates emits))
+            (forms (jazz:remove-duplicates forms)))
+        (pp 'EMITS)
+        (for-each pp (difference emits forms))
+        (newline)
+        (pp 'FORMS)
+        (for-each pp (difference forms emits))))))
 
 
 ;;;

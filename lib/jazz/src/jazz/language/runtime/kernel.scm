@@ -1508,6 +1508,7 @@
 (native jazz:walk-describe)
 (native jazz:generate-unit)
 (native jazz:check-unit)
+(native jazz:verify-unit)
 (native jazz:custom-compile-unit)
 (native jazz:expand)
 (native jazz:expanding-unit)

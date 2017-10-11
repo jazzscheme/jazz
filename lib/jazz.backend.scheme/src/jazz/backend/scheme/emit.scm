@@ -511,13 +511,13 @@
   `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 
-(jazz:define-emit (method-binding-call (scheme backend) binding binding-src dispatch-code self arguments)
+(jazz:define-emit (method-call (scheme backend) binding binding-src dispatch-code self arguments)
   `(,(jazz:sourcified-form dispatch-code)
     ,(jazz:sourcified-form self)
     ,@arguments))
 
 
-(jazz:define-emit (nextmethod-binding-call (scheme backend) binding binding-src self arguments)
+(jazz:define-emit (nextmethod-call (scheme backend) binding binding-src self arguments)
   (let ((name (jazz:get-lexical-binding-name binding)))
     (if self
         `(,name

@@ -872,7 +872,7 @@
               (arguments-codes (jazz:codes-forms arguments-codes))
               (dispatch-code (jazz:emit-method-dispatch self binding-src arguments arguments-codes declaration source-declaration environment backend)))
           (jazz:new-code
-            (jazz:emit backend 'method-binding-call declaration binding-src dispatch-code self arguments-codes)
+            (jazz:emit backend 'method-call declaration binding-src dispatch-code self arguments-codes)
             (jazz:get-code-type dispatch-code)
             #f))
       (jazz:error "Methods can only be called directly from inside a method: {a} in {a}" (jazz:get-lexical-binding-name declaration) (jazz:get-declaration-locator source-declaration)))))
@@ -2647,7 +2647,7 @@
   (let ((type (jazz:get-lexical-binding-type binding))
         (self (jazz:*self*)))
     (jazz:new-code
-      (jazz:emit backend 'nextmethod-binding-call binding binding-src self arguments-codes)
+      (jazz:emit backend 'nextmethod-call binding binding-src self arguments-codes)
       (jazz:call-return-type type)
       #f)))
 

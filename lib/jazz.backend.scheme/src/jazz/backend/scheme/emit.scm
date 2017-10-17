@@ -460,11 +460,6 @@
      (apply ,(jazz:sourcified-form dispatch-code) ,(jazz:sourcified-form self) rest)))
 
 
-(jazz:define-emit (method-node-reference (scheme backend) expression declaration environment)
-  (let ((method-declaration (jazz:get-binding-reference-binding expression)))
-    (jazz:get-declaration-locator method-declaration)))
-
-
 (jazz:define-emit (nextmethod-variable-reference (scheme backend) binding)
   (let ((name (jazz:get-lexical-binding-name binding))
         (self (jazz:*self*)))
@@ -505,10 +500,6 @@
             (jazz:emit-unsafe-call operator locator arguments arguments-codes declaration environment backend)
             (jazz:emit-call operator arguments arguments-codes declaration environment backend))
         (jazz:get-expression-source expression)))))
-
-
-(jazz:define-emit (method-node-call (scheme backend) expression declaration operator arguments)
-  `(,(jazz:sourcified-form operator) ,@(jazz:codes-forms arguments)))
 
 
 (jazz:define-emit (method-call (scheme backend) binding binding-src dispatch-code self arguments)

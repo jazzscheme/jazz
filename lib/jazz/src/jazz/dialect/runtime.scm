@@ -945,36 +945,6 @@
 
 
 ;;;
-;;;; Method Node Reference
-;;;
-
-
-(jazz:define-class jazz:Method-Node-Reference jazz:Binding-Reference (constructor: jazz:allocate-method-node-reference)
-  ())
-
-
-(define (jazz:new-method-node-reference binding)
-  (jazz:allocate-method-node-reference #f #f binding))
-
-
-(jazz:define-method (jazz:emit-expression (jazz:Method-Node-Reference expression) declaration environment backend)
-  (let ((method-declaration (jazz:get-binding-reference-binding expression)))
-    (jazz:new-code
-      (jazz:emit backend 'method-node-reference expression declaration environment)
-      (or (jazz:get-lexical-binding-type method-declaration)
-          jazz:Any)
-      #f)))
-
-
-(jazz:define-method (jazz:emit-call (jazz:Method-Node-Reference expression) arguments arguments-codes declaration environment backend)
-  (let ((operator (jazz:emit-expression expression declaration environment backend)))
-    (jazz:new-code
-      (jazz:emit backend 'method-node-call expression declaration operator arguments-codes)
-      jazz:Any
-      #f)))
-
-
-;;;
 ;;;; Dialect
 ;;;
 
@@ -1116,11 +1086,7 @@
                          (let ((slot-declaration (jazz:lookup-declaration (jazz:find-class-declaration declaration) name jazz:private-access declaration)))
                            (%%assertion (%%class-is? slot-declaration jazz:Slot-Declaration) (jazz:error "Slot expected: {s}~~self" name)
                              (jazz:new-binding-reference symbol-src slot-declaration)))
-                       (let ((category-declaration (jazz:resolve-binding (jazz:lookup-reference walker resume declaration environment self/class-name))))
-                         (%%assert (%%class-is? category-declaration jazz:Category-Declaration)
-                           (let ((method-declaration (jazz:lookup-declaration category-declaration name jazz:private-access declaration)))
-                             (%%assert (%%class-is? method-declaration jazz:Method-Declaration)
-                               (jazz:new-method-node-reference method-declaration)))))))
+                       (jazz:walk-error walker resume declaration symbol-src "Ill-formed expression: {s}" symbol)))
                     ((and name (not self/class-name))
                      (let ((method-symbol-src (jazz:sourcify-if (jazz:dispatch->symbol (jazz:unwrap-syntactic-closure symbol-src)) symbol-src)))
                        (jazz:walk walker resume declaration environment `(lambda (object . rest) (apply (~ ,method-symbol-src object) rest)))))

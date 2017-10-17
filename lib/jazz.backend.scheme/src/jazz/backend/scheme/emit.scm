@@ -393,6 +393,19 @@
 
 
 ;;;
+;;;; Dispatch Reference
+;;;
+
+
+(jazz:define-emit (dispatch-reference (scheme backend) name source declaration environment)
+  (jazz:new-code
+    `(lambda (object . rest)
+       (apply (jazz:dispatch (jazz:class-of object) ',name) object rest))
+    jazz:Any
+    source))
+
+
+;;;
 ;;;; Cast
 ;;;
 

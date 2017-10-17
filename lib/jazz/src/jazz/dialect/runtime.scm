@@ -1088,8 +1088,8 @@
                              (jazz:new-binding-reference symbol-src slot-declaration)))
                        (jazz:walk-error walker resume declaration symbol-src "Ill-formed expression: {s}" symbol)))
                     ((and name (not self/class-name))
-                     (let ((method-symbol-src (jazz:sourcify-if (jazz:dispatch->symbol (jazz:unwrap-syntactic-closure symbol-src)) symbol-src)))
-                       (jazz:walk walker resume declaration environment `(lambda (object . rest) (apply (~ ,method-symbol-src object) rest)))))
+                     (let ((method-name (jazz:dispatch->symbol (jazz:unwrap-syntactic-closure symbol-src))))
+                       (jazz:new-dispatch-reference symbol-src method-name)))
                     ((and (not name) self/class-name)
                      (jazz:walk-error walker resume declaration symbol-src "Ill-formed expression: {s}" symbol))
                     (else
@@ -1493,6 +1493,11 @@
            (%%interface-dispatch class (%%get-method-category-rank field) (%%get-method-implementation-rank field))))))))
 
 
+;;;
+;;;; Dispatch Call
+;;;
+
+
 (jazz:define-class jazz:Dispatch-Call jazz:Expression (constructor: jazz:allocate-dispatch-call)
   ((name      getter: generate)
    (arguments getter: generate)))
@@ -1564,6 +1569,25 @@
         (down expression seed environment)
         environment)
       environment))
+
+
+;;;
+;;;; Dispatch Reference
+;;;
+
+
+(jazz:define-class jazz:Dispatch-Reference jazz:Expression (constructor: jazz:allocate-dispatch-reference)
+  ((name getter: generate)))
+
+
+(define (jazz:new-dispatch-reference source name)
+  (jazz:allocate-dispatch-reference #f source name))
+
+
+(jazz:define-method (jazz:emit-expression (jazz:Dispatch-Reference expression) declaration environment backend)
+  (let ((name (jazz:get-dispatch-reference-name expression))
+        (source (jazz:get-expression-source expression)))
+    (jazz:emit backend 'dispatch-reference name source declaration environment)))
 
 
 ;;;

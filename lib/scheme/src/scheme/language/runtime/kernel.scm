@@ -404,7 +404,7 @@
 (native jazz:locat-start)
 (native jazz:locat-end)
 (native jazz:locat->container/line/col)
-(native jazz:locat->path/start/end&)
+(native jazz:locat->path/container/start/end&)
 (native jazz:container->path)
 (native jazz:position->filepos)
 (native jazz:filepos-line)

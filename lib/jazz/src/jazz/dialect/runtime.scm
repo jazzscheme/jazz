@@ -1633,17 +1633,14 @@
 
 (jazz:define-method (jazz:emit-binding-reference (jazz:Hub-Declaration declaration) source-declaration environment backend)
   (let ((name (jazz:get-lexical-binding-name declaration)))
-    (jazz:new-code
-      `(lambda (object . rest) (apply (jazz:dispatch (jazz:class-of object) ',name) object rest))
-      jazz:Any
-      #f)))
+    (jazz:emit backend 'dispatch-reference name #f declaration environment)))
 
 
 (jazz:define-method (jazz:emit-binding-call (jazz:Hub-Declaration declaration) binding-src arguments arguments-codes source-declaration environment backend)
   (let ((others-arguments (%%cdr arguments))
         (object-code (%%car arguments-codes))
         (others-codes (%%cdr arguments-codes)))
-    (jazz:emit backend 'dispatch (jazz:get-lexical-binding-name declaration) binding-src source-declaration environment object-code others-arguments others-codes)))
+    (jazz:emit backend 'dispatch-call (jazz:get-lexical-binding-name declaration) binding-src source-declaration environment object-code others-arguments others-codes)))
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Hub-Declaration declaration) meta)

@@ -52,6 +52,7 @@
         unwind-protect
         catch
         ~
+        &&&
         local-context
         hook)
 
@@ -173,6 +174,19 @@
 
 
 (define-syntax ~
+  (lambda (form-src usage-environment macro-environment)
+    (let ((name (source-code (cadr (source-code form-src))))
+          (object (car (cddr (source-code form-src)))))
+      (sourcify-if
+        (with-uniqueness object
+          (lambda (obj)
+            `(lambda rest
+               (apply (dispatch (class-of ,obj) ',name) ,obj rest))))
+        form-src))))
+
+
+;; converted method references
+(define-syntax &&&
   (lambda (form-src usage-environment macro-environment)
     (let ((name (source-code (cadr (source-code form-src))))
           (object (car (cddr (source-code form-src)))))

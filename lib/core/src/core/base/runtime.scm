@@ -522,6 +522,13 @@
   (%%locat-position locat))
 
 
+(define (jazz:locat-start locat)
+  (jazz:locat-start& locat))
+
+(define (jazz:locat-end locat)
+  (jazz:locat-end& locat))
+
+
 (define (jazz:locat->container/line/col locat)
   (let ((container (and locat (%%locat-container locat))))
     (if container
@@ -530,6 +537,18 @@
                 (col (%%filepos-col filepos)))
             (%%list container line col)))
       #f)))
+
+
+(define (jazz:locat->path/start/end& locat)
+  (let ((container (%%locat-container locat)))
+    (let ((path (%%container->path container))
+          (startpos (%%position->filepos (jazz:locat-start& locat)))
+          (endpos (%%position->filepos (jazz:locat-end& locat))))
+      (%%list path
+              (%%filepos-line startpos)
+              (%%filepos-col startpos)
+              (%%filepos-line endpos)
+              (%%filepos-col endpos)))))
 
 
 (define (jazz:container->path container)

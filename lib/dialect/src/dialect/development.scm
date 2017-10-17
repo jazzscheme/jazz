@@ -194,8 +194,8 @@
     (let ((forms '()))
       (jazz:iterate-module-declaration (jazz:walk-unit unit-name)
         (lambda (obj)
-          (if (%%is? obj jazz:Dispatch)
-              (set! forms (%%cons (jazz:get-dispatch-name obj) forms)))))
+          (if (%%is? obj jazz:Dispatch-Call)
+              (set! forms (%%cons (jazz:get-dispatch-call-name obj) forms)))))
       forms))
   
   (define (difference x y)

@@ -1163,7 +1163,7 @@
 (jazz:define-method (jazz:walk-form (jazz:Jazz-Walker walker) resume declaration environment form-src)
   (let ((procedure-expr (jazz:source-code (%%car (jazz:source-code form-src)))))
     (if (and (jazz:dispatch? procedure-expr) (jazz:jazz-walker-supports-tilde? walker))
-        (jazz:walk-dispatch walker resume declaration environment form-src)
+        (jazz:walk-dispatch-call walker resume declaration environment form-src)
       (nextmethod walker resume declaration environment form-src))))
 
 
@@ -1493,31 +1493,31 @@
            (%%interface-dispatch class (%%get-method-category-rank field) (%%get-method-implementation-rank field))))))))
 
 
-(jazz:define-class jazz:Dispatch jazz:Expression (constructor: jazz:allocate-dispatch)
+(jazz:define-class jazz:Dispatch-Call jazz:Expression (constructor: jazz:allocate-dispatch-call)
   ((name      getter: generate)
    (arguments getter: generate)))
 
 
-(define (jazz:new-dispatch source name arguments)
-  (jazz:allocate-dispatch #f source name arguments))
+(define (jazz:new-dispatch-call source name arguments)
+  (jazz:allocate-dispatch-call #f source name arguments))
 
 
-(jazz:define-method (jazz:emit-expression (jazz:Dispatch expression) declaration environment backend)
-  (jazz:emit-dispatch expression declaration environment backend))
+(jazz:define-method (jazz:emit-expression (jazz:Dispatch-Call expression) declaration environment backend)
+  (jazz:emit-dispatch-call expression declaration environment backend))
 
 
-(define (jazz:emit-dispatch expression declaration environment backend)
-  (let ((name (jazz:get-dispatch-name expression))
-        (source (jazz:get-expression-source expression))
-        (arguments (jazz:get-dispatch-arguments expression)))
+(define (jazz:emit-dispatch-call expression declaration environment backend)
+  (let ((name (jazz:get-dispatch-call-name expression))
+        (arguments (jazz:get-dispatch-call-arguments expression))
+        (source (jazz:get-expression-source expression)))
     (let ((object-argument (%%car arguments))
           (others-arguments (%%cdr arguments)))
       (let ((object-code (jazz:emit-expression object-argument declaration environment backend))
             (others-codes (jazz:emit-expressions others-arguments declaration environment backend)))
-        (jazz:emit backend 'dispatch name source declaration environment object-code others-arguments others-codes)))))
+        (jazz:emit backend 'dispatch-call name source declaration environment object-code others-arguments others-codes)))))
 
 
-(define (jazz:emit-inlined-final-dispatch source declaration object arguments source-declaration environment backend)
+(define (jazz:emit-inlined-final-dispatch-call source declaration object arguments source-declaration environment backend)
   ;; mostly copy/pasted and adapted from method declaration. need to unify the code
   (if (%%eq? (jazz:get-method-declaration-expansion declaration) 'inline)
       (receive (dispatch-type method-declaration) (jazz:method-dispatch-info declaration)
@@ -1548,19 +1548,19 @@
     #f))
 
 
-(define (jazz:walk-dispatch walker resume declaration environment form-src)
+(define (jazz:walk-dispatch-call walker resume declaration environment form-src)
   (let ((name (jazz:dispatch->symbol (jazz:unwrap-syntactic-closure (%%car (jazz:source-code form-src)))))
         (arguments (%%cdr (jazz:source-code form-src))))
     (%%assertion (%%not (%%null? arguments)) (jazz:walk-error walker resume declaration form-src "Dispatch call must contain at least one argument: {s}" (%%desourcify form-src))
-      (jazz:new-dispatch form-src name
+      (jazz:new-dispatch-call form-src name
         (jazz:walk-list walker resume declaration environment arguments)))))
 
 
-(jazz:define-method (jazz:tree-fold (jazz:Dispatch expression) down up here seed environment)
+(jazz:define-method (jazz:tree-fold (jazz:Dispatch-Call expression) down up here seed environment)
   (up expression
       seed
       (jazz:tree-fold-list
-        (jazz:get-dispatch-arguments expression) down up here
+        (jazz:get-dispatch-call-arguments expression) down up here
         (down expression seed environment)
         environment)
       environment))

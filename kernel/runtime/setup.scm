@@ -167,14 +167,16 @@ c-end
 
 
 (define (jazz:source&? src)
-  (##fx= (##vector-length src) 5))
+  (and (##source? src)
+       (##fx= (##vector-length src) 6)))
 
 (define (jazz:make-source& code locat)
   (##vector ##source1-marker
             code
             (if locat (##locat-container locat) #f)
             (if locat (jazz:locat-start& locat) #f)
-            (if locat (jazz:locat-end& locat) #f)))
+            (if locat (jazz:locat-end& locat) #f)
+            'text))
 
 (define (jazz:sourcify-aux1& code src)
   (if (jazz:source&? src)
@@ -182,7 +184,8 @@ c-end
                 code
                 (##vector-ref src 2)
                 (##vector-ref src 3)
-                (##vector-ref src 4))
+                (##vector-ref src 4)
+                'syntax)
     (##vector ##source1-marker
               code
               (##vector-ref src 2)
@@ -194,7 +197,8 @@ c-end
                 code
                 (##vector-ref src 2)
                 (##vector-ref src 3)
-                (##vector-ref src 4))
+                (##vector-ref src 4)
+                'syntax)
     (##vector ##source2-marker
               code
               (##vector-ref src 2)
@@ -213,6 +217,13 @@ c-end
           (##make-locat container
                         (##vector-ref src 3))
         #f))))
+
+(define (jazz:source-origin src)
+  (##vector-ref src 5))
+
+(define (jazz:text-source? src)
+  (and (jazz:source&? src)
+       (##eq? (jazz:source-origin src) 'text)))
 
 
 (define (jazz:locat&? locat)

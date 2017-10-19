@@ -389,6 +389,7 @@
 
 
 (native jazz:source?)
+(native jazz:text-source?)
 (native jazz:source-code)
 (native jazz:source-locat)
 (native jazz:desourcify)

@@ -38,18 +38,26 @@
 (module protected jazz.backend.syntax jazz
 
 
-(macro public (define-backend name)
-  `(register-backend (new-backend ',name)))
+(syntax public define-backend
+  (lambda (form-src usage-environment macro-environment)
+    (bind (name) (cdr (source-code form-src))
+      (sourcify-deep-if
+        `(register-backend (new-backend ',name))
+        form-src))))
 
 
-(macro public (define-emit signature . body)
-  (let ((emit (car signature))
-        (backend (cadr signature))
-        (parameters (cddr signature)))
-    (let ((backend-name (car backend))
-          (backend-parameter (cadr backend)))
-      (let ((emitter (string->symbol (jazz:format "{a}-emit-{a}" backend-name emit))))
-        `(begin
-           (definition (,emitter ,backend-parameter ,@parameters)
-             ,@body)
-           (register-emit ',backend-name ',emit ,emitter)))))))
+(syntax public define-emit
+  (lambda (form-src usage-environment macro-environment)
+    (bind (signature . body) (cdr (source-code form-src))
+      (let ((emit (source-code (car (source-code signature))))
+            (backend (source-code (cadr (source-code signature))))
+            (parameters (cddr (source-code signature))))
+        (let ((backend-name (source-code (car backend)))
+              (backend-parameter (source-code (cadr backend))))
+          (let ((emitter (string->symbol (jazz:format "{a}-emit-{a}" backend-name emit))))
+            (sourcify-deep-if
+              `(begin
+                 (definition (,emitter ,backend-parameter ,@parameters)
+                   ,@body)
+                 (register-emit ',backend-name ',emit ,emitter))
+              form-src))))))))

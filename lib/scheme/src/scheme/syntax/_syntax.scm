@@ -59,21 +59,21 @@
 
 (define-syntax declaration-unit
   (lambda (form-src usage-environment macro-environment)
-    (sourcify-if
+    (sourcify-deep-if
       `(quote ,(car (get-declaration-path (get-declaration-toplevel (current-declaration)))))
       form-src)))
 
 
 (define-syntax declaration-path
   (lambda (form-src usage-environment macro-environment)
-    (sourcify-if
+    (sourcify-deep-if
       `(quote ,(get-declaration-path (current-declaration)))
       form-src)))
 
 
 (define-syntax declaration-locator
   (lambda (form-src usage-environment macro-environment)
-    (sourcify-if
+    (sourcify-deep-if
       `(quote ,(apply compose-reference (get-declaration-path (current-declaration))))
       form-src)))
 

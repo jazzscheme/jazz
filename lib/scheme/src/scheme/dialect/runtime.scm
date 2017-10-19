@@ -198,14 +198,13 @@
 
 
 (jazz:define-method (jazz:walk-binding-walk-form (jazz:Define-Special-Form-Declaration binding) walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (let ((locator (jazz:get-declaration-locator binding)))
-      (if (%%eq? (jazz:get-declaration-toplevel binding) (jazz:get-declaration-toplevel declaration))
-          (jazz:walk-error walker resume declaration form-src "Special forms cannot be used from within the same file: {s}" locator)
-        (let ((parent-declaration (jazz:get-declaration-parent binding)))
-          (jazz:load-unit (jazz:get-declaration-locator (jazz:get-declaration-toplevel parent-declaration)))
-          (let ((special-form (jazz:need-special-form locator)))
-            (special-form walker resume declaration environment form-src)))))))
+  (let ((locator (jazz:get-declaration-locator binding)))
+    (if (%%eq? (jazz:get-declaration-toplevel binding) (jazz:get-declaration-toplevel declaration))
+        (jazz:walk-error walker resume declaration form-src "Special forms cannot be used from within the same file: {s}" locator)
+      (let ((parent-declaration (jazz:get-declaration-parent binding)))
+        (jazz:load-unit (jazz:get-declaration-locator (jazz:get-declaration-toplevel parent-declaration)))
+        (let ((special-form (jazz:need-special-form locator)))
+          (special-form walker resume declaration environment form-src))))))
 
 
 (jazz:define-method (jazz:tree-fold (jazz:Define-Special-Form-Declaration declaration) down up here seed environment)
@@ -250,7 +249,7 @@
     (jazz:with-annotated-frame (jazz:annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
-          (jazz:sourcify-if
+          (jazz:sourcify-deep-if
             `(jazz:define-special-form ,(%%cons locator (jazz:emit-signature signature declaration augmented-environment backend))
                ,@(jazz:sourcified-form (jazz:emit-expression body declaration augmented-environment backend)))
             (jazz:get-declaration-source declaration)))))))
@@ -326,7 +325,7 @@
     (jazz:with-annotated-frame (jazz:annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (%%cons frame environment)))
-          (jazz:sourcify-if
+          (jazz:sourcify-deep-if
             `(jazz:define-macro ,(%%cons locator (jazz:emit-signature signature declaration augmented-environment backend))
                ,@(jazz:sourcified-form (jazz:emit-expression body declaration augmented-environment backend)))
             (jazz:get-declaration-source declaration)))))))
@@ -453,7 +452,7 @@
 
 (define (jazz:walk-lambda walker resume declaration environment form-src)
   (%%assertion (%%not-null? (%%cdr (jazz:source-code form-src))) (jazz:walk-error walker resume declaration form-src "Ill-formed lambda")
-    (let ((parameters (%%desourcify (%%cadr (jazz:source-code form-src)))))
+    (let ((parameters (jazz:source-code (%%cadr (jazz:source-code form-src)))))
       (jazz:parse-specifier (%%cddr (jazz:source-code form-src))
         (lambda (specifier body)
           (receive (signature augmented-environment) (jazz:walk-parameters walker resume declaration environment parameters #t #t)
@@ -523,7 +522,7 @@
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend))
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             (jazz:sourcify-if
+                             (jazz:sourcify-deep-if
                                `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend))
                                src))))
                        bindings
@@ -598,7 +597,7 @@
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend))
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             (jazz:sourcify-if
+                             (jazz:sourcify-deep-if
                                `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend))
                                src))))
                        bindings
@@ -620,7 +619,7 @@
 
 (define (jazz:walk-named-let walker resume declaration environment form-src)
   (let ((name (jazz:source-code (%%cadr (jazz:source-code form-src))))
-        (bindings (%%desourcify (%%car (%%cddr (jazz:source-code form-src)))))
+        (bindings (jazz:source-code (%%car (%%cddr (jazz:source-code form-src)))))
         (body (%%cdr (%%cddr (jazz:source-code form-src)))))
     (let ((augmented-environment environment)
           (expanded-bindings (jazz:new-queue)))
@@ -642,7 +641,7 @@
   (let ((name (jazz:source-code (%%car bindings)))
         (bindings (%%cdr bindings)))
     (jazz:walk-named-let walker resume declaration environment
-      (jazz:sourcify-if
+      (jazz:sourcify-deep-if
         `(let ,name ,bindings
            ,@body)
         form-src))))
@@ -676,7 +675,7 @@
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend))
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             (jazz:sourcify-if
+                             (jazz:sourcify-deep-if
                                `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend))
                                src))))
                        bindings
@@ -745,7 +744,7 @@
                            (let ((value-code (jazz:emit-expression value declaration augmented-environment backend))
                                  (src (jazz:get-variable-source variable)))
                              (jazz:extend-annotated-type frame annotated-variable (jazz:get-code-type value-code))
-                             (jazz:sourcify-if
+                             (jazz:sourcify-deep-if
                                `(,(jazz:emit-binding-symbol variable declaration environment backend) ,(jazz:emit-type-check value-code (jazz:get-lexical-binding-type variable) declaration environment backend))
                                src))))
                        bindings
@@ -830,7 +829,7 @@
       (let iter ((scan parameters))
         (if (%%null? scan)
             (jazz:queue-list queue)
-          (let ((expr (%%car scan)))
+          (let ((expr (jazz:source-code (%%car scan))))
             (%%assert (%%symbol? expr)
               (jazz:parse-specifier (%%cdr scan)
                 (lambda (specifier rest)
@@ -839,7 +838,7 @@
                     (iter rest))))))))))
   
   (%%assertion (%%not-null? (%%cdr (jazz:unwrap-syntactic-closure form-src))) (jazz:walk-error walker resume declaration form-src "Ill-formed receive")
-    (let* ((parameters (jazz:desourcify-all (%%cadr (jazz:unwrap-syntactic-closure form-src))))
+    (let* ((parameters (jazz:source-code (%%cadr (jazz:unwrap-syntactic-closure form-src))))
            (expression (%%car (%%cddr (jazz:unwrap-syntactic-closure form-src))))
            (body (%%cdr (%%cddr (jazz:source-code form-src))))
            (variables (walk-parameters parameters))

@@ -43,23 +43,28 @@
 ;;;
 
 
-(macro public (<environment> data)
-  (define (gather-references)
-    (let ((references (make-table test: eq?)))
-      (define (walk-reference reference)
-        (table-set! references reference #t))
-      
-      (walk-references~ data walk-reference)
-      references))
-  
-  (define (locators-builder references)
-    (cons 'list (map (lambda (pair)
-                       (let ((reference (car pair)))
-                         `(cons ',reference (reference ,reference))))
-                     (table->list references))))
-  
-  (let ((locators-code (locators-builder (gather-references))))
-    `(construct-environment ',data
-                            (let ((locators (list->table ,locators-code)))
-                              (lambda (symbol)
-                                (locators-ref locators symbol)))))))
+(syntax public <environment>
+  (lambda (form-src usage-environment macro-environment)
+    (bind (data) (cdr (source-code form-src))
+      (let ((data (desourcify-all data)))
+        (define (gather-references)
+          (let ((references (make-table test: eq?)))
+            (define (walk-reference reference)
+              (table-set! references reference #t))
+            
+            (walk-references~ data walk-reference)
+            references))
+        
+        (define (locators-builder references)
+          (cons 'list (map (lambda (pair)
+                             (let ((reference (car pair)))
+                               `(cons ',reference (reference ,reference))))
+                           (table->list references))))
+        
+        (let ((locators-code (locators-builder (gather-references))))
+          (sourcify-deep-if
+            `(construct-environment ',data
+               (let ((locators (list->table ,locators-code)))
+                 (lambda (symbol)
+                   (locators-ref locators symbol))))
+            form-src)))))))

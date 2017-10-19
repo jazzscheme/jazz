@@ -70,7 +70,7 @@
         (let ((last (last bnd)))
           (let ((bnd (if (boolean? (source-code last)) (butlast bnd) bnd))
                 (allow-other-keys? (if (boolean? (source-code last)) last #f)))
-            (sourcify-if
+            (sourcify-deep-if
               `(let ((,box (box-list ,rest)))
                  (let* ,(map (lambda (binding)
                                (let* ((variable (source-code (car (source-code binding))))

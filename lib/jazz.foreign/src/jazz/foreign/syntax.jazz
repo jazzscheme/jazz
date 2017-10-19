@@ -506,16 +506,21 @@
 ;;;
 
 
-(macro public (c-enumerant name (type #f))
-  (let ((box (if type (string-append "___" type "BOX") "___U32BOX")))
-    `(definition public ,name
-       (let ()
-         (declare (extended-bindings))
-         (c-code ,(string-append "___RESULT = "
-                                 box
-                                 "("
-                                 (symbol->string name)
-                                 ");"))))))
+(syntax public c-enumerant
+  (lambda (form-src usage-environment macro-environment)
+    (bind (name . rest) (cdr (source-code form-src))
+      (bind-optionals ((type #f)) rest
+        (let ((box (if type (string-append "___" (source-code type) "BOX") "___U32BOX")))
+          (sourcify-deep-if
+            `(definition public ,name
+               (let ()
+                 (declare (extended-bindings))
+                 (c-code ,(string-append "___RESULT = "
+                                         box
+                                         "("
+                                         (symbol->string (source-code name))
+                                         ");"))))
+            form-src))))))
 
 
 ;;;
@@ -753,7 +758,7 @@
     (with-annotated-frame (annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
-          (sourcify-if
+          (sourcify-deep-if
             `(c-definition ,(cons locator (emit-signature signature self augmented-environment backend)) ,parameter-types ,result-type ,c-name ,scope
                ,@(sourcified-form (emit-expression body self augmented-environment backend)))
             source)))))
@@ -824,11 +829,15 @@
 ;;;
 
 
-(macro public (c-callback signature parameter-types result-type c-name scope exit-value . body)
-  `(c-definition ,signature ,parameter-types ,result-type ,c-name ,scope
-     (with-callback ',(car signature) ,exit-value
-       (lambda ()
-         ,@body))))
+(syntax public c-callback
+  (lambda (form-src usage-environment macro-environment)
+    (bind (signature parameter-types result-type c-name scope exit-value . body) (cdr (source-code form-src))
+      (sourcify-deep-if
+        `(c-definition ,signature ,parameter-types ,result-type ,c-name ,scope
+           (with-callback ',(car (source-code signature)) ,exit-value
+             (lambda ()
+               ,@body)))
+        form-src))))
 
 
 ;;;
@@ -838,10 +847,10 @@
 
 (syntax public c-constant
   (lambda (form-src usage-environment macro-environment)
-    (let ((name (cadr (source-code form-src)))
-          (value (caddr (source-code form-src))))
-      (sourcify-if
-        `(definition public ,name ,value)
+    (bind (name value) (cdr (source-code form-src))
+      (sourcify-deep-if
+        `(definition public ,name
+           ,value)
         form-src))))
 
 
@@ -854,7 +863,7 @@
   (lambda (form-src usage-environment macro-environment)
     (let ((name (cadr (source-code form-src)))
           (declarations (cddr (source-code form-src))))
-      (sourcify-if
+      (sourcify-deep-if
         (let ((definitions (map (lambda (declaration) `(definition public ,@(source-code declaration))) declarations)))
           `(begin ,@definitions))
         form-src))))

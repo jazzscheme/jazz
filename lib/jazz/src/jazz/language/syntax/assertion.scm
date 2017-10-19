@@ -47,7 +47,7 @@
 
 (define-syntax assert
   (lambda (form-src usage-environment macro-environment)
-    (sourcify-if
+    (sourcify-deep-if
       ;; we really want assertions in release and not in a new distribution safety
       (expand-assert-test #t form-src)
       form-src)))
@@ -55,7 +55,7 @@
 
 (define-syntax assertion
   (lambda (form-src usage-environment macro-environment)
-    (sourcify-if
+    (sourcify-deep-if
       ;; we really want assertions in release and not in a new distribution safety
       (expand-assertion-test #t form-src)
       form-src)))
@@ -67,32 +67,32 @@
           (body (cddr (source-code form-src))))
       (cond ((null? body)
              (let ((temp (generate-symbol "temp")))
-               (sourcify-if
+               (sourcify-deep-if
                  (if (symbol? (source-code test))
                      `(%allege ,test ,test)
                    `(let ((,temp ,test))
                       (%allege ,temp ,temp)))
                  form-src)))
             ((null? (cdr body))
-             (sourcify-if
+             (sourcify-deep-if
                `(%allege ,test ,(car body))
                form-src))
             (else
-             (sourcify-if
+             (sourcify-deep-if
                `(%allege ,test (begin ,@body))
                form-src))))))
 
 
 (define-syntax debug-assert
   (lambda (form-src usage-environment macro-environment)
-    (sourcify-if
+    (sourcify-deep-if
       (expand-assert-test debug-user? form-src)
       form-src)))
 
 
 (define-syntax debug-assertion
   (lambda (form-src usage-environment macro-environment)
-    (sourcify-if
+    (sourcify-deep-if
       (expand-assertion-test debug-user? form-src)
       form-src)))
 

@@ -208,7 +208,7 @@
         (let ((augmented-environment (%%cons frame environment)))
           (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend))
                 (body-emit (jazz:emit-expression body declaration augmented-environment backend)))
-            (jazz:sourcify-if
+            (jazz:sourcify-deep-if
               (jazz:emit backend 'generic declaration environment signature-emit body-emit)
               (jazz:get-declaration-source declaration))))))))
 
@@ -261,7 +261,7 @@
         (let ((augmented-environment (%%cons frame environment)))
           (let ((signature-emit (jazz:emit-signature signature declaration augmented-environment backend))
                 (body-emit (jazz:emit-expression body declaration augmented-environment backend)))
-            (jazz:sourcify-if
+            (jazz:sourcify-deep-if
               (jazz:emit backend 'specific declaration environment signature-emit body-emit)
               (jazz:get-declaration-source declaration))))))))
 
@@ -1232,12 +1232,12 @@
 
 
 (define (jazz:walk-with-dynamic-self-declaration walker resume declaration environment form-src)
-  (receive (code body) (jazz:parse-with-dynamic-self (%%cdr (%%desourcify form-src)))
+  (receive (code body) (jazz:parse-with-dynamic-self (%%cdr (jazz:source-code form-src)))
     (jazz:walk-declarations walker resume declaration environment body)))
 
 
 (define (jazz:walk-with-dynamic-self walker resume declaration environment form-src)
-  (receive (code body) (jazz:parse-with-dynamic-self (%%cdr (%%desourcify form-src)))
+  (receive (code body) (jazz:parse-with-dynamic-self (%%cdr (jazz:source-code form-src)))
     (let ((new-environment (%%cons (jazz:new-dynamic-self-binding #f code) environment)))
       (jazz:new-with-dynamic-self
         ;; should type be (jazz:find-class-declaration declaration) like for walk-with-self
@@ -1278,7 +1278,7 @@
 
 (define (jazz:walk-cast walker resume declaration environment form-src)
   (let ((form (jazz:source-code form-src)))
-    (let ((specifier (%%desourcify (%%cadr form)))
+    (let ((specifier (jazz:source-code (%%cadr form)))
           (expression (%%car (%%cddr form))))
       (jazz:new-cast (jazz:walk-specifier walker resume declaration environment specifier)
                      (jazz:walk walker resume declaration environment expression)))))
@@ -1383,9 +1383,9 @@
 
 
 (define (jazz:walk-allocate walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (let ((class (%%cadr form))
-          (values (%%cddr form)))
+  (let ((form (%%cdr (jazz:source-code form-src))))
+    (let ((class (%%car form))
+          (values (%%cdr form)))
       (jazz:new-allocate (jazz:walk walker resume declaration environment class)
                          (jazz:walk-list walker resume declaration environment values)))))
 
@@ -1421,7 +1421,7 @@
 
 
 (define (jazz:walk-static walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
+  (let ((form (jazz:source-code form-src)))
     (let ((expression (jazz:walk walker resume declaration environment (%%cadr form))))
       (jazz:new-static expression))))
 
@@ -1622,7 +1622,7 @@
 
 
 (jazz:define-method (jazz:emit-declaration (jazz:Hub-Declaration declaration) environment backend)
-  (jazz:sourcify-if
+  (jazz:sourcify-deep-if
     `(begin)
     (jazz:get-declaration-source declaration)))
 
@@ -1649,7 +1649,7 @@
 
 (define (jazz:parse-hub walker resume declaration rest)
   (jazz:bind (name) rest
-    (let ((name (jazz:desourcify name)))
+    (let ((name (jazz:source-code name)))
       (values name jazz:Any 'public 'uptodate))))
 
 
@@ -1699,7 +1699,7 @@
 
 (jazz:define-method (jazz:emit-declaration (jazz:Node-Declaration declaration) environment backend)
   (let ((class-reference (jazz:get-dynamic-parameter-class (%%car (jazz:get-signature-positional (jazz:get-node-declaration-signature declaration))))))
-    (jazz:sourcify-if
+    (jazz:sourcify-deep-if
       `(begin)
       #; ;; FOR NOW THE HUB OBJECT IS NOT NEEDED
       `(jazz:register-hub-node ',(jazz:get-node-declaration-hub-name declaration) ,(jazz:sourcified-form (jazz:emit-expression class-reference declaration environment backend)))
@@ -1753,7 +1753,7 @@
             (lambda (specifier rest)
               (values name specifier access compatibility expansion (if (%%null? rest) (%%list 'unspecified) (%%car rest)) #f))))
       (let* ((name (jazz:source-code (%%car (jazz:unwrap-syntactic-closure (%%car rest)))))
-             (parameters (%%cdr (%%desourcify (%%car rest)))))
+             (parameters (%%cdr (jazz:source-code (%%car rest)))))
         (jazz:parse-specifier (%%cdr rest)
           (lambda (specifier body)
             (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body))
@@ -2111,7 +2111,7 @@
                 ((and (%%pair? (jazz:source-code expr))
                       (%%pair? (%%cdr (jazz:source-code expr)))
                       (%%eq? (jazz:source-code (%%cadr (jazz:source-code expr))) 'meta))
-                 (jazz:enqueue metaclass (jazz:sourcify-if (%%cons (%%car (jazz:source-code expr)) (%%cddr (jazz:source-code expr))) expr)))
+                 (jazz:enqueue metaclass (jazz:sourcify-deep-if (%%cons (%%car (jazz:source-code expr)) (%%cddr (jazz:source-code expr))) expr)))
                 ;; first draft lets not worry about meta public methods generating nodes
                 ((and (%%pair? (jazz:source-code expr))
                       (%%eq? (jazz:source-code (%%car (jazz:source-code expr))) 'method)
@@ -2147,11 +2147,11 @@
             ((or (%%specified? metaclass-name)
                  (jazz:core-class? name)
                  (%%unspecified? ascendant-name))
-             (jazz:sourcify-if
+             (jazz:sourcify-deep-if
                `(begin
                   (%class ,@(%%cdr (jazz:source-code form-src)))
                   ,@(map (lambda (node)
-                           (jazz:sourcify-if
+                           (jazz:sourcify-deep-if
                              node
                              form-src))
                          nodes))
@@ -2159,16 +2159,16 @@
             (else
              (let ((metaclass-name (%%string->symbol (%%string-append (%%symbol->string name) "~Class"))))
                `(begin
-                  ,(jazz:sourcify-if
+                  ,(jazz:sourcify-deep-if
                      `(%class ,metaclass-name extends (:class ,ascendant-name)
                         ,@metaclass-body)
                      form-src)
-                  ,(jazz:sourcify-if
+                  ,(jazz:sourcify-deep-if
                      `(%class ,access ,abstraction ,compatibility ,implementor ,name metaclass (:generated ,metaclass-name) extends ,ascendant-name implements ,interface-names
                         ,@class-body)
                      form-src)
                   ,@(map (lambda (node)
-                           (jazz:sourcify-if
+                           (jazz:sourcify-deep-if
                              node
                              form-src))
                          nodes))))))))
@@ -2392,7 +2392,7 @@
                     (generate-setter? (%%eq? setter-generation 'generate))
                     (specifier-list (if specifier (%%list specifier) '())))
                 `(begin
-                   ,(jazz:sourcify-if
+                   ,(jazz:sourcify-deep-if
                       `(,symbol ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
                       form-src)
                    ,@(if generate-getter?
@@ -2582,12 +2582,12 @@
     (let ((queue (jazz:new-queue)))
       (let iter ((scan parameters))
            (cond ((%%null? scan))
-                 ((%%symbol? scan)
+                 ((%%symbol? (jazz:source-code scan))
                   (jazz:enqueue-list queue scan))
                  (else
-                  (let ((parameter (%%car scan)))
+                  (let ((parameter (jazz:source-code (%%car scan))))
                     (if (%%pair? parameter)
-                        (if (jazz:specifier? (%%car scan))
+                        (if (jazz:specifier? (jazz:source-code (%%car parameter)))
                             (jazz:enqueue queue parameter)
                           (if (%%keyword? (%%car parameter))
                               (jazz:parse-specifier (%%cddr parameter)
@@ -2685,7 +2685,7 @@
 
 
 (define (jazz:walk-with-self walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
+  (let ((form (jazz:source-code form-src)))
     (let ((new-environment (%%cons (jazz:new-self-binding #f) environment)))
       (jazz:new-with-self
         (jazz:find-class-declaration declaration)
@@ -2709,7 +2709,7 @@
 
 
 (define (jazz:walk-with-local-variables-declaration walker resume declaration environment form-src)
-  (receive (variables body) (jazz:parse-with-local-variables (%%cdr (%%desourcify form-src)))
+  (receive (variables body) (jazz:parse-with-local-variables (%%cdr (jazz:source-code form-src)))
     (jazz:walk-declarations walker resume declaration environment body)))
 
 
@@ -2721,7 +2721,7 @@
                 variables)
       table))
   
-  (receive (variables body) (jazz:parse-with-local-variables (%%cdr (%%desourcify form-src)))
+  (receive (variables body) (jazz:parse-with-local-variables (%%cdr (jazz:source-code form-src)))
     (let ((new-environment (%%cons (jazz:new-walk-frame (make-bindings variables)) environment)))
       (jazz:new-begin form-src (jazz:walk-list walker resume declaration new-environment body)))))
 
@@ -2781,7 +2781,7 @@
 
 
 (define (jazz:walk-with-slots walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
+  (let ((form (jazz:source-code form-src)))
     (jazz:bind (slot-names object . body) (%%cdr form)
       (let ((object-symbol (jazz:generate-symbol "object")))
         (jazz:walk walker resume declaration environment

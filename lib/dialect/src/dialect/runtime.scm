@@ -2720,7 +2720,7 @@
     (jazz:with-annotated-frame (jazz:annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (%%cons frame environment)))
-          (jazz:sourcify-if
+          (jazz:sourcify-deep-if
             `(jazz:define-macro ,(%%cons locator (jazz:emit-signature signature declaration augmented-environment backend))
                ,@(jazz:sourcified-form (jazz:emit-expression body declaration augmented-environment backend)))
             (jazz:get-declaration-source declaration)))))))
@@ -2896,7 +2896,7 @@
              (current-unit-name
                (jazz:get-declaration-locator
                  (jazz:get-declaration-toplevel declaration))))
-         (jazz:sourcify-if
+         (jazz:sourcify-deep-if
            `(define ,locator
               (let* ((env
                        (%%list
@@ -3034,7 +3034,7 @@
              (current-unit-name
                (jazz:get-declaration-locator
                  (jazz:get-declaration-toplevel declaration))))
-         (jazz:sourcify-if
+         (jazz:sourcify-deep-if
            `(define ,locator
               (let* ((env
                        (%%list
@@ -5168,10 +5168,10 @@
                               (jazz:enqueue variables #f)
                             (let ((internal (%%cdr (jazz:source-code internal-define))))
                               (%%assertion (%%pair? internal) (jazz:walk-error walker resume declaration internal-define "Ill-formed internal define")
-                                (let ((signature (%%desourcify (%%car internal))))
+                                (let ((signature (jazz:source-code (%%car internal))))
                                   (let ((name (if (%%symbol? signature)
                                                   signature
-                                                (%%car signature))))
+                                                (jazz:source-code (%%car signature)))))
                                     (let ((variable (jazz:new-internal-define-variable name #f #f)))
                                       (jazz:enqueue variables variable)
                                       (set! augmented-environment (%%cons variable augmented-environment)))))))))
@@ -5205,7 +5205,7 @@
               ((and (%%pair? first)
                     (%%symbol? (jazz:source-code (%%car first))))
                (let ((name (jazz:source-code (%%car (jazz:source-code (%%car rest)))))
-                     (parameters (%%cdr (%%desourcify (%%car rest)))))
+                     (parameters (%%cdr (jazz:source-code (%%car rest)))))
                  (jazz:parse-specifier (%%cdr rest)
                    (lambda (specifier body)
                      (let ((specifier-list (if specifier (%%list specifier) '())))
@@ -5636,7 +5636,7 @@
                           (augment-environment parameter-expression)
                           parameter-expression))))))))
             ((%%not (%%null? scan))
-             (let ((rest (jazz:desourcify scan)))
+             (let ((rest (jazz:source-code scan)))
                (%%when (%%not (%%symbol? rest))
                  (jazz:walk-error walker resume declaration scan "Ill-formed rest parameter: {s}" rest))
                (let ((parameter-expression (jazz:new-rest-parameter rest jazz:List #f)))

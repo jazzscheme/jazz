@@ -60,7 +60,7 @@
         (error "Ill-formed typecase")
       (let ((target (cadr (source-code form-src)))
             (clauses (cddr (source-code form-src))))
-        (sourcify-if
+        (sourcify-deep-if
           (with-uniqueness target
             (lambda (variable)
               `(cond ,@(map (lambda (clause)

@@ -68,7 +68,7 @@
           (body (cdr (cddr (source-code form-src))))
           (scan (generate-symbol "scan"))
           (prog (generate-symbol "prog")))
-      (sourcify-if
+      (sourcify-deep-if
         `(let ((,scan ,rest))
            (let* ,(map (lambda (binding)
                          (let* ((variable (source-code (car (source-code binding))))

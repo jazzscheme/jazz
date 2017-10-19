@@ -69,6 +69,6 @@
   (lambda (form-src usage-environment macro-environment)
     (let ((bindings (source-code (cadr (source-code form-src))))
           (body (cddr (source-code form-src))))
-      (sourcify-if
+      (sourcify-deep-if
         (expand-with bindings body)
         form-src)))))

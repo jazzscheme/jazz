@@ -59,7 +59,7 @@
         (error "Ill-formed ecase")
       (let ((target (cadr (source-code form-src)))
             (clauses (cddr (source-code form-src))))
-        (sourcify-if
+        (sourcify-deep-if
           (with-uniqueness target
             (lambda (symbol)
               `(cond ,@(map (lambda (clause)

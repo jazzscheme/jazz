@@ -44,7 +44,7 @@
 
 
 (jazz:define-emit (define (scheme backend) declaration environment expression)
-  (jazz:sourcify-if
+  (jazz:sourcify-deep-if
     (let ((locator (jazz:get-declaration-locator declaration)))
       `(begin
          (define ,locator

@@ -44,7 +44,7 @@
 
 
 (jazz:define-emit (definition (scheme backend) declaration environment expression unsafe-expression)
-  (jazz:sourcify-if
+  (jazz:sourcify-deep-if
     (let ((locator (jazz:get-declaration-locator declaration)))
       (let ((unsafe-locator (and unsafe-expression (jazz:unsafe-locator locator))))
         (jazz:simplify-begin
@@ -101,7 +101,7 @@
         (interface-declarations (jazz:get-class-declaration-interfaces declaration))
         (body (jazz:get-namespace-declaration-body declaration)))
     (let ((level-locator (%%compose-helper locator 'level)))
-      (jazz:sourcify-if
+      (jazz:sourcify-deep-if
         `(begin
            ,@(if (jazz:core-class? name)
                  (let ((core-class (jazz:get-core-class name)))
@@ -144,7 +144,7 @@
          (metaclass-access (if (%%not metaclass-declaration) 'jazz:Interface (jazz:sourcified-form (jazz:emit-binding-reference metaclass-declaration declaration environment backend))))
          (ascendant-accesses (map (lambda (declaration) (jazz:sourcified-form (jazz:emit-binding-reference declaration declaration environment backend))) ascendant-declarations))
          (body (jazz:get-namespace-declaration-body declaration)))
-    (jazz:sourcify-if
+    (jazz:sourcify-deep-if
       `(begin
          (define ,locator
            (jazz:new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
@@ -175,7 +175,7 @@
          (initialize-locator (and initialize? (%%compose-helper locator 'initialize)))
          (slot-locator (%%compose-helper locator 'slot))
          (offset-locator (%%compose-helper locator 'offset)))
-    (jazz:sourcify-if
+    (jazz:sourcify-deep-if
       `(begin
          ,@(if initialize?
                `((define (,initialize-locator self)
@@ -213,7 +213,7 @@
       (if (pair? expr)
           (cons (car expr) (cons (cons 'self (cdadr expr)) (cddr expr)))
         expr))
-    (jazz:sourcify-if
+    (jazz:sourcify-deep-if
       `(begin
          ,@(if initialize?
                `((define (,initialize-locator self)
@@ -253,7 +253,7 @@
                                 ((%%class-is? category-declaration jazz:Interface-Declaration) (case propagation
                                                                                                  ((override)        'jazz:add-method-node)
                                                                                                  ((virtual)         'jazz:add-virtual-method))))))
-    (jazz:sourcify-if
+    (jazz:sourcify-deep-if
       (case add-method-proc
         ((jazz:add-final-method)
          `(begin

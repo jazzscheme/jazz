@@ -93,7 +93,7 @@
     (let ((bindings (desourcify (cadr (source-code form-src))))
           (tree (car (cddr (source-code form-src))))
           (body (cdr (cddr (source-code form-src)))))
-      (sourcify-if
+      (sourcify-deep-if
         (with-uniqueness tree
           (lambda (tree-value)
             `(begin
@@ -116,7 +116,7 @@
                   (iter (cddr scan) (cons (cons (car scan) specifier) bindings))
                 (iter (cdr scan) (cons (cons (car scan) #f) bindings)))))))
       
-      (sourcify-if
+      (sourcify-deep-if
         (let ((bindings (parse-bindings)))
           `(let ((,vec ,vector))
              (let ,(map (lambda (binding rank)
@@ -144,7 +144,7 @@
                   (iter (cddr scan) (cons (cons (car scan) specifier) bindings))
                 (iter (cdr scan) (cons (cons (car scan) #f) bindings)))))))
       
-      (sourcify-if
+      (sourcify-deep-if
         (let ((bindings (parse-bindings)))
           `(let ((,v ,values))
              (let ,(map (lambda (binding rank)

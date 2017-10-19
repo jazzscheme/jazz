@@ -69,7 +69,7 @@
   (lambda (form-src usage-environment macro-environment)
     (let ((name (cadr (source-code form-src)))
           (body (cddr (source-code form-src))))
-      (sourcify-if
+      (sourcify-deep-if
         `(begin
            ,@body)
         form-src))))
@@ -89,7 +89,7 @@
           (parse-specifier (cdr (source-code form-src))
             (lambda (specifier body)
               (let ((value (car body)))
-                (sourcify-if
+                (sourcify-deep-if
                   `(definition public ,expansion ,name ,@(if specifier (list specifier) '()) ,value)
                   form-src)))))))))
 
@@ -153,7 +153,7 @@
         (error "Ill-formed catch")
       (let ((predicate/type (cadr (source-code form-src)))
             (body (cddr (source-code form-src))))
-        (sourcify-if
+        (sourcify-deep-if
           (cond ((symbol? (source-code predicate/type))
                  `(call-with-catch ,predicate/type (lambda (exc) exc)
                     (lambda ()
@@ -177,7 +177,7 @@
   (lambda (form-src usage-environment macro-environment)
     (let ((name (source-code (cadr (source-code form-src))))
           (object (car (cddr (source-code form-src)))))
-      (sourcify-if
+      (sourcify-deep-if
         (with-uniqueness object
           (lambda (obj)
             `(lambda rest
@@ -190,7 +190,7 @@
   (lambda (form-src usage-environment macro-environment)
     (let ((name (source-code (cadr (source-code form-src))))
           (object (car (cddr (source-code form-src)))))
-      (sourcify-if
+      (sourcify-deep-if
         (with-uniqueness object
           (lambda (obj)
             `(lambda rest
@@ -201,7 +201,7 @@
 (define-syntax local-context
   (lambda (form-src usage-environment macro-environment)
     (let ((names (cdr (source-code form-src))))
-      (sourcify-if
+      (sourcify-deep-if
         `(list ,@(map (lambda (name)
                         `(cons ',(source-code name) ,name))
                       names))

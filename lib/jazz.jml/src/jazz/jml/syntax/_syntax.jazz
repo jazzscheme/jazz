@@ -43,57 +43,69 @@
 ;;;
 
 
-(macro public (<form> form)
-  (define (gather-references)
-    (let ((references (make-table test: eq?)))
-      (define (walk-reference reference)
-        (table-set! references reference #t))
-      
-      (define (process-form form)
-        (receive (tag properties children) (jazz.jml.parse:parse-jml-expr form)
-          (unless (or (memq? tag '(install * ! ~))
-                      (memv? (last (symbol->string tag)) '(#\! #\~)))
-            (walk-reference tag))
-          (for-each-property
-            (lambda (name value)
-              (process-value value))
-            properties)
-          (for-each process-form children)))
-      
-      (define (process-value value)
-        (walk-references~ value
-          walk-reference))
-      
-      (process-form form)
-      references))
-  
-  (define (locators-builder references)
-    (cons 'list (map (lambda (pair)
-                       (let ((reference (car pair)))
-                         `(cons ',reference (reference ,reference))))
-                     (table->list references))))
-  
-  (let ((locators-code (locators-builder (gather-references))))
-    `(construct-form ',form
-                     (let ((locators (list->table ,locators-code)))
-                       (lambda (symbol)
-                         (locators-ref locators symbol))))))
+(syntax public <form>
+  (lambda (form-src usage-environment macro-environment)
+    (if (null? (cdr (source-code form-src)))
+        (error "Ill-formed <form>")
+      (let ((form (desourcify-all (cadr (source-code form-src)))))
+        (define (gather-references)
+          (let ((references (make-table test: eq?)))
+            (define (walk-reference reference)
+              (table-set! references reference #t))
+            
+            (define (process-form form)
+              (receive (tag properties children) (jazz.jml.parse:parse-jml-expr form)
+                (unless (or (memq? tag '(install * ! ~))
+                            (memv? (last (symbol->string tag)) '(#\! #\~)))
+                  (walk-reference tag))
+                (for-each-property
+                  (lambda (name value)
+                    (process-value value))
+                  properties)
+                (for-each process-form children)))
+            
+            (define (process-value value)
+              (walk-references~ value
+                walk-reference))
+            
+            (process-form form)
+            references))
+        
+        (define (locators-builder references)
+          (cons 'list (map (lambda (pair)
+                             (let ((reference (car pair)))
+                               `(cons ',reference (reference ,reference))))
+                           (table->list references))))
+        
+        (let ((locators-code (locators-builder (gather-references))))
+          (sourcify-deep-if
+            `(construct-form ',form
+               (let ((locators (list->table ,locators-code)))
+                 (lambda (symbol)
+                   (locators-ref locators symbol))))
+            form-src))))))
 
 
-(macro public (form form)
-  `(begin
-     (definition meta class-form
-       (<form> ,form))
-     
-     (method meta override (set-class-form form)
-       (set! class-form form))
-     
-     (method meta override (get-class-form)
-       (get-class-form-with-origin class-form (declaration-path)))
-     
-     (method meta override (get-class-forms)
-       (cons (get-class-form-with-origin class-form (declaration-path))
-             (nextmethod)))))
+(syntax public form
+  (lambda (form-src usage-environment macro-environment)
+    (if (null? (cdr (source-code form-src)))
+        (error "Ill-formed form")
+      (let ((form (desourcify-all (cadr (source-code form-src)))))
+        (sourcify-deep-if
+          `(begin
+             (definition meta class-form
+               (<form> ,form))
+             
+             (method meta override (set-class-form form)
+               (set! class-form form))
+             
+             (method meta override (get-class-form)
+               (get-class-form-with-origin class-form (declaration-path)))
+             
+             (method meta override (get-class-forms)
+               (cons (get-class-form-with-origin class-form (declaration-path))
+                     (nextmethod))))
+          form-src)))))
 
 
 ;;;
@@ -101,10 +113,14 @@
 ;;;
 
 
-(macro public (pattern . rest)
-  (define (name->tag name)
-    (string->symbol (string-append "<" (symbol->string name) ">")))
-  
-  (bind ((name . parameters) . body) rest
-    (let ((tag (name->tag name)))
-      `(method (,tag ,@parameters) ,@body)))))
+(syntax public pattern
+  (lambda (form-src usage-environment macro-environment)
+    (let ((signature (source-code (cadr (source-code form-src))))
+          (body (cddr (source-code form-src))))
+      (let ((name (source-code (car signature)))
+            (parameters (cdr signature)))
+        (let ((tag (string->symbol (string-append "<" (symbol->string name) ">"))))
+          (sourcify-deep-if
+            `(method (,tag ,@parameters)
+               ,@body)
+            form-src)))))))

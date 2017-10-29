@@ -242,27 +242,28 @@
         (named (jazz:get-function-type-named function-type))
         (rest (jazz:get-function-type-rest function-type)))
     (define (match? arg type expect)
-      (if (%%class-is? expect jazz:Category-Type)
-          (or (and (%%class-is? arg jazz:Binding-Reference)
-                   (%%eq? (jazz:get-binding-reference-binding arg) (jazz:get-category-type-declaration expect)))
-              (and (%%class-is? type jazz:Category-Type)
-                   (%%eq? (jazz:get-category-type-declaration type) (jazz:get-category-type-declaration expect))))
-        (let ((type (or type jazz:Any)))
-          (cond ;; fixbound
-                ((%%eq? expect jazz:Fixbound)
-                 ;; TEMPORARY PATCH FOR UNIFICATION TESTS UNTIL A SATISFACTORY SOLUTION TO FIXBOUND IN DEBUG
-                 (%%subtype? type jazz:Fixnum)
-                 #;
-                 (if jazz:debug-user?
-                     (and (%%class-is? arg jazz:Constant)
-                          (%%subtype? type jazz:Fixnum))
-                   (%%subtype? type jazz:Fixnum)))
-                ;; flovec
-                ((%%eq? expect jazz:Flovec)
-                 (or (%%subtype? type jazz:Flonum)
-                     (%%subtype? type jazz:F64Vector)))
-                (else
-                 (%%subtype? type expect))))))
+      (let ((type (jazz:resolve-type-safe type)))
+        (if (%%class-is? expect jazz:Category-Type)
+            (or (and (%%class-is? arg jazz:Binding-Reference)
+                     (%%eq? (jazz:get-binding-reference-binding arg) (jazz:get-category-type-declaration expect)))
+                (and (%%class-is? type jazz:Category-Type)
+                     (%%eq? (jazz:get-category-type-declaration type) (jazz:get-category-type-declaration expect))))
+          (let ((type (or type jazz:Any)))
+            (cond ;; fixbound
+                  ((%%eq? expect jazz:Fixbound)
+                   ;; TEMPORARY PATCH FOR UNIFICATION TESTS UNTIL A SATISFACTORY SOLUTION TO FIXBOUND IN DEBUG
+                   (%%subtype? type jazz:Fixnum)
+                   #;
+                   (if jazz:debug-user?
+                       (and (%%class-is? arg jazz:Constant)
+                            (%%subtype? type jazz:Fixnum))
+                     (%%subtype? type jazz:Fixnum)))
+                  ;; flovec
+                  ((%%eq? expect jazz:Flovec)
+                   (or (%%subtype? type jazz:Flonum)
+                       (%%subtype? type jazz:F64Vector)))
+                  (else
+                   (%%subtype? type expect)))))))
     
     (define (positional-mismatch)
       (let iter ((args arguments)
@@ -295,7 +296,7 @@
                      (if match? mismatched (%%cons (%%car args) mismatched)))))))
     
     (cond ((%%fx< argcount mandatory)
-           #t)
+           'not-enough-arguments)
           ((%%fx= argcount mandatory)
            (positional-mismatch))
           ((and (%%null? optional)
@@ -309,7 +310,7 @@
                (%%append (or positional-mismatch '())
                          (or rest-mismatch '())))))
           (else
-           #t))))
+           'not-only-positional))))
 
 
 ;;;

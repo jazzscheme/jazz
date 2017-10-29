@@ -770,12 +770,13 @@
     `(%%get-object-class ,object-code)))
 
 
-(define (jazz:emit-method-dispatch object operator-src arguments arguments-codes declaration source-declaration environment backend)
+(define (jazz:emit-method-dispatch object-argument object-code operator-src arguments arguments-codes declaration source-declaration environment backend)
   (let ((name (jazz:get-lexical-binding-name declaration)))
     (receive (dispatch-type method-declaration) (jazz:method-dispatch-info declaration)
       (let ((category-declaration (jazz:get-declaration-parent method-declaration)))
         (jazz:add-to-module-references source-declaration method-declaration)
-        (let ((object-cast (jazz:emit-type-check object category-declaration source-declaration environment backend)))
+        (let ((object-type (jazz:get-code-type object-code))
+              (object-cast (jazz:emit-type-check object-code category-declaration source-declaration environment backend)))
           (jazz:new-code
             (case dispatch-type
               ((final)
@@ -789,7 +790,7 @@
                           (jazz:only-positional-function-type? type)
                           (jazz:typed-function-type? type #t))
                      (let ((types (jazz:codes-types arguments-codes)))
-                       (let ((mismatch (jazz:signature-mismatch arguments types type)))
+                       (let ((mismatch (jazz:signature-mismatch (%%cons object-argument arguments) (%%cons object-type types) type)))
                          (if (or (%%not mismatch)
                                  (%%not (jazz:get-generate? 'check)))
                              (let ((locator (jazz:unsafe-locator implementation-locator)))
@@ -839,10 +840,11 @@
 
 
 (jazz:define-method (jazz:emit-binding-call (jazz:Method-Declaration declaration) binding-src arguments arguments-codes source-declaration environment backend)
-  (let ((others-arguments (%%cdr arguments))
+  (let ((object-argument (%%car arguments))
         (object-code (%%car arguments-codes))
+        (others-arguments (%%cdr arguments))
         (others-codes (%%cdr arguments-codes)))
-    (jazz:emit backend 'dispatch-call (jazz:get-lexical-binding-name declaration) binding-src source-declaration environment object-code others-arguments others-codes)))
+    (jazz:emit backend 'dispatch-call (jazz:get-lexical-binding-name declaration) binding-src source-declaration environment object-argument object-code others-arguments others-codes)))
 
 
 (jazz:define-method (jazz:get-nextmethod-signature (jazz:Method-Declaration declaration))
@@ -1479,10 +1481,11 @@
 (jazz:define-method (jazz:emit-binding-call (jazz:Hub-Declaration declaration) binding-src arguments arguments-codes source-declaration environment backend)
   (if (%%null? arguments)
       (jazz:error "Ill-formed hub call: ({a})" (jazz:get-lexical-binding-name declaration))
-    (let ((others-arguments (%%cdr arguments))
+    (let ((object-argument (%%car arguments))
           (object-code (%%car arguments-codes))
+          (others-arguments (%%cdr arguments))
           (others-codes (%%cdr arguments-codes)))
-      (jazz:emit backend 'dispatch-call (jazz:get-lexical-binding-name declaration) binding-src source-declaration environment object-code others-arguments others-codes))))
+      (jazz:emit backend 'dispatch-call (jazz:get-lexical-binding-name declaration) binding-src source-declaration environment object-argument object-code others-arguments others-codes))))
 
 
 (jazz:define-method (jazz:outline-extract (jazz:Hub-Declaration declaration) meta)

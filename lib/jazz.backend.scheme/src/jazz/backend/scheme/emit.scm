@@ -327,7 +327,7 @@
 ;;;
 
 
-(jazz:define-emit (dispatch-call (scheme backend) name source declaration environment object-code others-arguments others-codes)
+(jazz:define-emit (dispatch-call (scheme backend) name source declaration environment object-argument object-code others-arguments others-codes)
   (define (resolve-type object-code)
     (let ((object-type (jazz:patch-type-until-unification (jazz:get-code-type object-code))))
       (if (%%class-is? object-type jazz:Autoload-Declaration)
@@ -374,7 +374,7 @@
         (or (jazz:emit-inlined-final-dispatch-call source method-declaration object-code others-codes declaration environment backend)
             (jazz:with-code-value object-code
               (lambda (code)
-                (let ((dispatch-code (jazz:emit-method-dispatch code source others-arguments others-codes method-declaration declaration environment backend)))
+                (let ((dispatch-code (jazz:emit-method-dispatch object-argument code source others-arguments others-codes method-declaration declaration environment backend)))
                   (jazz:new-code
                     `(,(jazz:sourcified-form dispatch-code)
                       ,(jazz:sourcified-form code)

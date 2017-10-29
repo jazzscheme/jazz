@@ -134,15 +134,15 @@
                   ((not (enter-composite self))
                    (signal (new Location-Error kind: 'bad location: (or toplevel-location location))))
                   (else
-                   (unless (eq? ref 'meta)
-                     (cond ((eq? ref :new-form)
-                            (forward-new-form toplevel-location: toplevel-location))
-                           ((eq? ref :form)
-                            (forward-form toplevel-location: toplevel-location))
-                           ((symbol? ref)
-                            (forward-declaration ref toplevel-location: toplevel-location))
-                           (else
-                            (forward-numeric ref toplevel-location: toplevel-location))))
+                   (and (neq? ref 'meta)
+                        (cond ((eq? ref :new-form)
+                               (forward-new-form toplevel-location: toplevel-location))
+                              ((eq? ref :form)
+                               (forward-form toplevel-location: toplevel-location))
+                              ((symbol? ref)
+                               (forward-declaration ref toplevel-location: toplevel-location))
+                              (else
+                               (forward-numeric ref toplevel-location: toplevel-location))))
                    (set! scan (cdr scan)))))))))
 
 
@@ -323,23 +323,23 @@
   
   (method package (enter-import self)
     (let (iterate)
-      (when (forward-expr self)
-        (let ((pos (copy (get-end self))))
-          (if (eq? kind 'list)
-              (let ((s (get-start self))
-                    (e (get-end self)))
-                (set-end self s)
-                (enter-list self)
-                (forward-expr self)
-                (if (eq? kind 'symbol)
-                    (let ((expr (intern-marked-symbol self)))
-                      (if (eq? expr 'import)
-                          #t
-                        (set-end self pos)
-                        (iterate)))
-                  (set-end self pos)
-                  (iterate)))
-            (iterate))))))
+      (and (forward-expr)
+           (let ((pos (copy (get-end))))
+             (if (eq? kind 'list)
+                 (let ((s (get-start))
+                       (e (get-end)))
+                   (set-end s)
+                   (enter-list)
+                   (forward-expr)
+                   (if (eq? kind 'symbol)
+                       (let ((expr (intern-marked-symbol)))
+                         (if (eq? expr 'import)
+                             #t
+                           (set-end pos)
+                           (iterate)))
+                     (set-end pos)
+                     (iterate)))
+               (iterate))))))
   
   
   (method (find-import-invoice self unit ordered-insert? (parameter #f))
@@ -371,25 +371,32 @@
   
   (method public (insert-import-invoice self unit (parameter #f))
     (forward-namespace self)
-    (if (not (enter-import self))
-        (error "Unable to find import declaration")
-      (receive (found? first? none?) (find-import-invoice self unit #t parameter)
-        (unless found?
+    (let ((pos (copy (get-end))))
+      (if (not (enter-import))
           (with-atomic-undo (get-undoer model)
             (lambda ()
-              (let ((text <Lisp-Text-View+> (single-client model))
-                    (copy (get-end self)))
-                (allege text
-                  (set-caret text (get-end self))
-                  (cond (first?
-                         (insert-string text (format " ({a}{? {a}~})" unit parameter))
-                         (unless none?
-                           (insert-newline text))
-                         (tabulate text))
-                        (else
-                         (insert-newline text)
-                         (tabulate text)
-                         (insert-string text (format "({a}{? {a}~})" unit parameter))))))))))))
+              (let ((text <Lisp-Text-View+> (single-client~ model)))
+                (set-caret~ text pos)
+                (insert-newline~ text)
+                (insert-newline~ text)
+                (insert-newline~ text)
+                (insert-string~ text (format "(import ({a}{? {a}~}))" unit parameter)))))
+        (receive (found? first? none?) (find-import-invoice unit #t parameter)
+          (unless found?
+            (with-atomic-undo~ (get-undoer~ model)
+              (lambda ()
+                (let ((text <Lisp-Text-View+> (single-client~ model)))
+                  (allege text
+                    (set-caret~ text (get-end))
+                    (cond (first?
+                           (insert-string~ text (format " ({a}{? {a}~})" unit parameter))
+                           (unless none?
+                             (insert-newline~ text))
+                           (tabulate~ text))
+                          (else
+                           (insert-newline~ text)
+                           (tabulate~ text)
+                           (insert-string~ text (format "({a}{? {a}~})" unit parameter)))))))))))))
   
   
   (method public (remove-import-invoice self unit)
@@ -466,10 +473,11 @@
       (when (enter-list self)
         (forward-expr self)
         (keyword context start end)
+        (walk-specifier context expression 'code)
         (forward-expr self)
         (when (eq? kind 'symbol)
           (let ((marked (get-marked self)))
-            (let ((entry <Lisp-Entry> (declaration context 'definition '() symbol '() #f start end marked (symbol-documented? self (find-marked-symbol self) doc))))
+            (let ((entry <Lisp-Entry+> (declaration context 'definition '() symbol '() #f start end marked (symbol-documented? self (find-marked-symbol self) doc))))
               (declaration context 'accessor '() 'getter '() #f start end (string-append "get-" marked) #f)
               (declaration context 'accessor '() 'setter '() #f start end (string-append "set-" marked) #f)
               (let ((keywords '()))
@@ -501,10 +509,11 @@
       (when (enter-list self)
         (forward-expr self)
         (keyword context start end)
+        (walk-specifier context expression 'code)
         (forward-expr self)
         (when (eq? kind 'symbol)
           (let ((marked (get-marked self)))
-            (let ((entry <Lisp-Entry> (declaration context 'definition '() symbol '() #f start end marked (symbol-documented? self (find-marked-symbol self) doc))))
+            (let ((entry <Lisp-Entry+> (declaration context 'definition '() symbol '() #f start end marked (symbol-documented? self (find-marked-symbol self) doc))))
               (let ((keywords '()))
                 (define (add-keyword keyword value)
                   (set! keywords (cons (cons keyword value) keywords)))
@@ -688,7 +697,7 @@
   
   
   (method (walk-jazzdoc self context symbol form <Expression-Syntax> declaration keyword expression doc)    
-    (let ((entry <Lisp-Entry> (declaration context 'jazzdoc '() symbol '() #f start end (get-marked self) #f)))
+    (let ((entry <Lisp-Entry+> (declaration context 'jazzdoc '() symbol '() #f start end (get-marked self) #f)))
       (expression context start end 'code
         (if (specifier-marked? self)
             'tag

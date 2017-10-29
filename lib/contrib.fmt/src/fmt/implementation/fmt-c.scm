@@ -43,7 +43,7 @@
         ((dot arrow post-decrement post-increment) 10)
         ((**) 15)                       ; Perl
         ((unary+ unary- ! ~ cast unary-* unary-& sizeof) 20) ; ++ --
-        ((=~ !~) 25)                    ; Perl
+        ((= !~) 25)                    ; Perl
         ((* / %) 30)
         ((+ -) 35)
         ((<< >>) 40)
